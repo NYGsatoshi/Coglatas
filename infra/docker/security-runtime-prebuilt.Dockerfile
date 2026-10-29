@@ -6,7 +6,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:de4fe90a98845d75910b9769662465
 WORKDIR /src
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
-# Source context is intentionally independent of the signed-off .NET build
+# Source context intentionally stays separate from the SHA-checked producer
 # outputs: .dockerignore continues to exclude bin/obj and all artifacts.
 COPY . .
 # Named context is staged from the exact-revision producer artifact by a guarded
@@ -26,6 +26,8 @@ RUN test -n "$COGLATAS_TESTED_SHA" \
       /app/storage/uploads \
       /app/data/protection-keys \
     && dotnet tool restore \
-    && dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders=
+    && dotnet restore src/Coglatas.Web/Coglatas.Web.csproj \
+      --disable-parallel \
+      /p:RestoreFallbackFolders=
 
 CMD ["dotnet", "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"]
