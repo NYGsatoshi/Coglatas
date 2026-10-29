@@ -89,7 +89,7 @@ def verified_statement(blob: bytes, digest: str, sha: str, run_id: str, attempt:
 def verify(
     report: Path, sha: str, run_id: str, attempt: int, *,
     cli: str | None = None,
-    runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess[bytes]] | None = None,
 ) -> dict[str, Any]:
     if not re.fullmatch(r"[a-f0-9]{40}", sha) or not re.fullmatch(r"[1-9][0-9]{0,18}", run_id):
         deny("SOURCE_ID_INVALID")
@@ -114,8 +114,11 @@ def verify(
         "--predicate-type", PREDICATE, "--format", "json",
     ]
     try:
-        result = runner(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                        check=False, timeout=45)
+        # Resolve the process runner at call time: the production default is
+        # subprocess.run, while no-network tests inject a deterministic runner.
+        execute = runner if runner is not None else subprocess.run
+        result = execute(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         check=False, timeout=45)
     except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
         raise ShadowVerificationError("GH_CLI_LAUNCH_FAILED") from exc
     if result.returncode != 0:

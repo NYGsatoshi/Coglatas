@@ -83,7 +83,7 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         return policy.verify(self.report, SHA, RUN, 1,
                              cli=str(self.binary), runner=self.gh)
 
-    def fail(self):
+    def assert_rejected(self):
         with self.assertRaises(policy.ParityError):
             self.verify()
 
@@ -117,49 +117,49 @@ class ShadowQodanaSignerTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.make_claim()
                 self.claim["verificationResult"]["signature"]["certificate"][name] = invalid
-                self.fail()
+                self.assert_rejected()
 
     def test_untrusted_predicate_cannot_override_certificate(self):
         self.make_claim()
         self.claim["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] = "self-hosted"
         self.claim["verificationResult"]["statement"]["predicate"]["runnerEnvironment"] = "github-hosted"
-        self.fail()
+        self.assert_rejected()
 
     def test_missing_or_wrong_cert_rejected(self):
         for invalid in (None, {}, {"sourceRepositoryIdentifier": policy.REPO_ID}):
             with self.subTest(invalid=invalid):
                 self.make_claim()
                 self.claim["verificationResult"]["signature"]["certificate"] = invalid
-                self.fail()
+                self.assert_rejected()
 
     def test_subject_digest_or_extra_subject_rejected(self):
         self.claim["verificationResult"]["statement"]["subject"][0]["digest"]["sha256"] = "b"*64
-        self.fail()
+        self.assert_rejected()
         self.make_claim()
         self.claim["verificationResult"]["statement"]["subject"].append({"name": "extra.bin", "digest": {"sha256": "b"*64}})
-        self.fail()
+        self.assert_rejected()
 
     def test_missing_timestamp_and_wrong_predicate_rejected(self):
         self.claim["verificationResult"]["verifiedTimestamps"] = []
-        self.fail()
+        self.assert_rejected()
         self.make_claim()
         self.claim["verificationResult"]["statement"]["predicateType"] = "unreviewed"
-        self.fail()
+        self.assert_rejected()
 
     def test_mutated_original_sarif_rejected(self):
         self.doc["runs"][0]["results"][0]["message"]["text"] = "Different"
-        self.fail()
+        self.assert_rejected()
 
     def test_other_branch_or_other_scan_result_rejected(self):
         self.doc["runs"][0]["versionControlProvenance"][0]["branch"] = "main"
-        self.fail()
+        self.assert_rejected()
         self.doc["runs"][0]["versionControlProvenance"][0]["branch"] = policy.BRANCH
         self.doc["runs"][0]["invocations"][0]["executionSuccessful"] = False
-        self.fail()
+        self.assert_rejected()
 
     def test_missing_verifier_or_nonzero_signature_result_rejected(self):
         self.exitcode = 1
-        self.fail()
+        self.assert_rejected()
         self.exitcode = 0
         with self.assertRaises(policy.ParityError):
             policy.verify(self.report, SHA, RUN, 1,
