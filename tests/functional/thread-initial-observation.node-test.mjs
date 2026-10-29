@@ -352,23 +352,30 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
 }
 
 
-test('timed expanded DOM record at24 maximum-width events stays within4096 bytes', () => {
+for (const [schemaVersion, eventLimit] of [[undefined, 24], [3, 32]]) {
+  await test(`timed expanded DOM record version ${schemaVersion ?? 'legacy'} at${eventLimit} maximum-width events stays within4096 bytes`, () => {
   const value = probe();
+  if (schemaVersion === undefined) {
+    delete value.observation.schemaVersion;
+  } else {
+    value.observation.schemaVersion = schemaVersion;
+  }
+  assert.equal(Object.hasOwn(value.observation, "schemaVersion"), schemaVersion !== undefined);
   value.initial.failureDom = { ...Object.fromEntries(Object.keys(dom()).map((key) => [key, false])),
     pagePresent: false, conversationPresent: false, threadOpenClass: false, groupClass: false };
   value.observation.events.push({ kind: 'AUTHORIZED_ACTION_STARTED', request: null, status: null },
     { kind: 'AUTHORIZED_ACTION_COMPLETED', request: null, status: null },
     { kind: 'ROOT_ASSERTION_STARTED', request: null, status: null },
     { kind: 'ROOT_ASSERTION_FAILED', request: null, status: null });
-  while (value.observation.events.length < 24) {
+  while (value.observation.events.length < eventLimit) {
     value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
   }
-  value.observation.elapsedMs = Array(24).fill(3600000);
+  value.observation.elapsedMs = Array(eventLimit).fill(3600000);
   const valid = validateThreadProbe(value);
   assert.ok(Buffer.byteLength(JSON.stringify(valid)) <= 4096);
   const widest = observationKinds.reduce((left, right) => left.length > right.length ? left : right);
   const envelope = structuredClone(value);
-  envelope.observation.events = Array.from({ length: 24 }, () => ({ kind: widest, request: null, status: null }));
+  envelope.observation.events = Array.from({ length: eventLimit }, () => ({ kind: widest, request: null, status: null }));
   envelope.observation.freshRequest = null; envelope.observation.classification = 'INCOMPLETE';
   envelope.observation.actionFailure = 'POINTER_INTERCEPTION';
   // Deliberately not a valid event order: every retained scalar uses its longest closed representation.
@@ -381,6 +388,7 @@ test('timed expanded DOM record at24 maximum-width events stays within4096 bytes
     (copy) => { copy.observation.elapsedMs.pop(); },
   ]) { const copy = structuredClone(valid); mutate(copy); assert.throws(() => validateThreadProbe(copy)); }
 });
+}
 
 
 test('failed matcher marker precedes asynchronous capture and late response, preserving primary through failed cleanup', async () => {
