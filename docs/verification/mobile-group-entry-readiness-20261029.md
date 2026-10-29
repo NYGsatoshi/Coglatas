@@ -49,3 +49,35 @@ or replace native licensed actual-backend acceptance.
 Fresh exact-revision CI/strict typing/independent review/native Sonar/actual Mobile
 MVP0/source-tree-image proof and resulting Main verification remain required.
 Keep the first Mainfac failure and every earlier failure visible. RELEASE_NO_GO.
+
+
+## First official coverage failure and measured existing controls
+
+On f719, official check123423436465 fails0.0% NewCodeCoverage. Preserve that
+first result. Native Mobile MVP0 run40865211011/attempt1 separately passes the
+original case with4actual320x800touch actors/retry0; artifact12894121084 ZIP
+SHA2562c85b7a79839b8774b79ef58028d6ac4f20cf83570ee154f59f2ad72989bae3b
+and imagefcd0b7093e877b0a8ba93c3d3526bf4f55b44b0cff9d61cdfd2e928613db933e
+were independently checked against actual build/source/post-inspection metadata.
+That old HEAD does not qualify subsequent source changes or close historical cause.
+
+Run the existing three DOM controls in both desktop and320touch projects through
+a native Node coverage wrapper. The same six browser cases execute, without a
+Product server, frontend/license substitute, test removal or extra retry. The
+focused configuration preserves the established static30second case timeout and
+5second assertion timeout; actual-backend owner120seconds is unchanged. Linux
+uses the lockfile-pinned Playwright headless Chromium; local Windows uses the
+installed Edge in an isolated headless test context. No user browser profile.
+
+The pre-credential Sonar sequence installs that pinned browser and adds one Node
+wrapper to the existing120controls. Native Node source maps produce original
+TypeScript LCOV for the real helper and browser test body; do not rewrite hits or
+exclude either source file. Existing tracked-file/identity/line-bound validation
+still applies. A local six-case experiment passes and validates3sources/11branches
+with no invalid original-source lines. Most pre-existing Group fixture functions
+are not exercised by these isolated controls; their whole-module coverage remains
+low. Only the official current-source Gate can establish NewCodeCoverage.
+
+The full local measured Node/browser command exits0; unchanged strict validation
+accepts24tracked sources/1255branches/116uncovered branches without altering
+the generated LCOV. This is not an official Sonar Gate or real-backend run.
