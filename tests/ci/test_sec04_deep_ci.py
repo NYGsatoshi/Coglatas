@@ -1,5 +1,9 @@
 """Prove that topology/scanner failures cannot qualify the deep caller."""
 from datetime import datetime, timedelta, timezone
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
+import io
+from types import SimpleNamespace
+from unittest.mock import patch
 import importlib.util
 import json
 import os
@@ -367,6 +371,237 @@ class PublicContractAndFailureMetadataTests(unittest.TestCase):
             self.assertEqual(observed["logs"]["stdout"], {"availability": "UNAVAILABLE"})
             self.assertEqual(observed["roles"][caller.ROLES[0]]["availability"], "MISSING_OR_INVALID")
             self.assertNotIn(CANARY, json.dumps(observed))
+
+
+class CallerCommands:
+    """Finite fake child-process boundary for main-only unit controls."""
+
+    def __init__(self, root, reports, contract, fault):
+        self.root, self.reports, self.contract, self.fault = root, reports, contract, fault
+        self.calls = []
+        self.status_reads = 0
+
+    def run(self, args, **kwargs):
+        self.calls.append((args, kwargs['env'].copy()))
+        if args[0] == 'git':
+            code, data = self.git(args)
+        elif args[0] == 'docker':
+            code, data = self.docker(args)
+        elif args[:2] == ['bash', 'scripts/ci/generate-security-openapi-contract.sh']:
+            self.contract.parent.mkdir(parents=True, exist_ok=True)
+            self.contract.write_text(json.dumps({'openapi': '3.1.0', 'paths': {'/api/synthetic': {'get': {}}}}))
+            code, data = 0, CANARY.encode()
+        elif args[:2] == ['bash', caller.RUNTIME]:
+            code, data = self.runtime(args[-1]), CANARY.encode()
+        else:
+            raise AssertionError('Unexpected child command in isolated unit control')
+        return SimpleNamespace(returncode=code, stdout=data, stderr=CANARY.encode())
+
+    def git(self, args):
+        if args[1] == 'rev-parse':
+            if args[-1] == 'HEAD^{tree}':
+                return 0, b'invalid' if self.fault == 'invalid-tree' else b'b' * 40
+            return 0, (('d' if self.fault == 'source-mismatch' else 'a') * 40).encode()
+        if args[1] != 'status':
+            raise AssertionError('Unexpected Git command in isolated unit control')
+        self.status_reads += 1
+        dirty = self.fault == 'dirty-source' or (self.fault == 'dirty-after' and self.status_reads == 2)
+        return 0, b'M synthetic-source' if dirty else b''
+
+    def docker(self, args):
+        if args[2] == 'image':
+            return 0, b'sha256:' + b'c' * 64
+        return (23 if self.fault == 'build' else 0), CANARY.encode()
+
+    def runtime(self, stage):
+        if stage == 'sec04':
+            self.reports.parent.mkdir(parents=True, exist_ok=True)
+            fixture(self.reports)
+            return 17 if self.fault == 'sec04' else 0
+        if stage == 'cleanup':
+            return self.cleanup()
+        return 0
+
+    def cleanup(self):
+        if self.fault == 'missing-native':
+            (self.reports / (caller.ROLES[-1] + '.ndjson')).unlink()
+        if self.fault == 'changed-binding':
+            (self.root / caller.SOURCES[0]).write_bytes(b'changed synthetic source')
+        return 23 if self.fault == 'cleanup' else 0
+
+
+class CallerMainControlsTests(unittest.TestCase):
+    """Exercise caller orchestration; no real child command or external target."""
+
+    def exercise(self, fault=None, changes=None, arguments=None):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'source'
+            root.mkdir()
+            for name in caller.SOURCES:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'synthetic source binding\n')
+            public = root / 'artifacts/sec04-deep-execution/result.json'
+            reports = root / 'artifacts/security/schemathesis'
+            contract = root / 'artifacts/openapi/coglatas-openapi.json'
+            runner = Path(temporary) / 'runner'
+            runner.mkdir()
+            output = Path(temporary) / 'github-output'
+            environment = {
+                'COGLATAS_SEC04_RUNNER_ENVIRONMENT': 'github-hosted', 'RUNNER_OS': 'Linux',
+                'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/synthetic',
+                'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1',
+                'COGLATAS_SECURITY_CI_PASSWORD': CANARY, 'RUNNER_TEMP': str(runner),
+                'GITHUB_OUTPUT': str(output), 'DOCKER_HOST': 'tcp://synthetic.invalid:2375',
+                'DOCKER_CONTEXT': 'synthetic', 'DOCKER_TLS': '1', 'DOCKER_TLS_VERIFY': '1',
+                'DOCKER_CERT_PATH': CANARY, 'SECURITY_SCAN_TARGET': 'https://synthetic.invalid',
+                'COGLATAS_SECURITY_SCHEMATHESIS_DEEP_EXAMPLES': '1',
+                'COGLATAS_SECURITY_SCHEMATHESIS_PR_EXAMPLES': '1',
+                'COGLATAS_SECURITY_SCHEMATHESIS_SEED': '1',
+                'COGLATAS_SECURITY_CI_PROJECT': CANARY,
+                'COGLATAS_SECURITY_RUNTIME_STATE_DIR': CANARY,
+                'COGLATAS_SECURITY_RUNTIME_IMAGE': 'synthetic-unpinned',
+            }
+            for key, value in (changes or {}).items():
+                if value is None:
+                    environment.pop(key, None)
+                else:
+                    environment[key] = value
+            commands = CallerCommands(root, reports, contract, fault)
+
+            captured, errors = io.StringIO(), io.StringIO()
+            with ExitStack() as stack:
+                for name, value in [('ROOT', root), ('PUBLIC', public), ('REPORTS', reports), ('CONTRACT', contract)]:
+                    stack.enter_context(patch.object(caller, name, value))
+                stack.enter_context(patch.dict(os.environ, environment, clear=True))
+                stack.enter_context(patch.object(caller.sys, 'argv', arguments or ['synthetic-caller']))
+                stack.enter_context(patch.object(caller.os, 'umask', return_value=0o022))
+                stack.enter_context(patch.object(caller.subprocess, 'run', side_effect=commands.run))
+                stack.enter_context(patch.object(caller, 'reserve_public_contract', return_value=contract))
+                stack.enter_context(patch.object(caller, 'stage_public_contract', return_value={'unitCollaborator': True}))
+                clock = stack.enter_context(patch.object(caller, 'datetime'))
+                clock.now.side_effect = [START, FINISH]
+                if fault == 'publish':
+                    stack.enter_context(patch.object(caller, 'publish_once', side_effect=PermissionError(CANARY)))
+                with redirect_stdout(captured), redirect_stderr(errors):
+                    code = caller.main()
+                self.assertEqual(os.environ, environment, 'Child sanitization must not mutate caller environment')
+            result = json.loads(captured.getvalue())
+            retained = json.loads(public.read_bytes()) if public.exists() else None
+            output_text = output.read_text() if output.exists() else ''
+            self.assertNotIn(CANARY, captured.getvalue() + errors.getvalue() + output_text)
+            self.assertEqual(result['securityProgramAcceptance'], 'NOT_GRANTED')
+            self.assertFalse(result['scheduleActivated'])
+            self.assertFalse(result['publicGo'])
+            return code, result, commands.calls, retained, output_text, errors.getvalue()
+
+    def test_positive_main_binds_source_image_and_actual_synthetic_native_reports_without_grant(self):
+        code, result, calls, retained, output, errors = self.exercise()
+        self.assertEqual(code, 0)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['sourceSha'], 'a' * 40)
+        self.assertEqual(result['sourceTree'], 'b' * 40)
+        self.assertEqual(result['bindings']['runtimeImageId'], 'sha256:' + 'c' * 64)
+        self.assertEqual(set(result['execution']['roles']), set(caller.ROLES))
+        self.assertTrue(all(row['requestCount'] == 3 for row in result['execution']['roles'].values()))
+        self.assertEqual(retained, result)
+        self.assertEqual(output, 'published=true\n')
+        self.assertEqual(errors, '')
+        stages = [(args[-1], env) for args, env in calls if args[:2] == ['bash', caller.RUNTIME]]
+        self.assertEqual([stage for stage, env in stages], ['prepare', 'sec03', 'sec04', 'cleanup'])
+        self.assertTrue(all(env['COGLATAS_SECURITY_RUNTIME_IMAGE'] == 'sha256:' + 'c' * 64 for stage, env in stages))
+        self.assertEqual(stages[-1][1]['COGLATAS_SECURITY_RUNTIME_FAILED'], 'false')
+
+    def test_remote_docker_and_target_budget_overrides_never_reach_child_commands(self):
+        code, result, calls, retained, output, errors = self.exercise()
+        self.assertEqual(code, 0)
+        for args, environment in calls:
+            if args[0] == 'docker':
+                self.assertEqual(args[1], '--host=unix:///var/run/docker.sock')
+            self.assertEqual(environment['DOCKER_HOST'], 'unix:///var/run/docker.sock')
+            self.assertEqual(environment['COGLATAS_SECURITY_SCHEMATHESIS_LANE'], 'deep')
+            for key in ('DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH',
+                        'SECURITY_SCAN_TARGET', 'COGLATAS_SECURITY_SCHEMATHESIS_DEEP_EXAMPLES',
+                        'COGLATAS_SECURITY_SCHEMATHESIS_PR_EXAMPLES', 'COGLATAS_SECURITY_SCHEMATHESIS_SEED',
+                        'COGLATAS_SECURITY_CI_PROJECT', 'COGLATAS_SECURITY_RUNTIME_STATE_DIR'):
+                self.assertNotIn(key, environment)
+
+    def test_bad_admission_is_rejected_before_any_child_command(self):
+        cases = [{'COGLATAS_SEC04_RUNNER_ENVIRONMENT': 'local'}, {'RUNNER_OS': 'Windows'},
+                 {'GITHUB_EVENT_NAME': 'pull_request'}, {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/heads/main'},
+                 {'GITHUB_RUN_ID': '0'}, {'GITHUB_RUN_ATTEMPT': '01'}, {'COGLATAS_SECURITY_CI_PASSWORD': ''}]
+        for changes in cases:
+            with self.subTest(changes=tuple(changes)):
+                code, result, calls, retained, output, errors = self.exercise(changes=changes)
+                self.assertEqual(code, 1)
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(result['phase'], 'ADMISSION')
+                self.assertEqual(calls, [])
+                self.assertEqual(retained, result)
+
+    def test_existing_qualification_push_still_requires_complete_native_evidence(self):
+        changes = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': caller.QUALIFICATION_BRANCH}
+        code, result, calls, retained, output, errors = self.exercise(changes=changes)
+        self.assertEqual(code, 0)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(set(result['execution']['roles']), set(caller.ROLES))
+        code, result, calls, retained, output, errors = self.exercise(changes=changes, fault='missing-native')
+        self.assertEqual(code, 1)
+        self.assertEqual(result['status'], 'FAIL')
+        self.assertEqual(result['phase'], 'NATIVE_VALIDATION')
+        self.assertEqual(set(result['stageExitCodes']), {'prepare', 'sec03', 'sec04', 'cleanup'})
+        self.assertEqual(set(result['stageExitCodes'].values()), {0})
+
+    def test_extra_cli_arguments_are_not_an_override_channel(self):
+        code, result, calls, retained, output, errors = self.exercise(arguments=['synthetic-caller', CANARY])
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, [])
+        self.assertEqual(result['failureCategory'], 'CALLER_REJECTED')
+
+    def test_source_tree_and_dirty_source_fail_before_build_or_runtime(self):
+        for fault in ('source-mismatch', 'invalid-tree', 'dirty-source'):
+            with self.subTest(fault=fault):
+                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                self.assertEqual(code, 1)
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(result['failureCategory'], 'PREPARATION_FAILED')
+                self.assertFalse(any(args[0] in ('docker', 'bash') for args, env in calls))
+
+    def test_build_failure_cannot_start_scanners(self):
+        code, result, calls, retained, output, errors = self.exercise(fault='build')
+        self.assertEqual(code, 1)
+        self.assertEqual(result['commandExitCodes']['BUILD_IMAGE'], 23)
+        self.assertFalse(any(args[:2] == ['bash', caller.RUNTIME] for args, env in calls))
+
+    def test_stage_and_cleanup_failures_preserve_first_codes_and_never_grant_acceptance(self):
+        for fault, expected in [('sec04', 17), ('cleanup', 23)]:
+            with self.subTest(fault=fault):
+                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                self.assertEqual(code, 1)
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(result['stageExitCodes'][fault], expected)
+                cleanup = [env for args, env in calls if args[:2] == ['bash', caller.RUNTIME] and args[-1] == 'cleanup']
+                self.assertEqual(len(cleanup), 1)
+                self.assertEqual(cleanup[0]['COGLATAS_SECURITY_RUNTIME_FAILED'], 'true' if fault == 'sec04' else 'false')
+                self.assertEqual(retained, result)
+
+    def test_missing_native_or_source_change_cannot_inherit_successful_stage_exits(self):
+        for fault in ('missing-native', 'changed-binding', 'dirty-after'):
+            with self.subTest(fault=fault):
+                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                self.assertEqual(code, 1)
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(set(result['stageExitCodes']), {'prepare', 'sec03', 'sec04', 'cleanup'})
+                self.assertEqual(set(result['stageExitCodes'].values()), {0})
+                self.assertEqual(result['phase'], 'SOURCE_UNCHANGED' if fault == 'dirty-after' else 'NATIVE_VALIDATION')
+                self.assertEqual(retained, result)
+
+    def test_publication_failure_is_nonzero_without_published_flag_or_private_error(self):
+        code, result, calls, retained, output, errors = self.exercise(fault='publish')
+        self.assertEqual(code, 1)
+        self.assertIsNone(retained)
+        self.assertEqual(output, '')
+        self.assertEqual(errors.strip(), 'PUBLICATION_FAILED')
 
 
 if __name__ == "__main__":
