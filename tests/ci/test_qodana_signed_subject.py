@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "quality"))
 import verify_qodana_signed_subject as policy  # noqa: E402
@@ -212,11 +213,14 @@ class AttestedSubjectTests(unittest.TestCase):
 
     def test_cli_dryrun_fails_without_signed_attestation(self):
         output = self.root / "receipt.json"
-        self.assertEqual(policy.main([
-            "--report", str(self.file), "--source-sha", SHA,
-            "--run-id", RUN_ID, "--run-attempt", "1",
-            "--output", str(output),
-        ]), 1)
+        # The GitHub-hosted runner may contain a functioning gh binary. This
+        # self-test never contacts the attestation service or uses a token.
+        with patch.object(policy.shutil, "which", return_value=None):
+            self.assertEqual(policy.main([
+                "--report", str(self.file), "--source-sha", SHA,
+                "--run-id", RUN_ID, "--run-attempt", "1",
+                "--output", str(output),
+            ]), 1)
         self.assertFalse(output.exists())
 
 
