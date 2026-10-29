@@ -20,13 +20,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: qodana-signed-shadow-${ github.ref }}
+  group: qodana-signed-shadow-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   shadow-producer:
     name: Qodana signed shadow / producer
-    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -74,7 +74,7 @@ jobs:
           args: |
             --image jetbrains/qodana-cdnet:2026.2-privileged@sha256:21bbbfeac0e61fe8790cc27d5754b87d57b8032c0c32f84ddeb887027f83ec4f
           pr-mode: false
-          results-dir: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}
+          results-dir: ${{ runner.temp }}/qodana/results-${{ github.run_id }}-${{ github.run_attempt }}
           use-caches: false
           post-pr-comment: false
           use-annotations: false
@@ -102,8 +102,8 @@ jobs:
         if: steps.qodana_scan.outcome == 'success'
         shell: bash
         env:
-          SARIF: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}/qodana.sarif.json
-          QODANA_PROJECT_MODEL_SUMMARY_PATH: ${ runner.temp }}/qodana/project-model-summary.json
+          SARIF: ${{ runner.temp }}/qodana/results-${{ github.run_id }}-${{ github.run_attempt }}/qodana.sarif.json
+          QODANA_PROJECT_MODEL_SUMMARY_PATH: ${{ runner.temp }}/qodana/project-model-summary.json
         run: |
           set -euo pipefail
           test -s "$SARIF"
@@ -114,7 +114,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: qodana-shadow-original-sarif
-          path: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}/qodana.sarif.json
+          path: ${{ runner.temp }}/qodana/results-${{ github.run_id }}-${{ github.run_attempt }}/qodana.sarif.json
           if-no-files-found: error
           retention-days: 7
 
@@ -122,7 +122,7 @@ jobs:
   # job. It signs the exact original SARIF produced by the read-only job.
   shadow-attestor:
     name: Qodana signed shadow / attestor
-    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
     needs: [shadow-producer]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -141,7 +141,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: qodana-shadow-original-sarif
-          path: ${ runner.temp }}/shadow-to-sign
+          path: ${{ runner.temp }}/shadow-to-sign
 
       - name: Require exact original SARIF present
         shell: bash
@@ -152,13 +152,13 @@ jobs:
       - name: Sign original SARIF using isolated GitHub-hosted OIDC authority
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: ${ runner.temp }}/shadow-to-sign/qodana.sarif.json
+          subject-path: ${{ runner.temp }}/shadow-to-sign/qodana.sarif.json
           create-storage-record: false
           show-summary: false
 
   shadow-verification:
     name: Qodana signed shadow / independent verification
-    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
     needs: [shadow-attestor]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -176,12 +176,12 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: qodana-shadow-original-sarif
-          path: ${ runner.temp }}/signed-shadow
+          path: ${{ runner.temp }}/signed-shadow
 
       - name: Verify GitHub signature, source identity, report digest and attempt
         shell: bash
         env:
-          GH_TOKEN: ${ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 -B scripts/quality/verify_qodana_shadow_signature.py \
@@ -195,6 +195,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: qodana-shadow-verified-signed-receipt
-          path: ${ runner.temp }}/qodana-shadow-signed-receipt.json
+          path: ${{ runner.temp }}/qodana-shadow-signed-receipt.json
           if-no-files-found: error
           retention-days: 7
