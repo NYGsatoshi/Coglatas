@@ -33,6 +33,27 @@ export function readOwnedRepositoryText(root, name) {
   }
 }
 
+function validateRecordRows(rows, lineCount) {
+  let branches = 0, uncoveredBranches = 0;
+  const line = value => { if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > lineCount) reject('LINE'); };
+  const branchRows = rows.filter(row => row.startsWith('BRDA:'));
+  for (const row of branchRows) {
+    const match = /^BRDA:(\d+),\d+,\d+,(\d+|-)$/.exec(row);
+    if (!match) reject('BRANCH');
+    line(match[1]); branches++;
+    if (match[2] === '-' || Number(match[2]) === 0) uncoveredBranches++;
+  }
+  for (const row of rows.filter(row => row.startsWith('DA:'))) {
+    const match = /^DA:(\d+),\d+$/.exec(row);
+    if (!match) { reject('LINE'); }
+    line(match[1]);
+  }
+  for (const row of rows.filter(row => row.startsWith('FN:'))) line(row.slice(3).split(',')[0]);
+  const totals = rows.filter(row => row.startsWith('BRF:'));
+  if (totals.length !== 1 || totals[0] !== `BRF:${branchRows.length}`) reject('BRANCH_TOTAL');
+  return { branches, uncoveredBranches };
+}
+
 /** Validate the original LCOV without rewriting, filtering or inventing hits. */
 export function validateNodeCoverage(text, options = {}) {
   const root = realpathSync(options.root ?? repositoryRoot);
@@ -48,22 +69,9 @@ export function validateNodeCoverage(text, options = {}) {
     if (path.endsWith('.node-test.mjs') || !path || path === '..' || path.startsWith('..' + sep) || isAbsolute(path) || !tracked.has(path.replaceAll('\\', '/')) || paths.has(path)) reject('SOURCE');
     paths.add(path);
     const code = read(file), lineCount = code.split('\n').length - Number(code.endsWith('\n'));
-    const line = value => { if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > lineCount) reject('LINE'); };
-    const branchRows = rows.filter(row => row.startsWith('BRDA:'));
-    for (const row of branchRows) {
-      const match = /^BRDA:(\d+),\d+,\d+,(\d+|-)$/.exec(row);
-      if (!match) reject('BRANCH');
-      line(match[1]); branches++;
-      if (match[2] === '-' || Number(match[2]) === 0) uncoveredBranches++;
-    }
-    for (const row of rows.filter(row => row.startsWith('DA:'))) {
-      const match = /^DA:(\d+),\d+$/.exec(row);
-      if (!match) { reject('LINE'); }
-      line(match[1]);
-    }
-    for (const row of rows.filter(row => row.startsWith('FN:'))) line(row.slice(3).split(',')[0]);
-    const totals = rows.filter(row => row.startsWith('BRF:'));
-    if (totals.length !== 1 || totals[0] !== `BRF:${branchRows.length}`) reject('BRANCH_TOTAL');
+    const result = validateRecordRows(rows, lineCount);
+    branches += result.branches;
+    uncoveredBranches += result.uncoveredBranches;
   }
   return { sourceFiles: paths.size, branches, uncoveredBranches };
 }
