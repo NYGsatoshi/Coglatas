@@ -274,6 +274,18 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
         self.assertIn("test-sonar-python-process-coverage.py", block)
 
+    def test_native_node_mapping_is_complete_before_credentials(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        self.assertIn("node --enable-source-maps --test --experimental-test-coverage", block)
+        self.assertIn('thread-secondary-reporter-*/**', block)
+        self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
+        self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', block)
+        self.assertNotIn('GITHUB_ENV', block)
+
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
         settings = {}
         for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines():
