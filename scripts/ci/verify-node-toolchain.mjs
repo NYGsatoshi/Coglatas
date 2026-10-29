@@ -10,11 +10,15 @@ const digest = '@sha256:[a-f0-9]{64}';
 // Use the checked-in SDK policy rather than a second hardcoded version in CI.
 const sdkPolicy = JSON.parse(await readFile('global.json', 'utf8')).sdk;
 const sdkVersion = sdkPolicy?.version;
-if (typeof sdkVersion !== 'string' || !/^10\.0\.\d{3}$/.test(sdkVersion) || sdkPolicy.rollForward !== 'disable' || sdkPolicy.allowPrerelease !== false) {
-  failures.push('global.json must pin an exact stable .NET 10 SDK without roll-forward.');
+const approvedStableSdk = typeof sdkVersion === 'string' && /^10\.0\.\d{3}$/.test(sdkVersion) && sdkPolicy.allowPrerelease === false;
+const experimentalRc3Sdk = sdkVersion === '11.0.100-rc.3.26522.148' && sdkPolicy.allowPrerelease === true;
+if (!(approvedStableSdk || experimentalRc3Sdk) || sdkPolicy.rollForward !== 'disable') {
+  failures.push('global.json must pin an approved exact stable .NET 10 SDK or the explicitly authorized .NET 11 RC3 experiment without roll-forward.');
 }
-const sdkVersionPattern = typeof sdkVersion === 'string' ? sdkVersion.replaceAll('.', '\\.') : 'INVALID';
-const runtimePattern = new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.\\d+${digest})\\s+AS\\s+runtime\\s*$`, 'm');
+const sdkImageTag = experimentalRc3Sdk ? '11.0.100-rc.3' : sdkVersion;
+const sdkVersionPattern = typeof sdkImageTag === 'string' ? sdkImageTag.replaceAll('.', '\\.') : 'INVALID';
+const runtimeTagPattern = experimentalRc3Sdk ? '11\\.0\\.0-rc\\.3' : '10\\.0\\.\\d+';
+const runtimePattern = new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/aspnet:${runtimeTagPattern}${digest})\\s+AS\\s+runtime\\s*$`, 'm');
 await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-deps\\s*$`, 'm'), 'production frontend dependency stage');
 await verifyFrontendDockerStages('Dockerfile');
 await verifyDockerBase('infra/docker/frontend-dev.Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^-@\\s]*)?-alpine${digest}\\s*$`, 'm'), 'frontend development container');
