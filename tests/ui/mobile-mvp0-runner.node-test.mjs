@@ -9,8 +9,8 @@ import { mobileMvp0Project } from './mobile-mvp0-profile.mjs';
 const sha = '1'.repeat(40), tree = '2'.repeat(40), image = 'sha256:' + '3'.repeat(64);
 const dir = 'artifacts/mobile-mvp0', junit = 'test-results/playwright-results.xml';
 function fixtureGitExecutable(configured = process.env.COGLATAS_TEST_GIT_EXECUTABLE) {
-  const executable = configured ?? (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git');
-  assert.ok(path.isAbsolute(executable), 'The explicitly trusted test Git executable must be an absolute path.');
+  const executable = configured ?? (process.platform === 'win32' ? 'C:/Program Files/Git/cmd/git.exe' : '/usr/bin/git');
+  assert.ok(path.isAbsolute(executable) && (process.platform !== 'win32' || path.parse(executable).root.length > 1), 'The explicitly trusted test Git executable must be a fully qualified absolute path.');
   return executable;
 }
 function fixture() {
@@ -130,7 +130,11 @@ await test('real Git rejects an untracked application build input and still admi
 });
 
 await test('custom Git installations require explicit absolute configuration without PATH fallback', () => {
-  const alternate = process.platform === 'win32' ? 'D:\\ApprovedTools\\Git\\cmd\\git.exe' : '/opt/approved-git/bin/git';
+  const alternate = process.platform === 'win32' ? 'D:/ApprovedTools/Git/cmd/git.exe' : '/opt/approved-git/bin/git';
   assert.equal(fixtureGitExecutable(alternate), alternate);
   for (const value of ['', 'git', '../git', './git']) assert.throws(() => fixtureGitExecutable(value), /absolute path/);
+  if (process.platform === 'win32') {
+    for (const value of ['/ApprovedTools/git.exe', String.raw`\ApprovedTools\git.exe`]) assert.throws(() => fixtureGitExecutable(value), /absolute path/);
+    const unc = String.raw`\\server\share\git.exe`; assert.equal(fixtureGitExecutable(unc), unc);
+  }
 });

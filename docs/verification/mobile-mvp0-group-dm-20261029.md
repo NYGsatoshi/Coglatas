@@ -250,3 +250,19 @@ Own18 plus existing22 controls remain40/40locally. Fresh hosted source-bound
 CI/native acceptance/official Gate/review required. The3b59.2%/D/B GateFAIL is
 not removed or called resolved by these local results. #1520 separately corrects
 only test-body coverage classification; actual operational gaps remain visible.
+
+
+## Windows fully qualified executable configuration
+
+The independent validator candidate review found that Windows path.isAbsolute
+accepts single-rooted /ApprovedTools/git.exe, whose meaning depends on the
+current drive. Parent confirmed that acceptance, then applied the same narrow
+correction here: configured Git requires both absolute syntax and a drive/UNC
+root on Windows. The default drive-qualified installation and explicit valid
+UNC syntax are retained; UNC values are syntax-tested without network execution.
+Single-rooted slash/backslash, drive-relative, empty and ordinary relative forms
+cannot become an executable. Default/explicit path trust and alternate-install
+migration remain as documented. This is not a formal authorization change.
+Local40/40controlsPASS; fresh source-bound hosted qualification remains required.
+Sourcef02 actual native40836185058/1 SUCCESS remains f02 evidence only, not credit
+for this subsequent correction.
