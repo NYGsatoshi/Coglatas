@@ -110,6 +110,9 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Validate setup-node cache ownership and negative controls
+        run: python3 -B scripts/ci/test_setup_node_cache_policy.py
+
       - name: LegacyNameGuard
         run: python3 scripts/ci/check-coglatas-rename.py
 
@@ -659,6 +662,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.changes.outputs.frontend == 'true'
@@ -771,6 +777,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.frontend-build.outputs.frontend == 'true'
