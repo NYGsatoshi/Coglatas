@@ -112,6 +112,9 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Test split frontend required-gate success and negative controls
+        run: bash scripts/ci/test-frontend-parallel-gate.sh
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
@@ -734,8 +737,41 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  frontend-test:
-    name: frontend-test
+
+  frontend-unit-parallel:
+    name: frontend-unit-parallel
+    needs: frontend-build
+    if: ${{ needs.frontend-build.result == 'success' && needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact candidate for independent unit tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Use repository npm version without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install Angular dependencies with reviewed lifecycle policy
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Run complete isolated frontend unit suite
+        env:
+          COGLATAS_FRONTEND_VITEST_MAX_WORKERS: "2"
+        run: npm --prefix frontend test
+
+  frontend-browser:
+    name: frontend-browser
     if: ${{ always() }}
     needs: frontend-build
     runs-on: ubuntu-latest
@@ -840,7 +876,10 @@ jobs:
         shell: bash
         env:
           FRONTEND_BUILD: "false"
-          FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit }}
+          # Unit tests are moved to a separate hosted runner only when both
+          # the unit and browser routes are selected. Unit-only routes retain
+          # their original complete suite in this job.
+          FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright != 'true' }}
           FRONTEND_ARCHITECTURE: ${{ needs.frontend-build.outputs.frontend_architecture }}
           FRONTEND_LICENSE_GUARD: ${{ needs.frontend-build.outputs.frontend_license_guard }}
           FRONTEND_STORYBOOK: "false"
@@ -887,6 +926,34 @@ jobs:
           path: artifacts/search-drawer-observation-validated/*.json
           if-no-files-found: ignore
           retention-days: 7
+
+
+  # Keep the existing branch-protected frontend-test context as a strict gate
+  # over the original browser/static lane AND the independent dual-scope unit
+  # lane. No job skip, failure or cancellation can masquerade as a PASS.
+  frontend-test:
+    name: frontend-test
+    if: ${{ always() }}
+    needs: [frontend-build, frontend-browser, frontend-unit-parallel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact candidate for frontend gate policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify frontend producer, browser and unit lane conclusions
+        env:
+          FRONTEND_PRODUCER_RESULT: ${{ needs.frontend-build.result }}
+          FRONTEND_BROWSER_RESULT: ${{ needs.frontend-browser.result }}
+          FRONTEND_UNIT_JOB_RESULT: ${{ needs.frontend-unit-parallel.result }}
+          FRONTEND_UNIT_SELECTED: ${{ needs.frontend-build.outputs.frontend_unit }}
+          FRONTEND_PLAYWRIGHT_SELECTED: ${{ needs.frontend-build.outputs.frontend_playwright }}
+        run: bash scripts/ci/verify-frontend-parallel-gate.sh
 
   security-scan:
     name: security-scan
