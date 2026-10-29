@@ -77,6 +77,16 @@ jobs:
       - name: Test portable backend regressions
         run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=dotnet11-portable.trx" --results-directory artifacts/dotnet11
 
+      - name: Set up reviewed Node 24 for strict TRX evidence parser
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Restore root parser dependencies without install scripts
+        run: |
+          npm install --global npm@11.17.0 --no-audit --no-fund --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Reject false-green portable test results
         run: |
           node scripts/ci/verify-os-portability-results.mjs --contract scripts/ci/os-portability.contract.json --trx artifacts/dotnet11/dotnet11-portable.trx
