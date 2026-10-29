@@ -34,6 +34,9 @@ EXPECTED = {
     ".github/workflows/qodana_cloud_quality.yml": {
         "qodana-cloud": "scripts/quality/check-qodana-project-model.mjs",
     },
+    ".github/workflows/qodana-signed-shadow.yml": {
+        "shadow-producer": "scripts/quality/check-qodana-project-model.mjs",
+    },
     ".github/workflows/sonarcloud-ci.yml": {
         "sonarcloud": "scripts/ci/npm-ci-retry.sh frontend",
     },
@@ -161,6 +164,14 @@ def main() -> int:
             workflows, "          node-version: '24'", "          node-version: '23'",
             ".github/workflows/thread-functional-typecheck.yml",
         ),
+        "signed shadow cache reenabled": one_replacement(
+            workflows, "          package-manager-cache: false", "          package-manager-cache: true",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "signed shadow cache input omitted": one_replacement(
+            workflows, "          package-manager-cache: false", "          # cache setting missing",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -170,7 +181,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 10 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 12 mutation controls rejected.")
     return 0
 
 
