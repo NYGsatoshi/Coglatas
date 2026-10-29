@@ -2,7 +2,7 @@
 
 ## Scope
 
-Baseline Main `38b598f89a4bb705396df2e7bc269d547e4aacd4`; tracking #615 / #1507. Add the existing `test_sec17_deep_execution.py` and `test_sec17_file_policy_execution.py` suites to native process-aware Python measurement and add only their two unchanged operational modules to the exact subject set and its guard. No Product/verifier/test-body change.
+Baseline Main `38b598f89a4bb705396df2e7bc269d547e4aacd4`; tracking #615 / #1507. Add the existing `test_sec17_deep_execution.py` and `test_sec17_file_policy_execution.py` suites to native process-aware Python measurement and add only their two unchanged operational modules to the exact subject set and its guard. No Product/verifier/existing-20-control-suite body change; the exact-subject guard gains only those two explicit entries.
 
 ## Existing controls
 
