@@ -112,6 +112,9 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Test security scanner per-role timing and fail-closed controls
+        run: bash scripts/ci/test-security-scanner-role-timing.sh
+
       - name: Validate setup-node cache ownership and negative controls
         run: python3 -B scripts/ci/test_setup_node_cache_policy.py
 
