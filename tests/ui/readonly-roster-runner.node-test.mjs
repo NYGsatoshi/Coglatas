@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createRosterControl, rosterAssetPaths, validateRosterInvocation } from './run-real-backend-readonly-roster.mjs';
+import { finishRosterQualification } from './readonly-roster-qualification.mjs';
 
 const sha = 'b'.repeat(40), token = 'a'.repeat(32), projectName = `coglatas-ui07-roster-${token}`;
 const image = `sha256:${'c'.repeat(64)}`, label = 'coglatas.ui07-roster.run';
@@ -533,5 +534,87 @@ test('unavailable migration metadata preserves its finite capture phase without 
     assert.equal(receipt.ownedResources.container, 1);
     assert.equal(f.calls.some(x => x.args[1] === 'rm' || x.args[1] === 'stop'), false);
     assert.equal(JSON.stringify(receipt).includes('private-container-diagnostic'), false);
+  } finally { f.dispose(); }
+});
+
+function qualificationFixture({ closeFails = false, attachFails = false, writeFails = false, owner = true } = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'coglatas-roster-qualification-'));
+  const path = join(directory, 'receipt-source.json');
+  if (writeFails) writeFileSync(path, 'existing-synthetic-receipt');
+  const evidence = { status: 'PASS', ownerContextClosed: null, sourceSha: sha, lifecycle: null };
+  const calls = [];
+  const input = {
+    ownerContext: owner ? { close: async () => {
+      calls.push('close'); if (closeFails) throw new Error('synthetic-private-cleanup-detail');
+    } } : undefined,
+    evidence, primaryFailure: false,
+    testInfo: {
+      outputPath: name => { assert.equal(name, 'receipt-source.json'); return path; },
+      attach: async (name, options) => {
+        calls.push('attach');
+        assert.equal(name, 'readonly-roster-structural-receipt.json');
+        assert.deepEqual(options, { contentType: 'application/json', path });
+        assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), evidence);
+        if (attachFails) throw new Error('synthetic-private-attachment-detail');
+      },
+      annotations: [],
+    },
+  };
+  return { input, calls, path, dispose: () => rmSync(directory, { recursive: true, force: true }) };
+}
+
+test('qualification finalization closes the owner before attaching the complete source receipt', async () => {
+  const f = qualificationFixture();
+  try {
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.deepEqual(f.calls, ['close', 'attach']);
+    assert.equal(f.input.evidence.ownerContextClosed, true);
+    assert.deepEqual(f.input.testInfo.annotations, []);
+    assert.equal(JSON.parse(readFileSync(f.path, 'utf8')).sourceSha, sha);
+  } finally { f.dispose(); }
+});
+
+test('qualification finalization retains an absent owner without fabricating closure', async () => {
+  const f = qualificationFixture({ owner: false });
+  try {
+    f.input.primaryFailure = true;
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.deepEqual(f.calls, ['attach']);
+    assert.equal(f.input.evidence.ownerContextClosed, null);
+  } finally { f.dispose(); }
+});
+
+for (const [name, faults, expectedCalls] of [
+  ['close', { closeFails: true }, ['close', 'attach']],
+  ['attachment', { attachFails: true }, ['close', 'attach']],
+  ['exclusive receipt write', { writeFails: true }, ['close']],
+  ['close and attachment', { closeFails: true, attachFails: true }, ['close', 'attach']],
+]) test(`secondary ${name} failure returns a closed qualification error after cleanup attempts`, async () => {
+  const f = qualificationFixture(faults);
+  try {
+    const failure = await finishRosterQualification(f.input);
+    assert.ok(failure instanceof Error);
+    assert.equal(failure.message, 'Roster cleanup or structural receipt capture failed.');
+    assert.deepEqual(f.calls, expectedCalls);
+    assert.deepEqual(f.input.testInfo.annotations, [{ type: 'qualification', description: failure.message }]);
+    if (faults.writeFails) assert.equal(readFileSync(f.path, 'utf8'), 'existing-synthetic-receipt');
+    else assert.ok(!readFileSync(f.path, 'utf8').includes('synthetic-private-'));
+    if (faults.closeFails) assert.equal(f.input.evidence.status, 'NOT_VERIFIED');
+  } finally { f.dispose(); }
+});
+
+for (const [name, faults] of [
+  ['close', { closeFails: true }],
+  ['attachment', { attachFails: true }],
+  ['write', { writeFails: true }],
+  ['both cleanup and attachment', { closeFails: true, attachFails: true }],
+]) test(`an existing primary owner failure cannot be replaced by ${name} qualification failure`, async () => {
+  const f = qualificationFixture(faults);
+  try {
+    f.input.primaryFailure = true;
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.equal(f.input.testInfo.annotations.length, 1);
+    assert.equal(f.calls[0], 'close');
+    if (!faults.writeFails) assert.ok(f.calls.includes('attach'));
   } finally { f.dispose(); }
 });
