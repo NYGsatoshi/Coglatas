@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Coglatas.Application.Realtime;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -118,6 +119,119 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
             await AssertBodyDeniedAsync(memberClient, scope, rootMessage);
             await AssertCatchUpAsync(ownerClient, scope, rootMessage, revoked.Message);
         });
+    }
+
+    /// <summary>
+    /// SEC-17: revoking private Conversation membership must not revoke an
+    /// otherwise authorized Workspace membership or leave stale Hub delivery.
+    /// Uses HTTP, migrated PostgreSQL, Outbox and actual WebSocket receivers.
+    /// </summary>
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    [Trait("Scope", "SEC17")]
+    public async Task PrivateWorkspaceChannelMemberRemovalRevokesBothLiveAndFreshSocketAuthority()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug,
+                SecurityCiFixtureSeed.TenantAOwnerEmail);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
+                SecurityCiFixtureSeed.TenantAMemberEmail);
+            var workspaceScope = await CreateCanonicalScopeAsync(ownerClient, database);
+            var channelRoute = $"/api/workspaces/{workspaceScope.Workspace:D}/chat-channels";
+
+            Guid privateId;
+            using (var request = new HttpRequestMessage(HttpMethod.Post, channelRoute))
+            {
+                request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+                request.Content = JsonContent.Create(new
+                {
+                    name = "SEC17 synthetic private member removal " + Guid.NewGuid().ToString("N"),
+                    visibility = "Private"
+                });
+                using var created = await ownerClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+                using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+                privateId = json.RootElement.GetProperty("id").GetGuid();
+                Assert.Equal("Private", json.RootElement.GetProperty("visibility").GetString());
+                Assert.True(json.RootElement.GetProperty("isMember").GetBoolean());
+            }
+            var privateScope = new ChannelScope(workspaceScope.Tenant, workspaceScope.Workspace, privateId);
+            using (var invited = await ownerClient.PostAsJsonAsync(
+                $"{channelRoute}/{privateId:D}/members",
+                new { userId = SecurityCiFixtureSeed.TenantAMemberUserId }))
+                Assert.Equal(HttpStatusCode.OK, invited.StatusCode);
+
+            // Drain real authorization invalidations before observing live delivery.
+            await WaitForPrivateAuthorizationInvalidationsAsync(app, database);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            Assert.True(await owner.SubscribeAsync("SubscribeConversation", privateId));
+            Assert.True(await member.SubscribeAsync("SubscribeWorkspace", workspaceScope.Workspace));
+            Assert.True(await member.SubscribeAsync("SubscribeConversation", privateId));
+
+            var before = await PostMessageAsync(ownerClient, database, privateScope);
+            await AssertDeliveredAsync(app, before.Event, "Messaging.MessageCreated.v1", owner, member);
+            controls.ObservePositive("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation,
+                "PRIVATE_MEMBER_PRE_REMOVAL_DELIVERY", member, before.Event);
+            using (var history = await memberClient.GetAsync($"/api/conversations/{privateId:D}/messages"))
+                Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+
+            // Remove the Conversation participant using the real scoped service,
+            // leaving the member's current Workspace permission untouched.
+            using (var removed = await ownerClient.DeleteAsync(
+                $"/api/conversations/{privateId:D}/members/{SecurityCiFixtureSeed.TenantAMemberUserId:D}"))
+                Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+            await WaitForPrivateAuthorizationInvalidationsAsync(app, database);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var workspaceMember = await db.WorkspaceMembers.AsNoTracking().SingleAsync(row =>
+                    row.WorkspaceId == workspaceScope.Workspace &&
+                    row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                Assert.Equal(MembershipStatus.Active, workspaceMember.Status);
+                var removedMember = await db.ConversationMembers.AsNoTracking().SingleAsync(row =>
+                    row.ConversationId == privateId && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                Assert.NotNull(removedMember.LeftAt);
+                Assert.NotNull(removedMember.RemovedAt);
+            }
+
+            Assert.True(await member.SubscribeAsync("SubscribeWorkspace", workspaceScope.Workspace));
+            var denied = await member.InvokeAsync("SubscribeConversation", privateId);
+            controls.ObserveInvocation("SubscribeConversation", denied, expectedAllowed: false, "AccessDenied");
+            await AssertBodyDeniedAsync(memberClient, privateScope, before.Message);
+
+            var afterRemoval = await PostMessageAsync(ownerClient, database, privateScope);
+            await AssertDeliveredAsync(app, afterRemoval.Event, "Messaging.MessageCreated.v1", owner);
+            await AssertExcludedAsync(member, afterRemoval.Event);
+            controls.ObserveIsolation("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation,
+                "PRIVATE_MEMBERSHIP_REMOVED_WORKSPACE_ACTIVE", owner, afterRemoval.Event, member, afterRemoval.Event);
+
+            await using var fresh = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await fresh.SubscribeAsync("SubscribeWorkspace", workspaceScope.Workspace));
+            var freshDenied = await fresh.InvokeAsync("SubscribeConversation", privateId);
+            controls.ObserveInvocation("SubscribeConversation", freshDenied, expectedAllowed: false, "AccessDenied");
+
+            var afterReconnect = await PostMessageAsync(ownerClient, database, privateScope);
+            await AssertDeliveredAsync(app, afterReconnect.Event, "Messaging.MessageCreated.v1", owner);
+            await AssertExcludedAsync(member, afterReconnect.Event);
+            await AssertExcludedAsync(fresh, afterReconnect.Event);
+            controls.ObserveIsolation("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation,
+                "PRIVATE_MEMBER_RECONNECT_DENIED", owner, afterReconnect.Event, fresh, afterReconnect.Event);
+            await controls.SaveAsync();
+        });
+    }
+
+    private static async Task WaitForPrivateAuthorizationInvalidationsAsync(
+        SecurityArchitectureSignalRFixture app, string database)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var events = await db.OutboxEvents.AsNoTracking()
+            .Where(row => row.EventType == "Security.AuthorizationStateChanged.v1")
+            .Select(row => row.Id).ToArrayAsync();
+        foreach (var id in events) await app.WaitDeliveredAsync(id);
     }
 
     private sealed record ChannelScope(Guid Tenant, Guid Workspace, Guid Conversation);
