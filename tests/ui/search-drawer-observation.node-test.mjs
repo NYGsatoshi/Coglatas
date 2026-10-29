@@ -195,7 +195,10 @@ test('collector refuses a linked artifacts parent before publication', () => {
 
 test('CI retains only validated finite lifecycle files after retry-success without expanding general browser publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/ci.yml', 'utf8'));
-  const steps = workflow.jobs['frontend-test'].steps;
+  const required = workflow.jobs['frontend-test'];
+  assert.deepEqual(required.needs, ['frontend-build', 'frontend-browser', 'frontend-unit-parallel']);
+  assert.ok(required.steps.some((step) => step.run === 'bash scripts/ci/verify-frontend-parallel-gate.sh'));
+  const steps = workflow.jobs['frontend-browser'].steps;
   const collect = steps.find((step) => step.id === 'collect-search-drawer-observations');
   const upload = steps.find((step) => step.with?.name === 'search-drawer-observations');
   assert.equal(collect.if, "always() && needs.frontend-build.outputs.frontend_playwright == 'true'");
