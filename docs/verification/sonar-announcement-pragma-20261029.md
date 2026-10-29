@@ -12,6 +12,10 @@ reports `Cannot read properties of null (reading '0')` on
 `tests/functional/announcement/announcement-publish-read-journey.spec.ts`.
 Scanner execution succeeding does not prove that this file was fully analyzed.
 Main99c1615c5b9768df684738833267ebc11db1b67d retains the same original pragma.
+Its fresh run40790457828/1, job123174139308, independently reports the same
+Announcement TypeError and a separate invalid-UTF-8 protobuf error. Neither
+scanner SUCCESS nor the pragma workaround establishes resolution of that
+separate protobuf error.
 
 ## Source-bound isolated reproduction
 
@@ -43,3 +47,6 @@ longer reports this bridge failure. Record the exact PR/Main SHA and run in
 #1496/#615. Do not infer resolution of other invalid-UTF-8 protobuf, shell-parser,
 coverage, Reliability or Security findings from this change. No rule, source
 scope, assertion, deadline, retry, canonical owner or quality threshold changes.
+
+Primary source: [pinned SonarJS pragma hook](https://github.com/SonarSource/SonarJS/blob/822582ba4369505b8701de3c4a0029e7f769e93a/packages/analysis/src/jsts/linter/pragmas.ts)
+and [official ESLint9.39.5 package](https://www.npmjs.com/package/eslint/v/9.39.5).
