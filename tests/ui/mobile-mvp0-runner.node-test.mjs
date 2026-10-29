@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runMobileMvp0 } from './run-real-backend-mobile-mvp0.mjs';
@@ -79,4 +83,34 @@ test('invalid image cannot qualify and private failure text is never published',
   assert.equal(await runMobileMvp0(f.io), 1);
   assert.equal(JSON.parse(f.files.get(`${dir}/execution.json`)).status, 'FAIL');
   assert.equal(f.logs.some(x => x.includes('bad-image')), false);
+});
+
+test('real Git rejects an untracked application build input and still admits clean source with ignored evidence', async t => {
+  const folder = await realpath(await mkdtemp(path.join(os.tmpdir(), 'coglatas-mobile-source-')));
+  const tempRoot = await realpath(os.tmpdir());
+  const assertOwned = () => { assert.ok(folder.startsWith(tempRoot + path.sep)); assert.ok(path.basename(folder).startsWith('coglatas-mobile-source-')); };
+  assertOwned();
+  t.after(async () => { assertOwned(); await rm(folder, { recursive: true, force: true }); });
+  const git = args => execFileSync('git', args, { cwd: folder, encoding: 'utf8' }).trim();
+  git(['init', '--quiet']);
+  await mkdir(path.join(folder, 'src/Coglatas.Web'), { recursive: true });
+  await writeFile(path.join(folder, '.gitignore'), 'artifacts/\n');
+  await writeFile(path.join(folder, 'Dockerfile'), 'COPY . .\n');
+  await writeFile(path.join(folder, 'src/Coglatas.Web/Tracked.cs'), '// Synthetic tracked source\n');
+  git(['add', '.']);
+  git(['-c', 'user.name=Synthetic Source Control', '-c', 'user.email=synthetic@example.test', 'commit', '--quiet', '-m', 'Synthetic source fixture']);
+  await mkdir(path.join(folder, 'artifacts'), { recursive: true });
+  await writeFile(path.join(folder, 'artifacts/ignored-evidence.json'), '{}\n');
+  const prepare = () => {
+    const f = fixture(); const original = f.io.execFileSync;
+    f.io.environment.TARGET_SHA = git(['rev-parse', 'HEAD']);
+    f.io.execFileSync = (command, args, options) => command === 'git' ? git(args) : original(command, args, options);
+    return f;
+  };
+  const clean = prepare(); assert.equal(await runMobileMvp0(clean.io), 0);
+  await writeFile(path.join(folder, 'src/Coglatas.Web/UnreviewedInput.cs'), '// Synthetic untracked application input\n');
+  const blocked = prepare(); assert.equal(await runMobileMvp0(blocked.io), 1);
+  assert.equal(blocked.calls.includes('compose'), false);
+  assert.equal(blocked.calls.includes('docker'), false);
+  assert.notEqual(JSON.parse(blocked.files.get(`${dir}/execution.json`)).status, 'PASS');
 });

@@ -182,3 +182,20 @@ controls verify fallback ownership and private-text rejection while preserving
 caller locations. New own controls16 plus existing22 regressions total38; hosted
 Node collection becomes103 across the same8 suites. Fresh source qualification
 is still required. All previous first failures and Owner holds remain.
+
+
+## Exact-source review: untracked application inputs
+
+The current-source independent review correctly found that ignoring all untracked
+files could certify a local Docker source build containing an unreviewed Web `.cs`
+file under the recorded commit/tree. Dockerfile's `COPY . .` and the wrapper's
+previous `--untracked-files=no` establish the concrete admission gap. The wrapper
+now uses `--untracked-files=all`. An actual temporary Git repository positive and
+negative control admits its clean committed source (with ignored non-application
+evidence), then rejects a new untracked Web source before Compose/image execution.
+The same exported wrapper code is exercised with real Git and isolated execution
+IO; this test is not actual application acceptance. Owned temporary cleanup is
+restricted to its resolved fixture path. Own controls17 plus existing22 regressions
+now total39; hosted Node collection becomes104 across8 suites. No assertion,
+coverage threshold, source scope, retry or timeout is relaxed. A new exact-HEAD
+qualification is required; the previous35d3 nativePASS remains attributed to35d3.

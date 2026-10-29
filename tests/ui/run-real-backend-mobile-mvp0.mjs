@@ -44,7 +44,7 @@ export async function runMobileMvp0(io = realIo) {
     const sha = git('rev-parse', 'HEAD'), tree = git('rev-parse', 'HEAD^{tree}');
     if (io.args.length !== 2 || !/^[0-9a-f]{40}$/.test(sha) || !/^[0-9a-f]{40}$/.test(tree) ||
         env.TARGET_SHA !== sha || receipt.attempt !== 1 ||
-        git('status', '--porcelain', '--untracked-files=no') || env.COGLATAS_REUSE_PREBUILT_APP_IMAGE === '1') {
+        git('status', '--porcelain', '--untracked-files=all') || env.COGLATAS_REUSE_PREBUILT_APP_IMAGE === '1') {
       throw new Error('Exact clean first-attempt source and a dedicated source build are required.');
     }
     receipt = { ...receipt, sourceSha: sha, treeSha: tree, status: 'FAIL' };
