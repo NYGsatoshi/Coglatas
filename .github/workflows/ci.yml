@@ -115,6 +115,9 @@ jobs:
       - name: Test split frontend required-gate success and negative controls
         run: bash scripts/ci/test-frontend-parallel-gate.sh
 
+      - name: Validate split frontend workflow routing and mutation controls
+        run: python3 -B scripts/ci/test-frontend-split-workflow.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
