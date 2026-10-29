@@ -244,14 +244,28 @@ class SonarSourceScopeTests(unittest.TestCase):
             with self.subTest(ignore_case=ignore_case):
                 self.assertEqual(self.ignored(paths, ignore_case=ignore_case), set(paths))
 
+    def test_regression_dependencies_and_measurement_precede_credentials(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        begin = workflow.index("      - name: Begin pinned SonarCloud analysis")
+        for name in (
+            "Measure existing CI regression controls without analysis credentials",
+            "Install existing reporter dependencies without analysis credentials",
+            "Measure existing Functional and roster Node controls before credentials",
+        ):
+            start = workflow.index("      - name: " + name)
+            end = workflow.find("\n      - name:", start + 1)
+            block = workflow[start:end]
+            self.assertLess(start, begin)
+            self.assertNotIn("SONAR_TOKEN", block)
+            self.assertNotIn("secrets.", block)
+        self.assertIn("run: bash scripts/ci/npm-ci-retry.sh .", workflow[:begin])
+
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
-        settings = {
-            key: value for key, value in (
-                line.split("=", 1) for line in
-                (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
-                if line and not line.startswith("#") and "=" in line
-            )
-        }
+        settings = {}
+        for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                settings[key] = value
         for key in ("sonar.exclusions", "sonar.cpd.exclusions"):
             patterns = settings[key].split(",")
             self.assertIn("artifacts/**", patterns)
