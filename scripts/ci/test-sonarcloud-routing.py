@@ -56,6 +56,27 @@ def pull(*, number: int = 1470, head_repo: str = REPOSITORY,
     }
 
 
+
+def python_unit_body(tree):
+    imports = [alias.name for node in tree.body if isinstance(node, ast.Import) for alias in node.names]
+    imports += [node.module or "" for node in tree.body if isinstance(node, ast.ImportFrom)]
+    framework = any(name in {"unittest", "pytest"} or name.startswith("unittest.") for name in imports)
+    methods = any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_") for node in ast.walk(tree))
+    return framework and methods
+
+
+def python_import_stems(tree):
+    modules = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name.split(".")[-1] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            modules.add((node.module or "").split(".")[-1])
+            modules.update(alias.name.split(".")[-1] for alias in node.names)
+    return modules
+
+
+
 class SonarCloudRoutingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -196,8 +217,7 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            "scripts/ci/test-*.py,**/*.node-test.mjs,"
-            "scripts/security/test-schemathesis-input-attribution.py",
+            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py',
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
@@ -341,6 +361,40 @@ class SonarSourceScopeTests(unittest.TestCase):
                 body = (ROOT / file).read_text(encoding="utf-8")
                 self.assertIsNone(re.search(r"(?:from\s*|import\s*(?:\(\s*)?)['\"][^'\"]*\.node-test\.mjs['\"]", body),
                                   "An operational module must not consume an excluded test body: " + file)
+
+    def test_python_unit_patterns_preserve_operational_drivers_and_imports(self) -> None:
+        import fnmatch
+        settings = {
+            key: value
+            for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#") and "=" in line
+            for key, value in [line.split("=", 1)]
+        }
+        patterns = settings["sonar.coverage.exclusions"].split(",")
+        executable = os.environ.get("COGLATAS_TEST_GIT_EXECUTABLE", "C:/Program Files/Git/cmd/git.exe" if os.name == "nt" else "/usr/bin/git")
+        self.assertTrue(Path(executable).is_absolute() and (os.name != "nt" or Path(executable).drive))
+        files = subprocess.check_output([executable, "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+        trees = {}
+        for file in files:
+            if file.endswith(".py"):
+                path = ROOT / file
+                self.assertFalse(path.is_symlink())
+                path.resolve().relative_to(ROOT)
+                trees[file] = ast.parse(path.read_text(encoding="utf-8"))
+        classified = {file for file in trees if "/test_" in file and any(fnmatch.fnmatchcase(file, pattern) for pattern in patterns)}
+        self.assertGreaterEqual(len(classified), 50, "Unit classification must be non-vacuous.")
+        for file in classified:
+            self.assertTrue(python_unit_body(trees[file]), "Never classify an operational Python helper as a unit body: " + file)
+        protected = ["scripts/ci/test_av_mig_production_cli.py", "scripts/ci/test_av_mig_runtime_cli.py",
+                     "scripts/ci/test_av_mig_contract_boundary.py", "scripts/ci/thread_probe_diagnostics.py",
+                     "scripts/ci/functional_diagnostics.py", "scripts/ci/release_supply_chain.py"]
+        for file in protected:
+            self.assertIn(file, trees)
+            self.assertFalse(any(fnmatch.fnmatchcase(file, pattern) for pattern in patterns), "Keep runtime/source contracts measured: " + file)
+        stems = {Path(file).stem for file in classified}
+        for file, tree in trees.items():
+            if not python_unit_body(tree) or file in protected:
+                self.assertFalse(stems & python_import_stems(tree), "Operational Python must not import an exempt unit body: " + file)
 
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
         settings = {}
