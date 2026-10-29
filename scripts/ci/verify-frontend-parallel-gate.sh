@@ -21,16 +21,16 @@ done
 [[ "$producer" == "success" ]] || deny "frontend build producer is not successful"
 [[ "$browser" == "success" ]] || deny "frontend browser/static lane is not successful"
 
-if [[ "$unit_selected" == "true" && "$playwright_selected" == "true" ]]; then
-  # The original combined job cannot qualify a full dual-scope change alone:
-  # the separately scheduled unit job must complete successfully.
+if [[ "$unit_selected" == "true" ]]; then
+  # Every selected unit route (unit-only or dual) must finish in the
+  # independent runner. Skipped/failed tests cannot be hidden by the browser
+  # lane or this aggregate check.
   [[ "$unit" == "success" ]] ||
     deny "parallel unit tests were required but not successful"
 else
-  # Unit-only changes still run in the browser/static lane. A separate unit
-  # job for those paths would indicate a routing/permission policy drift.
+  # No unit work was selected; the conditional unit job must remain skipped.
   [[ "$unit" == "skipped" ]] ||
-    deny "unexpected parallel unit job for non-dual frontend route"
+    deny "unexpected unit job result without selected unit work"
 fi
 
 echo "Frontend required gate PASS: all routed lanes completed successfully."
