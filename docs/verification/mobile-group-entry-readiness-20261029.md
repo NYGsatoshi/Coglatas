@@ -81,3 +81,16 @@ low. Only the official current-source Gate can establish NewCodeCoverage.
 The full local measured Node/browser command exits0; unchanged strict validation
 accepts24tracked sources/1255branches/116uncovered branches without altering
 the generated LCOV. This is not an official Sonar Gate or real-backend run.
+
+
+## Independent review: regular static selection
+
+Review4411713252 is valid for the original f719 static runner and remains
+partially valid on f04: its explicit staticSuiteFiles list omitted this new spec.
+The dedicated native Node invocation on315/f04 does execute the six DOM cases,
+but that does not establish their selection in the normal Angular browser suite.
+Correct the earlier regular-suite assumption and add the exact spec to the
+existing explicit list. Retain every existing selected file, configured profile
+skip, assertion, case timeout and retry setting. Verify actual Playwright listing
+on the regular configuration, then require the new HEAD's full hosted static
+execution. Do not count the old437regular passes as including these six cases.
