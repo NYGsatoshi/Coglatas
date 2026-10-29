@@ -66,3 +66,57 @@ required. No local full CI, Security/Taint completeness or official GatePASS is
 claimed. Historical Main failures and remaining parser/CFG/CPD warnings remain.
 
 STUDENT_COUNCIL_PILOT = RELEASE_NO_GO.
+
+
+## Exact validator security findings and candidate boundary
+
+Original0978 native40830501461/attempt2/job123305560485 completed, but official
+Gate123312325910 FAIL63.0%/SecurityC. ProviderOPEN findings are
+AaGGe5XStqzpX64Gak4T/jssecurity:S8707/High/line43 (CLI-selected report read)
+andAaGGe5XStqzpX64Gak4R/javascript:S4036/Low/line11 (bare Git inventory).
+No confidential-content disclosure or higher-privilege attacker invocation was
+established. No Product authorization vulnerability or formal Security approval
+is inferred. Original attempt1 analysisSKIP remains NOT_RUN.
+
+Parent and fresh read-only investigator traced CLI, library, lexical/source
+symlink and invocation-alias representations. The sole production workflow's
+exact artifacts/sonar-node/lcov.info argument is retained. All other/missing/extra
+arguments fail before report selection; argv is never used as a filesystem path.
+Default root comes from the canonical module location, not caller cwd. The CLI
+entry guard canonicalizes both module and invoked script so a directory alias
+cannot silently exit0 without validation. Generic errors/count-only success
+output retain no arbitrary report/error content.
+
+The shared report/source reader confines the canonical repository path, rejects
+nonregular files and symlinked components, opens the regular file, compares
+opened dev/ino against pre-open metadata and rechecks canonical identity before
+reading the descriptor. The descriptor is always closed. Linux additionally uses
+O_NOFOLLOW; Windows uses identity checks and does not claim that POSIX flag.
+This closes named argv/source alias routes without filtering, rewriting or
+fabricating LCOV data. Test-only root/tracked/read seams remain trusted library
+inputs, not exposed CLI options. Filesystem installation/workspace ownership and
+inherited Git repository/configuration environment remain trust assumptions.
+
+Git inventory now selects an intended fully qualified executable with no PATH
+fallback: standard Windows C:/Program Files/Git/cmd/git.exe or hosted Linux
+/usr/bin/git. Alternate/per-user/portable installs use explicit owner-trusted
+COGLATAS_TEST_GIT_EXECUTABLE; empty/relative paths fail. An independent candidate
+review identified Windows single-rooted paths as drive-dependent despite
+path.isAbsolute. Parent reproduced acceptance of /ApprovedTools/git.exe, then
+required a drive/UNC root, preserving fully qualified UNC syntax without executing
+network binaries. This same correction is applied to the sibling1515fixture.
+Alternate installs need the documented explicit setting; no arbitrary PR/request
+command is accepted and no global environment setting is written.
+
+Local syntax/import and12focused controls PASS,0skip: fixed producer positive;
+missing/extra/absolute/traversal argument negatives; malformed report/private-text
+no-echo; real Git inventory with hostile PATH; regular source/parent junction/
+traversal/directory negatives; canonical module root and actual CLI alias denial;
+raw-versus-mapped actual Playwright regressions and hit/uncovered retention.
+Final-file symlink branch is NOT_RUN locally on Windows and required on Ubuntu;
+Windows directory-junction behavior is exercised. The full producer cohort becomes
+87old+12controls=99, awaiting hosted source-bound execution and official rescan.
+The single candidate review cycle is complete; its concrete Windows concern was
+confirmed and revised, with focused revalidation. Do not report fixed until all
+relevant current-source hosted gates pass. #1520 separately proposes test-body
+classification; it does not suppress these Security findings or change80%/A/A.

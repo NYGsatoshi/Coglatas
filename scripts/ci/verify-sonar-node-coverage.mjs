@@ -1,15 +1,43 @@
-import { readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, isAbsolute, parse, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const reject = stage => { const error = new Error('Native Node coverage validation failed.'); error.code = stage; throw error; };
 
+const moduleFile = realpathSync(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(dirname(moduleFile), '../..');
+const reportLocation = 'artifacts/sonar-node/lcov.info';
+
+export function trustedGitExecutable(configured = process.env.COGLATAS_TEST_GIT_EXECUTABLE) {
+  const executable = configured ?? (process.platform === 'win32' ? 'C:/Program Files/Git/cmd/git.exe' : '/usr/bin/git');
+  if (!isAbsolute(executable) || (process.platform === 'win32' && parse(executable).root.length < 2)) reject('EXECUTABLE');
+  return executable;
+}
+
+/** Pin regular repository files and verify the opened identity before reading. */
+export function readOwnedRepositoryText(root, name) {
+  const canonicalRoot = realpathSync(root), file = resolve(canonicalRoot, name);
+  const path = relative(canonicalRoot, file);
+  if (!path || path === '..' || path.startsWith('..' + sep) || isAbsolute(path)) reject('SOURCE');
+  const before = lstatSync(file, { bigint: true });
+  if (!before.isFile() || relative(file, realpathSync(file)) !== '') reject('SOURCE');
+  let descriptor;
+  try {
+    descriptor = openSync(file, constants.O_RDONLY | (process.platform === 'win32' ? 0 : constants.O_NOFOLLOW));
+    const opened = fstatSync(descriptor, { bigint: true });
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino || relative(file, realpathSync(file)) !== '') reject('SOURCE');
+    return readFileSync(descriptor, 'utf8');
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
 /** Validate the original LCOV without rewriting, filtering or inventing hits. */
 export function validateNodeCoverage(text, options = {}) {
-  const root = resolve(options.root ?? process.cwd());
-  const tracked = options.tracked ?? new Set(execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' }).split('\0'));
-  const read = options.read ?? (file => readFileSync(file, 'utf8'));
+  const root = realpathSync(options.root ?? repositoryRoot);
+  const tracked = options.tracked ?? new Set(execFileSync(trustedGitExecutable(), ['ls-files', '-z'], { cwd: root, encoding: 'utf8' }).split('\0'));
+  const read = options.read ?? (file => readOwnedRepositoryText(root, file));
   if (!text.trim() || !text.trimEnd().endsWith('end_of_record')) reject('RECORD');
   const paths = new Set(); let branches = 0, uncoveredBranches = 0;
   for (const block of text.trimEnd().split('end_of_record').slice(0, -1)) {
@@ -29,7 +57,9 @@ export function validateNodeCoverage(text, options = {}) {
       if (match[2] === '-' || Number(match[2]) === 0) uncoveredBranches++;
     }
     for (const row of rows.filter(row => row.startsWith('DA:'))) {
-      const match = /^DA:(\d+),\d+$/.exec(row); if (!match) reject('LINE'); line(match[1]);
+      const match = /^DA:(\d+),\d+$/.exec(row);
+      if (!match) { reject('LINE'); }
+      line(match[1]);
     }
     for (const row of rows.filter(row => row.startsWith('FN:'))) line(row.slice(3).split(',')[0]);
     const totals = rows.filter(row => row.startsWith('BRF:'));
@@ -38,12 +68,21 @@ export function validateNodeCoverage(text, options = {}) {
   return { sourceFiles: paths.size, branches, uncoveredBranches };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+/** The sole producer is pinned; CLI arguments never become a filesystem path. */
+export function runCoverageCli(options = {}) {
+  const root = options.root ?? repositoryRoot, args = options.args ?? process.argv.slice(2);
+  const info = options.info ?? console.log, error = options.error ?? console.error;
   try {
-    const result = validateNodeCoverage(readFileSync(process.argv[2], 'utf8'));
-    console.log('Native Node coverage source mapping verified: ' + JSON.stringify(result));
+    if (args.length !== 1 || args[0] !== reportLocation) reject('ARGUMENT');
+    const result = validateNodeCoverage(readOwnedRepositoryText(root, reportLocation), { root });
+    info('Native Node coverage source mapping verified: ' + JSON.stringify(result));
+    return 0;
   } catch {
-    console.error('Native Node coverage must contain only complete, tracked source records with valid original lines.');
-    process.exitCode = 1;
+    error('Native Node coverage must contain only complete, tracked source records with valid original lines.');
+    return 1;
   }
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === moduleFile) {
+  process.exitCode = runCoverageCli();
 }
