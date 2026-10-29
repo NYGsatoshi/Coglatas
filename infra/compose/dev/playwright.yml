@@ -18,6 +18,9 @@ services:
       PLAYWRIGHT_SKIP_BUILD: "1"
       NPM_CI_ATTEMPTS: "2"
       COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "${COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD:-false}"
+      # Explicit opt-in only from the full GitHub Actions frontend lane.
+      # Playwright's project-wide default remains one worker.
+      COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "${COGLATAS_STATIC_PLAYWRIGHT_WORKERS:-1}"
     volumes:
       - ../../../:/work
       - playwright-root-node-modules:/work/node_modules

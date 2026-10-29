@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { staticPlaywrightWorkerArgs } from './static-playwright-workers.mjs';
 
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
@@ -47,7 +48,8 @@ try {
     'tests/ui/group-keyboard-observation.node-test.mjs',
     'tests/ui/search-drawer-observation.node-test.mjs',
     'tests/ui/public-https-golden-path-helpers.node-test.mjs',
-    'tests/ui/student-council-pilot-origin-guard.node-test.mjs'
+    'tests/ui/student-council-pilot-origin-guard.node-test.mjs',
+    'tests/ui/static-playwright-workers.node-test.mjs'
   ]);
   if (helperExitCode !== 0) {
     throw new Error(`Angular Playwright helper tests failed with exit code ${helperExitCode}.`);
@@ -71,7 +73,12 @@ process.exit(exitCode);
 
 function runPlaywright() {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [playwrightCli, 'test', ...staticSuiteFiles, ...playwrightArgs], {
+    // CLI override applies only to the exact full static, prebuilt CI suite.
+    // The canonical config keeps workers: 1 for all other test entrypoints.
+    const child = spawn(process.execPath, [
+      playwrightCli, 'test', ...staticSuiteFiles, ...playwrightArgs,
+      ...staticPlaywrightWorkerArgs(process.env, playwrightArgs),
+    ], {
       cwd: process.cwd(),
       env: { ...process.env, PLAYWRIGHT_BASE_URL: baseURL },
       stdio: 'inherit'
