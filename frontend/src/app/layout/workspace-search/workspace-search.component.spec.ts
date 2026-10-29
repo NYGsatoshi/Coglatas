@@ -69,7 +69,7 @@ describe('WorkspaceSearchComponent', () => {
     component.query.set('needle');
     component.submitSearch(new Event('submit', { cancelable: true }));
     const requests = httpMock.match((request) => request.url === '/api/search');
-    expect(requests.length).toBe(2);
+    expect(requests).toHaveLength(2);
     for (const request of requests) {
       request.flush({
         items: request.request.params.get('type') === 'Project'
@@ -108,6 +108,57 @@ describe('WorkspaceSearchComponent', () => {
       expect(component.results()).toEqual([]);
       expect(root.querySelector('[data-testid="workspace-search-results"]')).toBeNull();
       httpMock.expectNone('/api/search');
+    },
+  );
+
+  it('keeps populated results on Escape outside this search form', async () => {
+    const fixture = await createPopulatedFixture();
+    const root = fixture.nativeElement as HTMLElement;
+    const outside = document.createElement('textarea');
+    root.append(outside);
+    const reveal = vi.spyOn(fixture.componentInstance.shortcutFocusRequested, 'emit');
+    expect(fixture.componentInstance.results()).toHaveLength(1);
+
+    outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.status()).toBe('ready');
+    expect(fixture.componentInstance.results()).toHaveLength(1);
+    expect(root.querySelector('[data-testid="workspace-search-results"]')).not.toBeNull();
+    expect(reveal).not.toHaveBeenCalled();
+    TestBed.inject(HttpTestingController).expectNone('/api/search');
+  });
+
+  it.each(['Escape', 'Esc'])('dismisses from a result button with unmodified %s without requesting shortcut focus', async (key) => {
+    const fixture = await createPopulatedFixture();
+    const root = fixture.nativeElement as HTMLElement;
+    const result = root.querySelector<HTMLButtonElement>('.workspace-search__result')!;
+    const reveal = vi.spyOn(fixture.componentInstance.shortcutFocusRequested, 'emit');
+    expect(fixture.componentInstance.results()).toHaveLength(1);
+
+    result.dispatchEvent(new KeyboardEvent('keydown', {
+      key, bubbles: true,
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.status()).toBe('idle');
+    expect(fixture.componentInstance.results()).toEqual([]);
+    expect(root.querySelector('[data-testid="workspace-search-results"]')).toBeNull();
+    expect(reveal).not.toHaveBeenCalled();
+    TestBed.inject(HttpTestingController).expectNone('/api/search');
+  });
+
+  it.each([{ altKey: true }, { shiftKey: true }, { ctrlKey: true }, { metaKey: true }])(
+    'retains populated results for a modified Escape (%o)', async (modifier) => {
+      const fixture = await createPopulatedFixture();
+      const root = fixture.nativeElement as HTMLElement;
+      const input = root.querySelector<HTMLInputElement>('[data-testid="workspace-search-input"]')!;
+      expect(fixture.componentInstance.results()).toHaveLength(1);
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, ...modifier }));
+      fixture.detectChanges();
+      expect(fixture.componentInstance.status()).toBe('ready');
+      expect(fixture.componentInstance.results()).toHaveLength(1);
+      expect(root.querySelector('[data-testid="workspace-search-results"]')).not.toBeNull();
+      TestBed.inject(HttpTestingController).expectNone('/api/search');
     },
   );
 

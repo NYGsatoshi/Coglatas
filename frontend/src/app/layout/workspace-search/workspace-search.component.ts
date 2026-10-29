@@ -53,12 +53,12 @@ const TYPE_PAGE_SIZE = 8;
   template: `
     <section class="workspace-search" [attr.aria-label]="i18n.translate('search.scopeLabel')">
       <form
+        #searchForm
         class="workspace-search__form"
         role="search"
         [attr.aria-label]="i18n.translate('search.scopeLabel')"
         [attr.aria-busy]="status() === 'loading'"
         (submit)="submitSearch($event)"
-        (keydown.escape)="dismissResultsFromEscape($event)"
       >
         <label class="workspace-search__label" for="workspace-search-input">{{ i18n.translate('search.label') }}</label>
         <div class="workspace-search__control">
@@ -313,6 +313,7 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
   @Input() workspaceLabel = '';
   @Output() readonly shortcutFocusRequested = new EventEmitter<void>();
   @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('searchForm') private searchForm?: ElementRef<HTMLFormElement>;
 
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
@@ -334,16 +335,26 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
   }
 
   @HostListener('document:keydown', ['$event'])
-  focusFromShortcut(event: KeyboardEvent): void {
+  handleDocumentKeydown(event: KeyboardEvent): void {
+    const isEscape = event.key === 'Escape' || event.key === 'Esc';
+    const scopedEscape = isEscape && !event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey &&
+      event.target instanceof Node && this.searchForm?.nativeElement.contains(event.target) === true;
     if (
       event.isComposing ||
       event.keyCode === 229 ||
-      !this.workspaceId ||
-      event.altKey ||
-      event.shiftKey ||
-      !(event.ctrlKey || event.metaKey) ||
-      event.key.toLowerCase() !== 'k'
+      (!scopedEscape && (
+        !this.workspaceId ||
+        event.altKey ||
+        event.shiftKey ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== 'k'
+      ))
     ) {
+      return;
+    }
+
+    if (scopedEscape) {
+      this.dismissResults();
       return;
     }
 
@@ -422,13 +433,6 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
         this.request = null;
       }
     });
-  }
-
-  dismissResultsFromEscape(event: KeyboardEvent): void {
-    if (event.isComposing || event.keyCode === 229) {
-      return;
-    }
-    this.dismissResults();
   }
 
   dismissResults(): void {
