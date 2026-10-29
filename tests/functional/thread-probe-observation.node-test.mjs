@@ -88,12 +88,12 @@ test('a selected request during a pending native action differs from an action w
   }
 });
 
-test('orphan terminal events and cap24 truncation cannot be presented as complete observation', () => {
+await test('orphan terminal events and cap32 truncation cannot be presented as complete observation', () => {
   const { page, observation, fresh } = selectedObservation();
   const orphan = requestFixture(page, 200); page.emit('response', orphan.response);
   for (let index = 0; index < 30; index++) { page.emit('response', fresh.response); }
   const value = observation.finish('FAILED', target());
-  assert.equal(value.events.length, 24); assert.equal(value.truncated, true); assert.equal(value.orphanResponse, true);
+  assert.equal(value.events.length, 32); assert.equal(value.truncated, true); assert.equal(value.orphanResponse, true);
   assert.equal(value.classification, 'INCOMPLETE');
   assert.throws(() => validateThreadObservation({ ...value, classification: 'UNKNOWN' }));
   assert.ok(Buffer.byteLength(JSON.stringify(validateThreadProbe({ phases: [], target: target(), observation: value }))) <= 4096);
@@ -166,7 +166,7 @@ test('an old in-flight GET returning 400 after a new tab action triggers exactly
 });
 
 for (const [finishInitial, expectedCaptures] of [[false, 1], [true, 0]]) {
-  test(`a late old response binds DOM sampling only when retained (initial finished: ${finishInitial})`, () => {
+  await test(`a late old response binds DOM sampling only when retained (initial finished: ${finishInitial})`, () => {
     const page = pageFixture(), observation = observeThreadRequests(page, matches);
     let captures = 0;
     observation.onPreActionDenied(() => { captures++; });
@@ -184,9 +184,11 @@ for (const [finishInitial, expectedCaptures] of [[false, 1], [true, 0]]) {
     observation.mark('ACTION_COMPLETED'); observation.mark('REQUEST_OBSERVED'); observation.mark('WAITING_RESPONSE');
     page.emit('response', fresh.response); observation.mark('RESPONSE_OBSERVED');
     page.emit('requestfinished', fresh.request);
+    // Closed duplicate terminal events exercise budget pressure, not backend evidence.
+    for (let index = 0; index < 8; index++) { page.emit('requestfinished', fresh.request); }
     page.emit('response', prior.response);
     const snapshot = observation.finish('COMPLETED');
-    assert.equal(snapshot.events.length, 24);
+    assert.equal(snapshot.events.length, 32);
     assert.equal(snapshot.truncated, expectedCaptures === 0);
     const classification = expectedCaptures ? 'UNKNOWN' : 'INCOMPLETE';
     assert.equal(snapshot.classification, classification);
@@ -440,7 +442,7 @@ test('actual Playwright reporter does not attribute a caught restoration timeout
 });
 
 
-test('relative timing distinguishes response before and after root rejection without attributing request initiator', () => {
+await test('relative timing distinguishes response before and after root rejection without attributing request initiator', () => {
   for (const late of [false, true]) {
     let time = 0;
     const page = pageFixture(), observation = observeThreadRequests(page, matches, () => time++);
@@ -457,7 +459,7 @@ test('relative timing distinguishes response before and after root rejection wit
     const response = value.events.findIndex((event) => event.kind === 'RESPONSE' && event.request === 2);
     assert.equal(value.elapsedMs[response] > value.elapsedMs[rejected], late);
     assert.equal(value.classification, 'INCOMPLETE', 'No restricted request was reached.');
-    const historical = structuredClone(value); delete historical.elapsedMs;
+    const historical = structuredClone(value); delete historical.elapsedMs; delete historical.schemaVersion;
     assert.equal(Object.hasOwn(validateThreadObservation(historical), 'elapsedMs'), false);
     assert.equal(JSON.stringify(value).includes('private-canary'), false);
   }
@@ -522,4 +524,50 @@ test('fractional raw clock regressions and overflow stay unknown without poisoni
     assert.deepEqual(secondary, ['PUBLISH', 'RESTORE']);
     assert.equal(JSON.stringify(snapshot).includes('private'), false);
   }
+});
+
+await test('authorized catch-up plus fresh denied GET retains its complete finite chronology', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_ACTION_STARTED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  observation.mark('AUTHORIZED_ACTION_COMPLETED'); page.emit('response', allowed.response);
+  page.emit('requestfinished', allowed.request); observation.mark('AUTHORIZED_READ');
+  observation.mark('ROOT_ASSERTION_STARTED');
+  const catchup = requestFixture(page, 200); catchup.emit(); page.emit('response', catchup.response);
+  page.emit('requestfinished', catchup.request); observation.mark('ROOT_ASSERTION_PASSED');
+  observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
+  observation.mark('SESSION_VERIFIED'); observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+  const fresh = requestFixture(page, 400); fresh.emit(); observation.select(fresh.request);
+  observation.mark('REQUEST_OBSERVED'); observation.mark('ACTION_COMPLETED'); observation.mark('WAITING_RESPONSE');
+  page.emit('response', fresh.response); page.emit('requestfinished', fresh.request); observation.mark('RESPONSE_OBSERVED');
+  const value = observation.finish('COMPLETED');
+  assert.equal(value.events.length, 26, 'the actual native catch-up sequence must retain its tail');
+  assert.equal(value.truncated, false); assert.equal(value.orphanResponse, false);
+  assert.equal(value.freshRequest, 3); assert.equal(value.classification, 'UNKNOWN');
+  assert.equal(value.schemaVersion, 3);
+  assert.equal(value.events.at(-1).kind, 'RESPONSE_OBSERVED');
+  assert.equal(value.events.filter(event => event.kind === 'RESPONSE' && event.status === 200).length, 2);
+  assert.ok(value.events.some(event => event.kind === 'REQUEST_FINISHED' && event.request === 3));
+  assert.ok(Buffer.byteLength(JSON.stringify(validateThreadProbe({ phases: [], target: target(), observation: value }))) <= 4096);
+});
+
+await test('legacy24 remains strict and version3 preserves incomplete historical capture', () => {
+  const { observation } = selectedObservation();
+  const value = observation.finish('FAILED', target());
+  while (value.events.length < 25) { value.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null }); }
+  value.elapsedMs = Array(25).fill(1);
+  assert.equal(validateThreadObservation(value).schemaVersion, 3);
+  const legacy = structuredClone(value); delete legacy.schemaVersion;
+  assert.throws(() => validateThreadObservation(legacy), 'legacy records must not inherit a larger bound');
+  legacy.events.pop(); legacy.elapsedMs.pop(); legacy.truncated = true; legacy.classification = 'INCOMPLETE';
+  assert.equal(validateThreadObservation(legacy).classification, 'INCOMPLETE');
+  assert.throws(() => validateThreadObservation({ ...legacy, classification: 'UNKNOWN' }));
+  for (const schemaVersion of [1, 2, 4, '3', true]) {
+    assert.throws(() => validateThreadObservation({ ...value, schemaVersion }));
+  }
+  const untimed = structuredClone(value); delete untimed.elapsedMs;
+  assert.throws(() => validateThreadObservation(untimed));
+  const overflow = structuredClone(value);
+  while (overflow.events.length < 33) { overflow.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null }); }
+  overflow.elapsedMs = Array(33).fill(1); assert.throws(() => validateThreadObservation(overflow));
 });

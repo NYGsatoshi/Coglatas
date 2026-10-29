@@ -25,8 +25,12 @@ def flags(value, fields):
 
 def validate_observation(value):
     timed = isinstance(value, dict) and "elapsedMs" in value
-    exact(value, ({"elapsedMs"} if timed else set()) | {"events", "truncated", "orphanResponse", "freshRequest", "outcome", "classification", "actionFailure", "failureTarget"})
-    if (not isinstance(value["events"], list) or len(value["events"]) > 24 or
+    versioned = isinstance(value, dict) and "schemaVersion" in value
+    if versioned and (value["schemaVersion"] != 3 or not timed):
+        raise ValueError("Invalid bounded Thread version.")
+    event_limit = 32 if versioned else 24
+    exact(value, ({"schemaVersion"} if versioned else set()) | ({"elapsedMs"} if timed else set()) | {"events", "truncated", "orphanResponse", "freshRequest", "outcome", "classification", "actionFailure", "failureTarget"})
+    if (not isinstance(value["events"], list) or len(value["events"]) > event_limit or
             any(type(value[key]) is not bool for key in ("truncated", "orphanResponse")) or
             value["outcome"] not in {"COMPLETED", "FAILED"} or
             value["actionFailure"] not in {"NONE", "UNKNOWN", "WAITING_LOCATOR", "NOT_VISIBLE", "DETACHED", "POINTER_INTERCEPTION"} or
