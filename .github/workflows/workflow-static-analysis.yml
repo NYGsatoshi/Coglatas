@@ -15,6 +15,10 @@ on:
       - "tests/ci/test_qodana_sarif_parity.py"
       - "scripts/quality/verify_qodana_artifact_provenance.py"
       - "tests/ci/test_qodana_artifact_provenance.py"
+      - "scripts/quality/verify_qodana_signed_subject.py"
+      - "tests/ci/test_qodana_signed_subject.py"
+      - "scripts/quality/qodana_cloud_send_preflight.py"
+      - "tests/ci/test_qodana_cloud_send_preflight.py"
   push:
     branches: ["main", "SecurityTestImplimation"]
     paths:
@@ -29,6 +33,10 @@ on:
       - "tests/ci/test_qodana_sarif_parity.py"
       - "scripts/quality/verify_qodana_artifact_provenance.py"
       - "tests/ci/test_qodana_artifact_provenance.py"
+      - "scripts/quality/verify_qodana_signed_subject.py"
+      - "tests/ci/test_qodana_signed_subject.py"
+      - "scripts/quality/qodana_cloud_send_preflight.py"
+      - "tests/ci/test_qodana_cloud_send_preflight.py"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}
@@ -120,6 +128,12 @@ jobs:
 
       - name: Test Qodana run-attempt and artifact digest correlation
         run: python3 -B tests/ci/test_qodana_artifact_provenance.py
+
+      - name: Validate signed Qodana subject trust policy without a signer
+        run: python3 -B tests/ci/test_qodana_signed_subject.py
+
+      - name: Validate offline Qodana Cloud-send preflight contract
+        run: python3 -B tests/ci/test_qodana_cloud_send_preflight.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
