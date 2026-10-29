@@ -92,7 +92,8 @@ def main() -> None:
     for before, after in mutations:
         if source.count(before) < 1:
             raise AssertionError(f"Mutation anchor missing: {before}")
-        mutated = source.replace(before, after, 1)
+        # Mutate every matching step; producer and unit installs can share text.
+        mutated = source.replace(before, after)
         try:
             check(mutated)
         except AssertionError:
