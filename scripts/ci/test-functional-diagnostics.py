@@ -91,8 +91,32 @@ class FunctionalDiagnosticTests(unittest.TestCase):
         validate_thread_projection(attempt["threadProbe"], attempt["threadProbeSecondary"])
         timed_probe = attempt["threadProbe"]["data"]
         self.assertEqual(len(timed_probe["observation"]["elapsedMs"]), len(timed_probe["observation"]["events"]))
+        # Versioned capture extends event capacity, never the4096-byte or legacy bounds.
+        budget = copy.deepcopy(attempt["threadProbe"])
+        observation = budget["data"]["observation"]
+        self.assertEqual(observation["schemaVersion"], 3)
+        while len(observation["events"]) < 32:
+            observation["events"].append({"kind": "REQUEST_FINISHED", "request": 1, "status": None})
+        observation["elapsedMs"] = list(range(32))
+        validate_thread_projection(budget, attempt["threadProbeSecondary"])
+        self.assertLessEqual(len(json.dumps(budget["data"], separators=(",", ":")).encode()), 4096)
+        legacy_budget = copy.deepcopy(budget)
+        del legacy_budget["data"]["observation"]["schemaVersion"]
+        with self.assertRaises(ValueError):
+            validate_thread_projection(legacy_budget, attempt["threadProbeSecondary"])
+        legacy_observation = legacy_budget["data"]["observation"]
+        legacy_observation["events"] = legacy_observation["events"][:24]
+        legacy_observation["elapsedMs"] = legacy_observation["elapsedMs"][:24]
+        legacy_observation.update(truncated=True, classification="INCOMPLETE")
+        validate_thread_projection(legacy_budget, attempt["threadProbeSecondary"])
+        overflow = copy.deepcopy(budget)
+        overflow["data"]["observation"]["events"].append({"kind": "REQUEST_FINISHED", "request": 1, "status": None})
+        overflow["data"]["observation"]["elapsedMs"].append(32)
+        with self.assertRaises(ValueError):
+            validate_thread_projection(overflow, attempt["threadProbeSecondary"])
         historical = copy.deepcopy(attempt["threadProbe"])
         del historical["data"]["observation"]["elapsedMs"]
+        del historical["data"]["observation"]["schemaVersion"]
         for key in ("pagePresent", "conversationPresent", "threadOpenClass", "groupClass"):
             del historical["data"]["initial"]["failureDom"][key]
         validate_thread_projection(historical, attempt["threadProbeSecondary"])
@@ -127,6 +151,9 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                      lambda value: value["initial"]["failureDom"].pop("groupClass"),
                      lambda value: value["initial"]["responseShape"].update(rootMatches=PROTECTED),
                      lambda value: value["observation"].update(classification="PASS"),
+                     lambda value: value["observation"].update(schemaVersion=4),
+                     lambda value: value["observation"].update(schemaVersion="3"),
+                     lambda value: value["observation"].pop("elapsedMs"),
                      lambda value: value["observation"]["events"][-1].update(kind="ROOT_ASSERTION_STARTED"),
                      lambda value: value["observation"]["events"][-1].update(kind=PROTECTED),
                      lambda value: value["observation"]["events"][0].update(url=PROTECTED),

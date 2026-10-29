@@ -14,8 +14,11 @@ const keys = (value, names) => value && Object.keys(value).sort().join() === [..
 export function validateThreadObservation(value) {
   const invalid = () => { throw new Error('Restricted thread observation is invalid.'); };
   const timed = Object.hasOwn(value, 'elapsedMs');
-  if (!keys(value, ['events', ...(timed ? ['elapsedMs'] : []), 'truncated', 'orphanResponse', 'freshRequest', 'outcome', 'classification', 'actionFailure', 'failureTarget']) ||
-      !Array.isArray(value.events) || value.events.length > 24 ||
+  const versioned = Object.hasOwn(value, 'schemaVersion');
+  if (versioned && (value.schemaVersion !== 3 || !timed)) { invalid(); }
+  const eventLimit = versioned ? 32 : 24;
+  if (!keys(value, ['events', ...(versioned ? ['schemaVersion'] : []), ...(timed ? ['elapsedMs'] : []), 'truncated', 'orphanResponse', 'freshRequest', 'outcome', 'classification', 'actionFailure', 'failureTarget']) ||
+      !Array.isArray(value.events) || value.events.length > eventLimit ||
       typeof value.truncated !== 'boolean' || typeof value.orphanResponse !== 'boolean' ||
       !['COMPLETED', 'FAILED'].includes(value.outcome) || !actionFailures.includes(value.actionFailure)) { invalid(); }
   if (timed && (!Array.isArray(value.elapsedMs) || value.elapsedMs.length !== value.events.length ||
@@ -114,7 +117,7 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
   let preActionDeniedCallback = null, preActionDeniedRecorded = false;
   const append = (kind, request = null, status = null) => {
     if (frozen) { return false; }
-    if (events.length === 24) { truncated = true; return false; }
+    if (events.length === 32) { truncated = true; return false; }
     events.push({ kind, request, status }); elapsedMs.push(sampleTime()); return true;
   };
   const onRequest = (request) => {
@@ -169,7 +172,7 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
       if (snapshot) { return structuredClone(snapshot); }
       frozen = true;
       for (const [name, listener] of Object.entries(listeners)) { page.off(name, listener); }
-      snapshot = validateThreadObservation({ events, elapsedMs, truncated, orphanResponse, freshRequest, outcome, actionFailure, failureTarget,
+      snapshot = validateThreadObservation({ schemaVersion: 3, events, elapsedMs, truncated, orphanResponse, freshRequest, outcome, actionFailure, failureTarget,
         classification: elapsedMs.includes(null) || truncated || orphanResponse || freshRequest === null || outcome === 'FAILED' && failureTarget === null
           ? 'INCOMPLETE' : 'UNKNOWN' });
       return structuredClone(snapshot);
