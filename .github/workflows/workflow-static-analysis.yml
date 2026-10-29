@@ -7,12 +7,16 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/sonar-coverage-requirements.txt"
   push:
     branches: ["main"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/sonar-coverage-requirements.txt"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}
@@ -88,6 +92,9 @@ jobs:
 
       - name: Test SonarCloud credentialed PR routing
         run: python3 scripts/ci/test-sonarcloud-routing.py
+
+      - name: Test Sonar .NET coverage evidence validation
+        run: python3 scripts/ci/test-sonar-dotnet-coverage.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
