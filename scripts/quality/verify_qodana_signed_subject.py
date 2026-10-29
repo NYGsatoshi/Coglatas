@@ -27,6 +27,7 @@ REPO = REPOSITORY.removeprefix("https://github.com/").removesuffix(".git")
 REPO_ID = "1261244608"
 SIGNER_WORKFLOW = f"{REPO}/.github/workflows/qodana_trusted_gate.yml"
 SIGNER_REF = f"https://github.com/{SIGNER_WORKFLOW}@refs/heads/main"
+SIGNER_BRANCH_REF = "refs/heads/main"
 PROVENANCE_TYPE = "https://slsa.dev/provenance/v1"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 RUN = re.compile(r"^[1-9][0-9]{0,18}$")
@@ -82,15 +83,22 @@ def verified_statement(blob: bytes, expected_digest: str, sha: str, run_id: str,
         "sourceRepositoryIdentifier": REPO_ID,
         "sourceRepositoryDigest": sha,
         "githubWorkflowSHA": sha,
-        "githubWorkflowRef": SIGNER_REF,
+        # Sigstore certificates distinguish the ref from the signer workflow URI.
+        "githubWorkflowRef": SIGNER_BRANCH_REF,
         "githubWorkflowTrigger": "push",
-        "runnerInvocationURI": expected_invocation,
+        "buildSignerURI": SIGNER_REF,
+        "runInvocationURI": expected_invocation,
         "runnerEnvironment": "github-hosted",
     }
     for field, expected in expected_claims.items():
         actual = cert.get(field)
-        if str(actual) != expected or isinstance(actual, bool):
+        if not isinstance(actual, str) or actual != expected:
             reject("Signed source, workflow or execution identity mismatch")
+    # Current sigstore-go certificate summary emits SAN as a URI string,
+    # not a historic object. The caller-supplied predicate cannot override it.
+    signer_san = cert.get("subjectAlternativeName")
+    if not isinstance(signer_san, str) or signer_san != SIGNER_REF:
+        reject("Signed workflow certificate SAN mismatch")
     # The GitHub CLI additionally enforces --source-ref, source-digest,
     # signer-workflow, signer-digest and repository against its trust roots.
 
@@ -120,11 +128,12 @@ def verify_signed_subject(
     command = [
         str(binary), "attestation", "verify", str(report),
         "--repo", REPO,
-        "--signer-repo", REPO,
+        # --signer-repo and --signer-workflow are mutually exclusive.
+        # The full exact workflow path also binds the owning repository.
         "--signer-workflow", SIGNER_WORKFLOW,
         "--signer-digest", source_sha,
         "--source-digest", source_sha,
-        "--source-ref", "refs/heads/main",
+        "--source-ref", SIGNER_BRANCH_REF,
         "--predicate-type", PROVENANCE_TYPE,
         "--format", "json",
     ]

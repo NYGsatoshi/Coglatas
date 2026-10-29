@@ -65,9 +65,11 @@ class AttestedSubjectTests(unittest.TestCase):
                     "sourceRepositoryIdentifier": policy.REPO_ID,
                     "sourceRepositoryDigest": SHA,
                     "githubWorkflowSHA": SHA,
-                    "githubWorkflowRef": policy.SIGNER_REF,
+                    "githubWorkflowRef": policy.SIGNER_BRANCH_REF,
                     "githubWorkflowTrigger": "push",
-                    "runnerInvocationURI": (
+                    "buildSignerURI": policy.SIGNER_REF,
+                    "subjectAlternativeName": policy.SIGNER_REF,
+                    "runInvocationURI": (
                         f"https://github.com/{policy.REPO}/actions/runs/{RUN_ID}/attempts/1"
                     ),
                     "runnerEnvironment": "github-hosted",
@@ -106,9 +108,12 @@ class AttestedSubjectTests(unittest.TestCase):
         cmd = self.commands[0]
         self.assertIn("--signer-workflow", cmd)
         self.assertEqual(cmd[cmd.index("--signer-workflow") + 1], policy.SIGNER_WORKFLOW)
+        self.assertEqual(cmd.count("--signer-workflow"), 1)
+        for incompatible in ("--signer-repo", "--cert-identity", "--cert-identity-regex"):
+            self.assertNotIn(incompatible, cmd)
         self.assertEqual(cmd[cmd.index("--source-digest") + 1], SHA)
         self.assertEqual(cmd[cmd.index("--signer-digest") + 1], SHA)
-        self.assertEqual(cmd[cmd.index("--source-ref") + 1], "refs/heads/main")
+        self.assertEqual(cmd[cmd.index("--source-ref") + 1], policy.SIGNER_BRANCH_REF)
         self.assertEqual(cmd[cmd.index("--repo") + 1], policy.REPO)
         self.assertNotIn("send", cmd)
 
@@ -117,15 +122,60 @@ class AttestedSubjectTests(unittest.TestCase):
             ("sourceRepositoryIdentifier", "987"),
             ("sourceRepositoryDigest", "b" * 40),
             ("githubWorkflowSHA", "b" * 40),
-            ("githubWorkflowRef", policy.SIGNER_REF + "-untrusted"),
+            ("githubWorkflowRef", "refs/heads/not-main"),
             ("githubWorkflowTrigger", "pull_request"),
-            ("runnerInvocationURI", f"https://github.com/{policy.REPO}/actions/runs/{RUN_ID}/attempts/2"),
+            ("buildSignerURI", policy.SIGNER_REF + "-untrusted"),
+            ("subjectAlternativeName", policy.SIGNER_REF + "-untrusted"),
+            ("runInvocationURI", f"https://github.com/{policy.REPO}/actions/runs/{RUN_ID}/attempts/2"),
             ("runnerEnvironment", "self-hosted"),
         ):
             with self.subTest(key=key):
                 self._renew_claim()
                 self.claim["verificationResult"]["signature"]["certificate"][key] = bad
                 self._reject()
+
+    def test_sigstore_certificate_field_contract_and_legacy_alias_rejection(self):
+        self._verify()
+        certificate = self.claim["verificationResult"]["signature"]["certificate"]
+        self.assertEqual(certificate["githubWorkflowRef"], "refs/heads/main")
+        self.assertEqual(certificate["buildSignerURI"], policy.SIGNER_REF)
+        self.assertEqual(certificate["subjectAlternativeName"], policy.SIGNER_REF)
+        self.assertEqual(
+            certificate["runInvocationURI"],
+            f"https://github.com/{policy.REPO}/actions/runs/{RUN_ID}/attempts/1",
+        )
+
+        # An old full-URI workflowRef is not a branch ref.
+        self._renew_claim()
+        self.claim["verificationResult"]["signature"]["certificate"][
+            "githubWorkflowRef"
+        ] = policy.SIGNER_REF
+        self._reject()
+
+        # This legacy misspelling cannot replace signed run-attempt metadata.
+        self._renew_claim()
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        cert["runnerInvocationURI"] = cert.pop("runInvocationURI")
+        self._reject()
+
+        # Sigstore's verified certificate is authoritative, not predicate JSON.
+        self._renew_claim()
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        cert["subjectAlternativeName"] = {"type": "URI", "value": policy.SIGNER_REF}
+        self.claim["verificationResult"]["statement"]["predicate"]["signer"] = policy.SIGNER_REF
+        self._reject()
+
+    def test_nonstring_or_missing_signer_certificate_fields_are_rejected(self):
+        for name in ("githubWorkflowRef", "buildSignerURI",
+                     "subjectAlternativeName", "runInvocationURI"):
+            for invalid in (None, "", False, 43, {}, [], "untrusted"):
+                with self.subTest(name=name, invalid=invalid):
+                    self._renew_claim()
+                    self.claim["verificationResult"]["signature"]["certificate"][name] = invalid
+                    self._reject()
+            self._renew_claim()
+            del self.claim["verificationResult"]["signature"]["certificate"][name]
+            self._reject()
 
     def test_missing_or_wrong_certificate_is_rejected(self):
         for value in (None, {}, {"sourceRepositoryIdentifier": policy.REPO_ID}):
