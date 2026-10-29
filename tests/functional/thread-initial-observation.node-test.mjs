@@ -443,3 +443,34 @@ test('every adjacent key collision in historical and expanded DOM partitions is 
     }
   }
 });
+
+await test('version3 expanded DOM record at32 maximum-width events stays within4096 bytes', () => {
+  const value = probe();
+  value.observation.schemaVersion = 3;
+  value.initial.failureDom = { ...Object.fromEntries(Object.keys(dom()).map((key) => [key, false])),
+    pagePresent: false, conversationPresent: false, threadOpenClass: false, groupClass: false };
+  value.observation.events.push({ kind: 'AUTHORIZED_ACTION_STARTED', request: null, status: null },
+    { kind: 'AUTHORIZED_ACTION_COMPLETED', request: null, status: null },
+    { kind: 'ROOT_ASSERTION_STARTED', request: null, status: null },
+    { kind: 'ROOT_ASSERTION_FAILED', request: null, status: null });
+  while (value.observation.events.length < 32) {
+    value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
+  }
+  value.observation.elapsedMs = Array(32).fill(3600000);
+  const valid = validateThreadProbe(value);
+  assert.ok(Buffer.byteLength(JSON.stringify(valid)) <= 4096);
+  const widest = observationKinds.reduce((left, right) => left.length > right.length ? left : right);
+  const envelope = structuredClone(value);
+  envelope.observation.events = Array.from({ length: 32 }, () => ({ kind: widest, request: null, status: null }));
+  envelope.observation.freshRequest = null; envelope.observation.classification = 'INCOMPLETE';
+  envelope.observation.actionFailure = 'POINTER_INTERCEPTION';
+  // Deliberately not a valid event order: every retained scalar uses its longest closed representation.
+  assert.ok(Buffer.byteLength(JSON.stringify(envelope)) <= 4096);
+  assert.equal(valid.observation.classification, 'INCOMPLETE');
+  for (const mutate of [
+    (copy) => { copy.initial.failureDom.groupClass = privateValue; },
+    (copy) => { delete copy.initial.failureDom.groupClass; },
+    (copy) => { copy.observation.elapsedMs[0] = privateValue; },
+    (copy) => { copy.observation.elapsedMs.pop(); },
+  ]) { const copy = structuredClone(valid); mutate(copy); assert.throws(() => validateThreadProbe(copy)); }
+});
