@@ -22,11 +22,11 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
-from qodana_sarif_parity import ParityError, compare
+from qodana_sarif_parity import ParityError, REPOSITORY, compare
 
-OWNER, REPO = "NYGsatoshi", "Coglatas"
 REPO_ID, WORKFLOW_ID = 1261244608, 373879708
-BASE_URL = f"https://api.github.com/repos/{OWNER}/{REPO}"
+# Derive the approved API address from the already-reviewed public GitHub URL.
+BASE_URL = "https://api.github.com/repos/" + REPOSITORY.removeprefix("https://github.com/").removesuffix(".git")
 MAX_ZIP_BYTES = 15 * 1024 * 1024
 MAX_SARIF_BYTES = 20 * 1024 * 1024
 MAX_ENTRIES = 100
