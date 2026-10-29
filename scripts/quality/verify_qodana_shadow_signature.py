@@ -25,6 +25,7 @@ REPO_ID = "1261244608"
 BRANCH = "SecurityTestImplimation"
 WORKFLOW = f"{REPO}/.github/workflows/qodana-signed-shadow.yml"
 WORKFLOW_REF = f"https://github.com/{WORKFLOW}@refs/heads/{BRANCH}"
+BRANCH_REF = f"refs/heads/{BRANCH}"
 PREDICATE = "https://slsa.dev/provenance/v1"
 MAX_GH_BYTES = 2 * 1024 * 1024
 
@@ -75,15 +76,22 @@ def verified_statement(blob: bytes, digest: str, sha: str, run_id: str, attempt:
         "sourceRepositoryIdentifier": REPO_ID,
         "sourceRepositoryDigest": sha,
         "githubWorkflowSHA": sha,
-        "githubWorkflowRef": WORKFLOW_REF,
+        # Sigstore's githubWorkflowRef is the branch ref, *not* the signer URI.
+        "githubWorkflowRef": BRANCH_REF,
         "githubWorkflowTrigger": "push",
-        "runnerInvocationURI": f"https://github.com/{REPO}/actions/runs/{run_id}/attempts/{attempt}",
+        # Keep the exact signer workflow URI and run/attempt independently bound.
+        "buildSignerURI": WORKFLOW_REF,
+        "runInvocationURI": f"https://github.com/{REPO}/actions/runs/{run_id}/attempts/{attempt}",
         "runnerEnvironment": "github-hosted",
     }
     for field, expected in claims.items():
         actual = cert.get(field)
         if not isinstance(actual, str) or actual != expected:
             deny("CERT_" + field)
+    # SubjectAlternativeName comes from the verified certificate, not the
+    # user-controlled predicate. It must name the exact trusted signer workflow.
+    if cert.get("subjectAlternativeName") != {"type": "URI", "value": WORKFLOW_REF}:
+        deny("CERT_subjectAlternativeName")
 
 
 def verify(
@@ -113,7 +121,7 @@ def verify(
         # so keep the stricter path-scoped identity and omit the redundant flag.
         "--repo", REPO,
         "--signer-workflow", WORKFLOW, "--signer-digest", sha,
-        "--source-digest", sha, "--source-ref", f"refs/heads/{BRANCH}",
+        "--source-digest", sha, "--source-ref", BRANCH_REF,
         "--predicate-type", PREDICATE, "--format", "json",
     ]
     try:
