@@ -124,6 +124,7 @@ def image_errors(source, sdk_version)
     *Dir.glob(ROOT.join('infra/compose/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('deploy/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s }
   ]
+  approved_tag = sdk_version == '11.0.100-rc.3.26522.148' ? '11.0.100-rc.3' : sdk_version
   matches = 0
   candidates.uniq.each do |name|
     path = ROOT / name
@@ -132,8 +133,8 @@ def image_errors(source, sdk_version)
     next unless contents.include?('mcr.microsoft.com/dotnet/sdk:')
     contents.scan(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}).each do |reference|
       matches += 1
-      match = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}.match(reference)
-      if !match || match[1] != sdk_version
+      match = %r{\Amcr\.microsoft\.com/dotnet/sdk:([^@\s]+)@sha256:([a-f0-9]{64})\z}.match(reference)
+      if !match || match[1] != approved_tag
         errors << "#{name}: SDK image must match global.json #{sdk_version} and use an immutable digest"
       end
     end
@@ -181,9 +182,11 @@ abort('Future Syncfusion base install scripts must remain denied unless separate
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
 sdk_version = sdk['version']
-abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &&
-  sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
-  sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
+stable_sdk = sdk_version.is_a?(String) && sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
+  sdk['allowPrerelease'] == false
+approved_rc3 = sdk_version == '11.0.100-rc.3.26522.148' && sdk['allowPrerelease'] == true
+abort('SDK must pin approved stable .NET 10 or exact isolated .NET 11 RC3') unless
+  (stable_sdk || approved_rc3) && sdk['rollForward'] == 'disable'
 
 errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({})
 abort(errors.join("\n")) unless errors.empty?
@@ -222,7 +225,7 @@ mutations.each do |name, change|
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
-  /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
+  /mcr\.microsoft\.com\/dotnet\/sdk:[^@\s]+(?=@sha256:)/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 
