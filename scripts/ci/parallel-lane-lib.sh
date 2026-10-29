@@ -32,10 +32,19 @@ ci_parallel_start() {
 
   (
     set -Eeuo pipefail
-    # Per-worker clock: the parent may wait for unrelated workers first.
+    # Worker functions such as security runtimes install their own EXIT
+    # cleanup trap. Keep the timer in an outer process so it survives.
     SECONDS=0
-    trap 'printf "%s\n" "$SECONDS" > "$elapsed_file" || true' EXIT
-    "$@"
+    set +e
+    (
+      # Do not invoke the worker in an "if" or "||" conditional: Bash
+      # would suppress errexit *inside* the called shell function.
+      set -Eeuo pipefail
+      "$@"
+    )
+    rc=$?
+    printf '%s\n' "$SECONDS" > "$elapsed_file" || true
+    exit "$rc"
   ) >"$log" 2>&1 &
 
   CI_PARALLEL_NAMES+=("$name")

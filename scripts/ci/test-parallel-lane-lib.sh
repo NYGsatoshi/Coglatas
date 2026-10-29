@@ -76,4 +76,69 @@ fi
 ) > "$tmp/missing-stdout" 2>&1
 
 grep -Fq '| missing-time | PASS | unavailable |' "$tmp/missing-summary.md"
-echo 'Parallel CI lane timing, failure propagation and injection controls PASS.'
+
+# A real security lane installs an EXIT cleanup trap *inside the worker*
+# process. The outer timer must survive it; a false exit must still fail.
+# The previous timer implementation was overwritten by this nested trap.
+(
+  export CI_PARALLEL_LOG_DIR="$tmp/trap-logs"
+  export GITHUB_STEP_SUMMARY="$tmp/trap-summary.md"
+  source "$lib"
+  cleanup_success() {
+    trap 'echo cleanup-success-executed' EXIT
+    sleep 1
+    echo native-success
+  }
+  ci_parallel_start real-lane cleanup_success
+  ci_parallel_wait
+) > "$tmp/trap-success-stdout" 2>&1
+
+grep -Fq 'native-success' "$tmp/trap-success-stdout"
+grep -Fq 'cleanup-success-executed' "$tmp/trap-success-stdout"
+duration="$(cat "$tmp/trap-logs/real-lane.seconds")"
+if [[ ! "$duration" =~ ^[0-9]{1,8}$ ]]; then
+  echo 'Missing bounded lane timing despite cleanup trap.' >&2
+  exit 1
+fi
+grep -Fq '| real-lane | PASS |' "$tmp/trap-summary.md"
+if grep -Fq 'elapsed_seconds=unavailable' "$tmp/trap-success-stdout"; then
+  echo 'Nested cleanup trap suppressed real lane timing.' >&2
+  exit 1
+fi
+
+# A conditional subshell suppresses Bash errexit inside called functions.
+# Capture the aggregate status explicitly instead of executing under "if (".
+set +e
+(
+  export CI_PARALLEL_LOG_DIR="$tmp/trap-fail-logs"
+  export GITHUB_STEP_SUMMARY="$tmp/trap-fail-summary.md"
+  source "$lib"
+  cleanup_failure() {
+    trap 'echo cleanup-failure-executed' EXIT
+    false
+    echo FALSE_GREEN
+  }
+  ci_parallel_start failure-with-cleanup cleanup_failure
+  ci_parallel_wait
+) > "$tmp/trap-fail-stdout" 2>&1
+nested_status=$?
+set -e
+if ((nested_status == 0)); then
+  echo 'Nested-trap lane incorrectly masked a native command failure.' >&2
+  exit 1
+fi
+
+grep -Fq 'cleanup-failure-executed' "$tmp/trap-fail-stdout"
+duration="$(cat "$tmp/trap-fail-logs/failure-with-cleanup.seconds")"
+if [[ ! "$duration" =~ ^[0-9]{1,8}$ ]]; then
+  echo 'Missing failure-lane timing despite cleanup trap.' >&2
+  exit 1
+fi
+grep -Fq '| failure-with-cleanup | FAIL (exit 1) |' "$tmp/trap-fail-summary.md"
+if grep -Fq 'FALSE_GREEN' "$tmp/trap-fail-stdout"; then
+  echo 'The failing command proceeded beyond errexit.' >&2
+  exit 1
+fi
+
+echo 'Parallel CI lane timing, failure propagation and nested cleanup controls PASS.'
+

@@ -108,6 +108,7 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-security-runtime-parallel.sh
+          bash -n scripts/ci/test-parallel-lane-lib.sh
           bash scripts/ci/test-parallel-lane-lib.sh
 
       - name: Validate Qodana independent-scan parity negative controls
