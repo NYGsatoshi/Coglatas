@@ -19,3 +19,5 @@ The entire native try/action/assertion/catch segment is byte-identical to Main b
 Fresh native/protected CI, current independent review, official Gate/rescan, source-bound actual-backend43-member Desktop/Mobile owner acceptance and resulting-Main qualification remain required. Never infer a fix to the historical roster failure from this refactor or current success. No finding dismissal, suppression, rule/source/threshold change; FCI06 Default C, all Owner holds and historical failures remain.
 
 `STUDENT_COUNCIL_PILOT = RELEASE_NO_GO`.
+
+The81da officialGate123676286634 passed92.5%NewCodeCoverage but reported two Low javascript:S6551 findings (AaGJGMXs8dYv669dApMS/ApMT, runner unitL592/L611) because heterogeneous tuple inference may treat the interpolated name as an object. Replace the same eight finite parameter tuples with named records; labels, fault values, expected calls, all test bodies and production helper remain unchanged. No actual runtime stringification defect is claimed. Current Main9677 normally incorporated; new30controls/focusedStrictTS/native/Gate/review/real43DesktopMobile evidence required. Provider issues remain unchanged until rescan.

@@ -584,11 +584,11 @@ test('qualification finalization retains an absent owner without fabricating clo
   } finally { f.dispose(); }
 });
 
-for (const [name, faults, expectedCalls] of [
-  ['close', { closeFails: true }, ['close', 'attach']],
-  ['attachment', { attachFails: true }, ['close', 'attach']],
-  ['exclusive receipt write', { writeFails: true }, ['close']],
-  ['close and attachment', { closeFails: true, attachFails: true }, ['close', 'attach']],
+for (const { name, faults, expectedCalls } of [
+  { name: 'close', faults: { closeFails: true }, expectedCalls: ['close', 'attach'] },
+  { name: 'attachment', faults: { attachFails: true }, expectedCalls: ['close', 'attach'] },
+  { name: 'exclusive receipt write', faults: { writeFails: true }, expectedCalls: ['close'] },
+  { name: 'close and attachment', faults: { closeFails: true, attachFails: true }, expectedCalls: ['close', 'attach'] },
 ]) test(`secondary ${name} failure returns a closed qualification error after cleanup attempts`, async () => {
   const f = qualificationFixture(faults);
   try {
@@ -603,11 +603,11 @@ for (const [name, faults, expectedCalls] of [
   } finally { f.dispose(); }
 });
 
-for (const [name, faults] of [
-  ['close', { closeFails: true }],
-  ['attachment', { attachFails: true }],
-  ['write', { writeFails: true }],
-  ['both cleanup and attachment', { closeFails: true, attachFails: true }],
+for (const { name, faults } of [
+  { name: 'close', faults: { closeFails: true } },
+  { name: 'attachment', faults: { attachFails: true } },
+  { name: 'write', faults: { writeFails: true } },
+  { name: 'both cleanup and attachment', faults: { closeFails: true, attachFails: true } },
 ]) test(`an existing primary owner failure cannot be replaced by ${name} qualification failure`, async () => {
   const f = qualificationFixture(faults);
   try {
