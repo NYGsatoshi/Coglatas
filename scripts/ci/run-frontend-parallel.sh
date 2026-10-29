@@ -28,7 +28,16 @@ run_storybook() {
   NODE_OPTIONS=--max-old-space-size=4096 npm --prefix frontend run build-storybook
 }
 
-run_playwright() { npm run test:ui:angular:docker; }
+run_playwright() {
+  # Hosted full static UI suite only. The Compose runner performs additional
+  # exact-build and suite-boundary checks before passing --workers=2 to Playwright.
+  # Local runs and every other browser acceptance lane remain single-worker.
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    COGLATAS_STATIC_PLAYWRIGHT_WORKERS=2 npm run test:ui:angular:docker
+  else
+    npm run test:ui:angular:docker
+  fi
+}
 
 enabled "${FRONTEND_BUILD:-false}" && ci_parallel_start frontend-build run_build
 enabled "${FRONTEND_UNIT:-false}" && ci_parallel_start frontend-unit run_unit
