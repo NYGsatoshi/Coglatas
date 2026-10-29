@@ -196,14 +196,23 @@ jobs:
           --target "$RUNNER_TEMP/sonar-coverage-tools"
           -r scripts/ci/sonar-coverage-requirements.txt
 
-      - name: Measure coverage evidence controls without analysis credentials
+      - name: Measure existing CI regression controls without analysis credentials
         env:
           PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
           COVERAGE_FILE: ${{ runner.temp }}/sonar-python.coverage
           COVERAGE_CORE: pytrace
         run: |
-          python3 -B -m coverage run --branch --include=scripts/ci/verify-sonar-dotnet-coverage.py \
-            scripts/ci/test-sonar-dotnet-coverage.py
+          set -euo pipefail
+          python_subjects="scripts/ci/verify-sonar-dotnet-coverage.py,scripts/security/finding_policy.py,scripts/ci/run-sec04-deep-ci.py,scripts/ci/mbj02-trx-receipt.py,scripts/ci/functional_diagnostics.py,scripts/ci/thread_probe_diagnostics.py"
+          python3 -B -m coverage erase
+          for control in \
+            scripts/ci/test-sonar-dotnet-coverage.py \
+            tests/ci/test_security_finding_policy.py \
+            tests/ci/test_sec04_deep_ci.py \
+            scripts/ci/test-mbj02-trx-receipt.py \
+            scripts/ci/test-functional-diagnostics.py; do
+            python3 -B -m coverage run --branch --append --include="$python_subjects" "$control"
+          done
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
 
       - name: Set up repository frontend Node version
@@ -217,16 +226,24 @@ jobs:
       - name: Install frontend dependencies without analysis credentials
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
-      - name: Measure actual Functional selector Node controls before credentials
+      - name: Install existing reporter dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh .
+
+      - name: Measure existing Functional and roster Node controls before credentials
         run: |
           mkdir -p artifacts/sonar-node
           node --test --experimental-test-coverage \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
-            tests/functional/build-functional-grep.node-test.mjs
+            tests/functional/build-functional-grep.node-test.mjs \
+            tests/functional/functional-diagnostics.node-test.mjs \
+            tests/functional/messaging-observation.node-test.mjs \
+            tests/functional/thread-initial-observation.node-test.mjs \
+            tests/functional/thread-probe-observation.node-test.mjs \
+            tests/ui/readonly-roster-runner.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
 
-      - name: Retain measured Node selector coverage
+      - name: Retain measured Node regression coverage
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
