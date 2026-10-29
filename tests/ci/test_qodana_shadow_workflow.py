@@ -44,6 +44,16 @@ def assert_shadow_contract(source: str) -> None:
     if not re.search(r"(?m)^permissions:\n  contents: read\n", source):
         raise ValueError("Top-level token scope broadened")
 
+    # Invalid `${ ... }` is not a GitHub expression and GitHub rejects the
+    # entire workflow before any job is scheduled.
+    if source.count("if: ${{ github.event_name == 'push'") != 3:
+        raise ValueError("Expected complete GitHub if-expression delimiters")
+    for line in source.splitlines():
+        key = line.lstrip().split(":", 1)[0]
+        if key in {"if", "group", "results-dir", "subject-path", "path",
+                   "SARIF", "QODANA_PROJECT_MODEL_SUMMARY_PATH", "GH_TOKEN"}:
+            if "${" in line and "${{" not in line:
+                raise ValueError("Malformed GitHub expression delimiter")
     jobs = sections(source)
     prod = jobs["shadow-producer"]
     sign = jobs["shadow-attestor"]
@@ -117,6 +127,10 @@ class QodanaSignedShadowContractTests(unittest.TestCase):
         self.assertEqual(pin["version"], "v4.2.2")
         self.assertIs(pin["privilegedAllowed"], True)
 
+    def test_missing_expression_brace_rejected(self):
+        damaged = self.source.replace("if: ${{ github.event_name", "if: ${ github.event_name", 1)
+        with self.assertRaises(ValueError):
+            assert_shadow_contract(damaged)
     def test_repository_identity_and_signer_guard_cannot_be_removed(self):
         cases = [
             ("github.repository_id == '1261244608'", "true"),
