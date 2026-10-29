@@ -17,13 +17,23 @@ type Member = { userId: string; displayName: string; role: number; canRead: bool
 type OwnState = { participantId: string; userId: string; conversationId: string;
   unreadCount: number; lastReadMessageId: string | null };
 
+/** Require a real selected scope before the helper can save restoration intent. */
+export async function readGroupRestorationWorkspace(manager: Page): Promise<string> {
+  const switcher = manager.getByTestId('workspace-switcher');
+  // Reauthorization hides the protected header scope until its fresh list settles.
+  await expect(switcher).toBeEnabled();
+  await expect(switcher).toHaveValue(/^[0-9a-f-]{36}$/i);
+  const workspaceId = await switcher.inputValue();
+  expect(workspaceId).toMatch(/^[0-9a-f-]{36}$/i);
+  return workspaceId;
+}
+
 /** Real Angular Group commands in an isolated Workspace; no intercepted responses. */
 export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
   const origin = new URL(fixture.baseURL).origin;
   expect(new URL(manager.url()).origin).toBe(origin);
   const originalUrl = manager.url();
-  const originalWorkspaceId = await manager.getByTestId('workspace-switcher').inputValue();
-  expect(originalWorkspaceId).toMatch(/^[0-9a-f-]{36}$/i);
+  const originalWorkspaceId = await readGroupRestorationWorkspace(manager);
   const browser = manager.context().browser();
   expect(browser).not.toBeNull();
   const device = fixture.mobileMvp0 ? mobileMvp0Device : {};
