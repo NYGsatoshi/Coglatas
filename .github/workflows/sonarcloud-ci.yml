@@ -223,7 +223,9 @@ jobs:
           node --test --experimental-test-coverage \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
-            tests/functional/build-functional-grep.node-test.mjs
+            tests/functional/build-functional-grep.node-test.mjs \
+            tests/ui/mobile-mvp0-profile.node-test.mjs \
+            tests/ui/mobile-mvp0-runner.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
 
       - name: Retain measured Node selector coverage

@@ -4966,14 +4966,19 @@ async function openProjectTaskDetail(page: Page, evidence: SmokeEvidence) {
   await expect(page.getByTestId('project-detail-page')).toBeVisible();
   await page.getByRole('tab', { name: 'List', exact: true }).click();
 
-  const taskRow = page.locator('[role="row"]').filter({ hasText: smokeTaskTitle }).first();
+  const nativeMobile = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1';
+  const profile = nativeMobile ? 'mobile' : 'desktop';
+  const taskRow = nativeMobile
+    ? page.getByTestId(`task-state-card-${evidence.taskId}-mobile`).filter({ hasText: smokeTaskTitle })
+    : page.locator('[role="row"]').filter({ hasText: smokeTaskTitle }).first();
+  if (nativeMobile) await expect(taskRow).toHaveCount(1);
   await expect(taskRow).toBeVisible();
-  await expect(page.getByTestId(`task-stage-name-${evidence.taskId}-desktop`))
+  await expect(page.getByTestId(`task-stage-name-${evidence.taskId}-${profile}`))
     .toHaveText(String(task!.workflowStageName));
-  await expect(page.getByTestId(`task-category-${evidence.taskId}-desktop`)).toBeVisible();
-  await expect(page.getByTestId(`task-blocked-${evidence.taskId}-desktop`)).toHaveText('Not blocked');
-  await expect(page.getByTestId(`task-artifact-${evidence.taskId}-desktop`)).toHaveText('Artifact available');
-  await expect(page.getByTestId(`task-updated-${evidence.taskId}-desktop`).locator('time'))
+  await expect(page.getByTestId(`task-category-${evidence.taskId}-${profile}`)).toBeVisible();
+  await expect(page.getByTestId(`task-blocked-${evidence.taskId}-${profile}`)).toHaveText('Not blocked');
+  await expect(page.getByTestId(`task-artifact-${evidence.taskId}-${profile}`)).toHaveText('Artifact available');
+  await expect(page.getByTestId(`task-updated-${evidence.taskId}-${profile}`).locator('time'))
     .toHaveAttribute('datetime', taskTimestamp);
   await clickTaskOpenDetail(page, taskRow);
 
@@ -5277,6 +5282,13 @@ async function logoutAndVerifyAccessRevoked(page: Page, evidence: SmokeEvidence)
   // Assert the actual rendered public UI and browser location instead of
   // Playwright's document-navigation observer: this is an in-document Angular
   // route, not a new document request.
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(utilities).toBeVisible();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await utilities.click();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+  }
   const logoutResponse = waitForApiResponse(page, 'POST', '/api/auth/logout');
   await page.getByTestId('logout-action').click();
   const response = await logoutResponse;

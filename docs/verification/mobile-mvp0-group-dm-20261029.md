@@ -114,3 +114,34 @@ was independently hashed and parsed: exact source/tree/run/attempt, statusFAIL,
 retry0, bounded source location, no profile receipt and no qualified image.
 No raw assertion/message value was published. A fresh new-source first attempt
 is required; this failure is not rerun or promoted to acceptance.
+
+
+## First064 attempt, partial Group execution and Task cards
+
+Source `064b3b221937deab2ee39e8bbcbe12abb117ad23`, tree
+`2719f8f60ecfa2b73b55ca8a01089052fba33d63`, actual40822397195/1,
+job123277604414, passed14 guards and finished the Group helper, including its
+cleanup, before the enclosing scenario FAILED/retry0 at
+`real-backend-smoke.spec.ts:4970`. The Project Task helper sought a Desktop row
+and Desktop field IDs on the already-rendered Mobile cards. The explicit profile
+now selects the unique named/id-bound existing Mobile Task card and the same
+stage/category/blocking/artifact/time/detail controls. Desktop behavior remains.
+The selected logout helper also opens the existing narrow utility panel before
+the same logout command and unauthorized/session-cookie assertions. This follows
+the verified current TopBar toggle contract; no auth command or timeout is changed.
+
+Independently parsed failure artifact12875715905 (827bytes), SHA-256
+`5deb8bad7f66378e56dee1d6c412400d73ef9011d12ae6a3a0d7df88639832eb`,
+binds source/tree/run/attempt, statusFAIL/retry0. Its profile receipt, written only
+after the Group helper returns, contains four actual320x800/screen320x800/scale1/
+touch1 actor geometries. This is useful partial execution evidence; the complete
+MVP0/image qualification is still absent and is not promoted to acceptance.
+
+Existing14 real-wrapper/device/privacy tests were measured with Node's native
+LCOV reporter: profile36/36 lines and29/29 branches; wrapper87/91 lines and33/37
+branches. The prior CI collection measured only the functional selector, so it
+could not import these new operational subjects. Both existing Mobile test suites
+are now added to that same collection, retaining the selector and all analysis
+scope/thresholds. No test body is imported to inflate Product coverage. This local
+instrumentation does not establish Main New Code80%, ReliabilityA or SecurityA.
+New-source hosted first-attempt acceptance, official Gate and review are required.
