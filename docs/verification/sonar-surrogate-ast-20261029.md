@@ -38,3 +38,16 @@ qualification and complete analysis observation; absence of this one warning
 does not prove complete Taint analysis, SecurityA,80%coverage or release approval.
 The Announcement alias repair, shell-parser warnings and all formal/FCI06/Owner
 holds remain separate. STUDENT_COUNCIL_PILOT = RELEASE_NO_GO.
+
+## Local source freeze
+
+Equivalence was independently checked at candidate
+`e34d3d4aabd3efe396ea5e7bebca27682d346112`. The normalized original test
+source SHA-256 is`43536a7659fd3ee17037baefe7fdca7cd2644c15cd8072ed2ff09a8019d40ff5`;
+the equivalent candidate source is`5d2b64a736531ce4a2f7c78a1cfa92f901df61f0d6b5ace38a5e7a3084c54169`.
+The metadata-only local receipt SHA-256 is
+`1443cf7799f666c7f0281631115e918f0bcc4d91e657cc17bf21dd9962a19959`. The eight strings and112UTF-16 units
+are byte-identical, including the invalid surrogates and NULs. These hashes
+identify local equivalence only; hosted Angular and AST-consumer qualification
+remain pending. The following documentation commit does not change the
+qualified test-source bytes.
