@@ -17,11 +17,12 @@ export function assertMobileMvp0Profile(project, retry, enabled = process.env.CO
 }
 
 export function validateMobileMvp0Actors(receipt) {
-  if (receipt.project !== mobileMvp0Project || receipt.retry !== 0 || !receipt.actors ||
-      Object.keys(receipt.actors).sort().join(',') !== 'manager,newcomer,recipient,third') {
+  const actors = receipt.actors, required = ['manager', 'recipient', 'third', 'newcomer'];
+  if (receipt.project !== mobileMvp0Project || receipt.retry !== 0 || !actors ||
+      Object.keys(actors).length !== required.length || required.some(name => !Object.hasOwn(actors, name))) {
     throw new Error('MVP0 Mobile requires exactly four verified actor profiles.');
   }
-  for (const actual of Object.values(receipt.actors)) {
+  for (const actual of Object.values(actors)) {
     if (actual.width !== 320 || actual.height !== 800 || actual.screenWidth !== 320 ||
         actual.screenHeight !== 800 || actual.scale !== 1 || actual.touchPoints !== 1) {
       throw new Error('An actor was not verified at the native narrow touch profile.');

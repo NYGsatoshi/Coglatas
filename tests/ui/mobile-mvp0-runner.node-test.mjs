@@ -38,26 +38,26 @@ function fixture() {
   return { io, files, calls, logs, profiles };
 }
 
-test('actual wrapper path requires one successful Compose execution and fresh four-actor receipts', async () => {
+await test('actual wrapper path requires one successful Compose execution and fresh four-actor receipts', async () => {
   const f = fixture(); assert.equal(await runMobileMvp0(f.io), 0);
   assert.equal(f.calls.filter(x => x === 'compose').length, 1);
   assert.equal(f.calls.filter(x => x === 'docker').length, 1);
   assert.deepEqual(JSON.parse(f.files.get(`${dir}/execution.json`)), { status: 'PASS', sourceSha: sha, treeSha: tree,
     runId: '123', attempt: 1, retries: 0, requiredCases: 1, verifiedActors: 4, imageDigest: image, junitCases: 1 });
 });
-test('conflicting roster selection with stale receipts never calls Docker, executes or overwrites evidence', async () => {
+await test('conflicting roster selection with stale receipts never calls Docker, executes or overwrites evidence', async () => {
   const f = fixture(); f.io.environment.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER = '1';
   f.files.set(junit, 'OLD_JUNIT'); f.files.set(`${dir}/profile.json`, 'OLD_PROFILE');
   const before = [...f.files]; assert.equal(await runMobileMvp0(f.io), 1);
   assert.deepEqual(f.calls, []); assert.deepEqual([...f.files], before);
 });
-test('each prior receipt is rejected independently before execution or overwriting', async () => {
+await test('each prior receipt is rejected independently before execution or overwriting', async () => {
   for (const path of [junit, ...['source-sha', 'profile.json', 'execution.json'].map(x => `${dir}/${x}`)]) {
     const f = fixture(); f.files.set(path, 'PRESERVE');
     assert.equal(await runMobileMvp0(f.io), 1); assert.deepEqual(f.calls, []); assert.equal(f.files.size, 1); assert.equal(f.files.get(path), 'PRESERVE');
   }
 });
-test('source mismatch, dirty tree, wrong directory and reused build cannot qualify', async () => {
+await test('source mismatch, dirty tree, wrong directory and reused build cannot qualify', async () => {
   for (const mutate of [f => { f.io.environment.TARGET_SHA = '4'.repeat(40); },
     f => { f.io.environment.COGLATAS_REUSE_PREBUILT_APP_IMAGE = '1'; },
     f => { f.io.cwdMatchesSource = () => false; },
@@ -65,24 +65,24 @@ test('source mismatch, dirty tree, wrong directory and reused build cannot quali
     const f = fixture(); mutate(f); assert.equal(await runMobileMvp0(f.io), 1); assert.equal(f.calls.includes('compose'), false);
   }
 });
-test('undefined or failed actual execution cannot reach receipt or image acceptance', async () => {
+await test('undefined or failed actual execution cannot reach receipt or image acceptance', async () => {
   for (const result of [undefined, 1]) {
     const f = fixture(); f.io.runCompose = async () => { f.calls.push('compose'); return result; };
     assert.equal(await runMobileMvp0(f.io), 1); assert.equal(f.calls.includes('docker'), false);
     assert.notEqual(JSON.parse(f.files.get(`${dir}/execution.json`)).status, 'PASS');
   }
 });
-test('successful command without newly generated case/profile cannot reuse a pass', async () => {
+await test('successful command without newly generated case/profile cannot reuse a pass', async () => {
   const f = fixture(); f.io.runCompose = async () => 0;
   assert.equal(await runMobileMvp0(f.io), 1); assert.equal(f.calls.includes('docker'), false);
 });
-test('extra cases or a Desktop actor fail before image acceptance', async () => {
+await test('extra cases or a Desktop actor fail before image acceptance', async () => {
   for (const mutate of [f => { f.io.verifyPlaywrightRequiredTests = async () => ({ requiredCount: 1, discoveredCaseCount: 2 }); },
     f => { f.profiles.actors.third.width = 1280; }]) {
     const f = fixture(); mutate(f); assert.equal(await runMobileMvp0(f.io), 1); assert.equal(f.calls.includes('docker'), false);
   }
 });
-test('invalid image cannot qualify and private failure text is never published', async () => {
+await test('invalid image cannot qualify and private failure text is never published', async () => {
   const f = fixture(); const original = f.io.execFileSync;
   f.io.execFileSync = (cmd,args,opts) => cmd === 'docker' ? 'bad-image' : original(cmd,args,opts);
   assert.equal(await runMobileMvp0(f.io), 1);
@@ -90,7 +90,7 @@ test('invalid image cannot qualify and private failure text is never published',
   assert.equal(f.logs.some(x => x.includes('bad-image')), false);
 });
 
-test('real Git rejects an untracked application build input and still admits clean source with ignored evidence', async t => {
+await test('real Git rejects an untracked application build input and still admits clean source with ignored evidence', async t => {
   const folder = await realpath(await mkdtemp(path.join(os.tmpdir(), 'coglatas-mobile-source-')));
   const tempRoot = await realpath(os.tmpdir());
   const assertOwned = () => { assert.ok(folder.startsWith(tempRoot + path.sep)); assert.ok(path.basename(folder).startsWith('coglatas-mobile-source-')); };
@@ -129,7 +129,7 @@ test('real Git rejects an untracked application build input and still admits cle
   assert.notEqual(JSON.parse(blocked.files.get(`${dir}/execution.json`)).status, 'PASS');
 });
 
-test('custom Git installations require explicit absolute configuration without PATH fallback', () => {
+await test('custom Git installations require explicit absolute configuration without PATH fallback', () => {
   const alternate = process.platform === 'win32' ? 'D:\\ApprovedTools\\Git\\cmd\\git.exe' : '/opt/approved-git/bin/git';
   assert.equal(fixtureGitExecutable(alternate), alternate);
   for (const value of ['', 'git', '../git', './git']) assert.throws(() => fixtureGitExecutable(value), /absolute path/);

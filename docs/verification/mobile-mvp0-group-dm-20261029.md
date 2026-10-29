@@ -233,3 +233,20 @@ Own18 plus existing22 controls total40. Default and explicit local paths,
 syntax/import and focused regressions are locally checked; hosted Ubuntu/native
 acceptance/current-source official rescan remain required. Do not call the
 finding fixed until those relevant gates pass. The original3b GateFAIL remains.
+
+
+## Current-source reliability findings
+
+PR3b issueAaGGZyjDUqRjp4F6GzSD/javascript:S2871 reports the default sort used
+only to compare the four fixed fixture actor keys. This is set identity, not a
+user-facing alphabetical order: replace sorting with exact own-key count and
+required-key membership. Equal-sized replacement and inherited-key negatives
+retain fail-closed semantics; localeCompare would add irrelevant locale behavior.
+The17unawaited node:test registrations are now explicitly awaited, including the
+new custom-executable control. Node's runner already tracks registered tests;
+no lost historical test failure is inferred. Existing acceptance assertions,
+first-attempt/retry0/deadlines and default Desktop/canonical behavior stay intact.
+Own18 plus existing22 controls remain40/40locally. Fresh hosted source-bound
+CI/native acceptance/official Gate/review required. The3b59.2%/D/B GateFAIL is
+not removed or called resolved by these local results. #1520 separately corrects
+only test-body coverage classification; actual operational gaps remain visible.
