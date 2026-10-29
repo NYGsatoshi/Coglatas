@@ -513,7 +513,7 @@ class CallerMainControlsTests(unittest.TestCase):
         self.assertEqual(stages[-1][1]['COGLATAS_SECURITY_RUNTIME_FAILED'], 'false')
 
     def test_remote_docker_and_target_budget_overrides_never_reach_child_commands(self):
-        code, result, calls, retained, output, errors = self.exercise()
+        code, _, calls, _, _, _ = self.exercise()
         self.assertEqual(code, 0)
         for args, environment in calls:
             if args[0] == 'docker':
@@ -532,7 +532,7 @@ class CallerMainControlsTests(unittest.TestCase):
                  {'GITHUB_RUN_ID': '0'}, {'GITHUB_RUN_ATTEMPT': '01'}, {'COGLATAS_SECURITY_CI_PASSWORD': ''}]
         for changes in cases:
             with self.subTest(changes=tuple(changes)):
-                code, result, calls, retained, output, errors = self.exercise(changes=changes)
+                code, result, calls, retained, _, _ = self.exercise(changes=changes)
                 self.assertEqual(code, 1)
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual(result['phase'], 'ADMISSION')
@@ -541,7 +541,7 @@ class CallerMainControlsTests(unittest.TestCase):
 
     def test_existing_qualification_push_still_requires_complete_native_evidence(self):
         changes = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': caller.QUALIFICATION_BRANCH}
-        code, result, calls, retained, output, errors = self.exercise(changes=changes)
+        code, result, _, _, _, _ = self.exercise(changes=changes)
         self.assertEqual(code, 0)
         self.assertEqual(result['status'], 'PASS')
         self.assertEqual(set(result['execution']['roles']), set(caller.ROLES))
@@ -553,7 +553,7 @@ class CallerMainControlsTests(unittest.TestCase):
         self.assertEqual(set(result['stageExitCodes'].values()), {0})
 
     def test_extra_cli_arguments_are_not_an_override_channel(self):
-        code, result, calls, retained, output, errors = self.exercise(arguments=['synthetic-caller', CANARY])
+        code, result, calls, _, _, _ = self.exercise(arguments=['synthetic-caller', CANARY])
         self.assertEqual(code, 1)
         self.assertEqual(calls, [])
         self.assertEqual(result['failureCategory'], 'CALLER_REJECTED')
@@ -561,14 +561,14 @@ class CallerMainControlsTests(unittest.TestCase):
     def test_source_tree_and_dirty_source_fail_before_build_or_runtime(self):
         for fault in ('source-mismatch', 'invalid-tree', 'dirty-source'):
             with self.subTest(fault=fault):
-                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                code, result, calls, _, _, _ = self.exercise(fault=fault)
                 self.assertEqual(code, 1)
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual(result['failureCategory'], 'PREPARATION_FAILED')
                 self.assertFalse(any(args[0] in ('docker', 'bash') for args, env in calls))
 
     def test_build_failure_cannot_start_scanners(self):
-        code, result, calls, retained, output, errors = self.exercise(fault='build')
+        code, result, calls, _, _, _ = self.exercise(fault='build')
         self.assertEqual(code, 1)
         self.assertEqual(result['commandExitCodes']['BUILD_IMAGE'], 23)
         self.assertFalse(any(args[:2] == ['bash', caller.RUNTIME] for args, env in calls))
@@ -576,7 +576,7 @@ class CallerMainControlsTests(unittest.TestCase):
     def test_stage_and_cleanup_failures_preserve_first_codes_and_never_grant_acceptance(self):
         for fault, expected in [('sec04', 17), ('cleanup', 23)]:
             with self.subTest(fault=fault):
-                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                code, result, calls, retained, _, _ = self.exercise(fault=fault)
                 self.assertEqual(code, 1)
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual(result['stageExitCodes'][fault], expected)
@@ -588,7 +588,7 @@ class CallerMainControlsTests(unittest.TestCase):
     def test_missing_native_or_source_change_cannot_inherit_successful_stage_exits(self):
         for fault in ('missing-native', 'changed-binding', 'dirty-after'):
             with self.subTest(fault=fault):
-                code, result, calls, retained, output, errors = self.exercise(fault=fault)
+                code, result, _, retained, _, _ = self.exercise(fault=fault)
                 self.assertEqual(code, 1)
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertEqual(set(result['stageExitCodes']), {'prepare', 'sec03', 'sec04', 'cleanup'})
@@ -597,7 +597,7 @@ class CallerMainControlsTests(unittest.TestCase):
                 self.assertEqual(retained, result)
 
     def test_publication_failure_is_nonzero_without_published_flag_or_private_error(self):
-        code, result, calls, retained, output, errors = self.exercise(fault='publish')
+        code, _, _, retained, output, errors = self.exercise(fault='publish')
         self.assertEqual(code, 1)
         self.assertIsNone(retained)
         self.assertEqual(output, '')

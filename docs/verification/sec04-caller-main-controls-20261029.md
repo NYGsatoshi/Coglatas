@@ -28,3 +28,7 @@ The unit fixture intercepts every child command; no real Docker, registry, scann
 - Current exact Sonar source/scope/AST controls:11PASS, including pure-unit classification and operational CLI/import retention. Test-body coverage classification, source/rule analysis and thresholds are unchanged.
 
 Fresh protected CI/native analysis, official Gate, independent review, normal merge and resulting Main qualification are required. All historical failures, formal security/model/RLS/Recovery/staging/admission holds and STUDENT_COUNCIL_PILOT=RELEASE_NO_GO remain.
+
+## Observed native quality follow-up
+
+The original 6093 native analysis job 123591826190 was SKIPPED. The next 56ce analysis ran and official Gate 123615361815 passed, but reported 26 Low Maintainability `python:S1481` issues in new tuple bindings (lines 516, 535, 544, 556, 564, 571, 579, 591 and 600; provider keys AaGIs1PCIAhmcECsAX_B through AX_a). Current-code AST/liveness checks confirm these 26 bindings are unused and no affected method introspects locals. Replace only those discarded bindings with the ordinary underscore discard. The resulting AST differs only in these 26 Store names; all assertions, controls, fixture calls and production behavior are preserved. No provider dismissal, suppression, source exclusion, rule or threshold change. Fresh tests, analysis and current-source review remain required.
