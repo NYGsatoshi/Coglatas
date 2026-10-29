@@ -420,9 +420,12 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(opener).toBeVisible();
     const openerBounds = await opener.boundingBox();
     const headerBounds = await header.boundingBox();
-    expect(openerBounds?.width ?? 0).toBeGreaterThanOrEqual(24);
-    expect(openerBounds?.height ?? 0).toBeGreaterThanOrEqual(24);
-    expect(openerBounds?.top ?? 0).toBeGreaterThanOrEqual(headerBounds?.bottom ?? 0);
+    if (openerBounds === null || headerBounds === null) {
+      throw new Error('Visible audit opener and header must expose native bounds.');
+    }
+    expect(openerBounds.width).toBeGreaterThanOrEqual(24);
+    expect(openerBounds.height).toBeGreaterThanOrEqual(24);
+    expect(openerBounds.y).toBeGreaterThanOrEqual(headerBounds.y + headerBounds.height);
     const originalScrollTop = await bodyViewport.evaluate((element) => element.scrollTop);
     await opener.click();
     await expect(page.getByTestId('audit-detail-drawer')).toBeVisible();
