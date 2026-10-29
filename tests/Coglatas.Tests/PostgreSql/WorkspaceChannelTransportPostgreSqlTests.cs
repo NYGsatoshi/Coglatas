@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Coglatas.Application.Realtime;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -118,6 +119,200 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
             await AssertBodyDeniedAsync(memberClient, scope, rootMessage);
             await AssertCatchUpAsync(ownerClient, scope, rootMessage, revoked.Message);
         });
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    [Trait("Scope", "SEC17")]
+    public async Task PrivateChannelThreadReplyAndReplayRequireCurrentConversationMembership()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug,
+                SecurityCiFixtureSeed.TenantAOwnerEmail);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
+                SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var betaClient = await app.LoginAsync("beta", SecurityCiFixtureSeed.TenantBSlug,
+                SecurityCiFixtureSeed.TenantBOwnerEmail);
+            var workspaceScope = await CreateCanonicalScopeAsync(ownerClient, database);
+            var route = $"/api/workspaces/{workspaceScope.Workspace:D}/chat-channels";
+            Guid conversation;
+            using (var request = new HttpRequestMessage(HttpMethod.Post, route))
+            {
+                request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+                request.Content = JsonContent.Create(new
+                {
+                    name = "Synthetic protected Thread " + Guid.NewGuid().ToString("N"), visibility = "Private"
+                });
+                using var created = await ownerClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+                using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+                conversation = json.RootElement.GetProperty("id").GetGuid();
+                Assert.Equal("Private", json.RootElement.GetProperty("visibility").GetString());
+            }
+            var scope = new ChannelScope(workspaceScope.Tenant, workspaceScope.Workspace, conversation);
+            var invitationRoute = $"{route}/{conversation:D}/members";
+            using (var invited = await ownerClient.PostAsJsonAsync(invitationRoute,
+                new { userId = SecurityCiFixtureSeed.TenantAMemberUserId }))
+                Assert.Equal(HttpStatusCode.OK, invited.StatusCode);
+            await SettleThreadAuthorizationAsync(app, database);
+
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var beta = await app.ConnectAsync(betaClient, "beta", SecurityCiFixtureSeed.TenantBSlug);
+            await SubscribeAsync(owner, conversation);
+            await SubscribeAsync(member, conversation);
+            await AssertSubscriptionDeniedAsync(beta, conversation);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var root = await PostMessageAsync(ownerClient, database, scope);
+            await AssertDeliveredAsync(app, root.Event, "Messaging.MessageCreated.v1", owner, member);
+            var before = await PostReplyAsync(memberClient, database, root.Message);
+            var beforeThread = await LatestEventAsync(database, "Messaging.ThreadChanged.v1", root.Message);
+            await AssertDeliveredAsync(app, before.Event, "Messaging.MessageCreated.v1", owner, member);
+            await AssertDeliveredAsync(app, beforeThread, "Messaging.ThreadChanged.v1", owner, member);
+            await AssertPrivateThreadReplyAsync(memberClient, scope, root.Message, before.Message);
+
+            using (var removed = await ownerClient.DeleteAsync(
+                $"/api/conversations/{conversation:D}/members/{SecurityCiFixtureSeed.TenantAMemberUserId:D}"))
+                Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+            await SettleThreadAuthorizationAsync(app, database);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                Assert.True(await db.WorkspaceMembers.AsNoTracking().AnyAsync(row =>
+                    row.WorkspaceId == scope.Workspace && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
+                    row.Status == MembershipStatus.Active));
+                var removed = await db.ConversationMembers.AsNoTracking().SingleAsync(row =>
+                    row.ConversationId == conversation && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                Assert.NotNull(removed.LeftAt);
+                Assert.NotNull(removed.RemovedAt);
+            }
+            Assert.True(await member.SubscribeAsync("SubscribeWorkspace", scope.Workspace));
+            await AssertSubscriptionDeniedAsync(member, conversation);
+            await AssertBodyDeniedAsync(memberClient, scope, root.Message);
+            var beforeDenied = await ThreadWriteCountsAsync(database, scope, root.Message);
+            var deniedRequest = Guid.NewGuid();
+            using (var deniedReply = await memberClient.PostAsJsonAsync($"/api/messages/{root.Message:D}/thread/messages",
+                new { body = "Synthetic protected denied reply", clientRequestId = deniedRequest }))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, deniedReply.StatusCode);
+                using var error = JsonDocument.Parse(await deniedReply.Content.ReadAsStringAsync());
+                Assert.Single(error.RootElement.EnumerateObject());
+                Assert.Equal("Message thread not found.", error.RootElement.GetProperty("error").GetString());
+            }
+            var afterDenied = await ThreadWriteCountsAsync(database, scope, root.Message);
+            Assert.Equal(beforeDenied.Messages, afterDenied.Messages);
+            Assert.Equal(beforeDenied.Events, afterDenied.Events);
+            Assert.Equal(beforeDenied.SuccessAudits, afterDenied.SuccessAudits);
+            Assert.Equal(beforeDenied.DeniedAudits + 1, afterDenied.DeniedAudits);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                Assert.False(await db.Messages.AsNoTracking().AnyAsync(row => row.ClientRequestId == deniedRequest));
+
+            var after = await PostReplyAsync(ownerClient, database, root.Message);
+            var afterThread = await LatestEventAsync(database, "Messaging.ThreadChanged.v1", root.Message);
+            await AssertDeliveredAsync(app, after.Event, "Messaging.MessageCreated.v1", owner);
+            await AssertDeliveredAsync(app, afterThread, "Messaging.ThreadChanged.v1", owner);
+            await AssertExcludedAsync(member, after.Event, afterThread);
+            await AssertExcludedAsync(beta, after.Event, afterThread);
+            foreach (var (id, type) in new[] { (after.Event, "Messaging.MessageCreated.v1"),
+                         (afterThread, "Messaging.ThreadChanged.v1") })
+            {
+                controls.ObserveIsolation(type, RealtimeSubscriptionType.Conversation,
+                    "PRIVATE_REMOVED_MEMBER_THREAD_DELIVERY", owner, id, member, id);
+                controls.ObserveIsolation(type, RealtimeSubscriptionType.Conversation,
+                    "PRIVATE_THREAD_CROSS_TENANT", owner, id, beta, id);
+            }
+
+            await using var fresh = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await fresh.SubscribeAsync("SubscribeWorkspace", scope.Workspace));
+            await AssertSubscriptionDeniedAsync(fresh, conversation);
+            // Replay a business-produced reply and Thread hint previously received
+            // by the removed member. Counts must stay fixed on that live socket.
+            var priorMemberReplyCount = member.DeliveryCount(before.Event);
+            var priorMemberThreadCount = member.DeliveryCount(beforeThread);
+            Assert.True(priorMemberReplyCount > 0);
+            Assert.True(priorMemberThreadCount > 0);
+            await ReplayThreadEventsAsync(app, database, owner, before.Event, beforeThread);
+            Assert.True(await member.SubscribeAsync("SubscribeUser"));
+            Assert.Equal(priorMemberReplyCount, member.DeliveryCount(before.Event));
+            Assert.Equal(priorMemberThreadCount, member.DeliveryCount(beforeThread));
+            await AssertExcludedAsync(fresh, before.Event, beforeThread);
+            await AssertExcludedAsync(beta, before.Event, beforeThread);
+            controls.ObserveIsolation("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation,
+                "PRIVATE_REPLY_REPLAY_AFTER_REMOVAL_RECONNECT", owner, before.Event, fresh, before.Event);
+            controls.ObserveIsolation("Messaging.ThreadChanged.v1", RealtimeSubscriptionType.Conversation,
+                "PRIVATE_THREAD_REPLAY_AFTER_REMOVAL_RECONNECT", owner, beforeThread, fresh, beforeThread);
+
+            // Current invitation, rather than a retained session or old event ID,
+            // restores read/subscription authority and both replay deliveries.
+            using (var invited = await ownerClient.PostAsJsonAsync(invitationRoute,
+                new { userId = SecurityCiFixtureSeed.TenantAMemberUserId }))
+                Assert.Equal(HttpStatusCode.OK, invited.StatusCode);
+            await SettleThreadAuthorizationAsync(app, database);
+            await SubscribeAsync(member, conversation);
+            await SubscribeAsync(owner, conversation);
+            await AssertPrivateThreadReplyAsync(memberClient, scope, root.Message, after.Message);
+            await ReplayThreadEventsAsync(app, database, owner, before.Event, beforeThread);
+            await member.WaitEventAsync(before.Event, priorMemberReplyCount + 1);
+            await member.WaitEventAsync(beforeThread, priorMemberThreadCount + 1);
+            controls.ObservePositive("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation,
+                "CURRENT_PRIVATE_REINVITATION_REPLY_REPLAY", member, before.Event);
+            controls.ObservePositive("Messaging.ThreadChanged.v1", RealtimeSubscriptionType.Conversation,
+                "CURRENT_PRIVATE_REINVITATION_THREAD_REPLAY", member, beforeThread);
+            await controls.SaveAsync();
+        });
+    }
+
+    private static async Task AssertPrivateThreadReplyAsync(HttpClient client, ChannelScope scope, Guid root, Guid reply)
+    {
+        await AssertCatchUpAsync(client, scope, root, root);
+        using var response = await client.GetAsync($"/api/messages/{root:D}/thread?anchorReplyMessageId={reply:D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(root, json.RootElement.GetProperty("rootMessage").GetProperty("id").GetGuid());
+        // A boolean assertion keeps protected DTO bodies out of failure output.
+        var expectedReplyObserved = json.RootElement.GetProperty("replies").EnumerateArray().Any(row =>
+            row.GetProperty("id").GetGuid() == reply && row.GetProperty("threadRootMessageId").GetGuid() == root);
+        Assert.True(expectedReplyObserved, "The authorized Thread response must include the expected scoped reply.");
+    }
+
+    private static async Task<(int Messages, int Events, int SuccessAudits, int DeniedAudits)> ThreadWriteCountsAsync(
+        string database, ChannelScope scope, Guid root)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        return (await db.Messages.CountAsync(row => row.ConversationId == scope.Conversation),
+            await db.OutboxEvents.CountAsync(row => row.TenantId == scope.Tenant &&
+                (row.EventType == "Messaging.MessageCreated.v1" || row.EventType == "Messaging.ThreadChanged.v1")),
+            await db.AuditLogs.CountAsync(row => row.WorkspaceId == scope.Workspace &&
+                (row.Action == "communication.message_posted" || row.Action == "communication.thread_reply_posted")),
+            await db.AuditLogs.CountAsync(row => row.EntityId == root && row.Action == "MessageThreadReplyDenied"));
+    }
+
+    private static async Task SettleThreadAuthorizationAsync(SecurityArchitectureSignalRFixture app, string database)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var ids = await db.OutboxEvents.AsNoTracking().Where(row => row.EventType == "Security.AuthorizationStateChanged.v1")
+            .Select(row => row.Id).ToArrayAsync();
+        foreach (var id in ids) await app.WaitDeliveredAsync(id);
+    }
+
+    private static async Task ReplayThreadEventsAsync(SecurityArchitectureSignalRFixture app, string database,
+        RealtimeSocket owner, params Guid[] ids)
+    {
+        var counts = ids.Select(owner.DeliveryCount).ToArray();
+        var started = DateTimeOffset.UtcNow;
+        await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+        {
+            var repository = new OutboxEventRepository(db);
+            foreach (var id in ids) Assert.True(await repository.ReplayAsync(id, started));
+            await db.SaveChangesAsync();
+        }
+        for (var index = 0; index < ids.Length; index++)
+        {
+            await app.WaitDeliveredAsync(ids[index], started);
+            await owner.WaitEventAsync(ids[index], counts[index] + 1);
+        }
     }
 
     private sealed record ChannelScope(Guid Tenant, Guid Workspace, Guid Conversation);
