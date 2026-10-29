@@ -42,10 +42,11 @@ check_fail() {
   ((passed += 1))
 }
 
-# Dual-scope route requires both real jobs. All other routes preserve the
-# existing combined browser/architecture/unit lane with a skipped extra job.
+# The independent unit job is required for BOTH full and unit-only
+# routes. The browser/static job is always required. No-unit routes must
+# prove that their unit job was conditionally skipped.
 check_ok success success success true true
-check_ok success success skipped true false
+check_ok success success success true false
 check_ok success success skipped false true
 check_ok success success skipped false false
 
@@ -53,10 +54,10 @@ for result in failure cancelled skipped pending ""; do
   check_fail "$result" success success true true
   check_fail success "$result" success true true
   check_fail success success "$result" true true
+  check_fail success success "$result" true false
 done
 
 for result in success failure cancelled pending ""; do
-  check_fail success success "$result" true false
   check_fail success success "$result" false true
   check_fail success success "$result" false false
 done
