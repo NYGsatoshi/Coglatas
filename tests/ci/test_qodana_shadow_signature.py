@@ -191,6 +191,75 @@ class ShadowQodanaSignerTests(unittest.TestCase):
                     policy.verify(self.report,SHA,RUN,1,
                                   cli=str(self.binary),runner=fake_gh)
 
+
+    def test_failure_stage_distinguishes_cli_rejection_from_certificate_mismatch(self):
+        self.exitcode = 1
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "GH_CLI_VERIFICATION_REJECTED")
+
+        self.exitcode = 0
+        self.make_claim()
+        self.claim["verificationResult"]["signature"]["certificate"]["runnerInvocationURI"] = "untrusted"
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "CERT_runnerInvocationURI")
+
+    def test_failure_output_is_bounded_and_never_echoes_untrusted_fields(self):
+        import io
+        import os
+        from contextlib import redirect_stderr
+
+        output = self.root / "reject.json"
+        self.exitcode = 1
+
+        def run_fake(_command, **options):
+            return subprocess.CompletedProcess(_command, self.exitcode,
+                                               stdout=b"private-run-output",
+                                               stderr=b"untrusted-secret-explanation")
+
+        error_stream = io.StringIO()
+        with patch.object(policy.shutil, "which", return_value=str(self.binary)):
+            with patch.object(policy.subprocess, "run", side_effect=run_fake):
+                with patch.dict(os.environ, {"GH_TOKEN": "private-token-must-not-appear"}):
+                    with redirect_stderr(error_stream):
+                        result = policy.main(["--report", str(self.report),
+                            "--source-sha", SHA, "--run-id", RUN,
+                            "--run-attempt", "1", "--output", str(output)])
+        self.assertEqual(result, 1)
+        message = error_stream.getvalue()
+        self.assertIn("stage=GH_CLI_VERIFICATION_REJECTED", message)
+        self.assertNotIn("private-token-must-not-appear", message)
+        self.assertNotIn("untrusted-secret-explanation", message)
+        self.assertNotIn("private-run-output", message)
+        self.assertNotIn(str(self.root), message)
+        self.assertFalse(output.exists())
+
+    def test_bounded_certificate_field_diagnosis_never_reports_claim_contents(self):
+        import io
+        import os
+        from contextlib import redirect_stderr
+
+        self.make_claim()
+        self.claim["verificationResult"]["signature"]["certificate"]["githubWorkflowRef"] = (
+            "malicious-user-string-must-not-appear"
+        )
+        output = self.root / "reject-claim.json"
+        error_stream = io.StringIO()
+        with patch.object(policy.shutil, "which", return_value=str(self.binary)):
+            with patch.object(policy.subprocess, "run", side_effect=self.gh):
+                with patch.dict(os.environ, {"GH_TOKEN": "private-token-must-not-appear"}):
+                    with redirect_stderr(error_stream):
+                        result = policy.main(["--report", str(self.report),
+                            "--source-sha", SHA, "--run-id", RUN,
+                            "--run-attempt", "1", "--output", str(output)])
+        self.assertEqual(result, 1)
+        message = error_stream.getvalue()
+        self.assertIn("stage=CERT_githubWorkflowRef", message)
+        self.assertNotIn("malicious-user-string-must-not-appear", message)
+        self.assertNotIn("private-token-must-not-appear", message)
+        self.assertFalse(output.exists())
+
     def test_cli_missing_verifier_does_not_emit_success_evidence(self):
         path=self.root/"output.json"
         with patch.object(policy.shutil, "which", return_value=None):
