@@ -11,11 +11,21 @@ export function staticPlaywrightWorkerArgs(env = {}, passthrough = []) {
     return [];
   }
 
+  const requestedWorkers = env?.COGLATAS_STATIC_PLAYWRIGHT_WORKERS;
+  // A bounded 3-worker experiment is qualified ONLY for pull requests
+  // targeting the isolated security integration branch. Main / pushes /
+  // other Playwright entrypoints keep their previously qualified defaults.
+  const isolatedThreeWorkerTrial =
+    requestedWorkers === '3' &&
+    env?.COGLATAS_STATIC_PLAYWRIGHT_SHADOW3 === '1' &&
+    env?.GITHUB_EVENT_NAME === 'pull_request' &&
+    env?.GITHUB_BASE_REF === 'SecurityTestImplimation';
+
   if (
     env?.CI !== 'true' ||
     env?.PLAYWRIGHT_SKIP_BUILD !== '1' ||
     env?.COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD !== 'true' ||
-    env?.COGLATAS_STATIC_PLAYWRIGHT_WORKERS !== '2' ||
+    (requestedWorkers !== '2' && !isolatedThreeWorkerTrial) ||
     env?.PLAYWRIGHT_BASE_URL ||
     env?.COGLATAS_COMPAT_CRITICAL === '1' ||
     env?.COGLATAS_REAL_BACKEND_SMOKE === '1' ||
@@ -24,5 +34,5 @@ export function staticPlaywrightWorkerArgs(env = {}, passthrough = []) {
     return [];
   }
 
-  return ['--workers=2'];
+  return [`--workers=${requestedWorkers}`];
 }
