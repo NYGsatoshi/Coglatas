@@ -34,7 +34,7 @@ public sealed class ArtifactUploadContractTests
         {
             RequestBody = new OpenApiRequestBody
             {
-                Content = new Dictionary<string, OpenApiMediaType>
+                Content = new Dictionary<string, IOpenApiMediaType>
                 {
                     ["multipart/form-data"] = new() { Schema = schema }
                 }
@@ -74,7 +74,7 @@ public sealed class ArtifactUploadContractTests
         {
             RequestBody = new OpenApiRequestBody
             {
-                Content = new Dictionary<string, OpenApiMediaType>
+                Content = new Dictionary<string, IOpenApiMediaType>
                 {
                     ["application/json"] = new(),
                     ["application/*+json"] = new(),
