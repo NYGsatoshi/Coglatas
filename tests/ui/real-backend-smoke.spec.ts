@@ -4288,8 +4288,22 @@ async function loginAndVerifySession(
 
   await expect(page).toHaveURL(/\/app\/workspaces$/);
   await expect(page.getByTestId('app-shell')).toBeVisible();
-  await expect(page.getByTestId('nav-projects').first()).toBeVisible();
-  await expect(page.getByTestId('nav-my-tasks').first()).toBeVisible();
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const toggle = page.getByTestId('mobile-nav-toggle');
+    const navigation = page.getByTestId('mobile-navigation');
+    await expect(toggle).toBeVisible();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await toggle.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'false');
+    await expect(navigation.getByTestId('nav-projects')).toBeVisible();
+    await expect(navigation.getByTestId('nav-my-tasks')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await expect(toggle).toBeFocused();
+  } else {
+    await expect(page.getByTestId('nav-projects').first()).toBeVisible();
+    await expect(page.getByTestId('nav-my-tasks').first()).toBeVisible();
+  }
 
   await recordFetchJson(page, evidence, 'auth-me', '/api/auth/me', {
     validate: (body) =>

@@ -34,3 +34,26 @@ and #615. No feature, permission, schema, formal security or release contract is
 changed. No physical-device/IME or HTTPS/student admission claim is made.
 
 `STUDENT_COUNCIL_PILOT = RELEASE_NO_GO`.
+
+
+## First hosted attempt and navigation adapter
+
+Candidate `bd4d49d3f5568062203464a2ebe469872fd79433` (tree
+`20c72c52b2fe9036167300e870494068f8ff115a`) actual run40818408919/1,
+job123264866240, FAILED once with retry zero. Login reached the real application,
+but the legacy helper asserted `.first()` Desktop `nav-projects` visible at320px;
+it is intentionally hidden while the Mobile drawer is collapsed. Source inspection
+confirms the existing Mobile toggle, scoped navigation links and Escape/focus
+restoration contracts (also independently exercised by existing UI tests).
+
+The opt-in helper now opens that real drawer, checks both original authorized
+navigation links, and closes it with Escape plus focus restoration. The Desktop
+branch and all login/session assertions remain. No Product defect or historical
+reliability root cause is inferred from this adapter mismatch. No timeout/retry/
+assertion/force-click relaxation is used. A fresh candidate attempt is required.
+
+First failure artifact12873651567 is481bytes, SHA-256
+`31cde764bfc2922ddcc25f94d1cd606cbb7166b9049f650497bf45138133fe9e`,
+independently hashed and parsed: source/tree/run/attempt bind the failed candidate,
+statusFAIL, retry0, verified actors0, no device profile receipt or qualified image
+receipt. The failure did not reach Group execution and is not Mobile acceptance.
