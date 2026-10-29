@@ -145,8 +145,8 @@ test('co-running hosted Vitest has an explicit bounded worker budget and keeps i
   assert.match(config, /maxWorkers: isCi && process\.env\['COGLATAS_FRONTEND_VITEST_MAX_WORKERS'\] === '2' \? 2 : undefined/u);
   assert.match(config, /isolate: true/u);
   assert.doesNotMatch(config, /isolate: false/u);
-  assert.match(launcher, /GITHUB_EVENT_NAME:-[^\\n]*pull_request/u);
-  assert.match(launcher, /GITHUB_BASE_REF:-[^\\n]*SecurityTestImplimation/u);
+  assert.match(launcher, /GITHUB_EVENT_NAME:-[^\n]*pull_request/u);
+  assert.match(launcher, /GITHUB_BASE_REF:-[^\n]*SecurityTestImplimation/u);
   assert.match(launcher, /COGLATAS_STATIC_PLAYWRIGHT_WORKERS=3 COGLATAS_STATIC_PLAYWRIGHT_SHADOW3=1/u);
   assert.match(launcher, /COGLATAS_STATIC_PLAYWRIGHT_WORKERS=2 npm run test:ui:angular:docker/u);
   for (const name of ['COGLATAS_STATIC_PLAYWRIGHT_SHADOW3', 'GITHUB_EVENT_NAME', 'GITHUB_BASE_REF']) {
