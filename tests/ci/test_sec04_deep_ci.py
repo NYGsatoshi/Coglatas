@@ -545,7 +545,7 @@ class CallerMainControlsTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(result['status'], 'PASS')
         self.assertEqual(set(result['execution']['roles']), set(caller.ROLES))
-        code, result, calls, retained, output, errors = self.exercise(changes=changes, fault='missing-native')
+        code, result, _, _, _, _ = self.exercise(changes=changes, fault='missing-native')
         self.assertEqual(code, 1)
         self.assertEqual(result['status'], 'FAIL')
         self.assertEqual(result['phase'], 'NATIVE_VALIDATION')
