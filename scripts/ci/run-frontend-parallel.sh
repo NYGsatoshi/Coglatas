@@ -38,11 +38,18 @@ run_storybook() {
 }
 
 run_playwright() {
-  # Hosted full static UI suite only. The Compose runner performs additional
-  # exact-build and suite-boundary checks before passing --workers=2 to Playwright.
-  # Local runs and every other browser acceptance lane remain single-worker.
+  # Hosted full static UI suite only. The Compose runner enforces the exact
+  # prebuilt revision, scope, and worker limits. Main keeps the qualified two
+  # workers. Only PRs targeting SecurityTestImplimation opt in to a bounded
+  # three-worker performance *trial*; no retries or test selection changes.
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    COGLATAS_STATIC_PLAYWRIGHT_WORKERS=2 npm run test:ui:angular:docker
+    if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" &&
+          "${GITHUB_BASE_REF:-}" == "SecurityTestImplimation" ]]; then
+      COGLATAS_STATIC_PLAYWRIGHT_WORKERS=3 COGLATAS_STATIC_PLAYWRIGHT_SHADOW3=1 \
+        npm run test:ui:angular:docker
+    else
+      COGLATAS_STATIC_PLAYWRIGHT_WORKERS=2 npm run test:ui:angular:docker
+    fi
   else
     npm run test:ui:angular:docker
   fi
