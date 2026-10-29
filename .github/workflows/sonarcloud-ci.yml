@@ -214,6 +214,7 @@ jobs:
             scripts/ci/test-mbj02-trx-receipt.py \
             scripts/ci/test-workspace-icon-disclosure-policy.py \
             scripts/ci/test-main-runtime-artifact.py \
+            deploy/sakura/test_validate_pilot_intake_policy.py \
             scripts/ci/test-functional-diagnostics.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
