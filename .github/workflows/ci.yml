@@ -1102,6 +1102,9 @@ jobs:
         shell: bash
         env:
           SYNCFUSION_LICENSE: compose-config-validation-placeholder
+          # Read-only performance trial. The runner separately verifies the
+          # exact PR event, base, lane and anonymous role before using 2 workers.
+          COGLATAS_SEC04_ANON_WORKERS_SHADOW: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && '1' || '0' }}
         run: bash scripts/ci/run-security-runtime-parallel.sh
 
       - name: Scan repository filesystem with Trivy
