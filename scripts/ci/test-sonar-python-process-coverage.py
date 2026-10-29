@@ -89,6 +89,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
             ROOT.as_posix() + '/scripts/ci/runtime_image_identity.py',
+            ROOT.as_posix() + '/scripts/ci/release_image_graph.py',
             ROOT.as_posix() + '/deploy/sakura/validate-pilot-intake-policy.py',
             ROOT.as_posix() + '/scripts/ci/mbj02-trx-receipt.py',
             ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',
