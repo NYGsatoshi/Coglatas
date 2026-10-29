@@ -21,7 +21,8 @@ process.once('SIGINT', () => void handleSignal('SIGINT', 130));
 process.once('SIGTERM', () => void handleSignal('SIGTERM', 143));
 
 const directInvocation = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
-if (directInvocation || process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1') {
+if (directInvocation || (process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1' &&
+    process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE !== '1')) {
   process.exitCode = await runRealBackendSmokeCompose();
 }
 
@@ -84,6 +85,14 @@ function realBackendPlaywrightRunArgs() {
       throw new Error('Invalid FCI-05 Files owner gate.');
     }
     args.push('--env', `COGLATAS_FUNCTIONAL_FILES_GATE=${composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE}`);
+  }
+  if (composeEnv.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    if (rosterControl || composeEnv.COGLATAS_FCI04_GATES || composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE) {
+      throw new Error('MVP0 Mobile is an independent selection, not a canonical owner override.');
+    }
+    args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1', 'real-backend-playwright',
+      'bash', '-lc', 'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
+    return args;
   }
   args.push('real-backend-playwright');
   return args;

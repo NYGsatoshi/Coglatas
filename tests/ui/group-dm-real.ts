@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { mobileMvp0Device } from './mobile-mvp0-profile.mjs';
 import { expect, type Page, type Request, type Response, type WebSocket } from '@playwright/test';
 
 type CommandResult = { status: number; text: string; csrfHeaderPresent: boolean };
 type Fixture = {
   baseURL: string;
+  mobileMvp0?: boolean;
   authenticate(page: Page, account: 'recipient' | 'third' | 'newcomer'): Promise<string>;
   command(page: Page, method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown,
     headers?: Readonly<Record<string, string>>): Promise<CommandResult>;
@@ -24,9 +26,11 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
   expect(originalWorkspaceId).toMatch(/^[0-9a-f-]{36}$/i);
   const browser = manager.context().browser();
   expect(browser).not.toBeNull();
-  const recipientContext = await browser!.newContext({ baseURL: fixture.baseURL });
-  const thirdContext = await browser!.newContext({ baseURL: fixture.baseURL });
-  const newcomerContext = await browser!.newContext({ baseURL: fixture.baseURL });
+  const device = fixture.mobileMvp0 ? mobileMvp0Device : {};
+  const recipientContext = await browser!.newContext({ baseURL: fixture.baseURL, ...device });
+  const thirdContext = await browser!.newContext({ baseURL: fixture.baseURL, ...device });
+  const newcomerContext = await browser!.newContext({ baseURL: fixture.baseURL, ...device });
+  const mobileProfiles: Record<string, Awaited<ReturnType<typeof verifyMobileGeometry>>> = {};
   const recipient = await recipientContext.newPage();
   const third = await thirdContext.newPage();
   const newcomer = await newcomerContext.newPage();
@@ -72,6 +76,11 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     const actorId = await currentUserId(manager);
     const recipientId = await fixture.authenticate(recipient, 'recipient'); authenticated.push(recipient);
     const thirdId = await fixture.authenticate(third, 'third'); authenticated.push(third);
+    if (fixture.mobileMvp0) {
+      mobileProfiles.manager = await verifyMobileGeometry(manager);
+      mobileProfiles.recipient = await verifyMobileGeometry(recipient);
+      mobileProfiles.third = await verifyMobileGeometry(third);
+    }
     expect(await currentUserId(recipient)).toBe(recipientId);
     expect(await currentUserId(third)).toBe(thirdId);
     expect(new Set([actorId, recipientId, thirdId]).size, 'three distinct existing synthetic accounts').toBe(3);
@@ -280,6 +289,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       groupId, workspaceId, actorId, recipientId, thirdId, messages: [managerMessage, recipientMessage],
     });
     const newcomerId = await fixture.authenticate(newcomer, 'newcomer'); authenticated.push(newcomer);
+    if (fixture.mobileMvp0) mobileProfiles.newcomer = await verifyMobileGeometry(newcomer);
     expect(await currentUserId(newcomer)).toBe(newcomerId);
     expect(new Set([actorId, recipientId, thirdId, newcomerId]).size, 'four distinct ordinary synthetic accounts').toBe(4);
     const firstAddition = await exerciseFirstAddition(manager, newcomer, fixture, {
@@ -291,7 +301,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       groupId, workspaceId, newcomerId, initializationConversationId: initializationBinding.conversationId,
       messages: [managerMessage, recipientMessage],
     });
-    return { distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3,
+    return { ...(fixture.mobileMvp0 ? { mobileProfiles } : {}),
+      distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3,
       reloads: 3 + lifecycle.additionalReloads + firstAddition.additionalReloads + workspaceRevocation.additionalReloads,
       initialJourneyReloads: 3,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
@@ -556,12 +567,16 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
     expect(wire.removalReceipt()).toBeUndefined();
 
     await manager.goto(`/app/workspaces/${workspaceId}/members`);
-    const row = manager.getByTestId('workspace-members-page').getByRole('row').filter({
-      has: manager.getByText('Browser Smoke Group Newcomer', { exact: true }),
-    });
+    const memberPage = manager.getByTestId('workspace-members-page');
+    const row = (fixture.mobileMvp0
+      ? memberPage.getByTestId('workspace-members-mobile-list').getByTestId('workspace-member-mobile-card')
+      : memberPage.getByRole('row')).filter({
+        has: manager.getByText('Browser Smoke Group Newcomer', { exact: true }),
+      });
     await expect(row).toHaveCount(1);
     const detail = responseFor(manager, 'GET', `${members}/${newcomerId}`);
-    await row.locator('[data-grid-action="openMemberDetail"]').click();
+    if (fixture.mobileMvp0) await row.getByTestId('member-mobile-action-openMemberDetail').click();
+    else await row.locator('[data-grid-action="openMemberDetail"]').click();
     expect((await detail).status()).toBe(200);
     await expect(manager.getByTestId('workspace-member-detail-name')).toHaveText('Browser Smoke Group Newcomer');
     await manager.getByTestId('workspace-member-remove').click();
@@ -939,4 +954,13 @@ async function send(page: Page, conversationId: string, body: string, authorUser
   expect(message.id).toMatch(/^[0-9a-f-]{36}$/i);
   await expect(page.getByTestId('confirmed-message').filter({ hasText: body })).toHaveCount(1);
   return message;
+}
+
+async function verifyMobileGeometry(page: Page) {
+  expect(page.viewportSize()).toEqual({ width: 320, height: 800 });
+  const actual = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight,
+    screenWidth: window.screen.width, screenHeight: window.screen.height,
+    scale: window.devicePixelRatio, touchPoints: navigator.maxTouchPoints }));
+  expect(actual).toEqual({ width: 320, height: 800, screenWidth: 320, screenHeight: 800, scale: 1, touchPoints: 1 });
+  return actual;
 }
