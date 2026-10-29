@@ -54,6 +54,7 @@
       "matchPackageNames": [
         "JetBrains/qodana-action",
         "SocketDev/action",
+        "actions/attest",
         "actions/checkout",
         "actions/dependency-review-action",
         "actions/download-artifact",
