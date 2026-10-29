@@ -26,7 +26,7 @@ jobs:
   migration-smoke:
     # Explicit experiment guard; this PR never changes the release gate.
     if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       CI: "true"
@@ -96,7 +96,7 @@ jobs:
   container-pin-discovery:
     # Resolve real registry digests before any pinned production-like Dockerfiles change.
     if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Inspect RC3 OCI manifest digests without pulling or executing images
