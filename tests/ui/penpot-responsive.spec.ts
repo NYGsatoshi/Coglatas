@@ -1,8 +1,7 @@
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
+import { attachPenpotEvidence } from './penpot-attachment.mjs';
 import {
   channelId, channelTitle, conversationId, conversationTitle, fileName,
   installLocalizedWorkflowApi, projectId, projectTitle, reportVersionId, taskId, taskTitle, workspaceId,
@@ -136,18 +135,5 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   expect(layout.documentOverflow, name).toBeLessThanOrEqual(1);
   expect(layout.mainOverflow, name).toBeLessThanOrEqual(1);
   const fileName = `${testInfo.project.name}-${page.viewportSize()?.width}-${name}`;
-  const directory = process.env['PENPOT_CAPTURE_DIRECTORY'];
-  if (directory) {
-    // Preserve the explicit, stable on-disk capture path for external reviews.
-    await mkdir(directory, { recursive: true });
-    const imagePath = path.join(directory, `${fileName}.png`);
-    await page.screenshot({ path: imagePath, fullPage: false, animations: 'disabled' });
-    await testInfo.attach(fileName, { path: imagePath, contentType: 'image/png' });
-  } else {
-    // CI already persists attachments: avoid writing a second PNG and asking
-    // Playwright to re-read/copy it. Keep identical screenshot pixels and name.
-    const png = await page.screenshot({ fullPage: false, animations: 'disabled' });
-    await testInfo.attach(fileName, { body: png, contentType: 'image/png' });
-  }
-  await testInfo.attach(`${fileName}-layout`, { body: JSON.stringify(layout), contentType: 'application/json' });
+  await attachPenpotEvidence(page, testInfo, fileName, layout);
 }
