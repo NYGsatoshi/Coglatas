@@ -22,6 +22,7 @@ on:
           - p0
           - fci04
           - mobile
+          - mobile-mvp0
           - roster
           - issue683
           - authz
@@ -173,6 +174,24 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Run independent real-backend MVP0 Mobile acceptance
+        if: inputs.suite == 'mobile-mvp0'
+        run: |
+          node --test tests/ui/mobile-mvp0-profile.node-test.mjs tests/ui/mobile-mvp0-runner.node-test.mjs
+          node tests/ui/run-real-backend-mobile-mvp0.mjs
+
+      - name: Upload sanitized MVP0 Mobile execution and device receipts
+        if: always() && inputs.suite == 'mobile-mvp0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: real-backend-mobile-mvp0-${{ github.sha }}
+          path: |
+            artifacts/mobile-mvp0/source-sha
+            artifacts/mobile-mvp0/profile.json
+            artifacts/mobile-mvp0/execution.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Run opt-in real-backend mobile acceptance
         if: inputs.suite == 'mobile'
         run: node scripts/ci/run-real-backend-mobile.mjs
@@ -309,7 +328,7 @@ jobs:
           retention-days: 30
 
       - name: Upload sanitized diagnostic artifacts on failure
-        if: failure() && inputs.suite != 'mobile' && inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
+        if: failure() && inputs.suite != 'mobile' && inputs.suite != 'mobile-mvp0' && inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
