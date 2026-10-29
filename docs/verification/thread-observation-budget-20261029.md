@@ -61,3 +61,13 @@ SHA256b31166c08e6521951f9847e1ef7f37c34a08ddffe8a39571a36f1e5e3a65986f
 and imageb0aa37acfc5816c7b785892110e89328496725efaffa0c6104ab3a82207c94b6
 remain bound toa3,not this new source. Its GateFAIL remains; fresh new-head
 CI/native/officialGate/actualMobile/current independent review are required.
+
+## Independent review follow-up
+
+Review comment 4410820965 correctly identified that the parameterized legacy
+byte-envelope fixture inherited schemaVersion 3 from the real producer. An
+explicit own-property assertion reproduced the error on the legacy case. Delete
+the inherited marker only for the legacy case and assert that it is absent; the
+v3 case retains its explicit marker. Both maximum-envelope cases, privacy and
+mutation assertions, test count, byte limit and production validators remain
+unchanged. Fresh exact-revision qualification is required after this fixture fix.

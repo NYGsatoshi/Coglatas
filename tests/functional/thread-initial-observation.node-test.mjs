@@ -355,7 +355,12 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
 for (const [schemaVersion, eventLimit] of [[undefined, 24], [3, 32]]) {
   await test(`timed expanded DOM record version ${schemaVersion ?? 'legacy'} at${eventLimit} maximum-width events stays within4096 bytes`, () => {
   const value = probe();
-  if (schemaVersion !== undefined) { value.observation.schemaVersion = schemaVersion; }
+  if (schemaVersion === undefined) {
+    delete value.observation.schemaVersion;
+  } else {
+    value.observation.schemaVersion = schemaVersion;
+  }
+  assert.equal(Object.hasOwn(value.observation, "schemaVersion"), schemaVersion !== undefined);
   value.initial.failureDom = { ...Object.fromEntries(Object.keys(dom()).map((key) => [key, false])),
     pagePresent: false, conversationPresent: false, threadOpenClass: false, groupClass: false };
   value.observation.events.push({ kind: 'AUTHORIZED_ACTION_STARTED', request: null, status: null },
