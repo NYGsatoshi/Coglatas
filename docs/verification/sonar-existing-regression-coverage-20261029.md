@@ -77,3 +77,18 @@ run the complete112. fd309 native/PRGate results are historical after this chang
 New-head independent review, full native imports/receipt and resultingMain
 qualification remain required. No coverage exclusions/thresholds/analysis scope,
 FCI06/authorization/model/release contracts are changed. RELEASE_NO_GO.
+
+## First Ubuntu child-collection failure and source boundary
+
+Actualaf39 native40815002716/1/job123253916050 passed all3mechanism and112existing
+controls, then XML failed because the wildcard matched a deleted MBJ fixture
+copy at/tmp/.../scripts/ci/mbj02-trx-receipt.py. Node/.NET collection was not run;
+subsequent missing-artifact upload failures are retained cascades, not passes.
+No retry or ignore-errors is used.
+
+The config now requires an explicit repository root and includes only those six
+absolute checkout files. Workflow fixes that root toPWD before measurement.
+Two additional real controls reject same-suffix fixture copies and missing root;
+source scope is stricter, not an exclusion of actual Product code. Existing
+child-CWD/branch/exit controls remain. Hosted5mechanism+112existing+87Node and
+full native imports must pass on the new source; oldaf39failure remains.

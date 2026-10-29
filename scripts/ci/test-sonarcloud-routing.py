@@ -266,6 +266,7 @@ class SonarSourceScopeTests(unittest.TestCase):
         end = workflow.index("\n      - name:", start + 1)
         block = workflow[start:end]
         self.assertNotIn("GITHUB_ENV", block)
+        self.assertIn('export SONAR_PYTHON_SOURCE_ROOT="$PWD"', block)
         self.assertNotIn("export COVERAGE_PROCESS_START", block)
         self.assertNotIn("export PYTHONPATH", block)
         self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', block)

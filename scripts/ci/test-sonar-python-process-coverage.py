@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import coverage
 
@@ -77,17 +78,44 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertEqual(list(folder.glob('data*')), [])
 
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
-        config = coverage.Coverage(config_file=str(CONFIG))
+        with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
+            config = coverage.Coverage(config_file=str(CONFIG))
         self.assertTrue(config.get_option('run:branch'))
         self.assertTrue(config.get_option('run:parallel'))
         self.assertEqual(set(config.get_option('run:include')), {
-            '*/scripts/ci/verify-sonar-dotnet-coverage.py',
-            '*/scripts/security/finding_policy.py',
-            '*/scripts/ci/run-sec04-deep-ci.py',
-            '*/scripts/ci/mbj02-trx-receipt.py',
-            '*/scripts/ci/functional_diagnostics.py',
-            '*/scripts/ci/thread_probe_diagnostics.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
+            ROOT.as_posix() + '/scripts/security/finding_policy.py',
+            ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
+            ROOT.as_posix() + '/scripts/ci/mbj02-trx-receipt.py',
+            ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',
+            ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
         })
+
+
+    def test_same_suffix_fixture_copy_is_not_repository_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            clone = folder / 'scripts/ci/mbj02-trx-receipt.py'
+            clone.parent.mkdir(parents=True)
+            clone.write_text('print("SYNTHETIC_COPY_CONTROL")\n', encoding='utf-8')
+            data = folder / 'data'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data)
+            self.run_python([str(clone)], folder, env)
+            self.assertEqual(len(list(folder.glob('data.*'))), 1)
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--rcfile=' + str(CONFIG)], folder, env)
+            measured = coverage.CoverageData(basename=str(data))
+            measured.read()
+            self.assertEqual(list(measured.measured_files()), [], 'Temporary copies must not enter source-bound reports.')
+
+    def test_missing_repository_root_fails_configuration(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop('SONAR_PYTHON_SOURCE_ROOT', None)
+            with self.assertRaisesRegex(coverage.exceptions.CoverageException, 'SONAR_PYTHON_SOURCE_ROOT'):
+                coverage.Coverage(config_file=str(CONFIG))
 
 
 if __name__ == '__main__':

@@ -203,6 +203,7 @@ jobs:
           COVERAGE_CORE: pytrace
         run: |
           set -euo pipefail
+          export SONAR_PYTHON_SOURCE_ROOT="$PWD"
           python3 -B scripts/ci/test-sonar-python-process-coverage.py
           export COVERAGE_RCFILE="$PWD/scripts/ci/sonar-python.coveragerc"
           python3 -B -m coverage erase
