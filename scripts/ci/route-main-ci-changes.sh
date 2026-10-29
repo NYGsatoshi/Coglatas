@@ -96,11 +96,19 @@ frontend_features=()
 functional=false
 functional_reason="validated-documentation-only"
 
-# Only positively identified documentation is exempt from real-stack coverage.
-# Unknown paths and shared build/CI inputs run all fast domains conservatively.
+# Only explicitly reviewed documentation and static CI security tooling are
+# exempt from real-stack coverage. Unknown paths and shared build/CI inputs
+# still run all fast domains conservatively.
 while IFS= read -r functional_path; do
   [[ -n "$functional_path" ]] || continue
   case "$functional_path" in
+    # Exact allowlist: independently checked by CI preflight, static-analysis
+    # and/or the Qodana negative-control suites. These do not change the
+    # compiled application or Functional domain fixtures. Unrecognized tools
+    # and other workflow files must continue to require real-stack validation.
+    .github/renovate.json|.github/workflows/workflow-static-analysis.yml|.github/workflows/qodana-signed-shadow.yml|governance/github-actions-allowlist.json|governance/workflow-trust-policy.json|scripts/quality/qodana_sarif_parity.py|scripts/quality/verify_qodana_artifact_provenance.py|scripts/quality/verify_qodana_signed_subject.py|scripts/quality/qodana_cloud_send_preflight.py|scripts/quality/verify_qodana_shadow_signature.py|tests/ci/test_qodana_sarif_parity.py|tests/ci/test_qodana_artifact_provenance.py|tests/ci/test_qodana_signed_subject.py|tests/ci/test_qodana_cloud_send_preflight.py|tests/ci/test_qodana_shadow_signature.py|tests/ci/test_qodana_shadow_workflow.py|docs/verification/qodana-*.md)
+      functional_reason="validated-ci-tooling-only"
+      ;;
     docs/verification/functional-ci/*|docs/ci/functional-compose-harness.md)
       functional=true
       ;;
