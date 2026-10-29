@@ -85,6 +85,14 @@ function realBackendPlaywrightRunArgs() {
     }
     args.push('--env', `COGLATAS_FUNCTIONAL_FILES_GATE=${composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE}`);
   }
+  if (composeEnv.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    if (rosterControl || composeEnv.COGLATAS_FCI04_GATES || composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE) {
+      throw new Error('MVP0 Mobile is an independent selection, not a canonical owner override.');
+    }
+    args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1', 'real-backend-playwright',
+      'bash', '-lc', 'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
+    return args;
+  }
   args.push('real-backend-playwright');
   return args;
 }

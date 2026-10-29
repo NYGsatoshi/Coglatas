@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { assertMobileMvp0Profile, mobileMvp0Project } from './mobile-mvp0-profile.mjs';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
@@ -83,12 +85,15 @@ test.describe('MVP0 real backend browser smoke', () => {
 
   test.beforeEach(async ({}, testInfo) => {
     test.skip(
-      testInfo.project.name !== 'chromium-desktop',
+      testInfo.project.name !== 'chromium-desktop' &&
+        !(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1' && testInfo.project.name === mobileMvp0Project),
       'Real-backend smoke runs once against the desktop browser project because it uses a shared seeded backend account.'
     );
   });
 
   test('exercises mandatory authenticated MVP0 flows through ASP.NET Core backend', async ({ page }, testInfo) => {
+    const mobileMvp0 = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1';
+    if (mobileMvp0) assertMobileMvp0Profile(testInfo.project, testInfo.retry);
     const evidence: SmokeEvidence = {
       baseURL: String(testInfo.project.use.baseURL ?? ''),
       email: smokeEmail,
@@ -117,6 +122,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       await createDirectMessageAndVerifyPersistence(page, evidence);
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
+        mobileMvp0,
         authenticate: async (actorPage, account) => {
           const email = account === 'recipient' ? pr06ViewerEmail :
             account === 'third' ? pr05ManagerEmail : groupNewcomerEmail;
@@ -130,6 +136,12 @@ test.describe('MVP0 real backend browser smoke', () => {
         settleAuthorization: waitForAuthorizationOutbox,
         archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
       });
+      if (mobileMvp0) {
+        mkdirSync('artifacts/mobile-mvp0', { recursive: true });
+        writeFileSync('artifacts/mobile-mvp0/profile.json', JSON.stringify({
+          project: testInfo.project.name, retry: testInfo.retry, actors: groupResult.mobileProfiles,
+        }, null, 2) + '\n', { flag: 'wx' });
+      }
       evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
         status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, retained history, removal, re-entry, first-time addition and leave.' });
       await openAnnouncementDetail(page, evidence);
