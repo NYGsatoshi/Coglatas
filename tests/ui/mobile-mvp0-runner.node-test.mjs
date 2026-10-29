@@ -8,6 +8,11 @@ import { runMobileMvp0 } from './run-real-backend-mobile-mvp0.mjs';
 import { mobileMvp0Project } from './mobile-mvp0-profile.mjs';
 const sha = '1'.repeat(40), tree = '2'.repeat(40), image = 'sha256:' + '3'.repeat(64);
 const dir = 'artifacts/mobile-mvp0', junit = 'test-results/playwright-results.xml';
+function fixtureGitExecutable(configured = process.env.COGLATAS_TEST_GIT_EXECUTABLE) {
+  const executable = configured ?? (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git');
+  assert.ok(path.isAbsolute(executable), 'The explicitly trusted test Git executable must be an absolute path.');
+  return executable;
+}
 function fixture() {
   const files = new Map(), calls = [], logs = [];
   const geometry = { width: 320, height: 800, screenWidth: 320, screenHeight: 800, scale: 1, touchPoints: 1 };
@@ -91,7 +96,9 @@ test('real Git rejects an untracked application build input and still admits cle
   const assertOwned = () => { assert.ok(folder.startsWith(tempRoot + path.sep)); assert.ok(path.basename(folder).startsWith('coglatas-mobile-source-')); };
   assertOwned();
   t.after(async () => { assertOwned(); await rm(folder, { recursive: true, force: true }); });
-  const git = args => execFileSync('git', args, { cwd: folder, encoding: 'utf8' }).trim();
+  const executable = fixtureGitExecutable();
+  let gitDirectory = folder, gitEnvironment = process.env;
+  const git = args => execFileSync(executable, args, { cwd: gitDirectory, env: gitEnvironment, encoding: 'utf8' }).trim();
   git(['init', '--quiet']);
   await mkdir(path.join(folder, 'src/Coglatas.Web'), { recursive: true });
   await writeFile(path.join(folder, '.gitignore'), 'artifacts/\n');
@@ -108,9 +115,22 @@ test('real Git rejects an untracked application build input and still admits cle
     return f;
   };
   const clean = prepare(); assert.equal(await runMobileMvp0(clean.io), 0);
+  const shadowDirectory = path.join(folder, 'artifacts');
+  await Promise.all(['git', 'git.exe', 'git.com'].map(name => writeFile(path.join(shadowDirectory, name), 'UNTRUSTED_EXECUTABLE_CANDIDATE\n')));
+  gitDirectory = shadowDirectory;
+  gitEnvironment = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH'));
+  gitEnvironment.PATH = shadowDirectory;
+  const isolated = prepare(); assert.equal(await runMobileMvp0(isolated.io), 0);
+  assert.equal(JSON.parse(isolated.files.get(`${dir}/execution.json`)).sourceSha, isolated.io.environment.TARGET_SHA);
   await writeFile(path.join(folder, 'src/Coglatas.Web/UnreviewedInput.cs'), '// Synthetic untracked application input\n');
   const blocked = prepare(); assert.equal(await runMobileMvp0(blocked.io), 1);
   assert.equal(blocked.calls.includes('compose'), false);
   assert.equal(blocked.calls.includes('docker'), false);
   assert.notEqual(JSON.parse(blocked.files.get(`${dir}/execution.json`)).status, 'PASS');
+});
+
+test('custom Git installations require explicit absolute configuration without PATH fallback', () => {
+  const alternate = process.platform === 'win32' ? 'D:\\ApprovedTools\\Git\\cmd\\git.exe' : '/opt/approved-git/bin/git';
+  assert.equal(fixtureGitExecutable(alternate), alternate);
+  for (const value of ['', 'git', '../git', './git']) assert.throws(() => fixtureGitExecutable(value), /absolute path/);
 });

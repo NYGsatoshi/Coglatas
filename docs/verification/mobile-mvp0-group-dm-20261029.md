@@ -199,3 +199,37 @@ restricted to its resolved fixture path. Own controls17 plus existing22 regressi
 now total39; hosted Node collection becomes104 across8 suites. No assertion,
 coverage threshold, source scope, retry or timeout is relaxed. A new exact-HEAD
 qualification is required; the previous35d3 nativePASS remains attributed to35d3.
+
+
+## Exact S4036 fixture execution boundary
+
+PR3b official Gate123305078396 failed59.2%/D/B despite CI16/16 and actual
+MobilePASS. Exact issueAaGGZyjCUqRjp4F6GzSC/javascript:S4036 identifies the
+real Git fixture's bare command at line94. Controlled arguments do not remove
+ambient executable selection. Independent read-only investigation confirmed
+Windows cwd-before-PATH behavior; practical compromise/Product authorization
+impact is unproven. No provider dismissal or formal Security approval occurred.
+
+The fixture helper selects an absolute Git executable: standard Windows
+C:\Program Files\Git\cmd\git.exe or hosted Ubuntu /usr/bin/git. No PATH
+fallback is used. The independent candidate review found a legitimate alternate
+installation regression. Alternate/per-user/portable installations therefore use
+explicit COGLATAS_TEST_GIT_EXECUTABLE pointing to the owner's trusted absolute
+binary; relative/empty values fail closed. This is trusted local tooling
+configuration, never derived from a PR/request. Existing alternate installations
+now require this explicit setting; installation ownership remains an assumption.
+No setting is written globally. Missing configured/default binaries fail rather
+than selecting a different program. Public Product/API/auth contracts do not
+change.
+
+The same actual Git helper first admits clean committed source with ignored
+evidence, then still admits it with PATH limited to an ignored directory and
+cwd containing Git-name candidates (git/git.exe/git.com), then rejects an
+untracked Web input before Compose/Docker. Candidates are inert data and never
+executed. This is the strongest focused local executable-selection substitute,
+not proof of a compromised machine or malicious-binary exploit. Explicit custom
+absolute configuration and relative-input rejection are checked separately.
+Own18 plus existing22 controls total40. Default and explicit local paths,
+syntax/import and focused regressions are locally checked; hosted Ubuntu/native
+acceptance/current-source official rescan remain required. Do not call the
+finding fixed until those relevant gates pass. The original3b GateFAIL remains.
