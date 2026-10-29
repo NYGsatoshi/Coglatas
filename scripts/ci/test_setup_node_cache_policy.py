@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {
     ".github/workflows/ci.yml": {
         "frontend-build": "scripts/ci/npm-ci-retry.sh frontend",
-        "frontend-test": "scripts/ci/npm-ci-retry.sh .",
+        "frontend-browser": "scripts/ci/npm-ci-retry.sh .",
+        "frontend-unit-parallel": "scripts/ci/npm-ci-retry.sh frontend",
     },
     ".github/workflows/main-validation.yml": {
         "main-frontend-test": "scripts/ci/npm-ci-retry.sh frontend",
