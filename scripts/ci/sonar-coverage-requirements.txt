@@ -1,0 +1,2 @@
+# Pure Python wheel: fixed bytes, no source-build hooks or transitive dependencies.
+coverage @ https://files.pythonhosted.org/packages/c9/17/48032919343afa2906112d458aceda2043afdb24a2ee8eb4c60904d8ddf1/coverage-7.17.0-py3-none-any.whl --hash=sha256:bac487dce0d2aff28ddf1a533a916f771416eee0e493960f611e49037b878e9d

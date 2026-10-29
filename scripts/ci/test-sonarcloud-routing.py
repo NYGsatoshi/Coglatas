@@ -211,5 +211,53 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
 
 
+class SonarSourceScopeTests(unittest.TestCase):
+    def ignored(self, paths: list[str], *, ignore_case: bool = False) -> set[str]:
+        result = subprocess.run(
+            ["git", "-c", f"core.ignorecase={str(ignore_case).lower()}",
+             "-c", "core.excludesFile=", "check-ignore", "--no-index", "--stdin", "-z"],
+            cwd=ROOT, input=b"\0".join(p.encode("utf-8") for p in paths) + b"\0",
+            capture_output=True,
+            check=False,
+        )
+        self.assertIn(result.returncode, (0, 1), result.stderr.decode("utf-8"))
+        return {p.decode("utf-8") for p in result.stdout.split(b"\0") if p}
+
+    def test_application_artifact_sources_remain_visible(self) -> None:
+        result = subprocess.run(
+            ["git", "ls-files", "--", "frontend/src/app/features/artifacts",
+             "src/Coglatas.Application/Artifacts", "tests/Coglatas.Tests/Artifacts"],
+            cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        paths = result.stdout.splitlines()
+        self.assertGreaterEqual(len(paths), 20, "Source controls must not be vacuous.")
+        for ignore_case in (False, True):
+            with self.subTest(ignore_case=ignore_case):
+                self.assertEqual(self.ignored(paths, ignore_case=ignore_case), set())
+
+    def test_generated_and_sensitive_paths_remain_ignored(self) -> None:
+        paths = ["artifacts/sonar-dotnet/verified.opencover.xml",
+                 "nested-job/artifacts/private-evidence.json", ".env",
+                 "frontend/src/app/features/artifacts/private.pfx",
+                 "frontend/src/app/features/artifacts/.env", "nested/id_rsa"]
+        for ignore_case in (False, True):
+            with self.subTest(ignore_case=ignore_case):
+                self.assertEqual(self.ignored(paths, ignore_case=ignore_case), set(paths))
+
+    def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
+        settings = {
+            key: value for key, value in (
+                line.split("=", 1) for line in
+                (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#") and "=" in line
+            )
+        }
+        for key in ("sonar.exclusions", "sonar.cpd.exclusions"):
+            patterns = settings[key].split(",")
+            self.assertIn("artifacts/**", patterns)
+            self.assertNotIn("**/artifacts/**", patterns)
+        self.assertNotIn("sonar.scm.exclusions.disabled", settings)
+
+
 if __name__ == "__main__":
     unittest.main()
