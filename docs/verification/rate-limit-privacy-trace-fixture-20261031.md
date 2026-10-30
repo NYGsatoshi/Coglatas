@@ -52,3 +52,22 @@ ordinary merge and resulting-Main qualification remain required.
 
 This repair grants no release, intake/scanner, RLS, recovery or target-environment
 approval. `RELEASE_NO_GO` remains in effect.
+
+## 2026-10-31 Main Qodana collection-expression follow-up
+
+Main `5106ee4705e0c6a2b1d93d10d3af914e531df343` Cloud job
+`124365835314` failed the unchanged `UseCollectionExpression` ratchet:
+2,280 total findings, current 39 versus budget 37. Original artifact
+`13021216254` attributes the two new findings to the expected-field arrays
+in this test at lines 200 and 205. The original failure remains retained.
+
+The follow-up changes only those two expected sequences to collection
+expressions with explicit `Assert.Equal<string>`, preserving the
+`IEnumerable<string>` overload, element order, actual-field ordinal ordering,
+all response assertions and the complete hosted Kestrel test. No production
+source, inspection, budget, timeout or retry changes.
+
+The earlier 2,641-test Native PASS belongs to Main 5106. This follow-up has
+source/reverse review only; no local compilation or test execution and no
+new PASS claim. Exact-HEAD hosted qualification and independent review are
+required before ordinary merge and fresh Main qualification.
