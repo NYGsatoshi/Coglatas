@@ -197,7 +197,11 @@ export function safeFileNameFromHeader(headerValue: string | null, fallback: str
 
   const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(headerValue);
   if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1].replaceAll('"', '').trim());
+    try {
+      return decodeURIComponent(utf8Match[1].replaceAll('"', '').trim());
+    } catch {
+      // An invalid optional filename must not interrupt an authorized download.
+    }
   }
 
   const filenameMatch = /filename="?([^";]+)"?/i.exec(headerValue);
