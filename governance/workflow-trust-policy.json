@@ -15,12 +15,15 @@
     "github_hosted_labels": [
       "ubuntu-latest",
       "windows-latest",
-      "macos-latest"
+      "macos-latest",
+      "ubuntu-24.04",
+      "ubuntu-26.04"
     ],
     "github_hosted_groups": [],
     "approved_dynamic_expressions": [
       "${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}",
-      "${{ (matrix.os == 'windows-latest' && 'windows-latest') || (matrix.os == 'macos-latest' && 'macos-latest') || 'ubuntu-latest' }}"
+      "${{ (matrix.os == 'windows-latest' && 'windows-latest') || (matrix.os == 'macos-latest' && 'macos-latest') || 'ubuntu-latest' }}",
+      "${{ (matrix.os == 'ubuntu-26.04' && 'ubuntu-26.04') || 'ubuntu-24.04' }}"
     ]
   },
   "write_permissions": [
