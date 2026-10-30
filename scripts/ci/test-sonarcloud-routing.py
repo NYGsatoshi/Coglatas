@@ -414,7 +414,9 @@ class SonarSourceScopeTests(unittest.TestCase):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("            tests/ci/test_restore_data_dependency_advisor.mjs \\", workflow)
         self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', workflow)
-        files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+        executable = "C:/Program Files/Git/cmd/git.exe" if os.name == "nt" else "/usr/bin/git"
+        self.assertTrue(Path(executable).is_absolute() and (os.name != "nt" or Path(executable).drive))
+        files = subprocess.check_output([executable, "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
         for file in files:
             if file.endswith((".mjs", ".cjs", ".js", ".ts", ".mts", ".tsx")) and file != relative and not file.endswith(".node-test.mjs"):
                 body = (ROOT / file).read_text(encoding="utf-8")
