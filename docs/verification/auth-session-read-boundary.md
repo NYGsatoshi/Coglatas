@@ -40,8 +40,9 @@ glob selected the intended eleven files without changing assertions or timeouts.
 Runtime d9572fccb9d7ec4de692f372913efa88f303695e passed the ordinary production
 build and theme sanitizer in repository-pinned Linux Node image
 e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413,
-Node24.22.2/npm11.17.0. Existing bundle/style budget warnings remain. Final
-published-head CI, official Sonar gate, independent review and resulting Main
+Node24.22.2/npm11.17.0. Existing bundle/style budget warnings remain. Parent independent source review completed before publication at corrected runtime
+d9572fcc (final ba2fa3b documentation only), with no merge-blocking finding in this
+bounded read-ordering scope. Published-head CI, official Sonar gate and resulting Main
 qualification are separate requirements.
 
 No threshold, assertion, timeout, retry, server endpoint, cookie, CSRF policy,
