@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Threading.RateLimiting;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Middleware;
@@ -11,6 +13,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -98,6 +101,12 @@ public sealed class HttpSecurityPolicyTests
         builder.Services.AddRateLimiter(HttpSecurityPolicy.ConfigureRateLimiting);
 
         var app = builder.Build();
+        // Keep the body-wide privacy oracle independent of random Kestrel trace suffixes.
+        app.Use((context, next) =>
+        {
+            context.TraceIdentifier = "sec13-login-probe";
+            return next(context);
+        });
         app.UseRouting();
         app.UseRateLimiter();
         app.MapGet("/limited-login", () => Results.Ok(new { status = "OK" }))
@@ -129,11 +138,77 @@ public sealed class HttpSecurityPolicyTests
             Assert.Contains("RateLimitExceeded", body, StringComparison.Ordinal);
             Assert.DoesNotContain("ip:", body, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("user:", body, StringComparison.OrdinalIgnoreCase);
+            using var rejection = JsonDocument.Parse(body);
+            Assert.Equal("sec13-login-probe", rejection.RootElement.GetProperty("requestId").GetString());
         }
         finally
         {
             await app.DisposeAsync();
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Scope", "SEC-13")]
+    public async Task RateLimitRejectionPreservesOpaqueTraceWithoutDisclosingPartition(bool authenticated)
+    {
+        const string opaqueTrace = "sec13-opaque-IP:";
+        var userId = Guid.NewGuid();
+        var options = new RateLimiterOptions();
+        HttpSecurityPolicy.ConfigureRateLimiting(options);
+        await using var limiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 1,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            AutoReplenishment = false
+        });
+        using var acceptedLease = limiter.AttemptAcquire();
+        using var rejectedLease = limiter.AttemptAcquire();
+        Assert.True(acceptedLease.IsAcquired);
+        Assert.False(rejectedLease.IsAcquired);
+
+        await using var services = new ServiceCollection().AddLogging().BuildServiceProvider();
+        await using var responseBody = new MemoryStream();
+        var context = new DefaultHttpContext
+        {
+            RequestServices = services,
+            TraceIdentifier = opaqueTrace,
+            Connection = { RemoteIpAddress = IPAddress.Parse("203.0.113.10") },
+            Response = { Body = responseBody, StatusCode = options.RejectionStatusCode }
+        };
+        if (authenticated)
+        {
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.ToString())], "cookie"));
+        }
+        var partitionKey = HttpSecurityPolicy.GetRateLimitPartitionKey(context);
+
+        Assert.NotNull(options.OnRejected);
+        await options.OnRejected(new OnRejectedContext { HttpContext = context, Lease = rejectedLease },
+            CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status429TooManyRequests, context.Response.StatusCode);
+        Assert.True(int.TryParse(context.Response.Headers["Retry-After"].ToString(), out var retryAfterSeconds));
+        Assert.InRange(retryAfterSeconds, 1, 60);
+        var body = Encoding.UTF8.GetString(responseBody.ToArray());
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        Assert.Equal(JsonValueKind.Object, root.ValueKind);
+        Assert.Equal(new[] { "error", "requestId" },
+            root.EnumerateObject().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(opaqueTrace, root.GetProperty("requestId").GetString());
+        var error = root.GetProperty("error");
+        Assert.Equal(JsonValueKind.Object, error.ValueKind);
+        Assert.Equal(new[] { "code", "message" },
+            error.EnumerateObject().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal("RateLimitExceeded", error.GetProperty("code").GetString());
+        Assert.Equal("Too many requests. Retry after the indicated interval.", error.GetProperty("message").GetString());
+        Assert.DoesNotContain(partitionKey, body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("203.0.113.10", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(userId.ToString("D"), body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
