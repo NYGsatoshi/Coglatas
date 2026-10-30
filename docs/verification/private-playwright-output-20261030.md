@@ -16,3 +16,20 @@ The cache compatibility change was tested explicitly: with unavailable cache, or
 Follow-up quality repair (local head 2aa57c626f9f2498349bfae4f6f2f4762ba0ca10) removes the unused import and extracts only the owned-private UID/mode predicate. The ancestry checks, short-circuit order, filesystem behavior and visible legacy literals are preserved. Fresh independent coordinator review found no source blocker. The canonical Git helper SHA-256 is 13b2ebdf546beda96213df808502e174901de1e51df35cca8f7392d16925e1b0. Current local qualification: Linux 50 PASS and Windows 37 PASS, zero failures/skips, covering private helper, actual browser-free CLI/import controls and adjacent mobile/thread controls. Main 2fad6bb4412fc5241a68a904e8dbbea77cb6f317 was normally merged afterward; both reviewed repair code blobs remained unchanged.
 
 The original 7e9e796b49554d53b09c0b4aec01e2cac45f4820 Mobile run 41035779245/1 independently passed all 4 owners and 23 steps. Its official PR Quality Gate nevertheless failed (96.2% new coverage, Security D); analysis execution success is separate from that Gate. These remain historical exact-source results. Fresh actual canonical Mobile and current checks/Gate are pending for the follow-up source. No provider finding disposition, exception, rule, threshold, literal placement, admission policy or release authority changed. Remaining non-Linux risk and individual assertion-literal assessments stay visible. RELEASE_NO_GO remains.
+
+The a92d3f10b5417d5c32616d30c83d28e6b7289485 follow-up still failed its official
+Quality Gate (Security D, new coverage 97.2%); S3776
+AaGMTXd4tMkMz78eEZbK still reported privateDirectory complexity16 above15.
+The earlier owned-private leaf-predicate extraction did not resolve that finding.
+A separate minimal follow-up moves only the full existing unsafe-ancestor boolean
+expression verbatim into a private pure predicate, called from the same if.
+Expression order, short-circuit stat access, mkdir/lstat order, leaf UID/mode,
+CLI/OS/history behavior and error boundaries remain unchanged. The byte guard
+reverses the extraction to every original a92 helper byte (guard SHA-256
+ce66cb1fa50cd84810a161dc4ddd37679a1baf4a6f393947a23f710bdc8181d7).
+Existing Windows37 controls pass on pinned portable Node24.22.2/Playwright1.64.1,
+zero failures/skips, with synthetic work-local HOME/TEMP/cache. Windows does not
+execute the Linux ancestor checks. Linux50, fresh canonical Mobile and the
+official current-source Gate remain UNVERIFIED for this follow-up; earlier
+results do not transfer. No new test, policy, literal, workflow, provider
+disposition, exclusion or threshold change is included. RELEASE_NO_GO remains.

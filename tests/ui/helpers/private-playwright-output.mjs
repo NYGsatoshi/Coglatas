@@ -21,8 +21,7 @@ function privateDirectory(path, uid) {
     try { mkdirSync(current, { mode: 0o700 }); }
     catch (error) { if (error.code !== 'EEXIST') throw error; }
     const stat = lstatSync(current);
-    if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.uid !== 0 && stat.uid !== uid) ||
-        ((stat.mode & 0o022) !== 0 && (stat.mode & 0o1000) === 0)) throw new Error('Unsafe directory.');
+    if (unsafeAncestor(stat, uid)) throw new Error('Unsafe directory.');
     if (current === target && !ownedPrivatePermissions(stat, uid)) throw new Error('Unsafe private directory.');
   }
 }
@@ -60,4 +59,9 @@ export function privatePlaywrightOutput(kind) {
 
 function ownedPrivatePermissions(stat, uid) {
   return stat.uid === uid && (stat.mode & 0o777) === 0o700;
+}
+
+function unsafeAncestor(stat, uid) {
+  return !stat.isDirectory() || stat.isSymbolicLink() || (stat.uid !== 0 && stat.uid !== uid) ||
+        ((stat.mode & 0o022) !== 0 && (stat.mode & 0o1000) === 0);
 }
