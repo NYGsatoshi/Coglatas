@@ -58,6 +58,8 @@ jobs:
 
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
+      - name: Test fail-closed frontend aggregation
+        run: python3 -B scripts/ci/test-frontend-aggregate.py
       - name: Test Functional required-gate exemption controls
         run: python3 -B scripts/ci/test-functional-fast-gate.py
 
@@ -675,11 +677,11 @@ jobs:
           persist-credentials: false
 
       - name: Skip frontend build producer for unrelated changes
-        if: needs.changes.outputs.frontend != 'true'
+        if: needs.changes.outputs.frontend_build != 'true' && needs.changes.outputs.frontend_playwright != 'true'
         run: echo "No frontend-relevant changes detected; no frontend artifact is required."
 
       - name: Set up Node.js
-        if: needs.changes.outputs.frontend == 'true'
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
@@ -688,25 +690,19 @@ jobs:
           package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
-        if: needs.changes.outputs.frontend == 'true'
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
 
       - name: Install Angular dependencies with reviewed lifecycle policy
-        if: needs.changes.outputs.frontend == 'true'
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
       - name: Build production Angular artifact
         if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         run: npm --prefix frontend run build
 
-      - name: Build Storybook artifact
-        if: needs.changes.outputs.frontend_storybook == 'true'
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm --prefix frontend run build-storybook
-
       - name: Package frontend build artifacts
-        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true' || needs.changes.outputs.frontend_storybook == 'true'
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -716,9 +712,6 @@ jobs:
           outputs=(artifacts/ci/frontend-build-sha)
           if [[ -d frontend/dist/coglatas-web ]]; then
             outputs+=(frontend/dist/coglatas-web)
-          fi
-          if [[ -d frontend/storybook-static ]]; then
-            outputs+=(frontend/storybook-static)
           fi
 
           if [[ "${#outputs[@]}" -le 1 ]]; then
@@ -730,7 +723,7 @@ jobs:
           du -h "$RUNNER_TEMP/frontend-build-artifacts.tar"
 
       - name: Publish frontend build artifacts
-        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true' || needs.changes.outputs.frontend_storybook == 'true'
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: frontend-build-artifacts
@@ -739,9 +732,52 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  frontend-test:
-    name: frontend-test
-    if: ${{ always() }}
+  storybook-build:
+    name: Storybook build producer
+    needs: changes
+    if: needs.changes.outputs.frontend_storybook == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Use repository npm version without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+      - name: Install Angular dependencies with reviewed lifecycle policy
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+      - name: Build and verify Storybook artifact
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -euo pipefail
+          npm --prefix frontend run build-storybook
+          test -s frontend/storybook-static/index.html
+      - name: Package exact-revision Storybook build
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ci
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          git rev-parse HEAD > artifacts/ci/storybook-build-sha
+          tar -cf "$RUNNER_TEMP/storybook-build-artifacts.tar" artifacts/ci/storybook-build-sha frontend/storybook-static
+      - name: Publish Storybook build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: storybook-build-artifacts
+          path: ${{ runner.temp }}/storybook-build-artifacts.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  frontend-checks:
+    name: Frontend test execution
     needs: frontend-build
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -759,14 +795,14 @@ jobs:
           persist-credentials: false
 
       - name: Download redistributed frontend build artifacts
-        if: needs.frontend-build.outputs.frontend_build == 'true' || needs.frontend-build.outputs.frontend_playwright == 'true' || needs.frontend-build.outputs.frontend_storybook == 'true'
+        if: needs.frontend-build.outputs.frontend_build == 'true' || needs.frontend-build.outputs.frontend_playwright == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: frontend-build-artifacts
           path: ${{ runner.temp }}/frontend-build-artifact
 
       - name: Restore redistributed frontend build artifacts
-        if: needs.frontend-build.outputs.frontend_build == 'true' || needs.frontend-build.outputs.frontend_playwright == 'true' || needs.frontend-build.outputs.frontend_storybook == 'true'
+        if: needs.frontend-build.outputs.frontend_build == 'true' || needs.frontend-build.outputs.frontend_playwright == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -784,9 +820,6 @@ jobs:
           if [[ "${{ needs.frontend-build.outputs.frontend_build }}" == "true" || "${{ needs.frontend-build.outputs.frontend_playwright }}" == "true" ]]; then
             test -f frontend/dist/coglatas-web/index.html
             test -f frontend/dist/coglatas-web/angular-app.marker
-          fi
-          if [[ "${{ needs.frontend-build.outputs.frontend_storybook }}" == "true" ]]; then
-            test -f frontend/storybook-static/index.html
           fi
 
       - name: Skip frontend checks for unrelated changes
@@ -894,6 +927,26 @@ jobs:
           path: artifacts/search-drawer-observation-validated/*.json
           if-no-files-found: ignore
           retention-days: 7
+
+  frontend-test:
+    name: frontend-test
+    if: ${{ always() }}
+    needs: [changes, frontend-build, frontend-checks, storybook-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout required-gate verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require actual frontend and routed Storybook success
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          FRONTEND_BUILD_RESULT: ${{ needs.frontend-build.result }}
+          FRONTEND_CHECKS_RESULT: ${{ needs.frontend-checks.result }}
+          FRONTEND_STORYBOOK: ${{ needs.changes.outputs.frontend_storybook }}
+          STORYBOOK_RESULT: ${{ needs.storybook-build.result }}
+        run: bash scripts/ci/check-frontend-aggregate.sh
 
   security-scan:
     name: security-scan

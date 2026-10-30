@@ -71,8 +71,14 @@
         "migration_issue": null
       },
       "prerequisites": [
-        "frontend-build"
-      ]
+        "changes",
+        "frontend-build",
+        "frontend-checks",
+        "storybook-build"
+      ],
+      "conditional_prerequisites": {
+        "storybook-build": "needs.changes.outputs.frontend_storybook == 'true'"
+      }
     },
     {
       "gate_id": "GOV-GATE-SECURITY-001",

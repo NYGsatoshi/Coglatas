@@ -246,7 +246,12 @@ test('collector refuses a linked artifacts parent before publication', () => {
 
 test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/ci.yml', 'utf8'));
-  const steps = workflow.jobs['frontend-test'].steps;
+  const gate = workflow.jobs['frontend-test'];
+  assert.equal(gate.name, 'frontend-test');
+  assert.equal(gate.if, '${{ always() }}');
+  assert.deepEqual(gate.needs, ['changes', 'frontend-build', 'frontend-checks', 'storybook-build']);
+  assert.equal(gate.steps.at(-1).run, 'bash scripts/ci/check-frontend-aggregate.sh');
+  const steps = workflow.jobs['frontend-checks'].steps;
   const collect = steps.find((step) => step.id === 'collect-group-keyboard-observations');
   const upload = steps.find((step) => step.with?.name === 'group-keyboard-observations');
   assert.equal(collect.if, "always() && needs.frontend-build.outputs.frontend_playwright == 'true'");
