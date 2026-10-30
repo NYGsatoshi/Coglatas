@@ -691,15 +691,17 @@ jobs:
         if: needs.changes.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
-      - name: Build production Angular artifact
-        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true'
-        run: npm --prefix frontend run build
-
-      - name: Build Storybook artifact
-        if: needs.changes.outputs.frontend_storybook == 'true'
+      - name: Build frontend artifacts in parallel
+        if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true' || needs.changes.outputs.frontend_storybook == 'true'
+        shell: bash
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm --prefix frontend run build-storybook
+          FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true' }}
+          FRONTEND_STORYBOOK: ${{ needs.changes.outputs.frontend_storybook }}
+          FRONTEND_UNIT: "false"
+          FRONTEND_ARCHITECTURE: "false"
+          FRONTEND_LICENSE_GUARD: "false"
+          FRONTEND_PLAYWRIGHT: "false"
+        run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Package frontend build artifacts
         if: needs.changes.outputs.frontend_build == 'true' || needs.changes.outputs.frontend_playwright == 'true' || needs.changes.outputs.frontend_storybook == 'true'
