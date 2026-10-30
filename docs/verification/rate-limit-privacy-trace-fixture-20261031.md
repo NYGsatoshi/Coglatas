@@ -62,10 +62,13 @@ Main `5106ee4705e0c6a2b1d93d10d3af914e531df343` Cloud job
 in this test at lines 200 and 205. The original failure remains retained.
 
 The follow-up changes only those two expected sequences to collection
-expressions with explicit `Assert.Equal<string>`, preserving the
-`IEnumerable<string>` overload, element order, actual-field ordinal ordering,
-all response assertions and the complete hosted Kestrel test. No production
-source, inspection, budget, timeout or retry changes.
+expressions in `Assert.Equal`, with `string` inferred from the ordered actual
+sequence for the existing `IEnumerable<string>` overload. Element order,
+actual-field ordinal ordering, all response assertions and the complete hosted
+Kestrel test remain unchanged. No production source, inspection, budget, timeout
+or retry changes. Review removed unnecessary explicit type arguments to avoid
+the existing zero-budget `RedundantTypeArgumentsOfMethod` rule; no executed
+finding or test result is claimed for that precaution.
 
 The earlier 2,641-test Native PASS belongs to Main 5106. This follow-up has
 source/reverse review only; no local compilation or test execution and no
