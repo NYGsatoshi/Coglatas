@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import * as yaml from 'js-yaml';
+import { compareCodeUnits } from './test-support/code-unit-order.mjs';
 import { collectGroupKeyboardObservations } from '../../scripts/ci/collect-group-keyboard-observations.mjs';
 import { groupKeyboardByteLimit, groupKeyboardV1ByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
   observeGroupKeyboardCase, validateGroupKeyboardObservation, withGroupKeyboardObservation } from './helpers/group-keyboard-observation.mjs';
@@ -159,7 +160,7 @@ test('actual Playwright first failure and later retry success retain separate im
     const run = spawnSync(process.execPath, [join(source, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(root, 'config.mjs')],
       { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 0); assert.equal((run.stdout + run.stderr).includes('private'), false);
-    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort();
+    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort(compareCodeUnits);
     assert.deepEqual(inputNames, ['chromium-mobile-attempt-0.json', 'chromium-mobile-attempt-1.json']);
     assert.equal(collectGroupKeyboardObservations(root, sha), 2);
     const output = inputNames.map((name) => JSON.parse(readFileSync(join(root, groupKeyboardOutputDirectory, name), 'utf8')));
