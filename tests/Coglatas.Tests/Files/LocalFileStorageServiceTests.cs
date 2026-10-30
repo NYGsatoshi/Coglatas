@@ -5,7 +5,7 @@ namespace Coglatas.Tests.Files;
 
 public sealed class LocalFileStorageServiceTests : IDisposable
 {
-    private readonly string _rootPath = Path.Combine(Path.GetTempPath(), "coglatas-storage-tests", Guid.NewGuid().ToString("N"));
+    private readonly string _rootPath = Path.Combine(Path.GetTempPath(), "coglatas-storage-tests", Guid.NewGuid().ToString("N"), "storage-root");
 
     [Fact]
     public void InvalidExtensionIsRejected()
@@ -50,6 +50,20 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         await using var content = new MemoryStream("bad"u8.ToArray());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync("../escape.txt", content, "text/plain"));
+    }
+
+    [Fact]
+    public async Task CaseChangedSiblingCannotEscapeRoot()
+    {
+        var storage = CreateStorage();
+        var siblingName = Path.GetFileName(_rootPath).ToUpperInvariant();
+        var key = Path.Combine("..", siblingName, "escape.txt");
+        await using var content = new MemoryStream("bad"u8.ToArray());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync(key, content, "text/plain"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.OpenReadAsync(key));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.ExistsAsync(key));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.DeleteAsync(key));
     }
 
     [Theory]
