@@ -32,3 +32,15 @@ This is not crash/power-loss durability, a cross-DB/storage transaction, orphan
 reconciliation after process termination, or full recovery qualification. Empty
 run-owned directories can remain after failed writes. A filesystem that denies
 cleanup remains a failure; it is never reported as a successful upload.
+
+## Full Main cancellation inspection follow-up
+
+Main `335a0e348da02047d985da825e521352233fb926` first-attempt Qodana Cloud
+reported six `MethodSupportsCancellation` results in the new test file,
+exceeding the existing zero-debt ratchet. Two overlap the previously recorded
+Sonar INFO findings; the full inventory also checks post-cancellation reads.
+The callback now forwards its live token before deliberately cancelling.
+Post-failure verification explicitly uses `CancellationToken.None` so it can
+still inspect bytes after that source has been cancelled. Cancellation points,
+assertions, exception types, production code, timeouts and all quality budgets
+are unchanged. The failed Main result is retained; this is a separate repair.
