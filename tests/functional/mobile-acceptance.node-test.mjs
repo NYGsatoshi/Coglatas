@@ -167,7 +167,7 @@ test('mobile profile fails closed on engine, opt-in, geometry or touch mismatche
 
 test('secondary contexts inherit only fresh device options and canonical owner counts stay unchanged', () => {
   const options = mobileDeviceOptions(mobileProject);
-  assert.deepEqual(Object.keys(options).sort(), ['deviceScaleFactor', 'hasTouch', 'isMobile', 'screen', 'viewport']);
+  assert.deepEqual(Object.keys(options).sort(compareCodeUnits), ['deviceScaleFactor', 'hasTouch', 'isMobile', 'screen', 'viewport']);
   options.viewport.width = 999;
   assert.equal(mobileDeviceOptions(mobileProject).viewport.width, 320);
   assert.deepEqual(mobileDeviceOptions('functional-chromium'), {});
@@ -210,3 +210,11 @@ test('reporter refuses a source mismatch and never publishes protected assertion
     if (enabled === undefined) { delete process.env.COGLATAS_REAL_BACKEND_MOBILE; } else { process.env.COGLATAS_REAL_BACKEND_MOBILE = enabled; }
   }
 });
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
+}

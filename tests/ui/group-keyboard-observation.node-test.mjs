@@ -159,7 +159,7 @@ test('actual Playwright first failure and later retry success retain separate im
     const run = spawnSync(process.execPath, [join(source, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(root, 'config.mjs')],
       { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 0); assert.equal((run.stdout + run.stderr).includes('private'), false);
-    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort();
+    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort(compareCodeUnits);
     assert.deepEqual(inputNames, ['chromium-mobile-attempt-0.json', 'chromium-mobile-attempt-1.json']);
     assert.equal(collectGroupKeyboardObservations(root, sha), 2);
     const output = inputNames.map((name) => JSON.parse(readFileSync(join(root, groupKeyboardOutputDirectory, name), 'utf8')));
@@ -304,3 +304,11 @@ test('Main retains only successfully validated keyboard JSON and rejects raw suc
     assert.throws(() => verify(steps), `Main rejects ${mutation}`);
   }
 });
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
+}

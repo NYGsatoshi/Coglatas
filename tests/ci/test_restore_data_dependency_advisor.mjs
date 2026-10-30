@@ -173,7 +173,7 @@ test('every adjacent joined-key collision in each closed-shape partition rejects
     {keys:['name','table','timing','enabled'], select:m=>m.userTriggers[0]}
   ];
   for (const partition of partitions) {
-    const keys = [...partition.keys].sort();
+    const keys = [...partition.keys].sort(compareCodeUnits);
     for (let index=0; index<keys.length-1; index++) {
       const value = manifest(['public.a','public.b'], [fk('fk', 'public.a', 'public.b')], [
         {name:'trigger',table:'public.a',timing:'AFTER_INSERT',enabled:false}
@@ -321,3 +321,11 @@ test('partial regular-file reads retain byte bounds and the complete advisory', 
     assert.equal(result.stages.closes, 1);
   });
 });
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
+}
