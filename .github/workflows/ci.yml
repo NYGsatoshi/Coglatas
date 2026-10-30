@@ -105,6 +105,7 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-frontend-parallel.sh
+          node --test tests/ui/static-asset-cache.node-test.mjs
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
@@ -846,6 +847,9 @@ jobs:
           FRONTEND_STORYBOOK: "false"
           FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+          # Independent label opt-in; the static server also checks event/base.
+          # Main, other PRs, and local runners retain no-store responses.
+          COGLATAS_STATIC_ASSET_CACHE_SHADOW: ${{ contains(github.event.pull_request.labels.*.name, 'ci-static-asset-cache-shadow') && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Upload browser artifacts on failure
