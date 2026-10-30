@@ -96,8 +96,8 @@ public sealed class LocalFileStorageService(IOptions<FileStorageOptions> options
     {
         var fullPath = Path.GetFullPath(Path.Combine(root, storageKey));
         var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        if (!fullPath.Equals(root, StringComparison.OrdinalIgnoreCase) &&
-            !fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        if (!fullPath.Equals(root, StringComparison.Ordinal) &&
+            !fullPath.StartsWith(normalizedRoot, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Storage key resolved outside the configured file root.");
         }
