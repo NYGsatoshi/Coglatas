@@ -5,7 +5,6 @@ const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === '
 
 export default defineConfig({
   test: {
-    pool: 'threads',
     server: {
       deps: {
         // Syncfusion's Angular wrappers publish CommonJS interop through
@@ -22,7 +21,8 @@ export default defineConfig({
     // Opt in only when the hosted frontend job runs Vitest alongside the
     // bounded two-worker static Playwright suite. Avoid overcommitting CPUs:
     // both suites have deadline-sensitive Angular TestBed/hooks. Local and
-    // independent test jobs retain Vitest's default worker scheduling.
+    // independent test jobs retain Vitest's default pool and worker scheduling.
+    pool: isCi && process.env['COGLATAS_FRONTEND_VITEST_MAX_WORKERS'] === '2' ? 'threads' : undefined,
     maxWorkers: isCi && process.env['COGLATAS_FRONTEND_VITEST_MAX_WORKERS'] === '2' ? 2 : undefined,
     coverage: {
       // The scanner's project root is the repository, one level above Angular.
