@@ -51,3 +51,19 @@ establish arbitrary same-session read ordering, cross-tab cookie atomicity,
 server rollback, transport-principal replacement, formal Pilot acceptance or
 release permission. All Owner HOLDs remain in force.
 STUDENT_COUNCIL_PILOT=RELEASE_NO_GO.
+## Combined client lifecycle candidate
+
+The reviewed auth component `5665f35f` and independently reviewed Realtime
+actor-boundary component `39f1ebdc` were combined by normal merge
+`364c8d2c5a62d447a952a2baae4f1f48c9d400af`, retaining both ancestries.
+All four runtime/test Git blobs remain identical to their reviewed components.
+The combined candidate passed 944 tests across 54 spec files on Windows,
+zero failed or pending, and a fresh pinned Linux ordinary production build
+plus theme sanitizer. This is separate from the auth-component Linux 136-test
+and Realtime-component Linux 920-test executions.
+
+See [the Realtime actor-boundary record](realtime-actor-boundary.md) for the
+actor replacement counterexamples, component and integration evidence digests,
+and the same-user cookie/multi-tab and actual SignalR proof limits. Original
+published-head checks are historical evidence; the expanded candidate requires
+its own current-head checks, official gate and resulting Main qualification.

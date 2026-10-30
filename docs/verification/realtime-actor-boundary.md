@@ -42,25 +42,45 @@ accidental unchanged-source repeat is retained separately. It is not green
 candidate evidence. The original baseline and its failures remain retained.
 
 The first corrected runtime run passed all 58 then-current focused tests.
-The final Windows Node 24.22.1 cohort passed 652 tests across 37 spec files,
-with zero failed or pending tests: core auth, Tenant, Workspace and Realtime,
-plus all messaging specs. All five actor controls passed. No fixture repair,
-assertion relaxation, retry or deadline change was needed.
+The final Windows Node 24.22.1 cohorts passed 920 tests across 53 distinct spec
+files, with zero failed or pending tests: core auth, Tenant, Workspace and
+Realtime, all messaging specs, feature Workspace/member management and right-panel
+notifications. All five actor controls passed. No fixture repair, assertion
+relaxation, retry or deadline change was needed.
 
-Runtime/test candidate commit:
-`52ca824c1107abb4d8d6eac50435da1da5dfaa1a`.
+The same 920 tests passed under repository-pinned Linux Node 24.22.2/npm 11.17.0,
+with zero failed or pending tests, followed by the ordinary production build
+and theme sanitizer. Existing bundle/style warnings remained unchanged.
+Host memory pressure delayed this lane until capacity became available; no
+acceptance threshold changed.
+
+The runtime/test candidate is
+`52ca824c1107abb4d8d6eac50435da1da5dfaa1a`. Independent parent source review
+found no merge-blocking issue in this bounded actor lifecycle scope.
+Documentation-only component head
+`39f1ebdcaa1c3368770c105758b8a63cdcf2111e` was normally merged into reviewed
+AuthSession component `5665f35fabb468b855276bfe3f81137bdbd3c6cc` as
+`364c8d2c5a62d447a952a2baae4f1f48c9d400af`. Both component runtime and test
+Git blobs remain identical; no cherry-pick or history rewrite was used.
+
+The combined source passed 944 tests across 54 spec files on Windows,
+with zero failed or pending tests, and a fresh pinned Linux ordinary production
+build plus theme sanitizer. The component Linux 920-test result is distinct
+from this combined Windows 944-test result.
 
 | Local evidence | SHA-256 |
 | --- | --- |
 | Main runtime, final 61-test RED report | `bed89a59c43e79782c45b9f405b5b70022e7a214e8fbaae21a682712e6252a22` |
-| Corrected 652-test cohort report | `c5dbd1dcf98d0ac21e42f2c4e744e79fbdf9752620aa60c72f475b27f5989897` |
+| Corrected core/messaging 652-test Windows report | `c5dbd1dcf98d0ac21e42f2c4e744e79fbdf9752620aa60c72f475b27f5989897` |
+| Corrected Workspace/right-panel 268-test Windows report | `036081ef589ef0aedb2d250cd3e08db3efe10e59e3dc03ad118aac039a136653` |
+| Realtime-component Linux 920-test report | `f40ddfb45fbd297b795b23f600b6ca220395fb849ea9845dfb5be6909d4facac` |
+| Combined Windows 944-test report | `3b849cc313a82f4e081a9bf70e8039930416719285b52e7c299fd08ba8ec79c8` |
+| Combined Linux generated index | `ecd79de3e74cf944aa69679e54c80163a7c9845805587a3cb311649ec5370c7e` |
+| Combined Linux generated app marker | `47ce7e2784175b501d25daa94078760f673f6fc447c87789f32986a8dcd54012` |
 
-The optional Linux production build remains pending while host memory is
-constrained by concurrent acceptance work. Protected checks, independent
-review, official Sonar Quality Gate, Main acceptance and normal merge
-qualification remain separate. These local results do not grant merge or
-release admission.
-
+Published-head protected checks, final independent integration review, official
+Sonar Quality Gate, resulting Main acceptance and normal merge qualification
+remain separate. Local results do not grant merge or release admission.
 ## Limits and retained holds
 
 These controls use the real client facade with synthetic AuthSession snapshots
