@@ -203,46 +203,62 @@ public sealed class ArtifactService(
             return Result<ArtifactVersionResponse>.Failure(saved.Error!);
         }
 
-        var version = new ArtifactVersion
+        ArtifactVersion version;
+        try
         {
-            ArtifactId = artifactId,
-            VersionNumber = await artifacts.GetNextVersionNumberAsync(artifactId, cancellationToken),
-            FileObjectId = fileObject.Id,
-            FileObject = fileObject,
-            Notes = input.ChangeNote?.Trim(),
-            CreatedByUserId = userId
-        };
+            version = new ArtifactVersion
+            {
+                ArtifactId = artifactId,
+                VersionNumber = await artifacts.GetNextVersionNumberAsync(artifactId, cancellationToken),
+                FileObjectId = fileObject.Id,
+                FileObject = fileObject,
+                Notes = input.ChangeNote?.Trim(),
+                CreatedByUserId = userId
+            };
 
-        var attachment = new Attachment
+            var attachment = new Attachment
+            {
+                TenantId = currentTenant.TenantId,
+                FileObjectId = fileObject.Id,
+                FileObject = fileObject,
+                WorkspaceId = project.WorkspaceId,
+                OwnerType = AttachmentOwnerType.ArtifactVersion,
+                OwnerId = version.Id,
+                OwnerUserId = userId,
+                UploadedByUserId = userId,
+                FileName = safeFileName,
+                StoredFileName = fileObject.Id.ToString("N"),
+                FilePath = fileObject.StorageKey,
+                ContentType = fileObject.ContentType,
+                Extension = Path.GetExtension(safeFileName).ToLowerInvariant(),
+                SizeBytes = fileObject.SizeBytes,
+                StorageProvider = "Configured",
+                StorageKey = fileObject.StorageKey,
+                ScanStatus = FileScanStatus.Skipped
+            };
+
+            version.AttachmentId = attachment.Id;
+            version.Attachment = attachment;
+            await files.AddFileObjectAsync(fileObject, cancellationToken);
+            await files.AddAttachmentAsync(attachment, cancellationToken);
+            await artifacts.AddVersionAsync(version, cancellationToken);
+            artifact.CurrentVersionId = version.Id;
+            await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionUploaded", "ArtifactVersion", version.Id), cancellationToken);
+            await NotifyProjectManagersAsync(artifact.ProjectId, "New artifact version uploaded", artifact.Name, artifact.Id, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch
         {
-            TenantId = currentTenant.TenantId,
-            FileObjectId = fileObject.Id,
-            FileObject = fileObject,
-            WorkspaceId = project.WorkspaceId,
-            OwnerType = AttachmentOwnerType.ArtifactVersion,
-            OwnerId = version.Id,
-            OwnerUserId = userId,
-            UploadedByUserId = userId,
-            FileName = safeFileName,
-            StoredFileName = fileObject.Id.ToString("N"),
-            FilePath = fileObject.StorageKey,
-            ContentType = fileObject.ContentType,
-            Extension = Path.GetExtension(safeFileName).ToLowerInvariant(),
-            SizeBytes = fileObject.SizeBytes,
-            StorageProvider = "Configured",
-            StorageKey = fileObject.StorageKey,
-            ScanStatus = FileScanStatus.Skipped
-        };
-
-        version.AttachmentId = attachment.Id;
-        version.Attachment = attachment;
-        await files.AddFileObjectAsync(fileObject, cancellationToken);
-        await files.AddAttachmentAsync(attachment, cancellationToken);
-        await artifacts.AddVersionAsync(version, cancellationToken);
-        artifact.CurrentVersionId = version.Id;
-        await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionUploaded", "ArtifactVersion", version.Id), cancellationToken);
-        await NotifyProjectManagersAsync(artifact.ProjectId, "New artifact version uploaded", artifact.Name, artifact.Id, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await storage.DeleteAsync(fileObject.StorageKey, CancellationToken.None);
+            }
+            catch
+            {
+                // Preserve the original metadata/audit failure if compensation fails.
+            }
+            throw;
+        }
         return Result<ArtifactVersionResponse>.Success(ToVersion(version));
     }
 
