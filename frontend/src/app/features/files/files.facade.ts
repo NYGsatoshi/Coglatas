@@ -88,6 +88,7 @@ export class FilesFacade {
   private readonly pageRequests = new Set<Subscription>();
   private readonly loadingWorkspaceIds = new Set<string>();
   private readonly pendingUploads = new Map<string, { file: File; subscription: Subscription }>();
+  private readonly failedUploads = new Map<string, { file: File; workspaceId: string; generation: number }>();
   private deleteRequest: Subscription | null = null;
   private searchRequest: Subscription | null = null;
   private selectionSnapshotRequest: Subscription | null = null;
@@ -468,6 +469,10 @@ export class FilesFacade {
   }
 
   uploadFile(file: File): void {
+    this.startUpload(file, crypto.randomUUID());
+  }
+
+  private startUpload(file: File, clientRequestId: string): void {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
     const generation = this.pageGeneration;
     const currentUpload = this.pageState().upload;
@@ -484,7 +489,7 @@ export class FilesFacade {
       });
       return;
     }
-    const clientRequestId = crypto.randomUUID();
+    this.failedUploads.delete(clientRequestId);
     this.updateQueue({ clientRequestId, fileName: file.name, state: 'pending' });
 
     this.setUpload({
@@ -533,6 +538,9 @@ export class FilesFacade {
           if (generation !== this.pageGeneration) { return; }
           this.pendingUploads.delete(clientRequestId);
           const normalized = normalizeApiError(error);
+          if (normalized.httpStatus !== 401 && normalized.httpStatus !== 403) {
+            this.failedUploads.set(clientRequestId, { file, workspaceId, generation });
+          }
           const message = fileErrorMessage(this.i18n, normalized, 'api.requestFailed');
           this.updateQueue({ clientRequestId, fileName: file.name, state: 'failed', ...message });
           this.setUpload({
@@ -544,7 +552,7 @@ export class FilesFacade {
           this.reconcileAfterMutation(workspaceId);
         },
       });
-    this.pendingUploads.set(clientRequestId, { file, subscription });
+    if (!subscription.closed) { this.pendingUploads.set(clientRequestId, { file, subscription }); }
   }
 
   cancelUpload(clientRequestId: string): void {
@@ -562,8 +570,13 @@ export class FilesFacade {
   }
 
   retryUpload(clientRequestId: string): void {
-    const item = this.pendingUploads.get(clientRequestId);
-    if (item) { this.uploadFile(item.file); }
+    const item = this.failedUploads.get(clientRequestId);
+    if (!item) { return; }
+    if (item.workspaceId !== this.activeWorkspace.activeWorkspace()?.id || item.generation !== this.pageGeneration) {
+      this.failedUploads.delete(clientRequestId);
+      return;
+    }
+    this.startUpload(item.file, clientRequestId);
   }
 
   /** Reads the manager-only sharing inspection projection for one File. */
@@ -1243,6 +1256,7 @@ export class FilesFacade {
 
   private invalidatePageRequests(): void {
     this.pageGeneration++;
+    this.failedUploads.clear();
     for (const request of [...this.pageRequests]) {request.unsubscribe();}
     this.pageRequests.clear();
     this.loadingWorkspaceIds.clear();

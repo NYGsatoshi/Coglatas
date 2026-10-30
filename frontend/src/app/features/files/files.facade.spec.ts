@@ -62,6 +62,83 @@ describe('FilesFacade paging query state', () => {
     TestBed.resetTestingModule();
   });
 
+  it('retries a failed upload with the same synthetic File and queue identity, then cancels it', () => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+    const selected = new File(['synthetic retry content'], 'retry.txt', { type: 'text/plain' });
+    facade.uploadFile(selected);
+    const failed = http.expectOne(request => request.method === 'POST' && request.url === '/api/files');
+    const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+    failed.flush({ message: 'offline' }, { status: 500, statusText: 'Server Error' });
+    expect(facade.page().uploadQueue).toEqual([expect.objectContaining({ clientRequestId, state: 'failed' })]);
+
+    facade.retryUpload(clientRequestId);
+    facade.retryUpload(clientRequestId);
+    const retry = http.expectOne(request => request.method === 'POST' && request.url === '/api/files');
+    const body = retry.request.body as FormData;
+    expect(body.get('File')).toBe(selected);
+    expect(body.get('OwnerId')).toBe(WORKSPACE_ID);
+    expect(body.get('OwnerType')).toBe('Workspace');
+    expect(facade.page().uploadQueue).toHaveLength(1);
+    expect(facade.page().uploadQueue[0].clientRequestId).toBe(clientRequestId);
+    retry.event({ type: HttpEventType.UploadProgress, loaded: 5, total: 10 });
+    expect(facade.page().upload).toMatchObject({ state: 'progress', progressPercent: 50 });
+    facade.cancelUpload(clientRequestId);
+    expect(retry.cancelled).toBe(true);
+    expect(facade.page().uploadQueue[0]).toMatchObject({ clientRequestId, state: 'cancelled' });
+    facade.retryUpload(clientRequestId);
+    http.expectNone(request => request.method === 'POST');
+  });
+
+  it('releases a successful retried upload and reconciles its inventory without a duplicate queue entry', () => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+    startUpload().flush({ message: 'offline' }, { status: 503, statusText: 'Service Unavailable' });
+    const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+    facade.retryUpload(clientRequestId);
+    http.expectOne(request => request.method === 'POST').flush({ originalFileName: 'in-flight.txt' });
+    flushEmptyInventory(http.expectOne(request => request.method === 'GET' && request.url === '/api/files'), false);
+    expect(facade.page().uploadQueue).toEqual([expect.objectContaining({ clientRequestId, state: 'succeeded' })]);
+    facade.retryUpload(clientRequestId);
+    http.expectNone(request => request.method === 'POST');
+  });
+  it.each(['workspace-switch', 'forced-reauthorization', 'protected-state-clear', 'active-workspace-signal'] as const)(
+    'does not replay a failed File after %s', (change) => {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+      startUpload().flush({ message: 'offline' }, { status: 500, statusText: 'Server Error' });
+      const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+      if (change === 'protected-state-clear') {
+        clearProtectedState?.();
+      } else if (change === 'active-workspace-signal') {
+        activeWorkspaceState.set({ id: 'workspace-b', label: 'Workspace B' });
+      } else {
+        const target = change === 'workspace-switch' ? 'workspace-b' : WORKSPACE_ID;
+        activeWorkspaceState.set({ id: target, label: target });
+        facade.loadPageFilesForWorkspace(target, true);
+        flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+      }
+      facade.retryUpload(clientRequestId);
+      http.expectNone(request => request.method === 'POST');
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.retryUpload(clientRequestId);
+      http.expectNone(request => request.method === 'POST');
+    },
+  );
+
+  it.each([401, 403])('does not retain a retry after an upload authorization denial (%s)', (status) => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+    startUpload().flush({ message: 'denied' }, { status, statusText: 'Denied' });
+    const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+    expect(facade.page().uploadQueue[0].state).toBe('failed');
+    facade.retryUpload(clientRequestId);
+    http.expectNone(request => request.method === 'POST');
+  });
   it('keeps existing picker candidates and retries the failed second page', () => {
     facade.loadPickerFilesForWorkspace('workspace-a');
     http.expectOne(request => request.url === '/api/files' && request.params.get('page') === '1').flush({ items: [file('file-1')], page: 1, pageSize: 20, totalCount: 2, hasMore: true });
