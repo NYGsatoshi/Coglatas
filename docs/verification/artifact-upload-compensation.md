@@ -32,3 +32,18 @@ is best effort: a delete failure can still leave an orphan. A caller-owned
 transaction that later rolls back after a successful return and an ambiguous
 commit outcome remain outside this repair, as in the existing FileService pattern.
 No upload-enabled Pilot B or release acceptance is established. RELEASE_NO_GO.
+## Explicit post-cancellation observation tokens
+
+Main2fad CI41037948042/1 retained a Qodana rule-ratchet failure:
+MethodSupportsCancellation increased from budget0 to2, both in the existing
+post-storage cancellation regression at lines56-57. Critical findings,
+unresolved symbols and project-model failures were all zero. The six protected
+checks succeeded; this did not make the overall Main CI successful.
+
+Both postcondition reads now explicitly pass CancellationToken.None, matching
+the existing optional default token. They must observe the compensation result
+after the caller token has already been cancelled. The cancelled upload,
+original exception, deleted-key identity and uncancellable cleanup assertions
+are unchanged. Product runtime, ratchet baseline, thresholds, inspections,
+assertions, retries and timeouts are unchanged. Current focused and hosted
+qualification remain required; the original failed Main attempt is retained.
