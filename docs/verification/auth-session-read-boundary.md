@@ -23,8 +23,9 @@ resetting a newer bootstrap. Parallel same-session status and tenant reads remai
 valid; no global latest-read-wins ordering or authorization policy is introduced.
 
 Twenty-four new HttpTestingController cases use the registered real auth
-interceptor and concrete facade. The nineteen-case comparison with unchanged
-Main88f8648 produced 17 failures and two valid positive controls. Independent
+interceptor and concrete facade. The full twenty-four-case comparison with unchanged
+Main88f8648 produced 22 failures and two valid positive controls; the earlier
+nineteen-case comparison produced 17 failures and two passes. Independent
 review found an additional login-establishment gap in initial candidatee6540a4:
 reads begun during its pending login could still replace the newly established
 session. The full twenty-four-case comparison there produced 19 passes and five
