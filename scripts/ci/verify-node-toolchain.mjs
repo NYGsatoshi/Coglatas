@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
-const expectedNodeMajor = '24';
+const expectedNodeMajor = '26';
 const expectedPackageManager = 'npm@11.17.0';
 const failures = [];
 const observations = [];

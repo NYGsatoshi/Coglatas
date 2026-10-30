@@ -6,7 +6,7 @@ Last verified: 2026-06-18.
 
 - .NET 10 SDK.
 - PostgreSQL supported by the current Npgsql package, either host-native or through `infra/compose/dev/db.yml`.
-- Node.js 24.15+ for the Angular workspace and CI-equivalent UI test workflow.
+- Node.js 26 LTS for the Angular workspace and CI-equivalent UI test workflow.
 - Docker/Compose for the recommended PostgreSQL-only mode, optional full-container development, and Linux Playwright parity.
 
 The repository pins `dotnet-ef` 10.0.8 in both `dotnet-tools.json` and `.config/dotnet-tools.json`.

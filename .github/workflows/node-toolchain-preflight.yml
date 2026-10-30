@@ -81,8 +81,8 @@ jobs:
             echo
             echo "- Node: \`$(node --version)\`"
             echo "- npm: \`$(npm --version)\`"
-            echo "- Docker production frontend base: Node 24"
-            echo "- Docker frontend development base: Node 24-alpine"
-            echo "- Workflow setup-node majors: Node 24"
+            echo "- Docker production frontend base: Node 26"
+            echo "- Docker frontend development base: Node 26-alpine"
+            echo "- Workflow setup-node majors: Node 26"
             echo "- Runner trust boundary: GitHub-hosted"
           } >> "$GITHUB_STEP_SUMMARY"
