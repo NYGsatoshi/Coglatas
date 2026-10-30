@@ -9,7 +9,10 @@ before this repair is considered qualified.
 
 The exact frozen journey is copied to `tests/ui/actor-replacement-real.mjs`,
 SHA-256 `b8eaf7577da1503db15ac85f57331090b40c981d932727f648dd2216907ba942`.
-Its 17 criteria, one native `history.go(delta)`, same-document sentinel/CDP
+Its mixed CRLF/LF bytes are intentional frozen evidence; a path-specific
+.gitattributes entry prevents normalization and recognizes CR at end of line.
+The initial cached whitespace check reported those CR characters; no assertion
+or global whitespace policy was changed. Its 17 criteria, one native `history.go(delta)`, same-document sentinel/CDP
 checks, 15-second continuously live A-only negative observation, assertions,
 wait budgets and 240-second watchdog are unchanged. This is one real browser
 journey with 17 criteria, not 17 Playwright Test cases. Browser login and browser
