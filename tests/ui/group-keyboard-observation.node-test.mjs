@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import * as yaml from 'js-yaml';
+import { compareCodeUnits } from './test-support/code-unit-order.mjs';
 import { collectGroupKeyboardObservations } from '../../scripts/ci/collect-group-keyboard-observations.mjs';
 import { groupKeyboardByteLimit, groupKeyboardV1ByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
   observeGroupKeyboardCase, validateGroupKeyboardObservation, withGroupKeyboardObservation } from './helpers/group-keyboard-observation.mjs';
@@ -304,11 +305,3 @@ test('Main retains only successfully validated keyboard JSON and rejects raw suc
     assert.throws(() => verify(steps), `Main rejects ${mutation}`);
   }
 });
-
-// Match default UTF-16 code-unit ordering, including native string coercion.
-function compareCodeUnits(left, right) {
-  const leftString = `${left}`;
-  const rightString = `${right}`;
-  if (leftString === rightString) return 0;
-  return leftString < rightString ? -1 : 1;
-}
