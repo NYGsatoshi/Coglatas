@@ -105,6 +105,7 @@ export class FilesPageComponent {
   readonly page = this.facade.page;
   readonly uploadQueue = computed(() => this.page().uploadQueue.map(item => ({
     ...item,
+    message: this.message(item),
     canRetry: this.facade.canRetryUpload(item.clientRequestId),
   })));
   // Pilot intake stays unavailable until the existing scanner/admission workflow is qualified.

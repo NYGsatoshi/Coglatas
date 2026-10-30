@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { FilesPageComponent } from './files-page.component';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -67,6 +68,7 @@ describe('Files page non-enabled upload preparation with intercepted HTTP', () =
     fixture.detectChanges();
     expect(input().disabled).toBe(true);
     expect(host.querySelector('progress')?.hasAttribute('value')).toBe(false);
+    expect(host.querySelector('[data-testid="files-upload-status"]')).toBeNull();
     expect(button('Cancel').disabled).toBe(false);
     button('Cancel').click();
     fixture.detectChanges();
@@ -107,6 +109,49 @@ describe('Files page non-enabled upload preparation with intercepted HTTP', () =
     expect(fixture.componentInstance.page().recentFiles[0].originalFileName).toBe(file.name);
     expect(fixture.componentInstance.page().upload.state).toBe('succeeded');
     expect(host.querySelector('progress')).toBeNull();
+  }, 15_000);
+
+  it('presents translated zero-byte validation without creating a queue item or POST', async () => {
+    const { fixture, http, host, input } = await renderFuturePresentation();
+    Object.defineProperty(input(), 'files', { value: [new File([], 'empty.txt')], configurable: true });
+    input().dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const status = host.querySelector('[data-testid="files-upload-status"]');
+    expect(status?.getAttribute('role')).toBe('status');
+    expect(status?.getAttribute('aria-live')).toBe('polite');
+    expect(status?.textContent?.trim()).toBe(TestBed.inject(I18nService).translate('files.upload.emptyFile'));
+    expect(fixture.componentInstance.page().uploadQueue).toHaveLength(0);
+    http.expectNone(request => request.method === 'POST');
+    TestBed.inject(I18nService).setLocale('ja');
+    fixture.detectChanges();
+    expect(status?.textContent?.trim()).toBe(TestBed.inject(I18nService).translate('files.upload.emptyFile'));
+    http.expectNone(request => request.method === 'POST');
+  }, 15_000);
+
+  it('retranslates failure copy without losing retained Retry identity or dispatching a request', async () => {
+    const { fixture, http, host, select, button } = await renderFuturePresentation();
+    const file = new File(['content'], 'localized-retry.txt');
+    select([file]).flush({ message: 'Synthetic retryable failure.', privateDiagnostic: 'untrusted-storage-diagnostic' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    const row = host.querySelector('app-coglatas-file-uploader li');
+    const message = () => row?.querySelector('small')?.textContent?.trim();
+    expect(message()).toBe('Synthetic retryable failure.');
+    TestBed.inject(I18nService).setLocale('ja');
+    fixture.detectChanges();
+    expect(host.querySelector('app-coglatas-file-uploader li')).toBe(row);
+    expect(message()).toBe('予期しないサーバーエラーが発生しました。');
+    expect(host.textContent).not.toContain('untrusted-storage-diagnostic');
+    http.expectNone(request => request.method === 'POST');
+    TestBed.inject(I18nService).setLocale('en');
+    fixture.detectChanges();
+    expect(message()).toBe('Synthetic retryable failure.');
+    button('Retry').click();
+    fixture.detectChanges();
+    const retried = http.expectOne(request => request.method === 'POST');
+    expect((retried.request.body as FormData).get('File')).toBe(file);
+    button('Cancel').click();
+    fixture.detectChanges();
+    expect(retried.cancelled).toBe(true);
   }, 15_000);
 
   it.each([401, 403])('does not offer a dead Retry for non-retained HTTP %s failures', async status => {
