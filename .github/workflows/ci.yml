@@ -1,4 +1,5 @@
 name: PR CI
+# Measurement control: workflow behavior is identical to integration b6e3855d.
 
 on:
   pull_request: # Required checks: intentionally unfiltered.
