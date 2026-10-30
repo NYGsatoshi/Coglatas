@@ -127,18 +127,14 @@ public sealed class TaskNotificationPreferenceService(
 
         var hour = (value[0] - '0') * 10 + value[1] - '0';
         var minute = (value[3] - '0') * 10 + value[4] - '0';
-        if (hour > 23 || minute > 45 || minute % 15 != 0 ||
-            !TimeOnly.TryParseExact(
-                value,
-                "HH:mm",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out var parsed))
+        if (hour > 23 || minute > 45 || minute % 15 != 0)
         {
             return false;
         }
 
-        localTime = parsed;
+        // ASCII digits, fixed width and range have all been validated; use the
+        // exact components instead of a parser with runtime-dependent 24:00 rules.
+        localTime = new TimeOnly(hour, minute);
         return true;
     }
 
