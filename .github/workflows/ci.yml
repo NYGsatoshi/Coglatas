@@ -105,6 +105,7 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-frontend-parallel.sh
+          node --test tests/ui/penpot-phase-profile.node-test.mjs
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
