@@ -23,8 +23,13 @@ test('fingerprinted JS/CSS only: no regression in HTML, JSON, unhashed or unsafe
   assert.equal(staticAssetCacheShadowEligible(enabled), true);
   assert.equal(cacheControlForStaticAsset('/work/main-A1B2C3D4.js', 'GET', enabled), immutable);
   assert.equal(cacheControlForStaticAsset('/work/styles-1234ABCD.css', 'HEAD', enabled), immutable);
+  // Actual Angular 22 outputs include lowercase characters and '-' in hashes.
+  assert.equal(cacheControlForStaticAsset('/work/chunk-DFQ6prRI.js', 'GET', enabled), immutable);
+  assert.equal(cacheControlForStaticAsset('/work/chunk--Avl6tP3.js', 'GET', enabled), immutable);
   for (const file of ['/work/index.html', '/work/main.js', '/work/app-ABCDEFGH.json',
-                      '/work/app-abcdefgh.js', '/work/logo-ABCDEFGH.svg']) {
+                      '/work/app-abcdefgh.js', '/work/logo-ABCDEFGH.svg',
+                      '/work/unreviewed-ABCDEFGH.js', '/work/main-ABCDEFG.js',
+                      '/work/main-ABCDEFGHI.js', '/work/main-ABCDEFGH.js.map']) {
     assert.equal(cacheControlForStaticAsset(file, 'GET', enabled), 'no-store', file);
   }
   for (const method of ['POST', 'PUT', 'DELETE']) {
@@ -52,6 +57,7 @@ async function withStaticServer(env, callback) {
   const temp = await mkdtemp(path.join(tmpdir(), 'coglatas-static-cache-'));
   await writeFile(path.join(temp, 'index.html'), '<!doctype html><title>synthetic</title>');
   await writeFile(path.join(temp, 'main-A1B2C3D4.js'), 'window.synthetic = true;');
+  await writeFile(path.join(temp, 'chunk-DFQ6prRI.js'), 'window.chunkSynthetic = true;');
   await writeFile(path.join(temp, 'main.js'), 'window.synthetic = false;');
   const child = spawn(process.execPath, [serverFile, '--port', '0'], {
     cwd: root,
@@ -105,6 +111,11 @@ test('real static server opts in for hashed assets without caching HTML or mock 
     assert.equal(hashed.status, 200);
     assert.equal(hashed.headers.get('cache-control'), immutable);
     assert.equal(await hashed.text(), 'window.synthetic = true;');
+
+    const chunk = await fetch(`${base}/app/chunk-DFQ6prRI.js`);
+    assert.equal(chunk.status, 200);
+    assert.equal(chunk.headers.get('cache-control'), immutable);
+    assert.equal(await chunk.text(), 'window.chunkSynthetic = true;');
 
     const head = await fetch(`${base}/app/main-A1B2C3D4.js`, { method: 'HEAD' });
     assert.equal(head.status, 200);
