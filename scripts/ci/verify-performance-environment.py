@@ -52,6 +52,20 @@ def require_source_sdk_image(rendered_compose: dict, sdk_version: str) -> None:
             fail("public PR performance runtime must not have a licensed build")
 
 
+def require_approved_sdk_version(sdk_config: object) -> str:
+    """Keep both the production LTS and the explicitly pinned RC3 lab fail-closed."""
+    if not isinstance(sdk_config, dict):
+        fail("global.json must contain an SDK policy object")
+    version = sdk_config.get("version")
+    stable = (isinstance(version, str) and re.fullmatch(r"10\.0\.\d{3}", version)
+              and sdk_config.get("allowPrerelease") is False)
+    rc3 = (version == "11.0.100-rc.3.26522.148"
+           and sdk_config.get("allowPrerelease") is True)
+    if sdk_config.get("rollForward") != "disable" or not (stable or rc3):
+        fail("global.json must pin an exact approved .NET 10 SDK or isolated .NET 11 RC3 SDK")
+    return version
+
+
 def render_source_compose(environment_path: Path, override_path: Path) -> dict:
     """Use Docker Compose's real !reset/merge semantics, without starting Docker.
 
@@ -180,13 +194,7 @@ def main() -> int:
     # Read the SDK from the reviewed source of truth instead of pinning a
     # duplicate literal that would block every otherwise-compatible SDK patch.
     sdk_config = json.loads((ROOT / "global.json").read_text(encoding="utf-8")).get("sdk", {})
-    sdk_version = sdk_config.get("version")
-    stable_sdk = (isinstance(sdk_version, str) and re.fullmatch(r"10\.0\.\d{3}", sdk_version)
-                  and sdk_config.get("allowPrerelease") is False)
-    rc3_sdk = (sdk_version == "11.0.100-rc.3.26522.148"
-               and sdk_config.get("allowPrerelease") is True)
-    if sdk_config.get("rollForward") != "disable" or not (stable_sdk or rc3_sdk):
-        fail("global.json must pin an exact approved .NET 10 SDK or isolated .NET 11 RC3 SDK")
+    sdk_version = require_approved_sdk_version(sdk_config)
 
     pr_compose = pr_compose_path.read_text(encoding="utf-8")
     for token in (
