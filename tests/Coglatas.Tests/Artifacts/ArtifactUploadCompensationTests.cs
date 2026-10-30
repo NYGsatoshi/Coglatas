@@ -53,8 +53,8 @@ public sealed class ArtifactUploadCompensationTests
 
         Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
         Assert.False(fixture.Storage.DeleteTokenCanBeCancelled);
-        Assert.False(await fixture.Storage.ExistsAsync(fixture.Storage.SavedKeys.Single()));
-        Assert.Empty(await fixture.Context.ArtifactVersions.ToListAsync());
+        Assert.False(await fixture.Storage.ExistsAsync(fixture.Storage.SavedKeys.Single(), CancellationToken.None));
+        Assert.Empty(await fixture.Context.ArtifactVersions.ToListAsync(CancellationToken.None));
     }
 
     [Fact]
