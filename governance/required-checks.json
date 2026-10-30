@@ -104,8 +104,15 @@
         "migration_issue": null
       },
       "prerequisites": [
-        "dotnet-build"
-      ]
+        "dotnet-build",
+        "security-prepare",
+        "security-runtime-core",
+        "security-runtime-zap"
+      ],
+      "conditional_prerequisites": {
+        "security-runtime-core": "needs.dotnet-build.outputs.security_compose == 'true'",
+        "security-runtime-zap": "needs.dotnet-build.outputs.security_compose == 'true'"
+      }
     },
     {
       "gate_id": "GOV-GATE-PUBLICATION-001",

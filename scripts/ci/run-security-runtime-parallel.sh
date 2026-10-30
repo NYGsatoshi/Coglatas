@@ -62,8 +62,18 @@ run_runtime_lane() {
   trap - EXIT
 }
 
-ci_parallel_start security-core run_runtime_lane core
-ci_parallel_start security-schemathesis run_runtime_lane schemathesis
-ci_parallel_start security-zap run_runtime_lane zap
+if [[ "$#" -gt 1 ]]; then
+  echo 'Expected at most one security runtime lane selection.' >&2
+  exit 2
+fi
+case "${1-all}" in
+  all) lanes=(core schemathesis zap) ;;
+  core-schemathesis) lanes=(core schemathesis) ;;
+  zap) lanes=(zap) ;;
+  *) echo 'Unsupported security runtime lane selection.' >&2; exit 2 ;;
+esac
+for kind in "${lanes[@]}"; do
+  ci_parallel_start "security-$kind" run_runtime_lane "$kind"
+done
 
 ci_parallel_wait
