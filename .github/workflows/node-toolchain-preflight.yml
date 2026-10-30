@@ -16,6 +16,8 @@ on:
       - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
+      - "scripts/ci/dotnet-sdk-policy.mjs"
+      - "scripts/ci/dotnet-sdk-policy.node-test.mjs"
   push:
     branches: ["main"]
     paths:
@@ -32,6 +34,8 @@ on:
       - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
+      - "scripts/ci/dotnet-sdk-policy.mjs"
+      - "scripts/ci/dotnet-sdk-policy.node-test.mjs"
 
 concurrency:
   group: node-toolchain-preflight-${{ github.event.pull_request.number || github.ref }}
@@ -58,6 +62,9 @@ jobs:
 
       - name: Verify Node and npm toolchain policy
         run: node scripts/ci/verify-node-toolchain.mjs
+
+      - name: Test exact .NET SDK policy acceptance and rejection
+        run: node --test scripts/ci/dotnet-sdk-policy.node-test.mjs
 
 
       - name: Verify script-free production Docker dependency path
