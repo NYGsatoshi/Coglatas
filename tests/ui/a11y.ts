@@ -17,4 +17,6 @@ export async function expectNoAccessibilityViolations(page: Page, selector?: str
   const builder = new AxeBuilder({ page });
   const results = await (selector ? builder.include(selector) : builder).analyze();
   expect(results.violations, formatViolations(results.violations)).toEqual([]);
+  // Allow shadow diagnostics to compare the unchanged authoritative result.
+  return results;
 }

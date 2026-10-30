@@ -849,6 +849,8 @@ jobs:
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
           # Purely observational, opt-in phase timing; unchanged browser suite.
           COGLATAS_PENPOT_PHASE_PROFILE: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && contains(github.event.pull_request.labels.*.name, 'ci-penpot-phase-profile') && '1' || '0' }}
+          # Default-off comparison: always retain canonical AxeBuilder scan.
+          COGLATAS_AXE_SINGLE_FRAME_SHADOW: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && contains(github.event.pull_request.labels.*.name, 'ci-axe-single-frame-shadow') && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Upload browser artifacts on failure

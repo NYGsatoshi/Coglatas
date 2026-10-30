@@ -23,6 +23,8 @@ services:
       COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "${COGLATAS_STATIC_PLAYWRIGHT_WORKERS:-1}"
       # Diagnostic-only, default off; no application values are recorded.
       COGLATAS_PENPOT_PHASE_PROFILE: "${COGLATAS_PENPOT_PHASE_PROFILE:-0}"
+      # Optional single-frame Axe comparison; default off.
+      COGLATAS_AXE_SINGLE_FRAME_SHADOW: "${COGLATAS_AXE_SINGLE_FRAME_SHADOW:-0}"
     volumes:
       - ../../../:/work
       - playwright-root-node-modules:/work/node_modules
