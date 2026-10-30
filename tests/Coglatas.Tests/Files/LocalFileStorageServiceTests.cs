@@ -69,6 +69,7 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         }
 
         using var cancellation = new CancellationTokenSource();
+        Action cancelInput = cancellation.Cancel;
         var failure = new IOException("Synthetic interrupted upload.");
         await using var content = new InterruptedReadStream(async token =>
         {
@@ -83,7 +84,7 @@ public sealed class LocalFileStorageServiceTests : IDisposable
             }
             if (cancel)
             {
-                cancellation.Cancel();
+                cancelInput();
                 token.ThrowIfCancellationRequested();
             }
             throw failure;
@@ -152,9 +153,10 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         const string key = "tenants/tenant-a/files/cancel-at-end";
         var storage = CreateStorage();
         using var cancellation = new CancellationTokenSource();
+        Action cancelInput = cancellation.Cancel;
         await using var content = new InterruptedReadStream(_ =>
         {
-            cancellation.Cancel();
+            cancelInput();
             return Task.CompletedTask;
         });
 
