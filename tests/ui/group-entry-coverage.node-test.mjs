@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
-test('existing Group restoration DOM controls retain actual source coverage', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('existing Group restoration DOM controls retain actual source coverage', () => {
   const output = execFileSync(process.execPath, [
     '--enable-source-maps',
     fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url)),

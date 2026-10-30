@@ -116,7 +116,8 @@ function failureGeometry(viewport) {
     ...Object.fromEntries(['summary', 'list', 'leave', 'firstName', 'firstStatus', 'lastName', 'lastStatus', 'outer', 'aside'].map(name => [name, node()])) };
 }
 
-test('closed wrapper requires exact clean source and rejects selection overrides', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('closed wrapper requires exact clean source and rejects selection overrides', () => {
   const git = args => args[0] === 'rev-parse' ? sha : '';
   assert.equal(validateRosterInvocation({ TARGET_SHA: sha }, [], git), sha);
   for (const [environment, args, reader] of [
@@ -129,7 +130,7 @@ test('closed wrapper requires exact clean source and rejects selection overrides
   ]) assert.throws(() => validateRosterInvocation(environment, args, reader), /CONTRACT_REJECTED/);
 });
 
-test('served asset plan maps the approved Angular base to its unchanged container payload', () => {
+void test('served asset plan maps the approved Angular base to its unchanged container payload', () => {
   const plan = rosterAssetPaths('<base href="/app/"><script src="main-ABC.js"></script>' +
     '<link href="assets/vendor/base.css"><script src="/app/chunk-DEF.js"></script><script src="/api/ui/runtime-config.js"></script>');
   assert.deepEqual(plan, [
@@ -146,7 +147,7 @@ test('served asset plan maps the approved Angular base to its unchanged containe
   }
 });
 
-test('preexisting resource collision never grants cleanup ownership', async () => {
+void test('preexisting resource collision never grants cleanup ownership', async () => {
   const f = setup();
   try {
     f.collision();
@@ -157,7 +158,7 @@ test('preexisting resource collision never grants cleanup ownership', async () =
   } finally { f.dispose(); }
 });
 
-test('fresh labeled resources and actual image proof precede private fixture and scoped cleanup', async () => {
+void test('fresh labeled resources and actual image proof precede private fixture and scoped cleanup', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io);
@@ -183,7 +184,7 @@ test('fresh labeled resources and actual image proof precede private fixture and
   } finally { f.dispose(); }
 });
 
-test('failure stops only verified owned containers and preserves volumes for inspection', async () => {
+void test('failure stops only verified owned containers and preserves volumes for inspection', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io);
@@ -195,7 +196,7 @@ test('failure stops only verified owned containers and preserves volumes for ins
   } finally { f.dispose(); }
 });
 
-test('changed ownership label denies every cleanup operation', async () => {
+void test('changed ownership label denies every cleanup operation', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io);
@@ -206,7 +207,7 @@ test('changed ownership label denies every cleanup operation', async () => {
   } finally { f.dispose(); }
 });
 
-test('cleanup failure and empty admission never retain PASS', async () => {
+void test('cleanup failure and empty admission never retain PASS', async () => {
   for (const partial of [true, false]) {
     const f = setup();
     try {
@@ -219,7 +220,7 @@ test('cleanup failure and empty admission never retain PASS', async () => {
   }
 });
 
-test('tag label or running-image mismatch cannot manufacture source binding', async () => {
+void test('tag label or running-image mismatch cannot manufacture source binding', async () => {
   const f = setup();
   try {
     const docker = f.io.docker;
@@ -240,7 +241,7 @@ test('tag label or running-image mismatch cannot manufacture source binding', as
   } finally { running.dispose(); }
 });
 
-test('late unknown IDs and changed volume birth metadata are never adopted during cleanup', async () => {
+void test('late unknown IDs and changed volume birth metadata are never adopted during cleanup', async () => {
   for (const kind of ['late-container', 'volume-replacement']) {
     const f = setup();
     try {
@@ -254,7 +255,7 @@ test('late unknown IDs and changed volume birth metadata are never adopted durin
   }
 });
 
-test('served asset mismatch prevents fixture SQL and stronger source assurance', async () => {
+void test('served asset mismatch prevents fixture SQL and stronger source assurance', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); f.servedFailure();
@@ -266,7 +267,7 @@ test('served asset mismatch prevents fixture SQL and stronger source assurance',
   } finally { f.dispose(); }
 });
 
-test('two profile receipts are mandatory and bounded failure evidence remains unqualified', async () => {
+void test('two profile receipts are mandatory and bounded failure evidence remains unqualified', async () => {
   for (const [status, count] of [['PASS', 1], ['NOT_VERIFIED', 2]]) {
     const f = setup();
     try {
@@ -280,7 +281,7 @@ test('two profile receipts are mandatory and bounded failure evidence remains un
   }
 });
 
-test('private fields, wrong source and retries reject without publishing their payload', async () => {
+void test('private fields, wrong source and retries reject without publishing their payload', async () => {
   for (const mutate of [value => { value.privateBody = 'must-not-publish'; }, value => { value.sourceSha = 'e'.repeat(40); },
     value => { value.retry = 1; }, value => { value.metrics.height = null; }, value => { value.phase = 'UNREGISTERED_STAGE'; }]) {
     const f = setup();
@@ -295,7 +296,7 @@ test('private fields, wrong source and retries reject without publishing their p
   }
 });
 
-test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
+void test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
   for (const phase of ['MOBILE_SUMMARY_SCROLL', 'MOBILE_SUMMARY_VISIBILITY', 'SUMMARY_FOCUS', 'LIST_TAB_FOCUS',
     'MOBILE_LIST_SCROLL', 'MOBILE_LIST_VISIBILITY',
     'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
@@ -313,7 +314,7 @@ test('finite End, Home and final failure stages remain diagnostic evidence witho
   }
 });
 
-test('finite roster lifecycle events never qualify a failed native owner and reject private or forged metadata', async () => {
+void test('finite roster lifecycle events never qualify a failed native owner and reject private or forged metadata', async () => {
   const event = (kind, atMs, status = null) => ({ kind, atMs, status });
   const valid = { version: 1, observed: true, panelPresent: false, truncated: false, events: [
     event('CONVERSATION_REQUEST', 4),
@@ -378,7 +379,7 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
   }
 });
 
-test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
+void test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
   const lifecycle = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: true,
     panelPresent: false, truncated: false, events: [
       { kind: 'MOBILE_SUMMARY_SCROLL_RETURNED', atMs: 10, status: null },
@@ -410,7 +411,7 @@ test('version two explicitly leaves equal-millisecond events unordered while pre
   }
 });
 
-test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
+void test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
@@ -434,7 +435,7 @@ test('closed numeric failure geometry retains clipping and focus evidence withou
   } finally { f.dispose(); }
 });
 
-test('unknown, textual, unbounded or contradictory geometry is rejected without publication', async () => {
+void test('unknown, textual, unbounded or contradictory geometry is rejected without publication', async () => {
   for (const mutate of [
     geometry => { geometry.privateBody = 'must-not-publish'; },
     geometry => { geometry.summary.text = 'must-not-publish'; },
@@ -474,7 +475,7 @@ test('unknown, textual, unbounded or contradictory geometry is rejected without 
   } finally { qualified.dispose(); }
 });
 
-test('Main reuse requires observed engine identity and matching producer/source/build stamps', async () => {
+void test('Main reuse requires observed engine identity and matching producer/source/build stamps', async () => {
   for (const altered of [false, true]) {
     const f = setup(true);
     try {
@@ -504,7 +505,7 @@ test('Main reuse requires observed engine identity and matching producer/source/
   }
 });
 
-test('an owned node volume created with the initial stack keeps its frozen birth identity', async () => {
+void test('an owned node volume created with the initial stack keeps its frozen birth identity', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources();
@@ -516,7 +517,7 @@ test('an owned node volume created with the initial stack keeps its frozen birth
   } finally { f.dispose(); }
 });
 
-test('unavailable migration metadata preserves its finite capture phase without leaking errors or adopting cleanup resources', async () => {
+void test('unavailable migration metadata preserves its finite capture phase without leaking errors or adopting cleanup resources', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources();

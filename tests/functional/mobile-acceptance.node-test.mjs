@@ -16,7 +16,8 @@ const records = () => Object.entries(mobileOwners).map(([id, steps]) => ({ id, p
   backend: 'real', expectedStatus: 'passed', attempts: [{ status: 'passed', retry: 0, steps: [...steps] }] }));
 const profile = () => ({ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) } });
 
-test('restricted thread phase diagnostics reject protected fields and retain only finite booleans and phase tokens', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('restricted thread phase diagnostics reject protected fields and retain only finite booleans and phase tokens', () => {
   const value = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: {
     singleTab: true, visible: true, enabled: true, selected: true, inViewport: false, centerReceivesPointer: false, workspaceExpanded: true,
   } };
@@ -34,7 +35,7 @@ test('restricted thread phase diagnostics reject protected fields and retain onl
   assert.equal(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from('{}') }, { name: THREAD_PROBE_ATTACHMENT, body: Buffer.from('{}') }]).state, 'INVALID');
 });
 
-test('mobile failure projection retains only approved owner, step, failure kind and source line', () => {
+void test('mobile failure projection retains only approved owner, step, failure kind and source line', () => {
   const value = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MSG-001' }] }, {
     status: 'failed', retry: 0, errors: [{ message: 'private-canary' }],
     steps: [{ category: 'test.step', title: 'FUNC-MSG-001 / MSG-THREAD private-canary', error: {},
@@ -53,7 +54,7 @@ test('mobile failure projection retains only approved owner, step, failure kind 
   assert.equal(safeRunIdentity('private-canary'), 'UNAVAILABLE');
 });
 
-test('a later cleanup timeout cannot hide the original mandatory mobile step assertion', () => {
+void test('a later cleanup timeout cannot hide the original mandatory mobile step assertion', () => {
   const value = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MOBILE-001' }] }, {
     status: 'failed', retry: 0, errors: [{ message: 'private-canary cleanup timed out' }], steps: [
       { category: 'test.step', title: 'FUNC-MOBILE-001 / MOB-04 private-canary', error: { matcherResult: {} },
@@ -70,7 +71,7 @@ test('a later cleanup timeout cannot hide the original mandatory mobile step ass
   assert.equal(JSON.stringify(value).includes('private-canary'), false);
 });
 
-test('actual failed Playwright owner emits finite diagnostics without a PASS receipt or protected error text', () => {
+void test('actual failed Playwright owner emits finite diagnostics without a PASS receipt or protected error text', () => {
   const directory = mkdtempSync(join(tmpdir(), 'coglatas-mobile-reporter-'));
   const root = process.cwd();
   try {
@@ -120,7 +121,7 @@ test('actual failed Playwright owner emits finite diagnostics without a PASS rec
   }
 });
 
-test('runtime binding rejects wrong checkout, dirty source, image substitution and unmatched restored producer', () => {
+void test('runtime binding rejects wrong checkout, dirty source, image substitution and unmatched restored producer', () => {
   const sha = 'a'.repeat(40), id = 'sha256:' + 'b'.repeat(64);
   const valid = () => ({ sha, stamp: sha, checkout: sha, dirty: '', reused: false,
     image: { Id: id, Config: { Labels: { 'org.opencontainers.image.revision': sha, private: 'private-canary' } } },
@@ -136,7 +137,7 @@ test('runtime binding rejects wrong checkout, dirty source, image substitution a
   ]) { const changed = valid(); mutate(changed); assert.throws(() => mobileRuntimeIdentity(changed)); }
 });
 
-test('four complete real owners are required once with all mandatory steps', () => {
+void test('four complete real owners are required once with all mandatory steps', () => {
   assert.equal(validateMobileOwners(records()).length, 4);
   for (const mutate of [
     (rows) => rows.pop(), (rows) => rows.push(rows[0]), (rows) => { rows[1] = rows[0]; },
@@ -153,7 +154,7 @@ test('four complete real owners are required once with all mandatory steps', () 
   }
 });
 
-test('mobile profile fails closed on engine, opt-in, geometry or touch mismatches', () => {
+void test('mobile profile fails closed on engine, opt-in, geometry or touch mismatches', () => {
   assertMobileProfile('chromium', profile(), '1');
   for (const mutate of [
     (value) => { value.name = 'functional-chromium'; }, (value) => { value.use.browserName = 'firefox'; },
@@ -165,7 +166,7 @@ test('mobile profile fails closed on engine, opt-in, geometry or touch mismatche
   assert.throws(() => assertMobileProfile('chromium', profile(), '0'));
 });
 
-test('secondary contexts inherit only fresh device options and canonical owner counts stay unchanged', () => {
+void test('secondary contexts inherit only fresh device options and canonical owner counts stay unchanged', () => {
   const options = mobileDeviceOptions(mobileProject);
   assert.deepEqual(Object.keys(options).sort(compareCodeUnits), ['deviceScaleFactor', 'hasTouch', 'isMobile', 'screen', 'viewport']);
   options.viewport.width = 999;
@@ -176,7 +177,7 @@ test('secondary contexts inherit only fresh device options and canonical owner c
   assert.equal(domains.flatMap((domain) => requiredOwners(domain, 'functional-full')).length, 7);
 });
 
-test('reporter refuses a source mismatch and never publishes protected assertion or attachment data', () => {
+void test('reporter refuses a source mismatch and never publishes protected assertion or attachment data', () => {
   const previous = process.cwd(), sha = process.env.TARGET_SHA, enabled = process.env.COGLATAS_REAL_BACKEND_MOBILE;
   const directory = mkdtempSync(join(tmpdir(), 'coglatas-mobile-reporter-'));
   const errors = [], oldError = console.error, oldLog = console.log;

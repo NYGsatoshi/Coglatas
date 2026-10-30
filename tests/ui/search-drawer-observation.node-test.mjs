@@ -34,7 +34,8 @@ function input(root, value) {
   writeFileSync(join(root, searchDrawerInputDirectory, searchDrawerFilename(value.profile, value.attempt)), JSON.stringify(value));
 }
 
-test('closed lifecycle metadata excludes raw fields and fits 128 events within the 64 KiB budget', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('closed lifecycle metadata excludes raw fields and fits 128 events within the 64 KiB budget', () => {
   const value = { ...observation(), events: Array.from({ length: 128 }, event) };
   assert.deepEqual(validateSearchDrawerObservation(value), value);
   assert.equal(validateSearchDrawerObservation({ ...observation(),
@@ -56,7 +57,7 @@ test('closed lifecycle metadata excludes raw fields and fits 128 events within t
   for (const changed of mutations) { assert.throws(() => validateSearchDrawerObservation(changed)); }
 });
 
-test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
+void test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
   for (const changed of [{ ...observation(), truncated: true },
     { ...observation(), captureState: 'UNAVAILABLE', events: [] }, { ...observation(), events: [] }]) {
     assert.throws(() => validateSearchDrawerObservation(changed));
@@ -65,7 +66,7 @@ test('truncation, unavailable and empty observations cannot claim complete evide
   assert.equal(validateSearchDrawerObservation(observation(0, 'COMPLETED')).classification, 'UNKNOWN');
 });
 
-test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
+void test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
   const primary = new Error('private-primary'), secondary = new Error('private-secondary');
   let outcome;
   await assert.rejects(withSearchDrawerObservation(async () => { throw primary; }, async (value) => {
@@ -76,7 +77,7 @@ test('publication and capture exceptions preserve the identical mandatory primar
     (error) => error === secondary);
 });
 
-test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
+void test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
   const root = scratch(), previous = process.cwd(), primary = new Error('private-primary');
   try {
     process.chdir(root);
@@ -90,7 +91,7 @@ test('actual case helper publishes explicit unavailable capture before preservin
   } finally { process.chdir(previous); rmSync(root, { recursive: true, force: true }); }
 });
 
-test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
+void test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
   const root = scratch(), source = process.cwd();
   try {
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -119,7 +120,7 @@ test('actual Playwright first failure and later retry success retain separate im
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
+void test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
   for (const mutation of ['raw', 'wrong-name', 'oversized', 'producer', 'source', 'dirty', 'stale']) {
     const root = scratch();
     try {
@@ -140,7 +141,7 @@ test('collector rejects raw data, identity mismatches, dirty source and stale ou
   }
 });
 
-test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
+void test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
   for (const mutation of ['special-file', 'same-inode-growth']) {
     const root = scratch();
     try {
@@ -182,7 +183,7 @@ test('collector rejects a special-file acquisition race and bounds same-inode gr
   }
 });
 
-test('collector refuses a linked artifacts parent before publication', () => {
+void test('collector refuses a linked artifacts parent before publication', () => {
   const root = scratch();
   try {
     const sha = repository(root); input(root, observation());
@@ -194,7 +195,7 @@ test('collector refuses a linked artifacts parent before publication', () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('CI retains only validated finite lifecycle files after retry-success without expanding general browser publication', () => {
+void test('CI retains only validated finite lifecycle files after retry-success without expanding general browser publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/ci.yml', 'utf8'));
   const steps = workflow.jobs['frontend-test'].steps;
   const collect = steps.find((step) => step.id === 'collect-search-drawer-observations');
@@ -212,7 +213,7 @@ test('CI retains only validated finite lifecycle files after retry-success witho
     /'--test',[\s\S]*'tests\/ui\/search-drawer-observation\.node-test\.mjs'/);
 });
 
-test('Main retains only successfully validated lifecycle JSON and rejects raw success publication', () => {
+void test('Main retains only successfully validated lifecycle JSON and rejects raw success publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/main-validation.yml', 'utf8'));
   const original = workflow.jobs['main-frontend-test'].steps;
   const verify = (steps) => {

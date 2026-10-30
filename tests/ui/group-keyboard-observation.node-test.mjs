@@ -34,7 +34,8 @@ function input(root, value) {
   writeFileSync(join(root, groupKeyboardInputDirectory, groupKeyboardFilename(value.profile, value.attempt)), JSON.stringify(value));
 }
 
-test('closed keyboard metadata excludes raw fields and fits 128 events within the 32 KiB budget', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('closed keyboard metadata excludes raw fields and fits 128 events within the 32 KiB budget', () => {
   const value = { ...observation(), events: Array.from({ length: 128 }, event) };
   assert.deepEqual(validateGroupKeyboardObservation(value), value);
   assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardV1ByteLimit);
@@ -48,7 +49,7 @@ test('closed keyboard metadata excludes raw fields and fits 128 events within th
   for (const changed of mutations) { assert.throws(() => validateGroupKeyboardObservation(changed)); }
 });
 
-test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
+void test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
   for (const changed of [{ ...observation(), truncated: true },
     { ...observation(), captureState: 'UNAVAILABLE', events: [] }, { ...observation(), events: [] }]) {
     assert.throws(() => validateGroupKeyboardObservation(changed));
@@ -57,7 +58,7 @@ test('truncation, unavailable and empty observations cannot claim complete evide
   assert.equal(validateGroupKeyboardObservation(observation(0, 'COMPLETED')).classification, 'UNKNOWN');
 });
 
-test('v2 retains 128 bounded structural events while v1 remains a strict separate contract', () => {
+void test('v2 retains 128 bounded structural events while v1 remains a strict separate contract', () => {
   const maximumEvent = () => ({ ...eventV2(), key: 'SHIFT_TAB', target: 'SUMMARY', active: 'SUMMARY',
     listConnected: false, trackedListConnected: false, targetConnected: false, activeConnected: false, trusted: false });
   const value = { ...observation(), schemaVersion: 2, profile: 'chromium-desktop', bodyOutcome: 'COMPLETED',
@@ -83,7 +84,7 @@ test('v2 retains 128 bounded structural events while v1 remains a strict separat
   }
 });
 
-test('v2 never labels a missing roster, truncation or unavailable capture complete', () => {
+void test('v2 never labels a missing roster, truncation or unavailable capture complete', () => {
   const value = { ...observation(), schemaVersion: 2, events: [eventV2()] };
   for (const changed of [{ ...value, truncated: true }, { ...value, events: [] },
     { ...value, captureState: 'UNAVAILABLE', events: [] },
@@ -93,7 +94,7 @@ test('v2 never labels a missing roster, truncation or unavailable capture comple
   }
 });
 
-test('collector preserves strict legacy raw-byte bounds and independently binds mixed versions', () => {
+void test('collector preserves strict legacy raw-byte bounds and independently binds mixed versions', () => {
   for (const oversizedLegacy of [false, true]) {
     const root = scratch();
     try {
@@ -116,7 +117,7 @@ test('collector preserves strict legacy raw-byte bounds and independently binds 
   }
 });
 
-test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
+void test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
   const primary = new Error('private-primary'), secondary = new Error('private-secondary');
   let outcome;
   await assert.rejects(withGroupKeyboardObservation(async () => { throw primary; }, async (value) => {
@@ -127,7 +128,7 @@ test('publication and capture exceptions preserve the identical mandatory primar
     (error) => error === secondary);
 });
 
-test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
+void test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
   const root = scratch(), previous = process.cwd(), primary = new Error('private-primary');
   try {
     process.chdir(root);
@@ -141,7 +142,7 @@ test('actual case helper publishes explicit unavailable capture before preservin
   } finally { process.chdir(previous); rmSync(root, { recursive: true, force: true }); }
 });
 
-test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
+void test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
   const root = scratch(), source = process.cwd();
   try {
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -170,7 +171,7 @@ test('actual Playwright first failure and later retry success retain separate im
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
+void test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
   for (const mutation of ['raw', 'wrong-name', 'oversized', 'producer', 'source', 'dirty', 'stale']) {
     const root = scratch();
     try {
@@ -191,7 +192,7 @@ test('collector rejects raw data, identity mismatches, dirty source and stale ou
   }
 });
 
-test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
+void test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
   for (const mutation of ['special-file', 'same-inode-growth']) {
     const root = scratch();
     try {
@@ -233,7 +234,7 @@ test('collector rejects a special-file acquisition race and bounds same-inode gr
   }
 });
 
-test('collector refuses a linked artifacts parent before publication', () => {
+void test('collector refuses a linked artifacts parent before publication', () => {
   const root = scratch();
   try {
     const sha = repository(root); input(root, observation());
@@ -245,7 +246,7 @@ test('collector refuses a linked artifacts parent before publication', () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
+void test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/ci.yml', 'utf8'));
   const steps = workflow.jobs['frontend-test'].steps;
   const collect = steps.find((step) => step.id === 'collect-group-keyboard-observations');
@@ -263,7 +264,7 @@ test('CI retains only validated finite files after retry-success without expandi
     /'--test',[\s\S]*'tests\/ui\/group-keyboard-observation\.node-test\.mjs'/);
 });
 
-test('Main retains only successfully validated keyboard JSON and rejects raw success publication', () => {
+void test('Main retains only successfully validated keyboard JSON and rejects raw success publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/main-validation.yml', 'utf8'));
   const original = workflow.jobs['main-frontend-test'].steps;
   const verify = (steps) => {
