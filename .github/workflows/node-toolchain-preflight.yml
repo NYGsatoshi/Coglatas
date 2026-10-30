@@ -16,6 +16,7 @@ on:
       - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
+      - "scripts/ci/node-toolchain-qualification.node-test.mjs"
   push:
     branches: ["main"]
     paths:
@@ -32,6 +33,7 @@ on:
       - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
+      - "scripts/ci/node-toolchain-qualification.node-test.mjs"
 
 concurrency:
   group: node-toolchain-preflight-${{ github.event.pull_request.number || github.ref }}
@@ -58,6 +60,9 @@ jobs:
 
       - name: Verify Node and npm toolchain policy
         run: node scripts/ci/verify-node-toolchain.mjs
+
+      - name: Qualify Node toolchain guard using positive and negative controls
+        run: node --test scripts/ci/node-toolchain-qualification.node-test.mjs
 
 
       - name: Verify script-free production Docker dependency path
