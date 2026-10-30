@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { FilesFacade } from './files.facade';
@@ -13,11 +14,13 @@ const FILE_OBJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER_FILE_OBJECT_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const OTHER_WORKSPACE_ID = '22222222-2222-4222-8222-222222222222';
 
 describe('FilesFacade paging query state', () => {
   let facade: FilesFacade;
   let http: HttpTestingController;
   let clearProtectedState: (() => void) | undefined;
+  let durableEvents: Subject<DurableRealtimeEvent>;
   let activeWorkspaceState: ReturnType<typeof signal<{ readonly id: string; readonly label: string } | null>>;
   const continueWorkingHistory = { touchFile: vi.fn() },
     flushEmptyInventory = (request: Readonly<Pick<TestRequest, 'flush'>>, inventoryFails: boolean): void => {
@@ -35,6 +38,7 @@ describe('FilesFacade paging query state', () => {
   beforeEach(() => {
     window.localStorage.setItem('coglatas.locale', 'en');
     clearProtectedState = undefined;
+    durableEvents = new Subject<DurableRealtimeEvent>();
     activeWorkspaceState = signal<{ readonly id: string; readonly label: string } | null>(null);
     continueWorkingHistory.touchFile.mockReset();
     TestBed.configureTestingModule({ providers: [
@@ -44,7 +48,7 @@ describe('FilesFacade paging query state', () => {
       {
         provide: RealtimeFacade,
         useValue: {
-          durableEvents$: new Subject(),
+          durableEvents$: durableEvents,
           registerProtectedStateClearer: (_owner: string, clear: () => void) => {
             clearProtectedState = clear;
             return () => { clearProtectedState = undefined; };
@@ -62,6 +66,129 @@ describe('FilesFacade paging query state', () => {
     TestBed.resetTestingModule();
   });
 
+  it.each(['pending', 'progress'] as const)('cancels a %s upload and immediately permits another selection', (state) => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+    const upload = startUpload();
+    if (state === 'progress') { upload.event({ type: HttpEventType.UploadProgress, loaded: 1, total: 2 }); }
+    const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+
+    facade.cancelUpload(clientRequestId);
+
+    expect(upload.cancelled).toBe(true);
+    expect(facade.page().upload).toMatchObject({ state: 'cancelled', canUpload: true });
+    expect(facade.page().uploadQueue[0]).toMatchObject({ clientRequestId, state: 'cancelled' });
+    facade.retryUpload(clientRequestId);
+    http.expectNone(request => request.method === 'POST');
+    const nextFile = new File(['next selection'], 'next.txt', { type: 'text/plain' });
+    facade.uploadFile(nextFile);
+    const next = http.expectOne(request => request.method === 'POST');
+    expect((next.request.body as FormData).get('File')).toBe(nextFile);
+    expect((next.request.body as FormData).get('OwnerId')).toBe(WORKSPACE_ID);
+    clearProtectedState?.();
+    expect(next.cancelled).toBe(true);
+  });
+
+  it('reconciles an already deferred File change when the pending upload is cancelled', () => {
+    vi.useFakeTimers();
+    try {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+      const upload = startUpload();
+      durableEvents.next(fileChangedEvent());
+      http.expectNone(request => request.method === 'GET');
+
+      facade.cancelUpload(facade.page().uploadQueue[0].clientRequestId);
+      vi.advanceTimersByTime(100);
+
+      expect(upload.cancelled).toBe(true);
+      const refreshed = http.expectOne(request => request.method === 'GET' && request.url === '/api/files');
+      expect(refreshed.request.params.get('workspaceId')).toBe(WORKSPACE_ID);
+      flushEmptyInventory(refreshed, false);
+      http.expectNone(request => request.method === 'POST');
+    } finally {
+      clearProtectedState?.();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not enable selection or refresh an obsolete scope when cancellation follows a Workspace change', () => {
+    vi.useFakeTimers();
+    try {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+      const upload = startUpload();
+      upload.event({ type: HttpEventType.UploadProgress, loaded: 1, total: 2 });
+      durableEvents.next(fileChangedEvent());
+      const clientRequestId = facade.page().uploadQueue[0].clientRequestId;
+      activeWorkspaceState.set({ id: OTHER_WORKSPACE_ID, label: 'Workspace B' });
+
+      facade.cancelUpload(clientRequestId);
+      vi.advanceTimersByTime(100);
+
+      expect(upload.cancelled).toBe(true);
+      expect(facade.page().upload).toMatchObject({ state: 'cancelled', canUpload: false });
+      facade.retryUpload(clientRequestId);
+      http.expectNone(request => request.method === 'POST' || request.method === 'GET');
+    } finally {
+      clearProtectedState?.();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not let an invalidated upload suppress later authoritative File refreshes', () => {
+    vi.useFakeTimers();
+    try {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+      const upload = startUpload();
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID, true);
+      flushEmptyInventory(http.expectOne(request => request.method === 'GET'), false);
+
+      durableEvents.next(fileChangedEvent());
+      vi.advanceTimersByTime(100);
+
+      const refreshed = http.expectOne(request => request.method === 'GET' && request.url === '/api/files');
+      expect(refreshed.request.params.get('workspaceId')).toBe(WORKSPACE_ID);
+      flushEmptyInventory(refreshed, false);
+      expect(upload.cancelled).toBe(true);
+      http.expectNone(request => request.method === 'POST');
+    } finally {
+      clearProtectedState?.();
+      vi.useRealTimers();
+    }
+  });
+  it.each([
+    ['pending', WORKSPACE_ID], ['progress', WORKSPACE_ID],
+    ['pending', OTHER_WORKSPACE_ID], ['progress', OTHER_WORKSPACE_ID],
+  ] as const)('reauthorization cancels an obsolete %s upload before loading %s', (state, targetWorkspaceId) => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    flushEmptyInventory(http.expectOne(request => request.url === '/api/files'), false);
+    const upload = startUpload();
+    if (state === 'progress') { upload.event({ type: HttpEventType.UploadProgress, loaded: 1, total: 2 }); }
+    const obsoleteId = facade.page().uploadQueue[0].clientRequestId;
+
+    activeWorkspaceState.set({ id: targetWorkspaceId, label: 'Reauthorized Workspace' });
+    facade.loadPageFilesForWorkspace(targetWorkspaceId, true);
+    const inventory = http.expectOne(request => request.method === 'GET');
+    expect(inventory.request.params.get('workspaceId')).toBe(targetWorkspaceId);
+    flushEmptyInventory(inventory, false);
+
+    expect(upload.cancelled).toBe(true);
+    expect(facade.page().upload).toMatchObject({ state: 'idle', canUpload: true });
+    expect(facade.page().uploadQueue).toEqual([]);
+    facade.retryUpload(obsoleteId);
+    http.expectNone(request => request.method === 'POST');
+    const next = startUpload();
+    expect((next.request.body as FormData).get('OwnerId')).toBe(targetWorkspaceId);
+    clearProtectedState?.();
+    expect(next.cancelled).toBe(true);
+  });
   it('retries a failed upload with the same synthetic File and queue identity, then cancels it', () => {
     activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
     facade.loadPageFilesForWorkspace(WORKSPACE_ID);
@@ -690,3 +817,12 @@ describe('FilesFacade paging query state', () => {
     };
   }
 });
+
+function fileChangedEvent(): DurableRealtimeEvent {
+  return {
+    eventId: 'synthetic-file-change', eventType: 'Files.FileChanged.v1', payloadSchemaVersion: 1,
+    occurredAt: '2026-10-30T00:00:00Z', tenantId: 'synthetic-tenant', aggregateType: 'File',
+    aggregateId: FILE_OBJECT_ID, aggregateVersion: 1, actor: { actorType: 'System', actorId: null },
+    correlationId: null, causationId: null, payload: {},
+  };
+}
