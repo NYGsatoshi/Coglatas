@@ -109,6 +109,7 @@ jobs:
           node --check tests/ui/settled-scroll-position.ts
           node --check tests/ui/settled-scroll-position.node-test.mjs
           python3 -c 'import ast; from pathlib import Path; ast.parse(Path("scripts/ci/test_av_mig_runtime_cli.py").read_text())'
+          python3 -B scripts/ci/test_av_mig_runtime_reuse.py
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
@@ -1008,6 +1009,7 @@ jobs:
           # PRs verify the generated contract once; main/manual repeat generation.
           COGLATAS_SECURITY_OPENAPI_DETERMINISM_RUNS: ${{ github.event_name == 'pull_request' && '1' || '2' }}
           COGLATAS_SECURITY_REUSE_PREBUILT_OPENAPI: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+          COGLATAS_SECURITY_AVMIG_REUSE_REFERENCES: ${{ github.event_name == 'pull_request' && '1' || '0' }}
           # Verifier mutation suites run on PR only when verifier/policy/toolchain
           # or their concrete Program/AppHub mutation targets changed.
           COGLATAS_SECURITY_AVMIG_SELFTESTS: ${{ github.event_name != 'pull_request' && '1' || (needs.dotnet-build.outputs.avmig_selftests == 'true' && '1' || '0') }}

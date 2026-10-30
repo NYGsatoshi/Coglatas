@@ -10,6 +10,24 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def use_prebuilt_references():
+    mode = os.environ.get('COGLATAS_SECURITY_AVMIG_REUSE_REFERENCES', '0')
+    if mode == '0':
+        return False
+    if mode != '1':
+        raise RuntimeError('AV-MIG reference reuse must be 0 or 1.')
+    if os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('GITHUB_EVENT_NAME') != 'pull_request':
+        raise RuntimeError('AV-MIG prebuilt reference reuse requires the PR CI artifact boundary.')
+    expected = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    stamp = ROOT / 'artifacts/ci/dotnet-build-sha'
+    if os.environ.get('GITHUB_SHA') != expected or stamp.read_text().strip() != expected:
+        raise RuntimeError('AV-MIG prebuilt references do not match the analyzed revision.')
+    tracked = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], cwd=ROOT)
+    extra_sources = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', 'src'], cwd=ROOT, text=True)
+    if tracked.returncode or extra_sources.strip():
+        raise RuntimeError('AV-MIG reference inputs changed after the authoritative build.')
+    return True
+
 def main():
     program = Path('src/Coglatas.Web/Program.cs')
     original = (ROOT / program).read_text()
@@ -32,12 +50,10 @@ def main():
         BrowserSmokeSeed__Enabled='false', COGLATAS_BROWSER_SMOKE_SEED_ENABLED='false',
         DemoDataset__Enabled='false', COGLATAS_DEMO_DATASET_ENABLED='false', COGLATAS_SEED_ADMIN_ENABLED='false',
         COGLATAS_BOOTSTRAP_ADMIN_EMAIL='', BootstrapAdmin__Email='')
-    # Revalidate the pristine graph before reusing reference assemblies. This
-    # also supports a clean checkout rather than trusting pre-existing outputs.
+    # PR CI already binds this same-run producer artifact to the tested SHA.
+    # Recheck the binding and pristine inputs before using its references.
+    reuse_references = use_prebuilt_references()
     project = 'src/Coglatas.Web/Coglatas.Web.csproj'
-    prerequisite = subprocess.run(['dotnet', 'build', project, '-c', 'Release', '--disable-build-servers', '-m:1', '-p:UseSharedCompilation=false', '--verbosity', 'quiet'], cwd=ROOT, capture_output=True, text=True, timeout=300)
-    if prerequisite.returncode:
-        raise RuntimeError('Pristine probe dependency build failed: ' + prerequisite.stdout + prerequisite.stderr)
     with tempfile.TemporaryDirectory(prefix='av-mig-runtime-') as temporary:
         root = Path(temporary)
         shutil.copytree(ROOT / 'src', root / 'src', ignore=shutil.ignore_patterns('wwwroot'))
@@ -46,9 +62,13 @@ def main():
         restore = subprocess.run(['dotnet', 'restore', project, '--disable-parallel', '--disable-build-servers', '-m:1', '--verbosity', 'minimal'], cwd=root, capture_output=True, text=True, timeout=300)
         if restore.returncode: raise RuntimeError('Runtime probe restore failed: ' + restore.stdout + restore.stderr)
         # Each probe changes only Program.cs; reference sources remain pristine.
-        for name, source, expected, diagnostic in probes:
+        for index, (name, source, expected, diagnostic) in enumerate(probes):
             (root / program).write_text(source)
-            build = subprocess.run(['dotnet', 'build', project, '-c', 'Release', '--no-restore', '--disable-build-servers', '-m:1', '-p:UseSharedCompilation=false', '--no-dependencies', '--verbosity', 'quiet'], cwd=root, capture_output=True, text=True, timeout=300)
+            command = ['dotnet', 'build', project, '-c', 'Release', '--no-restore', '--disable-build-servers', '-m:1', '-p:UseSharedCompilation=false', '--verbosity', 'quiet']
+            # Standalone execution first builds the entire isolated baseline.
+            if reuse_references or index > 0:
+                command.append('--no-dependencies')
+            build = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=300)
             if build.returncode:
                 (logs / (name + '.log')).write_text(build.stdout + build.stderr)
                 results.append({'mutation': name, 'result': 'BUILD_FAILED', 'buildExit': build.returncode})
