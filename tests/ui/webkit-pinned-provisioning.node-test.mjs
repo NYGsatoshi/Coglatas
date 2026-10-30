@@ -56,7 +56,8 @@ async function commands(f) {
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
 }
 
-test('WebKit preparation explicitly acquires the immutable Linux image and fails closed', async (t) => {
+// Node's test runner owns completion and reports callback failures.
+void test('WebKit preparation explicitly acquires the immutable Linux image and fails closed', async (t) => {
   const ok = await fixture(t);
   const prepared = await launch(ok, 'prepare').done;
   assert.equal(prepared.code, 0, prepared.output);
@@ -71,7 +72,7 @@ test('WebKit preparation explicitly acquires the immutable Linux image and fails
   assert.notEqual((await launch(digestMismatch, 'prepare').done).code, 0);
 });
 
-test('WebKit execution preserves source binding, canonical selection and output ownership without pulling', async (t) => {
+void test('WebKit execution preserves source binding, canonical selection and output ownership without pulling', async (t) => {
   const f = await fixture(t);
   const executed = await launch(f, 'run').done;
   assert.equal(executed.code, 0, executed.output);
@@ -85,14 +86,14 @@ test('WebKit execution preserves source binding, canonical selection and output 
   assert.deepEqual(calls.find((args) => args[0] === 'rm'), ['rm', '--force', id]);
 });
 
-test('WebKit refuses a mismatched producer before creating any container', async (t) => {
+void test('WebKit refuses a mismatched producer before creating any container', async (t) => {
   const f = await fixture(t);
   await writeFile(path.join(f.root, 'artifacts/ci/frontend-build-sha'), 'c'.repeat(40));
   assert.notEqual((await launch(f, 'run').done).code, 0);
   assert.equal((await commands(f)).some((args) => args[0] === 'create'), false);
 });
 
-test('WebKit propagates failed container execution and cannot pass a running container', async (t) => {
+void test('WebKit propagates failed container execution and cannot pass a running container', async (t) => {
   const f = await fixture(t, { CONTAINER_EXIT: '19' });
   const failed = await launch(f, 'run').done;
   assert.equal(failed.code, 19, failed.output);
@@ -106,7 +107,7 @@ test('WebKit propagates failed container execution and cannot pass a running con
   assert.equal((await commands(missingImage)).some((args) => args[0] === 'create'), false);
 });
 
-test('WebKit cancellation fails and removes only the invocation-owned immutable container ID', async (t) => {
+void test('WebKit cancellation fails and removes only the invocation-owned immutable container ID', async (t) => {
   const f = await fixture(t, { HOLD_START: '1' });
   const execution = launch(f, 'run');
   const deadline = Date.now() + 10000;
@@ -124,7 +125,7 @@ test('WebKit cancellation fails and removes only the invocation-owned immutable 
   assert.deepEqual(calls.find((args) => args[0] === 'rm'), ['rm', '--force', id]);
 });
 
-test('WebKit cancellation during cleanup preserves failure and completes owned removal', async (t) => {
+void test('WebKit cancellation during cleanup preserves failure and completes owned removal', async (t) => {
   const f = await fixture(t, { HOLD_CLEANUP: '1' });
   const execution = launch(f, 'run');
   const deadline = Date.now() + 10000;

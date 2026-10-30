@@ -40,17 +40,18 @@ function run(reports, findings = []) {
   }
 }
 
-test('a complete clean npm v2 report passes', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('a complete clean npm v2 report passes', () => {
   assert.equal(run({ frontend: cleanReport() }).status, 0);
 });
 
-test('an npm registry error cannot pass as an empty vulnerability report', () => {
+void test('an npm registry error cannot pass as an empty vulnerability report', () => {
   const result = run({ root: cleanReport(), frontend: { error: { code: 'E503' } } });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Invalid npm audit report/);
 });
 
-test('missing, malformed and inconsistent npm audit evidence fails closed', () => {
+void test('missing, malformed and inconsistent npm audit evidence fails closed', () => {
   const mutations = [
     () => ({}),
     () => null,
@@ -71,7 +72,7 @@ test('missing, malformed and inconsistent npm audit evidence fails closed', () =
   }
 });
 
-test('valid high findings still require the same reviewed advisory identity', () => {
+void test('valid high findings still require the same reviewed advisory identity', () => {
   const finding = { report: 'frontend', package: 'example', severity: 'high', via: ['advisory:12345'] };
   assert.equal(run({ frontend: highReport() }, [finding]).status, 0);
   const unreviewed = run({ frontend: highReport() });

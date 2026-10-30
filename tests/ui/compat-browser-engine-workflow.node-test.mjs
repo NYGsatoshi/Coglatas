@@ -86,7 +86,8 @@ test('pull requests still preflight browser-facing changes while main execution 
   assert.doesNotMatch(workflow, /\n\s{2}push:\n/u);
 });
 
-test('only desktop WebKit uses the pinned runtime without extending the job limit', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('only desktop WebKit uses the pinned runtime without extending the job limit', () => {
   assert.match(workflow, /compat-browser-engine:[\s\S]*timeout-minutes: 30/u);
   assert.match(workflow, /Install \$\{\{ matrix\.engine \}\} browser and system dependencies\s+if: matrix\.engine != 'webkit'/u);
   assert.match(workflow, /Acquire pinned WebKit runtime\s+if: matrix\.engine == 'webkit'\s+run: node scripts\/ci\/run-webkit-pinned\.mjs prepare/u);
