@@ -78,6 +78,59 @@ describe('RealtimeFacade', () => {
     expect(facade.initialSynchronizationSettled()).toBe(true);
   });
 
+  it('replaces the transport and protected scope when the authenticated actor changes within the same Tenant', async () => {
+    flags.setForTesting({ 'realtime.signalR': true });
+    const original = { ...activeSession(), currentUser: {
+      ...DEFAULT_AUTH_SESSION.currentUser!, userId: '55555555-5555-4555-8555-555555555555',
+    } };
+    auth.setMockSession(original);
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    const starts = transport.startCalls, stops = transport.stopCalls;
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('same-tenant-actor-control', clear);
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser, userId: '66666666-6666-4666-8666-666666666666', displayName: 'Replacement actor' },
+      currentTenant: { ...original.currentTenant! },
+    });
+    await settle();
+    await waitForConnection(facade);
+
+    expect.soft(auth.isAuthenticated()).toBe(true);
+    expect.soft(transport.stopCalls).toBe(stops + 1);
+    expect.soft(transport.startCalls).toBe(starts + 1);
+    expect.soft(clear).toHaveBeenCalledWith('session');
+    expect.soft(activeWorkspace.activeWorkspace()).toBeNull();
+    expect(notificationOpenContext.digestWorkspaceId()).toBeNull();
+  });
+
+  it('keeps the current transport and authorized scope for a same-actor display-name refresh', async () => {
+    flags.setForTesting({ 'realtime.signalR': true });
+    const original = activeSession();
+    auth.setMockSession(original);
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    const starts = transport.startCalls, stops = transport.stopCalls;
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('same-actor-display-control', clear);
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, displayName: 'Updated display name' },
+      currentTenant: { ...original.currentTenant! },
+    });
+    await settle();
+
+    expect(transport.stopCalls).toBe(stops);
+    expect(transport.startCalls).toBe(starts);
+    expect(clear).not.toHaveBeenCalled();
+    expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
+    expect(notificationOpenContext.digestWorkspaceId()).toBe(RESOURCE_ID);
+  });
   it('settles initial presentation only after authoritative catch-ups and keeps it settled on later reconnects', async () => {
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
