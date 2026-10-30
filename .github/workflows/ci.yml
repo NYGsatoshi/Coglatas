@@ -1385,3 +1385,13 @@ jobs:
             artifacts/security/schemathesis/
           if-no-files-found: error
           retention-days: 7
+      - name: Upload runtime security reports on failure
+        if: failure() && needs.security-prepare.result == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: security-scan-reports
+          path: |
+            artifacts/security/schemathesis/
+            artifacts/security/zap/
+          if-no-files-found: warn
+          retention-days: 7

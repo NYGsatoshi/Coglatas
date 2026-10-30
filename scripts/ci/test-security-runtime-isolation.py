@@ -125,6 +125,8 @@ if [[ "$kind" == "${FAIL_KIND:-none}" && "$1" == "${FAIL_STAGE:-none}" ]]; then 
             self.assertIn(binding, gate)
         self.assertIn('run: bash scripts/ci/run-security-runtime-parallel.sh core-schemathesis', block('security-runtime-core'))
         self.assertIn('run: bash scripts/ci/run-security-runtime-parallel.sh zap', block('security-runtime-zap'))
+        self.assertIn("if: failure() && needs.security-prepare.result == 'success'", gate)
+        self.assertIn('name: security-scan-reports', gate)
     def test_actual_contract_restore_rejects_wrong_source_digest_and_filename(self):
         source = (ROOT / '.github/workflows/ci.yml').read_text()
         parts = source.split('      - name: Verify exact-source contract before runtime execution\n')[1:]
