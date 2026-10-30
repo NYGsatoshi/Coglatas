@@ -10,11 +10,29 @@
       <h1>{{ i18n.translate('files.title') }}</h1>
       <p>{{ i18n.translate('files.pilot.description') }}</p>
     </div>
-    <button type="button" class="files-page__upload-unavailable" disabled aria-describedby="files-pilot-intake" data-testid="files-upload-unavailable">
+    @if (!uploadsAvailable) {
+      <button type="button" class="files-page__upload-unavailable" disabled aria-describedby="files-pilot-intake" data-testid="files-upload-unavailable">
       <svg lucideUpload [size]="16" aria-hidden="true"></svg>
       {{ i18n.translate('files.actions.upload') }}
-    </button>
+      </button>
+    }
   </header>
+
+  @if (uploadsAvailable) {
+    <app-coglatas-file-uploader
+      [canUpload]="vm.upload.canUpload === true"
+      [items]="uploadQueue()"
+      [multiple]="false"
+      [uploading]="vm.upload.state === 'pending' || vm.upload.state === 'progress'"
+      [progressPercent]="vm.upload.progressPercent"
+      (filesSelected)="acceptUpload($event)"
+      (cancel)="cancelUpload($event)"
+      (retry)="retryUpload($event)"
+    />
+    @if (vm.upload.state !== 'pending' && vm.upload.state !== 'progress') {
+      <p role="status" aria-live="polite" data-testid="files-upload-status">{{ message(vm.upload) }}</p>
+    }
+  }
 
   @if (showingRecentInventory && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
     <div class="files-page__intake-policy files-page__policy" role="alert" data-testid="files-inventory-denied">
@@ -30,9 +48,11 @@
     </div>
   }
 
-  <output id="files-pilot-intake" class="files-page__intake-policy" data-testid="files-pilot-intake">
+  @if (!uploadsAvailable) {
+    <output id="files-pilot-intake" class="files-page__intake-policy" data-testid="files-pilot-intake">
     {{ i18n.translate('files.pilot.intakeUnavailable') }}
-  </output>
+    </output>
+  }
 
   <div class="files-page__overview">
     <app-file-quota-state [quota]="vm.quota" />
