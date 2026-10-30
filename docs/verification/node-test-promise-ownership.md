@@ -152,3 +152,20 @@ These controls use fake Docker commands and establish provisioning behavior;
 they do not qualify an actual WebKit browser, Product backend or deployment.
 No test case, assertion, timeout, retry, skip or catch behavior was changed.
 Official Sonar resolution remains to be observed after publication and analysis.
+
+## Integration-only roster registration accounting
+
+The normal-history Pilot integration combines the original 193-call ownership
+component with four registration call sites added independently by the roster
+finalizer component: two module expression statements and two module-level
+for-of bodies (ten existing runtime cases). A TypeScript 6.0.3 checker confirms
+all four use the unchanged default `node:test` import, with no nested context,
+return-value use or alternate binding. The integration adds exactly four
+`void ` prefixes; reversing those four spans reconstructs the pre-integration
+file byte-for-byte. Original component #1582 remains a 193-call change; the
+integration separately accounts for 197 explicit owned registrations.
+No callback, assertion, timeout, retry, catch or test case was changed. Existing
+roster controls passed 30/30 before and 30/30 after on pinned Windows Node
+24.22.2, with zero skips; these fake-Docker controls are not an actual roster,
+PostgreSQL, Mobile or Pilot acceptance. Hosted exact-source checks, official
+Sonar disposition and resulting Main qualification remain separate.

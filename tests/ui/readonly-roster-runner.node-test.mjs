@@ -564,7 +564,7 @@ function qualificationFixture({ closeFails = false, attachFails = false, writeFa
   return { input, calls, path, dispose: () => rmSync(directory, { recursive: true, force: true }) };
 }
 
-test('qualification finalization closes the owner before attaching the complete source receipt', async () => {
+void test('qualification finalization closes the owner before attaching the complete source receipt', async () => {
   const f = qualificationFixture();
   try {
     assert.equal(await finishRosterQualification(f.input), null);
@@ -575,7 +575,7 @@ test('qualification finalization closes the owner before attaching the complete 
   } finally { f.dispose(); }
 });
 
-test('qualification finalization retains an absent owner without fabricating closure', async () => {
+void test('qualification finalization retains an absent owner without fabricating closure', async () => {
   const f = qualificationFixture({ owner: false });
   try {
     f.input.primaryFailure = true;
@@ -590,7 +590,7 @@ for (const { name, faults, expectedCalls } of [
   { name: 'attachment', faults: { attachFails: true }, expectedCalls: ['close', 'attach'] },
   { name: 'exclusive receipt write', faults: { writeFails: true }, expectedCalls: ['close'] },
   { name: 'close and attachment', faults: { closeFails: true, attachFails: true }, expectedCalls: ['close', 'attach'] },
-]) test(`secondary ${name} failure returns a closed qualification error after cleanup attempts`, async () => {
+]) void test(`secondary ${name} failure returns a closed qualification error after cleanup attempts`, async () => {
   const f = qualificationFixture(faults);
   try {
     const failure = await finishRosterQualification(f.input);
@@ -609,7 +609,7 @@ for (const { name, faults } of [
   { name: 'attachment', faults: { attachFails: true } },
   { name: 'write', faults: { writeFails: true } },
   { name: 'both cleanup and attachment', faults: { closeFails: true, attachFails: true } },
-]) test(`an existing primary owner failure cannot be replaced by ${name} qualification failure`, async () => {
+]) void test(`an existing primary owner failure cannot be replaced by ${name} qualification failure`, async () => {
   const f = qualificationFixture(faults);
   try {
     f.input.primaryFailure = true;
