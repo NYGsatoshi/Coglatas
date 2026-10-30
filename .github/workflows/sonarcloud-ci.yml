@@ -211,6 +211,8 @@ jobs:
             scripts/ci/test-sonar-dotnet-coverage.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
+            scripts/ci/test_sec17_deep_execution.py \
+            scripts/ci/test_sec17_file_policy_execution.py \
             scripts/ci/test-mbj02-trx-receipt.py \
             scripts/ci/test-workspace-icon-disclosure-policy.py \
             scripts/ci/test-main-runtime-artifact.py \
