@@ -9,7 +9,6 @@ import {
   installLocalizedWorkflowApi, projectId, projectTitle, reportVersionId, taskId, taskTitle, workspaceId,
 } from './fixtures/core-workflow-api';
 
-
 type TimedPhase = 'navigation' | 'capture' | 'screenshot' | 'attachment' | 'accessibility';
 const phaseProfileEnabled = process.env['COGLATAS_PENPOT_PHASE_PROFILE'] === '1';
 
@@ -34,18 +33,25 @@ function createPhaseProfile(project: string, viewport: string) {
         totals[phase].millis += performance.now() - start;
       }
     },
-    report() {
+    report(retry: number) {
       if (!phaseProfileEnabled) return;
+      // Capture is inclusive of screenshot and attachment operations. Report
+      // those nested operations separately, and make capture_ms exclusive so
+      // phase totals are additive rather than silently double-counted.
+      const captureLayoutMillis = Math.max(0,
+        totals.capture.millis - totals.screenshot.millis - totals.attachment.millis);
       const fields = (Object.keys(totals) as TimedPhase[]).flatMap((phase) => [
         `${phase}_calls=${totals[phase].calls}`,
-        `${phase}_ms=${Math.round(totals[phase].millis)}`,
+        `${phase}_ms=${Math.round(phase === 'capture' ? captureLayoutMillis : totals[phase].millis)}`,
       ]);
       console.log([
         'CI Penpot phase profile:',
         'spec=penpot-responsive',
         `project=${project}`,
         `viewport=${viewport}`,
+        `retry=${retry}`,
         ...fields,
+        `capture_inclusive_ms=${Math.round(totals.capture.millis)}`,
         `total_ms=${Math.round(performance.now() - startedAt)}`,
       ].join(' '));
     },
@@ -66,6 +72,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
   for (const viewport of viewports) {
     test(`contains supported workflows in both themes at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       const profile = createPhaseProfile(testInfo.project.name, `${viewport.width}x${viewport.height}`);
+      try {
       await page.setViewportSize(viewport);
       const errors: string[] = [];
       const commands: string[] = [];
@@ -157,7 +164,13 @@ test.describe('Penpot revision 339 supported Web projections', () => {
       }
       expect(errors).toEqual([]);
       expect(commands).toEqual([]);
-      profile.report();
+      } finally {
+        // Emit the bounded phase profile even if an assertion or axe scan
+        // failed. Playwright's original failure still propagates unchanged.
+        // Include retry index so a failed attempt is not mistaken for a 9th
+        // unique viewport case during evidence reconciliation.
+        profile.report(testInfo.retry);
+      }
     });
   }
 });

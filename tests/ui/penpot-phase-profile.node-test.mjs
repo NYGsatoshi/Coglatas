@@ -32,6 +32,15 @@ test('Every original Penpot navigation, capture and axe call remains timed', () 
   assert.equal(count(/await profile\.measure\('accessibility',/g), 3);
   assert.match(spec, /await profile\.measure\('screenshot',/);
   assert.match(spec, /await profile\.measure\('attachment',/);
+  // Capture includes screenshot and attachment: output the exclusive layout
+  // phase as capture_ms and retain a named inclusive diagnostic.
+  assert.match(spec, /totals\.capture\.millis - totals\.screenshot\.millis - totals\.attachment\.millis/);
+  assert.match(spec, /capture_inclusive_ms=/);
+  assert.match(spec, /phase === 'capture' \? captureLayoutMillis : totals\[phase\]\.millis/);
+  // A failed browser check must still publish a phase record without masking
+  // its existing Playwright failure and its retry attempt.
+  assert.match(spec, /finally\s*\{[\s\S]*?profile\.report\(testInfo\.retry\);/);
+  assert.equal([...spec.matchAll(/profile\.report\(testInfo\.retry\)/g)].length, 1);
   assert.match(spec, /page\.screenshot\(\{ path: imagePath, fullPage: false, animations: 'disabled' \}\)/);
   assert.match(spec, /testInfo\.attach\(fileName, \{ path: imagePath, contentType: 'image\/png' \}\)/);
   assert.match(spec, /expect\(errors\)\.toEqual\(\[\]\)/);
