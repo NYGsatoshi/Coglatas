@@ -52,7 +52,7 @@ function launch(f, mode) {
 }
 
 async function commands(f) {
-  try { return (await readFile(f.log, 'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse); }
+  try { return (await readFile(f.log, 'utf8')).trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
 }
 

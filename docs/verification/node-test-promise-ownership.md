@@ -119,3 +119,36 @@ syntax or test success. Historical findings, including the prior 230-finding
 baseline, remain independently tracked. Protected checks, independent review and
 normal merge qualification remain required. This change grants no architecture,
 intake, staging, Pilot or public-release approval. RELEASE_NO_GO remains.
+
+## Separate callback-arity clarification
+
+A subsequent, separate commit addresses the single source-bound S7727 finding
+AaGDs85EG0KyzUI2IEPf in webkit-pinned-provisioning.node-test.mjs.
+The command-log reader now uses .map((line) => JSON.parse(line)) instead of
+.map(JSON.parse). Its inputs are primitive string lines from split/filter, and
+the builtin parser has no local shadow or replacement in this file.
+
+[ECMAScript JSON.parse](https://tc39.es/ecma262/#sec-json.parse) applies a reviver
+only when that argument is callable. The array index previously supplied as the
+second argument and the omitted argument are both non-callable. The wrapper
+therefore makes the intended callback arity explicit while preserving parsing,
+returned values and malformed-input exceptions in this bounded string domain.
+This is not a claim of a previously observed runtime failure or equivalence for
+arbitrary callbacks.
+
+The original 193-prefix proof and 284-before/284-after results remain bound to
+commit 3ed21d0956259d14dd341535abcda7ff085301f4. A separate byte guard permits
+exactly this one additional replacement, reconstructs that commit's file
+exactly on reversal and verifies the other 24 test files are unchanged.
+Its SHA-256 is
+8e34d0d6c0d157b3e1029db1a308fd172e774949fa20957b64a1495ee583ea9b.
+
+The existing six WebKit-provisioning controls pass under the identical pinned
+Linux Node24.22.2 image: six passed, zero failed/cancelled/skipped/TODO, exit0.
+Their names and order match the corresponding frozen 284-test subset exactly.
+The focused result SHA-256 is
+b189ad61ed75259bb4348dd685169247e04ea23dd8b8d28d68fa3ae811ad96c7.
+These controls use fake Docker commands and establish provisioning behavior;
+they do not qualify an actual WebKit browser, Product backend or deployment.
+No test case, assertion, timeout, retry, skip or catch behavior was changed.
+Official Sonar resolution remains to be observed after publication and analysis.
