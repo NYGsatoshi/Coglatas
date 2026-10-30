@@ -335,8 +335,43 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('thread-secondary-reporter-*/**', block)
         self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
         self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
+        self.assertIn("--test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs'", block)
+        self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)
         self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', block)
         self.assertNotIn('GITHUB_ENV', block)
+
+    def test_existing_string_order_controls_and_original_serializer_are_measured(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        for control in (
+            "tests/ci/test_restore_data_dependency_advisor.mjs",
+            "tests/diagnostics/thread-matrix.node-test.mjs",
+            "tests/ui/group-keyboard-observation.node-test.mjs",
+            "tests/ui/search-drawer-observation.node-test.mjs",
+            "tests/ui/channel-dialog-serializer-coverage.node-test.mjs",
+        ):
+            self.assertIn("            " + control + " \\", block)
+        config = (ROOT / "tests/ui/channel-dialog-serializer-coverage.config.mjs").read_text(encoding="utf-8")
+        adapter = (ROOT / "tests/ui/channel-dialog-serializer-coverage.node-test.mjs").read_text(encoding="utf-8")
+        source = (ROOT / "tests/ui/student-council-workspace-channels.spec.ts").read_text(encoding="utf-8")
+        title = "channel-dialog diagnostic attachment accepts only fixed bounded structural data"
+        self.assertIn("import base from '../../playwright.config.ts';", config)
+        self.assertIn("...base,", config)
+        self.assertIn("student-council-workspace-channels", config)
+        self.assertIn(title + "$/", config)
+        self.assertIn("projects: base.projects.filter", config)
+        for project in ("chromium-desktop", "chromium-mobile"):
+            self.assertIn(project, config)
+            self.assertIn(project, adapter)
+        self.assertIn("webServer: undefined", config)
+        for override in ("timeout:", "expect:", "retries:", "use:"):
+            self.assertNotIn(override, config)
+        self.assertIn("channel-dialog-serializer-coverage.config.mjs", adapter)
+        self.assertIn("'test', '--config'", adapter)
+        self.assertEqual(source.count("test('" + title + "', () => {"), 1)
 
     def test_node_test_bodies_do_not_exempt_operational_source(self) -> None:
         import fnmatch
