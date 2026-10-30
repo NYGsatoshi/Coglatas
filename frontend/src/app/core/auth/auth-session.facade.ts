@@ -106,6 +106,8 @@ export class AuthSessionFacade {
   private readonly tenantScopedState = inject(TenantScopedStateFacade);
   private readonly sessionState = signal<AuthSessionSnapshot>(this.initialSession);
   private readonly loadingState = signal(false);
+  private sessionBoundary = 0;
+  private bootstrapRequestId = 0;
 
   readonly session = this.sessionState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
@@ -115,6 +117,7 @@ export class AuthSessionFacade {
   readonly navigation = computed(() => this.sessionState().navigation);
 
   clearSessionState(status: AuthSessionStatus = 'anonymous'): void {
+    this.invalidateSessionReads();
     this.sessionState.set(createSessionSnapshot(null, null, status, []));
     this.activeWorkspace.clearWorkspace();
     this.tenantScopedState.clearTenantScopedState();
@@ -166,15 +169,18 @@ export class AuthSessionFacade {
 
   bootstrap(): Observable<AuthSessionSnapshot> {
     return defer(() => {
+      const boundary = this.sessionBoundary;
+      const requestId = ++this.bootstrapRequestId;
       this.loadingState.set(true);
       const http = this.createBackendHttpClient();
       const bootstrapRequest = http
         ? http.get<CurrentUserResponseDto>('/api/auth/me', { withCredentials: true }).pipe(
             map((response) => mapCurrentUserResponse(response)),
-            tap((user) => this.patchUser(user)),
-            switchMap(() => this.refreshCurrentTenant()),
+            tap((user) => { if (boundary === this.sessionBoundary) this.patchUser(user); }),
+            switchMap(() => boundary === this.sessionBoundary ? this.refreshCurrentTenant() : of(null)),
             map(() => this.sessionState()),
             catchError((error: unknown) => {
+              if (boundary !== this.sessionBoundary) return of(this.sessionState());
               if (!isExpectedUnauthenticatedError(error)) {
                 console.error('Auth bootstrap failed', error);
               }
@@ -185,63 +191,71 @@ export class AuthSessionFacade {
           )
         : of(this.sessionState());
 
-      return bootstrapRequest.pipe(finalize(() => this.loadingState.set(false)));
+      return bootstrapRequest.pipe(finalize(() => {
+        if (requestId === this.bootstrapRequestId) this.loadingState.set(false);
+      }));
     });
   }
-
   login(email: string, password: string): Observable<AuthSessionSnapshot> {
     const http = this.createBackendHttpClient();
     if (!http) {
       throw new Error('Auth login endpoint is unavailable in this Angular context.');
     }
 
-    return this.csrfTokens.ensureToken(this.csrfCacheKey()).pipe(
-      switchMap((csrfToken) =>
-        http.post<LoginResponseDto>(
-          '/api/auth/login',
-          { email, password },
-          {
-            withCredentials: true,
-            headers: {
-              [csrfToken.headerName]: csrfToken.token
-            }
-          }
-        )
-      ),
-      map((response) => mapCurrentUserResponse(response)),
-      tap((user) => {
-        // Antiforgery tokens issued before login are bound to the anonymous
-        // principal. Discard that cache before any authenticated unsafe call
-        // (including SignalR negotiate) obtains its token.
-        this.csrfTokens.clearToken();
-        this.patchUser(user);
-      }),
-      switchMap(() => this.refreshCurrentTenant()),
-      map(() => this.sessionState())
-    );
+    return defer(() => {
+      this.invalidateSessionReads();
+      const boundary = this.sessionBoundary;
+      return this.csrfTokens.ensureToken(this.csrfCacheKey()).pipe(
+        switchMap((csrfToken) => boundary === this.sessionBoundary
+          ? http.post<LoginResponseDto>(
+              '/api/auth/login',
+              { email, password },
+              {
+                withCredentials: true,
+                headers: {
+                  [csrfToken.headerName]: csrfToken.token
+                }
+              }
+            )
+          : of(null)),
+        map((response) => response ? mapCurrentUserResponse(response) : null),
+        tap((user) => {
+          if (!user || boundary !== this.sessionBoundary) return;
+          // Antiforgery tokens issued before login are bound to the anonymous
+          // principal. Discard that cache before any authenticated unsafe call
+          // (including SignalR negotiate) obtains its token.
+          this.csrfTokens.clearToken();
+          this.patchUser(user);
+        }),
+        switchMap(() => boundary === this.sessionBoundary ? this.refreshCurrentTenant() : of(null)),
+        map(() => this.sessionState())
+      );
+    });
   }
-
   refreshCurrentUser(): Observable<AuthSessionSnapshot | null> {
     const http = this.createBackendHttpClient();
     if (!http) {
       return of(null);
     }
 
-    return http.get<CurrentUserResponseDto>('/api/auth/me', { withCredentials: true }).pipe(
-      map((response) => mapCurrentUserResponse(response)),
-      tap((user) => this.patchUser(user)),
-      map(() => this.sessionState()),
-      catchError((error: unknown) => {
-        if (isExpectedUnauthenticatedError(error)) {
-          this.clearSessionState('anonymous');
-          return of(this.sessionState());
-        }
+    return defer(() => {
+      const boundary = this.sessionBoundary;
+      return http.get<CurrentUserResponseDto>('/api/auth/me', { withCredentials: true }).pipe(
+        map((response) => mapCurrentUserResponse(response)),
+        tap((user) => { if (boundary === this.sessionBoundary) this.patchUser(user); }),
+        map(() => this.sessionState()),
+        catchError((error: unknown) => {
+          if (boundary !== this.sessionBoundary) return of(this.sessionState());
+          if (isExpectedUnauthenticatedError(error)) {
+            this.clearSessionState('anonymous');
+            return of(this.sessionState());
+          }
 
-        return of(null);
-      })
-    );
+          return of(null);
+        })
+      );
+    });
   }
-
   validateServerSession(): Observable<AuthSessionSnapshot> {
     return this.bootstrap();
   }
@@ -252,51 +266,57 @@ export class AuthSessionFacade {
       return of(null);
     }
 
-    return http.get<AuthStatusResponseDto>('/api/auth/status', { withCredentials: true }).pipe(
-      map((response) => mapAuthStatusResponse(response)),
-      tap((status) => {
-        if (status.isAuthenticated && status.user) {
-          this.patchUser(status.user);
-          return;
-        }
+    return defer(() => {
+      const boundary = this.sessionBoundary;
+      return http.get<AuthStatusResponseDto>('/api/auth/status', { withCredentials: true }).pipe(
+        map((response) => mapAuthStatusResponse(response)),
+        tap((status) => {
+          if (boundary !== this.sessionBoundary) return;
+          if (status.isAuthenticated && status.user) {
+            this.patchUser(status.user);
+            return;
+          }
 
-        this.clearSessionState('anonymous');
-      }),
-      map(() => this.sessionState()),
-      catchError((error: unknown) => {
-        if (isExpectedUnauthenticatedError(error)) {
           this.clearSessionState('anonymous');
-          return of(this.sessionState());
-        }
+        }),
+        map(() => this.sessionState()),
+        catchError((error: unknown) => {
+          if (boundary !== this.sessionBoundary) return of(this.sessionState());
+          if (isExpectedUnauthenticatedError(error)) {
+            this.clearSessionState('anonymous');
+            return of(this.sessionState());
+          }
 
-        return of(null);
-      })
-    );
+          return of(null);
+        })
+      );
+    });
   }
-
   refreshCurrentTenant(): Observable<AuthCurrentTenant | null> {
     const http = this.createBackendHttpClient();
     if (!http) {
       return of(null);
     }
 
-    return http.get<CurrentTenantResponseDto>('/api/tenants/current', { withCredentials: true }).pipe(
-      map((response) => mapCurrentTenantResponse(response)),
-      tap((tenant) => this.patchTenant(tenant)),
-      catchError((error: unknown) => {
-        // This request intentionally bypasses interceptors through HttpBackend.
-        // A 401/403 is therefore a terminal authentication boundary that must
-        // clear protected HTTP-owned state explicitly. Transient/network/server
-        // failures remain a tenant-hydration degradation and preserve state.
-        if (isExpectedUnauthenticatedError(error)) {
-          this.clearSessionState('anonymous');
-        }
+    return defer(() => {
+      const boundary = this.sessionBoundary;
+      return http.get<CurrentTenantResponseDto>('/api/tenants/current', { withCredentials: true }).pipe(
+        map((response) => mapCurrentTenantResponse(response)),
+        tap((tenant) => { if (boundary === this.sessionBoundary) this.patchTenant(tenant); }),
+        map((tenant) => boundary === this.sessionBoundary ? tenant : null),
+        catchError((error: unknown) => {
+          if (boundary !== this.sessionBoundary) return of(null);
+          // This client uses HttpBackend and owns its terminal-auth boundary.
+          // Transient failures preserve the current tenant-hydration behavior.
+          if (isExpectedUnauthenticatedError(error)) {
+            this.clearSessionState('anonymous');
+          }
 
-        return of(null);
-      })
-    );
+          return of(null);
+        })
+      );
+    });
   }
-
   csrfCacheKey(): string {
     const tenant = this.sessionState().currentTenant;
     return tenant?.tenantId ?? tenant?.tenantSlug ?? 'tenant-unresolved';
@@ -306,6 +326,13 @@ export class AuthSessionFacade {
     this.sessionState.set(session);
   }
 
+  private invalidateSessionReads(): void {
+    // Responses may already be in transit; ignoring an obsolete epoch keeps
+    // cold observables and firstValueFrom callers settled without empty errors.
+    this.sessionBoundary++;
+    this.bootstrapRequestId++;
+    this.loadingState.set(false);
+  }
   private patchUser(user: AuthCurrentUser): void {
     this.sessionState.update((session) =>
       createSessionSnapshot(
