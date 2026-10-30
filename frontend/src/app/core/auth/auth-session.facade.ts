@@ -204,7 +204,7 @@ export class AuthSessionFacade {
 
     return defer(() => {
       this.invalidateSessionReads();
-      const boundary = this.sessionBoundary;
+      let boundary = this.sessionBoundary;
       return this.csrfTokens.ensureToken(this.csrfCacheKey()).pipe(
         switchMap((csrfToken) => boundary === this.sessionBoundary
           ? http.post<LoginResponseDto>(
@@ -221,6 +221,10 @@ export class AuthSessionFacade {
         map((response) => response ? mapCurrentUserResponse(response) : null),
         tap((user) => {
           if (!user || boundary !== this.sessionBoundary) return;
+          // Successful login establishes a new session even when reads began
+          // during its POST. Retain only this login's new hydration boundary.
+          this.invalidateSessionReads();
+          boundary = this.sessionBoundary;
           // Antiforgery tokens issued before login are bound to the anonymous
           // principal. Discard that cache before any authenticated unsafe call
           // (including SignalR negotiate) obtains its token.

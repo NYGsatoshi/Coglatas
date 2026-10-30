@@ -223,6 +223,52 @@ describe('Auth session read boundary ordering', () => {
     expect.soft(auth.currentTenant()).toBeNull();
     expect(auth.session().capabilities).toEqual([]);
   });
+  it('clears the current authenticated projection when a fresh status response is anonymous', async () => {
+    await freshLogin();
+    const result = firstValueFrom(auth.refreshSessionContext());
+    http.expectOne('/api/auth/status').flush({ isAuthenticated: false, user: null });
+    expect((await result)?.status).toBe('anonymous');
+    expect(auth.currentUser()).toBeNull();
+    expect(auth.currentTenant()).toBeNull();
+    expect(auth.session().capabilities).toEqual([]);
+  });
+  it.each(['bootstrap', 'currentUser', 'sessionContext', 'anonymousStatus'] as const)(
+    'does not accept an old %s response started during the pending login after the new session is established', async kind => {
+      const pendingLogin = beginLogin();
+      const result = firstValueFrom(kind === 'bootstrap' ? auth.bootstrap()
+        : kind === 'currentUser' ? auth.refreshCurrentUser() : auth.refreshSessionContext());
+      const read = http.expectOne(kind === 'bootstrap' || kind === 'currentUser' ? '/api/auth/me' : '/api/auth/status');
+      pendingLogin.login.flush(user('fresh-user'));
+      http.expectOne('/api/tenants/current').flush(tenant('fresh-tenant'));
+      await pendingLogin.result;
+
+      read.flush(kind === 'anonymousStatus' ? { isAuthenticated: false, user: null }
+        : kind === 'sessionContext' ? { isAuthenticated: true, user: user('old-user') } : user('old-user'));
+      const unexpectedHydration = http.match('/api/tenants/current');
+      unexpectedHydration.forEach(request => request.flush(tenant('old-tenant')));
+      const snapshot = await result;
+
+      expect.soft(unexpectedHydration).toHaveLength(0);
+      expect.soft(snapshot?.currentUser?.userId).toBe('fresh-user');
+      expectFreshSession();
+    },
+  );
+
+  it('rejects a stale interceptor probe 401 that started during the pending login', async () => {
+    const pendingLogin = beginLogin();
+    const errors: unknown[] = [];
+    client.get('/api/protected-during-login').subscribe({ error: error => errors.push(error) });
+    http.expectOne('/api/protected-during-login').flush({ error: 'Old admission expired' }, { status: 401, statusText: 'Unauthorized' });
+    const oldProbe = http.expectOne('/api/auth/me');
+    pendingLogin.login.flush(user('fresh-user'));
+    http.expectOne('/api/tenants/current').flush(tenant('fresh-tenant'));
+    await pendingLogin.result;
+
+    oldProbe.flush({ error: 'Old admission expired' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(errors).toHaveLength(1);
+    expectFreshSession();
+  });
   it('captures a read boundary on subscription so an explicitly fresh read can authenticate', async () => {
     const read = auth.refreshCurrentUser();
     auth.clearSessionState('expired');
