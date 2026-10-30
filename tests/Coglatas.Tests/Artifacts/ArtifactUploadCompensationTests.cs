@@ -14,9 +14,9 @@ namespace Coglatas.Tests.Artifacts;
 public sealed class ArtifactUploadCompensationTests
 {
     [Theory]
-    [InlineData("audit")]
+    [InlineData("_audit")]
     [InlineData("notification")]
-    [InlineData("persistence")]
+    [InlineData("_persistence")]
     public async Task PostStorageFailureRemovesOnlyNewBytesAndPreservesOriginalException(string stage)
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -61,8 +61,8 @@ public sealed class ArtifactUploadCompensationTests
     public async Task CleanupFailureDoesNotReplaceOriginalPersistenceFailure()
     {
         await using var fixture = await Fixture.CreateAsync();
-        var expected = new InvalidOperationException("Synthetic persistence failure.");
-        fixture.FailAt("persistence", expected);
+        var expected = new InvalidOperationException("Synthetic _persistence failure.");
+        fixture.FailAt("_persistence", expected);
         fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup failure.");
 
         var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.UploadAsync());
@@ -115,12 +115,12 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Fixture : IAsyncDisposable
     {
         public static readonly byte[] Content = "Harmless synthetic Artifact bytes."u8.ToArray();
-        private readonly string root = Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
-        private readonly Guid artifactId = Guid.NewGuid();
-        private readonly RecordingAudit audit = new();
-        private readonly RecordingNotifications notifications = new();
-        private readonly Persistence persistence;
-        private readonly ArtifactService service;
+        private readonly string _root = Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
+        private readonly Guid _artifactId = Guid.NewGuid();
+        private readonly RecordingAudit _audit = new();
+        private readonly RecordingNotifications _notifications = new();
+        private readonly Persistence _persistence;
+        private readonly ArtifactService _service;
         public AppDbContext Context { get; }
         public Storage Storage { get; }
         public FeatureFlags Features { get; } = new();
@@ -129,12 +129,12 @@ public sealed class ArtifactUploadCompensationTests
         {
             Context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, new CurrentTenant(tenantId));
-            Storage = new Storage(new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = root })));
-            persistence = new Persistence(Context);
-            service = new ArtifactService(new ArtifactRepository(Context), new ProjectRepository(Context), null!,
+            Storage = new Storage(new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = _root })));
+            _persistence = new Persistence(Context);
+            _service = new ArtifactService(new ArtifactRepository(Context), new ProjectRepository(Context), null!,
                 new FileRepository(Context), Storage, new UploadPolicy(), Features, new Quotas(),
                 new ArtifactAuthorization(), new CurrentUser(userId), new CurrentTenant(tenantId), new Clock(),
-                audit, notifications, persistence);
+                _audit, _notifications, _persistence);
         }
 
         public static async Task<Fixture> CreateAsync()
@@ -148,7 +148,7 @@ public sealed class ArtifactUploadCompensationTests
             fixture.Context.Users.Add(new User { Id = userId, DisplayName = "Synthetic actor", Email = "synthetic@example.invalid", NormalizedEmail = "SYNTHETIC@EXAMPLE.INVALID", Status = UserStatus.Active });
             fixture.Context.Projects.Add(new Project { Id = projectId, TenantId = tenantId, WorkspaceId = Guid.NewGuid(), OwnerUserId = userId, CreatedByUserId = userId, Name = "Synthetic", Slug = "synthetic" });
             fixture.Context.ProjectMembers.Add(new ProjectMember { TenantId = tenantId, ProjectId = projectId, UserId = userId, Role = ProjectRole.Owner });
-            fixture.Context.Artifacts.Add(new Artifact { Id = fixture.artifactId, TenantId = tenantId, ProjectId = projectId, Name = "Synthetic", CreatedByUserId = userId });
+            fixture.Context.Artifacts.Add(new Artifact { Id = fixture._artifactId, TenantId = tenantId, ProjectId = projectId, Name = "Synthetic", CreatedByUserId = userId });
             await fixture.Context.SaveChangesAsync();
             return fixture;
         }
@@ -156,21 +156,21 @@ public sealed class ArtifactUploadCompensationTests
         public async Task<Result<ArtifactVersionResponse>> UploadAsync(CancellationToken cancellationToken = default)
         {
             await using var content = new MemoryStream(Content);
-            return await service.UploadVersionAsync(artifactId, new UploadArtifactVersionInput("synthetic.txt", "text/plain", Content.Length, content, null), cancellationToken);
+            return await _service.UploadVersionAsync(_artifactId, new UploadArtifactVersionInput("synthetic.txt", "text/plain", Content.Length, content, null), cancellationToken);
         }
 
         public void FailAt(string stage, Exception error)
         {
-            if (stage == "audit") { audit.Failure = error; }
-            else if (stage == "notification") { notifications.Failure = error; }
-            else if (stage == "persistence") { persistence.Failure = error; }
+            if (stage == "_audit") { _audit.Failure = error; }
+            else if (stage == "notification") { _notifications.Failure = error; }
+            else if (stage == "_persistence") { _persistence.Failure = error; }
             else { throw new ArgumentOutOfRangeException(nameof(stage)); }
         }
 
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-            if (Directory.Exists(root)) { Directory.Delete(root, recursive: true); }
+            if (Directory.Exists(_root)) { Directory.Delete(_root, recursive: true); }
         }
     }
 
@@ -256,9 +256,9 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => new(2026, 10, 30, 0, 0, 0, TimeSpan.Zero); }
     private sealed class ArtifactAuthorization : IArtifactAuthorizationService
     {
-        public Task<bool> CanViewArtifact(Guid userId, Guid artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> CanViewArtifact(Guid userId, Guid _artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> CanUploadArtifact(Guid userId, Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> CanUpdateArtifact(Guid userId, Guid artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> CanUpdateArtifact(Guid userId, Guid _artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> CanDownloadArtifactVersion(Guid userId, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 }
