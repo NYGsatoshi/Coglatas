@@ -5,6 +5,7 @@ const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === '
 
 export default defineConfig({
   test: {
+    pool: 'threads',
     server: {
       deps: {
         // Syncfusion's Angular wrappers publish CommonJS interop through
