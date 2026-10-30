@@ -83,6 +83,9 @@ jobs:
       - name: Compile full backend and test graph
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
+      - name: Regression - notification local time must reject 24:00
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "FullyQualifiedName~TaskNotificationPreferencesRejectInvalidTimesAndProvideSafeConcurrencyRetryMetadata" --logger "trx;LogFileName=dotnet11-notification-time.trx" --results-directory artifacts/dotnet11
+
       - name: Test portable backend regressions
         run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=dotnet11-portable.trx" --results-directory artifacts/dotnet11
 
