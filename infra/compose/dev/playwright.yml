@@ -21,6 +21,12 @@ services:
       # Explicit opt-in only from the full GitHub Actions frontend lane.
       # Playwright's project-wide default remains one worker.
       COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "${COGLATAS_STATIC_PLAYWRIGHT_WORKERS:-1}"
+      # PR-local, default-off static cache experiment. Forward only nonsecret
+      # event/base/flag markers; the static server independently checks all four.
+      GITHUB_ACTIONS: "${GITHUB_ACTIONS:-false}"
+      GITHUB_EVENT_NAME: "${GITHUB_EVENT_NAME:-}"
+      GITHUB_BASE_REF: "${GITHUB_BASE_REF:-}"
+      COGLATAS_STATIC_ASSET_CACHE_SHADOW: "${COGLATAS_STATIC_ASSET_CACHE_SHADOW:-0}"
     volumes:
       - ../../../:/work
       - playwright-root-node-modules:/work/node_modules

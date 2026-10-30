@@ -110,6 +110,13 @@ test('real static server opts in for hashed assets without caching HTML or mock 
     assert.equal(head.status, 200);
     assert.equal(head.headers.get('cache-control'), immutable);
 
+    // Exercise the server's method boundary, not just the standalone helper.
+    // Omitting the actual request.method in serve-static would make this fail.
+    const post = await fetch(`${base}/app/main-A1B2C3D4.js`, { method: 'POST' });
+    assert.equal(post.status, 200);
+    assert.equal(post.headers.get('cache-control'), 'no-store');
+    await post.arrayBuffer();
+
     for (const route of ['/app/main.js', '/app/login', '/app/']) {
       const response = await fetch(`${base}${route}`);
       assert.equal(response.status, 200);
@@ -131,4 +138,36 @@ test('real static server stays no-store when the flag is absent', async () => {
     assert.equal(response.headers.get('cache-control'), 'no-store');
     await response.arrayBuffer();
   });
+});
+
+test('Compose browser container forwards exact eligibility and defaults to disabled', {
+  skip: process.env.GITHUB_ACTIONS !== 'true'
+}, () => {
+  // CI preflight has Docker Compose but runs without installed UI dependencies
+  // or a running browser. Validate the actual service env after interpolation.
+  const repoRoot = path.resolve(root, '../..');
+  function environmentFor(fixture) {
+    const result = spawnSync('docker', [
+      'compose', '-f', 'infra/compose/dev/playwright.yml', 'config', '--format', 'json'
+    ], {
+      cwd: repoRoot, encoding: 'utf8', timeout: 20000,
+      env: { ...process.env, ...fixture }
+    });
+    assert.equal(result.status, 0, result.stderr?.slice(0, 1200));
+    return JSON.parse(result.stdout).services['angular-playwright'].environment;
+  }
+
+  const selected = environmentFor(enabled);
+  for (const [key, value] of Object.entries(enabled)) {
+    assert.equal(selected[key], value, `Compose dropped ${key}`);
+  }
+  const disabled = environmentFor({
+    ...enabled, COGLATAS_STATIC_ASSET_CACHE_SHADOW: ''
+  });
+  assert.equal(disabled.COGLATAS_STATIC_ASSET_CACHE_SHADOW, '0');
+  const nonPr = environmentFor({
+    ...enabled, GITHUB_EVENT_NAME: 'push', GITHUB_BASE_REF: ''
+  });
+  assert.equal(nonPr.GITHUB_EVENT_NAME, 'push');
+  assert.equal(nonPr.GITHUB_BASE_REF, '');
 });
