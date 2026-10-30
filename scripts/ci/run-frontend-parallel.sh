@@ -73,3 +73,20 @@ if [[ "${COGLATAS_PENPOT_PHASE_PROFILE:-0}" == "1" && "${FRONTEND_PLAYWRIGHT:-fa
     exit 1
   fi
 fi
+
+# Exact-HEAD PR-only parity audit of the original full Axe scans against
+# additional single-frame legacy scans. Inspect the existing Playwright log,
+# preserve all original 443 browser cases, and fail closed on missing evidence.
+if [[ "${COGLATAS_AXE_SINGLE_FRAME_SHADOW:-0}" == "1" && "${FRONTEND_PLAYWRIGHT:-false}" == "true" ]]; then
+  axe_shadow_verified=false
+  for i in "${!CI_PARALLEL_NAMES[@]}"; do
+    if [[ "${CI_PARALLEL_NAMES[$i]}" == "frontend-playwright" ]]; then
+      node scripts/ci/axe-single-frame-evidence.mjs "${CI_PARALLEL_LOGS[$i]}"
+      axe_shadow_verified=true
+    fi
+  done
+  if [[ "$axe_shadow_verified" != "true" ]]; then
+    echo "::error::Axe shadow requires the completed full Playwright lane." >&2
+    exit 1
+  fi
+fi
