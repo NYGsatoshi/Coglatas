@@ -42,10 +42,24 @@ accidental unchanged-source repeat is retained separately. It is not green
 candidate evidence. The original baseline and its failures remain retained.
 
 The first corrected runtime run passed all 58 then-current focused tests.
-Final broader cohort and production-build qualification are pending; they must
-be recorded before this candidate is treated as locally qualified. Protected
-checks, independent review, official Sonar Quality Gate, Main acceptance and
-normal merge qualification remain separate.
+The final Windows Node 24.22.1 cohort passed 652 tests across 37 spec files,
+with zero failed or pending tests: core auth, Tenant, Workspace and Realtime,
+plus all messaging specs. All five actor controls passed. No fixture repair,
+assertion relaxation, retry or deadline change was needed.
+
+Runtime/test candidate commit:
+`52ca824c1107abb4d8d6eac50435da1da5dfaa1a`.
+
+| Local evidence | SHA-256 |
+| --- | --- |
+| Main runtime, final 61-test RED report | `bed89a59c43e79782c45b9f405b5b70022e7a214e8fbaae21a682712e6252a22` |
+| Corrected 652-test cohort report | `c5dbd1dcf98d0ac21e42f2c4e744e79fbdf9752620aa60c72f475b27f5989897` |
+
+The optional Linux production build remains pending while host memory is
+constrained by concurrent acceptance work. Protected checks, independent
+review, official Sonar Quality Gate, Main acceptance and normal merge
+qualification remain separate. These local results do not grant merge or
+release admission.
 
 ## Limits and retained holds
 
