@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
-import { cacheControlForStaticAsset } from "./static-asset-cache.mjs";
+import { cacheControlForStaticAsset, staticAssetCacheShadowEligible } from "./static-asset-cache.mjs";
 
 const root = path.resolve(process.env.PLAYWRIGHT_STATIC_ROOT ?? path.join(process.cwd(), "frontend/dist/coglatas-web"));
 const host = argValue("--host") ?? process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
@@ -211,6 +211,8 @@ const server = createServer(async (request, response) => {
 server.listen(port, host, () => {
   const boundPort = server.address()?.port ?? port;
   console.log(`Serving ${root} at http://${host}:${boundPort}`);
+  // Advisory-only: no URLs, response contents, credentials or feature inputs.
+  console.log(`Static asset cache shadow: ${staticAssetCacheShadowEligible() ? 'enabled' : 'disabled'}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

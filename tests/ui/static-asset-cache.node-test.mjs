@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { cacheControlForStaticAsset } from './static-asset-cache.mjs';
+import { cacheControlForStaticAsset, staticAssetCacheShadowEligible } from './static-asset-cache.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const serverFile = path.join(root, 'serve-static.mjs');
@@ -20,6 +20,7 @@ const enabled = {
 };
 
 test('fingerprinted JS/CSS only: no regression in HTML, JSON, unhashed or unsafe methods', () => {
+  assert.equal(staticAssetCacheShadowEligible(enabled), true);
   assert.equal(cacheControlForStaticAsset('/work/main-A1B2C3D4.js', 'GET', enabled), immutable);
   assert.equal(cacheControlForStaticAsset('/work/styles-1234ABCD.css', 'HEAD', enabled), immutable);
   for (const file of ['/work/index.html', '/work/main.js', '/work/app-ABCDEFGH.json',
@@ -40,6 +41,7 @@ test('independent flag and exact event/base fail closed', () => {
   })) {
     for (const value of variants) {
       const fixture = { ...enabled, [key]: value };
+      assert.equal(staticAssetCacheShadowEligible(fixture), false, `${key}=${value}`);
       assert.equal(cacheControlForStaticAsset('/work/main-A1B2C3D4.js', 'GET', fixture), 'no-store',
         `${key}=${value}`);
     }

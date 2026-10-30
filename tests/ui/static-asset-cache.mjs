@@ -6,14 +6,15 @@ import path from 'node:path';
 const fingerprintedAsset = /-[A-Z0-9]{8}\.(?:js|css)$/u;
 const immutable = 'public, max-age=31536000, immutable';
 
+export function staticAssetCacheShadowEligible(env = process.env) {
+  return env.GITHUB_ACTIONS === 'true' &&
+    env.GITHUB_EVENT_NAME === 'pull_request' &&
+    env.GITHUB_BASE_REF === 'SecurityTestImplimation' &&
+    env.COGLATAS_STATIC_ASSET_CACHE_SHADOW === '1';
+}
+
 export function cacheControlForStaticAsset(filePath, method = 'GET', env = process.env) {
-  if (
-    env.GITHUB_ACTIONS !== 'true' ||
-    env.GITHUB_EVENT_NAME !== 'pull_request' ||
-    env.GITHUB_BASE_REF !== 'SecurityTestImplimation' ||
-    env.COGLATAS_STATIC_ASSET_CACHE_SHADOW !== '1' ||
-    !['GET', 'HEAD'].includes(method)
-  ) {
+  if (!staticAssetCacheShadowEligible(env) || !['GET', 'HEAD'].includes(method)) {
     return 'no-store';
   }
 
