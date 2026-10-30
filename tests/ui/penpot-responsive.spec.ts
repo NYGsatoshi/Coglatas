@@ -33,7 +33,7 @@ function createPhaseProfile(project: string, viewport: string) {
         totals[phase].millis += performance.now() - start;
       }
     },
-    report(retry: number) {
+    report(retry: number, completed: boolean) {
       if (!phaseProfileEnabled) return;
       // Capture is inclusive of screenshot and attachment operations. Report
       // those nested operations separately, and make capture_ms exclusive so
@@ -50,6 +50,7 @@ function createPhaseProfile(project: string, viewport: string) {
         `project=${project}`,
         `viewport=${viewport}`,
         `retry=${retry}`,
+        `completed=${completed ? '1' : '0'}`,
         ...fields,
         `capture_inclusive_ms=${Math.round(totals.capture.millis)}`,
         `total_ms=${Math.round(performance.now() - startedAt)}`,
@@ -72,6 +73,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
   for (const viewport of viewports) {
     test(`contains supported workflows in both themes at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       const profile = createPhaseProfile(testInfo.project.name, `${viewport.width}x${viewport.height}`);
+      let completed = false;
       try {
       await page.setViewportSize(viewport);
       const errors: string[] = [];
@@ -164,12 +166,13 @@ test.describe('Penpot revision 339 supported Web projections', () => {
       }
       expect(errors).toEqual([]);
       expect(commands).toEqual([]);
+      completed = true;
       } finally {
         // Emit the bounded phase profile even if an assertion or axe scan
         // failed. Playwright's original failure still propagates unchanged.
         // Include retry index so a failed attempt is not mistaken for a 9th
         // unique viewport case during evidence reconciliation.
-        profile.report(testInfo.retry);
+        profile.report(testInfo.retry, completed);
       }
     });
   }

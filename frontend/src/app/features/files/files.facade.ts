@@ -894,7 +894,7 @@ export class FilesFacade {
             if (downloaded && operationWorkspaceId) {
               this.continueWorkingHistory.touchFile(expectedFileObjectId, operationWorkspaceId);
             }
-            report('succeeded', this.i18n.translate('files.download.started'));
+            report(downloaded ? 'succeeded' : 'failed', this.i18n.translate(downloaded ? 'files.download.started' : 'api.requestFailed'));
             operation.unsubscribe();
           },
           error: error => {
@@ -1041,8 +1041,8 @@ export class FilesFacade {
             this.continueWorkingHistory.touchFile(expectedFileObjectId, this.pageWorkspaceId);
           }
           this.updateFileDownload(fileObjectId, {
-            downloadState: 'succeeded',
-            ...downloadMessage(fileMessage(this.i18n, 'files.download.started')),
+            downloadState: downloaded ? 'succeeded' : 'failed',
+            ...downloadMessage(fileMessage(this.i18n, downloaded ? 'files.download.started' : 'api.requestFailed')),
           });
           operation.unsubscribe();
         },

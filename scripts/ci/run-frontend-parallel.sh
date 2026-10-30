@@ -57,3 +57,19 @@ enabled "${FRONTEND_STORYBOOK:-false}" && ci_parallel_start frontend-storybook r
 enabled "${FRONTEND_PLAYWRIGHT:-false}" && ci_parallel_start frontend-playwright run_playwright
 
 ci_parallel_wait
+
+# Optional diagnostic: reconcile the same full browser lane's existing log.
+# No new runner, test selection or browser worker. This is default off.
+if [[ "${COGLATAS_PENPOT_PHASE_PROFILE:-0}" == "1" && "${FRONTEND_PLAYWRIGHT:-false}" == "true" ]]; then
+  penpot_profile_verified=false
+  for i in "${!CI_PARALLEL_NAMES[@]}"; do
+    if [[ "${CI_PARALLEL_NAMES[$i]}" == "frontend-playwright" ]]; then
+      node scripts/ci/penpot-phase-evidence.mjs "${CI_PARALLEL_LOGS[$i]}"
+      penpot_profile_verified=true
+    fi
+  done
+  if [[ "$penpot_profile_verified" != "true" ]]; then
+    echo "::error::Penpot phase profile requires the original completed Playwright lane." >&2
+    exit 1
+  fi
+fi

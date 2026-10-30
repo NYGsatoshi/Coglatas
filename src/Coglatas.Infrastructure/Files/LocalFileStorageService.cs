@@ -28,9 +28,32 @@ public sealed class LocalFileStorageService(IOptions<FileStorageOptions> options
         var fullPath = EnsureSafePath(root, storageKey);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-        await using (var output = File.Create(fullPath))
+        // Keep incomplete bytes away from the canonical key, including replacements.
+        // A sibling temporary file keeps publication on the same filesystem.
+        var temporaryPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".upload";
+        try
         {
-            await stream.CopyToAsync(output, cancellationToken);
+            await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                bufferSize: 81920, useAsync: true))
+            {
+                await stream.CopyToAsync(output, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        catch (Exception uploadError)
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException)
+            {
+                // Retain both failures if storage also prevents compensation.
+                throw new AggregateException("File upload and temporary-file cleanup failed.", uploadError, cleanupError);
+            }
+            throw;
         }
 
         return Result.Success();

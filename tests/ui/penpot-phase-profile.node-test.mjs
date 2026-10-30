@@ -39,8 +39,8 @@ test('Every original Penpot navigation, capture and axe call remains timed', () 
   assert.match(spec, /phase === 'capture' \? captureLayoutMillis : totals\[phase\]\.millis/);
   // A failed browser check must still publish a phase record without masking
   // its existing Playwright failure and its retry attempt.
-  assert.match(spec, /finally\s*\{[\s\S]*?profile\.report\(testInfo\.retry\);/);
-  assert.equal([...spec.matchAll(/profile\.report\(testInfo\.retry\)/g)].length, 1);
+  assert.match(spec, /finally\s*\{[\s\S]*?profile\.report\(testInfo\.retry, completed\);/);
+  assert.equal([...spec.matchAll(/profile\.report\(testInfo\.retry, completed\)/g)].length, 1);
   assert.match(spec, /page\.screenshot\(\{ path: imagePath, fullPage: false, animations: 'disabled' \}\)/);
   assert.match(spec, /testInfo\.attach\(fileName, \{ path: imagePath, contentType: 'image\/png' \}\)/);
   assert.match(spec, /expect\(errors\)\.toEqual\(\[\]\)/);
