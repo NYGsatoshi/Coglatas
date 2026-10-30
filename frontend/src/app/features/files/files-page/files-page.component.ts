@@ -26,6 +26,7 @@ import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-dat
 import { AppDataGridColumnDef } from '../../../shared/grid/app-data-grid/app-data-grid.types';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
+import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileActivityPanelComponent } from '../file-activity-panel/file-activity-panel.component';
 import { FileFolderStore } from '../file-folders.service';
@@ -78,6 +79,7 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
     FileQuotaStateComponent,
     FileBrowserSidebarComponent,
     RecentFilesListComponent,
+    CoglatasFileUploaderComponent,
   ],
   templateUrl: './files-page.component.html',
   styleUrl: './files-page.component.scss',
@@ -101,6 +103,10 @@ export class FilesPageComponent {
   readonly i18n = injectFilesI18n();
 
   readonly page = this.facade.page;
+  readonly uploadQueue = computed(() => this.page().uploadQueue.map(item => ({
+    ...item,
+    canRetry: this.facade.canRetryUpload(item.clientRequestId),
+  })));
   // Pilot intake stays unavailable until the existing scanner/admission workflow is qualified.
   // This presentation restriction does not replace the tenant's server FileSharing gate.
   readonly uploadsAvailable = false;
