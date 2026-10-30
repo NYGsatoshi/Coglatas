@@ -169,3 +169,45 @@ roster controls passed 30/30 before and 30/30 after on pinned Windows Node
 24.22.2, with zero skips; these fake-Docker controls are not an actual roster,
 PostgreSQL, Mobile or Pilot acceptance. Hosted exact-source checks, official
 Sonar disposition and resulting Main qualification remain separate.
+
+## Exact advisor unit-body coverage consistency
+
+Main 0f389fa58db815baa92c6e9889036ce4b26655df analysis
+b1a73ed4-9e36-46a8-a7b2-974185b54d05 classifies all 25 audited Node files
+as main-source FIL components. Existing **/*.node-test.mjs coverage exclusions
+already remove 24 of those files from the coverage denominator without removing
+issue analysis. The differently named tests/ci/test_restore_data_dependency_advisor.mjs
+is the one exception: its 23 owned registrations contribute 160 uncovered new
+lines on that Main. The earlier #1582 official zero-percent Gate used exactly
+23 new lines and zero conditions from this file, not all 193 registrations.
+That failed result remains retained.
+
+The exact advisor MJS unit body now joins the existing Sonar coverage-only
+whitelist. It remains a main-source component available to MAIN-scoped issue
+rules, including S9383. No sonar.tests/test.inclusions, source/duplication
+exclusion, rule, threshold or New Code period changes. The native V8 test-body
+filter and the Sonar denominator setting are separate mechanisms; adding the
+former in the #1549/#1576 measurement lineage did not change the latter.
+The operational scripts/ci/restore-data-dependency-advisor.mjs remains analyzed,
+measured, and outside every coverage exclusion. Its genuine execution coverage
+is distinct from correcting its unit body's denominator classification.
+
+The current unit file has one default node:test import, 23 module-level owned
+registrations, private fixture helpers and no exports or operational entrypoint.
+A TypeScript 6.0.3 source inspection confirms these forms. New scope guards retain
+the exact whitelist, actual suite invocation, no operational import/launch of
+the excluded body, and the operational CLI's non-exclusion. No broad test_*.mjs
+pattern or self-coverage of test bodies is introduced.
+
+Portable Windows Node 24.22.2 executes the unchanged 23-case advisor selection:
+21 PASS and the same two unsupported symlink/FIFO failures, zero skips. Fourteen
+selected pure Python guards PASS. These are not a successful Linux suite or
+current hosted Gate; exact-source hosted execution and ingestion remain required.
+No Docker, global SDK or package installation was attempted.
+
+Removing the frozen Main's 160 uncovered unit-body lines would change only its
+denominator, with no newly covered point: arithmetic on that frozen analysis is
+67.52 percent, still below 80. This is not a prediction for the integration or
+future Main, whose measurements must be independently observed. Operational
+acceptance drivers, helpers and prior failures remain visible. No security
+finding is dismissed and RELEASE_NO_GO remains unchanged.
