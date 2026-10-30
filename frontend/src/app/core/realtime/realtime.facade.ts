@@ -79,6 +79,7 @@ export class RealtimeFacade {
   private readonly aggregateVersions = new Map<string, number>();
   private readonly pendingEvents: PendingRealtimeEvent[] = [];
   private tenantId: string | null = null;
+  private userId: string | null = null;
   private starting: Promise<void> | null = null;
   private startingEpoch: number | null = null;
   private acceptingEventEpoch: number | null = null;
@@ -124,11 +125,19 @@ export class RealtimeFacade {
     effect(() => {
       const tenant = this.authSession.currentTenant();
       const authenticated = this.authSession.isAuthenticated();
+      const userId = this.authSession.currentUser()?.userId ?? null;
       const enabled = this.flags.realtimeSignalREnabled();
-      if (!authenticated) {
+      if (!authenticated || !userId) {
         this.stopForSessionBoundary();
         return;
       }
+
+      // A replacement actor cannot inherit the previous connection or its
+      // protected projections, even when both users share the same Tenant.
+      if (this.userId && this.userId !== userId) {
+        this.stopForSessionBoundary();
+      }
+      this.userId = userId;
 
       // AuthSession hydrates the authenticated user (and its canonical current
       // Workspace) before /api/tenants/current completes. That short-lived
@@ -693,7 +702,7 @@ export class RealtimeFacade {
 
   private processEvent(value: unknown): void {
     const tenantId = this.tenantId;
-    if (!tenantId) {
+    if (!tenantId || this.userId !== this.authSession.currentUser()?.userId) {
       return;
     }
 
@@ -854,6 +863,7 @@ export class RealtimeFacade {
   }
 
   private clearSessionBoundaryState(): void {
+    this.userId = null;
     this.clearProtectedApplicationState('session');
     this.desiredSubscriptions.clear();
     this.clearTransportAuthorizationState();
@@ -899,6 +909,8 @@ export class RealtimeFacade {
     const currentTenant = this.authSession.currentTenant();
     return this.flags.realtimeSignalREnabled() &&
       this.authSession.isAuthenticated() &&
+      !!this.userId &&
+      this.authSession.currentUser()?.userId === this.userId &&
       !!this.tenantId &&
       currentTenant?.isAvailable === true &&
       currentTenant.tenantId === this.tenantId;
