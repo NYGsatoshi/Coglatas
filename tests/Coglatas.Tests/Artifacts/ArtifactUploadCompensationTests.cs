@@ -14,9 +14,9 @@ namespace Coglatas.Tests.Artifacts;
 public sealed class ArtifactUploadCompensationTests
 {
     [Theory]
-    [InlineData("_audit")]
+    [InlineData("audit")]
     [InlineData("notification")]
-    [InlineData("_persistence")]
+    [InlineData("persistence")]
     public async Task PostStorageFailureRemovesOnlyNewBytesAndPreservesOriginalException(string stage)
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -61,8 +61,8 @@ public sealed class ArtifactUploadCompensationTests
     public async Task CleanupFailureDoesNotReplaceOriginalPersistenceFailure()
     {
         await using var fixture = await Fixture.CreateAsync();
-        var expected = new InvalidOperationException("Synthetic _persistence failure.");
-        fixture.FailAt("_persistence", expected);
+        var expected = new InvalidOperationException("Synthetic persistence failure.");
+        fixture.FailAt("persistence", expected);
         fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup failure.");
 
         var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.UploadAsync());
@@ -161,9 +161,9 @@ public sealed class ArtifactUploadCompensationTests
 
         public void FailAt(string stage, Exception error)
         {
-            if (stage == "_audit") { _audit.Failure = error; }
+            if (stage == "audit") { _audit.Failure = error; }
             else if (stage == "notification") { _notifications.Failure = error; }
-            else if (stage == "_persistence") { _persistence.Failure = error; }
+            else if (stage == "persistence") { _persistence.Failure = error; }
             else { throw new ArgumentOutOfRangeException(nameof(stage)); }
         }
 
@@ -256,9 +256,9 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => new(2026, 10, 30, 0, 0, 0, TimeSpan.Zero); }
     private sealed class ArtifactAuthorization : IArtifactAuthorizationService
     {
-        public Task<bool> CanViewArtifact(Guid userId, Guid _artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> CanViewArtifact(Guid userId, Guid artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> CanUploadArtifact(Guid userId, Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> CanUpdateArtifact(Guid userId, Guid _artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<bool> CanUpdateArtifact(Guid userId, Guid artifactId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> CanDownloadArtifactVersion(Guid userId, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 }
