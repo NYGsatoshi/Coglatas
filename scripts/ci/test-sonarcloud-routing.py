@@ -341,6 +341,25 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', block)
         self.assertNotIn('GITHUB_ENV', block)
 
+    def test_native_fixture_filters_remain_exact_and_external(self) -> None:
+        import re
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        self.assertEqual(re.findall(r"--test-coverage-exclude=([^\n]+)", block), [
+            "'**/*.node-test.mjs' \\",
+            "'**/tests/ci/test_restore_data_dependency_advisor.mjs' \\",
+            '"$coverage_temp_root/thread-secondary-reporter-*/**" \\',
+            '"$coverage_temp_root/coglatas-thread-matrix-*/**" \\',
+            '"$coverage_temp_root/group-keyboard-control-*/**" \\',
+            '"$coverage_temp_root/search-drawer-control-*/**" \\',
+        ])
+        self.assertIn('coverage_temp_root="$(node -p \'require("node:os").tmpdir()\')"', block)
+        self.assertNotIn("--test-coverage-include", block)
+        self.assertNotIn("lcov.info |", block)
+        self.assertNotIn("lcov.info >", block)
+
     def test_existing_string_order_controls_and_original_serializer_are_measured(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")

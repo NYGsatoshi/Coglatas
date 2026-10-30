@@ -251,6 +251,9 @@ jobs:
             --test-coverage-exclude='**/*.node-test.mjs' \
             --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/group-keyboard-control-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/search-drawer-control-*/**" \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
             tests/functional/build-functional-grep.node-test.mjs \
