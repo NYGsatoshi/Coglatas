@@ -131,6 +131,83 @@ describe('RealtimeFacade', () => {
     expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
     expect(notificationOpenContext.digestWorkspaceId()).toBe(RESOURCE_ID);
   });
+
+  it('drops a previous-actor frame before the lifecycle effect runs and accepts the fresh transport frame', async () => {
+    const received: DurableRealtimeEvent[] = [];
+    facade.durableEvents$.subscribe(value => received.push(value));
+    await enableAndAuthenticate();
+    const original = activeSession();
+    const frame = event();
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+    });
+    // The principal signal has changed, but Angular has not run the root effect.
+    transport.events.next(frame);
+    expect(received).toEqual([]);
+
+    await settle();
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    expect(transport.startCalls).toBe(2);
+    transport.events.next(frame);
+    expect(received.map(value => value.eventId)).toEqual([frame.eventId]);
+  });
+
+  it('waits for the previous actor transport stop before starting the replacement and removes old resource intent', async () => {
+    facade.registerSubscription('previous-actor-workspace', { subscriptionType: 'workspace', resourceId: RESOURCE_ID });
+    await enableAndAuthenticate();
+    expect(transport.startCalls).toBe(1);
+    expect(transport.subscribed.filter(request => request.subscriptionType === 'workspace')).toHaveLength(1);
+    let signalStopStarted!: () => void;
+    const stopStarted = new Promise<void>(resolve => { signalStopStarted = resolve; });
+    let finishStop!: () => void;
+    const stopGate = new Promise<void>(resolve => { finishStop = resolve; });
+    transport.stop = async () => {
+      transport.stopCalls++;
+      signalStopStarted();
+      await stopGate;
+    };
+    const original = activeSession();
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+    });
+    await stopStarted;
+    await settle();
+    expect(transport.startCalls).toBe(1);
+    expect(facade.connectionState()).toBe('Degraded');
+    transport.statuses.next('closed');
+    finishStop();
+    await waitForSubscriptionCount(transport, 'user', 2);
+    await waitForConnection(facade);
+
+    expect(facade.connectionState()).toBe('Connected');
+    expect(transport.startCalls).toBe(2);
+    expect(transport.subscribed.filter(request => request.subscriptionType === 'workspace')).toHaveLength(1);
+  });
+
+  it('clears the previous actor HTTP projection even when the realtime rollout remains disabled', async () => {
+    const original = activeSession();
+    auth.setMockSession(original);
+    await settle();
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('http-only-actor-control', clear);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+      currentTenant: null,
+    });
+    await settle();
+
+    expect(transport.startCalls).toBe(0);
+    expect(clear).toHaveBeenCalledWith('session');
+    expect(activeWorkspace.activeWorkspace()).toBeNull();
+    expect(notificationOpenContext.digestWorkspaceId()).toBeNull();
+    expect(auth.isAuthenticated()).toBe(true);
+  });
   it('settles initial presentation only after authoritative catch-ups and keeps it settled on later reconnects', async () => {
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
