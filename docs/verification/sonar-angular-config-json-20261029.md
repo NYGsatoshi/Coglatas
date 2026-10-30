@@ -11,3 +11,18 @@ The same source reports three other IaCJSON warnings for historical raw-groups.j
 First implementation203501c02f8cafbc3269b664d9624307563ffc29 is locally checked. This reviewed four-file scope authorizes only the existing owner-push analysis route; no resolver/token/actor policy changes. Current-source build/tests/browser/native/officialGate/independent review and disappearance of these three warnings must be verified. Initial8warnings and all earlier failures remain historical; analysis completeness is not yet established.
 
 No Product authority/model/seed/schema/intake/Recovery/OwnerHOLD or private Spec change. STUDENT_COUNCIL_PILOT=RELEASE_NO_GO.
+
+## Current pilot reconciliation
+
+Normally reconciled with actual Main ae109e67fe2662be158d645aca27ac9be6171c32
+(tree6a31da419496bc364c26e75476a86a9a8161de2e). The feature delta is still
+exactly the six educational comment lines and this existing verification note.
+Main e0 native40996699249/1/job123871411401 independently repeats all eight
+parser warnings, including the exact three tsconfigs; officialMainGate123881240742
+fails65.7%/D/E. These outcomes retain their own source and are not this candidate's
+qualification. Current strict JSON and complete parsed TypeScript options/raw
+settings/files/references/diagnostics equivalence are checked against ae109e6;
+production build/theme sanitizer and hosted/native/current review must qualify
+this final source. Historical evidence files and the other five parser warnings
+remain unchanged, with no claim that all analysis is complete. Upload remains
+disabled; all formal Owner HOLDs remain.
