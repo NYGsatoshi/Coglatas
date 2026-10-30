@@ -113,13 +113,27 @@ public sealed class TaskNotificationPreferenceService(
             return true;
         }
 
-        if (!TimeOnly.TryParseExact(
+        // Validate the wire format before TimeOnly parsing. Preview runtimes
+        // may accept 24:00 as midnight; the public API permits only 00:00-23:45.
+        if (value.Length != 5 ||
+            value[2] != ':' ||
+            !char.IsAsciiDigit(value[0]) ||
+            !char.IsAsciiDigit(value[1]) ||
+            !char.IsAsciiDigit(value[3]) ||
+            !char.IsAsciiDigit(value[4]))
+        {
+            return false;
+        }
+
+        var hour = (value[0] - '0') * 10 + value[1] - '0';
+        var minute = (value[3] - '0') * 10 + value[4] - '0';
+        if (hour > 23 || minute > 45 || minute % 15 != 0 ||
+            !TimeOnly.TryParseExact(
                 value,
                 "HH:mm",
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.None,
-                out var parsed) ||
-            parsed.Minute % 15 != 0)
+                out var parsed))
         {
             return false;
         }
