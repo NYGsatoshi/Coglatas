@@ -87,7 +87,8 @@ export class FilesFacade {
   private readonly fileDownloads = new Map<string, Subscription>();
   private readonly pageRequests = new Set<Subscription>();
   private readonly loadingWorkspaceIds = new Set<string>();
-  private readonly pendingUploads = new Map<string, { file: File; subscription: Subscription }>();
+  private readonly pendingUploads = new Map<string, { file: File; subscription: Subscription; workspaceId: string }>();
+  private readonly failedUploads = new Map<string, { file: File; workspaceId: string; generation: number }>();
   private deleteRequest: Subscription | null = null;
   private searchRequest: Subscription | null = null;
   private selectionSnapshotRequest: Subscription | null = null;
@@ -468,6 +469,10 @@ export class FilesFacade {
   }
 
   uploadFile(file: File): void {
+    this.startUpload(file, crypto.randomUUID());
+  }
+
+  private startUpload(file: File, clientRequestId: string): void {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
     const generation = this.pageGeneration;
     const currentUpload = this.pageState().upload;
@@ -484,7 +489,7 @@ export class FilesFacade {
       });
       return;
     }
-    const clientRequestId = crypto.randomUUID();
+    this.failedUploads.delete(clientRequestId);
     this.updateQueue({ clientRequestId, fileName: file.name, state: 'pending' });
 
     this.setUpload({
@@ -533,6 +538,9 @@ export class FilesFacade {
           if (generation !== this.pageGeneration) { return; }
           this.pendingUploads.delete(clientRequestId);
           const normalized = normalizeApiError(error);
+          if (normalized.httpStatus !== 401 && normalized.httpStatus !== 403) {
+            this.failedUploads.set(clientRequestId, { file, workspaceId, generation });
+          }
           const message = fileErrorMessage(this.i18n, normalized, 'api.requestFailed');
           this.updateQueue({ clientRequestId, fileName: file.name, state: 'failed', ...message });
           this.setUpload({
@@ -544,7 +552,7 @@ export class FilesFacade {
           this.reconcileAfterMutation(workspaceId);
         },
       });
-    this.pendingUploads.set(clientRequestId, { file, subscription });
+    if (!subscription.closed) { this.pendingUploads.set(clientRequestId, { file, subscription, workspaceId }); }
   }
 
   cancelUpload(clientRequestId: string): void {
@@ -559,11 +567,19 @@ export class FilesFacade {
       selectedFileName: pending.file.name,
       ...fileMessage(this.i18n, 'files.upload.cancelledMessage'),
     });
+    if (pending.workspaceId === this.pageWorkspaceId && pending.workspaceId === this.activeWorkspace.activeWorkspace()?.id) {
+      this.reconcileAfterMutation(pending.workspaceId);
+    }
   }
 
   retryUpload(clientRequestId: string): void {
-    const item = this.pendingUploads.get(clientRequestId);
-    if (item) { this.uploadFile(item.file); }
+    const item = this.failedUploads.get(clientRequestId);
+    if (!item) { return; }
+    if (item.workspaceId !== this.activeWorkspace.activeWorkspace()?.id || item.generation !== this.pageGeneration) {
+      this.failedUploads.delete(clientRequestId);
+      return;
+    }
+    this.startUpload(item.file, clientRequestId);
   }
 
   /** Reads the manager-only sharing inspection projection for one File. */
@@ -894,7 +910,7 @@ export class FilesFacade {
             if (downloaded && operationWorkspaceId) {
               this.continueWorkingHistory.touchFile(expectedFileObjectId, operationWorkspaceId);
             }
-            report('succeeded', this.i18n.translate('files.download.started'));
+            report(downloaded ? 'succeeded' : 'failed', this.i18n.translate(downloaded ? 'files.download.started' : 'api.requestFailed'));
             operation.unsubscribe();
           },
           error: error => {
@@ -1041,8 +1057,8 @@ export class FilesFacade {
             this.continueWorkingHistory.touchFile(expectedFileObjectId, this.pageWorkspaceId);
           }
           this.updateFileDownload(fileObjectId, {
-            downloadState: 'succeeded',
-            ...downloadMessage(fileMessage(this.i18n, 'files.download.started')),
+            downloadState: downloaded ? 'succeeded' : 'failed',
+            ...downloadMessage(fileMessage(this.i18n, downloaded ? 'files.download.started' : 'api.requestFailed')),
           });
           operation.unsubscribe();
         },
@@ -1187,7 +1203,8 @@ export class FilesFacade {
   }
 
   private canUploadNow(): boolean {
-    return this.pageState().upload.state !== 'pending' && this.activeWorkspace.activeWorkspace()?.id !== undefined;
+    return this.pendingUploads.size === 0 && this.pageWorkspaceId !== null &&
+      this.activeWorkspace.activeWorkspace()?.id === this.pageWorkspaceId;
   }
 
   private emptyPickerState(workspaceId: string | null = null): TaskFilePickerState {
@@ -1243,6 +1260,19 @@ export class FilesFacade {
 
   private invalidatePageRequests(): void {
     this.pageGeneration++;
+    this.failedUploads.clear();
+    for (const pending of [...this.pendingUploads.values()]) {pending.subscription.unsubscribe();}
+    this.pendingUploads.clear();
+    this.pageState.update((page) => ({
+      ...page,
+      upload: { state: 'idle', canUpload: false, ...fileMessage(this.i18n, 'files.upload.unavailable') },
+      uploadQueue: [],
+    }));
+    if (this.refreshTimer !== null) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.refreshAfterMutation = false;
     for (const request of [...this.pageRequests]) {request.unsubscribe();}
     this.pageRequests.clear();
     this.loadingWorkspaceIds.clear();
@@ -1283,16 +1313,9 @@ export class FilesFacade {
     this.pageWorkspaceId = null;
     this.clearFileSearch();
     this.clearPickerFiles();
-    for (const pending of [...this.pendingUploads.values()]) {pending.subscription.unsubscribe();}
-    this.pendingUploads.clear();
     for (const operation of [...this.fileDownloads.values()]) {operation.unsubscribe();}
     this.fileDownloads.clear();
     this.cancelAttachmentDownloads();
-    if (this.refreshTimer !== null) {
-      clearTimeout(this.refreshTimer);
-      this.refreshTimer = null;
-    }
-    this.refreshAfterMutation = false;
     this.pageState.set(this.emptyPage(fileMessage(this.i18n, 'files.upload.unavailable'), false));
     this.inventoryRevisionSignal.update((revision) => revision + 1);
   }
