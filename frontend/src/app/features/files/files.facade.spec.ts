@@ -541,6 +541,41 @@ describe('FilesFacade paging query state', () => {
     expect(continueWorkingHistory.touchFile).toHaveBeenCalledWith(FILE_OBJECT_ID, 'workspace-a');
   });
 
+  it.each(['file', 'attachment'] as const)('reports a missing %s Blob as failed and allows a fresh retry', (surface) => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    const onState = vi.fn();
+    if (surface === 'file') {
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      http.expectOne(request => request.url === '/api/files').flush({
+        items: [file('file-1', false, FILE_OBJECT_ID)], page: 1, pageSize: 50, totalCount: 1,
+      });
+    }
+    const start = () => surface === 'file'
+      ? facade.downloadFile(FILE_OBJECT_ID)
+      : facade.downloadAttachment('attachment-a', 'evidence.pdf', {
+        workspaceId: WORKSPACE_ID, fileObjectId: FILE_OBJECT_ID, onState,
+      });
+    const grantUrl = surface === 'file'
+      ? `/api/files/${FILE_OBJECT_ID}/download-grants`
+      : '/api/attachments/attachment-a/download-grants';
+    start();
+    http.expectOne(grantUrl).flush({
+      fileDownloadGrantId: 'grant-empty', fileObjectId: FILE_OBJECT_ID, token: 'synthetic-token',
+    });
+    http.expectOne(surface === 'file'
+      ? '/api/file-download-grants/grant-empty/download'
+      : '/api/attachment-download-grants/grant-empty/download').flush(null);
+
+    expect(continueWorkingHistory.touchFile).not.toHaveBeenCalled();
+    if (surface === 'file') {
+      expect(facade.page().recentFiles[0]?.downloadState).toBe('failed');
+    } else {
+      expect(onState.mock.calls.at(-1)?.[0]).toBe('failed');
+    }
+    start();
+    expect(http.expectOne(grantUrl).cancelled).toBe(false);
+    clearProtectedState?.();
+  });
   function file(id: string, canDelete = false, fileObjectId = `object-${id}`) {
     return {
       id,
