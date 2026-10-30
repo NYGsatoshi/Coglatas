@@ -572,6 +572,11 @@ export class FilesFacade {
     }
   }
 
+  canRetryUpload(clientRequestId: string): boolean {
+    const item = this.failedUploads.get(clientRequestId);
+    return !!item && item.workspaceId === this.activeWorkspace.activeWorkspace()?.id && item.generation === this.pageGeneration;
+  }
+
   retryUpload(clientRequestId: string): void {
     const item = this.failedUploads.get(clientRequestId);
     if (!item) { return; }
