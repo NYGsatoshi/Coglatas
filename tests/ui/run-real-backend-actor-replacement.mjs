@@ -133,21 +133,21 @@ async function run() {
     assert.match(head, sha);
     const admission = {
       event: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF, source, head,
-      checkout: command('git', ['rev-parse', 'HEAD']),
-      sourceTree: command('git', ['rev-parse', `${source}^{tree}`]),
-      headTree: command('git', ['rev-parse', `${head}^{tree}`]),
-      parents: command('git', ['show', '-s', '--format=%P', 'HEAD']).split(' '),
+      checkout: command('/usr/bin/git', ['rev-parse', 'HEAD']),
+      sourceTree: command('/usr/bin/git', ['rev-parse', `${source}^{tree}`]),
+      headTree: command('/usr/bin/git', ['rev-parse', `${head}^{tree}`]),
+      parents: command('/usr/bin/git', ['show', '-s', '--format=%P', 'HEAD']).split(' '),
       artifactSource: stamp(join(root, 'source-sha')),
       artifactHead: process.env.GITHUB_EVENT_NAME === 'pull_request' ? stamp(join(root, 'pr-head-sha')) : undefined,
       dotnetSource: stamp('artifacts/ci/dotnet-build-sha'),
-      frontendSource: command('tar', ['-xOf', join(root, 'frontend-build-artifacts.tar'), 'artifacts/ci/frontend-build-sha']),
+      frontendSource: command('/usr/bin/tar', ['-xOf', join(root, 'frontend-build-artifacts.tar'), 'artifacts/ci/frontend-build-sha']),
       imageName: boundedFile(join(root, 'runtime-image-name'), 256).trim(),
       producerImage: process.env.COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID,
       engineImage: process.env.COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID,
       runId: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT
     };
     validateAdmission(admission);
-    assert.equal(command('git', ['status', '--porcelain', '--untracked-files=no']), '');
+    assert.equal(command('/usr/bin/git', ['status', '--porcelain', '--untracked-files=no']), '');
     const control = mkdtempSync(join(resolve(process.env.RUNNER_TEMP), 'actor-control-'));
     for (const name of ['home', 'tmp', 'diagnostics']) mkdirSync(join(control, name), { mode: 0o700 });
     const password = `Actor!${randomBytes(24).toString('hex')}`;
@@ -165,7 +165,7 @@ async function run() {
     phase = 'HARNESS';
     fd = openSync(join(control, 'harness.private.log'), 'wx', 0o600);
     const started = Date.now();
-    const child = spawn('bash', ['scripts/ci/functional-compose-harness.sh'], { env: childEnv, stdio: ['ignore', fd, fd] });
+    const child = spawn('/usr/bin/bash', ['scripts/ci/functional-compose-harness.sh'], { env: childEnv, stdio: ['ignore', fd, fd] });
     let interrupted = false;
     const interrupt = () => { interrupted = true; child.kill('SIGINT'); };
     const terminate = () => { interrupted = true; child.kill('SIGTERM'); };

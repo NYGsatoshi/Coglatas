@@ -72,3 +72,31 @@ and the earlier A315/4cf bounded 17-criterion GREEN remain source-bound history.
 They do not qualify this new producer. Mobile, HTTPS, approved target operation,
 independent Pilot acceptance and formal Owner release authority remain separate.
 RELEASE_NO_GO remains.
+
+## Minimal runner quality repair
+
+The official #1575 Gate for source 548130aca3ffaf20f7fbd508b26bc52fe52262cc,
+check 124352652357, remains FAIL: 22.3 percent new coverage, Reliability D,
+Security B and 24 open issues. The separately recorded actual 17-criterion
+browser PASS does not waive this Gate and is not transferred to a new wrapper
+revision. The eight pure control-plane tests are a third, separate concern.
+
+Two introduced findings receive a narrow repair: S2871
+AaGO_hmVmz04xYEW3Udy now uses an explicit UTF-16 code-unit string comparator
+for Object.keys results; S4036 AaGO_hksmz04xYEW3Udx now uses /usr/bin/bash.
+Every command invocation in this Linux-only wrapper uses its fixed absolute
+/usr/bin/git or /usr/bin/tar path as well. Argument arrays, admission guards,
+child environment, signal/cleanup handling and receipt publication are unchanged;
+there is no PATH fallback or new executable authority.
+
+Pinned portable Windows Node24.22.2 passes all eight existing pure controls
+with zero failures/cancellations/skips, and both edited modules pass syntax
+checks. These controls do not invoke the actual Linux programs. Reverse-edit
+source guards recover both prior modules byte-for-byte. The four Auth/Realtime
+implementation/test blobs, frozen scenario SHA-256 b8eaf7577da1503db15ac85f57331090b40c981d932727f648dd2216907ba942,
+Bash harness, seventeen criteria, fifteen-second observation, watchdog, protected
+checks and workflow permissions are unchanged. No dependency or tool was installed.
+
+This does not repair or predict coverage. Current-head Linux/browser acceptance,
+new official Sonar findings/Gate and resulting Main qualification remain pending.
+No issue disposition or style/await-loop suppression is made. RELEASE_NO_GO remains.

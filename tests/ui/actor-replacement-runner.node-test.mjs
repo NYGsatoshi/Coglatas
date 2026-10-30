@@ -67,7 +67,10 @@ await test('freshness, watchdog, native history and continuous 15-second observa
 await test('raw diagnostics, URLs and arbitrary runtime fields never enter finite publication', () => {
   const report = journey();
   const finite = validateJourney(report, source, started, now);
-  assert.deepEqual(Object.keys(finite).sort(), ['criteria', 'historyDeltaToLogin', 'passiveObservationMilliseconds', 'runtime']);
+  assert.deepEqual(Object.keys(finite).sort((left, right) => {
+    if (left === right) return 0;
+    return left < right ? -1 : 1;
+  }), ['criteria', 'historyDeltaToLogin', 'passiveObservationMilliseconds', 'runtime']);
   assert.equal(JSON.stringify(finite).includes('proofDigests'), false);
   report.failure = { diagnostic: 'https://private.invalid' };
   assert.throws(() => validateJourney(report, source, started, now));
