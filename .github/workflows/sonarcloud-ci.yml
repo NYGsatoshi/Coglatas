@@ -255,6 +255,7 @@ jobs:
             tests/functional/messaging-observation.node-test.mjs \
             tests/functional/thread-initial-observation.node-test.mjs \
             tests/functional/thread-probe-observation.node-test.mjs \
+            tests/functional/private-playwright-output.node-test.mjs \
             tests/ui/readonly-roster-runner.node-test.mjs \
             tests/ui/mobile-mvp0-profile.node-test.mjs \
             tests/ui/mobile-mvp0-runner.node-test.mjs \
