@@ -4,7 +4,7 @@ import test from 'node:test';
 import * as yaml from 'js-yaml';
 
 const WORKFLOW = '.github/workflows/ubuntu26-qualification.yml';
-const RUNNER = '${{ (matrix.os == 'ubuntu-26.04' && 'ubuntu-26.04') || 'ubuntu-24.04' }}';
+const RUNNER = "${{ (matrix.os == 'ubuntu-26.04' && 'ubuntu-26.04') || 'ubuntu-24.04' }}";
 const MATRIX = ['ubuntu-24.04', 'ubuntu-26.04'];
 const PATHS = [WORKFLOW, 'governance/workflow-trust-policy.json',
   'tests/ci/ubuntu26-qualification.node-test.mjs', 'docs/ci/ubuntu26-qualification.md'];
