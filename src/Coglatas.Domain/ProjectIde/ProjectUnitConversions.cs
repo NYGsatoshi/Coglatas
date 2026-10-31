@@ -128,12 +128,24 @@ public static class ProjectUnitConversions
             if (!sourceUnit.Dimension.Equals(targetUnit.Dimension)) return new(NumericEvaluationStatus.Invalid, null, "coglatas.dimension-mismatch");
             var amount = quantity.Amount.ToRational(limits.Numbers);
             var current = sourceUnit;
+            var cumulativeFactor = ExactRational.Parse("1", "1", limits.Numbers);
+            var visited = new Dictionary<string, ExactRational>(StringComparer.Ordinal) { [sourceUnit.IdentityData.CanonicalText] = cumulativeFactor };
+            var definitions = new Dictionary<(string, int), ContentDigest>();
             var provenance = new UnitConversionDefinition[path.Count];
             for (var index = 0; index < path.Count; index++)
             {
                 var entry = path[index];
                 if (entry is null || !entry.SourceUnit.SameIdentity(current))
                     return new(NumericEvaluationStatus.Invalid, null, "coglatas.conversion-path-mismatch");
+                var definitionIdentity = (entry.ConversionId, entry.Version);
+                if (definitions.TryGetValue(definitionIdentity, out var priorDigest) && !priorDigest.Equals(entry.Digest))
+                    return new(NumericEvaluationStatus.Invalid, null, "coglatas.conversion-version-conflict");
+                definitions[definitionIdentity] = entry.Digest;
+                cumulativeFactor = cumulativeFactor.Multiply(entry.Factor, limits.Numbers);
+                var targetIdentity = entry.TargetUnit.IdentityData.CanonicalText;
+                if (visited.TryGetValue(targetIdentity, out var priorFactor) && priorFactor != cumulativeFactor)
+                    return new(NumericEvaluationStatus.Invalid, null, "coglatas.inconsistent-conversion-cycle");
+                visited[targetIdentity] = cumulativeFactor;
                 amount = amount.Multiply(entry.Factor, limits.Numbers);
                 current = entry.TargetUnit;
                 provenance[index] = entry;
