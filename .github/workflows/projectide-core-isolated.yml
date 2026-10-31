@@ -1,0 +1,59 @@
+name: ProjectIDE Core isolated candidates
+
+on:
+  pull_request:
+    paths:
+      - tests/Coglatas.Tests/ProjectIde/**
+      - tests/ci/projectide*
+      - tests/ci/test_projectide*
+      - .github/workflows/projectide-core-isolated.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-core-isolated-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  isolated:
+    name: Exact Core Product and Test candidates
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'test/projectide-core-slice3-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact independent Test candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Set up evidence interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
+      - name: Verify ownership and artifact negative controls
+        run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
+      - name: Compose pinned candidates and retain full inventories
+        env:
+          PRODUCT_HEAD: f8e7a47f00fb18074f57d14a51cd52194a42ad12
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+          ISOLATED_ROOT: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}
+        run: >-
+          python3 tests/ci/projectide_core_isolated.py
+          --product-head "$PRODUCT_HEAD"
+          --test-head "$TEST_HEAD"
+          --worktree "$ISOLATED_ROOT/combined"
+          --receipt "$ISOLATED_ROOT/evidence/receipt.json"
+          --verify
+      - name: Upload identities inventories and actual TRX
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-core-isolated-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}/evidence
+          if-no-files-found: error
