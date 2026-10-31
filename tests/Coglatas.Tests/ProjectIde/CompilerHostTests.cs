@@ -58,6 +58,7 @@ public sealed class CompilerHostTests
         Assert.Equal(data.GetProperty("coverage").GetString(), a.Result.Coverage.ToString());
         Assert.Equal(data.GetProperty("execution").GetString(), a.Result.Execution.ToString());
         Assert.Equal(a.Result.ResultDigest, b.Result.ResultDigest); Assert.Equal(a.Result.Data, b.Result.Data);
+        Assert.Equal(local.Execution!.Digest, server.Execution!.Digest);
         Assert.Equal(a.Validation?.Ir?.Digest, b.Validation?.Ir?.Digest);
         Assert.Equal(a.Result.Diagnostics.Select(item => item.DiagnosticId), b.Result.Diagnostics.Select(item => item.DiagnosticId));
         Assert.Equal(CompilerFreshness.Current, CompilerHostFreshnessAssessment.Assess(local, input, 7).State);
@@ -135,7 +136,7 @@ public sealed class CompilerHostTests
             "inner-manifest" => (await local.CompileAsync(new(new(Input(source: Source(9))), 3))) with { RequestedInputDigest = input.InputDigest },
             "generation" => valid with { ClientGeneration = 4 },
             "outer-digest" => valid with { RequestedInputDigest = ContentDigest.Compute("different", []) },
-            "no-result" => valid with { Compilation = null },
+            "no-result" => valid with { Execution = null },
             _ => valid with { Status = (CompilerHostStatus)999 }
         };
         var server = new ServerCompilerHost(profile, new FakeTransport((_, _) => Task.FromResult(wrong)));
