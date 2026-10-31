@@ -135,4 +135,34 @@ public sealed class CompilerBindingTests
         settings = BindingSettings(); settings["rules"] = new JsonArray();
         Assert.Throws<ArgumentException>(() => ProjectSemanticBinder.Bind(BindingInput(settings: settings)));
     }
+
+    [Theory]
+    [InlineData(true, RelationFindingState.Invalid)]
+    [InlineData(false, RelationFindingState.Unknown)]
+    public void UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(bool complete, RelationFindingState expected)
+    {
+        var original = Source();
+        var references = new JsonArray(Obj(new { kind = "coglatas.entity-reference", documentId = Id(33), entityId = Id(6) }));
+        var source = ProjectSource.Create(original.Context, original.Documents, sourceReferences: Json(references));
+        var settings = BindingSettings(); settings["sourceCoverage"] = complete ? "coglatas.complete" : "coglatas.partial";
+        var model = ProjectSemanticBinder.Bind(BindingInput(source, settings));
+        Assert.Contains(model.Findings, finding => finding.State == expected && finding.Diagnostic.Code == "coglatas.binding.reference-origin");
+    }
+
+    [Fact]
+    public void NumericProfileExhaustionDoesNotBecomeInvalidSourceOrCompleteBinding()
+    {
+        var original = Source(); var type = Obj(new { kind = "coglatas.decimal", schemaVersion = 1, nullable = false, acceptsUnknown = false });
+        var task = Obj(new { entityId = Id(7), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+        {
+            duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+            ports = new[] { new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1,
+                defaultValue = new { type, state = "coglatas.known", value = "12345" } } }
+        } });
+        var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task)));
+        var settings = BindingSettings(); settings["executionProfile"]!["maximumDigits"] = 2;
+        var model = ProjectSemanticBinder.Bind(BindingInput(source, settings));
+        Assert.Contains(model.Findings, finding => finding.State == RelationFindingState.Unknown && finding.Diagnostic.Code == "coglatas.binding.budget-exhausted");
+        Assert.Empty(model.Declarations); Assert.False(model.BindingComplete);
+    }
 }

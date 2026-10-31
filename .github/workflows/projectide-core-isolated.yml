@@ -18,7 +18,7 @@ concurrency:
 jobs:
   isolated:
     name: Exact Core Product and Test candidates
-    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'test/projectide-core-slice3-') || startsWith(github.head_ref, 'test/projectide-core-slice4-'))
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'test/projectide-core-slice3-') || startsWith(github.head_ref, 'test/projectide-core-slice4-') || startsWith(github.head_ref, 'test/projectide-core-slice5-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -40,7 +40,7 @@ jobs:
         run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
       - name: Compose pinned candidates and retain full inventories
         env:
-          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-core-slice4-') && '57318802712e4d98ab496c270f9047a7cb28c836' || 'e4026f358f275e1acbfc513f8ac9c62af04b63a9' }}
+          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-core-slice5-') && 'd8d1363474230b10987b6afa305ff18b00ac7540' || startsWith(github.head_ref, 'test/projectide-core-slice4-') && '57318802712e4d98ab496c270f9047a7cb28c836' || 'e4026f358f275e1acbfc513f8ac9c62af04b63a9' }}
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
           ISOLATED_ROOT: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}
         run: >-
