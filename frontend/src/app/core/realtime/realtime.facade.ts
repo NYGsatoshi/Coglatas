@@ -57,6 +57,8 @@ const MAX_PENDING_EVENTS = 512;
 @Injectable({ providedIn: 'root' })
 export class RealtimeFacade {
   private readonly authSession = inject(AuthSessionFacade);
+  // Metadata refreshes replace the user object; only actor identity owns this lifecycle.
+  private readonly currentActorId = computed(() => this.authSession.currentUser()?.userId);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
   private readonly flags = inject(FrontendFeatureFlagsService);
@@ -125,7 +127,7 @@ export class RealtimeFacade {
     effect(() => {
       const tenant = this.authSession.currentTenant();
       const authenticated = this.authSession.isAuthenticated();
-      const userId = this.authSession.currentUser()?.userId ?? null;
+      const userId = this.currentActorId();
       const enabled = this.flags.realtimeSignalREnabled();
       if (!authenticated || !userId) {
         this.stopForSessionBoundary();
@@ -702,7 +704,7 @@ export class RealtimeFacade {
 
   private processEvent(value: unknown): void {
     const tenantId = this.tenantId;
-    if (!tenantId || this.userId !== this.authSession.currentUser()?.userId) {
+    if (!tenantId || this.userId !== this.currentActorId()) {
       return;
     }
 
@@ -910,7 +912,7 @@ export class RealtimeFacade {
     return this.flags.realtimeSignalREnabled() &&
       this.authSession.isAuthenticated() &&
       !!this.userId &&
-      this.authSession.currentUser()?.userId === this.userId &&
+      this.currentActorId() === this.userId &&
       !!this.tenantId &&
       currentTenant?.isAvailable === true &&
       currentTenant.tenantId === this.tenantId;
