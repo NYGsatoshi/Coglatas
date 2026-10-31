@@ -22,7 +22,8 @@ Current source guards11PASS. This does not execute a browser, approved HTTPS
 target, restart, restore or admission. The established Main native batch remains byte-identical. The new cohort has
 three exact operational includes and imports its disjoint original LCOV alongside
 the baseline report. Full hosted collection must validate both source sets,
-retaining all original misses without rewriting counts. Local thirteen-case measurement
+retaining all original misses without rewriting counts. The new step revalidates
+the original baseline report and rejects any shared source record before import. Local thirteen-case measurement
 is not Main coverage or a forecast toward80%. Independent review, fresh current
 checks/Gate and resulting Main verification remain required. RELEASE_NO_GO.
 

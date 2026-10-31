@@ -307,6 +307,9 @@ jobs:
           const sources = new Set(text.split(/\r?\n/).filter(row => row.startsWith('SF:')).map(row => row.slice(3).replaceAll('\\', '/')));
           assert.equal(checked.sourceFiles, 3); assert.equal(sources.size, 3);
           for (const source of ['tests/ui/public-https-golden-path-helpers.mjs', 'tests/ui/student-council-pilot-helpers.mjs', 'tests/ui/student-council-pilot-run.mjs']) assert.ok(sources.has(source));
+          const baseline = readOwnedRepositoryText(process.cwd(), 'artifacts/sonar-node/lcov.info');
+          validateNodeCoverage(baseline);
+          for (const row of baseline.split(/\r?\n/).filter(row => row.startsWith('SF:'))) assert.ok(!sources.has(row.slice(3).replaceAll('\\', '/')), 'Native source reports must be disjoint.');
           console.log('Pilot helper native source scope verified: ' + JSON.stringify(checked));
           JS
 

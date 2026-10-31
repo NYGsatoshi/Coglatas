@@ -346,6 +346,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertNotIn('--test-coverage-exclude=', pilot)
         self.assertIn('validateNodeCoverage(text)', pilot)
         self.assertIn('assert.equal(checked.sourceFiles, 3)', pilot)
+        self.assertIn('validateNodeCoverage(baseline)', pilot)
+        self.assertIn('Native source reports must be disjoint.', pilot)
         self.assertIn('artifacts/sonar-pilot-helper/lcov.info', workflow)
         self.assertLess(workflow.index('- name: Retain original Pilot helper native coverage'), workflow.index('- name: Begin pinned SonarCloud analysis'))
         self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
