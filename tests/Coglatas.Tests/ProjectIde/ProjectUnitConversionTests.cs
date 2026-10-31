@@ -146,6 +146,20 @@ public sealed class ProjectUnitConversionTests
     }
 
     [Fact]
+    public void MissingConversionPathEntryIsInvalidAndNeverProducesANormalizedValue()
+    {
+        var source = Unit("fixture.source"); var target = Unit("fixture.target");
+        UnitConversionDefinition?[] incomplete = [null];
+        var converted = ProjectUnitConversions.Convert(Quantity("1", source), source, target, incomplete);
+        Assert.Equal(NumericEvaluationStatus.Invalid, converted.Status);
+        Assert.Equal("coglatas.conversion-path-mismatch", converted.Reason);
+        Assert.Null(converted.Value);
+        var capability = ProjectUnitConversions.CanConvert(source, target, incomplete);
+        Assert.Equal(NumericEvaluationStatus.Invalid, capability.Status);
+        Assert.Null(capability.Value);
+    }
+
+    [Fact]
     public void InconsistentCyclesAndConflictingVersionedDefinitionsAreInvalidEvenForZero()
     {
         var a = Unit("fixture.a"); var b = Unit("fixture.b");
