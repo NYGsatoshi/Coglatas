@@ -91,6 +91,14 @@ export function validateActorCoverage(text, code, root = resolve('.')) {
     branches: branches.length, branchesHit: totals.get('BRH'), lines: lines.length, linesHit: totals.get('LH') };
 }
 
+/** Closed diagnostics only; never serialize private reporter lines or numbers from them. */
+export function nativeSummaryObservation(text) {
+  const rows = text.split(/\r?\n/);
+  const expectedRows = Object.fromEntries([['tests', 1], ['suites', 0], ['pass', 1], ['fail', 0], ['cancelled', 0], ['skipped', 0], ['todo', 0]]
+    .map(([name, count]) => [name, Math.min(2, rows.filter(row => row === `ℹ ${name} ${count}`).length)]));
+  return { expectedRows, ansiEscapePresent: text.includes('\u001b[') };
+}
+
 export function validateNativeSummary(text) {
   assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
   for (const [name, count] of [['tests', 1], ['suites', 0], ['pass', 1], ['fail', 0], ['cancelled', 0], ['skipped', 0], ['todo', 0]]) {
@@ -175,7 +183,7 @@ async function invoke(program, args, env, fd) {
   } finally { process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate); }
 }
 async function run() {
-  let phase = 'ADMISSION', fd, outputOwned = false;
+  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary;
   const output = resolve('artifacts/sonar-actor');
   let receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
   try {
@@ -251,8 +259,11 @@ async function run() {
     phase = 'VALIDATION_JOURNEY';
     const finite = validateCompletion({ ...completion, journey, image: JSON.parse(records[0].slice(23)),
       admission: { source, producerImage: configImage, engineImage }, expectedHashes: hashes, started });
-    phase = 'VALIDATION_NATIVE_SUMMARY';
-    validateNativeSummary(ownedFile(join(control, 'native.spec.private.log'), 1024 * 1024, false, started));
+    phase = 'VALIDATION_NATIVE_SUMMARY_FILE';
+    const summary = ownedFile(join(control, 'native.spec.private.log'), 1024 * 1024, false, started);
+    nativeSummary = nativeSummaryObservation(summary);
+    phase = 'VALIDATION_NATIVE_SUMMARY_PARSE';
+    validateNativeSummary(summary);
     phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
@@ -273,7 +284,8 @@ async function run() {
     writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });
     process.exitCode = 0;
   } catch {
-    receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
+    receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase,
+      ...(nativeSummary ? { nativeSummary } : {}), release: 'RELEASE_NO_GO' };
     process.exitCode = 1;
   }
   finally {

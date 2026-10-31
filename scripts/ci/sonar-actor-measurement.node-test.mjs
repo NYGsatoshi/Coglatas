@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { actorFile, measurementBranch, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
+import { actorFile, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
 import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
 import { validateAdmission } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 
@@ -58,6 +58,16 @@ void test('native summary requires one completed implicit case and rejects faile
   validateNativeSummary(original);
   for (const text of ['', original + '\nℹ tests 1', original.replace('pass 1', 'pass 0'), original.replace('fail 0', 'fail 1'),
     original.replace('cancelled 0', 'cancelled 1'), original.replace('skipped 0', 'skipped 1'), original.replace('tests 1', 'tests 17')]) assert.throws(() => validateNativeSummary(text));
+});
+
+void test('summary observations retain only closed bounded counters and an ANSI-presence boolean', () => {
+  const exact = 'ℹ tests 1\nℹ pass 1\nℹ fail 0';
+  assert.deepEqual(nativeSummaryObservation(exact), { expectedRows: { tests: 1, suites: 0, pass: 1, fail: 1, cancelled: 0, skipped: 0, todo: 0 }, ansiEscapePresent: false });
+  const observed = nativeSummaryObservation(exact + '\nℹ tests 1\nℹ tests 1\nprivate=canary\nℹ tests 99999999\n\u001b[32mℹ pass 1');
+  assert.equal(observed.expectedRows.tests, 2);
+  assert.equal(observed.ansiEscapePresent, true);
+  assert.doesNotMatch(JSON.stringify(observed), /canary|99999999|private/);
+  assert.throws(() => validateNativeSummary(exact));
 });
 
 void test('measurement output follows actual Angular production configuration and canonical producer source together', () => {
