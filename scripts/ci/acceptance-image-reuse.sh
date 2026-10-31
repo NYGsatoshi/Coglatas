@@ -45,7 +45,7 @@ acceptance_verify_image_reuse() {
     python3 "$(dirname "${BASH_SOURCE[0]}")/sonar_actor_image_identity.py" verify \
       --archive "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE:-}" \
       --source-sha "${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" --image-name "$ACCEPTANCE_PREBUILT_IMAGE" \
-      --producer-id "$ACCEPTANCE_PREBUILT_IMAGE_ID" --engine-id "$ACCEPTANCE_PREBUILT_ENGINE_ID" \
+      --config-id "$ACCEPTANCE_PREBUILT_IMAGE_ID" --engine-id "$ACCEPTANCE_PREBUILT_ENGINE_ID" \
       --binding "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING:-}" \
       --dotnet-stamp "${COGLATAS_REUSE_PREBUILT_DOTNET_STAMP:-}" || return 1
   elif [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then

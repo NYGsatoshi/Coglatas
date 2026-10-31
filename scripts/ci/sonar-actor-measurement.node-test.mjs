@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { actorFile, measurementBranch, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
+import { actorFile, measurementBranch, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
+import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
 import { validateAdmission } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 
 const source = 'a'.repeat(40), tree = 'b'.repeat(40);
@@ -56,4 +57,32 @@ void test('native summary requires one completed implicit case and rejects faile
   validateNativeSummary(original);
   for (const text of ['', original + '\nℹ tests 1', original.replace('pass 1', 'pass 0'), original.replace('fail 0', 'fail 1'),
     original.replace('cancelled 0', 'cancelled 1'), original.replace('skipped 0', 'skipped 1'), original.replace('tests 1', 'tests 17')]) assert.throws(() => validateNativeSummary(text));
+});
+
+void test('measurement output follows actual Angular production configuration and canonical producer source together', () => {
+  const angular = JSON.parse(readFileSync('frontend/angular.json', 'utf8'));
+  const producer = readFileSync('.github/workflows/main-build-artifacts.yml', 'utf8');
+  assert.equal(measurementFrontendOutput(angular, producer), 'frontend/dist/coglatas-web');
+  for (const output of [{ base: 'dist/frontend', browser: 'browser' }, { base: '../outside', browser: '' },
+    { base: 'dist/coglatas-web', browser: 'other' }, 'dist/coglatas-web']) {
+    const changed = structuredClone(angular); changed.projects.frontend.architect.build.options.outputPath = output;
+    assert.throws(() => measurementFrontendOutput(changed, producer));
+  }
+  const changed = structuredClone(angular); changed.projects.frontend.architect.build.configurations.production.outputPath = { base: 'dist/other', browser: '' };
+  assert.throws(() => measurementFrontendOutput(changed, producer));
+  assert.throws(() => measurementFrontendOutput(angular, producer.replaceAll('frontend/dist/coglatas-web', 'frontend/dist/other')));
+  assert.throws(() => measurementFrontendOutput(angular, producer + '\n          cp -a frontend/dist/coglatas-web/. artifacts/main-runtime/frontend/\n'));
+});
+
+void test('hosted executor roots are closed and never accept arbitrary env or PATH executables', () => {
+  const node = '/opt/hostedtoolcache/node/24.22.1/x64/bin/node';
+  const paths = trustedExecutorPaths(node, '/usr/share/dotnet');
+  assert.equal(paths.node, node);
+  assert.equal(paths.npm, '/opt/hostedtoolcache/node/24.22.1/x64/bin/npm');
+  assert.equal(paths.npmCli, '/opt/hostedtoolcache/node/24.22.1/x64/lib/node_modules/npm/bin/npm-cli.js');
+  assert.equal(paths.dotnet, '/usr/share/dotnet/dotnet');
+  assert.equal(paths.docker, '/usr/bin/docker'); assert.equal(paths.python, '/usr/bin/python3');
+  for (const value of ['node', '/tmp/node', '/opt/hostedtoolcache/node/24.22.1/x64/bin/../node',
+    '/opt/hostedtoolcache/node/26.0.0/x64/bin/node', '/opt/hostedtoolcache/node/24.22.1/arm64/bin/node']) assert.throws(() => trustedExecutorPaths(value, '/usr/share/dotnet'));
+  for (const root of [undefined, 'dotnet', '/tmp/dotnet', '/usr/share/dotnet/../dotnet']) assert.throws(() => trustedExecutorPaths(node, root));
 });

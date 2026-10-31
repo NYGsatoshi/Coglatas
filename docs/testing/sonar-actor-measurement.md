@@ -22,6 +22,12 @@ explicit `sonar-actor-v1` profile calls a separate verifier. That verifier reuse
 the strict uncompressed OCI/archive graph implementation and proves either the
 archive config ID or manifest ID against loaded image metadata, tag and DiffIDs.
 It records the representation, never relabeling it as a canonical artifact.
+The original `runtime-image-id` stamp remains the build-time Docker observation.
+The complete validated archive derives `archiveConfigImageId`; its original
+observation and loaded engine must independently match that config or the same
+archive manifest. The measurement receipt exposes `producerObservedImageId`,
+`archiveConfigImageId` and `loadedEngineImageId` separately. The shared harness's
+internal expected-producer field retains its established config-bound meaning.
 
 The new producer builds unlicensed Angular and Release .NET from the clean exact
 push source in the same job before scanner credentials. It publishes no runtime
@@ -29,6 +35,20 @@ image or binary artifact. Its only public outputs are an unchanged validated
 one-source native LCOV and a closed finite receipt. Private control, build,
 harness, native spec and application diagnostics remain in runner-temp. The
 runtime does not contain licensed Main producer output or scanner configuration.
+The frontend output is derived from actual `frontend/angular.json` production
+options and checked against the existing canonical Main producer's copy/check
+source, currently `frontend/dist/coglatas-web`. Unsupported source shape or path
+drift fails closed before building; the canonical producer itself is unchanged.
+
+Direct JavaScript subprocesses use trusted absolute hosted Ubuntu executables.
+Completed job124375574849 established `/usr/share/dotnet` and the hosted Node
+toolcache root; patch versions are not guessed. npm uses the current Node binary
+and its same-installation absolute CLI with package-manager version verification.
+The .NET binary must match the observed DOTNET_ROOT and pinned `global.json`
+version. Resolved executable paths/hashes are checked before and after; actual
+versions are recorded. Unknown layouts or redirected executables fail closed.
+The npm executable link must resolve to that same CLI. The owned build/harness
+child PATH contains only the admitted Node/.NET directories and `/usr/bin:/bin`.
 
 ## Actual execution boundary
 

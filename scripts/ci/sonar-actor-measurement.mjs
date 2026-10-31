@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, closeSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { appendFileSync, closeSync, createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateCompletion } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 import { validateNodeCoverage } from './verify-sonar-node-coverage.mjs';
@@ -15,6 +15,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const sha = /^[a-f0-9]{40}$/;
 const digest = /^sha256:[a-f0-9]{64}$/;
 const tools = ['scripts/ci/sonar-actor-measurement.mjs', 'scripts/ci/package-sonar-actor-measurement.sh',
+  'scripts/ci/sonar-actor-frontend-output.mjs', 'frontend/angular.json', '.github/workflows/main-build-artifacts.yml', 'global.json', 'package.json',
   'scripts/ci/sonar_actor_image_identity.py', 'scripts/ci/runtime_image_identity.py',
   'scripts/ci/acceptance-image-reuse.sh', 'scripts/ci/functional-compose-harness.sh',
   'scripts/ci/verify-sonar-node-coverage.mjs', 'tests/ui/run-real-backend-actor-replacement.mjs', actorFile,
@@ -71,7 +72,11 @@ export function validateActorCoverage(text, code, root = resolve('.')) {
     else if ((match = /^(FNF|FNH|BRF|BRH|LF|LH):(\d+)$/.exec(row))) { assert.ok(!totals.has(match[1])); totals.set(match[1], integer(match[2])); }
     else assert.ok(row === 'TN:' || row === `SF:${actorFile}` || row === 'end_of_record');
   }
-  assert.deepEqual(functions.map(row => row[1]).sort(), calls.map(row => row[1]).sort());
+  const compare = (left, right) => {
+    if (left === right) return 0;
+    return left < right ? -1 : 1;
+  };
+  assert.deepEqual(functions.map(row => row[1]).sort(compare), calls.map(row => row[1]).sort(compare));
   assert.equal(new Set(functions.map(row => JSON.stringify(row))).size, functions.length);
   assert.equal(new Set(branches.map(row => row[0])).size, branches.length);
   assert.equal(new Set(lines.map(row => row[0])).size, lines.length);
@@ -95,9 +100,50 @@ export function validateNativeSummary(text) {
 }
 
 function command(program, args, options = {}) {
+  assert.ok(isAbsolute(program));
   const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 65536, ...options });
   assert.equal(result.status, 0); assert.equal(result.signal, null);
   return (result.stdout ?? '').trim();
+}
+export function trustedExecutorPaths(node, dotnetRoot) {
+  // Roots observed in completed hosted Ubuntu job124375574849; no patch version is guessed.
+  assert.match(node, /^\/opt\/hostedtoolcache\/node\/24\.[0-9]+\.[0-9]+\/x64\/bin\/node$/);
+  assert.equal(dotnetRoot, '/usr/share/dotnet');
+  return { node, npm: posix.join(posix.dirname(node), 'npm'), npmCli: posix.resolve(posix.dirname(node), '../lib/node_modules/npm/bin/npm-cli.js'),
+    dotnet: '/usr/share/dotnet/dotnet', docker: '/usr/bin/docker', python: '/usr/bin/python3',
+    git: '/usr/bin/git', bash: '/usr/bin/bash' };
+}
+async function executorProvenance(paths) {
+  const result = {};
+  for (const [name, path] of Object.entries(paths)) {
+    const canonical = realpathSync(path);
+    if (name === 'python') assert.match(canonical, /^\/usr\/bin\/python3\.[0-9]+$/);
+    else if (name === 'npm') assert.equal(canonical, paths.npmCli);
+    else assert.equal(canonical, path);
+    const before = lstatSync(canonical);
+    assert.ok(before.isFile() && !before.isSymbolicLink());
+    const value = createHash('sha256');
+    for await (const chunk of createReadStream(canonical)) value.update(chunk);
+    const after = lstatSync(canonical);
+    assert.equal(after.dev, before.dev); assert.equal(after.ino, before.ino);
+    assert.equal(after.size, before.size); assert.equal(after.mtimeMs, before.mtimeMs);
+    result[name] = { path, realpath: canonical, sha256: value.digest('hex') };
+  }
+  return result;
+}
+async function qualifyExecutors(env) {
+  const paths = trustedExecutorPaths(process.execPath, process.env.DOTNET_ROOT);
+  const provenance = await executorProvenance(paths);
+  assert.ok(paths.node.includes(`/${process.version.slice(1)}/`));
+  const npmVersion = JSON.parse(readFileSync(resolve(dirname(paths.npmCli), '../package.json'), 'utf8')).version;
+  assert.equal(`npm@${npmVersion}`, JSON.parse(readFileSync('package.json', 'utf8')).packageManager);
+  const versions = { node: process.version, npm: command(paths.node, [paths.npmCli, '--version'], { env }),
+    dotnet: command(paths.dotnet, ['--version'], { env }), python: command(paths.python, ['--version'], { env }).replace(/^Python /, ''),
+    docker: JSON.parse(command(paths.docker, ['version', '--format', '{{json .Client.Version}}'], { env })) };
+  assert.equal(versions.npm, npmVersion);
+  assert.equal(versions.dotnet, JSON.parse(readFileSync('global.json', 'utf8')).sdk.version);
+  for (const version of Object.values(versions)) assert.match(version, /^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]{1,32})?$/);
+  return { paths, provenance, versions };
 }
 function ownedFile(file, maximum, privateMode = false, started = 0) {
   const stat = lstatSync(file);
@@ -114,6 +160,7 @@ function sourceGuard(source) {
   assert.equal(hash(readFileSync(actorFile)), frozenActor);
 }
 async function invoke(program, args, env, fd) {
+  assert.ok(isAbsolute(program));
   const child = spawn(program, args, { env, stdio: ['ignore', fd, fd] });
   let interrupted = false;
   const interrupt = () => { interrupted = true; child.kill('SIGINT'); };
@@ -156,17 +203,24 @@ async function run() {
     const env = Object.fromEntries(['PATH', 'HOME', 'LANG', 'DOTNET_ROOT', 'NUGET_PACKAGES', 'GITHUB_WORKSPACE'].filter(key => process.env[key]).map(key => [key, process.env[key]]));
     Object.assign(env, { CI: 'true', RUNNER_TEMP: resolve(process.env.RUNNER_TEMP), GITHUB_SHA: source, GITHUB_RUN_ID: admission.runId, GITHUB_RUN_ATTEMPT: admission.attempt,
       TMPDIR: join(control, 'tmp'), DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1' });
+    phase = 'TOOLS';
+    const executors = await qualifyExecutors(env);
+    env.PATH = [dirname(executors.paths.node), dirname(executors.paths.dotnet), '/usr/bin', '/bin'].join(':');
     phase = 'BUILD'; fd = openSync(join(control, 'build.private.log'), 'wx', 0o600);
     await invoke('/usr/bin/bash', ['scripts/ci/package-sonar-actor-measurement.sh', runtime], env, fd);
     closeSync(fd); fd = undefined;
     sourceGuard(source);
-    const producerImage = ownedFile(join(runtime, 'runtime-image-id'), 80).trim();
-    const engineImage = command('docker', ['image', 'inspect', '--format', '{{.Id}}', imageName], { env });
-    assert.match(producerImage, digest); assert.match(engineImage, digest);
+    const observedImage = ownedFile(join(runtime, 'runtime-image-id'), 80).trim();
+    const engineImage = command(executors.paths.docker, ['image', 'inspect', '--format', '{{.Id}}', imageName], { env });
+    assert.match(observedImage, digest); assert.match(engineImage, digest);
     const stamp = resolve('artifacts/ci/dotnet-build-sha');
     const identityArgs = ['--archive', join(runtime, 'runtime-image.tar.gz'), '--source-sha', source, '--image-name', imageName,
-      '--producer-id', producerImage, '--engine-id', engineImage, '--binding', binding, '--dotnet-stamp', stamp];
-    command('python3', ['-B', 'scripts/ci/sonar_actor_image_identity.py', 'record', ...identityArgs], { env });
+      '--engine-id', engineImage, '--binding', binding, '--dotnet-stamp', stamp];
+    command(executors.paths.python, ['-B', 'scripts/ci/sonar_actor_image_identity.py', 'record', ...identityArgs], { env });
+    const proof = JSON.parse(ownedFile(binding, 65536));
+    const configImage = proof.archiveConfigImageId;
+    assert.match(configImage, digest);
+    assert.equal(proof.producerObservedImageId, observedImage); assert.equal(proof.loadedEngineImageId, engineImage);
     Object.assign(env, { ACTOR_UID: String(process.getuid()), ACTOR_GID: String(process.getgid()), ACTOR_CONTROL_DIR: control,
       TARGET_SHA: source, COGLATAS_BROWSER_SMOKE_EMAIL: 'e2e-user@example.test', COGLATAS_BROWSER_SMOKE_PASSWORD: password,
       COGLATAS_SEED_ADMIN_PASSWORD: ownerPassword, SYNCFUSION_LICENSE: 'artifact-reuse-no-build',
@@ -174,7 +228,7 @@ async function run() {
       FUNCTIONAL_COMPOSE_FILES: 'infra/compose/test/real-backend-smoke.yml,infra/compose/test/actor-replacement.yml,infra/compose/test/sonar-actor-measurement.yml',
       COGLATAS_FUNCTIONAL_TOOL_SHA: source, FUNCTIONAL_DIAGNOSTIC_DIR: join(control, 'diagnostics'),
       COGLATAS_RUNTIME_MEASUREMENT_PROFILE: 'sonar-actor-v1', COGLATAS_APP_IMAGE: imageName,
-      COGLATAS_REUSE_PREBUILT_APP_IMAGE: '1', COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID: producerImage,
+      COGLATAS_REUSE_PREBUILT_APP_IMAGE: '1', COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID: configImage,
       COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID: engineImage, COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA: source,
       COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE: join(runtime, 'runtime-image.tar.gz'),
       COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING: binding, COGLATAS_REUSE_PREBUILT_DOTNET_STAMP: stamp,
@@ -186,28 +240,27 @@ async function run() {
     const completion = await invoke('/usr/bin/bash', ['scripts/ci/functional-compose-harness.sh'], env, fd);
     closeSync(fd); fd = undefined;
     phase = 'VALIDATION'; sourceGuard(source);
-    command('python3', ['-B', 'scripts/ci/sonar_actor_image_identity.py', 'verify', ...identityArgs], { env });
+    command(executors.paths.python, ['-B', 'scripts/ci/sonar_actor_image_identity.py', 'verify', ...identityArgs, '--config-id', configImage], { env });
     const records = ownedFile(join(control, 'harness.private.log'), 16 * 1024 * 1024, true, started).split(/\r?\n/).filter(row => row.startsWith('FUNCTIONAL_IMAGE_REUSE '));
     assert.equal(records.length, 1);
     const journey = JSON.parse(ownedFile(join(control, 'result.json'), 65536, true, started));
     const finite = validateCompletion({ ...completion, journey, image: JSON.parse(records[0].slice(23)),
-      admission: { source, producerImage, engineImage }, expectedHashes: hashes, started });
+      admission: { source, producerImage: configImage, engineImage }, expectedHashes: hashes, started });
     validateNativeSummary(ownedFile(join(control, 'native.spec.private.log'), 1024 * 1024, false, started));
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
-    const proof = JSON.parse(ownedFile(binding, 65536));
     phase = 'PRE_ANALYSIS_CLEAN'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
     // A pre-analysis build must not make the existing begin/build/end interval incremental.
-    await invoke('dotnet', ['clean', 'Coglatas.slnx', '--configuration', 'Release', '--verbosity', 'quiet'], env, fd);
+    await invoke(executors.paths.dotnet, ['clean', 'Coglatas.slnx', '--configuration', 'Release', '--verbosity', 'quiet'], env, fd);
     closeSync(fd); fd = undefined;
     sourceGuard(source);
-    const buildTools = { node: process.version, npm: command('npm', ['--version'], { env }), dotnet: command('dotnet', ['--version'], { env }) };
-    for (const version of Object.values(buildTools)) assert.match(version, /^v?[0-9]+\.[0-9]+\.[0-9]+$/);
+    assert.deepEqual(await executorProvenance(executors.paths), executors.provenance);
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'BOUNDED_MEASUREMENT_PASS',
       eventName: 'push', ref: admission.ref, sourceSha: source, sourceTree: tree, runId: admission.runId, attempt: admission.attempt,
-      analysisKind: admission.analysisKind, analysisPrNumber: admission.prNumber || null, imageName, producerImageId: producerImage,
-      engineImageId: engineImage, archiveSha256: proof.archiveSha256, imageBindingSha256: hash(readFileSync(binding)),
-      toolSha256: Object.fromEntries(tools.map(file => [file, hash(readFileSync(file))])), buildTools,
+      analysisKind: admission.analysisKind, analysisPrNumber: admission.prNumber || null, imageName, producerObservedImageId: observedImage,
+      archiveConfigImageId: configImage, loadedEngineImageId: engineImage, archiveSha256: proof.archiveSha256, imageBindingSha256: hash(readFileSync(binding)),
+      toolSha256: Object.fromEntries(tools.map(file => [file, hash(readFileSync(file))])), buildTools: executors.versions,
+      executableProvenance: executors.provenance,
       ...finite, implicitFileTestsPassed: 1, criteriaPassed: 17, coverage, lcovSha256: hash(Buffer.from(lcov)),
       imageBeforeAfterVerified: true, cleanupSucceeded: true, release: 'RELEASE_NO_GO' };
     writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });

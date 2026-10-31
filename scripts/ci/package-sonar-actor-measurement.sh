@@ -12,11 +12,12 @@ source_sha="$(git rev-parse HEAD)"
 [[ ! -L artifacts && ! -L artifacts/ci && ! -e artifacts/main-runtime && ! -L artifacts/main-runtime ]] || exit 1
 mkdir -p artifacts/main-runtime/publish artifacts/main-runtime/frontend artifacts/ci
 # No licensed Main artifact or build:licensed path is used.
+frontend_output="$(node scripts/ci/sonar-actor-frontend-output.mjs)"
 npm --prefix frontend run build
-[[ -s frontend/dist/frontend/browser/index.html && -s frontend/dist/frontend/browser/angular-app.marker ]] || exit 1
+[[ -s "$frontend_output/index.html" && -s "$frontend_output/angular-app.marker" ]] || exit 1
 dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m
 dotnet publish src/Coglatas.Web/Coglatas.Web.csproj --configuration Release --no-build --no-restore --output artifacts/main-runtime/publish
-cp -a frontend/dist/frontend/browser/. artifacts/main-runtime/frontend/
+cp -a "$frontend_output/." artifacts/main-runtime/frontend/
 printf '%s\n' "$source_sha" > artifacts/ci/dotnet-build-sha
 printf '%s\n' "$source_sha" > "$runtime/source-sha"
 image="coglatas-sonar-actor-measurement:$source_sha"
