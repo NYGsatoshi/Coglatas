@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { assertMobileMvp0Profile, mobileMvp0Project } from './mobile-mvp0-profile.mjs';
-import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
 import { exerciseRealSearchReconnect } from './real-backend-search-reconnect';
@@ -120,6 +119,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
+      // Load the journey in its executing worker, not the discovery process.
+      const { exerciseGroupDm } = await import('./group-dm-real');
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
         mobileMvp0,
