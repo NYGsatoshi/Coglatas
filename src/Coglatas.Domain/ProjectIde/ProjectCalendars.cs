@@ -78,7 +78,7 @@ public sealed class CalendarSnapshot
         var start = ResolveMidnight(date);
         var end = ResolveMidnight(date.AddDays(1));
         return start.Status == TimeEvaluationStatus.Known && end.Status == TimeEvaluationStatus.Known &&
-               start.Value!.CompareTo(end.Value) < 0 && Validity.Contains(new(start.Value, end.Value!));
+               start.Value!.CompareTo(end.Value) < 0 && Validity.Contains(new InstantInterval(start.Value, end.Value!));
     }
 
     private TimeEvaluationResult<ProjectInstant> ResolveMidnight(DateOnly date) => _zone.Resolve(new(SourceJson.FromObject(new
