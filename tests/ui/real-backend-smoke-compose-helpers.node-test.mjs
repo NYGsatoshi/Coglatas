@@ -73,7 +73,7 @@ async function composeCleanupFlow({ scenarioExit = 0, cleanupExit = 0, configExi
       return child;
     },
   });
-  if (signalCompletion) await signalCompletion;
+  if (signalCompletion !== null) await signalCompletion;
   const down = invocations.filter(call => call.args[5] === 'down');
   assert.equal(down.length, unavailable ? 0 : 1);
   for (const call of down) {
