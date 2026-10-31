@@ -125,6 +125,9 @@ public static class ProjectUnitConversions
             if (ValueFields.HasUnknown(quantity.Data.Value, "amount", "unitId", "dimension"))
                 return new(NumericEvaluationStatus.Unsupported, null, "coglatas.quantity-extension-unsupported");
             quantity.RequireCompatible(sourceUnit.UnitId, sourceUnit.Dimension);
+            if (sourceUnit.Dimension.Powers.Count > limits.MaximumDimensionTerms ||
+                sourceUnit.Dimension.Powers.Values.Any(power => Math.Abs((long)power) > limits.MaximumAbsoluteExponent))
+                return new(NumericEvaluationStatus.Unknown, null, "coglatas.dimension-bound-exhausted");
             if (!sourceUnit.Dimension.Equals(targetUnit.Dimension)) return new(NumericEvaluationStatus.Invalid, null, "coglatas.dimension-mismatch");
             var amount = quantity.Amount.ToRational(limits.Numbers);
             var current = sourceUnit;
