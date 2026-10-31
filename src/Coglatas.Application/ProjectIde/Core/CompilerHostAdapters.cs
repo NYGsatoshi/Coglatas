@@ -48,7 +48,7 @@ public sealed class ServerCompilerHost(CompilerHostProfile profile, IServerCompi
         {
             var input = await Task.Run(request.Input.Materialize, CancellationToken.None).ConfigureAwait(false);
             if (!_profile.Supports(input)) return Failure(CompilerHostStatus.Unsupported, "coglatas.host.compatibility-unavailable");
-            var response = await _transport.SubmitAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await _transport.SubmitAsync(request, cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
             if (cancellationToken.IsCancellationRequested) return Failure(CompilerHostStatus.Cancelled, "coglatas.host.cancelled");
             var valid = await Task.Run(() => Verify(response, request, input), CancellationToken.None).ConfigureAwait(false);
             if (!valid) return Failure(CompilerHostStatus.InvalidInput, "coglatas.host.result-binding-mismatch");

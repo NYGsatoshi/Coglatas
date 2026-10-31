@@ -23,8 +23,10 @@ attempt IDs remain outside deterministic semantic identities. Error details are
 normalized to safe reason codes. Host completion can carry Partial, Unknown, Fail,
 Unsupported or ResourceExhausted compiler results and never grants Product merge.
 
-Both adapters propagate cancellation. Completed remote responses arriving after
-cancellation are discarded. Freshness assessment is an immutable comparison with
+Both adapters propagate cancellation. The Server adapter cancels its own wait even
+when the injected transport ignores the token; it never waits for a late response
+to acknowledge cancellation. Completed remote responses arriving after cancellation
+are discarded. Freshness assessment is an immutable comparison with
 an explicitly supplied desired manifest and client generation; unavailable desired
 context is Undetermined. It neither reads ambient branch heads nor proves current
 authorization. No production server/client acceptance is inferred from Fake parity.
