@@ -6,10 +6,11 @@ import { actorFile, measurementBranch, trustedExecutorPaths, validateActorCovera
 import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
 import { validateAdmission } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 
-const source = 'a'.repeat(40), tree = 'b'.repeat(40);
-const baseline = () => ({ repository: 'NYGsatoshi/Coglatas', owner: 'NYGsatoshi', actor: 'NYGsatoshi', triggeringActor: 'NYGsatoshi',
+const source = 'a'.repeat(40), tree = 'b'.repeat(40), repository = 'NYGsatoshi/Coglatas';
+const owner = repository.split('/')[0];
+const baseline = () => ({ repository, owner, actor: owner, triggeringActor: owner,
   eventName: 'push', source, tree, checkout: source, checkoutTree: tree, ref: `refs/heads/${measurementBranch}`,
-  event: { repository: { full_name: 'NYGsatoshi/Coglatas' }, sender: { login: 'NYGsatoshi' }, after: source, ref: `refs/heads/${measurementBranch}`, deleted: false },
+  event: { repository: { full_name: repository }, sender: { login: owner }, after: source, ref: `refs/heads/${measurementBranch}`, deleted: false },
   runId: '1', attempt: '1', analysisKind: 'pull_request', prNumber: '2', prBranch: measurementBranch, prBase: 'main',
   imageName: `coglatas-sonar-actor-measurement:${source}` });
 
@@ -17,7 +18,7 @@ void test('measurement admission preserves actual push identity and exact closed
   validateMeasurementAdmission(baseline());
   const main = baseline(); Object.assign(main, { ref: 'refs/heads/main', analysisKind: 'main', prNumber: '', prBranch: '', prBase: '' }); main.event.ref = main.ref;
   validateMeasurementAdmission(main);
-  for (const [key, value] of [['eventName', 'pull_request'], ['repository', 'external/Coglatas'], ['actor', 'bot'], ['triggeringActor', 'bot'],
+  for (const [key, value] of [['eventName', 'pull_request'], ['repository', 'external/Coglatas'], ['owner', 'bot'], ['actor', 'bot'], ['triggeringActor', 'bot'],
     ['ref', 'refs/heads/SecurityTestImplimation'], ['source', 'c'.repeat(40)], ['checkout', 'c'.repeat(40)], ['checkoutTree', 'c'.repeat(40)],
     ['tree', 'bad'], ['analysisKind', 'main'], ['prNumber', '0'], ['prBranch', 'held-candidate'], ['prBase', 'other'], ['runId', '../1'],
     ['attempt', '0'], ['imageName', `coglatas-main-runtime:${source}`]]) assert.throws(() => validateMeasurementAdmission({ ...baseline(), [key]: value }), key);

@@ -24,8 +24,9 @@ const tools = ['scripts/ci/sonar-actor-measurement.mjs', 'scripts/ci/package-son
 
 /** Actual push identity is preserved. Router PR metadata is analysis metadata only. */
 export function validateMeasurementAdmission(value) {
-  assert.equal(value.repository, 'NYGsatoshi/Coglatas');
-  assert.equal(value.owner, 'NYGsatoshi');
+  const repository = 'NYGsatoshi/Coglatas';
+  assert.equal(value.repository, repository);
+  assert.equal(value.owner, repository.split('/')[0]);
   assert.equal(value.actor, value.owner);
   assert.equal(value.triggeringActor, value.owner);
   assert.equal(value.eventName, 'push');
