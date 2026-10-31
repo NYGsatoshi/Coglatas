@@ -138,7 +138,7 @@ public sealed class CompilerInputManifest
         Settings = SourceJson.FromObject(fields, settings.Limits);
         Data = SourceJson.FromObject(new
         {
-            format = Format, canonicalEncodingVersion = 1,
+            format = Format, inputFormatVersion = 1, canonicalEncodingVersion = 1,
             scope = source.Context.Data.Value.GetProperty("branch"), sourceContext = source.Context.Data.Value,
             sourceDigest = source.Digest.Data.Value, sourceManifest = source.Manifest.Data.Value,
             packageLock = source.PackageLock.Value, settings = Settings.Value

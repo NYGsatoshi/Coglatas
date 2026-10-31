@@ -185,7 +185,7 @@ public sealed class CompilerResult
         });
         Data = SourceJson.FromObject(new
         {
-            format = "coglatas.compiler-result/1", compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
+            format = "coglatas.compiler-result/1", resultFormatVersion = 1, compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
             compiler = input.Compiler.Data.Value, execution = CompilerContractTokens.Execution(execution), coverage = CompilerContractTokens.Coverage(coverage),
             verdict = CompilerContractTokens.Verdict(Verdict), evidenceComplete = EvidenceComplete, evidenceManifest = EvidenceManifest.Value,
             rules = RuleOutcomes.Select(item => item.Data.Value).ToArray(), diagnostics = Diagnostics.Select(item => item.Data.Value).ToArray(),
