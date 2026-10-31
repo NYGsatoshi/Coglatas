@@ -137,11 +137,13 @@ public sealed class CompilerResult
     public IReadOnlyList<CompilerRuleOutcome> RuleOutcomes { get; }
     public IReadOnlyList<CompilerDiagnostic> Diagnostics { get; }
     public IReadOnlyList<CompilerStageOutcome> Stages { get; }
+    public IReadOnlyList<CompilerArtifactReference> Artifacts { get; }
     public ContentDigest ResultDigest { get; }
     public SourceJson Data { get; }
 
     public CompilerResult(CompilerInputManifest input, CompilerExecutionState execution, CompilerCoverage coverage,
-        IEnumerable<CompilerRuleOutcome?> rules, IEnumerable<CompilerDiagnostic?> diagnostics, IEnumerable<CompilerStageOutcome?> stages, bool evidenceComplete)
+        IEnumerable<CompilerRuleOutcome?> rules, IEnumerable<CompilerDiagnostic?> diagnostics, IEnumerable<CompilerStageOutcome?> stages, bool evidenceComplete,
+        IEnumerable<CompilerArtifactReference?>? artifacts = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(rules); ArgumentNullException.ThrowIfNull(diagnostics); ArgumentNullException.ThrowIfNull(stages);
         if (!Enum.IsDefined(execution) || !Enum.IsDefined(coverage)) throw new ArgumentException("Invalid result axes.");
@@ -150,6 +152,14 @@ public sealed class CompilerResult
             suppliedRules.Any(item => item is null) || suppliedDiagnostics.Any(item => item is null) || suppliedStages.Any(item => item is null))
             throw new ArgumentException("Result processing bound exceeded.");
         var outcomes = suppliedRules.Select(item => item!).ToArray(); var findings = suppliedDiagnostics.Select(item => item!).ToArray(); var steps = suppliedStages.Select(item => item!).ToArray();
+        var suppliedArtifacts = (artifacts ?? []).Take(33).ToArray();
+        if (suppliedArtifacts.Length > 32 || suppliedArtifacts.Any(item => item is null || !item.InputDigest.Equals(input.InputDigest)) ||
+            suppliedArtifacts.Select(item => item!.Role).Distinct(StringComparer.Ordinal).Count() != suppliedArtifacts.Length)
+            throw new ArgumentException("Artifact references do not bind this result uniquely.");
+        Artifacts = Array.AsReadOnly(suppliedArtifacts.Select(item => item!).OrderBy(item => item.Role, StringComparer.Ordinal).ToArray());
+        var producedDigests = steps.SelectMany(step => step.Data.Value.GetProperty("outputs").EnumerateArray())
+            .Select(value => ContentDigest.Parse(SourceJson.FromElement(value))).ToHashSet();
+        if (Artifacts.Any(artifact => !producedDigests.Contains(artifact.Digest))) throw new ArgumentException("Artifact digest has no producing stage.");
         if (outcomes.Select(item => item.RuleId).Distinct(StringComparer.Ordinal).Count() != outcomes.Length ||
             steps.Select(item => item.StageId).Distinct(StringComparer.Ordinal).Count() != steps.Length ||
             findings.Select(item => item.DiagnosticId.Value).Distinct().Count() != findings.Length) throw new ArgumentException("Duplicate result identities.");
@@ -180,7 +190,7 @@ public sealed class CompilerResult
         {
             format = "coglatas.compiler-evidence/1", compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
             coverage = EvidenceComplete ? "coglatas.complete" : "coglatas.partial",
-            rules = RuleOutcomes.Select(item => new { item.RuleId, item.Version, basis = item.Evidence.Data.Value }).ToArray(),
+            rules = RuleOutcomes.Select(item => new { ruleId = item.RuleId, ruleVersion = item.Version, basis = item.Evidence.Data.Value }).ToArray(),
             diagnostics = Diagnostics.Select(item => new { diagnosticId = item.DiagnosticId.ToString(), basis = item.Evidence.Data.Value }).ToArray()
         });
         Data = SourceJson.FromObject(new
@@ -190,7 +200,8 @@ public sealed class CompilerResult
             verdict = CompilerContractTokens.Verdict(Verdict), evidenceComplete = EvidenceComplete, evidenceManifest = EvidenceManifest.Value,
             rules = RuleOutcomes.Select(item => item.Data.Value).ToArray(), diagnostics = Diagnostics.Select(item => item.Data.Value).ToArray(),
             stages = Stages.Select(item => item.Data.Value).ToArray(), boundInputStamp = input.Data.Value,
-            artifacts = new { semanticModel = "coglatas.not-produced", ir = "coglatas.not-produced", sourceMap = "coglatas.not-produced", plans = Array.Empty<object>() },
+            artifacts = Artifacts.Select(item => item.Data.Value).ToArray(),
+            notProducedReason = Artifacts.Count == 0 ? "coglatas.artifacts-not-produced" : null,
             planEligibility = "coglatas.not-evaluated"
         });
         ResultDigest = ContentDigest.Compute("coglatas.compiler-result/1", Data.ToCanonicalBytes()); ResultId = new(input.InputId, ResultDigest);

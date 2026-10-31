@@ -40,10 +40,12 @@ public sealed class PartialSemanticModel
     public IReadOnlyList<CompilerBindingFinding> Findings { get; }
     public IReadOnlyList<RelationScopeSnapshot> BoundSnapshots { get; }
     public bool BindingComplete => Findings.Count == 0 && Input.SourceCoverageComplete;
+    public int LogicalOperationsConsumed { get; }
     internal PartialSemanticModel(CompilerInputManifest input, IEnumerable<DeclarationDecodeResult> declarations, IEnumerable<RelationDecodeResult> relations,
-        IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots)
+        IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots,
+        int logicalOperationsConsumed = 0)
     {
-        Input = input; Declarations = Array.AsReadOnly(declarations.ToArray()); Relations = Array.AsReadOnly(relations.ToArray());
+        Input = input; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = Array.AsReadOnly(declarations.ToArray()); Relations = Array.AsReadOnly(relations.ToArray());
         Symbols = Array.AsReadOnly(symbols.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray());
         References = Array.AsReadOnly(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal).ToArray());
         Findings = Array.AsReadOnly(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
@@ -74,8 +76,8 @@ public static class ProjectSemanticBinder
             var diagnostic = new CompilerDiagnostic(input, rule, 1, rule == CoreCompilerRules.Schema ? 0 : 1, code, location, basis);
             if (findingIds.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
         }
-        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots);
         var remainingOperations = input.ExecutionProfile.MaximumOperations;
+        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations));
         var remainingDeclarations = input.ExecutionProfile.MaximumDeclarations - source.Declarations.Value.GetArrayLength() - source.Documents.Count;
         if (!WithinBudget(source.Data.Value, ref remainingOperations) || !WithinNumericProfile(source.Data.Value, input.ExecutionProfile.Numbers) ||
             source.Declarations.Value.GetArrayLength() + source.Documents.Count > input.ExecutionProfile.MaximumDeclarations ||
@@ -181,7 +183,7 @@ public static class ProjectSemanticBinder
                 entityId = SourceFields.String(reference, "entityId"), context = source.Context.Data.Value })), location, CoreCompilerRules.Declarations);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(input, declarations, relations, symbols, references, findings, snapshots);
+        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations));
 
         void Resolve(PlanEntityReference reference, ProjectLocation origin, string rule, PortId? port = null)
         {
@@ -218,7 +220,7 @@ public static class ProjectSemanticBinder
         ReferenceResolutionState.Ambiguous => "ambiguous", ReferenceResolutionState.Unsupported => "unsupported", ReferenceResolutionState.OutOfScope => "out-of-scope",
         _ => throw new ArgumentOutOfRangeException(nameof(state))
     };
-    private static bool WithinBudget(JsonElement root, ref int operations)
+    internal static bool WithinBudget(JsonElement root, ref int operations)
     {
         var pending = new Stack<JsonElement>(); pending.Push(root);
         while (pending.TryPop(out var value))

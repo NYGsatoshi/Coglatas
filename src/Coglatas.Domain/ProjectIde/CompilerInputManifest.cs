@@ -71,7 +71,7 @@ public sealed class CompilerInputManifest
     public CompilerInputId InputId { get; }
     private static readonly string[] ArtifactFields = ["schema", "compiler", "ruleset", "semantics", "ir", "evaluator"];
     private static readonly string[] SnapshotFields = ["authorizedExternalSnapshots", "resourceSnapshots", "allocationSnapshots", "observations", "evidence"];
-    private static readonly string[] LockFields = ["descriptors", "calendars", "timeZones"];
+    private static readonly string[] LockFields = ["descriptors", "units", "calendars", "timeZones"];
     private static readonly string[] NoneFields = ["scheduler", "solver", "stochastic", "importer"];
 
     public CompilerInputManifest(ProjectSource source, SourceJson settings)
