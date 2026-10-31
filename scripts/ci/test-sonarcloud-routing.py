@@ -325,6 +325,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
         self.assertIn("test-sonar-python-process-coverage.py", block)
         self.assertIn("test-workspace-icon-disclosure-policy.py", block)
+        self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
+        self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

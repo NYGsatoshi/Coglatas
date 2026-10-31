@@ -98,6 +98,8 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/deploy/sakura/validate-pilot-intake-policy.py',
             ROOT.as_posix() + '/scripts/ci/mbj02-trx-receipt.py',
             ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',
+            ROOT.as_posix() + '/scripts/ci/verify-postgres-log-privacy.py',
+            ROOT.as_posix() + '/scripts/ci/functional-setup-failure-probe.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
         })
@@ -151,6 +153,56 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertGreater(hits.get(covered_line, 0), 0)
             self.assertIn(binding_line, hits)
             self.assertEqual(hits[binding_line], 0, 'Original zero rows must survive standard XML generation.')
+
+    def test_existing_privacy_and_probe_suites_measure_exact_sources_and_preserve_uncalled_entries(self):
+        subjects = [
+            ('verify-postgres-log-privacy.py', 'test-postgres-log-privacy.py', 'validate_settings', 'main'),
+            ('functional-setup-failure-probe.py', 'test-functional-setup-failure-probe.py', 'observe', '_run'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            data = folder / 'data'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data)
+            expected = []
+            for source, suite, positive_name, zero_name in subjects:
+                tracked = ROOT / 'scripts/ci' / source
+                functions = {node.name: node for node in ast.parse(tracked.read_text(encoding='utf-8')).body
+                             if isinstance(node, ast.FunctionDef)}
+                positive = functions[positive_name].body[0].lineno
+                uncalled = functions[zero_name].body[0]
+                if isinstance(uncalled, ast.Try):
+                    uncalled = uncalled.body[0]
+                expected.append((tracked.resolve(), positive, uncalled.lineno))
+                self.run_python([str(ROOT / 'scripts/ci' / suite)], folder, env)
+            self.assertEqual(len(list(folder.glob('data.*'))), 2,
+                             'Each of the two existing fully mocked suites must write its own real shard.')
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--keep', '--rcfile=' + str(CONFIG)], folder, env)
+            measured = coverage.CoverageData(basename=str(data))
+            measured.read()
+            self.assertTrue(measured.has_arcs())
+            report = folder / 'coverage.xml'
+            self.run_python(['-m', 'coverage', 'xml', '--rcfile=' + str(CONFIG), '-o', str(report)], folder, env)
+            document = ET.parse(report).getroot()
+            sources = [Path(source.text or '.') for source in document.findall('./sources/source')]
+            for tracked, positive, zero in expected:
+                with self.subTest(source=tracked.name):
+                    files = [name for name in measured.measured_files() if Path(name).resolve() == tracked]
+                    self.assertEqual(len(files), 1, 'CoverageData must identify the exact tracked operational source.')
+                    executed = set(measured.lines(files[0]))
+                    self.assertIn(positive, executed)
+                    self.assertNotIn(zero, executed, 'Mocked controls must not invent CLI/default-run execution.')
+                    classes = [node for node in document.findall('.//class')
+                               if tracked in {(source / node.attrib['filename']).resolve() for source in sources}]
+                    self.assertEqual(len(classes), 1, 'Standard XML must retain that same exact source identity.')
+                    hits = {int(line.attrib['number']): int(line.attrib['hits'])
+                            for line in classes[0].findall('./lines/line')}
+                    self.assertGreater(hits.get(positive, 0), 0)
+                    self.assertIn(zero, hits)
+                    self.assertEqual(hits[zero], 0, 'Original uncalled-line zeros must survive standard XML generation.')
 
     def test_same_suffix_fixture_copy_is_not_repository_source(self):
         with tempfile.TemporaryDirectory() as directory:
