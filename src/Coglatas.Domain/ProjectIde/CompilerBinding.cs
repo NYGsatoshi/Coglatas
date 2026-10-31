@@ -146,6 +146,11 @@ public static class ProjectSemanticBinder
             if (result.Status != ValueDecodeStatus.Decoded)
                 Add(CoreCompilerRules.Declarations, result.Status == ValueDecodeStatus.Invalid ? "coglatas.binding.invalid-declaration" : "coglatas.binding.unsupported-declaration",
                     result.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location);
+            if (HasUnboundValueReference(result.Data))
+            {
+                references.Add(new(location, ReferenceResolutionState.Unsupported, null));
+                Add(CoreCompilerRules.Declarations, "coglatas.binding.value-reference-unavailable", RelationFindingState.Unsupported, location);
+            }
             if (result.Declaration is RequirementPlanDeclaration requirement)
                 Resolve(requirement.Target, ProjectLocation.Create(result.DocumentId, source.Context, "/payload/target", entityId: entity), CoreCompilerRules.Declarations);
             if (result.Declaration is ProjectPlanDeclaration project)
@@ -212,6 +217,22 @@ public static class ProjectSemanticBinder
         }
     }
 
+    private static bool HasUnboundValueReference(SourceJson data)
+    {
+        var pending = new Stack<JsonElement>(); pending.Push(data.Value);
+        while (pending.TryPop(out var value))
+        {
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _) &&
+                    TypedProjectValueCodec.Decode(SourceJson.FromElement(value, data.Limits)).Value?.KnownValue is TypedProjectReference)
+                    return true;
+                foreach (var member in value.EnumerateObject()) pending.Push(member.Value);
+            }
+            else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
+        }
+        return false;
+    }
     private static string Key(SourceRevisionContext context, EntityId entity, PortId? port = null) =>
         SourceJson.FromObject(new { context = context.Data.Value, entityId = entity.ToString(), portId = port?.ToString() }).CanonicalText;
     private static string ResolutionToken(ReferenceResolutionState state) => state switch
