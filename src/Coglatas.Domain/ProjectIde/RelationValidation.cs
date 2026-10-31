@@ -5,7 +5,18 @@ public sealed record RelationFinding(string Code, RelationFindingState State, Pr
 public sealed record RelationEndpointResolution(RelationId RelationId, bool IsSource, ReferenceResolutionState State);
 
 /// <summary>Host-attested coverage of an exact immutable snapshot; the Core does not authenticate these claims.</summary>
-public sealed record RelationScopeSnapshot(ProjectSource Source, bool IsAuthorized, bool DeclarationsComplete, bool RelationsComplete);
+public sealed record RelationScopeSnapshot
+{
+    public ProjectSource Source { get; }
+    public bool IsAuthorized { get; init; }
+    public bool DeclarationsComplete { get; init; }
+    public bool RelationsComplete { get; init; }
+    public RelationScopeSnapshot(ProjectSource source, bool isAuthorized, bool declarationsComplete, bool relationsComplete)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Source = source; IsAuthorized = isAuthorized; DeclarationsComplete = declarationsComplete; RelationsComplete = relationsComplete;
+    }
+}
 public sealed record RelationValidationLimits(int MaximumDeclarations = 10_000, int MaximumRelations = 20_000, int MaximumSnapshots = 32);
 
 public sealed class RelationValidationResult
@@ -26,8 +37,8 @@ public sealed class RelationValidationResult
 /// <summary>Bounded structural validation only. No Source mutation, live lookup, evidence proof or executable plan.</summary>
 public static class RelationGraphValidator
 {
-    public static RelationValidationResult Validate(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot>? externalSnapshots = null,
-        IEnumerable<UnitDefinition>? units = null, RelationValidationLimits? limits = null)
+    public static RelationValidationResult Validate(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot?>? externalSnapshots = null,
+        IEnumerable<UnitDefinition?>? units = null, RelationValidationLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(input.Source);
         limits ??= new();
@@ -38,8 +49,14 @@ public static class RelationGraphValidator
         var findings = new List<RelationFinding>();
         var resolutions = new List<RelationEndpointResolution>();
         void RootFinding(string code, RelationFindingState state) => findings.Add(new(code, state, root));
-        var snapshots = (externalSnapshots ?? []).Take(limits.MaximumSnapshots + 1).Prepend(input).ToArray();
-        if (snapshots.Length > limits.MaximumSnapshots + 1 || snapshots.Any(item => item is null || item.Source is null) ||
+        var supplied = (externalSnapshots ?? []).Take(limits.MaximumSnapshots + 1).ToArray();
+        if (supplied.Length > limits.MaximumSnapshots || supplied.Any(item => item is null))
+        {
+            RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
+            return new(findings, resolutions);
+        }
+        var snapshots = supplied.Select(item => item!).Prepend(input).ToArray();
+        if (
             snapshots.Sum(item => (long)item.Source.Declarations.Value.GetArrayLength() + item.Source.Documents.Count) > limits.MaximumDeclarations ||
             snapshots.Sum(item => (long)item.Source.Relations.Value.GetArrayLength()) > limits.MaximumRelations)
         {
@@ -53,12 +70,13 @@ public static class RelationGraphValidator
         }
         if (!input.DeclarationsComplete || !input.RelationsComplete)
             RootFinding("coglatas.relation.incomplete-coverage", RelationFindingState.Unknown);
-        var unitList = (units ?? []).Take(limits.MaximumDeclarations + 1).ToArray();
-        if (unitList.Length > limits.MaximumDeclarations || unitList.Any(item => item is null))
+        var suppliedUnits = (units ?? []).Take(limits.MaximumDeclarations + 1).ToArray();
+        if (suppliedUnits.Length > limits.MaximumDeclarations || suppliedUnits.Any(item => item is null))
         {
             RootFinding("coglatas.relation.unit-budget", RelationFindingState.Unknown);
             return new(findings, resolutions);
         }
+        var unitList = suppliedUnits.Select(item => item!).ToArray();
         var declarations = snapshots.Where(item => item.IsAuthorized).Distinct().ToDictionary(item => item,
             item => PlanDeclarationReader.Read(item.Source).ToDictionary(result => EntityIdOf(result.Data)));
         var relations = TypedRelationReader.Read(source);
@@ -200,9 +218,9 @@ public static class RelationGraphValidator
             foreach (var group in bound.Where(item => item.Relation.Kind == RelationKinds.Governs).GroupBy(item => item.Relation.Target.IdentityKey))
                 if (group.Count() > 1)
                     foreach (var entry in group) findings.Add(new("coglatas.relation.workflow-cardinality", RelationFindingState.Invalid, entry.Relation.Location));
-            foreach (var item in declarations[input].Values)
+            foreach (var declarationResult in declarations[input].Values)
             {
-                if (item.Declaration is not TaskPlanDeclaration task) continue;
+                if (declarationResult.Declaration is not TaskPlanDeclaration task) continue;
                 foreach (var port in task.Ports)
                 {
                     var count = connectionCounts.GetValueOrDefault((task.EntityId, port.PortId));

@@ -8,7 +8,7 @@ public sealed record ProjectRelationValidationReceipt(ContentDigest SourceDigest
 public static class ProjectRelationValidation
 {
     public static ProjectRelationValidationReceipt Validate(RelationScopeSnapshot input,
-        IEnumerable<RelationScopeSnapshot>? snapshots = null, IEnumerable<UnitDefinition>? units = null,
+        IEnumerable<RelationScopeSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
         RelationValidationLimits? limits = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
