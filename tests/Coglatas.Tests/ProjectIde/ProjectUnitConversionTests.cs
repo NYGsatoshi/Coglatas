@@ -206,13 +206,14 @@ public sealed class ProjectUnitConversionTests
     [Fact]
     public void DerivedDimensionsAndUnitsAreExplicitAndChecked()
     {
-        var distance = NumericOperand.From(Quantity("10", Unit("fixture.meter")));
-        var elapsed = NumericOperand.From(Quantity("2", Unit("fixture.second", Time)));
+        var meter = Unit("fixture.meter"); var second = Unit("fixture.second", Time);
+        var distance = NumericOperand.From(Quantity("10", meter), meter);
+        var elapsed = NumericOperand.From(Quantity("2", second), second);
         var speed = ProjectNumericOperations.Evaluate(distance, elapsed, NumericOperator.Divide).Value!;
         Assert.Equal("5/1", speed.Amount!.ToString());
         Assert.Equal(1, speed.Dimension!.Powers["coglatas.length"]);
         Assert.Equal(-1, speed.Dimension.Powers["coglatas.time"]);
-        Assert.Equal(-1, speed.UnitPowers["fixture.second"]);
+        Assert.Contains(speed.UnitPowers, power => power.Key.Contains("fixture.second", StringComparison.Ordinal) && power.Value == -1);
         var restored = ProjectNumericOperations.Evaluate(speed, elapsed, NumericOperator.Multiply).Value!;
         Assert.Equal(distance.Amount, restored.Amount);
         Assert.Equal(distance.Dimension, restored.Dimension);
@@ -304,5 +305,44 @@ public sealed class ProjectUnitConversionTests
             new(MaximumOperations: 1)).Reason);
         Assert.Equal("coglatas.operation-budget-exhausted", ProjectNumericOperations.Quantize(first, 1, "coglatas.nearest-ties-to-even",
             new(MaximumOperations: 1)).Reason);
+    }
+
+    [Fact]
+    public void UnknownUnitsRequirePinnedBindingBeforeAnyNumericSuccess()
+    {
+        var data = Json(new { amount = "1", unitId = "future.unknown-unit", dimension = Length.Value });
+        var quantity = new Quantity(data);
+        var raw = NumericOperand.From(quantity);
+        Assert.Equal(NumericEvaluationStatus.Unsupported, raw.Status);
+        Assert.Equal("coglatas.unit-binding-required", raw.Reason);
+        Assert.Equal(NumericEvaluationStatus.Unsupported, ProjectNumericOperations.Evaluate(raw, raw, NumericOperator.Add).Status);
+        var typed = Json(new { type = new { kind = "coglatas.quantity", schemaVersion = 1, nullable = false, acceptsUnknown = false,
+            unitId = "future.unknown-unit", dimension = Length.Value }, state = "coglatas.known", value = data.Value });
+        Assert.Equal(NumericEvaluationStatus.Unsupported, NumericOperand.From(TypedProjectValueCodec.Decode(typed)).Status);
+        var unit = Unit("fixture.meter");
+        var bound = NumericOperand.From(Quantity("1", unit), unit);
+        Assert.Equal("2/1", ProjectNumericOperations.Evaluate(bound, bound, NumericOperator.Add).Value!.Amount!.ToString());
+        Assert.Equal(NumericEvaluationStatus.Invalid, NumericOperand.From(quantity, unit).Status);
+    }
+
+    [Fact]
+    public void FactoryNumericBoundExhaustionBecomesUnknownAndKeepsItsBasis()
+    {
+        var data = Json(new { type = new { kind = "coglatas.decimal", schemaVersion = 1, nullable = false, acceptsUnknown = false },
+            state = "coglatas.known", value = "999" });
+        var decoded = TypedProjectValueCodec.Decode(data);
+        var operand = NumericOperand.From(decoded, new(2, 1));
+        Assert.Equal(NumericEvaluationStatus.Unknown, operand.Status);
+        Assert.Equal("coglatas.numeric-bound-exhausted", operand.Reason);
+        Assert.Equal(data, operand.Basis);
+        var evaluated = ProjectNumericOperations.Evaluate(operand, Scalar("1"), NumericOperator.Add);
+        Assert.Equal(NumericEvaluationStatus.Unknown, evaluated.Status);
+        Assert.Equal("coglatas.numeric-bound-exhausted", evaluated.Reason);
+        Assert.Same(operand, evaluated.Inputs[0]);
+        Assert.Throws<NotSupportedException>(() => ((IList<NumericOperand>)evaluated.Inputs).Clear());
+        var unit = Unit("fixture.meter"); var quantity = Quantity("999", unit);
+        Assert.Equal(NumericEvaluationStatus.Unknown, NumericOperand.From(quantity, unit, new(2, 1)).Status);
+        var converted = ProjectUnitConversions.Convert(quantity, unit, unit, []).Value!;
+        Assert.Equal(NumericEvaluationStatus.Unknown, NumericOperand.From(converted, new(2, 1)).Status);
     }
 }
