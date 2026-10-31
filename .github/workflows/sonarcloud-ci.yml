@@ -248,6 +248,8 @@ jobs:
         run: node node_modules/@playwright/test/cli.js install --with-deps --only-shell chromium
 
       - name: Measure existing Functional and roster Node controls before credentials
+        env:
+          NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-node/raw
         run: |
           mkdir -p artifacts/sonar-node
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
@@ -294,6 +296,15 @@ jobs:
           unset NODE_V8_COVERAGE NODE_OPTIONS
           node --test tests/functional/private-playwright-output-import.node-test.mjs
 
+      - name: Retain original Functional and roster raw V8 evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-node-raw-v8
+          path: artifacts/sonar-node/raw/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Measure existing Pilot helpers in a separate native cohort
         run: |
           set -euo pipefail
@@ -330,6 +341,49 @@ jobs:
         with:
           name: sonar-pilot-helper-coverage
           path: artifacts/sonar-pilot-helper/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Measure existing source inventory and npm audit controls before credentials
+        env:
+          NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-operational/raw
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sonar-operational
+          node --enable-source-maps --test --experimental-test-coverage --test-concurrency=1 \
+            --test-coverage-include='frontend/scripts/check-av-mig-source.mjs' \
+            --test-coverage-include='scripts/ci/check-npm-audit-baseline.mjs' \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=lcov --test-reporter-destination=artifacts/sonar-operational/lcov.info \
+            frontend/scripts/av-mig-source.node-test.mjs \
+            scripts/ci/check-npm-audit-baseline.node-test.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { realpathSync } from 'node:fs';
+          import { relative, resolve } from 'node:path';
+          import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd());
+          const identity = source => relative(root, resolve(root, source)).replaceAll('\\', '/');
+          const text = readOwnedRepositoryText(root, 'artifacts/sonar-operational/lcov.info');
+          assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
+          const checked = validateNodeCoverage(text);
+          const sources = new Set(text.split(/\r?\n/).filter(row => row.startsWith('SF:')).map(row => identity(row.slice(3))));
+          assert.equal(checked.sourceFiles, 2); assert.equal(sources.size, 2);
+          for (const source of ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs']) assert.ok(sources.has(source));
+          for (const report of ['artifacts/sonar-node/lcov.info', 'artifacts/sonar-pilot-helper/lcov.info']) {
+            const existing = readOwnedRepositoryText(root, report);
+            validateNodeCoverage(existing);
+            for (const row of existing.split(/\r?\n/).filter(row => row.startsWith('SF:'))) assert.ok(!sources.has(identity(row.slice(3))), 'Native source reports must be disjoint.');
+          }
+          console.log('Operational native source scope verified: ' + JSON.stringify(checked));
+          JS
+
+      - name: Retain original operational native coverage and ranges
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-operational-coverage
+          path: artifacts/sonar-operational/
           if-no-files-found: error
           retention-days: 7
 
