@@ -54,8 +54,8 @@ export function serializeChannelDialogObservation(raw: unknown): string | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const source = raw as Record<string, unknown>;
   const exactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => {
-    const actual = Object.keys(value).sort();
-    const expected = [...keys].sort();
+    const actual = Object.keys(value).sort(compareCodeUnits);
+    const expected = [...keys].sort(compareCodeUnits);
     return actual.length === expected.length && actual.every((name, index) => name === expected[index]);
   };
   if (!exactKeys(source, ['schemaVersion', 'events', 'eventsTruncated']) ||
@@ -178,4 +178,12 @@ export async function exerciseNamedWorkspaceChannel(
   await page.goto(`/app/workspaces/${workspaceId}/channels/${channelId}`);
   await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
   return { channelId: String(channelId), name, persisted: true };
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left: string, right: string): number {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }

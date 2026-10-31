@@ -19,7 +19,8 @@ function observeSql(sql) {
     existingAuthorityUnchanged: true } };
 }
 
-test('ownership, source, freshness and database failures prevent SQL execution', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('ownership, source, freshness and database failures prevent SQL execution', async () => {
   let calls = 0;
   const mutations = [
     x => { x.sourceSha = 'not-a-commit'; }, x => { x.projectName = 'production'; },
@@ -41,7 +42,7 @@ test('ownership, source, freshness and database failures prevent SQL execution',
   assert.doesNotThrow(() => assertRosterOwnership(options(() => {})));
 });
 
-test('the bounded plan creates unique unprivileged actors and reconciles an auth-free receipt', async () => {
+void test('the bounded plan creates unique unprivileged actors and reconciles an auth-free receipt', async () => {
   let observed, sql;
   const result = await prepareReadOnlyRosterFixture(options(async input => {
     sql = input; observed = observeSql(input);
@@ -75,7 +76,7 @@ test('the bounded plan creates unique unprivileged actors and reconciles an auth
   assert.equal(/password|hash|email/i.test(receipt), false, 'receipt contains no credential fields');
 });
 
-test('SQL failure exposes only SQLSTATE and never the supplied diagnostic body', async () => {
+void test('SQL failure exposes only SQLSTATE and never the supplied diagnostic body', async () => {
   await assert.rejects(prepareReadOnlyRosterFixture(options(async sql => ({ exitCode: 1, stdout: '',
     stderr: `ERROR: 23505\nDETAIL: secret-password-canary\n${sql}` }))), error => {
     assert.equal(error.message === 'ReadOnly roster fixture execution failed; SQLSTATE=23505.', true, 'only the SQLSTATE is exposed');
@@ -85,7 +86,7 @@ test('SQL failure exposes only SQLSTATE and never the supplied diagnostic body',
     { message: 'ReadOnly roster fixture execution failed; SQLSTATE=UNAVAILABLE.' });
 });
 
-test('missing evidence, incorrect cardinality and unexpected credential fields cannot qualify', async () => {
+void test('missing evidence, incorrect cardinality and unexpected credential fields cannot qualify', async () => {
   for (const mutation of [() => '', receipt => ({ ...receipt, memberCount: 3 }),
     receipt => ({ ...receipt, readOnlyCount: 41 }), receipt => ({ ...receipt, existingAuthorityUnchanged: false }),
     receipt => ({ ...receipt, password: 'secret-password-canary' })]) {

@@ -39,7 +39,8 @@ function selectedObservation() {
   return { page, observation, fresh };
 }
 
-test('real correlation helper binds the new ordinal despite an old authorized response and freezes before cleanup', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('real correlation helper binds the new ordinal despite an old authorized response and freezes before cleanup', async () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   const old = requestFixture(page, 200), fresh = requestFixture(page);
   old.emit(); observation.mark('AUTHORIZED_READ');
@@ -65,7 +66,7 @@ test('real correlation helper binds the new ordinal despite an old authorized re
   assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
 });
 
-test('a selected request during a pending native action differs from an action with no fresh request', async () => {
+void test('a selected request during a pending native action differs from an action with no fresh request', async () => {
   for (const emitRequest of [false, true]) {
     const page = pageFixture(), observation = observeThreadRequests(page, matches);
     observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
@@ -99,7 +100,7 @@ await test('orphan terminal events and cap32 truncation cannot be presented as c
   assert.ok(Buffer.byteLength(JSON.stringify(validateThreadProbe({ phases: [], target: target(), observation: value }))) <= 4096);
 });
 
-test('strict observation validation rejects raw data, invented cause, reordered binding and unknown target values', () => {
+void test('strict observation validation rejects raw data, invented cause, reordered binding and unknown target values', () => {
   const { observation } = selectedObservation();
   const value = observation.finish('FAILED', target());
   const mutations = [
@@ -125,7 +126,7 @@ test('strict observation validation rejects raw data, invented cause, reordered 
   assert.throws(() => validateThreadObservation(oldBound), 'a request predating observer/session is not a fresh selection');
 });
 
-test('login interval markers distinguish emissions before, during and after replacement without claiming cookie-set time', () => {
+void test('login interval markers distinguish emissions before, during and after replacement without claiming cookie-set time', () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   const before = requestFixture(page), during = requestFixture(page), after = requestFixture(page);
   before.emit(); observation.mark('SESSION_REPLACEMENT_STARTED'); during.emit();
@@ -141,7 +142,7 @@ test('login interval markers distinguish emissions before, during and after repl
   assert.throws(() => validateThreadObservation(reordered));
 });
 
-test('an old in-flight GET returning 400 after a new tab action triggers exactly one bounded hook', () => {
+void test('an old in-flight GET returning 400 after a new tab action triggers exactly one bounded hook', () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   let captures = 0;
   observation.onPreActionDenied(() => { captures++; });
@@ -199,7 +200,7 @@ for (const [finishInitial, expectedCaptures] of [[false, 1], [true, 0]]) {
   });
 }
 
-test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
+void test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   let captures = 0;
   observation.onPreActionDenied(() => { captures++; });
@@ -222,7 +223,7 @@ test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh
   assert.equal(page.listenerCount('response'), 0);
 });
 
-test('an earlier denied GET interleaving with native tab action cannot qualify a new GET or conceal detach', async () => {
+void test('an earlier denied GET interleaving with native tab action cannot qualify a new GET or conceal detach', async () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   let preActionDenials = 0;
   observation.onPreActionDenied(() => { preActionDenials++; });
@@ -277,7 +278,7 @@ test('an earlier denied GET interleaving with native tab action cannot qualify a
   page.removeAllListeners('request');
 });
 
-test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
+void test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
   const { observation } = selectedObservation();
   assert.equal(observation.finish('FAILED').classification, 'INCOMPLETE');
   for (const [message, expected] of [
@@ -287,7 +288,7 @@ test('missing failure snapshot remains incomplete and native action text is redu
   ]) { assert.equal(actionFailureKind(new Error(message)), expected); }
 });
 
-test('successful-only observations retain UNKNOWN and cannot label a historical cause', () => {
+void test('successful-only observations retain UNKNOWN and cannot label a historical cause', () => {
   const { observation } = selectedObservation();
   const value = observation.finish('COMPLETED');
   assert.equal(value.classification, 'UNKNOWN');
@@ -296,7 +297,7 @@ test('successful-only observations retain UNKNOWN and cannot label a historical 
   assert.throws(() => validateThreadObservation({ ...value, failureTarget: target() }));
 });
 
-test('mobile outcome retains the finite failed observation while rejecting an injected protected field', () => {
+void test('mobile outcome retains the finite failed observation while rejecting an injected protected field', () => {
   const { observation } = selectedObservation();
   const value = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: target(),
     observation: observation.finish('FAILED', target()) };
@@ -312,7 +313,7 @@ test('mobile outcome retains the finite failed observation while rejecting an in
   assert.equal(JSON.stringify(outcome).includes('private-canary'), false);
 });
 
-test('actual fresh-helper request rejection survives observer capture and cleanup as the identical primary error', async () => {
+void test('actual fresh-helper request rejection survives observer capture and cleanup as the identical primary error', async () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   const primary = new Error('private-canary');
   page.waitForRequest = () => Promise.reject(primary);
@@ -331,7 +332,7 @@ test('actual fresh-helper request rejection survives observer capture and cleanu
   assert.equal(JSON.stringify(captured).includes('private-canary'), false);
 });
 
-test('capture, attachment and restoration failures never mask a mandatory primary but still attempt every stage', async () => {
+void test('capture, attachment and restoration failures never mask a mandatory primary but still attempt every stage', async () => {
   for (const failingStages of [['CAPTURE'], ['PUBLISH'], ['RESTORE'], ['CAPTURE', 'PUBLISH', 'RESTORE']]) {
     const primary = new Error('private-primary'), attempted = [], secondary = [];
     const action = (stage) => async () => {
@@ -345,7 +346,7 @@ test('capture, attachment and restoration failures never mask a mandatory primar
   }
 });
 
-test('attachment or restoration failure on an otherwise successful owner remains failure without retries', async () => {
+void test('attachment or restoration failure on an otherwise successful owner remains failure without retries', async () => {
   for (const failingStage of ['PUBLISH', 'RESTORE']) {
     const secondaryError = new Error('private-secondary'), attempted = [], stages = [];
     const action = (stage) => async () => {
@@ -357,7 +358,7 @@ test('attachment or restoration failure on an otherwise successful owner remains
   }
 });
 
-test('secondary runtime annotation projection rejects raw values, duplicates and excess stages', () => {
+void test('secondary runtime annotation projection rejects raw values, duplicates and excess stages', () => {
   const annotation = (description) => ({ type: THREAD_PROBE_SECONDARY_ANNOTATION, description });
   assert.deepEqual(readThreadProbeSecondary([annotation('CAPTURE'), annotation('RESTORE')]),
     { state: 'AVAILABLE', stages: ['CAPTURE', 'RESTORE'] });
@@ -367,7 +368,7 @@ test('secondary runtime annotation projection rejects raw values, duplicates and
   assert.deepEqual(readThreadProbeSecondary([]), { state: 'MISSING', stages: [] });
 });
 
-test('the outer owner evidence attachment cannot replace the inner mandatory failure', async () => {
+void test('the outer owner evidence attachment cannot replace the inner mandatory failure', async () => {
   const primary = new Error('private-primary'), stages = [];
   const inner = () => withThreadProbeLifecycle(async () => { throw primary; }, async () => {}, async () => {},
     async () => { throw new Error('private-restoration'); }, (stage) => stages.push(stage));
@@ -377,7 +378,7 @@ test('the outer owner evidence attachment cannot replace the inner mandatory fai
   assert.deepEqual(stages, ['RESTORE', 'PUBLISH']);
 });
 
-test('secondary annotations suppress unsupported primary kind and source attribution without changing owner outcome', () => {
+void test('secondary annotations suppress unsupported primary kind and source attribution without changing owner outcome', () => {
   const result = { status: 'failed', retry: 0, errors: [{ message: 'private-primary' }], steps: [{
     category: 'test.step', title: 'FUNC-MSG-001 / MSG-THREAD-DENIAL', error: {}, steps: [
       { category: 'expect', title: 'private-primary', error: { matcherResult: {} },
@@ -398,7 +399,7 @@ test('secondary annotations suppress unsupported primary kind and source attribu
   }
 });
 
-test('actual Playwright reporter does not attribute a caught restoration timeout to the preserved primary assertion', () => {
+void test('actual Playwright reporter does not attribute a caught restoration timeout to the preserved primary assertion', () => {
   const directory = mkdtempSync(join(tmpdir(), 'thread-secondary-reporter-')), root = process.cwd();
   try {
     mkdirSync(join(directory, 'artifacts/mobile'), { recursive: true });
@@ -465,7 +466,7 @@ await test('relative timing distinguishes response before and after root rejecti
   }
 });
 
-test('clock failure, regression and invalid samples cannot throw from markers or become complete evidence', () => {
+void test('clock failure, regression and invalid samples cannot throw from markers or become complete evidence', () => {
   for (const bad of [() => { throw new Error('private-clock'); }, () => NaN, () => Infinity, () => -1, () => 3600001]) {
     let calls = 0;
     const page = pageFixture(), observation = observeThreadRequests(page, matches, () => calls++ === 0 ? 0 : bad());
@@ -489,7 +490,7 @@ test('clock failure, regression and invalid samples cannot throw from markers or
   assert.throws(() => validateThreadObservation({ ...missing, classification: 'UNKNOWN' }));
 });
 
-test('root assertion markers reject invented order and success after a failed matcher', () => {
+void test('root assertion markers reject invented order and success after a failed matcher', () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches, () => 0);
   observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_READ');
   observation.mark('ROOT_ASSERTION_STARTED'); observation.mark('ROOT_ASSERTION_FAILED');
@@ -502,7 +503,7 @@ test('root assertion markers reject invented order and success after a failed ma
 });
 
 
-test('fractional raw clock regressions and overflow stay unknown without poisoning qualified recovery or replacing primary error', async () => {
+void test('fractional raw clock regressions and overflow stay unknown without poisoning qualified recovery or replacing primary error', async () => {
   for (const [samples, expected] of [
     [[0, 10.9, 10.1, 10.5, 11], [10, null, null, 11]],
     [[0, 3600000.9, 3600000, 3600001], [null, 3600000, null]],
