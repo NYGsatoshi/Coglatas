@@ -218,7 +218,9 @@ jobs:
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
-            scripts/ci/test-functional-diagnostics.py; do
+            scripts/ci/test-functional-diagnostics.py \
+            scripts/ci/test-postgres-log-privacy.py \
+            scripts/ci/test-functional-setup-failure-probe.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"

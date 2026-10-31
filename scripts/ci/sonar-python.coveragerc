@@ -14,5 +14,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/deploy/sakura/validate-pilot-intake-policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/mbj02-trx-receipt.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional_diagnostics.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-postgres-log-privacy.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional-setup-failure-probe.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py
