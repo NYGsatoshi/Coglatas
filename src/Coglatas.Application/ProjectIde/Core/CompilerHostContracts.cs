@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Collections.ObjectModel;
 using Coglatas.Domain.ProjectIde;
 
@@ -81,21 +82,21 @@ public sealed class CompilerHostRequest
         Input = input; ClientGeneration = clientGeneration;
         Snapshots = Freeze(snapshots ?? [], 32); Units = Freeze(units ?? [], 1024); Calendars = Freeze(calendars ?? [], 128);
         if (Snapshots.Any(value => value.Version.Length > 128)) throw new ArgumentException("Snapshot version exceeds the initial host profile.");
-        Materializations = SourceJson.FromObject(new
+        Materializations = CompilerHostJson.Create(new
         {
             format = "coglatas.host-materializations/1",
-            snapshots = Snapshots.Select(value => SourceJson.FromObject(new
+            snapshots = Snapshots.Select(value => CompilerHostJson.Create(new
             {
                 snapshotId = value.SnapshotId.ToString(), version = value.Version, sourceDigest = value.Snapshot.Source.Digest.Data.Value,
                 authorized = value.Snapshot.IsAuthorized, declarationsComplete = value.Snapshot.DeclarationsComplete, relationsComplete = value.Snapshot.RelationsComplete
             })).OrderBy(value => value.CanonicalText, StringComparer.Ordinal).Select(value => value.Value).ToArray(),
             unitDefinitions = Units.Select(value => value.Digest.Value).Order(StringComparer.Ordinal).ToArray(),
-            calendarDefinitions = Calendars.Select(value => SourceJson.FromObject(new
+            calendarDefinitions = Calendars.Select(value => CompilerHostJson.Create(new
             { calendarDigest = value.Reference.RulesDigest.Data.Value, timeZoneDigest = value.TimeZone.RulesDigest.Data.Value }))
                 .OrderBy(value => value.CanonicalText, StringComparer.Ordinal).Select(value => value.Value).ToArray()
         });
         MaterializationDigest = ContentDigest.Compute("coglatas.host-materializations/1", Materializations.ToCanonicalBytes());
-        ExecutionInputDigest = ContentDigest.Compute("coglatas.compiler-host-input/1", SourceJson.FromObject(new
+        ExecutionInputDigest = ContentDigest.Compute("coglatas.compiler-host-input/1", CompilerHostJson.Create(new
         { declaredInputDigest = Input.ExpectedInputDigest.Data.Value, materializationsDigest = MaterializationDigest.Data.Value }).ToCanonicalBytes());
     }
     private static IReadOnlyList<T> Freeze<T>(IEnumerable<T?> values, int maximum) where T : class
@@ -121,7 +122,7 @@ public sealed class CompilerHostExecutionReceipt
         ArgumentNullException.ThrowIfNull(executedRequest); ArgumentNullException.ThrowIfNull(compilation);
         if (!executedRequest.Input.ExpectedInputDigest.Equals(compilation.Input.InputDigest)) throw new ArgumentException("Execution input binding mismatch.");
         Compilation = compilation; Materializations = executedRequest.Materializations; InputBindingDigest = executedRequest.ExecutionInputDigest;
-        Data = SourceJson.FromObject(new { format = "coglatas.host-execution/1", inputBindingDigest = InputBindingDigest.Data.Value,
+        Data = CompilerHostJson.Create(new { format = "coglatas.host-execution/1", inputBindingDigest = InputBindingDigest.Data.Value,
             resultDigest = compilation.Result.ResultDigest.Data.Value });
         Digest = ContentDigest.Compute("coglatas.host-execution/1", Data.ToCanonicalBytes());
     }
@@ -157,4 +158,9 @@ public sealed record CompilerHostFreshnessAssessment(CompilerFreshness State, Co
         if (response.ClientGeneration != desiredGeneration.Value) changed.Add("coglatas.client-generation");
         return new(changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, response.Compilation.Result.ResultId, changed.AsReadOnly());
     }
+}
+
+internal static class CompilerHostJson
+{
+    internal static SourceJson Create(object value) => SourceJson.Parse(JsonSerializer.SerializeToUtf8Bytes(value));
 }
