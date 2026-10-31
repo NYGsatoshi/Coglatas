@@ -15,6 +15,9 @@ public sealed class CompilerIrTests
         Assert.True(a.StructuralClosureValidated); Assert.Empty(a.Findings);
         Assert.NotNull(a.Ir); Assert.Equal(a.Ir.Digest, b.Ir!.Digest); Assert.Equal(a.Ir.Data, b.Ir.Data);
         var node = Assert.Single(a.Ir.Nodes); Assert.Equal(8, node.NodeId.Value.Version);
+        var golden = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "compiler-ir-identity-v1.json")))!;
+        Assert.Equal(golden["nodeId"]!.GetValue<string>(), node.NodeId.ToString());
+        Assert.Equal(golden["derivationDigest"]!.GetValue<string>(), node.NodeId.DerivationDigest.Value);
         Assert.Equal(input.Source.Context, node.Origin.Context); Assert.Equal(EntityId.Parse(Id(6)), node.EntityId);
         Assert.Equal(a.Ir.SourceMapDigest, ContentDigest.Compute("coglatas.semantic-source-map/1", a.Ir.SourceMap.ToCanonicalBytes()));
         Assert.Equal(a.Ir.Digest, ContentDigest.Compute("coglatas.project-ir/1", a.Ir.Data.ToCanonicalBytes()));
@@ -29,7 +32,7 @@ public sealed class CompilerIrTests
         Assert.NotEqual(old.Digest, next.Digest); Assert.NotEqual(old.SourceMapDigest, next.SourceMapDigest);
     }
 
-    private static JsonObject Task(int id, SourceRevisionContext context) => Obj(new { entityId = Id(id), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+    private static JsonObject Task(int id) => Obj(new { entityId = Id(id), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
     {
         duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" }, ports = Array.Empty<object>()
     } });
@@ -49,7 +52,7 @@ public sealed class CompilerIrTests
     public void OnlySupportedGraphClosureCanProduceIr(string kind, bool expected)
     {
         var original = Source(); var context = original.Context;
-        var source = ProjectSource.Create(context, original.Documents, Json(new JsonArray(Task(7, context), Task(8, context))),
+        var source = ProjectSource.Create(context, original.Documents, Json(new JsonArray(Task(7), Task(8))),
             Json(new JsonArray(Edge(20, 7, 8, kind, context), Edge(21, 8, 7, kind, context))));
         var result = Validate(Input(source: source));
         Assert.Equal(expected, result.StructuralClosureValidated);
@@ -70,7 +73,7 @@ public sealed class CompilerIrTests
 
     private static (CompilerInputManifest Input, UnitDefinition Unit) QuantityInput(bool wrongDimension = false)
     {
-        var original = Source(); var task = Task(7, original.Context);
+        var original = Source(); var task = Task(7);
         var dimension = Obj(new Dictionary<string, int> { ["dimension.mass"] = 1 });
         var type = Obj(new { kind = "coglatas.quantity", schemaVersion = 1, nullable = false, acceptsUnknown = false, unitId = "unit.kg", dimension });
         task["payload"]!["ports"] = new JsonArray(Obj(new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1,
@@ -115,5 +118,16 @@ public sealed class CompilerIrTests
         Assert.Single(result.Artifacts);
         using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
         Assert.Throws<OperationCanceledException>(() => CompilerSemanticValidation.Validate(ProjectSemanticBinder.Bind(input), cancellationToken: cancelled.Token));
+    }
+
+    [Fact]
+    public void RequiredDescriptorCapabilityCannotBeImplicitlyEnabled()
+    {
+        var original = Source(); var context = original.Context;
+        var source = ProjectSource.Create(context, original.Documents, Json(new JsonArray(Task(7), Task(8))),
+            Json(new JsonArray(Edge(20, 7, 8, RelationKinds.DependsOn, context))));
+        var settings = Settings(); settings["featureSet"] = new JsonArray("coglatas.core.structural");
+        var result = Validate(Input(settings, source));
+        Assert.Null(result.Ir); Assert.Contains(result.Findings, item => item.Diagnostic.Code == "coglatas.semantic.capability-unavailable");
     }
 }

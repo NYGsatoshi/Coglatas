@@ -30,7 +30,7 @@ internal static class CompilerContractFixtures
         foreach (var name in new[] { "authorizedExternalSnapshots", "resourceSnapshots", "allocationSnapshots", "observations", "evidence", "calendars", "timeZones" }) settings[name] = new JsonArray();
         settings["descriptors"] = JsonSerializer.SerializeToNode(RelationKindDescriptor.BuiltIns.Select(item => new { artifactId = item.DescriptorId, version = "1", digest = item.Digest.Data.Value }));
         settings["rules"] = JsonSerializer.SerializeToNode(new[] { SchemaRule, DeclarationRule, RelationRule }.Select(ruleId => new { ruleId, version = 1, required = true, configuration = new { } }));
-        settings["featureSet"] = new JsonArray("coglatas.core.structural");
+        settings["featureSet"] = JsonSerializer.SerializeToNode(RelationKindDescriptor.BuiltIns.SelectMany(item => item.RequiredCapabilities).Prepend("coglatas.core.structural").ToArray());
         settings["targets"] = new JsonArray("coglatas.semantic-model");
         settings["analysisScope"] = new JsonArray("coglatas.source-structure");
         settings["sourceCoverage"] = "coglatas.complete";

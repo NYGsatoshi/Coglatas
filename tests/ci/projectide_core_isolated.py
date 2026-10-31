@@ -106,6 +106,8 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                 raise ValueError("Slice 4 tests did not run")
             if name == "projectIde" and (target / "src/Coglatas.Domain/ProjectIde/CompilerBinding.cs").exists() and not any("CompilerBindingTests" in item for item in names):
                 raise ValueError("Slice 5 tests did not run")
+            if name == "projectIde" and (target / "src/Coglatas.Domain/ProjectIde/DerivedProjectIr.cs").exists() and not any("CompilerIrTests" in item for item in names):
+                raise ValueError("Slice 6 tests did not run")
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
