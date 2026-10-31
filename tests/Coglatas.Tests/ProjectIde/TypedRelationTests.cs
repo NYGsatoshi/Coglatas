@@ -320,4 +320,13 @@ public sealed class TypedRelationTests
         Assert.Throws<OperationCanceledException>(() => ProjectRelationValidation.Validate(new(source, true, true, true), cancellationToken: cancellation.Token));
         Has(RelationGraphValidator.Validate(new(source, false, true, true)), "scope-unavailable", RelationFindingState.Unknown);
     }
+
+    [Fact]
+    public void InvalidSnapshotAndUnitEntriesFailSafelyWithoutDroppingTheirChecks()
+    {
+        var source = Source([Edge()]);
+        Assert.Throws<ArgumentNullException>(() => new RelationScopeSnapshot(null!, true, true, true));
+        Has(RelationGraphValidator.Validate(new(source, true, true, true), externalSnapshots: [null]), "budget-exhausted", RelationFindingState.Unknown);
+        Has(RelationGraphValidator.Validate(new(source, true, true, true), units: [null]), "unit-budget", RelationFindingState.Unknown);
+    }
 }

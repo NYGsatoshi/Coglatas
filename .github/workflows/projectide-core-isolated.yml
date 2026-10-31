@@ -40,7 +40,7 @@ jobs:
         run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
       - name: Compose pinned candidates and retain full inventories
         env:
-          PRODUCT_HEAD: f8e7a47f00fb18074f57d14a51cd52194a42ad12
+          PRODUCT_HEAD: e4026f358f275e1acbfc513f8ac9c62af04b63a9
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
           ISOLATED_ROOT: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}
         run: >-
