@@ -24,14 +24,15 @@ function setup() {
   const notice = signal<string | null>(null);
   const refresh = vi.fn().mockResolvedValue(undefined);
   const locale = signal('en');
-  TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(),
+  TestBed.configureTestingModule({ imports: [WorkspaceChannelInviteComponent], providers: [provideHttpClient(), provideHttpClientTesting(),
     { provide: WorkspaceChannelsFacade, useValue: { scope, status, pending, directory, notice, refresh } },
     { provide: I18nService, useValue: { locale } }
   ] });
-  const component = TestBed.runInInjectionContext(() => new WorkspaceChannelInviteComponent());
+  const fixture = TestBed.createComponent(WorkspaceChannelInviteComponent);
+  const component = fixture.componentInstance;
   component.channel = item;
   activeHttp = TestBed.inject(HttpTestingController);
-  return { component, http: activeHttp, scope, status, pending, directory, notice, refresh, locale, item };
+  return { fixture, component, http: activeHttp, scope, status, pending, directory, notice, refresh, locale, item };
 }
 
 describe('Workspace channel membership command lifecycle', () => {
@@ -155,10 +156,10 @@ describe('Workspace channel membership command lifecycle', () => {
   });
 
   it('cancels the active HTTP subscription when its owner is destroyed', () => {
-    const { component, http } = setup();
+    const { fixture, component, http } = setup();
     component.open(); component.select([recipient]); component.submit();
     const request = http.expectOne(endpoint);
-    TestBed.resetTestingModule();
+    fixture.destroy();
     expect(request.cancelled).toBe(true);
     expect(component.current()).toBe(false);
   });
