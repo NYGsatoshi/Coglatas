@@ -67,10 +67,16 @@ export async function runRealBackendSmokeCompose(control = null) {
         if (version.exitCode !== 0 || !/^[0-9]{5,6}$/.test(version.stdout.trim())) {
           throw new Error('Native measurement requires an actual PostgreSQL version receipt.');
         }
+        const appId = await getServiceContainerId('app');
+        const image = await runDocker(['inspect', '--format', '{{.Image}}', appId], { capture: true, silent: true });
+        if (image.exitCode !== 0 || !/^sha256:[a-f0-9]{64}$/.test(image.stdout.trim())) {
+          throw new Error('Native measurement requires the running backend image identity.');
+        }
         mkdirSync('artifacts/sonar-real-backend-native', { recursive: true });
         writeFileSync('artifacts/sonar-real-backend-native/environment.json', JSON.stringify({
           sourceSha: composeEnv.TARGET_SHA, hostNodeVersion: process.version,
           postgresVersionNum: Number(version.stdout.trim()),
+          backendImage: image.stdout.trim(),
           qualification: 'Synthetic Compose database version only; no application-role RLS claim.',
         }) + '\n', { flag: 'wx', mode: 0o600 });
       }
