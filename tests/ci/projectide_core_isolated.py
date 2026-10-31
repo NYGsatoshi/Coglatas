@@ -85,8 +85,18 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                        f"trx;LogFileName={name}.trx", "--results-directory", str(output)]
             if filter_value:
                 command += ["--filter", filter_value]
+            discovery_command = command[:command.index("--logger")] + ["--list-tests"]
+            if filter_value:
+                discovery_command += ["--filter", filter_value]
+            discovered = sorted(line.strip() for line in run(discovery_command, target).splitlines()
+                                if line.startswith("    Coglatas."))
+            if not discovered or len(set(discovered)) != len(discovered):
+                raise ValueError("Test discovery was empty or duplicated")
+            (output / f"{name}-discovery.json").write_text(json.dumps(discovered, indent=2) + "\n", encoding="utf-8")
             run(command, target, capture=False)
             names = inventory(path)
+            if discovered != names:
+                raise ValueError("Discovered tests and executed TRX inventory disagree")
             previous = json.loads(baseline.read_text(encoding="utf-8"))[name]
             if not set(previous).issubset(names):
                 raise ValueError("A previously verified test was removed, renamed or not run")
