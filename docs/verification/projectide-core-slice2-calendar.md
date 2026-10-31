@@ -34,8 +34,10 @@ stay Unknown and Null stays Null. A working duration never becomes elapsed
 duration without its calendar. An explicit Gregorian `reject-invalid-day`
 period policy applies years/months, then days to an anchor; invalid month-end,
 date range and integer overflow fail rather than clamp or wrap. This civil
-component calculation does not convert a period to elapsed seconds or schedule
-work outside a calendar validity interval.
+component calculation requires unique midnight boundaries for both civil dates
+under the fixed zone input and full date coverage within calendar validity;
+missing or ambiguous coverage remains Unknown. It does not convert a period to
+elapsed seconds or schedule work outside a calendar validity interval.
 
 Processing limits are deterministic provisional safeguards, not approved user
 quotas or performance guarantees. Exhaustion is explicit ResourceExhausted.
@@ -43,7 +45,13 @@ New recurrence languages, implicit DST policies, period rounding/clamping,
 unanchored elapsed conversion, zone database distribution, snapshot loading,
 resource reservations and scheduling engines remain outside this candidate.
 
-The separate shared-codec integration and final fixed-SHA combined verification
-are recorded in the PR and aggregate Slice 2 evidence. Passing these Core tests
+The Source codec supports local date-time, zoned civil time and comparable time
+interval values. Interval endpoints are restricted before child decoding to
+instant, local date or local date-time scalars; nested intervals/collections and
+unresolved zoned civil endpoints remain Unsupported. The formerly held incomplete
+zoned shape is now Invalid under the implemented pinned-rules schema.
+
+Final fixed-SHA combined verification is recorded in the PR and aggregate Slice
+2 evidence. Passing these Core tests
 does not accept Web UI, Windows/Avalonia, SEC-ARCH, RLS, Shadow/Enforce, school
 publication or release. Pre-Avalonia gates and #1128 suspension remain unchanged.

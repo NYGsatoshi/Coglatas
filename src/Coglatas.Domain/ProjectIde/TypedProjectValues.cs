@@ -12,7 +12,8 @@ public sealed class TypeReference
     {
         "coglatas.boolean", "coglatas.text", "coglatas.decimal", "coglatas.rational", "coglatas.enum",
         "coglatas.quantity", "coglatas.elapsed-duration", "coglatas.working-duration", "coglatas.calendar-period",
-        "coglatas.instant", "coglatas.local-date"
+        "coglatas.instant", "coglatas.local-date", "coglatas.local-date-time", "coglatas.zoned-local-date-time",
+        "coglatas.time-interval"
     };
     public string Kind { get; }
     public int SchemaVersion { get; }
@@ -171,6 +172,9 @@ public static class TypedProjectValueCodec
                 RequireFields(value, "years", "months", "days");
                 return new CalendarPeriod(ValueFields.Integer(value, "years"), ValueFields.Integer(value, "months"), ValueFields.Integer(value, "days"));
             case "coglatas.instant": return ProjectInstant.Parse(ValueFields.String(value));
+            case "coglatas.local-date-time": return new ProjectLocalDateTime(ValueFields.String(value));
+            case "coglatas.zoned-local-date-time": return new ZonedCivilTime(SourceJson.FromElement(value, sourceLimits));
+            case "coglatas.time-interval": return new ProjectTimeInterval(SourceJson.FromElement(value, sourceLimits));
             case "coglatas.local-date":
                 RequireFields(value, "date", "calendar");
                 return new ProjectLocalDate(SourceFields.String(value, "date"), ReadCalendar(value, sourceLimits));

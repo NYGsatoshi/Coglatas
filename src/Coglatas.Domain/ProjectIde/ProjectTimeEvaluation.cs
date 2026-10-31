@@ -192,6 +192,8 @@ public static class ProjectTimeArithmetic
             if (totalMonths is < 0 or >= 9999 * 12) throw new ArgumentOutOfRangeException(nameof(period));
             var year = (int)(totalMonths / 12) + 1; var month = (int)(totalMonths % 12) + 1;
             var result = new DateOnly(year, month, date.Day).AddDays(period.Days);
+            if (!snapshot.CoversDate(date) || !snapshot.CoversDate(result))
+                return new(TimeEvaluationStatus.Unknown, null, "coglatas.calendar-date-coverage-missing");
             return new(TimeEvaluationStatus.Known, new(result.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), anchor.Calendar), "coglatas.anchored-period-applied");
         }
         catch (Exception error) when (error is ArgumentException or OverflowException)
