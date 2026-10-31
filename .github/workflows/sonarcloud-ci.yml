@@ -251,7 +251,11 @@ jobs:
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
           node --enable-source-maps --test --experimental-test-coverage \
             --test-coverage-exclude='**/*.node-test.mjs' \
+            --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/group-keyboard-control-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/search-drawer-control-*/**" \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
             tests/functional/build-functional-grep.node-test.mjs \
@@ -262,7 +266,12 @@ jobs:
             tests/ui/readonly-roster-runner.node-test.mjs \
             tests/ui/mobile-mvp0-profile.node-test.mjs \
             tests/ui/mobile-mvp0-runner.node-test.mjs \
+            tests/diagnostics/thread-matrix.node-test.mjs \
+            tests/ui/group-keyboard-observation.node-test.mjs \
+            tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
+            tests/ci/test_restore_data_dependency_advisor.mjs \
+            tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
             scripts/ci/verify-sonar-node-coverage.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
           node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info

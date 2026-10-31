@@ -19,7 +19,8 @@ const observations = () => [
 const records = () => observations().map((observation) => ({ id: observation.caseId, expectedStatus: 'passed',
   attempts: [{ status: 'passed', retry: 0 }], observation }));
 
-test('all declared mocked mechanisms must execute once without missing, skipped, failed or retried cases', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('all declared mocked mechanisms must execute once without missing, skipped, failed or retried cases', () => {
   assert.equal(validateExecutedCases(records(), 'matrix').length, CASES.length);
   for (const mutate of [(rows) => rows.pop(), (rows) => rows.push(rows[0]), (rows) => { rows[1] = rows[0]; },
     (rows) => { rows[0].expectedStatus = 'skipped'; }, (rows) => { rows[0].attempts[0].status = 'skipped'; },
@@ -28,13 +29,13 @@ test('all declared mocked mechanisms must execute once without missing, skipped,
   ]) { const rows = records(); mutate(rows); assert.throws(() => validateExecutedCases(rows, 'matrix')); }
 });
 
-test('early redaction is never represented as a fresh activation or backend isolation proof', () => {
+void test('early redaction is never represented as a fresh activation or backend isolation proof', () => {
   for (const mutate of [(value) => { value.freshStatus = 400; }, (value) => { value.clickPerformed = true; },
     (value) => { value.classification = 'ORDINARY_FRESH_DENIAL'; }, (value) => { value.phases = [...phases]; },
   ]) { const value = observations()[1]; mutate(value); assert.throws(() => validateMatrixObservation(value)); }
 });
 
-test('old-response exclusion is not applicable without an old response and a new activation boundary', () => {
+void test('old-response exclusion is not applicable without an old response and a new activation boundary', () => {
   for (const index of [0, 1]) {
     assert.equal(validateMatrixObservation(observations()[index]).oldResponseExcluded, null);
     for (const invented of [true, false, undefined, 'NOT_APPLICABLE']) {
@@ -49,7 +50,7 @@ test('old-response exclusion is not applicable without an old response and a new
   }
 });
 
-test('observations reject raw payloads, unbounded phases and false fresh responses', () => {
+void test('observations reject raw payloads, unbounded phases and false fresh responses', () => {
   for (const mutate of [(value) => { value.private = 'private-canary'; }, (value) => { value.phases.push('private-canary'); },
     (value) => { value.phases.pop(); }, (value) => { value.phases[0] = value.phases[1]; },
     (value) => { value.phases.reverse(); },
@@ -59,7 +60,7 @@ test('observations reject raw payloads, unbounded phases and false fresh respons
   for (const value of observations()) { assert.equal(JSON.stringify(validateMatrixObservation(value)).includes('private-canary'), false); }
 });
 
-test('actual reporter rejects protected observations and a controlled raw assertion without publishing either', () => {
+void test('actual reporter rejects protected observations and a controlled raw assertion without publishing either', () => {
   const directory = mkdtempSync(join(tmpdir(), 'coglatas-thread-matrix-'));
   try {
     const root = process.cwd(), playwright = pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href;
