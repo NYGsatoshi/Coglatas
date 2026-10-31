@@ -22,7 +22,8 @@ function fullFixture() { return { ...fixture(), version: 2, groups: Object.fromE
 function groupProof() { return { conversationId: randomUUID(), firstMessageId: randomUUID(), secondMessageId: randomUUID(), unreadUiVerified: true, removedReaddedLeftVerified: true, creatorRetained: true }; }
 function restart(cp) { return { version: 1, commit: cp.commit, checkpointRunId: cp.runId, operatorAttested: true, beforeContainerId: 'b'.repeat(64), afterContainerId: 'b'.repeat(64), beforeStartedAtUtc: new Date(Date.now() - 120000).toISOString(), afterStartedAtUtc: new Date(Date.now() - 30000).toISOString() }; }
 
-test('core execution can only issue partial qualification and no restart or recovery credit', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('core execution can only issue partial qualification and no restart or recovery credit', () => {
   const config = readPilotConfiguration(environment(), fixture());
   const receipt = sanitizedReceipt(config, 'exercise', undefined, randomUUID());
   assert.equal(receipt.qualification, 'PILOT_PARTIAL');
@@ -34,7 +35,7 @@ test('core execution can only issue partial qualification and no restart or reco
   assert.equal(JSON.stringify(receipt).includes(config.accounts.member.password), false);
 });
 
-test('full scope requires complete version 2 known-body Group controls and cannot issue a receipt without executed proof', () => {
+void test('full scope requires complete version 2 known-body Group controls and cannot issue a receipt without executed proof', () => {
   const env = environment({ COGLATAS_STUDENT_PILOT_SCOPE: 'full' });
   assert.throws(() => readPilotConfiguration(env, fixture()), /PILOT_NO_GO.*version 2/u);
   const f = fullFixture(), config = readPilotConfiguration(env, f), proof = groupProof(), cp = checkpoint(config);
@@ -68,7 +69,7 @@ test('full scope requires complete version 2 known-body Group controls and canno
   assert.throws(() => validateExerciseReceipt({ ...receipt, groupChecks: {} }, cp));
 });
 
-test('requires every marker, exact commit, phase, synthetic distinct account and existing fixture ID', () => {
+void test('requires every marker, exact commit, phase, synthetic distinct account and existing fixture ID', () => {
   for (const key of Object.keys(environment())) assert.throws(() => readPilotConfiguration({ ...environment(), [key]: '' }, fixture()));
   for (const overrides of [ { COGLATAS_STUDENT_PILOT_PHASE: 'skip' }, { COGLATAS_STUDENT_PILOT_COMMIT: 'main' }, { COGLATAS_STUDENT_PILOT_MEMBER_EMAIL: 'person@school.edu' }, { COGLATAS_STUDENT_PILOT_OPERATOR_EMAIL: 'member@example.test' } ]) assert.throws(() => readPilotConfiguration(environment(overrides), fixture()));
   for (const mutate of [ (f) => f.syntheticOnly = false, (f) => f.existingIdsVerified = false, (f) => f.allowed.channelId = 'random', (f) => f.deniedSameTenant.workspaceId = f.allowed.workspaceId, (f) => f.allowed.fileSha256 = '', (f) => f.allowed.fileSizeBytes = 1048577 ]) {
@@ -76,19 +77,19 @@ test('requires every marker, exact commit, phase, synthetic distinct account and
   }
 });
 
-test('Group cursor ordering retains sub-millisecond server precision without GUID or Date millisecond inference', () => {
+void test('Group cursor ordering retains sub-millisecond server precision without GUID or Date millisecond inference', () => {
   assert.ok(pilotMessageUtcTicks('2026-10-20T01:02:03.1234567Z') > pilotMessageUtcTicks('2026-10-20T01:02:03.123456Z'));
   assert.equal(pilotMessageUtcTicks('2026-10-20T01:02:03Z'), pilotMessageUtcTicks('2026-10-20T01:02:03.0000000+00:00'));
   for (const invalid of [undefined, 'yesterday', '2026-02-30T01:02:03Z', '2026-10-20T01:02:03.12345678Z', '2026-10-20T01:02:03+09:00']) assert.throws(() => pilotMessageUtcTicks(invalid));
 });
 
-test('rejects IP literals, local/reserved names and non-root public origins without exposing values', () => {
+void test('rejects IP literals, local/reserved names and non-root public origins without exposing values', () => {
   for (const url of ['http://portal.example.com', 'https://localhost', 'https://192.168.0.1', 'https://[::1]', 'https://[::ffff:127.0.0.1]', 'https://[2606:4700:4700::1111]', 'https://host.internal', 'https://pilot.example.test', 'https://secret:password@portal.example.com', 'https://portal.example.com/path', 'https://portal.example.com?secret=token']) {
     assert.throws(() => pilotOrigin(url), (error) => !error.message.includes(url));
   }
 });
 
-test('rejects redirected origins before credentials or relative API requests can follow them', () => {
+void test('rejects redirected origins before credentials or relative API requests can follow them', () => {
   const origin = 'https://portal.example.com';
   assert.doesNotThrow(() => assertBoundOrigin(`${origin}/app/login?returnUrl=workspaces`, origin));
   for (const destination of ['https://other.example.com/app/login', 'https://portal.example.com.attacker.invalid/app/login', 'http://portal.example.com/app/login', 'https://user:secret@portal.example.com/app/login', '/app/login']) {
@@ -96,7 +97,7 @@ test('rejects redirected origins before credentials or relative API requests can
   }
 });
 
-test('requires known Direct bodies and includes the exact revocation Direct message read', () => {
+void test('requires known Direct bodies and includes the exact revocation Direct message read', () => {
   const f = fixture();
   for (const section of ['allowed', 'deniedSameTenant', 'deniedCrossTenant', 'revocation']) {
     const paths = scopeReadPaths(f[section]);
@@ -112,34 +113,34 @@ test('requires known Direct bodies and includes the exact revocation Direct mess
   assert.equal(isRedactedDenial({ status: 200, text: 'persisted synthetic Direct body' }), false);
 });
 
-test('checkpoint is bound to exact origin, fixture, commit and bounded exercise time', () => {
+void test('checkpoint is bound to exact origin, fixture, commit and bounded exercise time', () => {
   const f = fixture(), config = readPilotConfiguration(environment(), f), cp = checkpoint(config);
   assert.equal(validateCheckpoint(cp, config), cp);
   for (const overrides of [{ version: 1 }, { scope: 'full' }, { binding: 'bad' }, { commit: 'c'.repeat(40) }, { phase: 'verify-restart' }, { groupDm: 'GO' }, { rootMessageId: 'bad' }, { completedAtUtc: new Date(Date.now() - 86400001).toISOString() }, { completedAtUtc: 'yesterday' }]) assert.throws(() => validateCheckpoint({ ...cp, ...overrides }, config));
   assert.throws(() => validateCheckpoint(cp, readPilotConfiguration(environment({ COGLATAS_STUDENT_PILOT_URL: 'https://other.example.com' }), f)));
 });
 
-test('restart must attest observed IDs, same run and a UTC start after exercise', () => {
+void test('restart must attest observed IDs, same run and a UTC start after exercise', () => {
   const config = readPilotConfiguration(environment(), fixture()), cp = checkpoint(config), record = restart(cp);
   assert.equal(validateRestartRecord(record, cp), record); // docker restart retains the container ID
   for (const overrides of [{ operatorAttested: false }, { checkpointRunId: randomUUID() }, { commit: 'd'.repeat(40) }, { afterContainerId: 'unknown' }, { afterStartedAtUtc: record.beforeStartedAtUtc }, { afterStartedAtUtc: new Date(Date.now() + 60000).toISOString() }]) assert.throws(() => validateRestartRecord({ ...record, ...overrides }, cp));
 });
 
-test('restart cannot consume a checkpoint from a failed exercise without its successful receipt', () => {
+void test('restart cannot consume a checkpoint from a failed exercise without its successful receipt', () => {
   const config = readPilotConfiguration(environment(), fixture()), cp = checkpoint(config);
   const receipt = sanitizedReceipt(config, 'exercise', undefined, cp.runId);
   assert.doesNotThrow(() => validateExerciseReceipt(receipt, cp));
   for (const value of [undefined, {}, { ...receipt, phase: 'verify-restart' }, { ...receipt, qualification: 'PILOT_NO_GO' }, { ...receipt, completedAtUtc: new Date(Date.parse(cp.completedAtUtc) - 1000).toISOString() }]) assert.throws(() => validateExerciseReceipt(value, cp));
 });
 
-test('negative matrix rejects false passes, leaks and provider errors', () => {
+void test('negative matrix rejects false passes, leaks and provider errors', () => {
   const id = randomUUID();
   for (const status of [400, 403, 404]) assert.equal(isRedactedDenial({ status, text: '{"error":"Not found."}' }, [id]), true);
   for (const status of [200, 201, 302, 401, 429, 500, 503]) assert.equal(isRedactedDenial({ status, text: '{}' }, [id]), false);
   for (const text of [id, 'System.Exception', 'postgresql', 'StorageKey', 'Set-Cookie:', 'password=oops']) assert.equal(isRedactedDenial({ status: 400, text }, [id]), false);
 });
 
-test('Group negatives require the exact permission-specific current contract and reject leaked protected content', () => {
+void test('Group negatives require the exact permission-specific current contract and reject leaked protected content', () => {
   const secret = 'Synthetic protected Group body';
   for (const [operation, error] of Object.entries({ read: 'Conversation not found.', send: 'You are not allowed to send messages.', thread: 'Message thread not found.' })) {
     const result = { status: 400, text: JSON.stringify({ error }) };
@@ -154,7 +155,7 @@ test('Group negatives require the exact permission-specific current contract and
   }
 });
 
-test('runner validation contacts no target and rejects selection/artifact bypass arguments', async () => {
+void test('runner validation contacts no target and rejects selection/artifact bypass arguments', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'coglatas-pilot-gate-unit-'));
   const inventory = join(directory, 'fixture.json');
   const f = fixture();

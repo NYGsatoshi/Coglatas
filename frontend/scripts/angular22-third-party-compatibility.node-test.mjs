@@ -27,7 +27,8 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
   for (const [dependencyType, expected] of [
     ['dependencies', expectedDependencies],
     ['devDependencies', expectedDevDependencies],
@@ -46,7 +47,7 @@ test('keeps the reviewed Angular 22 third-party versions pinned in manifests and
   }
 });
 
-test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
+void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
   for (const dependent of ['@syncfusion/ej2-angular-grids', '@syncfusion/ej2-angular-inputs']) {
     const nested = frontendPackageLock.packages[`node_modules/${dependent}/node_modules/@syncfusion/ej2-angular-base`];
     assert.equal(nested?.version, '35.1.41', `${dependent} must pin the newly proposed base version`);
@@ -64,7 +65,7 @@ test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide
     'stale base version must not stay classified');
 });
 
-test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity', () => {
+void test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity', () => {
   assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.5');
   assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.5');
   assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.5');
@@ -83,7 +84,7 @@ test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity
   }
 });
 
-test('denies the Popups nested Syncfusion 35.1.41 base install script', () => {
+void test('denies the Popups nested Syncfusion 35.1.41 base install script', () => {
   const node = frontendPackageLock.packages[
     'node_modules/@syncfusion/ej2-angular-popups/node_modules/@syncfusion/ej2-angular-base'
   ];

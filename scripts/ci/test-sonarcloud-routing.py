@@ -217,7 +217,7 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py',
+            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py,tests/ci/test_restore_data_dependency_advisor.mjs',
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
@@ -335,8 +335,93 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('thread-secondary-reporter-*/**', block)
         self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
         self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
+        self.assertIn("--test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs'", block)
+        self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)
         self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', block)
         self.assertNotIn('GITHUB_ENV', block)
+
+    def test_native_fixture_filters_remain_exact_and_external(self) -> None:
+        import re
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        self.assertEqual(re.findall(r"--test-coverage-exclude=([^\n]+)", block), [
+            "'**/*.node-test.mjs' \\",
+            "'**/tests/ci/test_restore_data_dependency_advisor.mjs' \\",
+            '"$coverage_temp_root/thread-secondary-reporter-*/**" \\',
+            '"$coverage_temp_root/coglatas-thread-matrix-*/**" \\',
+            '"$coverage_temp_root/group-keyboard-control-*/**" \\',
+            '"$coverage_temp_root/search-drawer-control-*/**" \\',
+        ])
+        self.assertIn('coverage_temp_root="$(node -p \'require("node:os").tmpdir()\')"', block)
+        self.assertNotIn("--test-coverage-include", block)
+        self.assertNotIn("lcov.info |", block)
+        self.assertNotIn("lcov.info >", block)
+
+    def test_existing_string_order_controls_and_original_serializer_are_measured(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing Functional and roster Node controls before credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        for control in (
+            "tests/ci/test_restore_data_dependency_advisor.mjs",
+            "tests/diagnostics/thread-matrix.node-test.mjs",
+            "tests/ui/group-keyboard-observation.node-test.mjs",
+            "tests/ui/search-drawer-observation.node-test.mjs",
+            "tests/ui/channel-dialog-serializer-coverage.node-test.mjs",
+        ):
+            self.assertIn("            " + control + " \\", block)
+        config = (ROOT / "tests/ui/channel-dialog-serializer-coverage.config.mjs").read_text(encoding="utf-8")
+        adapter = (ROOT / "tests/ui/channel-dialog-serializer-coverage.node-test.mjs").read_text(encoding="utf-8")
+        source = (ROOT / "tests/ui/student-council-workspace-channels.spec.ts").read_text(encoding="utf-8")
+        title = "channel-dialog diagnostic attachment accepts only fixed bounded structural data"
+        self.assertIn("import base from '../../playwright.config.ts';", config)
+        self.assertIn("...base,", config)
+        self.assertIn("student-council-workspace-channels", config)
+        self.assertIn(title + "$/", config)
+        self.assertIn("projects: base.projects.filter", config)
+        for project in ("chromium-desktop", "chromium-mobile"):
+            self.assertIn(project, config)
+            self.assertIn(project, adapter)
+        self.assertIn("webServer: undefined", config)
+        for override in ("timeout:", "expect:", "retries:", "use:"):
+            self.assertNotIn(override, config)
+        self.assertIn("channel-dialog-serializer-coverage.config.mjs", adapter)
+        self.assertIn("'test', '--config'", adapter)
+        self.assertEqual(source.count("test('" + title + "', () => {"), 1)
+
+    def test_exact_advisor_unit_body_does_not_exempt_its_operational_cli(self) -> None:
+        import fnmatch
+        import re
+        relative = "tests/ci/test_restore_data_dependency_advisor.mjs"
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        self.assertIn("import test from 'node:test';", source)
+        self.assertEqual(len(re.findall(r"(?m)^void test\(", source)), 23)
+        self.assertNotRegex(source, r"(?m)^\s*export\b")
+        self.assertNotIn("process.argv", source)
+        operational = "scripts/ci/restore-data-dependency-advisor.mjs"
+        self.assertIn("from '../../" + operational + "'", source)
+        self.assertIn("'--synthetic-manifest', input", source)
+        settings = dict(line.split("=", 1) for line in
+                        (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
+                        if line and not line.startswith("#") and "=" in line)
+        coverage = settings["sonar.coverage.exclusions"].split(",")
+        self.assertEqual([pattern for pattern in coverage if fnmatch.fnmatchcase(relative, pattern)], [relative])
+        self.assertFalse(any(fnmatch.fnmatchcase(operational, pattern) for pattern in coverage))
+        self.assertFalse(any(fnmatch.fnmatchcase(relative, pattern) for pattern in settings["sonar.exclusions"].split(",")))
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("            tests/ci/test_restore_data_dependency_advisor.mjs \\", workflow)
+        self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', workflow)
+        executable = "C:/Program Files/Git/cmd/git.exe" if os.name == "nt" else "/usr/bin/git"
+        self.assertTrue(Path(executable).is_absolute() and (os.name != "nt" or Path(executable).drive))
+        files = subprocess.check_output([executable, "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+        for file in files:
+            if file.endswith((".mjs", ".cjs", ".js", ".ts", ".mts", ".tsx")) and file != relative and not file.endswith(".node-test.mjs"):
+                body = (ROOT / file).read_text(encoding="utf-8")
+                self.assertNotIn("test_restore_data_dependency_advisor.mjs", body,
+                                 "Operational source must not import or launch the excluded unit body: " + file)
 
     def test_node_test_bodies_do_not_exempt_operational_source(self) -> None:
         import fnmatch
