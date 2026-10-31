@@ -58,7 +58,7 @@ const MAX_PENDING_EVENTS = 512;
 export class RealtimeFacade {
   private readonly authSession = inject(AuthSessionFacade);
   // Metadata refreshes replace the user object; only actor identity owns this lifecycle.
-  private readonly currentActorId = computed(() => this.authSession.currentUser()?.userId ?? null);
+  private readonly currentActorId = computed(() => this.authSession.currentUser()?.userId);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
   private readonly flags = inject(FrontendFeatureFlagsService);

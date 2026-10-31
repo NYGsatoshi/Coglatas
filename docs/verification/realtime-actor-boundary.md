@@ -48,6 +48,19 @@ after LF normalization. They are not actual browser/backend or current Main CI
 qualification. The existing 15-second delayed-state browser assertions, transport
 retry policy, session/authorization contracts and release boundaries are unchanged.
 
+Independent review before merge found that the first selector normalized an
+absent user ID from undefined to null. During terminal clearing, a registered
+clearer can synchronously reenter frame delivery after the owned actor becomes
+null and before the old Tenant/Connected state is reset. That normalization
+changed the original early guard comparison. Test-only successor
+`a3863c75ff59c501f6b71ebf2725d1a5ae444fd5` retained the first runtime and observed
+one published reentrant frame: two status controls passed and the new one failed.
+The selector now preserves the original optional-read undefined value. All 88
+focused controls passed, including the unchanged two status-refresh controls and
+the added authoritative terminal-status reentrancy control. This is a bounded
+local regression, not evidence of an operational network exploit. The original
+87-test result and source-bound CI run remain historical evidence.
+
 The starting source is Main
 `88f8648cbcc9286407ea17e75cb2b9b7ed6ff599`, tree
 `24866051f0154b21cd337ed23ea53a54546d1a37`.
