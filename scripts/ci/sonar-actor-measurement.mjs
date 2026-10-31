@@ -204,7 +204,7 @@ async function invoke(program, args, env, fd, observeCompletion) {
   } finally { process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate); }
 }
 async function run() {
-  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary, buildCleanChild, validatedLcov;
+  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary, buildCleanChild;
   const output = resolve('artifacts/sonar-actor');
   let receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
   try {
@@ -288,9 +288,6 @@ async function run() {
     phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
-    phase = 'VALIDATED_LCOV_WRITE';
-    writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });
-    validatedLcov = { sourceSha: source, scenarioSha256: frozenActor, lcovSha256: hash(Buffer.from(lcov)), coverage };
     phase = 'PRE_ANALYSIS_CLEAN_FILE'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
     // A pre-analysis build must not make the existing begin/build/end interval incremental.
     phase = 'PRE_ANALYSIS_CLEAN_EXECUTION';
@@ -300,6 +297,9 @@ async function run() {
     phase = 'POST_CLEAN_SOURCE'; sourceGuard(source);
     phase = 'POST_CLEAN_EXECUTORS';
     assert.deepEqual(await executorProvenance(executors.paths), executors.provenance);
+    phase = 'FINAL_LCOV_WRITE';
+    writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });
+    assert.equal(hash(Buffer.from(ownedFile(join(output, 'lcov.info'), 1024 * 1024, true, started))), hash(Buffer.from(lcov)));
     phase = 'FINAL_RECEIPT';
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'BOUNDED_MEASUREMENT_PASS',
       eventName: 'push', ref: admission.ref, sourceSha: source, sourceTree: tree, runId: admission.runId, attempt: admission.attempt,
@@ -312,8 +312,7 @@ async function run() {
     process.exitCode = 0;
   } catch {
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase,
-      ...(nativeSummary ? { nativeSummary } : {}), ...(buildCleanChild ? { buildCleanChild } : {}),
-      ...(validatedLcov ? { validatedLcov } : {}), release: 'RELEASE_NO_GO' };
+      ...(nativeSummary ? { nativeSummary } : {}), ...(buildCleanChild ? { buildCleanChild } : {}), release: 'RELEASE_NO_GO' };
     process.exitCode = 1;
   }
   finally {
