@@ -134,7 +134,8 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
     ];
 
   for (const [name, mutate, mutateData] of cases) {
-    test(`production source inventory CLI rejects ${name}`, () => {
+// Node's test runner owns completion and reports callback failures.
+    void test(`production source inventory CLI rejects ${name}`, () => {
       const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-route-'));
       try {
         const dataPath = resolve(directory, 'inputs.json'),
@@ -156,7 +157,7 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
 }
 /* eslint-enable one-var, sort-vars */
 
-test('production source inventory CLI rejects an absent current Web addendum', () => {
+void test('production source inventory CLI rejects an absent current Web addendum', () => {
   const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-no-web-'));
   try {
     const dataPath = resolve(directory, 'inputs.json');
@@ -170,7 +171,7 @@ test('production source inventory CLI rejects an absent current Web addendum', (
   }
 });
 
-test('current Web direct owner bindings reject a different imported source and a missing injection', () => {
+void test('current Web direct owner bindings reject a different imported source and a missing injection', () => {
   const previousRoot = SourceInventory.root;
   const root = mkdtempSync(resolve(tmpdir(), 'av-mig-owner-binding-'));
   try {

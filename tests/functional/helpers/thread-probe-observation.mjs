@@ -8,7 +8,7 @@ export const observationKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQU
   'RESPONSE_FAILED', 'FRESH_SELECTED'];
 const requestKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED', 'FRESH_SELECTED', 'AUTHORIZED_SELECTED'];
 const actionFailures = ['NONE', 'UNKNOWN', 'WAITING_LOCATOR', 'NOT_VISIBLE', 'DETACHED', 'POINTER_INTERCEPTION'];
-const keys = (value, names) => value && Object.keys(value).sort().join() === [...names].sort().join();
+const keys = (value, names) => value && Object.keys(value).sort(compareCodeUnits).join() === [...names].sort(compareCodeUnits).join();
 
 /** This is an observation completeness label, never a causal diagnosis. */
 export function validateThreadObservation(value) {
@@ -201,4 +201,12 @@ export async function withThreadProbeLifecycle(run, capture, publish, restore, r
   if (hasPrimary) { throw primary; }
   if (hasSecondary) { throw secondary; }
   return result;
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }
