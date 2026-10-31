@@ -230,6 +230,47 @@ jobs:
           python3 -B -m coverage combine
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
 
+      - name: Measure GCP loopback controls separately before analysis credentials
+        env:
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_FILE: ${{ runner.temp }}/sonar-gcp.coverage
+          COVERAGE_CORE: pytrace
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sonar-gcp
+          python3 -B -m coverage run --rcfile= --branch --source=deploy/gcp tests/ci/test_gcp_loopback.py
+          python3 -B -m coverage xml --rcfile= -o artifacts/sonar-gcp/coverage.xml
+          python3 -B - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root = Path.cwd().resolve()
+          expected = root / 'deploy/gcp/verify-loopback.py'
+          document = ET.parse('artifacts/sonar-gcp/coverage.xml')
+          sources = [Path(node.text).resolve() for node in document.findall('./sources/source')]
+          classes = document.findall('.//class')
+          assert len(classes) == 1
+          assert expected in {(source / classes[0].attrib['filename']).resolve() for source in sources}
+          rows = classes[0].findall('./lines/line')
+          lines = [int(row.attrib['number']) for row in rows]
+          assert len(lines) == len(set(lines)) and lines
+          assert all(0 < line <= len(expected.read_text(encoding='utf-8').splitlines()) for line in lines)
+          assert all(int(row.attrib['hits']) >= 0 for row in rows)
+          baseline = ET.parse('artifacts/sonar-python/coverage.xml')
+          old_sources = [Path(node.text).resolve() for node in baseline.findall('./sources/source')]
+          assert all(expected not in {(source / node.attrib['filename']).resolve() for source in old_sources}
+                     for node in baseline.findall('.//class'))
+          print('Original GCP guard coverage source verified; existing Python cohort remains disjoint.')
+          PY
+
+      - name: Retain original GCP loopback coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-gcp-loopback-coverage
+          path: artifacts/sonar-gcp/coverage.xml
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Set up repository frontend Node version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -430,7 +471,7 @@ jobs:
             /d:sonar.scanner.scanAll=true
             "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
-            /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
+            "/d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-gcp/coverage.xml"
             "${scope_args[@]}"
           )
 
