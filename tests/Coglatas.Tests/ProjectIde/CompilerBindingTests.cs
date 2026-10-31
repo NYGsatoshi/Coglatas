@@ -186,4 +186,29 @@ public sealed class CompilerBindingTests
         Assert.Contains(model.Findings, item => item.Diagnostic.Code == "coglatas.binding.value-reference-unavailable");
         Assert.Equal(before, source.Data.ToCanonicalBytes());
     }
+    [Theory]
+    [InlineData("reference")]
+    [InlineData("numeric")]
+    public void UnknownDurationBasisRemainsOpaqueToValueBindingAndNumericProfiles(string content)
+    {
+        var original = Source();
+        var referenceType = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = false, expectedKind = "coglatas.task" });
+        var reference = Obj(new { tenantId = original.TenantId.ToString(), projectId = original.ProjectId.ToString(), entityId = Id(99), context = original.Context.Data.Value,
+            origin = ProjectLocation.Create(DocumentId.Parse(Id(4)), original.Context, entityId: EntityId.Parse(Id(7))).Data.Value,
+            manifest = new { version = "1", digest = original.Digest.Data.Value } });
+        var basis = content == "reference" ? Obj(new { type = referenceType, state = "coglatas.known", value = reference }) :
+            Obj(new { type = new { kind = "coglatas.decimal", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "12345" });
+        var task = Obj(new { entityId = Id(7), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+        {
+            duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true },
+                state = "coglatas.unknown", reason = "coglatas.not-evaluated", basis }, ports = Array.Empty<object>()
+        } });
+        var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task))); var before = source.Data.ToCanonicalBytes();
+        Assert.All(PlanDeclarationReader.Read(source), item => Assert.Equal(ValueDecodeStatus.Decoded, item.Status));
+        var settings = BindingSettings(); settings["executionProfile"]!["maximumDigits"] = 2;
+        var model = ProjectSemanticBinder.Bind(BindingInput(source, settings));
+        Assert.True(model.BindingComplete); Assert.Empty(model.Findings); Assert.Empty(model.References);
+        Assert.Equal(before, source.Data.ToCanonicalBytes());
+    }
+
 }
