@@ -156,4 +156,27 @@ public sealed class CompilerEnvelopeTests
         Assert.Throws<ArgumentException>(() => new CompilerDiagnostic(input, SchemaRule, 1, 0, "coglatas.a", nextLocation, Proof(input)));
         Assert.Throws<ArgumentException>(() => new CompilerResult(input, CompilerExecutionState.Completed, CompilerCoverage.Partial, [], [first, first], [], false));
     }
+
+    [Fact]
+    public void VersionEightIdentityMatchesIndependentPythonGoldenVectors()
+    {
+        var data = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "compiler-identity-vectors-v1.json")))!;
+        var input = CompilerInputId.Derive(ContentDigest.Parse(Json(data["inputDigest"]!)));
+        var result = CompilerResultId.Derive(input, ContentDigest.Parse(Json(data["resultDigest"]!)));
+        Assert.Equal(data["input"]!["id"]!.GetValue<string>(), input.ToString());
+        Assert.Equal(data["input"]!["derivationDigest"]!.GetValue<string>(), input.DerivationDigest.Value);
+        Assert.Equal(data["result"]!["id"]!.GetValue<string>(), result.ToString());
+        Assert.Equal(data["result"]!["derivationDigest"]!.GetValue<string>(), result.DerivationDigest.Value);
+    }
+
+    [Fact]
+    public void EvidenceCompletenessCannotHideMissingBasisOrNullEntries()
+    {
+        var input = Input(); var location = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
+        var finding = new CompilerDiagnostic(input, SchemaRule, 1, 0, "coglatas.unknown", location, Missing());
+        var result = new CompilerResult(input, CompilerExecutionState.Completed, CompilerCoverage.Complete, Passes(input), [finding], [Stage(input)], true);
+        Assert.False(result.EvidenceComplete); Assert.Equal(CompilerVerdict.Inconclusive, result.Verdict);
+        Assert.Throws<ArgumentException>(() => new CompilerEvidenceBasis(CompilerEvidenceKind.ModelProof, [null]));
+        Assert.Throws<ArgumentException>(() => new CompilerResult(input, CompilerExecutionState.Completed, CompilerCoverage.Partial, [null], [], [], false));
+    }
 }

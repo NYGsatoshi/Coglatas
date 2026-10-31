@@ -102,6 +102,8 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                 raise ValueError("A previously verified test was removed, renamed or not run")
             if name == "projectIde" and not any("TypedRelationTests" in item for item in names):
                 raise ValueError("Slice 3 tests did not run")
+            if name == "projectIde" and (target / "src/Coglatas.Domain/ProjectIde/CompilerInputManifest.cs").exists() and not any("CompilerEnvelopeTests" in item for item in names):
+                raise ValueError("Slice 4 tests did not run")
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -123,7 +125,7 @@ def main() -> None:
     repository = Path(__file__).resolve().parents[2]
     value = compose(repository, args.worktree.resolve(), args.receipt.resolve(), args.product_head, args.test_head)
     if args.verify:
-        verify(args.worktree.resolve(), args.receipt.resolve(), value, Path(__file__).with_name("projectide-slice2-inventory.json"))
+        verify(args.worktree.resolve(), args.receipt.resolve(), value, Path(__file__).with_name("projectide-core-baseline-inventory.json"))
     print(json.dumps(value, indent=2))
 
 
