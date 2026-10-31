@@ -34,6 +34,10 @@ public sealed class CompilerSemanticValidation
             var diagnostic = new CompilerDiagnostic(input, CoreCompilerRules.Relations, 1, 2, code, location, evidence);
             if (ids.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
         }
+        var semanticIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "semantics"));
+        var irIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "ir"));
+        if (semanticIdentity.ArtifactId != "coglatas.semantic-model" || semanticIdentity.Version != "1" || irIdentity.ArtifactId != "coglatas.project-ir" || irIdentity.Version != "1")
+            Add("coglatas.semantic.version-compatibility", RelationFindingState.Unsupported, root);
         var suppliedUnits = (units ?? []).Take(1025).ToArray(); var suppliedCalendars = (calendars ?? []).Take(129).ToArray();
         if (suppliedUnits.Length > 1024 || suppliedCalendars.Length > 128 || suppliedUnits.Any(item => item is null) || suppliedCalendars.Any(item => item is null))
         {
