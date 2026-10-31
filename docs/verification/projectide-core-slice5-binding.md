@@ -27,7 +27,7 @@ is checked before work and between bounded binding stages. Identical immutable
 inputs produce identical supported model findings; no incremental cache is claimed.
 
 This is partial binding, not semantic validation or an execution plan. Relation-
-target references, external Source-reference wire extensions, named structural/
+target references, typed value-reference literals, external Source-reference wire extensions, named structural/
 recursive descriptors, package/extension loading, DSL import and unsupported
 calendar/evidence semantics remain explicit Unsupported. Slice 6 owns graph/semantic
 validation and derived IR; Slice 7 owns actual supported rules. A complete binding
