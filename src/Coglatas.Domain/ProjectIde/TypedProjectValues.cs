@@ -29,9 +29,9 @@ public sealed class TypeReference
         Data = data;
         Kind = SourceFields.Token(data.Value, "kind");
         SchemaVersion = SourceFields.PositiveInteger(data.Value, "schemaVersion");
+        if (SchemaVersion != 1 || !Scalars.Contains(Kind)) return;
         Nullable = ValueFields.Boolean(data.Value, "nullable");
         AcceptsUnknown = ValueFields.Boolean(data.Value, "acceptsUnknown");
-        if (SchemaVersion != 1 || !Scalars.Contains(Kind)) return;
         var fields = new List<string> { "kind", "schemaVersion", "nullable", "acceptsUnknown" };
         if (Kind == "coglatas.quantity")
         {
@@ -116,7 +116,9 @@ public static class TypedProjectValueCodec
                     break;
                 default: return new(ValueDecodeStatus.Unsupported, null, data);
             }
-            return new(ValueFields.HasUnknown(data.Value, fields.ToArray()) ? ValueDecodeStatus.Unsupported : ValueDecodeStatus.Decoded, value, data);
+            return ValueFields.HasUnknown(data.Value, fields.ToArray())
+                ? new(ValueDecodeStatus.Unsupported, null, data)
+                : new(ValueDecodeStatus.Decoded, value, data);
         }
         catch (UnsupportedSourceException) { return new(ValueDecodeStatus.Unsupported, null, data); }
         catch (Exception error) when (error is FormatException or ArgumentException or OverflowException or DivideByZeroException)
