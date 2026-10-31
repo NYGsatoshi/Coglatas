@@ -17,7 +17,7 @@ public sealed class ProjectUnitConversionTests
     }
     private static object Identity(UnitDefinition unit) => new { unitId = unit.UnitId, version = unit.Version, digest = unit.Digest.Data.Value };
     private static SourceJson EntryData(UnitDefinition source, UnitDefinition target, string numerator, string denominator = "1", string kind = "coglatas.multiplicative") =>
-        Json(new { conversionId = "fixture.convert", version = 1, kind, sourceUnit = Identity(source), targetUnit = Identity(target), factor = new { numerator, denominator } });
+        Json(new { conversionId = "fixture.convert." + source.UnitId + "." + target.UnitId, version = 1, kind, sourceUnit = Identity(source), targetUnit = Identity(target), factor = new { numerator, denominator } });
     private static UnitConversionDefinition Entry(UnitDefinition source, UnitDefinition target, string numerator, string denominator = "1")
     {
         var data = EntryData(source, target, numerator, denominator);
@@ -140,6 +140,21 @@ public sealed class ProjectUnitConversionTests
         var large = ProjectUnitConversions.Convert(Quantity("99", a), a, b, [path[0]], new(new(3, 2)));
         Assert.Equal(NumericEvaluationStatus.Unknown, large.Status);
         Assert.Null(large.Value);
+    }
+
+    [Fact]
+    public void InconsistentCyclesAndConflictingVersionedDefinitionsAreInvalidEvenForZero()
+    {
+        var a = Unit("fixture.a"); var b = Unit("fixture.b");
+        var badCycle = ProjectUnitConversions.Convert(Quantity("0", a), a, a, [Entry(a, b, "2"), Entry(b, a, "1")]);
+        Assert.Equal(NumericEvaluationStatus.Invalid, badCycle.Status);
+        Assert.Equal("coglatas.inconsistent-conversion-cycle", badCycle.Reason);
+        var cycle = ProjectUnitConversions.Convert(Quantity("3", a), a, a, [Entry(a, b, "2"), Entry(b, a, "1", "2")]);
+        Assert.Equal("3/1", cycle.Value!.Amount.ToString());
+        var conflict = ProjectUnitConversions.Convert(Quantity("3", a), a, b,
+            [Entry(a, b, "2"), Entry(b, a, "1", "2"), Entry(a, b, "3")]);
+        Assert.Equal(NumericEvaluationStatus.Invalid, conflict.Status);
+        Assert.Equal("coglatas.conversion-version-conflict", conflict.Reason);
     }
 
     [Theory]
