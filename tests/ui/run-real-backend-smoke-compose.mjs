@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import {
+  composeFailureObservation,
   getComposeProjectName,
   normalizeExitCode,
   redactSecrets,
@@ -38,12 +39,16 @@ export async function runRealBackendSmokeCompose(control = null) {
     composeInvocation = await selectComposeInvocation(isCommandAvailable);
     console.log(`Using ${composeInvocation.command} ${composeInvocation.prefix.join(' ')} with isolated project ${projectName}.`);
 
-    exitCode = (await runCompose(['-p', projectName, '-f', composeFile, 'config', '--quiet'], { capture: true, redact: true })).exitCode;
+    const config = await runCompose(['-p', projectName, '-f', composeFile, 'config', '--quiet'], { capture: true, redact: true });
+    exitCode = config.exitCode;
+    observeRosterComposeFailure('CONFIG', config);
     if (exitCode === 0) {
       if (rosterControl) await rosterControl.admit(rosterIo());
       const upArgs = ['-p', projectName, '-f', composeFile, 'up', '--detach'];
       upArgs.push(reusePrebuiltApp || rosterControl ? '--no-build' : '--build', 'postgres', 'app');
-      exitCode = (await runCompose(upArgs)).exitCode;
+      const up = await runCompose(upArgs);
+      exitCode = up.exitCode;
+      observeRosterComposeFailure('UP', up);
       if (rosterControl) await rosterControl.capture(rosterIo());
     }
 
@@ -205,6 +210,16 @@ function rosterIo() {
   };
 }
 
+function observeRosterComposeFailure(operation, result) {
+  if (!rosterControl || result.exitCode === 0) return;
+  // Preserve the original failure before later capture/cleanup advances phase.
+  rosterControl.failed();
+  try {
+    const observation = composeFailureObservation(operation, result);
+    if (observation) console.error(`UI07_ROSTER_COMPOSE_OBSERVATION ${JSON.stringify(observation)}`);
+  } catch { /* Diagnostics must never replace the command failure or cleanup verdict. */ }
+}
+
 function runCommand(command, args, options = {}) {
   return new Promise((resolve) => {
     let settled = false;
@@ -233,7 +248,7 @@ function runCommand(command, args, options = {}) {
         process.stdout.write(options.redact ? redactSecrets(output) : output);
       }
 
-      resolve({ exitCode: outputOverflow ? 1 : normalizeExitCode(code), output, stdout, stderr });
+      resolve({ exitCode: outputOverflow ? 1 : normalizeExitCode(code), output, stdout, stderr, outputOverflow });
     };
 
     if (options.capture) {
