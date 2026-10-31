@@ -97,14 +97,28 @@ function realBackendPlaywrightRunArgs() {
     }
     args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1');
     if (composeEnv.COGLATAS_REAL_BACKEND_NATIVE_COVERAGE === '1') {
+      const nativeCommand = [
+        'set -euo pipefail',
+        'npm ci',
+        'mkdir -p artifacts/sonar-real-backend-native',
+        'native_status=0',
+        'NODE_V8_COVERAGE="$PWD/artifacts/sonar-real-backend-native/raw" ' +
+          'node --test --experimental-test-coverage ' +
+          '--test-coverage-include="tests/ui/**" --test-coverage-exclude="**/*.node-test.mjs" ' +
+          '--test-reporter=spec --test-reporter-destination=stdout ' +
+          '--test-reporter=lcov --test-reporter-destination=artifacts/sonar-real-backend-native/lcov.info ' +
+          'tests/ui/real-backend-native-coverage.node-test.mjs || native_status=$?',
+        // Native V8 files are mode 0600, owned by the container user. Preserve
+        // that mode and bytes while handing them to the checkout's host owner.
+        'for directory in artifacts artifacts/sonar-real-backend-native artifacts/sonar-real-backend-native/raw; do ' +
+          'test -d "$directory" && test ! -L "$directory"; done',
+        'test -z "$(find artifacts/sonar-real-backend-native/raw -maxdepth 1 -type l -print -quit)"',
+        'find artifacts/sonar-real-backend-native/raw -maxdepth 1 -type f -name "coverage-*.json" ' +
+          '-exec chown --reference=. -- {} +',
+        'exit "$native_status"',
+      ].join('\n');
       args.push('--env', 'COGLATAS_NATIVE_COVERAGE_SUITE=mobile-mvp0',
-        '--env', 'NODE_V8_COVERAGE=/work/artifacts/sonar-real-backend-native/raw',
-        'real-backend-playwright', 'bash', '-lc',
-        'npm ci && mkdir -p artifacts/sonar-real-backend-native && node --test --experimental-test-coverage ' +
-        '--test-coverage-include="tests/ui/**" --test-coverage-exclude="**/*.node-test.mjs" ' +
-        '--test-reporter=spec --test-reporter-destination=stdout ' +
-        '--test-reporter=lcov --test-reporter-destination=artifacts/sonar-real-backend-native/lcov.info ' +
-        'tests/ui/real-backend-native-coverage.node-test.mjs');
+        'real-backend-playwright', 'bash', '-lc', nativeCommand);
     } else {
       args.push('real-backend-playwright', 'bash', '-lc',
         'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
