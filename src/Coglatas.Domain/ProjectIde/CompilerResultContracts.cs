@@ -13,7 +13,7 @@ public sealed class CompilerEvidenceBasis
     public IReadOnlyList<ContentDigest> Premises { get; }
     public string? MissingReason { get; }
     public SourceJson Data { get; }
-    public CompilerEvidenceBasis(CompilerEvidenceKind kind, IEnumerable<ContentDigest> premises, string? missingReason = null)
+    public CompilerEvidenceBasis(CompilerEvidenceKind kind, IEnumerable<ContentDigest?> premises, string? missingReason = null)
     {
         ArgumentNullException.ThrowIfNull(premises);
         Kind = kind; MissingReason = missingReason;
@@ -21,7 +21,7 @@ public sealed class CompilerEvidenceBasis
         if (!Enum.IsDefined(kind) || values.Length > 1024 || values.Any(item => item is null)) throw new ArgumentException("Invalid evidence basis.");
         if (kind == CompilerEvidenceKind.Missing ? !ValueFields.IsToken(missingReason ?? "") || values.Length != 0 : values.Length == 0 || missingReason is not null)
             throw new ArgumentException("Evidence requires actual premise digests or an explicit missing reason.");
-        Premises = Array.AsReadOnly(values.Distinct().OrderBy(item => item.Value, StringComparer.Ordinal).ToArray());
+        Premises = Array.AsReadOnly(values.Select(item => item!).Distinct().OrderBy(item => item.Value, StringComparer.Ordinal).ToArray());
         Data = SourceJson.FromObject(new { kind = CompilerContractTokens.Evidence(kind), premises = Premises.Select(item => item.Data.Value).ToArray(), missingReason });
     }
 }
@@ -45,7 +45,7 @@ public sealed class CompilerDiagnostic
 
     public CompilerDiagnostic(CompilerInputManifest input, string ruleId, int ruleVersion, int stageOrdinal,
         string code, ProjectLocation location, CompilerEvidenceBasis evidence, CompilerDiagnosticSeverity severity = CompilerDiagnosticSeverity.Error,
-        string discriminator = "", string? messageKey = null, IEnumerable<TypedProjectValue>? arguments = null)
+        string discriminator = "", string? messageKey = null, IEnumerable<TypedProjectValue?>? arguments = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(location); ArgumentNullException.ThrowIfNull(evidence);
         if (!ValueFields.IsToken(ruleId) || !ValueFields.IsToken(code) || ruleVersion <= 0 || stageOrdinal is < 0 or > 32 || !Enum.IsDefined(severity))
@@ -71,7 +71,7 @@ public sealed class CompilerDiagnostic
             diagnosticId = DiagnosticId.ToString(), derivationDigest = DiagnosticId.DerivationDigest.Data.Value,
             findingKey = FindingKey.Data.Value, ruleId, ruleVersion, rulesetDigest = input.Ruleset.Digest.Data.Value,
             stageOrdinal, code, discriminator, severity = CompilerContractTokens.Severity(severity), messageKey = MessageKey,
-            arguments = args.Select(item => item.Data.Value).ToArray(), primaryLocation = location.Data.Value,
+            arguments = args.Select(item => item!.Data.Value).ToArray(), primaryLocation = location.Data.Value,
             relatedLocations = Array.Empty<object>(), evidence = evidence.Data.Value,
             protection = "coglatas.input-scope", suppression = new { kind = "coglatas.none" }, quickFixes = Array.Empty<object>()
         });
@@ -110,7 +110,7 @@ public sealed class CompilerStageOutcome
     public ContentDigest InputDigest { get; }
     public SourceJson Data { get; }
     public CompilerStageOutcome(string stageId, int version, CompilerExecutionState execution, CompilerCoverage coverage, ContentDigest inputDigest,
-        IEnumerable<ContentDigest> outputs, string? limitation = null)
+        IEnumerable<ContentDigest?> outputs, string? limitation = null)
     {
         ArgumentNullException.ThrowIfNull(inputDigest); ArgumentNullException.ThrowIfNull(outputs);
         var frozen = outputs.Take(1025).ToArray();
@@ -121,7 +121,7 @@ public sealed class CompilerStageOutcome
             throw new ArgumentException("Incomplete stage requires an explicit reason.");
         StageId = stageId; Version = version; Execution = execution; Coverage = coverage; InputDigest = inputDigest;
         Data = SourceJson.FromObject(new { stageId, version, execution = CompilerContractTokens.Execution(execution), coverage = CompilerContractTokens.Coverage(coverage), inputDigest = inputDigest.Data.Value,
-            outputs = frozen.Select(item => item.Data.Value).ToArray(), limitation });
+            outputs = frozen.Select(item => item!.Data.Value).ToArray(), limitation });
     }
 }
 
@@ -133,6 +133,7 @@ public sealed class CompilerResult
     public CompilerCoverage Coverage { get; }
     public CompilerVerdict Verdict { get; }
     public bool EvidenceComplete { get; }
+    public SourceJson EvidenceManifest { get; }
     public IReadOnlyList<CompilerRuleOutcome> RuleOutcomes { get; }
     public IReadOnlyList<CompilerDiagnostic> Diagnostics { get; }
     public IReadOnlyList<CompilerStageOutcome> Stages { get; }
@@ -140,13 +141,15 @@ public sealed class CompilerResult
     public SourceJson Data { get; }
 
     public CompilerResult(CompilerInputManifest input, CompilerExecutionState execution, CompilerCoverage coverage,
-        IEnumerable<CompilerRuleOutcome> rules, IEnumerable<CompilerDiagnostic> diagnostics, IEnumerable<CompilerStageOutcome> stages, bool evidenceComplete)
+        IEnumerable<CompilerRuleOutcome?> rules, IEnumerable<CompilerDiagnostic?> diagnostics, IEnumerable<CompilerStageOutcome?> stages, bool evidenceComplete)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(rules); ArgumentNullException.ThrowIfNull(diagnostics); ArgumentNullException.ThrowIfNull(stages);
         if (!Enum.IsDefined(execution) || !Enum.IsDefined(coverage)) throw new ArgumentException("Invalid result axes.");
-        var outcomes = rules.Take(1025).ToArray(); var findings = diagnostics.Take(20_001).ToArray(); var steps = stages.Take(33).ToArray();
-        if (outcomes.Length > 1024 || findings.Length > 20_000 || steps.Length > 32 || outcomes.Any(item => item is null) || findings.Any(item => item is null) || steps.Any(item => item is null))
+        var suppliedRules = rules.Take(1025).ToArray(); var suppliedDiagnostics = diagnostics.Take(20_001).ToArray(); var suppliedStages = stages.Take(33).ToArray();
+        if (suppliedRules.Length > 1024 || suppliedDiagnostics.Length > 20_000 || suppliedStages.Length > 32 ||
+            suppliedRules.Any(item => item is null) || suppliedDiagnostics.Any(item => item is null) || suppliedStages.Any(item => item is null))
             throw new ArgumentException("Result processing bound exceeded.");
+        var outcomes = suppliedRules.Select(item => item!).ToArray(); var findings = suppliedDiagnostics.Select(item => item!).ToArray(); var steps = suppliedStages.Select(item => item!).ToArray();
         if (outcomes.Select(item => item.RuleId).Distinct(StringComparer.Ordinal).Count() != outcomes.Length ||
             steps.Select(item => item.StageId).Distinct(StringComparer.Ordinal).Count() != steps.Length ||
             findings.Select(item => item.DiagnosticId.Value).Distinct().Count() != findings.Length) throw new ArgumentException("Duplicate result identities.");
@@ -159,22 +162,32 @@ public sealed class CompilerResult
             steps.All(item => item.Execution == CompilerExecutionState.Completed && item.Coverage == CompilerCoverage.Complete);
         if (coverage == CompilerCoverage.Complete && !complete) throw new ArgumentException("Complete coverage requires every declared required evaluation and stage.");
         var allPass = required.Length > 0 && required.All(rule => outcomes.Any(item => item.RuleId == rule.RuleId && item.Verdict == CompilerVerdict.Pass));
+        EvidenceComplete = evidenceComplete && required.Length > 0 &&
+            required.All(rule => outcomes.Any(item => item.RuleId == rule.RuleId && item.Evidence.Kind != CompilerEvidenceKind.Missing)) &&
+            findings.All(item => item.Evidence.Kind != CompilerEvidenceKind.Missing);
         Verdict = execution == CompilerExecutionState.InternalError ? CompilerVerdict.Error
             : outcomes.Any(item => item.Verdict == CompilerVerdict.Fail && required.Any(rule => rule.RuleId == item.RuleId)) ? CompilerVerdict.Fail
             : execution == CompilerExecutionState.NotRun || outcomes.Length == 0 ? CompilerVerdict.NotRun
-            : execution == CompilerExecutionState.Completed && coverage == CompilerCoverage.Complete && allPass && evidenceComplete ? CompilerVerdict.Pass
+            : execution == CompilerExecutionState.Completed && coverage == CompilerCoverage.Complete && allPass && EvidenceComplete ? CompilerVerdict.Pass
             : CompilerVerdict.Inconclusive;
-        Input = input; Execution = execution; Coverage = coverage; EvidenceComplete = evidenceComplete;
+        Input = input; Execution = execution; Coverage = coverage;
         RuleOutcomes = Array.AsReadOnly(outcomes.OrderBy(item => item.RuleId, StringComparer.Ordinal).ToArray());
         Diagnostics = Array.AsReadOnly(findings.OrderBy(item => item.StageOrdinal).ThenBy(item => item.RuleId, StringComparer.Ordinal)
             .ThenBy(item => item.RuleVersion).ThenBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal)
             .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.Discriminator, StringComparer.Ordinal).ThenBy(item => item.DiagnosticId.ToString(), StringComparer.Ordinal).ToArray());
         Stages = Array.AsReadOnly(steps);
+        EvidenceManifest = SourceJson.FromObject(new
+        {
+            format = "coglatas.compiler-evidence/1", compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
+            coverage = EvidenceComplete ? "coglatas.complete" : "coglatas.partial",
+            rules = RuleOutcomes.Select(item => new { item.RuleId, item.Version, basis = item.Evidence.Data.Value }).ToArray(),
+            diagnostics = Diagnostics.Select(item => new { diagnosticId = item.DiagnosticId.ToString(), basis = item.Evidence.Data.Value }).ToArray()
+        });
         Data = SourceJson.FromObject(new
         {
             format = "coglatas.compiler-result/1", compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
             compiler = input.Compiler.Data.Value, execution = CompilerContractTokens.Execution(execution), coverage = CompilerContractTokens.Coverage(coverage),
-            verdict = CompilerContractTokens.Verdict(Verdict), evidenceComplete,
+            verdict = CompilerContractTokens.Verdict(Verdict), evidenceComplete = EvidenceComplete, evidenceManifest = EvidenceManifest.Value,
             rules = RuleOutcomes.Select(item => item.Data.Value).ToArray(), diagnostics = Diagnostics.Select(item => item.Data.Value).ToArray(),
             stages = Stages.Select(item => item.Data.Value).ToArray(), boundInputStamp = input.Data.Value,
             artifacts = new { semanticModel = "coglatas.not-produced", ir = "coglatas.not-produced", sourceMap = "coglatas.not-produced", plans = Array.Empty<object>() },
