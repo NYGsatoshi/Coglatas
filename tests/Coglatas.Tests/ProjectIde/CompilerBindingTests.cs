@@ -165,4 +165,25 @@ public sealed class CompilerBindingTests
         Assert.Contains(model.Findings, finding => finding.State == RelationFindingState.Unknown && finding.Diagnostic.Code == "coglatas.binding.budget-exhausted");
         Assert.Empty(model.Declarations); Assert.False(model.BindingComplete);
     }
+
+    [Fact]
+    public void ParsedReferenceValueIsNotSilentlyPromotedToCompleteBinding()
+    {
+        var original = Source(); var type = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = false, expectedKind = "coglatas.task" });
+        var reference = Obj(new { tenantId = original.TenantId.ToString(), projectId = original.ProjectId.ToString(), entityId = Id(99), context = original.Context.Data.Value,
+            origin = ProjectLocation.Create(DocumentId.Parse(Id(4)), original.Context, entityId: EntityId.Parse(Id(7))).Data.Value,
+            manifest = new { version = "1", digest = original.Digest.Data.Value } });
+        var task = Obj(new { entityId = Id(7), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+        {
+            duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+            ports = new[] { new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1,
+                defaultValue = new { type, state = "coglatas.known", value = reference } } }
+        } });
+        var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task))); var before = source.Data.ToCanonicalBytes();
+        Assert.All(PlanDeclarationReader.Read(source), item => Assert.Equal(ValueDecodeStatus.Decoded, item.Status));
+        var model = ProjectSemanticBinder.Bind(BindingInput(source));
+        Assert.False(model.BindingComplete); Assert.Contains(model.References, item => item.State == ReferenceResolutionState.Unsupported);
+        Assert.Contains(model.Findings, item => item.Diagnostic.Code == "coglatas.binding.value-reference-unavailable");
+        Assert.Equal(before, source.Data.ToCanonicalBytes());
+    }
 }
