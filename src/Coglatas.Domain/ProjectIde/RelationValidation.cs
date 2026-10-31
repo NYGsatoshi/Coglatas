@@ -136,7 +136,7 @@ public static class RelationGraphValidator
                 var output = outputOwner.Ports.Single(item => item.PortId == relation.Source.PortId);
                 var inputPort = inputOwner.Ports.Single(item => item.PortId == relation.Target.PortId);
                 if (output.Direction != PortDirection.Output || inputPort.Direction != PortDirection.Input) Add("coglatas.relation.port-direction", RelationFindingState.Invalid);
-                if (!output.Type.Data.Equals(inputPort.Type.Data)) Add("coglatas.relation.port-type", RelationFindingState.Invalid);
+                if (!CompatiblePortType(output.Type, inputPort.Type)) Add("coglatas.relation.port-type", RelationFindingState.Invalid);
             }
 
             void Add(string code, RelationFindingState state) => findings.Add(new(code, state, relation.Location));
@@ -179,6 +179,16 @@ public static class RelationGraphValidator
 
         void CheckCardinality()
         {
+            var connectionCounts = new Dictionary<(EntityId Entity, PortId Port), int>();
+            foreach (var edge in bound.Where(item => item.Relation.Kind == RelationKinds.FlowsTo))
+            {
+                foreach (var endpoint in new[] { edge.Relation.Source, edge.Relation.Target })
+                    if (endpoint.Reference.Context.Equals(source.Context) && endpoint.PortId is { } port)
+                    {
+                        var key = (endpoint.Reference.EntityId, port);
+                        connectionCounts[key] = connectionCounts.GetValueOrDefault(key) + 1;
+                    }
+            }
             var keys = new Dictionary<string, TypedRelation>(StringComparer.Ordinal);
             foreach (var entry in bound)
             {
@@ -195,9 +205,7 @@ public static class RelationGraphValidator
                 if (item.Declaration is not TaskPlanDeclaration task) continue;
                 foreach (var port in task.Ports)
                 {
-                    var count = bound.Count(edge => edge.Relation.Kind == RelationKinds.FlowsTo && (port.Direction == PortDirection.Input
-                        ? edge.Relation.Target.Reference.Context.Equals(source.Context) && edge.Target.EntityId == task.EntityId && edge.Relation.Target.PortId == port.PortId
-                        : edge.Relation.Source.Reference.Context.Equals(source.Context) && edge.Source.EntityId == task.EntityId && edge.Relation.Source.PortId == port.PortId));
+                    var count = connectionCounts.GetValueOrDefault((task.EntityId, port.PortId));
                     var location = ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId);
                     if (port.MaximumConnections is { } maximum && count > maximum)
                         findings.Add(new("coglatas.relation.port-cardinality", RelationFindingState.Invalid, location));
@@ -211,33 +219,63 @@ public static class RelationGraphValidator
 
         void CheckCycles(string kind)
         {
-            // Kahn's algorithm is iterative and O(V+E); unrelated graph kinds never enter this graph.
+            // Iterative strongly connected components, O(V+E); downstream tails are not cycle members.
             var edges = bound.Where(item => item.Relation.Kind == kind).Select(item => item.Relation).ToArray();
             string Vertex(RelationEndpoint endpoint) => SourceJson.FromObject(new { context = endpoint.Reference.Context.Data.Value, entityId = endpoint.Reference.EntityId.ToString() }).CanonicalText;
             var adjacency = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            var incoming = new Dictionary<string, int>(StringComparer.Ordinal);
+            var reverse = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             foreach (var edge in edges)
             {
                 var from = Vertex(edge.Source); var to = Vertex(edge.Target);
                 if (!adjacency.ContainsKey(from)) adjacency[from] = [];
                 if (!adjacency.ContainsKey(to)) adjacency[to] = [];
-                incoming.TryAdd(from, 0); incoming.TryAdd(to, 0);
-                adjacency[from].Add(to); incoming[to]++;
+                if (!reverse.ContainsKey(from)) reverse[from] = [];
+                if (!reverse.ContainsKey(to)) reverse[to] = [];
+                adjacency[from].Add(to); reverse[to].Add(from);
             }
-            var queue = new Queue<string>(incoming.Where(item => item.Value == 0).Select(item => item.Key));
-            var visited = 0;
-            while (queue.TryDequeue(out var vertex))
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            var finish = new List<string>();
+            foreach (var start in adjacency.Keys)
             {
-                visited++;
-                foreach (var next in adjacency[vertex]) if (--incoming[next] == 0) queue.Enqueue(next);
+                if (!visited.Add(start)) continue;
+                var stack = new Stack<(string Vertex, int Next)>(); stack.Push((start, 0));
+                while (stack.TryPop(out var frame))
+                {
+                    if (frame.Next == adjacency[frame.Vertex].Count) { finish.Add(frame.Vertex); continue; }
+                    stack.Push((frame.Vertex, frame.Next + 1));
+                    var next = adjacency[frame.Vertex][frame.Next];
+                    if (visited.Add(next)) stack.Push((next, 0));
+                }
             }
-            if (visited == incoming.Count) return;
-            foreach (var edge in edges.Where(edge => incoming[Vertex(edge.Source)] > 0 && incoming[Vertex(edge.Target)] > 0))
+            var components = new Dictionary<string, int>(StringComparer.Ordinal);
+            var sizes = new List<int>();
+            for (var i = finish.Count - 1; i >= 0; i--)
+            {
+                var start = finish[i]; if (components.ContainsKey(start)) continue;
+                var component = sizes.Count; var size = 0;
+                var stack = new Stack<string>(); stack.Push(start); components[start] = component;
+                while (stack.TryPop(out var vertex))
+                {
+                    size++;
+                    foreach (var next in reverse[vertex])
+                        if (components.TryAdd(next, component)) stack.Push(next);
+                }
+                sizes.Add(size);
+            }
+            foreach (var edge in edges.Where(edge => components[Vertex(edge.Source)] == components[Vertex(edge.Target)] &&
+                         (sizes[components[Vertex(edge.Source)]] > 1 || Vertex(edge.Source) == Vertex(edge.Target))))
                 findings.Add(new(kind == RelationKinds.DependsOn ? "coglatas.relation.dependency-cycle" : "coglatas.relation.dataflow-cycle", RelationFindingState.Invalid, edge.Location));
         }
     }
 
     private static EntityId EntityIdOf(SourceJson data) => SourceFields.Identity<EntityId>(data.Value, "entityId");
+    private static bool CompatiblePortType(TypeReference output, TypeReference input)
+    {
+        if (output.Nullable && !input.Nullable || output.AcceptsUnknown && !input.AcceptsUnknown) return false;
+        SourceJson Shape(TypeReference type) => SourceJson.FromObject(type.Data.Value.EnumerateObject()
+            .Where(item => item.Name is not ("nullable" or "acceptsUnknown")).ToDictionary(item => item.Name, item => item.Value));
+        return Shape(output).Equals(Shape(input));
+    }
     private static bool CompatibleEndpoint(RelationEndpoint endpoint, PlanDeclaration declaration, RelationEndpointRole role, IReadOnlyList<string> kinds) =>
         endpoint.Role == role && endpoint.ExpectedKind == declaration.Kind && kinds.Contains(declaration.Kind, StringComparer.Ordinal);
     private static string ResolutionToken(ReferenceResolutionState state) => state switch
