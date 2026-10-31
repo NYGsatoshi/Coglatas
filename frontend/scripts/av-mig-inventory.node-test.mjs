@@ -48,7 +48,8 @@ function byPath(entries) {
   return new Map(entries.map((entry) => [entry.path, entry]));
 }
 
-test('historical inventories retain 38 routes and current Web requires the explicit five-route addendum', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('historical inventories retain 38 routes and current Web requires the explicit five-route addendum', async () => {
   const [inventory, legacyFreeze, targetMap, currentWeb] = await Promise.all([
     readJson(inventoryPath),
     readJson(legacyFreezePath),

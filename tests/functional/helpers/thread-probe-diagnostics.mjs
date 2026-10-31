@@ -11,10 +11,10 @@ export function validateThreadProbe(value) {
   const extended = value && Object.hasOwn(value, 'observation');
   const initial = value && Object.hasOwn(value, 'initial');
   const fields = ['phases', 'target', ...(extended ? ['observation'] : []), ...(initial ? ['initial'] : [])];
-  if (!value || Object.keys(value).sort().join() !== fields.sort().join() || initial && !extended ||
+  if (!value || Object.keys(value).sort(compareCodeUnits).join() !== fields.sort(compareCodeUnits).join() || initial && !extended ||
       !Array.isArray(value.phases) || value.phases.length > phases.length ||
       new Set(value.phases).size !== value.phases.length || value.phases.some((phase) => !phases.includes(phase)) ||
-      !(extended && value.target === null) && (!value.target || Object.keys(value.target).sort().join() !== [...flags].sort().join() ||
+      !(extended && value.target === null) && (!value.target || Object.keys(value.target).sort(compareCodeUnits).join() !== [...flags].sort(compareCodeUnits).join() ||
       flags.some((flag) => typeof value.target[flag] !== 'boolean'))) {
     throw new Error('Restricted thread probe diagnostics are invalid.');
   }
@@ -62,4 +62,12 @@ export function readThreadProbeSecondary(annotations) {
     return { state: 'INVALID', stages: [] };
   }
   return { state: 'AVAILABLE', stages };
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }

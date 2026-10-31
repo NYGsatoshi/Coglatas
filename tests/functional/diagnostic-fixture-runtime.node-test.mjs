@@ -86,14 +86,15 @@ function runFixture({ domain = 'files', journeyId = 'FUNC-FILE-002', stepId = 'F
   }
 }
 
-test('actual diagnostic fixture freezes structural state and network before owner cleanup without raw content', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('actual diagnostic fixture freezes structural state and network before owner cleanup without raw content', () => {
   const browser = runFixture();
   assert.equal(browser.projection.filesPage, true);
   assert.equal(browser.projection.detailHeading, true);
   assert.equal(browser.network.length, 1);
 });
 
-test('messaging failure checkpoint survives inner cleanup and repeated outer capture without leaking protected content', () => {
+void test('messaging failure checkpoint survives inner cleanup and repeated outer capture without leaking protected content', () => {
   const browser = runFixture({ domain: 'collaboration', journeyId: 'FUNC-MSG-001', stepId: 'MSG-THREAD',
     nestedCleanup: true, captureBeforeCleanup: true });
   assert.equal(browser.projection.filesPage, true);
@@ -103,7 +104,7 @@ test('messaging failure checkpoint survives inner cleanup and repeated outer cap
   assert.equal(browser.network.length, 1, 'cleanup events must not overwrite the first failure checkpoint');
 });
 
-test('negative control exposes cleanup-altered diagnostics when only the outer messaging step captures', () => {
+void test('negative control exposes cleanup-altered diagnostics when only the outer messaging step captures', () => {
   const browser = runFixture({ domain: 'collaboration', journeyId: 'FUNC-MSG-001', stepId: 'MSG-THREAD',
     nestedCleanup: true, captureBeforeCleanup: false });
   assert.equal(browser.projection.filesPage, false);
