@@ -181,6 +181,13 @@ function sourceGuard(source) {
   for (const file of tools) assert.equal(hash(readFileSync(file)), hash(spawnSync('/usr/bin/git', ['cat-file', 'blob', `${source}:${file}`], { maxBuffer: 1024 * 1024 }).stdout));
   assert.equal(hash(readFileSync(actorFile)), frozenActor);
 }
+export function buildCleanErrorObservation(text) {
+  if (typeof text !== 'string') return { state: 'UNAVAILABLE', codes: [], truncated: false };
+  if (Buffer.byteLength(text) > 1024 * 1024) return { state: 'OVERSIZE', codes: [], truncated: false };
+  const codes = [...new Set([...text.matchAll(/\berror\s+((?:MSB|NETSDK|NU|CS|FS)\d{4})\s*:/gi)].map(match => match[1].toUpperCase()))];
+  return { state: text.length ? 'AVAILABLE' : 'EMPTY', codes: codes.slice(0, 32), truncated: codes.length > 32 };
+}
+
 export function childCompletionObservation(value) {
   let signal = 'OTHER';
   if (value.signal === null) signal = 'NONE';
@@ -204,7 +211,7 @@ async function invoke(program, args, env, fd, observeCompletion) {
   } finally { process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate); }
 }
 async function run() {
-  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary, buildCleanChild;
+  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary, buildCleanChild, buildCleanErrors, buildCleanLog, buildCleanStarted;
   const output = resolve('artifacts/sonar-actor');
   let receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
   try {
@@ -288,7 +295,8 @@ async function run() {
     phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
-    phase = 'PRE_ANALYSIS_CLEAN_FILE'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
+    phase = 'PRE_ANALYSIS_CLEAN_FILE'; buildCleanLog = join(control, 'clean.private.log'); buildCleanStarted = Date.now();
+    fd = openSync(buildCleanLog, 'wx', 0o600);
     // A pre-analysis build must not make the existing begin/build/end interval incremental.
     phase = 'PRE_ANALYSIS_CLEAN_EXECUTION';
     await invoke(executors.paths.dotnet, ['clean', 'Coglatas.slnx', '--configuration', 'Release', '--verbosity', 'quiet'], env, fd,
@@ -311,8 +319,12 @@ async function run() {
       imageBeforeAfterVerified: true, cleanupSucceeded: true, release: 'RELEASE_NO_GO' };
     process.exitCode = 0;
   } catch {
+    if (phase === 'PRE_ANALYSIS_CLEAN_EXECUTION') {
+      try { buildCleanErrors = buildCleanErrorObservation(ownedFile(buildCleanLog, 1024 * 1024, true, buildCleanStarted)); }
+      catch { buildCleanErrors = buildCleanErrorObservation(undefined); }
+    }
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase,
-      ...(nativeSummary ? { nativeSummary } : {}), ...(buildCleanChild ? { buildCleanChild } : {}), release: 'RELEASE_NO_GO' };
+      ...(nativeSummary ? { nativeSummary } : {}), ...(buildCleanChild ? { buildCleanChild } : {}), ...(buildCleanErrors ? { buildCleanErrors } : {}), release: 'RELEASE_NO_GO' };
     process.exitCode = 1;
   }
   finally {

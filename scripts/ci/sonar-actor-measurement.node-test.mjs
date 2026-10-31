@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { actorFile, childCompletionObservation, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
+import { actorFile, buildCleanErrorObservation, childCompletionObservation, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
 import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
 import { validateAdmission } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 
@@ -95,6 +95,17 @@ void test('summary observations retain only closed bounded counters and an ANSI-
   assert.equal(observed.ansiEscapePresent, true);
   assert.doesNotMatch(JSON.stringify(observed), /canary|99999999|private/);
   assert.throws(() => validateNativeSummary(exact));
+});
+
+void test('build-clean diagnostics retain only bounded standard error identifiers', () => {
+  const raw='private-token cookie=canary /private/source MSBUILD : error msb3021: private-body\nerror MSB3021: duplicate\nerror CS0012: password';
+  assert.deepEqual(buildCleanErrorObservation(raw),{state:'AVAILABLE',codes:['MSB3021','CS0012'],truncated:false});
+  assert.doesNotMatch(JSON.stringify(buildCleanErrorObservation(raw)),/private|cookie|canary|password|source/);
+  assert.deepEqual(buildCleanErrorObservation({toString(){throw new Error('private');}}),{state:'UNAVAILABLE',codes:[],truncated:false});
+  assert.deepEqual(buildCleanErrorObservation('x'.repeat(1024*1024+1)),{state:'OVERSIZE',codes:[],truncated:false});
+  const many=Array.from({length:40},(_,index)=>`error MSB${String(index).padStart(4,'0')}: private`).join('\n');
+  const capped=buildCleanErrorObservation(many);assert.equal(capped.codes.length,32);assert.equal(capped.truncated,true);
+  assert.deepEqual(buildCleanErrorObservation(''),{state:'EMPTY',codes:[],truncated:false});
 });
 
 void test('child completion observations cannot emit raw signals, arguments or diagnostics', () => {
