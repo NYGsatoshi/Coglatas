@@ -337,6 +337,7 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('thread-secondary-reporter-*/**', block)
         self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
         self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertIn('tests/ui/student-council-pilot-helpers.node-test.mjs', block)
         self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
         self.assertIn("--test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs'", block)
         self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)

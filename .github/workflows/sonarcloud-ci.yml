@@ -266,6 +266,7 @@ jobs:
             tests/ui/readonly-roster-runner.node-test.mjs \
             tests/ui/mobile-mvp0-profile.node-test.mjs \
             tests/ui/mobile-mvp0-runner.node-test.mjs \
+            tests/ui/student-council-pilot-helpers.node-test.mjs \
             tests/diagnostics/thread-matrix.node-test.mjs \
             tests/ui/group-keyboard-observation.node-test.mjs \
             tests/ui/search-drawer-observation.node-test.mjs \
