@@ -328,6 +328,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn("test-workspace-icon-disclosure-policy.py", block)
         self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
         self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
+        self.assertIn("tests/ci/test_security_zap_attribution.py", block)
+        self.assertIn("tests/ci/test_performance_db_ci.py", block)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -338,6 +340,18 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('thread-secondary-reporter-*/**', block)
         self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
         self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertNotIn('tests/ui/student-council-pilot-helpers.node-test.mjs', block)
+        pilot = workflow.split('- name: Measure existing Pilot helpers in a separate native cohort', 1)[1].split('- name: Retain original Pilot helper native coverage', 1)[0]
+        self.assertIn('tests/ui/student-council-pilot-helpers.node-test.mjs', pilot)
+        self.assertEqual(pilot.count('--test-coverage-include='), 3)
+        self.assertNotIn('--test-coverage-exclude=', pilot)
+        self.assertIn('validateNodeCoverage(text)', pilot)
+        self.assertIn('assert.equal(checked.sourceFiles, 3)', pilot)
+        self.assertIn('validateNodeCoverage(baseline)', pilot)
+        self.assertIn('Native source reports must be disjoint.', pilot)
+        self.assertIn('relative(root, resolve(root, source))', pilot)
+        self.assertIn('artifacts/sonar-pilot-helper/lcov.info', workflow)
+        self.assertLess(workflow.index('- name: Retain original Pilot helper native coverage'), workflow.index('- name: Begin pinned SonarCloud analysis'))
         self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
         self.assertIn("--test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs'", block)
         self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)
