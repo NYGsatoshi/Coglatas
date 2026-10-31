@@ -73,7 +73,7 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
         if value["sdk"] != expected_sdk:
             raise ValueError("SDK is not the exact repository pin")
         value["verification"]["build"] = "Failed"
-        run(["dotnet", "build", "Coglatas.slnx", "-c", "Release", "--nologo", "-warnaserror"], target, capture=False)
+        run(["dotnet", "build", "Coglatas.slnx", "-c", "Release", "--nologo", "-warnaserror", "--disable-build-servers", "-m:1"], target, capture=False)
         value["verification"]["build"] = "Passed"
         for name, project, filter_value in (
             ("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", "FullyQualifiedName~ProjectIde"),
@@ -81,7 +81,7 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
         ):
             path = output / f"{name}.trx"
             value["verification"][name] = "Failed"
-            command = ["dotnet", "test", project, "-c", "Release", "--no-build", "--nologo", "--logger",
+            command = ["dotnet", "test", project, "-c", "Release", "--no-build", "--nologo", "--disable-build-servers", "-m:1", "--logger",
                        f"trx;LogFileName={name}.trx", "--results-directory", str(output)]
             if filter_value:
                 command += ["--filter", filter_value]
