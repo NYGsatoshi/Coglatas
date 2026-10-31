@@ -3,9 +3,9 @@
 This is a diagnostic candidate, not a coverage import or Main test promotion authorization.
 
 Product baseline: `eb18fb3c5b82c05ca4cdc8b68b59276732eb2fef`.
-Independent test-management source: `c555d4dd311e34bf68ff3867297e3510f77bf191`, based on
+Independent test-management source: `991740af2a7b715e80d4595879ebde1a9d73d617`, based on
 `SecurityTestImplimation` at `b18939f9104d52ae33e32a7f9b15a6e1b52892f1`.
-The two test files in the qualification checkout must match those Git blobs exactly.
+The three test files in the qualification checkout must match those Git blobs exactly.
 Neither the management PR nor this Draft is eligible to merge without the applicable
 explicit test promotion authority. In particular, do not merge the management PR
 into `SecurityTestImplimation` or update #1502.
@@ -70,3 +70,30 @@ closed execution receipt instead. Disposable Linux controls confirm UID/GID1001
 with mode0600, child failure propagation, and nonregular-output rejection before
 ownership transfer. The original failed diagnostic is retained, not rerun into a
 pass. The revised head requires a fresh first-attempt run.
+
+Candidate `3532f560bf2789bacaf8fe9939c30d7e91b19621`, tree
+`ce9154b45cf9c859ccda57df90f7bba8f3030d73`, completed run
+`41252074764/attempt 1`, job124687496635 successfully. The unchanged real case
+passed with four actors and no retries; image
+`sha256:28bb71d77c02a7b853196bea2e9d52b05d911382a90ed07b2b798b1a4f5c2380`.
+The native artifact13061284847 ZIP SHA256 is
+`6661480832dfb2990a8b6db2f535b224e28f1947a7ccbf52cc557aa31d54e60c`;
+the execution artifact13061702766 ZIP SHA256 is
+`aa828c2dd85ebe754bd917dab54a631499e51813ae3d6f0f1a1756b106cd6ca3`.
+The browser-container runtime remained Node24.21.0.
+
+Successful artifact publication did not qualify coverage. Exact Git/source-map
+comparison for Group source blob`5a62b7cb770bcf7df74e1eb6e486deaff15ab288`
+found separate discovery and executing-worker module records. The browser geometry
+callback at original line971/column37 has native count0, while original LCOV
+lines972-973 have positive counts. The real browser geometry receipt is retained,
+but it does not turn that into Node callback execution. This original report is
+not imported. Cleanup returned success, with the existing Compose diagnostic
+`Error while Stopping` retained as an observation rather than silently erased.
+
+The next candidate moves only the Group helper import from module initialization
+to its unchanged existing callsite in the actual scenario. This preserves its
+arguments, assertions, selection, retries and deadlines and leaves the Group
+helper source unchanged. Worker-only loading is a source-supported correction
+hypothesis for the discovery/worker merge; fresh raw ranges and original LCOV
+must prove its effect. It does not authorize a general converter or report edit.
