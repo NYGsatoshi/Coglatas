@@ -100,7 +100,11 @@ export function composeFailureObservation(operation, result) {
   const available = typeof result.output === 'string';
   const length = available ? Buffer.byteLength(result.output, 'utf8') : 0;
   const overflow = result.outputOverflow === true || length > limit;
-  const outputState = overflow ? 'OVERFLOW' : !available ? 'UNAVAILABLE' : length === 0 ? 'EMPTY' : 'AVAILABLE';
+  let outputState;
+  if (overflow) outputState = 'OVERFLOW';
+  else if (!available) outputState = 'UNAVAILABLE';
+  else if (length === 0) outputState = 'EMPTY';
+  else outputState = 'AVAILABLE';
   let pattern = 'UNKNOWN';
   if (available && !overflow && result.outputOverflow === false && Number.isInteger(result.exitCode) && result.exitCode > 0) {
     const text = result.output.toLowerCase();
