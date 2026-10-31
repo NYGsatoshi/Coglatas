@@ -150,6 +150,13 @@ public sealed class ProjectTimeInterval
 {
     public TypedProjectValue Start { get; }
     public TypedProjectValue End { get; }
+    public SourceJson Data { get; }
+
+    public ProjectTimeInterval(SourceJson data) : this(ReadEndpoint(data, "start"), ReadEndpoint(data, "end"))
+    {
+        TimeContractFields.Require(data, "start", "end");
+        Data = data;
+    }
 
     public ProjectTimeInterval(TypedProjectValue start, TypedProjectValue end)
     {
@@ -159,6 +166,15 @@ public sealed class ProjectTimeInterval
         if (start.State == ValueState.Known && end.State == ValueState.Known && Compare(start, end) > 0)
             throw new ArgumentException("Interval end precedes start.");
         Start = start; End = end;
+        Data = SourceJson.FromObject(new { start = start.Data.Value, end = end.Data.Value });
+    }
+
+    private static TypedProjectValue ReadEndpoint(SourceJson data, string name)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        var result = TypedProjectValueCodec.Decode(TimeContractFields.Child(data, name));
+        if (result.Status == ValueDecodeStatus.Unsupported) throw new UnsupportedSourceException("Unsupported interval endpoint is retained without comparison.");
+        return result.Value ?? throw new FormatException("Invalid interval endpoint.");
     }
 
     public TimeEvaluationResult<bool> Overlaps(ProjectTimeInterval other) => Relate(other, "coglatas.overlaps");
