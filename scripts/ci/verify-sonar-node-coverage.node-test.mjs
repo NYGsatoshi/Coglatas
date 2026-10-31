@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readOwnedRepositoryText, runCoverageCli, trustedGitExecutable, validateNodeCoverage } from './verify-sonar-node-coverage.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -128,4 +128,51 @@ await test('script aliases cannot bypass CLI validation and canonical module roo
     assert.equal(result.status, 1); assert.equal(result.stdout, ''); assert.doesNotMatch(result.stderr, /DO_NOT_READ_OUTSIDE/);
     assert.match(result.stderr, /Native Node coverage must/);
   }
+});
+
+await test('native fixture filters omit only their external generated families and retain tracked uncovered source', { timeout: 15000 }, t => {
+  const directory = ownedDirectory(t, 'coglatas-node-fixture-filter-');
+  const temp = realpathSync(tmpdir()), repository = join(directory, 'repository');
+  mkdirSync(repository);
+  const nested = 'group-keyboard-control-tracked'; mkdirSync(join(repository, nested));
+  const calledSource = 'export function called(flag) {\n  if (flag) return 1;\n  return 0;\n}\n';
+  const uncoveredSource = 'export function uncalled() {\n  return 2;\n}\n';
+  writeFileSync(join(repository, 'called.mjs'), calledSource);
+  writeFileSync(join(repository, nested, 'uncovered.mjs'), uncoveredSource);
+  const families = ['coglatas-thread-matrix-', 'group-keyboard-control-', 'search-drawer-control-'];
+  const fixtures = families.map(prefix => ownedDirectory(t, prefix));
+  const nearMatch = ownedDirectory(t, 'group-keyboard-controlx-');
+  for (const fixture of [...fixtures, nearMatch]) writeFileSync(join(fixture, 'fixture.mjs'), 'export const fixture = 1;\n');
+  const entry = join(repository, 'control.node-test.mjs');
+  const imports = fixtures.map(fixture => `import ${JSON.stringify(pathToFileURL(join(fixture, 'fixture.mjs')).href)};`).join('\n');
+  const body = `import assert from 'node:assert/strict';\nimport test from 'node:test';\nimport {called} from './called.mjs';\nimport './${nested}/uncovered.mjs';\n${imports}\nawait test('synthetic fixture selection', () => assert.equal(called(true), 1));\n`;
+  writeFileSync(entry, body);
+  const git = args => execFileSync(trustedGitExecutable(), args, { cwd: repository, encoding: 'utf8' });
+  git(['init', '--quiet']); git(['add', '.']);
+  const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
+  const filters = families.map(prefix => '--test-coverage-exclude=' + join(temp, prefix + '*/**').replaceAll('\\', '/'));
+  const execute = (name, filter) => {
+    const output = join(directory, name + '.lcov');
+    const result = spawnSync(process.execPath, ['--enable-source-maps', '--test', '--experimental-test-coverage', '--test-coverage-exclude=**/*.node-test.mjs',
+      ...(filter ? filters : []), '--test-reporter=lcov', '--test-reporter-destination=' + output, entry],
+    { cwd: repository, env: environment, encoding: 'utf8', timeout: 8000 });
+    assert.equal(result.status, 0, 'Synthetic native producer must complete without suppressing a test failure.');
+    return readFileSync(output, 'utf8');
+  };
+  const raw = execute('unfiltered', false);
+  assert.throws(() => validateNodeCoverage(raw, { root: repository }), { code: 'SOURCE' });
+  const filtered = execute('external-families-only', true);
+  const result = validateNodeCoverage(filtered, { root: repository });
+  assert.equal(result.sourceFiles, 2); assert.ok(result.uncoveredBranches > 0);
+  const portable = filtered.replaceAll('\\', '/');
+  assert.match(portable, /SF:called\.mjs\r?\n/);
+  assert.match(portable, /SF:group-keyboard-control-tracked\/uncovered\.mjs\r?\n/);
+  const uncovered = portable.split('end_of_record').find(block => block.includes('SF:' + nested + '/uncovered.mjs'));
+  assert.match(uncovered, /FNDA:0,uncalled/); assert.match(uncovered, /DA:2,0/);
+  for (const prefix of families) assert.ok(raw.includes(prefix), 'External generated fixture must actually execute before filtering.');
+  assert.equal(filtered.includes('../'), false);
+  writeFileSync(entry, body + `import ${JSON.stringify(pathToFileURL(join(nearMatch, 'fixture.mjs')).href)};\n`);
+  const unexpected = execute('near-match', true);
+  assert.ok(unexpected.includes('group-keyboard-controlx-'));
+  assert.throws(() => validateNodeCoverage(unexpected, { root: repository }), { code: 'SOURCE' });
 });

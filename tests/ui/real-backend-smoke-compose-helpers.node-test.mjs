@@ -249,25 +249,26 @@ const state = {
 const capture = (value, phase = 'before-assertion') => captureTaskTitleFocus({ evaluate: async () => value }, phase);
 const unavailable = { phase: 'before-assertion', availability: 'unavailable' };
 
-test('Task focus diagnostic: captures document focus independently from the active title without changing either', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('Task focus diagnostic: captures document focus independently from the active title without changing either', async () => {
   const result = await capture({ ...state, documentHasFocus: false });
   assert.deepEqual(result, { phase: 'before-assertion', availability: 'available', ...state, documentHasFocus: false });
   assert.equal(state.documentHasFocus, true);
 });
 
-test('Task focus diagnostic: preserves only the closed diagnostic shape at the failure boundary', async () => {
+void test('Task focus diagnostic: preserves only the closed diagnostic shape at the failure boundary', async () => {
   const result = await capture(state, 'assertion-failed');
   assert.deepEqual(result, { phase: 'assertion-failed', availability: 'available', ...state });
   assert.equal(JSON.stringify(result).includes('task-create-title'), false);
 });
 
-test('Task focus diagnostic: rejects extra private fields rather than serializing them', async () => {
+void test('Task focus diagnostic: rejects extra private fields rather than serializing them', async () => {
   for (const key of ['text', 'value', 'body', 'userId', 'url', 'headers', 'error', 'toJSON']) {
     assert.deepEqual(await capture({ ...state, [key]: 'private-sentinel' }), unavailable);
   }
 });
 
-test('Task focus diagnostic: rejects malformed, incomplete, nested, and unbounded enum metadata', async () => {
+void test('Task focus diagnostic: rejects malformed, incomplete, nested, and unbounded enum metadata', async () => {
   for (const value of [null, [], {}, { ...state, titlePresent: 'true' },
     { ...state, documentHasFocus: 1 }, { ...state, titleDisabled: null },
     { ...state, activeControlKind: 'private-sentinel' },
@@ -276,23 +277,23 @@ test('Task focus diagnostic: rejects malformed, incomplete, nested, and unbounde
   }
 });
 
-test('Task focus diagnostic: capture errors and disappeared contexts produce no error text', async () => {
+void test('Task focus diagnostic: capture errors and disappeared contexts produce no error text', async () => {
   const page = { evaluate: async () => { throw new Error('private-sentinel'); } };
   assert.deepEqual(await captureTaskTitleFocus(page, 'assertion-failed'), {
     phase: 'assertion-failed', availability: 'unavailable',
   });
 });
 
-test('Task focus diagnostic: a stalled evaluation has a finite unavailable result', async () => {
+void test('Task focus diagnostic: a stalled evaluation has a finite unavailable result', async () => {
   const page = { evaluate: () => new Promise(() => {}) };
   assert.deepEqual(await captureTaskTitleFocus(page, 'before-assertion'), unavailable);
 });
 
-test('Task focus diagnostic: does not accept arbitrary phase strings', async () => {
+void test('Task focus diagnostic: does not accept arbitrary phase strings', async () => {
   await assert.rejects(capture(state, 'private-sentinel'), { message: 'Unsupported Task focus diagnostic phase.' });
 });
 
-test('Task focus diagnostic: the browser read returns only closed control kinds without inspecting text or values', () => {
+void test('Task focus diagnostic: the browser read returns only closed control kinds without inspecting text or values', () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const title = { isConnected: true, matches: (selector) => selector === ':disabled' };
   const privateElement = (tagName) => Object.defineProperties({ tagName }, {
