@@ -218,8 +218,10 @@ public sealed class CalendarEvaluationTests
         Assert.False(first.Overlaps(empty).Value); Assert.True(first.Contains(empty).Value);
         var unknown = new ProjectTimeInterval(first.Start, Value("coglatas.instant", "coglatas.unknown"));
         Assert.Equal(TimeEvaluationStatus.Unknown, unknown.Contains(next).Status);
+        Assert.Null(unknown.Contains(next).Value);
         var nullEnd = new ProjectTimeInterval(first.Start, Value("coglatas.instant", "coglatas.null"));
         Assert.Equal(TimeEvaluationStatus.Null, nullEnd.Contains(next).Status);
+        Assert.Null(nullEnd.Contains(next).Value);
         Assert.Throws<ArgumentException>(() => new ProjectTimeInterval(first.End, first.Start));
         Assert.Equal(TimeSpan.TicksPerDay, ProjectTimeArithmetic.ElapsedBetween(first.Start, first.End).Value!.Ticks);
         Assert.Equal(TimeEvaluationStatus.Unknown, ProjectTimeArithmetic.ElapsedBetween(first.Start, unknown.End).Status);
@@ -239,8 +241,11 @@ public sealed class CalendarEvaluationTests
         var first = new ProjectTimeInterval(start, end);
         var second = new ProjectTimeInterval(Date("2026-07-01", different), Date("2026-07-02", different));
         Assert.Equal(TimeEvaluationStatus.Invalid, first.Overlaps(second).Status);
+        Assert.Null(first.Overlaps(second).Value);
         var instant = Value("coglatas.instant", "coglatas.known", "2026-07-01T00:00:00.0000000Z");
         Assert.Throws<ArgumentException>(() => new ProjectTimeInterval(start, instant));
+        Assert.Equal(TimeEvaluationStatus.Invalid, first.Overlaps(new(instant, instant)).Status);
+        Assert.Null(first.Overlaps(new(instant, instant)).Value);
         Assert.Equal(TimeEvaluationStatus.Invalid, ProjectTimeArithmetic.ElapsedBetween(start, end).Status);
     }
 
