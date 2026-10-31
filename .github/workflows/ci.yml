@@ -511,11 +511,13 @@ jobs:
           mkdir -p artifacts/test-results/backend artifacts/test-results/architecture
 
           if [[ "$BACKEND_TEST_SCOPE" == "scoped" && -n "$BACKEND_TEST_FILTER" ]]; then
-            dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj \
+            /usr/bin/time -f 'CI backend process resources: wall_seconds=%e user_seconds=%U system_seconds=%S maxrss_kib=%M input_blocks=%I output_blocks=%O' \
+              dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj \
               "${common_args[@]}" \
               --filter "$BACKEND_TEST_FILTER" \
               --logger "trx;LogFileName=backend-tests.trx" \
-              --results-directory artifacts/test-results/backend
+              --results-directory artifacts/test-results/backend \
+              -- xUnit.MaxParallelThreads=8 xUnit.DiagnosticMessages=true
           else
             # Run the two test projects explicitly so each keeps its own TRX.
             # The previous solution-level logger wrote both projects to the same
@@ -525,10 +527,12 @@ jobs:
               --logger "trx;LogFileName=architecture-tests.trx" \
               --results-directory artifacts/test-results/architecture
 
-            dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj \
+            /usr/bin/time -f 'CI backend process resources: wall_seconds=%e user_seconds=%U system_seconds=%S maxrss_kib=%M input_blocks=%I output_blocks=%O' \
+              dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj \
               "${common_args[@]}" \
               --logger "trx;LogFileName=backend-tests.trx" \
-              --results-directory artifacts/test-results/backend
+              --results-directory artifacts/test-results/backend \
+              -- xUnit.MaxParallelThreads=8 xUnit.DiagnosticMessages=true
           fi
 
       - name: Verify backend TRX evidence
