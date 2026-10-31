@@ -327,6 +327,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn("test-workspace-icon-disclosure-policy.py", block)
         self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
         self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
+        self.assertIn("tests/ci/test_security_zap_attribution.py", block)
+        self.assertIn("tests/ci/test_performance_db_ci.py", block)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
