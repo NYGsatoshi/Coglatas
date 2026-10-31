@@ -288,4 +288,23 @@ public sealed class ProjectValueShapeTests
         Assert.Equal(ValueDecodeStatus.Unsupported, result.Status); Assert.Null(result.Value);
         Assert.Equal(SourceJson.Parse(node.ToJsonString()).ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
     }
+
+    [Fact]
+    public void VersionedShapeFixturesRoundTripThroughSourceDocumentsAndManifests()
+    {
+        var fixtures = SourceJson.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "value-shapes-v1.json")));
+        foreach (var entry in fixtures.Value.EnumerateArray())
+        {
+            var input = SourceJson.Parse(entry.GetProperty("input").GetRawText());
+            var result = TypedProjectValueCodec.Decode(input);
+            Assert.Equal(Enum.Parse<ValueDecodeStatus>(entry.GetProperty("expected").GetString()!), result.Status);
+            Assert.Equal(input.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
+            var document = SourceDocument.Create(DocumentId.Parse(Document), "fixture",
+                Json(new { entityId = Target, kind = "coglatas.project", schemaVersion = 1, payload = new { } }), input);
+            var source = ProjectSource.Create(Context(), new[] { document });
+            var decoded = ProjectSourceCodec.Decode(ProjectSourceCodec.Encode(source)).RequireSource();
+            Assert.Equal(input, SourceJson.Parse(decoded.Documents[0].Data.Value.GetProperty("extensions").GetRawText()));
+            Assert.Equal(source.Digest, decoded.Digest);
+        }
+    }
 }
