@@ -1,4 +1,5 @@
 name: PR CI
+# Full-CI qualification for stable-authority event batching; job semantics unchanged.
 
 on:
   pull_request: # Required checks: intentionally unfiltered.
@@ -58,6 +59,8 @@ jobs:
 
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
+      - name: Test Functional required-gate exemption controls
+        run: python3 -B scripts/ci/test-functional-fast-gate.py
 
       - name: Test SEC-ARCH execution evidence false-green controls
         run: python3 -B scripts/ci/test_sec_arch_evidence.py
@@ -103,12 +106,23 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-frontend-parallel.sh
+          node --test tests/ui/penpot-phase-profile.node-test.mjs scripts/ci/test-penpot-phase-evidence.mjs
+          node --check tests/ui/settled-scroll-position.ts
+          node --check tests/ui/settled-scroll-position.node-test.mjs
+          python3 -c 'import ast; from pathlib import Path; ast.parse(Path("scripts/ci/test_av_mig_runtime_cli.py").read_text())'
+          python3 -B scripts/ci/test_av_mig_runtime_reuse.py
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
           node --check tests/ui/run-real-backend-smoke-compose.mjs
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
+
+      - name: Test security scanner per-role timing and fail-closed controls
+        run: bash scripts/ci/test-security-scanner-role-timing.sh
+
+      - name: Validate setup-node cache ownership and negative controls
+        run: python3 -B scripts/ci/test_setup_node_cache_policy.py
 
       - name: LegacyNameGuard
         run: python3 scripts/ci/check-coglatas-rename.py
@@ -379,10 +393,21 @@ jobs:
               test "$FUNCTIONAL_RESULT" = success
               ;;
             false)
-              test "$ROUTING_REASON" = validated-documentation-only
+              # The router independently recognizes a narrow, statically
+              # verified CI-tooling allowlist in addition to documentation.
+              # Never treat unknown, incomplete or runtime diffs as exempt.
+              case "$ROUTING_REASON" in
+                validated-documentation-only)
+                  exemption="validated documentation-only change"
+                  ;;
+                validated-ci-tooling-only)
+                  exemption="validated static CI-tooling-only change"
+                  ;;
+                *) exit 1 ;;
+              esac
               test "$RUNTIME_RESULT" = skipped
               test "$FUNCTIONAL_RESULT" = skipped
-              echo "NOT_APPLICABLE: validated documentation-only change" >> "$GITHUB_STEP_SUMMARY"
+              echo "NOT_APPLICABLE: $exemption" >> "$GITHUB_STEP_SUMMARY"
               ;;
             *) exit 1 ;;
           esac
@@ -710,6 +735,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.changes.outputs.frontend == 'true'
@@ -822,6 +850,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.frontend-build.outputs.frontend == 'true'
@@ -872,6 +903,8 @@ jobs:
           FRONTEND_STORYBOOK: "false"
           FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+          # Purely observational, opt-in phase timing; unchanged browser suite.
+          COGLATAS_PENPOT_PHASE_PROFILE: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && contains(github.event.pull_request.labels.*.name, 'ci-penpot-phase-profile') && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Upload browser artifacts on failure
@@ -1028,6 +1061,7 @@ jobs:
           # PRs verify the generated contract once; main/manual repeat generation.
           COGLATAS_SECURITY_OPENAPI_DETERMINISM_RUNS: ${{ github.event_name == 'pull_request' && '1' || '2' }}
           COGLATAS_SECURITY_REUSE_PREBUILT_OPENAPI: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+          COGLATAS_SECURITY_AVMIG_REUSE_REFERENCES: ${{ github.event_name == 'pull_request' && '1' || '0' }}
           # Verifier mutation suites run on PR only when verifier/policy/toolchain
           # or their concrete Program/AppHub mutation targets changed.
           COGLATAS_SECURITY_AVMIG_SELFTESTS: ${{ github.event_name != 'pull_request' && '1' || (needs.dotnet-build.outputs.avmig_selftests == 'true' && '1' || '0') }}

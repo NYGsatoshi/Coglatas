@@ -286,8 +286,64 @@ head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq full "$(value_of "$output" backend_test_scope)" "common fallback"
 
-# A positively identified documentation-only diff is the sole exemption. A
-# new/unclassified path and an invalid base cannot suppress a required owner.
+# Reviewed static CI/security tooling and documentation may bypass real-stack
+# Functional domains; unclassified files and invalid bases must not.
+# Existing dedicated static/security checks own these exact CI-tooling inputs.
+# They do not require a rebuilt .NET/Frontend app or four Functional stacks.
+tool_only_inputs=(
+  .github/renovate.json
+  .github/workflows/workflow-static-analysis.yml
+  .github/workflows/qodana-signed-shadow.yml
+  governance/github-actions-allowlist.json
+  governance/workflow-trust-policy.json
+  scripts/quality/qodana_sarif_parity.py
+  scripts/quality/verify_qodana_artifact_provenance.py
+  scripts/quality/verify_qodana_signed_subject.py
+  scripts/quality/qodana_cloud_send_preflight.py
+  scripts/quality/verify_qodana_shadow_signature.py
+  tests/ci/test_qodana_sarif_parity.py
+  tests/ci/test_qodana_artifact_provenance.py
+  tests/ci/test_qodana_signed_subject.py
+  tests/ci/test_qodana_cloud_send_preflight.py
+  tests/ci/test_qodana_shadow_signature.py
+  tests/ci/test_qodana_shadow_workflow.py
+  docs/verification/qodana-shadow-signed-producer-20261029.md
+)
+for index in "${!tool_only_inputs[@]}"; do
+  tool_input="${tool_only_inputs[$index]}"
+  repo="$tmp_root/functional-tool-only-$index"
+  init_repo "$repo"
+  printf 'base\n' > "$repo/README.md"
+  base="$(commit_all "$repo" base)"
+  mkdir -p "$(dirname "$repo/$tool_input")"
+  printf 'reviewed static tooling update\n' > "$repo/$tool_input"
+  head="$(commit_all "$repo" tool-only)"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq false "$(value_of "$output" functional)" "tool-only Functional route $tool_input"
+  assert_eq false "$(value_of "$output" backend)" "tool-only .NET build $tool_input"
+  assert_eq false "$(value_of "$output" backend_tests)" "tool-only backend tests $tool_input"
+  assert_eq false "$(value_of "$output" frontend_build)" "tool-only frontend build $tool_input"
+  assert_eq false "$(value_of "$output" security_compose)" "tool-only live security $tool_input"
+  assert_eq validated-ci-tooling-only "$(value_of "$output" functional_reason)" "tool-only reason $tool_input"
+done
+
+# A reviewable tooling change combined with runtime code must never bypass the
+# ordinary build, Functional owners or live security validation.
+repo="$tmp_root/functional-tooling-plus-runtime"
+init_repo "$repo"
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+mkdir -p "$repo/.github" "$repo/src/Coglatas.Web"
+printf '{}\n' > "$repo/.github/renovate.json"
+printf 'public class Program {}\n' > "$repo/src/Coglatas.Web/Program.cs"
+head="$(commit_all "$repo" mixed)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" functional)" "mixed Functional route"
+assert_eq true "$(value_of "$output" backend)" "mixed backend build"
+assert_eq true "$(value_of "$output" frontend_build)" "mixed frontend build"
+assert_eq true "$(value_of "$output" security_compose)" "mixed live security"
+assert_eq runtime-or-unclassified-change "$(value_of "$output" functional_reason)" "mixed reason"
+
 repo="$tmp_root/functional-docs"
 init_repo "$repo"
 printf 'base\n' > "$repo/README.md"
@@ -311,7 +367,13 @@ assert_eq unknown-diff-run-all "$(value_of "$output" functional_reason)" "invali
 
 # A documentation directory or license-like filename does not make executable
 # code or machine-readable fixtures safe to exempt from real-stack owners.
-for unclassified_input in docs/runtime-policy.mjs docs/runtime-fixture.json LICENSE-runtime.sh; do
+for unclassified_input in \
+  docs/runtime-policy.mjs docs/runtime-fixture.json LICENSE-runtime.sh \
+  .github/workflows/qodana_cloud_quality.yml \
+  scripts/quality/verify_qodana_future.py \
+  tests/ci/test_qodana_future.py \
+  governance/unreviewed-policy.json \
+  docs/verification/qodana-future.py; do
   slug="${unclassified_input//\//-}"
   repo="$tmp_root/functional-unclassified-${slug//./-}"
   init_repo "$repo"

@@ -2,17 +2,27 @@ name: Socket Dependency Security
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, SecurityTestImplimation]
     paths:
       - "**/package.json"
       - "**/package-lock.json"
+      - "**/npm-shrinkwrap.json"
+      - "**/.npmrc"
+      - ".npmrc"
       - ".github/workflows/socket-dependency-security.yml"
+      - "scripts/ci/route-socket-dependency-scopes.py"
+      - "scripts/ci/test-route-socket-dependency-scopes.py"
   push:
-    branches: [main]
+    branches: [main, SecurityTestImplimation]
     paths:
       - "**/package.json"
       - "**/package-lock.json"
+      - "**/npm-shrinkwrap.json"
+      - "**/.npmrc"
+      - ".npmrc"
       - ".github/workflows/socket-dependency-security.yml"
+      - "scripts/ci/route-socket-dependency-scopes.py"
+      - "scripts/ci/test-route-socket-dependency-scopes.py"
   workflow_dispatch:
 
 permissions:
@@ -23,18 +33,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  route:
+    name: Socket Firewall route
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      scopes: ${{ steps.select.outputs.scopes }}
+    steps:
+      - name: Checkout candidate and complete diff history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Test fail-closed Socket Firewall routing
+        run: python3 -B scripts/ci/test-route-socket-dependency-scopes.py
+
+      - name: Select changed npm install scopes
+        id: select
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -B scripts/ci/route-socket-dependency-scopes.py
+
   socket-firewall:
     name: socket-firewall-${{ matrix.package_dir }}
+    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        package_dir:
-          - "."
-          - "frontend"
-          - "coglatas-frontend"
-          - "tools/frontend-inspections"
+        package_dir: ${{ fromJSON(needs.route.outputs.scopes) }}
 
     steps:
       - name: Checkout reviewed revision
