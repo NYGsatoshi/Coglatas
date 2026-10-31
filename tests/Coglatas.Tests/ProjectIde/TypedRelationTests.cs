@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.Application.ProjectIde.Core;
 
 namespace Coglatas.Tests.ProjectIde;
 
@@ -269,5 +270,54 @@ public sealed class TypedRelationTests
         Assert.Equal(a.Findings, b.Findings); Assert.Equal(before, first.Data.ToCanonicalBytes());
         var limited = RelationGraphValidator.Validate(new(first, true, true, true), limits: new(MaximumRelations: 1));
         Has(limited, "budget-exhausted", RelationFindingState.Unknown); Assert.Empty(limited.Resolutions); Assert.False(limited.IsComplete);
+    }
+
+    [Fact]
+    public void CycleDiagnosticsDoNotAccuseADownstreamTail()
+    {
+        var tail = Edge(52, 2, 3);
+        var result = Validate([Edge(), Edge(51, 2, 1), tail]);
+        Assert.Equal(2, result.Findings.Count(item => item.Code == "coglatas.relation.dependency-cycle"));
+        Assert.DoesNotContain(result.Findings, item => item.Location.RelationId == RelationId.Parse(Id(52)));
+    }
+
+    [Theory]
+    [InlineData(false, false, true, true, false)]
+    [InlineData(true, false, false, true, true)]
+    [InlineData(false, true, true, false, true)]
+    [InlineData(true, true, true, true, false)]
+    public void FlowNullAndUnknownCapabilitiesAreCheckedDirectionally(bool outputNull, bool outputUnknown, bool inputNull, bool inputUnknown, bool invalid)
+    {
+        var tasks = new[] { Task(1), Task(2) };
+        tasks[0]["payload"]!["ports"]![0]!["type"] = Type(nullable: outputNull, acceptsUnknown: outputUnknown);
+        tasks[1]["payload"]!["ports"]![1]!["type"] = Type(nullable: inputNull, acceptsUnknown: inputUnknown);
+        var result = Validate([Edge(kind: RelationKinds.FlowsTo)], tasks);
+        Assert.Equal(invalid, result.HasInvalid);
+    }
+
+    [Fact]
+    public void AttachedConstraintChecksTargetAndPredicateWithoutClaimingSatisfaction()
+    {
+        var declaration = Declaration(4, "coglatas.constraint", Obj(new { predicate = Predicate(), classification = "coglatas.required" }));
+        var edge = Edge(kind: RelationKinds.Constrains, from: 4);
+        edge["source"] = Endpoint(4, expectedKind: "coglatas.constraint");
+        edge["payload"] = Obj(new { predicateReference = Endpoint(4)["reference"]!.DeepClone(), version = Id(94),
+            predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(Predicate()).ToCanonicalBytes()).Data.Value });
+        var result = Validate([edge], [Task(2), declaration]);
+        Assert.False(result.HasInvalid); Has(result, "constraint-not-evaluated", RelationFindingState.Unknown);
+        var requirement = Declaration(2, "coglatas.requirement", Obj(new { target = Endpoint(4)["reference"]!.DeepClone(), condition = Predicate(), evidenceKind = "coglatas.model-proof" }));
+        edge["target"] = Endpoint(2, expectedKind: "coglatas.requirement");
+        Has(Validate([edge], [declaration, requirement]), "endpoint-type", RelationFindingState.Invalid);
+    }
+
+    [Fact]
+    public void ApplicationReceiptBindsSourceAndCancellation()
+    {
+        var source = Source([Edge()]);
+        var receipt = ProjectRelationValidation.Validate(new(source, true, true, true));
+        Assert.Equal(source.Digest, receipt.SourceDigest); Assert.Equal(source.Context, receipt.Context); Assert.True(receipt.Result.IsComplete);
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => ProjectRelationValidation.Validate(new(source, true, true, true), cancellationToken: cancellation.Token));
+        Has(RelationGraphValidator.Validate(new(source, false, true, true)), "scope-unavailable", RelationFindingState.Unknown);
     }
 }
