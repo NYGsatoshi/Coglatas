@@ -295,6 +295,13 @@ async function run() {
     phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
+    // The shared-source migration container restores assets against its /root NuGet
+    // volume. Regenerate host assets before clean, so container package paths cannot
+    // enter the subsequent host scanner build. Failure still prevents all import.
+    phase = 'PRE_ANALYSIS_HOST_RESTORE';
+    fd = openSync(join(control, 'host-restore.private.log'), 'wx', 0o600);
+    await invoke(executors.paths.dotnet, ['restore', 'Coglatas.slnx', '--force', '--verbosity', 'quiet'], env, fd);
+    closeSync(fd); fd = undefined;
     phase = 'PRE_ANALYSIS_CLEAN_FILE'; buildCleanLog = join(control, 'clean.private.log'); buildCleanStarted = Date.now();
     fd = openSync(buildCleanLog, 'wx', 0o600);
     // A pre-analysis build must not make the existing begin/build/end interval incremental.
