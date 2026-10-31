@@ -176,4 +176,36 @@ public sealed class CompilerHostTests
         var future = new CompilerHostRequest(new CompilerInputTransfer(Encoding.UTF8.GetBytes(node.ToJsonString()), input.ToEnvelope().ToCanonicalBytes(), input.InputDigest));
         Assert.Equal(CompilerHostStatus.Unsupported, (await new LocalNetCompilerHost(profile).CompileAsync(future)).Status);
     }
+    private static CalendarSnapshot MaterializedCalendar()
+    {
+        const string start = "2026-01-01T00:00:00.0000000Z"; const string end = "2027-01-01T00:00:00.0000000Z";
+        var zoneData = Json(Obj(new { schemaVersion = 1, timeZoneId = "Etc/UTC", version = "fixture-1", validFrom = start, validTo = end,
+            segments = new[] { new { start, end, offsetTicks = "0" } } }));
+        var zoneReference = new TimeZoneReference(Json(Obj(new { timeZoneId = "Etc/UTC", version = "fixture-1", rulesDigest = TimeZoneSnapshot.ComputeDigest(zoneData).Data.Value })));
+        var zone = TimeZoneSnapshot.Read(zoneData, zoneReference).Value!;
+        var data = Json(Obj(new { schemaVersion = 1, calendarId = "coglatas.host-fixture", version = "fixture-1", timeZone = zoneReference.Data.Value,
+            validFrom = start, validTo = end, workingIntervals = Array.Empty<object>(), nonWorkingIntervals = Array.Empty<object>(), exceptions = Array.Empty<object>() }));
+        var reference = new CalendarReference(Json(Obj(new { calendarId = "coglatas.host-fixture", version = "fixture-1", timeZoneId = "Etc/UTC", rulesDigest = CalendarSnapshot.ComputeDigest(data).Data.Value })));
+        return Assert.IsType<CalendarSnapshot>(CalendarSnapshot.Read(data, reference, zone).Value);
+    }
+
+    [Theory]
+    [InlineData("snapshots")]
+    [InlineData("units")]
+    [InlineData("calendars")]
+    public async Task ServerRejectsACompilationUsingDifferentMaterializations(string dimension)
+    {
+        var input = Input(); var profile = Profile(input); var local = new LocalNetCompilerHost(profile);
+        var unitData = Json(Obj(new { unitId = "unit.kg", version = 1, dimension = new Dictionary<string, int> { ["dimension.mass"] = 1 } }));
+        var unit = new UnitDefinition(unitData, ContentDigest.Compute("coglatas.unit-definition/1", unitData.ToCanonicalBytes()));
+        var snapshot = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(30)), "1", new(Source(9), true, true, true));
+        var different = new CompilerHostRequest(new(input), snapshots: dimension == "snapshots" ? [snapshot] : [],
+            units: dimension == "units" ? [unit] : [], calendars: dimension == "calendars" ? [MaterializedCalendar()] : []);
+        var produced = await local.CompileAsync(different);
+        Assert.Equal(CompilerHostStatus.Completed, produced.Status); Assert.NotNull(produced.Compilation);
+        var server = new ServerCompilerHost(profile, new FakeTransport((_, _) => Task.FromResult(produced)));
+        var response = await server.CompileAsync(new(new(input)));
+        Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
+    }
+
 }
