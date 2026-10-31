@@ -278,7 +278,7 @@ class AcceptanceImageReuseTests(unittest.TestCase):
                         "-c", "user.email=synthetic-evidence@example.test", "commit", "-qm",
                         "Prepare synthetic MBJ-02 evidence inputs"], cwd=root, check=True, capture_output=True)
         source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-        assembly = root / "tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll"
+        assembly = root / "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests.dll"
         assembly.parent.mkdir(parents=True, exist_ok=True)
         namespace = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
         ET.register_namespace("", namespace)

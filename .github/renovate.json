@@ -98,7 +98,7 @@
       "matchPackageNames": [
         "dotnet-sdk"
       ],
-      "allowedVersions": "10.0.403"
+      "allowedVersions": "11.0.100-rc.3.26522.148"
     },
     {
       "description": "Group compatible npm updates per review",

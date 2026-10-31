@@ -37,8 +37,9 @@ def require_source_sdk_image(rendered_compose: dict, sdk_version: str) -> None:
     services = rendered_compose.get("services")
     if not isinstance(services, dict):
         fail("rendered performance Compose has no services mapping")
+    approved_tag = "11.0.100-rc.3" if sdk_version == "11.0.100-rc.3.26522.148" else sdk_version
     expected = re.compile(
-        rf"mcr\.microsoft\.com/dotnet/sdk:{re.escape(sdk_version)}@sha256:[0-9a-f]{{64}}"
+        rf"mcr\.microsoft\.com/dotnet/sdk:{re.escape(approved_tag)}@sha256:[0-9a-f]{{64}}"
     )
     for service_name in ("app", "migrate"):
         service = services.get(service_name)
@@ -49,6 +50,20 @@ def require_source_sdk_image(rendered_compose: dict, sdk_version: str) -> None:
             fail(f"rendered performance {service_name} image must match global.json and use an immutable SHA-256 digest")
         if service_name == "app" and service.get("build") is not None:
             fail("public PR performance runtime must not have a licensed build")
+
+
+def require_approved_sdk_version(sdk_config: object) -> str:
+    """Keep both the production LTS and the explicitly pinned RC3 lab fail-closed."""
+    if not isinstance(sdk_config, dict):
+        fail("global.json must contain an SDK policy object")
+    version = sdk_config.get("version")
+    stable = (isinstance(version, str) and re.fullmatch(r"10\.0\.\d{3}", version)
+              and sdk_config.get("allowPrerelease") is False)
+    rc3 = (version == "11.0.100-rc.3.26522.148"
+           and sdk_config.get("allowPrerelease") is True)
+    if sdk_config.get("rollForward") != "disable" or not (stable or rc3):
+        fail("global.json must pin an exact approved .NET 10 SDK or isolated .NET 11 RC3 SDK")
+    return version
 
 
 def render_source_compose(environment_path: Path, override_path: Path) -> dict:
@@ -179,11 +194,7 @@ def main() -> int:
     # Read the SDK from the reviewed source of truth instead of pinning a
     # duplicate literal that would block every otherwise-compatible SDK patch.
     sdk_config = json.loads((ROOT / "global.json").read_text(encoding="utf-8")).get("sdk", {})
-    sdk_version = sdk_config.get("version")
-    if not isinstance(sdk_version, str) or not re.fullmatch(r"10\.0\.\d{3}", sdk_version):
-        fail("global.json SDK must remain an explicit supported .NET 10 version")
-    if sdk_config.get("rollForward") != "disable" or sdk_config.get("allowPrerelease") is not False:
-        fail("global.json must require an exact, stable SDK")
+    sdk_version = require_approved_sdk_version(sdk_config)
 
     pr_compose = pr_compose_path.read_text(encoding="utf-8")
     for token in (

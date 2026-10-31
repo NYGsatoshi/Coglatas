@@ -6,7 +6,7 @@ cd "$repo_root"
 
 spec="${1:-artifacts/openapi/coglatas-openapi.json}"
 web_project="src/Coglatas.Web/Coglatas.Web.csproj"
-assembly="src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"
+assembly="src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll"
 assets="src/Coglatas.Web/obj/project.assets.json"
 cache="src/Coglatas.Web/obj/Coglatas.Web.OpenApiFiles.cache"
 
@@ -50,7 +50,7 @@ export BootstrapAdmin__Email=""
 dotnet "$tool" \
   --assembly "$assembly" \
   --file-list "$cache" \
-  --framework ".NETCoreApp,Version=v10.0" \
+  --framework ".NETCoreApp,Version=v11.0" \
   --output "$(dirname "$spec")" \
   --project "Coglatas.Web" \
   --assets-file "$assets" \
