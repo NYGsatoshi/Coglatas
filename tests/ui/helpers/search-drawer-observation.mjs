@@ -6,7 +6,7 @@ export const searchDrawerOutputDirectory = 'artifacts/search-drawer-observation-
 export const searchDrawerByteLimit = 65536;
 const positions = ['TOGGLE', 'OPENER', 'DRAWER', 'AUTHOR', 'OTHER'];
 const exactKeys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) &&
-  Object.keys(value).sort().join() === [...expected].sort().join();
+  Object.keys(value).sort(compareCodeUnits).join() === [...expected].sort(compareCodeUnits).join();
 const eventKeys = ['kind', 'key', 'target', 'targetNode', 'targetConnected', 'active', 'activeNode',
   'documentFocused', 'defaultPrevented', 'milliseconds', 'hostNode', 'trackedHostNode', 'trackedHostConnected',
   'openerNode', 'drawerNode', 'panelExpanded', 'drawerOpen', 'parentLoading', 'parentDenied'];
@@ -136,4 +136,12 @@ export async function observeSearchDrawerCase(page, testInfo, body) {
       JSON.stringify(value) + '\n', { flag: 'wx' });
     if (!snapshot) { throw new Error('Search drawer observation is unavailable.'); }
   });
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }
