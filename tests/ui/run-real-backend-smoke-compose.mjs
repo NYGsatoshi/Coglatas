@@ -95,8 +95,20 @@ function realBackendPlaywrightRunArgs() {
     if (rosterControl || composeEnv.COGLATAS_FCI04_GATES || composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE) {
       throw new Error('MVP0 Mobile is an independent selection, not a canonical owner override.');
     }
-    args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1', 'real-backend-playwright',
-      'bash', '-lc', 'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
+    args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1');
+    if (composeEnv.COGLATAS_REAL_BACKEND_NATIVE_COVERAGE === '1') {
+      args.push('--env', 'COGLATAS_NATIVE_COVERAGE_SUITE=mobile-mvp0',
+        '--env', 'NODE_V8_COVERAGE=/work/artifacts/sonar-real-backend-native/raw',
+        'real-backend-playwright', 'bash', '-lc',
+        'npm ci && mkdir -p artifacts/sonar-real-backend-native && node --test --experimental-test-coverage ' +
+        '--test-coverage-include="tests/ui/**" --test-coverage-exclude="**/*.node-test.mjs" ' +
+        '--test-reporter=spec --test-reporter-destination=stdout ' +
+        '--test-reporter=lcov --test-reporter-destination=artifacts/sonar-real-backend-native/lcov.info ' +
+        'tests/ui/real-backend-native-coverage.node-test.mjs');
+    } else {
+      args.push('real-backend-playwright', 'bash', '-lc',
+        'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
+    }
     return args;
   }
   args.push('real-backend-playwright');

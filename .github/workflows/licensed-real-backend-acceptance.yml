@@ -13,6 +13,11 @@ on:
         default: false
   workflow_dispatch:
     inputs:
+      native_coverage:
+        description: Retain diagnostic native coverage for mobile-mvp0 only; never import it into Sonar
+        required: false
+        default: false
+        type: boolean
       suite:
         description: Licensed acceptance suite to run
         required: true
@@ -59,6 +64,12 @@ jobs:
       TARGET_SHA: ${{ github.sha }}
 
     steps:
+      - name: Validate closed native coverage selection
+        if: github.event_name == 'workflow_dispatch' && inputs.native_coverage == true
+        env:
+          SELECTED_SUITE: ${{ inputs.suite }}
+        run: test "$SELECTED_SUITE" = mobile-mvp0
+
       - name: Checkout reviewed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -176,9 +187,24 @@ jobs:
 
       - name: Run independent real-backend MVP0 Mobile acceptance
         if: inputs.suite == 'mobile-mvp0'
+        env:
+          COGLATAS_REAL_BACKEND_NATIVE_COVERAGE: ${{ inputs.native_coverage && '1' || '0' }}
         run: |
           node --test tests/ui/mobile-mvp0-profile.node-test.mjs tests/ui/mobile-mvp0-runner.node-test.mjs
           node tests/ui/run-real-backend-mobile-mvp0.mjs
+
+      - name: Retain original Mobile native coverage for independent attribution review
+        if: always() && inputs.suite == 'mobile-mvp0' && inputs.native_coverage == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-real-backend-native-${{ github.sha }}
+          path: |
+            artifacts/sonar-real-backend-native/lcov.info
+            artifacts/sonar-real-backend-native/raw
+            artifacts/mobile-mvp0/source-sha
+            artifacts/mobile-mvp0/execution.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitized MVP0 Mobile execution and device receipts
         if: always() && inputs.suite == 'mobile-mvp0'
