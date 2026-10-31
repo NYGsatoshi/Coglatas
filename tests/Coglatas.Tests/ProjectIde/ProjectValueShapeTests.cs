@@ -180,7 +180,7 @@ public sealed class ProjectValueShapeTests
         var present = Decode(Known(type, new { present = true, value = Text("x") }));
         Assert.True(Assert.IsType<OptionalProjectValue>(present.Value!.KnownValue).Present);
         Assert.Equal(ValueDecodeStatus.Invalid, Decode(Known(type, new { present = true })).Status);
-        AssertOpaque(Known(type, new { present = false, value = Text("x") }));
+        Assert.Equal(ValueDecodeStatus.Invalid, Decode(Known(type, new { present = false, value = Text("x") })).Status);
         Assert.Empty(Assert.IsType<ProjectCollectionValue>(Decode(Known(CollectionType("coglatas.list"), Array.Empty<object>())).Value!.KnownValue).Items);
         var nullable = CollectionType("coglatas.nullable");
         Assert.Equal(ValueDecodeStatus.Decoded, Decode(new JsonObject { ["type"] = nullable, ["state"] = "coglatas.null" }).Status);
