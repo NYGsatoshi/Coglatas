@@ -1,0 +1,54 @@
+name: ProjectIDE Slice 2 isolated candidates
+
+on:
+  pull_request:
+    paths:
+      - tests/Coglatas.Tests/ProjectIde/**
+      - tests/ci/projectide_slice2_isolated.py
+      - tests/ci/projectide-slice2-candidates.json
+      - tests/ci/test_projectide_slice2_isolated.py
+      - .github/workflows/projectide-slice2-isolated.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-slice2-isolated-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  isolated:
+    name: Fixed Product and Test candidates
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-core-slice2-remainder-20261101'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact independent Test candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up repository .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Verify evidence and ownership negative controls
+        run: python3 -m unittest discover -s tests/ci -p test_projectide_slice2_isolated.py -v
+      - name: Compose only approved ownership deltas and verify
+        env:
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+          ISOLATED_ROOT: ${{ runner.temp }}/projectide-slice2-${{ github.run_id }}-${{ github.run_attempt }}
+        run: >-
+          python3 tests/ci/projectide_slice2_isolated.py
+          --test-head "$TEST_HEAD"
+          --worktree "$ISOLATED_ROOT/combined"
+          --receipt "$ISOLATED_ROOT/evidence/receipt.json"
+          --verify
+      - name: Retain exact identities and actual test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-slice2-isolated-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/projectide-slice2-${{ github.run_id }}-${{ github.run_attempt }}/evidence
+          if-no-files-found: error
