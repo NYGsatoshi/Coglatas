@@ -37,6 +37,8 @@ public sealed class RelationKindDescriptor
     public bool IsSymmetric => false;
     public RelationEffect Effect { get; }
     public RelationCyclePolicy CyclePolicy { get; }
+    public string PayloadSchemaId => DescriptorId + ".payload";
+    public int PayloadSchemaVersion => 1;
     public IReadOnlyList<string> RequiredCapabilities { get; }
     public IReadOnlyList<string> Invariants { get; }
     public SourceJson Data { get; }
@@ -55,7 +57,8 @@ public sealed class RelationKindDescriptor
         {
             descriptorId = id, version = Version, sourceRole = RoleToken(sourceRole), targetRole = RoleToken(targetRole),
             sourceKinds = sources, targetKinds = targets, allowedScopes = AllowedScopes, sourceEndpointCount = 1, targetEndpointCount = 1,
-            minimumOutgoing, maximumIncoming, symmetric = IsSymmetric, effect = id, cyclePolicy = CycleToken(cycles),
+            minimumOutgoing, maximumIncoming, symmetric = IsSymmetric, effect = EffectToken(effect), cyclePolicy = CycleToken(cycles),
+            payloadSchemaId = PayloadSchemaId, payloadSchemaVersion = PayloadSchemaVersion,
             requiredCapabilities = RequiredCapabilities, invariants = Invariants
         });
         Digest = ContentDigest.Compute("coglatas.relation-descriptor/1", Data.ToCanonicalBytes());
@@ -71,6 +74,15 @@ public sealed class RelationKindDescriptor
     {
         RelationCyclePolicy.Allowed => "coglatas.cycles-allowed", RelationCyclePolicy.Acyclic => "coglatas.acyclic",
         RelationCyclePolicy.BoundedWorkflow => "coglatas.bounded-workflow", _ => throw new ArgumentOutOfRangeException(nameof(policy))
+    };
+    private static string EffectToken(RelationEffect effect) => effect switch
+    {
+        RelationEffect.Association => "coglatas.non-executing", RelationEffect.Scheduling => "coglatas.dependency",
+        RelationEffect.Membership => "coglatas.membership", RelationEffect.RequirementClaim => "coglatas.requirement-claim",
+        RelationEffect.VerificationRoute => "coglatas.verification-route", RelationEffect.Consumption => "coglatas.consumption",
+        RelationEffect.Allocation => "coglatas.allocation", RelationEffect.Workflow => "coglatas.workflow",
+        RelationEffect.Constraint => "coglatas.constraint", RelationEffect.Dataflow => "coglatas.flow",
+        _ => throw new ArgumentOutOfRangeException(nameof(effect))
     };
 
     private static readonly string[] Entities = ["coglatas.project", "coglatas.task", "coglatas.milestone", "coglatas.requirement", "coglatas.resource-binding", "coglatas.constraint", "coglatas.workflow"];
