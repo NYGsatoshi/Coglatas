@@ -337,4 +337,37 @@ public sealed class CalendarEvaluationTests
         var result = ProjectTimeArithmetic.ApplyPeriod(new(anchor, calendar.Reference), new(0, 0, days), calendar.Snapshot, "coglatas.reject-invalid-day");
         Assert.Equal(TimeEvaluationStatus.Unknown, result.Status); Assert.Null(result.Value);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ResourceAndTaskCarryPinnedCalendarsWithoutLoadingOrExecuting(bool resource)
+    {
+        var calendar = Calendar();
+        const string identity = "00000000-0000-4000-8000-000000000001";
+        var payload = resource ? Json(new
+        {
+            tenantId = identity, resourceId = identity, snapshotVersion = "fixture-1", snapshotDigest = calendar.Reference.RulesDigest.Data.Value,
+            resourceKind = "coglatas.equipment", calendar = calendar.Reference.Data.Value
+        }) : Json(new
+        {
+            duration = new
+            {
+                type = new { kind = "coglatas.working-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true },
+                state = "coglatas.known", value = new { ticks = "36000000000", calendar = calendar.Reference.Data.Value }
+            }, ports = Array.Empty<object>()
+        });
+        var source = Json(new { entityId = identity, documentId = identity, kind = resource ? "coglatas.resource-binding" : "coglatas.task", schemaVersion = 1, payload = payload.Value });
+        var result = PlanDeclarationReader.Read(source, DocumentId.Parse(identity));
+        Assert.Equal(ValueDecodeStatus.Decoded, result.Status);
+        var reference = resource ? Assert.IsType<ResourceBindingDeclaration>(result.Declaration).Calendar
+            : Assert.IsType<WorkingDuration>(Assert.IsType<TaskPlanDeclaration>(result.Declaration).Duration.KnownValue).Calendar;
+        Assert.Equal(calendar.Reference.Data.CanonicalText, reference!.Data.CanonicalText);
+        var node = JsonNode.Parse(source.CanonicalText)!;
+        var calendarNode = resource ? node["payload"]!["calendar"]! : node["payload"]!["duration"]!["value"]!["calendar"]!;
+        calendarNode["futureRule"] = "future.extension";
+        var unsupported = PlanDeclarationReader.Read(SourceJson.Parse(node.ToJsonString()), DocumentId.Parse(identity));
+        Assert.Equal(ValueDecodeStatus.Unsupported, unsupported.Status); Assert.Null(unsupported.Declaration);
+        Assert.Equal(SourceJson.Parse(node.ToJsonString()).CanonicalText, unsupported.Data.CanonicalText);
+    }
 }
