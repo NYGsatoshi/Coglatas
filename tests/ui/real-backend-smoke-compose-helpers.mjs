@@ -91,6 +91,31 @@ export function normalizeExitCode(code) {
   return Number.isInteger(code) && code >= 0 ? code : 1;
 }
 
+/** Closed wording observations only; none of these values establishes a root cause. */
+export function composeFailureObservation(operation, result) {
+  if (!['CONFIG', 'UP'].includes(operation) || !result || typeof result !== 'object') return null;
+  const exitCode = normalizeExitCode(result.exitCode);
+  if (exitCode === 0 || exitCode > 255) return null;
+  const limit = 2 * 1024 * 1024;
+  const available = typeof result.output === 'string';
+  const length = available ? Buffer.byteLength(result.output, 'utf8') : 0;
+  const overflow = result.outputOverflow === true || length > limit;
+  const outputState = overflow ? 'OVERFLOW' : !available ? 'UNAVAILABLE' : length === 0 ? 'EMPTY' : 'AVAILABLE';
+  let pattern = 'UNKNOWN';
+  if (available && !overflow && result.outputOverflow === false && Number.isInteger(result.exitCode) && result.exitCode > 0) {
+    const text = result.output.toLowerCase();
+    // Docker daemon/rootless troubleshooting and Distribution HTTP API error wording.
+    const matches = [
+      ['DAEMON_CONNECTION_TEXT', text.includes('cannot connect to the docker daemon')],
+      ['MANIFEST_UNKNOWN_TEXT', text.includes('manifest unknown') || text.includes('manifest_unknown')],
+      ['RATE_LIMIT_TEXT', text.includes('toomanyrequests')],
+      ['NO_SPACE_TEXT', text.includes('no space left on device')],
+    ].filter(([, matched]) => matched);
+    if (matches.length === 1) pattern = matches[0][0];
+  }
+  return { operation, exitCode, outputState, capturedBytes: Math.min(length, limit), pattern };
+}
+
 /**
  * Keep the migrated Functional owners on their own Playwright config while
  * retaining the legacy smoke suite on the root tests/ui config. Playwright

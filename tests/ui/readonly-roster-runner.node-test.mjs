@@ -4,7 +4,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { createRosterControl, rosterAssetPaths, validateRosterInvocation } from './run-real-backend-readonly-roster.mjs';
+import { composeFailureObservation, getComposeProjectName, normalizeExitCode, redactSecrets,
+  selectComposeInvocation } from './real-backend-smoke-compose-helpers.mjs';
 
 const sha = 'b'.repeat(40), token = 'a'.repeat(32), projectName = `coglatas-ui07-roster-${token}`;
 const image = `sha256:${'c'.repeat(64)}`, label = 'coglatas.ui07-roster.run';
@@ -534,4 +539,146 @@ test('unavailable migration metadata preserves its finite capture phase without 
     assert.equal(f.calls.some(x => x.args[1] === 'rm' || x.args[1] === 'stop'), false);
     assert.equal(JSON.stringify(receipt).includes('private-container-diagnostic'), false);
   } finally { f.dispose(); }
+});
+
+const smokeSource = readFileSync(new URL('./run-real-backend-smoke-compose.mjs', import.meta.url), 'utf8');
+const privateComposeText = 'private-cookie-token-password-body-example.test';
+
+async function failedComposeFlow(f, operation, { overflow = false, captureFailure = false, unavailableObserver = false } = {}) {
+  const errors = [], writes = [], actions = [];
+  let upAttempted = false, kills = 0;
+  const source = smokeSource.replace(/^import[\s\S]*?;\r?\n/gmu, '')
+    .replace('export async function runRealBackendSmokeCompose', 'async function runRealBackendSmokeCompose')
+    .replaceAll('import.meta.url', 'runnerUrl');
+  const result = await runInNewContext(`(async () => { ${source}\n return runRealBackendSmokeCompose(control); })()`, {
+    control: f.control, Buffer, setTimeout, clearTimeout, pathToFileURL, getComposeProjectName,
+    normalizeExitCode, redactSecrets, selectComposeInvocation,
+    composeFailureObservation: unavailableObserver ? () => { throw new Error(privateComposeText); } : composeFailureObservation,
+    runnerUrl: new URL('./run-real-backend-smoke-compose.mjs', import.meta.url).href,
+    process: { argv: ['node', '/not-the-direct-entry'], pid: 1, cwd: () => process.cwd(), once: () => undefined,
+      env: { ...f.io.environment, REAL_BACKEND_SMOKE_COMPOSE_PROJECT_NAME: f.projectName,
+        COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER: '1' }, stdout: { write: text => writes.push(text) } },
+    console: { log: () => undefined, error: text => errors.push(text) },
+    spawn: (_command, args) => {
+      const child = new EventEmitter();
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+      child.kill = () => { kills++; return true; };
+      queueMicrotask(async () => {
+        try {
+          let response;
+          if (args[0] === 'compose') {
+            const action = args.find(value => ['version', 'config', 'up'].includes(value));
+            actions.push(action);
+            if (action === 'up') upAttempted = true;
+            response = action === operation.toLowerCase()
+              ? { exitCode: 7, stderr: `Cannot connect to the Docker daemon: ${privateComposeText}` }
+              : { exitCode: 0 };
+          } else response = captureFailure && upAttempted && args[0] === 'volume' && args[1] === 'ls'
+            ? { exitCode: 9, output: privateComposeText }
+            : await f.io.docker(args);
+          if (response.stdout || response.output) child.stdout.emit('data', Buffer.from(response.stdout || response.output));
+          if (response.stderr) child.stderr.emit('data', Buffer.from(response.stderr));
+          if (overflow && response.exitCode === 7) child.stderr.emit('data', Buffer.alloc(2 * 1024 * 1024 + 1));
+          child.emit('close', response.exitCode);
+        } catch (error) { child.emit('error', error); }
+      });
+      return child;
+    },
+  });
+  const observations = errors.filter(value => value.startsWith('UI07_ROSTER_COMPOSE_OBSERVATION '))
+    .map(value => JSON.parse(value.slice('UI07_ROSTER_COMPOSE_OBSERVATION '.length)));
+  return { exitCode: result, observations, errors, writes, actions, kills };
+}
+
+await test('Compose wording observations publish only closed enums and bounded metadata, never raw diagnostics', () => {
+  for (const [text, pattern] of [['Cannot connect to the Docker daemon', 'DAEMON_CONNECTION_TEXT'],
+    ['MANIFEST_UNKNOWN', 'MANIFEST_UNKNOWN_TEXT'], ['manifest unknown', 'MANIFEST_UNKNOWN_TEXT'],
+    ['TOOMANYREQUESTS', 'RATE_LIMIT_TEXT'], ['no space left on device', 'NO_SPACE_TEXT']]) {
+    const output = `${privateComposeText} Password=private-value; Authorization: private-value ${text}`;
+    const value = composeFailureObservation('UP', { exitCode: 7, output, outputOverflow: false });
+    assert.deepEqual(Object.keys(value), ['operation', 'exitCode', 'outputState', 'capturedBytes', 'pattern']);
+    assert.deepEqual(value, { operation: 'UP', exitCode: 7, outputState: 'AVAILABLE', capturedBytes: Buffer.byteLength(output), pattern });
+    assert.equal(JSON.stringify(value).includes(privateComposeText), false);
+    assert.equal(JSON.stringify(value).includes('private-value'), false);
+  }
+});
+
+await test('ambiguous, missing, malformed and overflow Compose observations stay UNKNOWN without coercing private values', () => {
+  const known = 'manifest unknown';
+  for (const result of [{ exitCode: 1, output: privateComposeText, outputOverflow: false },
+    { exitCode: 1, output: `${known} no space left on device`, outputOverflow: false },
+    { exitCode: 1, output: known, outputOverflow: true }, { exitCode: 1, output: known },
+    { exitCode: null, output: known, outputOverflow: false }, { exitCode: 1, output: '', outputOverflow: false },
+    { exitCode: 1, output: { toString: () => { throw new Error(privateComposeText); } }, outputOverflow: false },
+    { exitCode: 1, output: `${known}${'あ'.repeat(800_000)}`, outputOverflow: false }]) {
+    const value = composeFailureObservation('CONFIG', result);
+    assert.equal(value.pattern, 'UNKNOWN');
+    assert.ok(value.capturedBytes >= 0 && value.capturedBytes <= 2 * 1024 * 1024);
+    assert.equal(JSON.stringify(value).includes(privateComposeText), false);
+  }
+  assert.equal(composeFailureObservation('UP', { exitCode: 1, output: `${known}${'あ'.repeat(800_000)}`, outputOverflow: false }).outputState, 'OVERFLOW');
+  for (const operation of ['CONFIG', 'UP']) assert.equal(composeFailureObservation(operation, { exitCode: 0, output: known, outputOverflow: false }), null);
+  assert.equal(composeFailureObservation(privateComposeText, { exitCode: 1, output: known, outputOverflow: false }), null);
+});
+
+for (const operation of ['CONFIG', 'UP']) {
+  await test(`records initial ${operation} failure before later capture while preserving silent output and strict cleanup`, async () => {
+    const f = setup();
+    try {
+      const run = await failedComposeFlow(f, operation);
+      assert.equal(run.exitCode, 1);
+      assert.equal(f.receipt().failurePhase, operation === 'CONFIG' ? 'CONSTRUCTED' : 'ADMITTED');
+      assert.equal(run.observations.length, 1);
+      assert.equal(run.observations[0].operation, operation);
+      assert.equal(run.observations[0].exitCode, 7);
+      assert.equal(run.observations[0].pattern, 'DAEMON_CONNECTION_TEXT');
+      assert.equal(f.receipt().failureClass, 'CONTRACT_OR_EXECUTION_REJECTED');
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.equal(f.receipt().cleanupState, operation === 'CONFIG' ? 'NOT_ADMITTED' : 'PARTIAL_OR_UNVERIFIED_RETAINED');
+      assert.deepEqual(f.receipt().ownedResources, { container: 0, volume: 0, network: 0 });
+      assert.equal(run.actions.includes('up'), operation === 'UP');
+      assert.equal(f.calls.some(call => call.args[1] === 'stop' || call.args[1] === 'rm'), false);
+      assert.deepEqual(run.writes, []);
+      assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+      assert.equal(JSON.stringify(f.receipt()).includes(privateComposeText), false);
+    } finally { f.dispose(); }
+  });
+}
+
+await test('successful CONFIG and UP emit no observation when a later independent capture fails', async () => {
+  const f = setup();
+  try {
+    const run = await failedComposeFlow(f, 'NONE', { captureFailure: true });
+    assert.equal(run.exitCode, 1);
+    assert.deepEqual(run.observations, []);
+    assert.equal(f.receipt().failurePhase, 'STACK_CAPTURE_VOLUME');
+    assert.equal(f.receipt().failureClass, 'DOCKER_COMMAND_FAILED');
+    assert.equal(f.receipt().outcome, 'FAIL');
+    assert.equal(f.receipt().cleanupState, 'PARTIAL_OR_UNVERIFIED_RETAINED');
+    assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+  } finally { f.dispose(); }
+});
+
+await test('overflow, later capture failure and unavailable observation never replace the original UP failure or authorize cleanup', async () => {
+  for (const options of [{ overflow: true }, { captureFailure: true }, { unavailableObserver: true }]) {
+    const f = setup();
+    try {
+      const run = await failedComposeFlow(f, 'UP', options);
+      assert.equal(run.exitCode, 1);
+      assert.equal(f.receipt().failurePhase, 'ADMITTED');
+      assert.equal(f.receipt().failureClass, 'CONTRACT_OR_EXECUTION_REJECTED');
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.equal(f.receipt().cleanupState, 'PARTIAL_OR_UNVERIFIED_RETAINED');
+      assert.equal(run.observations.length, options.unavailableObserver ? 0 : 1);
+      if (options.overflow) {
+        assert.equal(run.kills, 1);
+        assert.equal(run.observations[0].outputState, 'OVERFLOW');
+        assert.equal(run.observations[0].pattern, 'UNKNOWN');
+        assert.equal(run.observations[0].exitCode, 1);
+      }
+      assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+      assert.deepEqual(run.writes, []);
+      assert.equal(f.calls.some(call => call.args[1] === 'stop' || call.args[1] === 'rm'), false);
+    } finally { f.dispose(); }
+  }
 });
