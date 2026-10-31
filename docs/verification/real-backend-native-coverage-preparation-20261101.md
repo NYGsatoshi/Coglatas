@@ -3,7 +3,7 @@
 This is a diagnostic candidate, not a coverage import or Main test promotion authorization.
 
 Product baseline: `eb18fb3c5b82c05ca4cdc8b68b59276732eb2fef`.
-Independent test-management source: `8eaccb54e1946ec1880af5a25b385e99a615c4fb`, based on
+Independent test-management source: `c555d4dd311e34bf68ff3867297e3510f77bf191`, based on
 `SecurityTestImplimation` at `b18939f9104d52ae33e32a7f9b15a6e1b52892f1`.
 The two test files in the qualification checkout must match those Git blobs exactly.
 Neither the management PR nor this Draft is eligible to merge without the applicable
@@ -48,3 +48,25 @@ Actual protected-workflow execution, artifact integrity, source/range comparison
 and independent latest-head review remain to be recorded. A successful diagnostic
 run does not by itself establish valid Sonar attribution, 80% Main coverage,
 physical-device acceptance, public HTTPS or Pilot admission.
+
+The first protected diagnostic run, `41251234165/attempt 1` at candidate
+`186e9dc676f70cd1536b27578d4d2da50e8d5da5`, failed at artifact publication:
+the root container's native JSON files were mode 0600 and the host uploader could
+not open them. The actual unchanged Mobile case passed, with four actors, zero
+retries and source-built image
+`sha256:e93958ef8c885a3c1600ec5b2ea826a27e6cfa7bd2ad038faf629e82064a7393`.
+Its execution artifact 13061775376 ZIP digest is
+`123e20b7a446c6137d8662746cd6e628ade934595e1b23fa1e8d3d375bedb131`.
+No readable raw artifact was retained, so that run does not qualify attribution.
+The actual browser container ran Node 24.21.0, distinct from the host and local
+24.22.2 runtime; neither was changed.
+
+The revised command scopes native collection to the actual test process,
+preserves native file bytes and mode 0600, and changes report ownership to the
+bind-mounted checkout owner. It rejects symlinked directories and nonregular raw
+entries and requires both LCOV and raw reports. The uploader publishes raw data
+only after the actual scenario and handoff succeed; failure retains the existing
+closed execution receipt instead. Disposable Linux controls confirm UID/GID1001
+with mode0600, child failure propagation, and nonregular-output rejection before
+ownership transfer. The original failed diagnostic is retained, not rerun into a
+pass. The revised head requires a fresh first-attempt run.
