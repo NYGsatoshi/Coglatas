@@ -37,6 +37,7 @@ public sealed class NumericOperand
         UnitPowers = new ReadOnlyDictionary<string, int>(new SortedDictionary<string, int>(units, StringComparer.Ordinal));
         Data = SourceJson.FromObject(new
         {
+            format = "coglatas.numeric-operand/1",
             state = "coglatas." + status.ToString().ToLowerInvariant(),
             amount = amount is null ? null : new { numerator = amount.Numerator.ToString(CultureInfo.InvariantCulture),
                 denominator = amount.Denominator.ToString(CultureInfo.InvariantCulture) },
@@ -104,7 +105,13 @@ public static class ProjectNumericOperations
         limits ??= new();
         limits.Validate();
         // Fixed-depth provenance references prevent repeated arithmetic from expanding its JSON exponentially.
-        var basis = SourceJson.FromObject(new { operation = operation.ToString(), left = ContentDigest.Compute("coglatas.numeric-operand/1", left.Data.ToCanonicalBytes()).Data.Value,
+        var operationToken = operation switch
+        {
+            NumericOperator.Add => "coglatas.add", NumericOperator.Subtract => "coglatas.subtract",
+            NumericOperator.Multiply => "coglatas.multiply", NumericOperator.Divide => "coglatas.divide",
+            NumericOperator.Compare => "coglatas.compare", _ => "coglatas.unsupported-numeric-operator"
+        };
+        var basis = SourceJson.FromObject(new { operation = operationToken, left = ContentDigest.Compute("coglatas.numeric-operand/1", left.Data.ToCanonicalBytes()).Data.Value,
             right = ContentDigest.Compute("coglatas.numeric-operand/1", right.Data.ToCanonicalBytes()).Data.Value });
         NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis);
         if (!Enum.IsDefined(operation)) return State(NumericEvaluationStatus.Unsupported, "coglatas.operator-unsupported");
@@ -146,7 +153,9 @@ public static class ProjectNumericOperations
     {
         ArgumentNullException.ThrowIfNull(value);
         limits ??= new(); limits.Validate();
-        var basis = SourceJson.FromObject(new { value = ContentDigest.Compute("coglatas.numeric-operand/1", value.Data.ToCanonicalBytes()).Data.Value, scale, roundingMode });
+        var basis = SourceJson.FromObject(new { value = ContentDigest.Compute("coglatas.numeric-operand/1", value.Data.ToCanonicalBytes()).Data.Value, scale, roundingMode,
+            original = value.Amount is null ? null : new { numerator = value.Amount.Numerator.ToString(CultureInfo.InvariantCulture),
+                denominator = value.Amount.Denominator.ToString(CultureInfo.InvariantCulture) } });
         NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis);
         if (roundingMode != "coglatas.nearest-ties-to-even") return State(NumericEvaluationStatus.Unsupported, "coglatas.rounding-mode-unsupported");
         if (value.Status != NumericEvaluationStatus.Known) return State(value.Status, "coglatas.input-" + value.Status.ToString().ToLowerInvariant());
