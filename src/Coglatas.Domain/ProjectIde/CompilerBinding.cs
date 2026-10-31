@@ -171,7 +171,7 @@ public static class ProjectSemanticBinder
         {
             var document = SourceFields.Identity<DocumentId>(reference, "documentId");
             if (!source.Manifest.DocumentIds.Contains(document))
-            { Add(CoreCompilerRules.Schema, "coglatas.binding.reference-origin", RelationFindingState.Invalid, root); continue; }
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.reference-origin", input.SourceCoverageComplete ? RelationFindingState.Invalid : RelationFindingState.Unknown, root); continue; }
             var referenceKey = ContentDigest.Compute("coglatas.source-reference/1", SourceJson.FromElement(reference).ToCanonicalBytes()).Value;
             var location = ProjectLocation.Create(document, source.Context, "/sourceReferences/" + referenceKey);
             if (SourceFields.Token(reference, "kind") != "coglatas.entity-reference" ||
