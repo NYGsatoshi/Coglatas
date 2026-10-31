@@ -35,7 +35,7 @@ not Sonar New Code coverage or an official Main improvement forecast.
 Hosted Linux/current-source checks, original report and zero audit, independent
 review and resulting Main qualification remain required. Initial source-bound
 Eba inventory63/46 missed lines and current Main a3ed Gate65.7% / ReliabilityD /
-SecurityE remain separate evidence. The held receipt-coverage candidate is not
+SecurityE remain separate evidence. The separate receipt-coverage candidate is not
 an implicit dependency of this branch; reconcile normally before combining.
 
 Files intake/scanner, RLS, Recovery, staging/admission and formal release holds
