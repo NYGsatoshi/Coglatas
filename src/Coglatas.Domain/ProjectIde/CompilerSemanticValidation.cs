@@ -38,6 +38,10 @@ public sealed class CompilerSemanticValidation
         var irIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "ir"));
         if (semanticIdentity.ArtifactId != "coglatas.semantic-model" || semanticIdentity.Version != "1" || irIdentity.ArtifactId != "coglatas.project-ir" || irIdentity.Version != "1")
             Add("coglatas.semantic.version-compatibility", RelationFindingState.Unsupported, root);
+        var capabilities = SourceFields.Array(input.Settings.Value, "featureSet").EnumerateArray().Select(ValueFields.String).ToHashSet(StringComparer.Ordinal);
+        foreach (var relation in model.Relations.Select(item => item.Relation).OfType<TypedRelation>())
+            if (relation.Descriptor.RequiredCapabilities.Any(capability => !capabilities.Contains(capability)))
+                Add("coglatas.semantic.capability-unavailable", RelationFindingState.Unsupported, relation.Location);
         var suppliedUnits = (units ?? []).Take(1025).ToArray(); var suppliedCalendars = (calendars ?? []).Take(129).ToArray();
         if (suppliedUnits.Length > 1024 || suppliedCalendars.Length > 128 || suppliedUnits.Any(item => item is null) || suppliedCalendars.Any(item => item is null))
         {

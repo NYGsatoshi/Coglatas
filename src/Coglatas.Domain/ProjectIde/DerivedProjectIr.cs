@@ -1,17 +1,17 @@
 namespace Coglatas.Domain.ProjectIde;
 
-public sealed record IRNodeId
+public sealed record IrNodeId
 {
     public Guid Value { get; }
     public ContentDigest DerivationDigest { get; }
-    internal IRNodeId(TenantId tenant, ProjectId project, EntityId entity) => (Value, DerivationDigest) = CompilerIdentity.Derive("IRNodeId",
+    internal IrNodeId(TenantId tenant, ProjectId project, EntityId entity) => (Value, DerivationDigest) = CompilerIdentity.Derive("IRNodeId",
         SourceJson.FromObject(new object[] { new { tenantId = tenant.ToString(), projectId = project.ToString(), entityId = entity.ToString() }, "coglatas.declaration", "coglatas.primary" }));
     public override string ToString() => Value.ToString("D");
 }
 
 public sealed class ProjectIrNode
 {
-    public IRNodeId NodeId { get; }
+    public IrNodeId NodeId { get; }
     public EntityId EntityId { get; }
     public string Kind { get; }
     public ProjectLocation Origin { get; }
