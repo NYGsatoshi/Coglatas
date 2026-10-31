@@ -140,6 +140,9 @@ public sealed class ProjectUnitConversionTests
         var large = ProjectUnitConversions.Convert(Quantity("99", a), a, b, [path[0]], new(new(3, 2)));
         Assert.Equal(NumericEvaluationStatus.Unknown, large.Status);
         Assert.Null(large.Value);
+        var extremeDimension = Json(new Dictionary<string, int> { ["coglatas.length"] = int.MaxValue });
+        var extreme = Unit("fixture.extreme", extremeDimension);
+        Assert.Equal("coglatas.dimension-bound-exhausted", ProjectUnitConversions.Convert(Quantity("1", extreme), extreme, extreme, []).Reason);
     }
 
     [Fact]
