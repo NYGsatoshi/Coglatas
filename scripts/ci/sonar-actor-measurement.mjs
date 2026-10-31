@@ -240,14 +240,20 @@ async function run() {
     const started = Date.now();
     const completion = await invoke('/usr/bin/bash', ['scripts/ci/functional-compose-harness.sh'], env, fd);
     closeSync(fd); fd = undefined;
-    phase = 'VALIDATION'; sourceGuard(source);
+    phase = 'VALIDATION_SOURCE'; sourceGuard(source);
+    phase = 'VALIDATION_IMAGE_BINDING';
     command(executors.paths.python, ['-B', 'scripts/ci/sonar_actor_image_identity.py', 'verify', ...identityArgs, '--config-id', configImage], { env });
+    phase = 'VALIDATION_IMAGE_RECEIPT';
     const records = ownedFile(join(control, 'harness.private.log'), 16 * 1024 * 1024, true, started).split(/\r?\n/).filter(row => row.startsWith('FUNCTIONAL_IMAGE_REUSE '));
     assert.equal(records.length, 1);
+    phase = 'VALIDATION_JOURNEY_FILE';
     const journey = JSON.parse(ownedFile(join(control, 'result.json'), 65536, true, started));
+    phase = 'VALIDATION_JOURNEY';
     const finite = validateCompletion({ ...completion, journey, image: JSON.parse(records[0].slice(23)),
       admission: { source, producerImage: configImage, engineImage }, expectedHashes: hashes, started });
+    phase = 'VALIDATION_NATIVE_SUMMARY';
     validateNativeSummary(ownedFile(join(control, 'native.spec.private.log'), 1024 * 1024, false, started));
+    phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
     phase = 'PRE_ANALYSIS_CLEAN'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
