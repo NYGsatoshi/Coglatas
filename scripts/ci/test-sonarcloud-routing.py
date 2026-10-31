@@ -302,6 +302,7 @@ class SonarSourceScopeTests(unittest.TestCase):
             "Measure existing CI regression controls without analysis credentials",
             "Install existing reporter dependencies without analysis credentials",
             "Measure existing Functional and roster Node controls before credentials",
+            "Qualify existing private output CLI imports without coverage",
         ):
             start = workflow.index("      - name: " + name)
             end = workflow.find("\n      - name:", start + 1)
@@ -356,6 +357,19 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)
         self.assertIn('node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info', block)
         self.assertNotIn('GITHUB_ENV', block)
+        control = "tests/functional/private-playwright-output-import.node-test.mjs"
+        self.assertNotIn(control, block)
+        start = workflow.index("      - name: Qualify existing private output CLI imports without coverage")
+        end = workflow.index("\n      - name:", start + 1)
+        cli = workflow[start:end]
+        self.assertLess(workflow.index("      - name: Install existing reporter dependencies without analysis credentials"), start)
+        self.assertIn('test "$(/usr/bin/id -u)" -ne 0', cli)
+        self.assertIn("unset NODE_V8_COVERAGE NODE_OPTIONS", cli)
+        self.assertIn("node --test " + control, cli)
+        self.assertNotIn("--experimental-test-coverage", cli)
+        self.assertNotIn("--test-coverage", cli)
+        self.assertNotIn("GITHUB_ENV", cli)
+        self.assertNotIn("lcov", cli)
 
     def test_native_fixture_filters_remain_exact_and_external(self) -> None:
         import re
