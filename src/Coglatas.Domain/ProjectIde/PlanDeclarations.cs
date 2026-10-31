@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
 
