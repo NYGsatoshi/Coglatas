@@ -22,6 +22,10 @@ internal static class CompilerContractFixtures
     {
         var settings = new JsonObject();
         foreach (var name in new[] { "schema", "compiler", "ruleset", "semantics", "ir", "evaluator" }) settings[name] = Artifact("coglatas." + name);
+        settings["schema"] = Artifact(ProjectSource.SchemaId);
+        settings["semantics"] = Artifact("coglatas.semantic-model");
+        settings["ir"] = Artifact("coglatas.project-ir");
+        settings["units"] = new JsonArray();
         foreach (var name in new[] { "scheduler", "solver", "stochastic", "importer", "scenario" }) settings[name] = Obj(new { kind = "coglatas.none" });
         foreach (var name in new[] { "authorizedExternalSnapshots", "resourceSnapshots", "allocationSnapshots", "observations", "evidence", "calendars", "timeZones" }) settings[name] = new JsonArray();
         settings["descriptors"] = JsonSerializer.SerializeToNode(RelationKindDescriptor.BuiltIns.Select(item => new { artifactId = item.DescriptorId, version = "1", digest = item.Digest.Data.Value }));
