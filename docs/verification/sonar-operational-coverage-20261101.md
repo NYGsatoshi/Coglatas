@@ -1,4 +1,4 @@
-# Existing operational coverage: source-bound measurement
+# Original native coverage: diagnostic evidence and import boundary
 
 Related: #1507, #614 and #615. **IMPLEMENTATION_IN_PROGRESS / RELEASE_NO_GO.**
 
@@ -27,7 +27,7 @@ attribution uncertainty under #1507 remains unresolved.
 
 Existing source-inventory and npm-audit regression suites already exercise two
 tracked modules omitted from the imported native report. Measure those unchanged
-suites in a separate cohort and import its original LCOV. The source-inventory
+suites in a separate diagnostic cohort and retain its original LCOV. The source-inventory
 checks validate the maintained Angular route/owner contracts; this adds no
 Avalonia implementation or platform promotion.
 
@@ -36,7 +36,13 @@ The cohort includes exactly `frontend/scripts/check-av-mig-source.mjs` and
 accept both and reject overlap with either original Node report. Original report
 scope, source bytes, zeros, thresholds, exclusions and toolchain pins remain.
 The new step runs before scanner credentials and retains native V8 files as
-well as LCOV, including failures. Existing cohorts are unchanged.
+well as LCOV, including failures. Its LCOV is **not imported into Sonar**:
+independent review found that the pinned Node reporter can lose never-run
+nested ranges when it combines subprocesses. Serial test scheduling does not
+repair that merge. No custom merger, count rewriting or coverage credit is
+introduced. The existing three imported JavaScript reports remain unchanged.
+The existing Functional/roster cohort additionally retains original raw V8
+files in a separate artifact; its source/test selection and report are preserved.
 
 Local Linux execution used the repository's Node 24 image digest
 `sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413`
@@ -44,14 +50,37 @@ Local Linux execution used the repository's Node 24 image digest
 strict repository install policy. Both suites passed: **41 tests, zero skips,
 cancellations or retries**. Original LCOV SHA-256:
 `ac76aa752b39d6e9370a28051e8f1d6baa6972afa3df4028b0e58517ba1c65e9`.
-Native records: source inventory 421/426 lines, 135/140 branches; npm audit
+Unqualified native records: source inventory 421/426 lines, 135/140 branches; npm audit
 137/164 lines, 24/39 branches. These are complete-file native counts, not Sonar
 new-code counts. Fifty-three raw V8 files were produced. No hit/coordinate
-rewriting or execution of serialized browser callbacks was used.
+rewriting or execution of serialized browser callbacks was used. These counts
+are retained diagnostic output, not qualified coverage: the current npm tests
+exercise advisory-source normalization but do not exercise URL/title fallback.
+Those missing ranges must not be credited through a faulty process merge.
 
 Downloaded exact-Main Node artifacts `13053411625` and `13053321648` retain
 40/3 source records and 1,854/244 branches respectively. Independent original
 report validation confirms the new two-source set is disjoint from both.
+
+## Result Main and independent review checkpoint
+
+Result Main `086d685acedb127154150effe459cdc8ef48db43`, official analysis
+`c0fd6888-66cc-4155-b85e-d54c62bb5eae`, reports Security E and 72.5% new
+coverage. The same 11,577 lines and 5,700 conditions now contain 4,085 uncovered
+lines and 674 uncovered conditions: 12,518/17,277, leaving 1,304 units to 80%.
+The only changed file measure across the two analyses is the source-identical
+Search drawer observer: its native LCOV lines 62–120 change from positive to
+zero. Earlier positive counts are not proof of callback execution. Raw V8 was
+not retained by that historical cohort; this patch adds future retention.
+
+CodeRabbit reviewed exact head `4ba52e761edfa4128e79d11ae8fa0bbbe0eafad4`
+and identified the process-merge risk, an excluded-versus-held wording error,
+and missing immutable Sonar evidence in the audit JSON. The wording/evidence
+are corrected; the proposed new import is withdrawn pending valid attribution.
+Existing Main sources and coverage imports are not reduced. See the upstream
+[Node process-merge report](https://github.com/nodejs/node/issues/66860).
+This candidate does not fix the reporter, establish 80%, or qualify the existing
+Main report's uncertain ranges. No runtime/toolchain upgrade is proposed.
 
 An additional Python measurement was investigated separately: the existing 22
 environment-contract tests pass on Linux; the measured verifier has 144
