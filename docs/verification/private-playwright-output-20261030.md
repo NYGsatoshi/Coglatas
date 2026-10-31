@@ -33,3 +33,40 @@ execute the Linux ancestor checks. Linux50, fresh canonical Mobile and the
 official current-source Gate remain UNVERIFIED for this follow-up; earlier
 results do not transfer. No new test, policy, literal, workflow, provider
 disposition, exclusion or threshold change is included. RELEASE_NO_GO remains.
+
+## Current-source hosted CLI/import qualification wiring
+
+At b95e40526e984089b37de3b7a1735700c377f39e, Native run 41145464470/1
+passed 129 Node controls, including eight Linux private-output helper cases,
+and 2,641 backend tests with zero skips. The existing CLI/import suite was not
+selected. Its old Linux/Mobile results are not current-source qualification.
+The official b95 Gate remains FAIL: 94.3 percent coverage, Security D and ten open
+S5443 findings; analysis execution success does not waive that result.
+
+A separate pre-credential step now invokes only the existing
+private-playwright-output-import.node-test.mjs suite with plain node --test.
+It runs after existing locked root reporter dependencies and independently of
+native coverage generation. A fixed /usr/bin/id precondition rejects UID 0;
+step-local NODE_V8_COVERAGE and NODE_OPTIONS are unset so child-generated
+external fixtures do not enter the native LCOV cohort. There are no coverage
+flags, new exclusions, packages, credentials, permissions or environment grants.
+
+The unchanged source declares seven Node cases on Linux: one config/worker
+case covering Mobile, Thread matrix and Thread default-fixture modes, plus six
+Linux cases for history precedence, concurrent/repository identity, read-only
+cwd, parsed CLI options, unwritable temp, and the pinned out-of-process loader.
+It declares no skips. Two permission cases explicitly require a non-root UID;
+no foreign-UID switch, root capability, Docker image or additional SDK is used.
+The existing package lock provides Playwright 1.64.1. Generated Playwright cases
+request no page/browser fixture and disable the web server; expected child
+assertion failures are deliberate history/selection controls checked by the
+parent case. This is actual SDK/config/CLI execution, not Product/browser,
+canonical Mobile, two-UID adversary or Pilot acceptance.
+
+The suite, helper and both configs remain byte-identical. Existing credential
+and native-source guards now protect this separate invocation and prohibit
+coverage flags or LCOV processing in that step; no new test case, assertion
+relaxation, timeout or retry is introduced. Local verification runs only the
+existing pure Python source guards. Actual seven-case unprivileged Linux
+execution, current Gate and later Main/Mobile qualification remain pending.
+RELEASE_NO_GO remains unchanged.

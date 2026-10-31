@@ -275,6 +275,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Qualify existing private output CLI imports without coverage
+        run: |
+          test "$(/usr/bin/id -u)" -ne 0
+          unset NODE_V8_COVERAGE NODE_OPTIONS
+          node --test tests/functional/private-playwright-output-import.node-test.mjs
+
       - name: Generate frontend coverage before scanner credentials
         run: |
           npm --prefix frontend run test:coverage
