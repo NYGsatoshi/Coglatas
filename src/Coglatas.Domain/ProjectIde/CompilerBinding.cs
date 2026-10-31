@@ -224,10 +224,11 @@ public static class ProjectSemanticBinder
         {
             if (value.ValueKind == JsonValueKind.Object)
             {
-                if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _) &&
-                    TypedProjectValueCodec.Decode(SourceJson.FromElement(value, data.Limits)).Value?.KnownValue is TypedProjectReference)
-                    return true;
-                foreach (var member in value.EnumerateObject()) pending.Push(member.Value);
+                var typed = value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _)
+                    ? TypedProjectValueCodec.Decode(SourceJson.FromElement(value, data.Limits)).Value : null;
+                if (typed?.KnownValue is TypedProjectReference) return true;
+                foreach (var member in value.EnumerateObject())
+                    if (member.Name != "basis" || typed?.State != ValueState.Unknown) pending.Push(member.Value);
             }
             else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
         }
@@ -262,13 +263,16 @@ public static class ProjectSemanticBinder
         {
             if (value.ValueKind == JsonValueKind.Object)
             {
+                TypedProjectValue? typed = null;
                 if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _))
                 {
                     var data = SourceJson.FromElement(value);
-                    if (TypedProjectValueCodec.Decode(data, numbers).Status == ValueDecodeStatus.Invalid && TypedProjectValueCodec.Decode(data).Status == ValueDecodeStatus.Decoded)
+                    var decoded = TypedProjectValueCodec.Decode(data); typed = decoded.Value;
+                    if (TypedProjectValueCodec.Decode(data, numbers).Status == ValueDecodeStatus.Invalid && decoded.Status == ValueDecodeStatus.Decoded)
                         return false;
                 }
-                foreach (var member in value.EnumerateObject()) pending.Push(member.Value);
+                foreach (var member in value.EnumerateObject())
+                    if (member.Name != "basis" || typed?.State != ValueState.Unknown) pending.Push(member.Value);
             }
             else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
         }
