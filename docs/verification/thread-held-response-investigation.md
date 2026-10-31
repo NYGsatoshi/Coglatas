@@ -71,10 +71,14 @@ only fixed classifications, phases, statuses and booleans. Its label is
 Build the unchanged Angular source locally, then run:
 
 ```powershell
-node node_modules/@playwright/test/cli.js test --config playwright.thread-investigation.config.ts
+node node_modules/@playwright/test/cli.js test --config playwright.thread-investigation.config.ts --output .\artifacts\thread-investigation-output
 $env:THREAD_INVESTIGATION_MODE = 'default-fixture'
-node node_modules/@playwright/test/cli.js test --config playwright.thread-investigation.config.ts
+node node_modules/@playwright/test/cli.js test --config playwright.thread-investigation.config.ts --output .\artifacts\thread-investigation-output
 ```
+
+Native non-Linux runs require an explicit trusted output directory. Select a
+private location appropriate for the operator and machine; the example path
+does not establish a Windows ACL guarantee. Linux may use its private default.
 
 The second run requires three existing regressions: ordinary dedicated-pane
 keyboard/draft operation and authoritative 403 purge at 320px and 1366px. Those

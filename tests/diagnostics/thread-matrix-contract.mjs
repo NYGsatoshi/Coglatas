@@ -8,7 +8,7 @@ const keys = ['caseId', 'classification', 'phases', 'backgroundStatus', 'freshSt
 const phases = ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'REQUEST_OBSERVED', 'ACTION_COMPLETED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED'];
 
 export function validateMatrixObservation(value) {
-  if (!value || Object.keys(value).sort().join() !== [...keys].sort().join() || !CASES.includes(value.caseId)) { throw new Error('Invalid matrix observation.'); }
+  if (!value || Object.keys(value).sort(compareCodeUnits).join() !== [...keys].sort(compareCodeUnits).join() || !CASES.includes(value.caseId)) { throw new Error('Invalid matrix observation.'); }
   const expected = {
     'TD-01': ['ORDINARY_FRESH_DENIAL', null, 400, false, true, null],
     'TD-02': ['LEGITIMATE_EARLY_REDACTION', 400, null, true, false, null],
@@ -35,4 +35,12 @@ export function validateExecutedCases(rows, mode) {
         row.attempts[0].status !== 'passed' || row.attempts[0].retry !== 0) { throw new Error('Unsuccessful diagnostic execution.'); }
     return { id, attempts: 1, retries: 0, ...(mode === 'matrix' ? { observation: validateMatrixObservation(row.observation) } : {}) };
   });
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }
