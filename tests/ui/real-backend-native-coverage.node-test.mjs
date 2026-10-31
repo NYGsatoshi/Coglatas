@@ -16,15 +16,11 @@ test('the original real-backend runner succeeds under native coverage', () => {
   assert.equal(process.env.NODE_V8_COVERAGE,
     resolve(root, 'artifacts/sonar-real-backend-native/raw'));
 
-  const suite = process.env.COGLATAS_NATIVE_COVERAGE_SUITE;
-  assert.ok(suite === 'mobile-mvp0' || suite === 'default', 'explicit closed suite selection');
-  const args = suite === 'mobile-mvp0'
-    ? ['--config=playwright.mobile-mvp0-real.config.ts', '--project=real-backend-mobile-mvp0-320',
-      '--retries=0', '--workers=1']
-    : [];
-  if (suite === 'mobile-mvp0') {
-    assert.equal(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE, '1');
-  }
+  assert.equal(process.env.COGLATAS_NATIVE_COVERAGE_SUITE, 'mobile-mvp0');
+  assert.equal(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE, '1');
+  const args = ['--config=playwright.mobile-mvp0-real.config.ts', '--project=real-backend-mobile-mvp0-320',
+    '--retries=0', '--workers=1'];
+  console.log(`Original-runner native coverage runtime: ${process.version}.`);
 
   const result = spawnSync(process.execPath,
     [resolve(root, 'tests/ui/run-real-backend-playwright.mjs'), ...args], {
