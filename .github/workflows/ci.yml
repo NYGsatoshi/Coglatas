@@ -1,4 +1,5 @@
 name: PR CI
+# Full-CI qualification for ordinary-unit module compile cache inheritance.
 # Full-CI qualification for stable-authority event batching; job semantics unchanged.
 
 on:

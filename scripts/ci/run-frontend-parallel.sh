@@ -17,7 +17,10 @@ run_unit() {
   # two static Playwright workers. Keep the normal unit runner unchanged for
   # local, unit-only and independent validation jobs.
   if [[ "${GITHUB_ACTIONS:-}" == "true" && "${FRONTEND_PLAYWRIGHT:-false}" == "true" ]]; then
-    COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test
+    # Keep the cache local to this non-coverage unit command and this runner.
+    # Child forks inherit it; no cache is restored from another job or PR.
+    NODE_COMPILE_CACHE="${RUNNER_TEMP:-/tmp}/coglatas-frontend-unit-compile-cache" \
+      COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test
   else
     npm --prefix frontend test
   fi
