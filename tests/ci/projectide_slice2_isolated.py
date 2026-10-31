@@ -73,7 +73,6 @@ def compose(repository: Path, target: Path, receipt_path: Path, candidates: Path
                "verification": {"build": "NotRun", "projectIde": "NotRun", "architecture": "NotRun"}}
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(receipt, indent=2))
     return receipt
 
 
@@ -122,6 +121,7 @@ def main() -> None:
                       args.test_head or git(repository, "rev-parse", "HEAD"))
     if args.verify:
         verify(target, receipt_path, receipt)
+    print(json.dumps(receipt, indent=2))
 
 
 if __name__ == "__main__":
