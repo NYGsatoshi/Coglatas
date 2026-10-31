@@ -28,7 +28,8 @@ function requestPage() {
 
 const matchesThread = (request) => request.method === 'GET' && request.operation === 'thread';
 
-test('late authorized response cannot replace the newly emitted restricted thread response', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('late authorized response cannot replace the newly emitted restricted thread response', async () => {
   const page = requestPage();
   const oldResponse = { status: 200 };
   const deniedResponse = { status: 400 };
@@ -55,7 +56,7 @@ test('late authorized response cannot replace the newly emitted restricted threa
   assert.equal(await result, deniedResponse);
 });
 
-test('fresh response status remains visible without conversion or retry', async () => {
+void test('fresh response status remains visible without conversion or retry', async () => {
   const page = requestPage();
   const response = { status: 200 };
   let actions = 0;
@@ -67,21 +68,21 @@ test('fresh response status remains visible without conversion or retry', async 
   assert.equal(actions, 1);
 });
 
-test('missing HTTP response fails instead of supplying a denial', async () => {
+void test('missing HTTP response fails instead of supplying a denial', async () => {
   const page = requestPage();
   await assert.rejects(responseToFreshRequest(page, matchesThread, async () => {
     page.events.emit('request', { method: 'GET', operation: 'thread', response: async () => null });
   }), /without an HTTP response/);
 });
 
-test('request observation and action failures propagate without retry', async () => {
+void test('request observation and action failures propagate without retry', async () => {
   const requestError = new Error('request observation failed');
   await assert.rejects(responseToFreshRequest({ waitForRequest: () => Promise.reject(requestError) }, matchesThread, async () => {}), requestError);
   const actionError = new Error('tab action failed');
   await assert.rejects(responseToFreshRequest({ waitForRequest: () => new Promise(() => {}) }, matchesThread, async () => { throw actionError; }), actionError);
 });
 
-test('phase diagnostics distinguish a pending click from a missing newly emitted request', async () => {
+void test('phase diagnostics distinguish a pending click from a missing newly emitted request', async () => {
   const page = requestPage(), phases = [];
   let finishAction;
   const actionPending = new Promise((resolve) => { finishAction = resolve; });
@@ -102,7 +103,7 @@ test('phase diagnostics distinguish a pending click from a missing newly emitted
   assert.equal((await missingRequest).status, 400);
 });
 
-test('phase diagnostics distinguish a pending HTTP response without converting its status or retrying the action', async () => {
+void test('phase diagnostics distinguish a pending HTTP response without converting its status or retrying the action', async () => {
   const page = requestPage(), phases = [];
   let finishResponse;
   const pending = new Promise((resolve) => { finishResponse = resolve; });
@@ -119,7 +120,7 @@ test('phase diagnostics distinguish a pending HTTP response without converting i
   assert.equal(phases.at(-1), 'RESPONSE_OBSERVED');
 });
 
-test('phase diagnostics preserve action, request and response failures without exposing their error text', async () => {
+void test('phase diagnostics preserve action, request and response failures without exposing their error text', async () => {
   const cases = [
     { page: { waitForRequest: () => new Promise(() => {}) }, action: async () => { throw new Error('private-canary'); }, phase: 'ACTION_FAILED' },
     { page: { waitForRequest: () => Promise.reject(new Error('private-canary')) }, action: async () => {}, phase: 'REQUEST_FAILED' },
