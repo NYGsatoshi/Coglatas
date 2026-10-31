@@ -75,6 +75,9 @@ public sealed class CompilerHostTests
         Assert.Equal(golden["inputId"]!.GetValue<string>(), input.InputId.ToString());
         Assert.Equal(golden["resultDigest"]!.GetValue<string>(), result.Result.ResultDigest.Value);
         Assert.Equal(golden["resultId"]!.GetValue<string>(), result.Result.ResultId.ToString());
+        Assert.Equal(golden["materializationsDigest"]!.GetValue<string>(), new CompilerHostRequest(new(input)).MaterializationDigest.Value);
+        Assert.Equal(golden["executionInputDigest"]!.GetValue<string>(), response.Execution!.InputBindingDigest.Value);
+        Assert.Equal(golden["executionReceiptDigest"]!.GetValue<string>(), response.Execution.Digest.Value);
         Assert.Equal(golden["irDigest"]!.GetValue<string>(), result.Validation!.Ir!.Digest.Value);
         Assert.Equal(golden["sourceMapDigest"]!.GetValue<string>(), result.Validation.Ir.SourceMapDigest.Value);
     }
@@ -207,6 +210,20 @@ public sealed class CompilerHostTests
         var server = new ServerCompilerHost(profile, new FakeTransport((_, _) => Task.FromResult(produced)));
         var response = await server.CompileAsync(new(new(input)));
         Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
+    }
+
+    [Fact]
+    public void HostInputBindingRetainsMaterializationMultiplicityAndScopeClaims()
+    {
+        var input = Input(); var snapshot = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(30)), "1", new(Source(9), true, true, true));
+        var a = new CompilerHostRequest(new(input), 1, [snapshot]); var b = new CompilerHostRequest(new(input), 2, [snapshot]);
+        Assert.Equal(a.ExecutionInputDigest, b.ExecutionInputDigest);
+        Assert.NotEqual(a.ExecutionInputDigest, new CompilerHostRequest(new(input), snapshots: [snapshot, snapshot]).ExecutionInputDigest);
+        var partial = new CompilerMaterializedSnapshot(snapshot.SnapshotId, snapshot.Version, snapshot.Snapshot with { RelationsComplete = false });
+        Assert.NotEqual(a.ExecutionInputDigest, new CompilerHostRequest(new(input), snapshots: [partial]).ExecutionInputDigest);
+        var denied = new CompilerMaterializedSnapshot(snapshot.SnapshotId, snapshot.Version, snapshot.Snapshot with { IsAuthorized = false });
+        Assert.NotEqual(a.ExecutionInputDigest, new CompilerHostRequest(new(input), snapshots: [denied]).ExecutionInputDigest);
+        Assert.Equal(a.ExecutionInputDigest, new CompilerHostRequest(new(a.Input.Materialize()), snapshots: [snapshot]).ExecutionInputDigest);
     }
 
 }

@@ -6,5 +6,8 @@
   "resultDigest": "63614133c58cc8dd52644a5520f30c0ced871ced4c3693b94eafd9022c84a5f0",
   "resultId": "d2d380bf-b450-8d0a-8b3d-4609e2b2b9d6",
   "irDigest": "944f855071196721ab088d91c4b041c4a3ecee8c3f8a863a126c025934db97f9",
-  "sourceMapDigest": "df169547d519304afe22e20900b08d042374cd569d80f069d87ca2a22fe6c78e"
+  "sourceMapDigest": "df169547d519304afe22e20900b08d042374cd569d80f069d87ca2a22fe6c78e",
+  "materializationsDigest": "b51920a1c60bce96fe65609b707a5bc61cef48f202290a71ba9ff4d9732126b8",
+  "executionInputDigest": "b5a586e0e712046d182ad33b48aa048432f093a8ad7ef7fdfa64016f1027f5e7",
+  "executionReceiptDigest": "d91cc51a78cf7186d87e64575edf0ae73d63e34560cb06849c1f6c80732b100b"
 }
