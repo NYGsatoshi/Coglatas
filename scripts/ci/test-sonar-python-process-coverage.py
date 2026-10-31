@@ -100,6 +100,8 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/verify-postgres-log-privacy.py',
             ROOT.as_posix() + '/scripts/ci/functional-setup-failure-probe.py',
+            ROOT.as_posix() + '/scripts/security/process-zap-report.py',
+            ROOT.as_posix() + '/scripts/performance/db-ci.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
         })
@@ -203,6 +205,79 @@ class PythonProcessCoverageTests(unittest.TestCase):
                     self.assertGreater(hits.get(positive, 0), 0)
                     self.assertIn(zero, hits)
                     self.assertEqual(hits[zero], 0, 'Original uncalled-line zeros must survive standard XML generation.')
+
+    def test_existing_zap_and_db_suites_measure_real_cli_children_and_preserve_authority_zeros(self):
+        subjects = [
+            ('scripts/security/process-zap-report.py', 'tests/ci/test_security_zap_attribution.py',
+             19, 'load_attribution', 'load_forbidden_values'),
+            ('scripts/performance/db-ci.py', 'tests/ci/test_performance_db_ci.py',
+             26, 'gate_decision', 'resolve_build'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            data = folder / 'data'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data)
+            expected = []
+            for source, suite, cases, positive_name, zero_name in subjects:
+                tracked = (ROOT / source).resolve()
+                functions = {node.name: node for node in ast.parse(tracked.read_text(encoding='utf-8')).body
+                             if isinstance(node, ast.FunctionDef)}
+                if zero_name == 'load_forbidden_values':
+                    zeros = [node.lineno for node in ast.walk(functions[zero_name])
+                             if isinstance(node, ast.Return) and isinstance(node.value, ast.Tuple)
+                             and len(node.value.elts) == 2 and isinstance(node.value.elts[0], ast.List)
+                             and not node.value.elts[0].elts and isinstance(node.value.elts[1], ast.Constant)
+                             and node.value.elts[1].value is True]
+                else:
+                    zeros = [node.lineno for node in ast.walk(functions[zero_name])
+                             if isinstance(node, ast.With) and any(
+                                 isinstance(item.context_expr, ast.Call)
+                                 and isinstance(item.context_expr.func, ast.Attribute)
+                                 and item.context_expr.func.attr == 'urlopen' for item in node.items)]
+                self.assertEqual(len(zeros), 1, 'The existing uncalled authority branch must be unambiguous.')
+                positive_body = functions[positive_name].body
+                first = positive_body[0]
+                if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                    first = positive_body[1]
+                expected.append((tracked, first.lineno,
+                                 functions['main'].body[0].lineno, zeros[0]))
+                result = self.run_python([str(ROOT / suite)], folder, env)
+                self.assertIn(f'Ran {cases} tests', result.stderr)
+            self.assertGreater(len(list(folder.glob('data.*'))), 2,
+                               'The two existing suites and their actual CLI children must write separate shards.')
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--keep', '--rcfile=' + str(CONFIG)], folder, env)
+            measured = coverage.CoverageData(basename=str(data))
+            measured.read()
+            self.assertTrue(measured.has_arcs())
+            report = folder / 'coverage.xml'
+            self.run_python(['-m', 'coverage', 'xml', '--rcfile=' + str(CONFIG), '-o', str(report)], folder, env)
+            document = ET.parse(report).getroot()
+            sources = [Path(source.text or '.') for source in document.findall('./sources/source')]
+            for tracked, positive, cli, zero in expected:
+                with self.subTest(source=tracked.name):
+                    files = [name for name in measured.measured_files() if Path(name).resolve() == tracked]
+                    self.assertEqual(len(files), 1, 'CoverageData must identify the exact tracked operational CLI.')
+                    executed = set(measured.lines(files[0]))
+                    self.assertIn(positive, executed)
+                    self.assertIn(cli, executed, 'Child-process coverage must include the real CLI main body.')
+                    self.assertNotIn(zero, executed, 'Synthetic controls must not invent unsanitized or network authority.')
+                    classes = [node for node in document.findall('.//class')
+                               if tracked in {(source / node.attrib['filename']).resolve() for source in sources}]
+                    self.assertEqual(len(classes), 1, 'Standard XML must retain the exact same tracked source.')
+                    rows = classes[0].findall('./lines/line')
+                    hits = {int(line.attrib['number']): int(line.attrib['hits']) for line in rows}
+                    self.assertEqual(len(rows), len(hits), 'Original XML must not contain duplicate source line rows.')
+                    line_count = len(tracked.read_text(encoding='utf-8').splitlines())
+                    self.assertTrue(all(0 < line <= line_count
+                                        and count >= 0 for line, count in hits.items()))
+                    self.assertGreater(hits.get(positive, 0), 0)
+                    self.assertGreater(hits.get(cli, 0), 0)
+                    self.assertIn(zero, hits)
+                    self.assertEqual(hits[zero], 0, 'Uncalled authority zeros must survive original XML generation.')
 
     def test_same_suffix_fixture_copy_is_not_repository_source(self):
         with tempfile.TemporaryDirectory() as directory:
