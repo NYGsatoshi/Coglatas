@@ -16,12 +16,12 @@ public sealed class CalendarEvaluationTests
         var data = Json(new
         {
             schemaVersion = 1, timeZoneId = "America/New_York", version = "fixture-2026a",
-            validFrom = "2026-01-01T00:00:00.0000000Z", validTo = "2027-01-02T00:00:00.0000000Z",
+            validFrom = "2024-01-01T00:00:00.0000000Z", validTo = "2028-01-02T00:00:00.0000000Z",
             segments = new[]
             {
-                new { start = "2026-01-01T00:00:00.0000000Z", end = "2026-03-08T07:00:00.0000000Z", offsetTicks = "-180000000000" },
+                new { start = "2024-01-01T00:00:00.0000000Z", end = "2026-03-08T07:00:00.0000000Z", offsetTicks = "-180000000000" },
                 new { start = "2026-03-08T07:00:00.0000000Z", end = "2026-11-01T06:00:00.0000000Z", offsetTicks = "-144000000000" },
-                new { start = "2026-11-01T06:00:00.0000000Z", end = "2027-01-02T00:00:00.0000000Z", offsetTicks = "-180000000000" }
+                new { start = "2026-11-01T06:00:00.0000000Z", end = "2028-01-02T00:00:00.0000000Z", offsetTicks = "-180000000000" }
             }
         });
         var reference = new TimeZoneReference(Json(new { timeZoneId = "America/New_York", version = "fixture-2026a", rulesDigest = TimeZoneSnapshot.ComputeDigest(data).Data.Value }));
@@ -43,7 +43,7 @@ public sealed class CalendarEvaluationTests
         var data = Json(new
         {
             schemaVersion = 1, calendarId = "coglatas.fixture-calendar", version = "fixture-1", timeZone = zone.Reference.Data.Value,
-            validFrom = "2026-01-01T00:00:00.0000000Z", validTo = "2027-01-01T00:00:00.0000000Z",
+            validFrom = "2024-01-01T00:00:00.0000000Z", validTo = "2028-01-01T00:00:00.0000000Z",
             workingIntervals = new[] { Range("2026-07-01T13:00:00", "2026-07-01T17:00:00"), Range("2026-07-01T18:00:00", "2026-07-01T22:00:00") },
             nonWorkingIntervals = new[] { Range("2026-07-01T14:00:00", "2026-07-01T15:00:00") }, exceptions = exceptions ?? []
         });
@@ -99,8 +99,8 @@ public sealed class CalendarEvaluationTests
     public void MissingCoverageIsUnknownAndBudgetExhaustionIsExplicit()
     {
         var zone = Zone();
-        Assert.Equal(TimeEvaluationStatus.Unknown, zone.Snapshot.Resolve(Civil(zone.Reference, "2028-01-01T00:00:00")).Status);
-        Assert.Equal(TimeEvaluationStatus.Unknown, zone.Snapshot.ToCivil(Instant("2028-01-01T00:00:00")).Status);
+        Assert.Equal(TimeEvaluationStatus.Unknown, zone.Snapshot.Resolve(Civil(zone.Reference, "2029-01-01T00:00:00")).Status);
+        Assert.Equal(TimeEvaluationStatus.Unknown, zone.Snapshot.ToCivil(Instant("2029-01-01T00:00:00")).Status);
         Assert.Equal(TimeEvaluationStatus.ResourceExhausted, zone.Snapshot.Resolve(Civil(zone.Reference, "2026-07-01T12:00:00"), new(MaximumOperations: 1)).Status);
         Assert.Equal(TimeEvaluationStatus.ResourceExhausted, TimeZoneSnapshot.Read(zone.Data, zone.Reference, new(MaximumIntervals: 1)).Status);
     }
@@ -148,7 +148,7 @@ public sealed class CalendarEvaluationTests
         Assert.Equal(TimeEvaluationStatus.Known, result.Status); Assert.Equal(6 * TimeSpan.TicksPerHour, result.Value!.Ticks);
         Assert.Same(calendar.Reference, result.Value.Calendar);
         Assert.Equal(TimeEvaluationStatus.ResourceExhausted, calendar.Snapshot.Measure(interval, new(MaximumOperations: 1)).Status);
-        Assert.Equal(TimeEvaluationStatus.Unknown, calendar.Snapshot.Measure(new(Instant("2025-01-01T00:00:00"), Instant("2026-07-01T23:00:00"))).Status);
+        Assert.Equal(TimeEvaluationStatus.Unknown, calendar.Snapshot.Measure(new(Instant("2023-01-01T00:00:00"), Instant("2026-07-01T23:00:00"))).Status);
         Assert.Equal(0, calendar.Snapshot.Measure(new(interval.Start, interval.Start)).Value!.Ticks);
     }
 
@@ -247,7 +247,7 @@ public sealed class CalendarEvaluationTests
     [Theory]
     [InlineData("workingIntervals", "2026-07-01T12:00:00.0000000Z", "2026-07-01T11:00:00.0000000Z")]
     [InlineData("workingIntervals", "2026-07-01T12:00:00.0000000Z", "2026-07-01T12:00:00.0000000Z")]
-    [InlineData("nonWorkingIntervals", "2025-07-01T12:00:00.0000000Z", "2025-07-01T13:00:00.0000000Z")]
+    [InlineData("nonWorkingIntervals", "2023-07-01T12:00:00.0000000Z", "2023-07-01T13:00:00.0000000Z")]
     public void InvalidCalendarIntervalsCannotBeEvaluated(string field, string start, string end)
     {
         var calendar = Calendar(); var node = JsonNode.Parse(calendar.Data.CanonicalText)!;
@@ -287,5 +287,54 @@ public sealed class CalendarEvaluationTests
             Assert.Equal(civil.Data.CanonicalText, new ZonedCivilTime(SourceJson.Parse(civil.Data.ToCanonicalBytes())).Data.CanonicalText);
         }
         finally { CultureInfo.CurrentCulture = prior; }
+    }
+
+    [Fact]
+    public void NewlySupportedTimeCodecPreservesSourceAndRejectsIncompleteLegacyZonedShape()
+    {
+        var zone = Zone();
+        var civil = Civil(zone.Reference, "2026-11-01T01:30:00");
+        var local = Value("coglatas.local-date-time", "coglatas.known", "2026-11-01T01:30:00.0000000");
+        var zoned = Value("coglatas.zoned-local-date-time", "coglatas.known", civil.Data.Value);
+        var end = Value("coglatas.local-date-time", "coglatas.known", "2026-11-01T02:30:00.0000000");
+        var interval = Value("coglatas.time-interval", "coglatas.known", new { start = local.Data.Value, end = end.Data.Value });
+        Assert.IsType<ProjectLocalDateTime>(local.KnownValue);
+        Assert.IsType<ZonedCivilTime>(zoned.KnownValue);
+        Assert.IsType<ProjectTimeInterval>(interval.KnownValue);
+        foreach (var value in new[] { local, zoned, interval })
+        {
+            var result = TypedProjectValueCodec.Decode(value.Data);
+            Assert.Equal(ValueDecodeStatus.Decoded, result.Status);
+            Assert.Equal(value.Data.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
+        }
+        // Slice 2a held this kind as Unsupported. The implemented schema now requires pinned rules and canonical precision.
+        var incomplete = Json(new { type = new { kind = "coglatas.zoned-local-date-time", schemaVersion = 1, nullable = false, acceptsUnknown = false },
+            state = "coglatas.known", value = new { local = "2026-10-31T00:00:00" } });
+        Assert.Equal(ValueDecodeStatus.Invalid, TypedProjectValueCodec.Decode(incomplete).Status);
+    }
+
+    [Theory]
+    [InlineData("coglatas.time-interval")]
+    [InlineData("coglatas.list")]
+    [InlineData("coglatas.zoned-local-date-time")]
+    public void UnsupportedEndpointKindsAreRejectedBeforeRecursiveDecoding(string kind)
+    {
+        // Deliberately malformed child payload proves that no recursive child decoding occurs.
+        var child = new { type = new { kind, schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = new { malformed = true } };
+        var interval = Json(new { type = new { kind = "coglatas.time-interval", schemaVersion = 1, nullable = false, acceptsUnknown = false },
+            state = "coglatas.known", value = new { start = child, end = child } });
+        var result = TypedProjectValueCodec.Decode(interval);
+        Assert.Equal(ValueDecodeStatus.Unsupported, result.Status); Assert.Null(result.Value);
+        Assert.Equal(interval.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
+    }
+
+    [Theory]
+    [InlineData("2023-12-31", 1)]
+    [InlineData("2027-12-31", 1)]
+    public void PeriodEvaluationRequiresBothDatesInsideFixedCalendarCoverage(string anchor, int days)
+    {
+        var calendar = Calendar();
+        var result = ProjectTimeArithmetic.ApplyPeriod(new(anchor, calendar.Reference), new(0, 0, days), calendar.Snapshot, "coglatas.reject-invalid-day");
+        Assert.Equal(TimeEvaluationStatus.Unknown, result.Status); Assert.Null(result.Value);
     }
 }
