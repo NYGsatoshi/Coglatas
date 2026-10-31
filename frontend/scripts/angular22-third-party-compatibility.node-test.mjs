@@ -7,7 +7,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.64.0',
+    '@lucide/angular': '1.66.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.42',
@@ -16,6 +16,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     'ag-grid-angular': '36.2.0',
     'ag-grid-community': '36.2.0',
     rxjs: '7.8.2',
+    tslib: '2.9.1',
     'zone.js': '0.16.3',
   },
   expectedDevDependencies = {
