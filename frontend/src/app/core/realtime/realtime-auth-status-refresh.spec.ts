@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 
 import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionFacade, DEFAULT_AUTH_SESSION } from '../auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../feature-flags/frontend-feature-flags.service';
@@ -106,6 +106,35 @@ describe('Realtime lifecycle through authoritative Auth status refresh', () => {
     expect(TestBed.inject(ActiveWorkspaceFacade).activeWorkspace()).toBeNull();
     events.next(frame);
     expect(received.map(value => value.eventId)).toEqual([frame.eventId]);
+    http.expectNone('/api/auth/status');
+  });
+
+  it('rejects a reentrant frame from a protected clearer during an authoritative terminal status response', async () => {
+    allowStart = true;
+    http.expectOne('/api/auth/status').flush({ isAuthenticated: true, user: user(actorB) });
+    await settle();
+    expect(facade.connectionState()).toBe('Connected');
+    const received: DurableRealtimeEvent[] = [];
+    facade.durableEvents$.subscribe(value => received.push(value));
+    const frame: DurableRealtimeEvent = { eventId: '77777777-7777-4777-8777-777777777777',
+      eventType: 'Projects.ProjectChanged.v1', payloadSchemaVersion: 1, occurredAt: '2026-10-31T00:00:00Z', tenantId,
+      aggregateType: 'Project', aggregateId: workspace.id, aggregateVersion: 2,
+      actor: { actorType: 'User', actorId: actorB }, correlationId: null, causationId: null, payload: {} };
+    const clear = vi.fn(() => events.next(frame));
+    facade.registerProtectedStateClearer('terminal-status-reentry', clear);
+    TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace(workspace);
+
+    const response = firstValueFrom(auth.refreshSessionContext());
+    http.expectOne('/api/auth/status').flush({ isAuthenticated: false, user: null });
+    await response;
+    await settle();
+
+    expect(clear).toHaveBeenCalledWith('session');
+    expect(received).toEqual([]);
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.currentUser()).toBeNull();
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(TestBed.inject(ActiveWorkspaceFacade).activeWorkspace()).toBeNull();
     http.expectNone('/api/auth/status');
   });
 });
