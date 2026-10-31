@@ -108,7 +108,6 @@ public sealed class CompilerHostRequest
 
 public enum CompilerHostStatus { Completed, Cancelled, Unsupported, InvalidInput, InternalError }
 
-/// <summary>Invocation metadata is outside the deterministic CompilerResult. Host completion never implies Pass.</summary>
 /// <summary>Derived immutable coupling of the actual executed host inputs and Core result. No remote authorization or binary attestation is implied.</summary>
 public sealed class CompilerHostExecutionReceipt
 {
@@ -128,6 +127,7 @@ public sealed class CompilerHostExecutionReceipt
     }
 }
 
+/// <summary>Invocation metadata is outside the deterministic CompilerResult. Host completion never implies Pass.</summary>
 public sealed record CompilerHostResponse(CompilerHostStatus Status, string ReasonCode, ContentDigest RequestedInputDigest,
     long ClientGeneration, Guid AttemptId, CompilerHostExecutionReceipt? Execution)
 {

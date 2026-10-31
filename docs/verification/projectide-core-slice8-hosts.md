@@ -60,3 +60,18 @@ production/RLS/SEC-ARCH/Shadow/Enforce or Student Council release decision chang
 Angular retained; Web UI NOT_STARTED and Windows/Avalonia BLOCKED by #1144. Headless
 Windows .NET tests are not native UI acceptance. #1128 remains SUSPENDED /
 NOT_EVALUATED. CODEOWNER/review/integration/release acceptance remains pending.
+
+The host execution input binding includes a deterministic materialization manifest,
+separate from the declared CompilerInputManifest: snapshot IDs/versions/content and
+coverage/authorization claims, unit definition digests, and calendar/timezone rules
+digests. Availability and multiplicity are retained; unordered materialization
+collections are canonicalized. Snapshot versions are bounded by the initial host
+profile. A read-only execution receipt couples the actual frozen request passed to
+the Local compiler and its Core result. Server verification compares this complete
+binding; a self-consistent compilation from different materializations is rejected.
+The receipt is derived invocation evidence, not another writable Source or proof of
+remote binary attestation/current authorization. Real transport remains gated.
+Unknown value basis stays opaque provenance through binding and numeric semantic
+scans, while raw JSON continues to consume logical processing budget. Regressions
+reproduce both review findings before correction, including all three materialized
+input families, and independent Python golden vectors bind the host receipt.
