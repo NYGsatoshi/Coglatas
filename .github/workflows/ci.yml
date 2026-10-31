@@ -302,6 +302,57 @@ jobs:
       gate: functional-fast
       artifact_name: pr-functional-runtime
 
+  actor-replacement:
+    name: PR same-document actor replacement
+    needs: [changes, functional-runtime]
+    if: needs.changes.outputs.functional == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout actual producer merge revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Node for the fixed consumer
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24.22.2"
+      - name: Validate fixed actor controls before runtime execution
+        run: |
+          node --check tests/ui/actor-replacement-real.mjs
+          node --check tests/ui/run-real-backend-actor-replacement.mjs
+          node --test tests/ui/actor-replacement-runner.node-test.mjs
+      - name: Install locked browser dependencies without scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download same-run canonical PR runtime
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pr-functional-runtime
+          path: ${{ runner.temp }}/actor-inputs
+      - name: Download same-run frontend provenance
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-build-artifacts
+          path: ${{ runner.temp }}/actor-inputs
+      - name: Restore exact producer runtime without rebuilding
+        run: bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/actor-inputs" "$GITHUB_SHA" "$GITHUB_WORKSPACE"
+      - name: Prepare immutable browser image
+        run: docker pull mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      - name: Require the fixed real-browser actor journey
+        env:
+          ACTOR_ARTIFACT_ROOT: ${{ runner.temp }}/actor-inputs
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tests/ui/run-real-backend-actor-replacement.mjs
+      - name: Publish only the finite actor receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: actor-replacement-pr-${{ github.run_attempt }}
+          path: artifacts/actor-replacement/receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
   functional-fast:
     name: functional-fast
     needs: [changes, functional-runtime, functional-run]
