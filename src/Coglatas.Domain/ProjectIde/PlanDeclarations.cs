@@ -103,9 +103,10 @@ public sealed class ResourceBindingDeclaration : PlanDeclaration
     public ContentDigest SnapshotDigest { get; }
     public string ResourceKind { get; }
     public ResourceBehavior Behavior { get; }
+    public CalendarReference? Calendar { get; }
     internal ResourceBindingDeclaration(SourceJson data, DocumentId document) : base(data, document)
     {
-        Fields("tenantId", "resourceId", "snapshotVersion", "snapshotDigest", "resourceKind");
+        Fields("tenantId", "resourceId", "snapshotVersion", "snapshotDigest", "resourceKind", "calendar");
         TenantId = SourceFields.Identity<TenantId>(Payload.Value, "tenantId");
         ResourceId = SourceFields.Identity<ResourceId>(Payload.Value, "resourceId");
         SnapshotVersion = TimeValueFields.Nonempty(Payload, "snapshotVersion");
@@ -118,6 +119,7 @@ public sealed class ResourceBindingDeclaration : PlanDeclaration
             "coglatas.material" => ResourceBehavior.Consumable,
             _ => throw new UnsupportedSourceException("Unknown resource behavior; no reusable fallback.")
         };
+        if (Payload.Value.TryGetProperty("calendar", out _)) Calendar = DeclarationFields.Calendar(Child("calendar"));
     }
 }
 
