@@ -197,17 +197,17 @@ public sealed class ProjectTimeInterval
         return result.Value ?? throw new FormatException("Invalid interval endpoint.");
     }
 
-    public TimeEvaluationResult<bool> Overlaps(ProjectTimeInterval other) => Relate(other, "coglatas.overlaps");
-    public TimeEvaluationResult<bool> Contains(ProjectTimeInterval other) => Relate(other, "coglatas.contains");
-    public TimeEvaluationResult<bool> IsAdjacentTo(ProjectTimeInterval other) => Relate(other, "coglatas.adjacent");
+    public TimeEvaluationResult<bool?> Overlaps(ProjectTimeInterval other) => Relate(other, "coglatas.overlaps");
+    public TimeEvaluationResult<bool?> Contains(ProjectTimeInterval other) => Relate(other, "coglatas.contains");
+    public TimeEvaluationResult<bool?> IsAdjacentTo(ProjectTimeInterval other) => Relate(other, "coglatas.adjacent");
 
-    private TimeEvaluationResult<bool> Relate(ProjectTimeInterval other, string relation)
+    private TimeEvaluationResult<bool?> Relate(ProjectTimeInterval other, string relation)
     {
         ArgumentNullException.ThrowIfNull(other);
-        if (Start.Type.Kind != other.Start.Type.Kind) return new(TimeEvaluationStatus.Invalid, false, "coglatas.time-domain-mismatch");
+        if (Start.Type.Kind != other.Start.Type.Kind) return new(TimeEvaluationStatus.Invalid, null, "coglatas.time-domain-mismatch");
         var endpoints = new[] { Start, End, other.Start, other.End };
-        if (endpoints.Any(item => item.State == ValueState.Unknown)) return new(TimeEvaluationStatus.Unknown, false, "coglatas.unknown-endpoint");
-        if (endpoints.Any(item => item.State == ValueState.Null)) return new(TimeEvaluationStatus.Null, false, "coglatas.null-endpoint");
+        if (endpoints.Any(item => item.State == ValueState.Unknown)) return new(TimeEvaluationStatus.Unknown, null, "coglatas.unknown-endpoint");
+        if (endpoints.Any(item => item.State == ValueState.Null)) return new(TimeEvaluationStatus.Null, null, "coglatas.null-endpoint");
         try
         {
             _ = Compare(Start, other.Start);
@@ -221,7 +221,7 @@ public sealed class ProjectTimeInterval
             };
             return new(TimeEvaluationStatus.Known, value, relation);
         }
-        catch (ArgumentException) { return new(TimeEvaluationStatus.Invalid, false, "coglatas.calendar-context-mismatch"); }
+        catch (ArgumentException) { return new(TimeEvaluationStatus.Invalid, null, "coglatas.calendar-context-mismatch"); }
     }
 
     private static int Compare(TypedProjectValue left, TypedProjectValue right) => (left.KnownValue, right.KnownValue) switch
