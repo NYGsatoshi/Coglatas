@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -21,18 +22,83 @@ public sealed class TypeReference
     public bool IsSupported { get; }
     public string? UnitId { get; }
     public Dimension? Dimension { get; }
+    public TypeReference? ElementType { get; }
+    public TypeReference? KeyType { get; }
+    public TypeReference? ValueType { get; }
+    public string? ExpectedKind { get; }
+    public IReadOnlyList<StructureField> Fields { get; } = Array.Empty<StructureField>();
     public SourceJson Data { get; }
 
-    public TypeReference(SourceJson data)
+    public TypeReference(SourceJson data, ProjectValueLimits? limits = null)
+        : this(data, NewBudget(limits), 0) { }
+
+    private static ProjectValueBudget NewBudget(ProjectValueLimits? limits)
+    {
+        limits ??= new();
+        limits.Validate();
+        return new(limits);
+    }
+
+    internal TypeReference(SourceJson data, ProjectValueBudget budget, int depth)
     {
         ArgumentNullException.ThrowIfNull(data);
+        budget.Visit(depth);
         Data = data;
         Kind = SourceFields.Token(data.Value, "kind");
         SchemaVersion = SourceFields.PositiveInteger(data.Value, "schemaVersion");
-        if (SchemaVersion != 1 || !Scalars.Contains(Kind)) return;
+        if (SchemaVersion != 1 || (!Scalars.Contains(Kind) && !ProjectValueShapes.Kinds.Contains(Kind))) return;
+        // Named structural definitions need a pinned descriptor registry in Slice 5, including cycle policy.
+        if (Kind == "coglatas.named-structure") return;
         Nullable = ValueFields.Boolean(data.Value, "nullable");
         AcceptsUnknown = ValueFields.Boolean(data.Value, "acceptsUnknown");
         var fields = new List<string> { "kind", "schemaVersion", "nullable", "acceptsUnknown" };
+        TypeReference Child(JsonElement child) => new(SourceJson.FromElement(child, data.Limits), budget, depth + 1);
+        var childrenSupported = true;
+        if (Kind is "coglatas.list" or "coglatas.sequence" or "coglatas.set" or "coglatas.optional" or "coglatas.nullable")
+        {
+            ElementType = Child(SourceFields.Object(data.Value, "elementType"));
+            childrenSupported = ElementType.IsSupported;
+            fields.Add("elementType");
+            if (Kind == "coglatas.nullable" && !Nullable) throw new FormatException("Nullable wrapper must permit Null.");
+        }
+        if (Kind == "coglatas.map")
+        {
+            KeyType = Child(SourceFields.Object(data.Value, "keyType"));
+            ValueType = Child(SourceFields.Object(data.Value, "valueType"));
+            childrenSupported = KeyType.IsSupported && ValueType.IsSupported;
+            // Exact scalar Source identity only; collection/reference key equivalence needs a descriptor.
+            if (KeyType.IsSupported && KeyType.Kind is not ("coglatas.text" or "coglatas.boolean" or "coglatas.decimal" or "coglatas.rational" or "coglatas.enum"))
+                childrenSupported = false;
+            fields.AddRange(["keyType", "valueType"]);
+        }
+        if (Kind is "coglatas.map" or "coglatas.set")
+        {
+            if (SourceFields.Token(data.Value, "identity") != "coglatas.canonical-value") childrenSupported = false;
+            fields.Add("identity");
+        }
+        if (Kind == "coglatas.structure")
+        {
+            var definitions = SourceFields.Array(data.Value, "fields");
+            budget.Count(definitions.GetArrayLength());
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var structureFields = new List<StructureField>();
+            foreach (var definition in definitions.EnumerateArray())
+            {
+                var name = SourceFields.String(definition, "name");
+                if (name.Length == 0 || !names.Add(name)) throw new FormatException("Structure fields need unique nonempty names.");
+                var required = ValueFields.Boolean(definition, "required");
+                var type = Child(SourceFields.Object(definition, "type"));
+                childrenSupported &= type.IsSupported && !ValueFields.HasUnknown(definition, "name", "required", "type");
+                structureFields.Add(new(name, type, required));
+            }
+            Fields = new ReadOnlyCollection<StructureField>(structureFields);
+            fields.Add("fields");
+        }
+        if (Kind is "coglatas.entity-reference" or "coglatas.document-reference" or "coglatas.resource-reference" or "coglatas.external-snapshot-reference")
+        {
+            ExpectedKind = SourceFields.Token(data.Value, "expectedKind");
+            fields.Add("expectedKind");
+        }
         if (Kind == "coglatas.quantity")
         {
             UnitId = SourceFields.Token(data.Value, "unitId");
@@ -49,7 +115,7 @@ public sealed class TypeReference
             if (names.Count == 0) throw new FormatException("Enum type requires declared tokens.");
             fields.Add("tokens");
         }
-        IsSupported = !ValueFields.HasUnknown(data.Value, fields.ToArray());
+        IsSupported = childrenSupported && !ValueFields.HasUnknown(data.Value, fields.ToArray());
     }
 }
 
@@ -81,14 +147,22 @@ public sealed class ValueDecodeResult
 
 public static class TypedProjectValueCodec
 {
-    public static ValueDecodeResult Decode(SourceJson data, ExactNumberLimits? limits = null)
+    public static ValueDecodeResult Decode(SourceJson data, ExactNumberLimits? limits = null, ProjectValueLimits? valueLimits = null)
     {
         ArgumentNullException.ThrowIfNull(data);
         limits ??= new();
         limits.Validate();
+        valueLimits ??= new();
+        valueLimits.Validate();
+        return DecodeCore(data, limits, new(valueLimits), 0);
+    }
+
+    internal static ValueDecodeResult DecodeCore(SourceJson data, ExactNumberLimits limits, ProjectValueBudget budget, int depth)
+    {
         try
         {
-            var type = new TypeReference(SourceJson.FromElement(SourceFields.Object(data.Value, "type"), data.Limits));
+            budget.Visit(depth);
+            var type = new TypeReference(SourceJson.FromElement(SourceFields.Object(data.Value, "type"), data.Limits), budget, depth);
             if (!type.IsSupported) return new(ValueDecodeStatus.Unsupported, null, data);
             var token = SourceFields.Token(data.Value, "state");
             var fields = new List<string> { "type", "state" };
@@ -96,7 +170,7 @@ public static class TypedProjectValueCodec
             switch (token)
             {
                 case "coglatas.known":
-                    var known = ReadKnown(type, ValueFields.Required(data.Value, "value"), data.Limits, limits);
+                    var known = ReadKnown(type, ValueFields.Required(data.Value, "value"), data.Limits, limits, budget, depth);
                     value = new(type, ValueState.Known, known, null, null, data);
                     fields.Add("value");
                     Reject(data.Value, "reason", "basis");
@@ -131,8 +205,10 @@ public static class TypedProjectValueCodec
         return result.Data.ToCanonicalBytes();
     }
 
-    private static object ReadKnown(TypeReference type, JsonElement value, SourceCodecLimits sourceLimits, ExactNumberLimits numericLimits)
+    private static object ReadKnown(TypeReference type, JsonElement value, SourceCodecLimits sourceLimits, ExactNumberLimits numericLimits,
+        ProjectValueBudget budget, int depth)
     {
+        if (ProjectValueShapes.Kinds.Contains(type.Kind)) return ProjectValueShapes.Read(type, value, sourceLimits, numericLimits, budget, depth);
         switch (type.Kind)
         {
             case "coglatas.boolean":
