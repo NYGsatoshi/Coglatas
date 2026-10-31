@@ -279,10 +279,49 @@ jobs:
           npm --prefix frontend run test:coverage
           test -s frontend/coverage/frontend/lcov.info
 
+      # This is a separate, noncanonical measurement producer. Existing Main/PR
+      # runtime artifact admission never accepts its image namespace.
+      - name: Measure frozen native actor in an owned synthetic runtime before credentials
+        id: actor_measurement
+        if: >-
+          github.event_name == 'push' && github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          (github.ref == 'refs/heads/main' ||
+           (github.ref == 'refs/heads/ci/sonar-actor-measurement' &&
+            needs.target.outputs.analysis_kind == 'pull_request' &&
+            needs.target.outputs.pr_branch == 'ci/sonar-actor-measurement'))
+        run: |
+          node --max-old-space-size=64 --test --test-concurrency=1 \
+            scripts/ci/sonar-actor-measurement.node-test.mjs \
+            tests/ui/actor-replacement-runner.node-test.mjs
+          TMPDIR="$RUNNER_TEMP" python3 -B scripts/ci/test-sonar-actor-image-identity.py
+          node scripts/ci/sonar-actor-measurement.mjs
+
+      - name: Retain validated noncanonical actor measurement only
+        if: steps.actor_measurement.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-actor-measurement-only
+          path: |
+            artifacts/sonar-actor/lcov.info
+            artifacts/sonar-actor/receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain finite incomplete measurement phase only
+        if: failure() && steps.actor_measurement.outcome == 'failure' && steps.actor_measurement.outputs.receipt_ready == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-actor-measurement-incomplete
+          path: artifacts/sonar-actor/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Begin pinned SonarCloud analysis
         shell: bash
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ACTOR_MEASUREMENT_VERIFIED: ${{ steps.actor_measurement.outcome == 'success' && 'true' || 'false' }}
         run: |
           set -euo pipefail
           if [[ -z "$SONAR_TOKEN" ]]; then
@@ -309,13 +348,19 @@ jobs:
             exit 1
           fi
 
+          lcov_reports=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info
+          if [[ "$SONAR_ACTOR_MEASUREMENT_VERIFIED" == "true" ]]; then
+            test -s artifacts/sonar-actor/lcov.info
+            lcov_reports+=,artifacts/sonar-actor/lcov.info
+          fi
+
           scanner_args=(
             begin
             "/k:$SONAR_PROJECT_KEY"
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info"
+            "/d:sonar.javascript.lcov.reportPaths=$lcov_reports"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
             /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"

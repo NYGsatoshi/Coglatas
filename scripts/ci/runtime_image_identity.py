@@ -224,10 +224,21 @@ def legacy_auxiliaries(members, graph, legacy, config, image_name, layers):
 
 
 def archive_binding(archive, source_sha, image_name, producer_id):
-    require(re.fullmatch(r"[0-9a-f]{40}", source_sha) is not None and
-            DIGEST.fullmatch(producer_id) is not None, "Invalid producer identity.")
     require(image_name in ("coglatas-main-runtime:" + source_sha, "coglatas-pr-functional:" + source_sha),
             "Invalid source-derived image tag.")
+    return _archive_binding(archive, source_sha, image_name, producer_id)
+
+
+def sonar_measurement_archive_binding(archive, source_sha, image_name, producer_id):
+    """Separate noncanonical namespace; never admitted by archive_binding or its CLI."""
+    require(image_name == "coglatas-sonar-actor-measurement:" + source_sha,
+            "Invalid measurement-only image tag.")
+    return _archive_binding(archive, source_sha, image_name, producer_id)
+
+
+def _archive_binding(archive, source_sha, image_name, producer_id):
+    require(re.fullmatch(r"[0-9a-f]{40}", source_sha) is not None and
+            DIGEST.fullmatch(producer_id) is not None, "Invalid producer identity.")
     members = archive_members(archive)
     def document(name):
         return parse_json(members.get(name, {}).get("content"))

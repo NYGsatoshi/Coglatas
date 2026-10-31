@@ -3,6 +3,11 @@
 
 acceptance_prepare_image_reuse() {
   [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
+  case "${COGLATAS_RUNTIME_MEASUREMENT_PROFILE:-}" in
+    '') [[ "${COGLATAS_APP_IMAGE:-}" != coglatas-sonar-actor-measurement:* ]] || return 1 ;;
+    sonar-actor-v1) [[ "${COGLATAS_APP_IMAGE:-}" == "coglatas-sonar-actor-measurement:${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" ]] || return 1 ;;
+    *) return 1 ;;
+  esac
   ACCEPTANCE_PREBUILT_IMAGE="${COGLATAS_APP_IMAGE:-}"
   ACCEPTANCE_PREBUILT_IMAGE_ID="${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID:-}"
   ACCEPTANCE_PREBUILT_ENGINE_ID="${COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID:-$ACCEPTANCE_PREBUILT_IMAGE_ID}"
@@ -36,7 +41,14 @@ acceptance_verify_image_reuse() {
     echo "Acceptance image tag no longer matches the restored producer image ID." >&2
     return 1
   fi
-  if [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+  if [[ "${COGLATAS_RUNTIME_MEASUREMENT_PROFILE:-}" == "sonar-actor-v1" ]]; then
+    python3 "$(dirname "${BASH_SOURCE[0]}")/sonar_actor_image_identity.py" verify \
+      --archive "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE:-}" \
+      --source-sha "${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" --image-name "$ACCEPTANCE_PREBUILT_IMAGE" \
+      --producer-id "$ACCEPTANCE_PREBUILT_IMAGE_ID" --engine-id "$ACCEPTANCE_PREBUILT_ENGINE_ID" \
+      --binding "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING:-}" \
+      --dotnet-stamp "${COGLATAS_REUSE_PREBUILT_DOTNET_STAMP:-}" || return 1
+  elif [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
     python3 "$(dirname "${BASH_SOURCE[0]}")/runtime_image_identity.py" verify \
       --archive "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE:-}" \
       --source-sha "${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" --image-name "$ACCEPTANCE_PREBUILT_IMAGE" \
