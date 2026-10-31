@@ -56,6 +56,7 @@
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.MultiDocumentBindingPublishesTypedSymbolsAndStableLocations",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.NumericProfileExhaustionDoesNotBecomeInvalidSourceOrCompleteBinding",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.OpaqueDeclarationsStayPartialAndOriginalSourceRemainsRecoverable",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.ParsedReferenceValueIsNotSilentlyPromotedToCompleteBinding",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnknownSchemaAndMissingPlatformBaselineCannotBecomeCompleteBinding",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: False, expected: Unknown)",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: True, expected: Invalid)",
