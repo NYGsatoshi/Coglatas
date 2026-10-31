@@ -40,7 +40,7 @@ jobs:
         run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
       - name: Compose pinned candidates and retain full inventories
         env:
-          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-core-slice7-') && 'e9f698a28bbc0dd9ecea336cf4fbd1dcc31e918d' || startsWith(github.head_ref, 'test/projectide-core-slice6-') && 'afc149baa8d556716de6545e149705f26abaaf6a' || startsWith(github.head_ref, 'test/projectide-core-slice5-') && '5f5283627271044967b5149b3e52e159ecfe42e7' || startsWith(github.head_ref, 'test/projectide-core-slice4-') && '57318802712e4d98ab496c270f9047a7cb28c836' || 'e4026f358f275e1acbfc513f8ac9c62af04b63a9' }}
+          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-core-slice7-') && '5ef8b9caa4cbb0228a48b5c13b4f74bb07837547' || startsWith(github.head_ref, 'test/projectide-core-slice6-') && '9a06f5be4fbc015a1c74a6cd76be392f0d0f73fe' || startsWith(github.head_ref, 'test/projectide-core-slice5-') && '3718fe0bf82455945d99a5a4f9d427a790a31b75' || startsWith(github.head_ref, 'test/projectide-core-slice4-') && '57318802712e4d98ab496c270f9047a7cb28c836' || 'e4026f358f275e1acbfc513f8ac9c62af04b63a9' }}
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
           ISOLATED_ROOT: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}
         run: >-
