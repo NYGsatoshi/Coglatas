@@ -110,6 +110,7 @@ public static class ProjectSemanticBinder
                 Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-pin-mismatch", RelationFindingState.Invalid, root); continue;
             }
             var snapshot = item.Snapshot;
+            if (!snapshot.IsAuthorized) { snapshots.Add(snapshot); continue; }
             remainingDeclarations -= snapshot.Source.Declarations.Value.GetArrayLength() + snapshot.Source.Documents.Count;
             if (remainingDeclarations < 0 || !WithinBudget(snapshot.Source.Data.Value, ref remainingOperations) || !WithinNumericProfile(snapshot.Source.Data.Value, input.ExecutionProfile.Numbers))
             {
@@ -168,8 +169,11 @@ public static class ProjectSemanticBinder
         }
         foreach (var reference in source.SourceReferences.Value.EnumerateArray())
         {
+            var document = SourceFields.Identity<DocumentId>(reference, "documentId");
+            if (!source.Manifest.DocumentIds.Contains(document))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.reference-origin", RelationFindingState.Invalid, root); continue; }
             var referenceKey = ContentDigest.Compute("coglatas.source-reference/1", SourceJson.FromElement(reference).ToCanonicalBytes()).Value;
-            var location = ProjectLocation.Create(SourceFields.Identity<DocumentId>(reference, "documentId"), source.Context, "/sourceReferences/" + referenceKey);
+            var location = ProjectLocation.Create(document, source.Context, "/sourceReferences/" + referenceKey);
             if (SourceFields.Token(reference, "kind") != "coglatas.entity-reference" ||
                 ValueFields.HasUnknown(reference, "kind", "documentId", "entityId"))
             { Add(CoreCompilerRules.Declarations, "coglatas.binding.unsupported-source-reference", RelationFindingState.Unsupported, location); continue; }
