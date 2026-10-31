@@ -198,6 +198,7 @@ public sealed class PlanDeclarationTests
         Assert.Equal("\"" + Entity + "\"", JsonSerializer.Serialize(parsed, type));
         Assert.Equal(parsed, JsonSerializer.Deserialize(JsonSerializer.Serialize(parsed, type), type));
         Assert.DoesNotContain(type.GetMethods(), method => method.Name == "op_Implicit");
-        Assert.Throws<ArgumentException>(() => Activator.CreateInstance(type, Guid.Empty));
+        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => Activator.CreateInstance(type, Guid.Empty));
+        Assert.IsType<ArgumentException>(error.InnerException);
     }
 }
