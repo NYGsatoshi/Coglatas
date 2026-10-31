@@ -18,6 +18,5 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional-setup-failure-probe.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/process-zap-report.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-ci.py
-    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-performance-environment.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py

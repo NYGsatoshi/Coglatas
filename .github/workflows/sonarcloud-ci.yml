@@ -222,7 +222,6 @@ jobs:
             scripts/ci/test-postgres-log-privacy.py \
             scripts/ci/test-functional-setup-failure-probe.py \
             tests/ci/test_security_zap_attribution.py \
-            tests/ci/test_performance_environment.py \
             tests/ci/test_performance_db_ci.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \

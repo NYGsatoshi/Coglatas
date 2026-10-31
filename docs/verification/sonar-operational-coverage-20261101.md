@@ -53,11 +53,13 @@ Downloaded exact-Main Node artifacts `13053411625` and `13053321648` retain
 40/3 source records and 1,854/244 branches respectively. Independent original
 report validation confirms the new two-source set is disjoint from both.
 
-Also execute the existing 22 environment-contract tests under Python coverage
-and add only `scripts/ci/verify-performance-environment.py` to its measured
-source list. Linux tests pass; original measured source has 144 statements,
-98 misses and 76 branches (28% aggregate). Uncalled CLI and numerical/performance
-paths stay uncovered; #1128's numerical suspension is unchanged.
+An additional Python measurement was investigated separately: the existing 22
+environment-contract tests pass on Linux; the measured verifier has 144
+statements, 98 misses and 76 branches (28% aggregate). Its existing exact-source
+guard requires a separately reviewed test-branch update before import. That
+import is therefore deferred: the Python cohort and source configuration remain
+unchanged in the final candidate. Uncalled CLI and numerical/performance paths
+stay uncovered; #1128's numerical suspension is unchanged.
 
 ## Retained limitations and failures
 
@@ -67,7 +69,10 @@ passed. This is setup correction, not a flaky-test waiver.
 Windows Python trials retain cp932/subprocess environment failures. A separate
 Linux run of the 22 environment controls passed. Initial WSL source-guard trials
 could not use Windows worktree Git metadata and lacked jq; they are not passes.
-Fresh native-checkout validation, review, hosted exact-head analysis, official
+The initial Python-scope extension also failed the exact-source-set guard and a
+receipt control's unchanged 15-second bound. That failed candidate was narrowed
+to the independent Node import; no guard, deadline or expected-source set was
+weakened. Fresh native-checkout validation, review, hosted exact-head analysis, official
 PR Gate, ordinary merge and resulting-Main validation remain required.
 
 The independent channel-invitation regression is in test-only PR #1610, based on
