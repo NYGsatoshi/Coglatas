@@ -185,6 +185,10 @@ public sealed class PlanDeclarationTests
         resource["payload"]!["tenantId"] = Other;
         var denied = ProjectSource.Create(Context(), [document], declarations: SourceJson.Parse(new JsonArray(resource.DeepClone()).ToJsonString()));
         Assert.Equal(ValueDecodeStatus.Invalid, PlanDeclarationReader.Read(denied)[1].Status);
+        var resourceRoot = resource.DeepClone(); resourceRoot.AsObject().Remove("documentId");
+        var extraDocument = SourceDocument.Create(DocumentId.Parse(Other), "resource", SourceJson.Parse(resourceRoot.ToJsonString()));
+        var rootDenied = ProjectSource.Create(Context(), [document, extraDocument]);
+        Assert.Single(PlanDeclarationReader.Read(rootDenied), result => result.Status == ValueDecodeStatus.Invalid);
     }
 
     [Theory]
