@@ -51,9 +51,4 @@ echo ""
 echo "== memory =="
 free -h
 
-EXTERNAL_IP="$(curl -fsS -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip' || true)"
-if [ -n "${EXTERNAL_IP}" ]; then
-  echo ""
-  echo "== access URL =="
-  echo "http://${EXTERNAL_IP}:8080"
-fi
+echo "Access this development instance through an encrypted SSH tunnel to its loopback port."

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 APP_DIR="${APP_DIR:-/opt/coglatas}"
 COMPOSE="${COMPOSE:-docker compose}"
@@ -23,6 +24,7 @@ read -r -p "Type restart, volumes, or cancel: " choice
 
 case "${choice}" in
   restart)
+    run_compose config --format json | python3 "${SCRIPT_DIR}/verify-loopback.py"
     run_compose down
     run_compose up -d --build
     run_compose ps
@@ -35,6 +37,7 @@ case "${choice}" in
       echo "Cancelled."
       exit 0
     fi
+    run_compose config --format json | python3 "${SCRIPT_DIR}/verify-loopback.py"
     run_compose down --volumes --remove-orphans
     run_compose up -d --build
     run_compose ps

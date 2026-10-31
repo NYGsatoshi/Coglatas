@@ -62,17 +62,7 @@ if ([string]::IsNullOrWhiteSpace($existingVm)) {
     Write-Host "VM $VmName already exists; skipping create."
 }
 
-$firewallName = "$VmName-http-8080"
-$existingFirewall = Invoke-GcloudOptionalValue compute firewall-rules describe $firewallName --format "value(name)"
-if ([string]::IsNullOrWhiteSpace($existingFirewall)) {
-    Write-Host "Creating firewall rule $firewallName for tcp:80,8080..."
-    Invoke-Gcloud compute firewall-rules create $firewallName `
-        --allow tcp:80,tcp:8080 `
-        --target-tags $NetworkTag `
-        --description "Allow HTTP access to Coglatas development VM"
-} else {
-    Write-Host "Firewall rule $firewallName already exists; skipping create."
-}
+Write-Host "No public web firewall rule is created. Development access requires an encrypted SSH tunnel."
 
 Write-Host "Copying GCP helper scripts to VM home directory..."
 $remoteUser = Invoke-GcloudOptionalValue compute ssh $VmName --zone $Zone --quiet --command "whoami"
@@ -95,8 +85,6 @@ if ($RunDeploy) {
     Invoke-Gcloud compute ssh $VmName --zone $Zone --command "REPO_URL='$RepoUrl' bash '$remoteBase/gcp/deploy-app.sh'"
 }
 
-$externalIp = Invoke-GcloudOptionalValue compute instances describe $VmName --zone $Zone --format "value(networkInterfaces[0].accessConfigs[0].natIP)"
-
 Write-Host ""
 Write-Host "VM is ready."
 Write-Host "SSH:"
@@ -106,6 +94,7 @@ Write-Host "On the VM:"
 Write-Host "  bash ~/coglatas-gcp/gcp/bootstrap-vm.sh"
 Write-Host "  REPO_URL='$RepoUrl' bash ~/coglatas-gcp/gcp/deploy-app.sh"
 Write-Host ""
-Write-Host "Access URL after deploy:"
-Write-Host "  http://$externalIp`:8080"
-Write-Host "  http://$externalIp"
+Write-Host "Development access after deploy (keep this SSH session open):"
+Write-Host "  gcloud compute ssh $VmName --zone $Zone -- -N -L 8080:127.0.0.1:8080 -o ExitOnForwardFailure=yes"
+Write-Host "  Open http://127.0.0.1:8080 on your local computer."
+Write-Host "Existing firewall rules are unchanged; any target-specific cleanup requires operator approval."
