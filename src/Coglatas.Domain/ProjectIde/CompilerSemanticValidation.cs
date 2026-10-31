@@ -79,7 +79,7 @@ public sealed class CompilerSemanticValidation
                 Add("coglatas.semantic.calendar-unavailable", RelationFindingState.Unknown, root);
             if (declaration.Declaration is TaskPlanDeclaration task)
                 foreach (var port in task.Ports)
-                    if (port.Type.Kind == "coglatas.quantity") CheckQuantityType(port.Type, ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId));
+                    CheckType(port.Type, ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId));
         }
         foreach (var relation in model.Relations)
             CheckValues(relation.Data, ProjectLocation.Create(SourceFields.Identity<DocumentId>(relation.Data.Value, "documentId"), source.Context, relationId: SourceFields.Identity<RelationId>(relation.Data.Value, "relationId")));
@@ -112,6 +112,23 @@ public sealed class CompilerSemanticValidation
             if (matches.Length == 0) Add("coglatas.semantic.unit-unavailable", RelationFindingState.Unknown, location);
             else if (matches.Length != 1) Add("coglatas.semantic.unit-ambiguous", RelationFindingState.Invalid, location);
             else if (!matches[0].Dimension.Equals(type.Dimension)) Add("coglatas.semantic.unit-dimension", RelationFindingState.Invalid, location);
+        }
+        void CheckType(TypeReference type, ProjectLocation location)
+        {
+            if (type.Kind == "coglatas.quantity") CheckQuantityType(type, location);
+            if (type.ExpectedKind is { } expected)
+            {
+                var supported = type.Kind == "coglatas.resource-reference"
+                    ? expected is "coglatas.human" or "coglatas.equipment" or "coglatas.facility" or "coglatas.material"
+                    : type.Kind != "coglatas.external-snapshot-reference" &&
+                      (expected is "coglatas.project" or "coglatas.task" or "coglatas.milestone" or "coglatas.requirement" or "coglatas.resource-binding" or "coglatas.constraint" or "coglatas.workflow" ||
+                       type.Kind == "coglatas.document-reference" && expected == SourceDocument.SchemaId);
+                if (!supported) Add("coglatas.semantic.reference-type-unavailable", RelationFindingState.Unsupported, location);
+            }
+            if (type.ElementType is { } element) CheckType(element, location);
+            if (type.KeyType is { } key) CheckType(key, location);
+            if (type.ValueType is { } value) CheckType(value, location);
+            foreach (var field in type.Fields) CheckType(field.Type, location);
         }
 
         void CheckValues(SourceJson data, ProjectLocation location)
