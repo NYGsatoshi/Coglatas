@@ -2,6 +2,8 @@ import {
   buildRealBackendPlaywrightPlan,
   composeProjectName,
   composeV2Invocation,
+  composeFailureObservation,
+  getComposeProjectName,
   isHstsPreloadedHttpUrl,
   isStaticAngularServerUrl,
   legacyComposeInvocation,
@@ -12,11 +14,103 @@ import {
 import { EventEmitter } from 'node:events';
 import assert from 'node:assert/strict';
 import { buildFci04OwnerPlan } from '../functional/fixtures/fci04-owner-plan.mjs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { captureTaskTitleFocus, readTaskTitleFocusState } from './real-backend-task-focus.mjs';
+
+// Execute the tracked adapter, including its real asynchronous child-event handling.
+// Only process boundaries are synthetic; no Docker daemon or browser is invoked.
+async function composeCleanupFlow({ scenarioExit = 0, cleanupExit = 0, configExit = 0,
+  unavailable = false, mobile = false, signal = null } = {}) {
+  const runnerUrl = new URL('./run-real-backend-smoke-compose.mjs', import.meta.url).href;
+  const invocations = [], exits = [], handlers = new Map();
+  const projectName = 'coglatas-cleanup-control';
+  let cleanupFinished = false, finishSignal;
+  const signalCompletion = signal ? new Promise(resolve => { finishSignal = resolve; }) : null;
+  const runnerProcess = {
+    argv: ['node', '/synthetic-importing-owner.mjs'], pid: 1, cwd: () => process.cwd(),
+    env: { REAL_BACKEND_SMOKE_COMPOSE_PROJECT_NAME: projectName,
+      ...(mobile ? { COGLATAS_REAL_BACKEND_MVP0_MOBILE: '1' } : {}) },
+    once: (name, handler) => handlers.set(name, handler),
+    stdout: { write: () => undefined },
+    exit: code => { exits.push({ code, cleanupFinished }); finishSignal(); },
+  };
+  const source = readFileSync(new URL(runnerUrl), 'utf8')
+    .replace(/^import[\s\S]*?;\r?\n/gmu, '')
+    .replace('export async function runRealBackendSmokeCompose', 'async function runRealBackendSmokeCompose')
+    .replaceAll('import.meta.url', 'runnerUrl');
+  const result = await runInNewContext(`(async () => { ${source}\n return ${mobile
+    ? 'runRealBackendSmokeCompose()' : 'process.exitCode'}; })()`, {
+    Buffer, setTimeout, clearTimeout, pathToFileURL, getComposeProjectName,
+    normalizeExitCode, redactSecrets, selectComposeInvocation, composeFailureObservation,
+    runnerUrl, process: runnerProcess,
+    console: { log: () => undefined, error: () => undefined },
+    spawn: (command, args) => {
+      invocations.push({ command, args: [...args] });
+      const child = new EventEmitter();
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+      queueMicrotask(() => {
+        let code = 0, output = '';
+        const action = args[0] === 'compose' ? args[5] : null;
+        if (args.includes('version')) code = unavailable ? 127 : 0;
+        else if (args[0] === 'inspect') output = args.at(-1) === 'container-migrate'
+          ? 'exited none 0' : 'running healthy 0';
+        else if (action === 'config') code = configExit;
+        else if (action === 'ps' && args.includes('-q')) output = `container-${args.at(-1)}`;
+        else if (action === 'run') {
+          code = scenarioExit;
+          if (signal) {
+            // Exercise the real registered signal entry and its memoized cleanup.
+            handlers.get(signal)();
+            handlers.get(signal)();
+          }
+        } else if (action === 'down') { code = cleanupExit; cleanupFinished = true; }
+        if (output) child.stdout.emit('data', Buffer.from(output));
+        child.emit('close', code);
+      });
+      return child;
+    },
+  });
+  if (signalCompletion !== null) await signalCompletion;
+  const down = invocations.filter(call => call.args[5] === 'down');
+  assert.equal(down.length, unavailable ? 0 : 1);
+  for (const call of down) {
+    assert.equal(call.command, 'docker');
+    assert.deepEqual(call.args, ['compose', '-p', projectName, '-f',
+      'infra/compose/test/real-backend-smoke.yml', 'down', '--volumes', '--remove-orphans']);
+  }
+  return { result, exits, invocations };
+}
+
+await test('generic Compose success requires successful scoped cleanup', async () => {
+  assert.equal((await composeCleanupFlow()).result, 0);
+  assert.equal((await composeCleanupFlow({ cleanupExit: 7 })).result, 1);
+});
+
+await test('generic Compose cleanup preserves original scenario and setup failures', async () => {
+  for (const cleanupExit of [0, 7]) {
+    assert.equal((await composeCleanupFlow({ scenarioExit: 17, cleanupExit })).result, 17);
+    assert.equal((await composeCleanupFlow({ configExit: 7, cleanupExit })).result, 7);
+  }
+  assert.equal((await composeCleanupFlow({ unavailable: true })).result, 1);
+});
+
+await test('explicit MVP0 Compose owner also rejects cleanup-only failure', async () => {
+  const run = await composeCleanupFlow({ mobile: true, cleanupExit: 7 });
+  assert.equal(run.result, 1);
+  const browser = run.invocations.find(call => call.args[5] === 'run');
+  assert.ok(browser.args.includes('COGLATAS_REAL_BACKEND_MVP0_MOBILE=1'));
+  assert.ok(browser.args.at(-1).endsWith('--retries=0 --workers=1'));
+});
+
+await test('Compose signal handlers retain 130 and 143 after exactly one scoped cleanup', async () => {
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    const run = await composeCleanupFlow({ signal, cleanupExit: 7 });
+    assert.deepEqual(run.exits, [{ code, cleanupFinished: true }]);
+  }
+});
 
 const CORE_RUN_INDEX = 0,
   DEFAULT_PLAN_RUN_COUNT = 2,
