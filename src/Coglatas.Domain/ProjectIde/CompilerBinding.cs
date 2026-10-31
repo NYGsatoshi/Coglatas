@@ -146,6 +146,8 @@ public static class ProjectSemanticBinder
             if (result.Status != ValueDecodeStatus.Decoded)
                 Add(CoreCompilerRules.Declarations, result.Status == ValueDecodeStatus.Invalid ? "coglatas.binding.invalid-declaration" : "coglatas.binding.unsupported-declaration",
                     result.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location);
+            if (!WithinBudget(result.Data.Value, ref remainingOperations))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
             if (HasUnboundValueReference(result.Data))
             {
                 references.Add(new(location, ReferenceResolutionState.Unsupported, null));
