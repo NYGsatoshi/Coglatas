@@ -199,7 +199,9 @@ public sealed class CompilerResult
             compiler = input.Compiler.Data.Value, execution = CompilerContractTokens.Execution(execution), coverage = CompilerContractTokens.Coverage(coverage),
             verdict = CompilerContractTokens.Verdict(Verdict), evidenceComplete = EvidenceComplete, evidenceManifest = EvidenceManifest.Value,
             rules = RuleOutcomes.Select(item => item.Data.Value).ToArray(), diagnostics = Diagnostics.Select(item => item.Data.Value).ToArray(),
-            stages = Stages.Select(item => item.Data.Value).ToArray(), boundInputStamp = input.Data.Value,
+            stages = Stages.Select(item => item.Data.Value).ToArray(),
+            boundInputStamp = new { inputDigest = input.InputDigest.Data.Value, sourceContext = input.Source.Context.Data.Value, sourceDigest = input.Source.Digest.Data.Value },
+            provenanceInputManifestDigest = input.InputDigest.Data.Value,
             artifacts = Artifacts.Select(item => item.Data.Value).ToArray(),
             notProducedReason = Artifacts.Count == 0 ? "coglatas.artifacts-not-produced" : null,
             planEligibility = "coglatas.not-evaluated"
