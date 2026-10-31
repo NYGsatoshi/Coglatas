@@ -6,10 +6,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const legacyOutputs = {
-  mobile: '/tmp/coglatas-real-backend-mobile-playwright',
-  thread: '/tmp/coglatas-thread-mechanism-output',
-};
+const outputOwners = new Set(['mobile', 'thread']);
 
 function privateDirectory(path, uid) {
   const target = resolve(path), chain = [];
@@ -36,13 +33,16 @@ function reloadBootstrap() {
 }
 
 export function privatePlaywrightOutput(kind) {
-  if (!Object.hasOwn(legacyOutputs, kind)) throw new Error('Unknown Playwright output owner.');
-  const legacy = legacyOutputs[kind];
-  if (process.platform !== 'linux') return legacy;
+  if (!outputOwners.has(kind)) throw new Error('Unknown Playwright output owner.');
   const options = require('playwright/lib/program').program.commands.find(command => command.name() === 'test').opts();
   const history = options.lastFailedFile ?? process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE;
   // These CLI modes never consume the configured default output directory.
-  if (options.output || (options.list && (!options.lastFailed || history))) return legacy;
+  if (options.output || (options.list && (!options.lastFailed || history))) return undefined;
+  if (process.platform !== 'linux') {
+    // SDK reloads source before reapplying the parent's serialized CLI overrides.
+    if (reloadBootstrap()) return undefined;
+    throw new Error('Native non-Linux Playwright runs require an explicit trusted --output directory.');
+  }
   const configured = process.env.XDG_CACHE_HOME;
   const cache = configured && isAbsolute(configured) ? configured : join(homedir(), '.cache');
   const repository = realpathSync(fileURLToPath(new URL('../../../', import.meta.url)));

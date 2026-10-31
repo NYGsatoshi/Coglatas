@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import test from 'node:test';
@@ -10,7 +10,8 @@ const command = program.commands.find(item => item.name() === 'test');
 const variables = ['HOME', 'XDG_CACHE_HOME', 'PLAYWRIGHT_LAST_RUN_OUTPUT_FILE', 'TEST_WORKER_INDEX'];
 const optionNames = ['output', 'list', 'lastFailed', 'lastFailedFile'];
 function fixture(run) {
-  const root = mkdtempSync(join(tmpdir(), 'coglatas-output-control-'));
+  const tempParent=realpathSync(tmpdir());
+  const root = mkdtempSync(join(tempParent, 'coglatas-output-control-'));
   const saved = new Map(variables.map(key => [key, process.env[key]]));
   const savedOptions = new Map(optionNames.map(key => [key, command.opts()[key]]));
   try {
@@ -22,6 +23,8 @@ function fixture(run) {
   } finally {
     for (const [key,value] of saved) { if(value===undefined) delete process.env[key]; else process.env[key]=value; }
     for (const [key,value] of savedOptions) command.setOptionValue(key,value);
+    assert.equal(lstatSync(root).isSymbolicLink(),false);
+    assert.equal(dirname(realpathSync(root)),tempParent);
     rmSync(root,{recursive:true,force:true});
   }
 }
@@ -31,12 +34,23 @@ function ownedOutput(output, root) {
 }
 
 if(process.platform!=='linux') {
-  await test('non-Linux output and explicit history remain unchanged',()=>{
-    const history=process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE;
-    assert.equal(privatePlaywrightOutput('mobile'),'/tmp/coglatas-real-backend-mobile-playwright');
-    assert.equal(privatePlaywrightOutput('thread'),'/tmp/coglatas-thread-mechanism-output');
-    assert.equal(process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE,history);
-  });
+  await test('non-Linux defaults fail closed while explicit output and safe discovery need no default',()=>fixture(root=>{
+    const denied=/require an explicit trusted --output directory/u;
+    for(const kind of ['mobile','thread']) assert.throws(()=>privatePlaywrightOutput(kind),denied);
+    command.setOptionValue('output',join(root,'chosen-output'));
+    assert.equal(privatePlaywrightOutput('mobile'),undefined);
+    command.setOptionValue('output',undefined);command.setOptionValue('list',true);
+    assert.equal(privatePlaywrightOutput('thread'),undefined);
+    command.setOptionValue('lastFailed',true);command.setOptionValue('lastFailedFile','explicit-history.json');
+    assert.equal(privatePlaywrightOutput('mobile'),undefined);
+    command.setOptionValue('lastFailedFile','');process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE='environment-history.json';
+    assert.throws(()=>privatePlaywrightOutput('mobile'),denied);
+    command.setOptionValue('lastFailedFile',undefined);
+    assert.equal(privatePlaywrightOutput('mobile'),undefined);
+    command.setOptionValue('list',false);process.env.TEST_WORKER_INDEX='0';
+    assert.throws(()=>privatePlaywrightOutput('mobile'),denied);
+    assert.equal(process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE,'environment-history.json');
+  }));
 } else {
 await test('stable private parents isolate kinds and preserve native output-local history',()=>fixture(root=>{
   const mobile=privatePlaywrightOutput('mobile'), thread=privatePlaywrightOutput('thread');
@@ -81,15 +95,15 @@ await test('a preexisting output-parent symlink is rejected and its target prese
 await test('explicit output and discovery skip unused cache IO while empty history retains native fallback',()=>fixture(root=>{
   const file=join(root,'cache-file');writeFileSync(file,'preserve');process.env.XDG_CACHE_HOME=file;
   command.setOptionValue('output',join(root,'caller-output'));
-  assert.equal(privatePlaywrightOutput('mobile'),'/tmp/coglatas-real-backend-mobile-playwright');
+  assert.equal(privatePlaywrightOutput('mobile'),undefined);
   command.setOptionValue('output',undefined);command.setOptionValue('list',true);
-  assert.equal(privatePlaywrightOutput('thread'),'/tmp/coglatas-thread-mechanism-output');
+  assert.equal(privatePlaywrightOutput('thread'),undefined);
   command.setOptionValue('lastFailed',true);command.setOptionValue('lastFailedFile','explicit.json');
-  assert.equal(privatePlaywrightOutput('mobile'),'/tmp/coglatas-real-backend-mobile-playwright');
+  assert.equal(privatePlaywrightOutput('mobile'),undefined);
   command.setOptionValue('lastFailedFile','');process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE='environment.json';
   assert.throws(()=>privatePlaywrightOutput('mobile'),/Private Playwright output is unavailable/u);
   command.setOptionValue('lastFailedFile',undefined);
-  assert.equal(privatePlaywrightOutput('mobile'),'/tmp/coglatas-real-backend-mobile-playwright');
+  assert.equal(privatePlaywrightOutput('mobile'),undefined);
   command.setOptionValue('output','');command.setOptionValue('list',false);delete process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE;
   assert.throws(()=>privatePlaywrightOutput('mobile'),/Private Playwright output is unavailable/u);
   assert.equal(readFileSync(file,'utf8'),'preserve');

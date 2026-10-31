@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -9,7 +9,8 @@ import test from 'node:test';
 const repository = fileURLToPath(new URL('../../', import.meta.url));
 const variables = ['TMPDIR', 'TMP', 'TEMP', 'TEST_WORKER_INDEX', 'COGLATAS_MOBILE_PRIVATE_OUTPUT_ROOT', 'COGLATAS_THREAD_PRIVATE_OUTPUT_ROOT', 'PLAYWRIGHT_LAST_RUN_OUTPUT_FILE', 'HOME', 'XDG_CACHE_HOME', 'COGLATAS_MOBILE_PRIVATE_OUTPUT_ROOT_CALLER', 'COGLATAS_THREAD_PRIVATE_OUTPUT_ROOT_CALLER'];
 async function fixture(run) {
-  const root = mkdtempSync(join(tmpdir(), 'coglatas-output-control-'));
+  const tempParent = realpathSync(tmpdir());
+  const root = mkdtempSync(join(tempParent, 'coglatas-output-control-'));
   const saved = new Map(variables.map(key => [key, process.env[key]]));
   try {
     for (const key of ['TMPDIR', 'TMP', 'TEMP']) process.env[key] = root;
@@ -26,6 +27,8 @@ async function fixture(run) {
     return await run(root);
   } finally {
     for (const [key, value] of saved) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    assert.equal(lstatSync(root).isSymbolicLink(), false);
+    assert.equal(dirname(realpathSync(root)), tempParent);
     rmSync(root, { recursive: true, force: true });
   }
 }
@@ -61,8 +64,9 @@ await test('actual config imports and worker execution retain selection, reporte
         retries:base.retries,workers:base.workers,reporter:base.reporter,projects:base.projects,
         webServer:base.webServer,maxFailures:base.maxFailures,use:base.use
       }));
-      export default {...base,testDir:${JSON.stringify(directory)},testMatch:'probe.spec.mjs',reporter:[['line']],webServer:undefined,...(process.platform==='linux'?{}:{outputDir:${JSON.stringify(join(directory, "legacy-output"))}})};`);
-    const run = spawnSync(process.execPath, [join(repository, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs')], {
+      export default {...base,testDir:${JSON.stringify(directory)},testMatch:'probe.spec.mjs',reporter:[['line']],webServer:undefined};`);
+    const run = spawnSync(process.execPath, [join(repository, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs'),
+      ...(process.platform === 'linux' ? [] : ['--output', join(directory, 'explicit-output')])], {
       cwd: directory, encoding: 'utf8', env: { ...process.env, THREAD_INVESTIGATION_MODE: mode },
     });
     assert.equal(run.status, 0, run.stdout + run.stderr);
@@ -71,8 +75,8 @@ await test('actual config imports and worker execution retain selection, reporte
       assert.equal(JSON.parse(readFileSync(worker, 'utf8')).outputDir, captured.outputDir);
       assertPrivateOutput(captured.outputDir, root);
     } else {
-      assert.equal(captured.outputDir, kind === 'mobile' ? '/tmp/coglatas-real-backend-mobile-playwright' : '/tmp/coglatas-thread-mechanism-output');
-      assert.equal(JSON.parse(readFileSync(worker, 'utf8')).outputDir, join(directory, 'legacy-output'));
+      assert.equal(captured.outputDir, undefined);
+      assert.equal(JSON.parse(readFileSync(worker, 'utf8')).outputDir, join(directory, 'explicit-output'));
     }
     assert.equal(captured.retries, 0); assert.equal(captured.workers, 1);
     if (kind === 'mobile') {
@@ -101,7 +105,7 @@ await test('last-failed selection survives stable private output and retains exp
     writeFileSync(join(directory, 'config.mjs'), `import base from ${JSON.stringify(canonical)};
       import{writeFileSync}from'node:fs';
       if(process.env.TEST_WORKER_INDEX===undefined)writeFileSync(${JSON.stringify(join(directory,'automatic-history.json'))},JSON.stringify({file:base.outputDir+'/.last-run.json'}));
-      export default {...base,testDir:${JSON.stringify(directory)},testMatch:'history.spec.mjs',reporter:[['line']],webServer:undefined,...(process.platform==='linux'?{}:{outputDir:${JSON.stringify(join(directory, "legacy-output"))}})};`);
+      export default {...base,testDir:${JSON.stringify(directory)},testMatch:'history.spec.mjs',reporter:[['line']],webServer:undefined};`);
     const run = (args = [], environment = {}) => spawnSync(process.execPath,
       [join(repository, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs'), ...args],
       { cwd: directory, encoding: 'utf8', env: { ...process.env, THREAD_INVESTIGATION_MODE: 'matrix', ...environment } });
@@ -213,6 +217,8 @@ await test('explicit output and discovery remain usable with unwritable temp and
   }
 }));
 
+}
+
 await test('pinned out-of-process loader preserves serialized explicit output without default cache IO', async () => fixture(async root => {
   const directory=join(root,'loader-control');mkdirSync(directory);
   const bad=join(directory,'cache-file');writeFileSync(bad,'preserve');
@@ -232,4 +238,44 @@ await test('pinned out-of-process loader preserves serialized explicit output wi
   finally {const exited=new Promise(resolveExit=>child.once('exit',resolveExit));child.send({method:'__stop__'});assert.equal(await exited,0,errors);}
 }));
 
+
+if (process.platform !== 'linux') {
+await test('native CLI rejects implicit output and empty-history fallback before any worker output', () => fixture(root => {
+  const directory=join(root,'native-denial');mkdirSync(directory);
+  const playwright=pathToFileURL(join(repository,'node_modules/@playwright/test/index.mjs')).href;
+  const marker=join(directory,'must-not-run');
+  writeFileSync(join(directory,'probe.spec.mjs'),`import{test}from ${JSON.stringify(playwright)};import fs from'node:fs';test('FUNC-MSG-001 denied native default',()=>fs.writeFileSync(${JSON.stringify(marker)},'ran'));`);
+  for(const kind of ['mobile','thread']) {
+    const canonical=pathToFileURL(join(repository,kind==='mobile'?'playwright.mobile-real.config.ts':'playwright.thread-investigation.config.ts')).href;
+    const config=join(directory,kind+'.config.mjs');
+    writeFileSync(config,`import base from ${JSON.stringify(canonical)};export default{...base,testDir:${JSON.stringify(directory)},testMatch:'probe.spec.mjs',reporter:[['line']],webServer:undefined};`);
+    for(const args of [[],['--output='],['--last-failed-file',join(directory,'history.json')],['--last-failed','--list'],['--last-failed','--list','--last-failed-file=']]) {
+      const run=spawnSync(process.execPath,[join(repository,'node_modules/@playwright/test/cli.js'),'test','--config',config,...args],{cwd:directory,encoding:'utf8',env:{...process.env,THREAD_INVESTIGATION_MODE:'matrix',...(args.includes('--last-failed-file=')?{PLAYWRIGHT_LAST_RUN_OUTPUT_FILE:join(directory,'environment-history.json')}:{})}});
+      assert.equal(run.status,1,run.stdout+run.stderr);
+      assert.match(run.stdout+run.stderr,/require an explicit trusted --output directory/u);
+      assert.equal(existsSync(marker),false);
+    }
+  }
+}));
+
+await test('native explicit output retains worker identity, stable failed-test history and safe list precedence', () => fixture(root => {
+  const directory=join(root,'native-history');mkdirSync(directory);
+  const playwright=pathToFileURL(join(repository,'node_modules/@playwright/test/index.mjs')).href;
+  const receipt=join(directory,'worker.json');
+  writeFileSync(join(directory,'probe.spec.mjs'),`import{test,expect}from ${JSON.stringify(playwright)};import fs from'node:fs';test('FUNC-MSG-001 native passing control',async({},info)=>{fs.writeFileSync(info.outputPath('canary'),'owned');fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify({output:info.project.outputDir}));expect(1).toBe(1);});test('FUNC-MSG-001 native failing control',()=>expect(1).toBe(2));`);
+  for(const kind of ['mobile','thread']) {
+    const canonical=pathToFileURL(join(repository,kind==='mobile'?'playwright.mobile-real.config.ts':'playwright.thread-investigation.config.ts')).href;
+    const config=join(directory,kind+'.config.mjs'),output=join(directory,kind+'-output');
+    writeFileSync(config,`import base from ${JSON.stringify(canonical)};export default{...base,testDir:${JSON.stringify(directory)},testMatch:'probe.spec.mjs',reporter:[['line']],webServer:undefined};`);
+    const run=(args,environment={})=>spawnSync(process.execPath,[join(repository,'node_modules/@playwright/test/cli.js'),'test','--config',config,...args],{cwd:directory,encoding:'utf8',env:{...process.env,THREAD_INVESTIGATION_MODE:'matrix',...environment}});
+    const first=run(['--output',output]);assert.equal(first.status,1,first.stdout+first.stderr);assert.match(first.stdout,/1 passed/u);assert.match(first.stdout,/1 failed/u);
+    assert.equal(JSON.parse(readFileSync(receipt,'utf8')).output,output);
+    const history=join(output,'.last-run.json');assert.equal(JSON.parse(readFileSync(history,'utf8')).failedTests.length,1);
+    for(const [args,environment] of [[['--output',output,'--last-failed','--list'],{}],[['--last-failed','--list','--last-failed-file',history],{}],[['--last-failed','--list'],{PLAYWRIGHT_LAST_RUN_OUTPUT_FILE:history}]]) {
+      const selected=run(args,environment);assert.equal(selected.status,0,selected.stdout+selected.stderr);assert.match(selected.stdout,/native failing control/u);assert.doesNotMatch(selected.stdout,/native passing control/u);assert.match(selected.stdout,/Total: 1 test/u);
+    }
+    const discovery=run(['--list']);assert.equal(discovery.status,0,discovery.stdout+discovery.stderr);assert.match(discovery.stdout,/Total: 2 tests/u);
+    assert.equal(existsSync(join(directory,'test-results')),false);
+  }
+}));
 }

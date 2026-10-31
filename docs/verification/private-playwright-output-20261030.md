@@ -3,7 +3,34 @@ The Linux defaults in the mobile and thread-investigation configs now use a stab
 
 An absolute XDG_CACHE_HOME is respected; otherwise the location is below the user's .cache. Verification uses synthetic HOME/XDG paths only. The new Linux setup requires a writable safe cache for default output, including a normal run with only an explicit history file. A trusted explicit --output avoids default-cache initialization; discovery avoids it when no default history is consumed. Empty CLI overrides retain SDK fallback semantics. Pinned worker/loader config reload computes the stable default without cache initialization, and serialized CLI output overrides remain SDK-authoritative. The bootstrap-path check describes supported SDK processes, not an authentication boundary against arbitrary same-UID code. Read-only source and working directories are supported with a writable cache.
 
-Old shared /tmp history is deliberately not imported. This one-time security migration resets the default history; SDK cold or corrupt-history behavior remains unchanged. Non-Linux paths retain their original literals and behavior; Windows ACL security is outside this Linux fix. This is not a universal backwards-compatibility claim. No product admission, scanner, authorization, RLS, quality thresholds, retry, test selection, or reporter artifact identities change.
+Old shared /tmp history is deliberately not imported. This one-time security migration resets the default history; SDK cold or corrupt-history behavior remains unchanged. Native non-Linux runs now require an explicit trusted --output directory when effective output is needed. Safe discovery/history modes return no configured default, and genuine pinned SDK reloads defer to serialized CLI overrides. No automatic Windows ACL guarantee is claimed. This is not a universal backwards-compatibility claim. No product admission, scanner, authorization, RLS, quality thresholds, retry, test selection, or reporter artifact identities change.
+
+## Current native-platform follow-up
+
+The two former non-Linux fallback constants were actual output defaults, distinct
+from eight comparison-only assertion occurrences reviewed individually. The
+fallbacks are removed by a fail-closed behavior change, without moving them to
+other files or changing a scanner rule. Linux retains its stable private default.
+An explicit output or discovery that does not consume default history returns
+undefined, allowing pinned Playwright's effective CLI override to apply. Native
+non-Linux parents needing output reject missing/empty output, including normal
+runs with only an explicit history file. Empty CLI history retains nullish
+precedence over environment history. Genuine SDK worker/loader bootstrap defers
+to its serialized overrides; a worker marker alone does not bypass validation.
+
+Actual Windows Node24.22.2 / Playwright1.64.1 controls cover both config kinds,
+parent admission, worker effective project.outputDir/canary, stable last-failed
+selection, CLI/environment history precedence, safe discovery, empty override
+denial and real out-of-process loader loading. Loader loading alone does not
+prove its effective project output path. The first new denial fixture incorrectly
+supplied environment history to a safe list case; the SDK correctly accepted it.
+That fixture was corrected without changing the helper or weakening an existing
+assertion. Final five-case Windows controls PASS with zero skips/cancellations.
+The two previous default findings remain unresolved pending independent review
+of this repair and fresh hosted Linux/current-source Gate qualification. Earlier
+source-specific paragraphs below are retained historical evidence. No provider
+disposition, coverage exclusion, product authorization/intake, retry or timeout
+change is included. RELEASE_NO_GO remains.
 
 Reference: [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/latest/).
 
