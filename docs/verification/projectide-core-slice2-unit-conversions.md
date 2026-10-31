@@ -23,8 +23,11 @@ retains the original Source quantity, source definition, normalized definition,
 exact rational amount and ordered conversion provenance. Source is never rewritten.
 Affine, nonlinear and extension conversions remain losslessly Unsupported.
 
-`NumericOperand` adapts supported decoded Decimal/Rational/Quantity values and
-explicit conversion results. `ProjectNumericOperations` supports exact addition,
+`NumericOperand` adapts supported decoded Decimal/Rational values, quantities
+explicitly bound to a pinned `UnitDefinition`, and explicit conversion results.
+An unbound raw Quantity or typed Quantity is Unsupported; a valid namespaced
+unit token alone cannot establish that the input manifest supports that unit.
+`ProjectNumericOperations` supports exact addition,
 subtraction, multiplication, division and comparison. Addition/comparison requires
 identical dimension and unit expressions; different units require explicit
 conversion. Multiplication/division derives checked dimension and unit exponents.
@@ -38,7 +41,9 @@ inputs remain Null when no stronger limitation exists. No missing value becomes
 zero. Division by zero and dimension mismatch are Invalid. Exhausted numeric,
 dimension or cumulative operation bounds are Unknown. Profiles are provisional
 processing safeguards, not measured performance guarantees. Original inputs and
-canonical basis digests identify arithmetic evidence; these are derived values,
+canonical basis digests identify arithmetic evidence; immutable result inputs
+retain the actual supplied operands and their original Unknown/input basis.
+Factory numeric overflow under tighter bounds is also Unknown. These are derived values,
 not independently writable Source or IR publication.
 
 Quantization requires an explicit scale and `coglatas.nearest-ties-to-even` mode.

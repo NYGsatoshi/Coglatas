@@ -29,11 +29,13 @@ public sealed class NumericOperand
     public SourceJson Basis { get; }
     public SourceJson Data { get; }
     public int OperationCount { get; }
+    public string Reason { get; }
 
     internal NumericOperand(NumericEvaluationStatus status, ExactRational? amount, Dimension? dimension,
-        IDictionary<string, int> units, SourceJson basis, int operationCount = 0)
+        IDictionary<string, int> units, SourceJson basis, int operationCount = 0, string? reason = null)
     {
         Status = status; Amount = amount; Dimension = dimension; Basis = basis; OperationCount = operationCount;
+        Reason = reason ?? "coglatas.input-" + status.ToString().ToLowerInvariant();
         UnitPowers = new ReadOnlyDictionary<string, int>(new SortedDictionary<string, int>(units, StringComparer.Ordinal));
         Data = SourceJson.FromObject(new
         {
@@ -41,7 +43,7 @@ public sealed class NumericOperand
             state = "coglatas." + status.ToString().ToLowerInvariant(),
             amount = amount is null ? null : new { numerator = amount.Numerator.ToString(CultureInfo.InvariantCulture),
                 denominator = amount.Denominator.ToString(CultureInfo.InvariantCulture) },
-            dimension = dimension?.Data.Value, units = UnitPowers, operationCount, basis = basis.Value
+            dimension = dimension?.Data.Value, units = UnitPowers, operationCount, reason = Reason, basis = basis.Value
         });
     }
 
@@ -62,29 +64,57 @@ public sealed class NumericOperand
         if (value.State != ValueState.Known)
             return new(value.State == ValueState.Null ? NumericEvaluationStatus.Null : NumericEvaluationStatus.Unknown,
                 null, null, new Dictionary<string, int>(), value.Data);
-        return value.KnownValue switch
+        limits ??= new(); limits.Validate();
+        try
         {
-            ExactDecimal number => Known(number.ToRational(limits), EmptyDimension(), new Dictionary<string, int>(), value.Data),
-            ExactRational number => Known(ExactRational.Create(number.Numerator, number.Denominator, limits), EmptyDimension(), new Dictionary<string, int>(), value.Data),
-            Quantity quantity => From(quantity, limits),
-            _ => new(NumericEvaluationStatus.Unsupported, null, null, new Dictionary<string, int>(), value.Data)
-        };
+            return value.KnownValue switch
+            {
+                ExactDecimal number => Known(number.ToRational(limits), EmptyDimension(), new Dictionary<string, int>(), value.Data),
+                ExactRational number => Known(ExactRational.Create(number.Numerator, number.Denominator, limits), EmptyDimension(), new Dictionary<string, int>(), value.Data),
+                _ => new(NumericEvaluationStatus.Unsupported, null, null, new Dictionary<string, int>(), value.Data,
+                    reason: "coglatas.unit-binding-required")
+            };
+        }
+        catch (OverflowException) { return new(NumericEvaluationStatus.Unknown, null, null, new Dictionary<string, int>(), value.Data,
+            reason: "coglatas.numeric-bound-exhausted"); }
     }
 
-    public static NumericOperand From(Quantity value, ExactNumberLimits? limits = null)
+    public static NumericOperand From(Quantity value)
     {
         ArgumentNullException.ThrowIfNull(value);
+        // A well-formed Source unit token is not proof of a bound unit definition.
+        return new(NumericEvaluationStatus.Unsupported, null, null, new Dictionary<string, int>(), value.Data,
+            reason: "coglatas.unit-binding-required");
+    }
+
+    public static NumericOperand From(Quantity value, UnitDefinition unit, ExactNumberLimits? limits = null)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(unit);
+        limits ??= new(); limits.Validate();
+        var basis = SourceJson.FromObject(new { original = value.Data.Value, unit = unit.Data.Value, digest = unit.Digest.Data.Value });
         if (ValueFields.HasUnknown(value.Data.Value, "amount", "unitId", "dimension"))
-            return new(NumericEvaluationStatus.Unsupported, null, null, new Dictionary<string, int>(), value.Data);
-        return Known(value.Amount.ToRational(limits), value.Dimension, new Dictionary<string, int> { [value.UnitId] = 1 }, value.Data);
+            return new(NumericEvaluationStatus.Unsupported, null, null, new Dictionary<string, int>(), basis);
+        if (value.UnitId != unit.UnitId || !value.Dimension.Equals(unit.Dimension))
+            return new(NumericEvaluationStatus.Invalid, null, null, new Dictionary<string, int>(), basis);
+        try { return Known(value.Amount.ToRational(limits), unit.Dimension, new Dictionary<string, int> { [unit.IdentityData.CanonicalText] = 1 }, basis); }
+        catch (OverflowException) { return new(NumericEvaluationStatus.Unknown, null, null, new Dictionary<string, int>(), basis,
+            reason: "coglatas.numeric-bound-exhausted"); }
     }
 
-    public static NumericOperand From(ConvertedQuantity value)
+    public static NumericOperand From(ConvertedQuantity value, ExactNumberLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(value);
-        // Include version/digest in the algebraic unit identity; distinct pinned definitions never compare implicitly.
-        var identity = value.NormalizedUnit.IdentityData.CanonicalText;
-        return Known(value.Amount, value.NormalizedUnit.Dimension, new Dictionary<string, int> { [identity] = 1 }, value.Data, value.Provenance.Count);
+        limits ??= new(); limits.Validate();
+        try
+        {
+            var amount = ExactRational.Create(value.Amount.Numerator, value.Amount.Denominator, limits);
+            // Include version/digest in the algebraic unit identity; distinct pinned definitions never compare implicitly.
+            var identity = value.NormalizedUnit.IdentityData.CanonicalText;
+            return Known(amount, value.NormalizedUnit.Dimension, new Dictionary<string, int> { [identity] = 1 }, value.Data, value.Provenance.Count);
+        }
+        catch (OverflowException) { return new(NumericEvaluationStatus.Unknown, null, null, new Dictionary<string, int>(), value.Data,
+            reason: "coglatas.numeric-bound-exhausted"); }
     }
 
     internal static NumericOperand Known(ExactRational amount, Dimension dimension, IDictionary<string, int> units, SourceJson basis, int operationCount = 0) =>
@@ -92,8 +122,23 @@ public sealed class NumericOperand
     internal static Dimension EmptyDimension() => new(SourceJson.Parse("{}"));
 }
 
-public sealed record NumericEvaluationResult(NumericEvaluationStatus Status, NumericOperand? Value, int? Comparison,
-    QuantizedExactValue? Quantization, string Reason, SourceJson Basis);
+public sealed class NumericEvaluationResult
+{
+    public NumericEvaluationStatus Status { get; }
+    public NumericOperand? Value { get; }
+    public int? Comparison { get; }
+    public QuantizedExactValue? Quantization { get; }
+    public string Reason { get; }
+    public SourceJson Basis { get; }
+    public IReadOnlyList<NumericOperand> Inputs { get; }
+
+    internal NumericEvaluationResult(NumericEvaluationStatus status, NumericOperand? value, int? comparison,
+        QuantizedExactValue? quantization, string reason, SourceJson basis, params NumericOperand[] inputs)
+    {
+        Status = status; Value = value; Comparison = comparison; Quantization = quantization; Reason = reason; Basis = basis;
+        Inputs = Array.AsReadOnly((NumericOperand[])inputs.Clone());
+    }
+}
 
 public static class ProjectNumericOperations
 {
@@ -113,10 +158,10 @@ public static class ProjectNumericOperations
         };
         var basis = SourceJson.FromObject(new { operation = operationToken, left = ContentDigest.Compute("coglatas.numeric-operand/1", left.Data.ToCanonicalBytes()).Data.Value,
             right = ContentDigest.Compute("coglatas.numeric-operand/1", right.Data.ToCanonicalBytes()).Data.Value });
-        NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis);
+        NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis, left, right);
         if (!Enum.IsDefined(operation)) return State(NumericEvaluationStatus.Unsupported, "coglatas.operator-unsupported");
         foreach (var state in new[] { NumericEvaluationStatus.Invalid, NumericEvaluationStatus.Unsupported, NumericEvaluationStatus.Unknown, NumericEvaluationStatus.Null })
-            if (left.Status == state || right.Status == state) return State(state, "coglatas.input-" + state.ToString().ToLowerInvariant());
+            if (left.Status == state || right.Status == state) return State(state, left.Status == state ? left.Reason : right.Reason);
         try
         {
             var operationCount = checked(left.OperationCount + right.OperationCount + 1);
@@ -128,7 +173,7 @@ public static class ProjectNumericOperations
             if (additive && !left.Dimension!.Equals(right.Dimension)) return State(NumericEvaluationStatus.Invalid, "coglatas.dimension-mismatch");
             if (additive && !SameUnits(left.UnitPowers, right.UnitPowers)) return State(NumericEvaluationStatus.Unsupported, "coglatas.explicit-conversion-required");
             if (operation == NumericOperator.Compare)
-                return new(NumericEvaluationStatus.Known, null, a.CompareTo(b, limits.Numbers), null, "coglatas.exact-comparison", basis);
+                return new(NumericEvaluationStatus.Known, null, a.CompareTo(b, limits.Numbers), null, "coglatas.exact-comparison", basis, left, right);
             var amount = operation switch
             {
                 NumericOperator.Add => a.Add(b, limits.Numbers),
@@ -141,7 +186,7 @@ public static class ProjectNumericOperations
             var powers = additive ? new Dictionary<string, int>(left.Dimension!.Powers) : Combine(left.Dimension!.Powers, right.Dimension!.Powers, direction, limits);
             var units = additive ? new Dictionary<string, int>(left.UnitPowers) : Combine(left.UnitPowers, right.UnitPowers, direction, limits);
             var dimension = new Dimension(SourceJson.FromObject(powers));
-            return new(NumericEvaluationStatus.Known, NumericOperand.Known(amount, dimension, units, basis, operationCount), null, null, "coglatas.exact-arithmetic", basis);
+            return new(NumericEvaluationStatus.Known, NumericOperand.Known(amount, dimension, units, basis, operationCount), null, null, "coglatas.exact-arithmetic", basis, left, right);
         }
         catch (DivideByZeroException) { return State(NumericEvaluationStatus.Invalid, "coglatas.division-by-zero"); }
         catch (OverflowException) { return State(NumericEvaluationStatus.Unknown, "coglatas.numeric-bound-exhausted"); }
@@ -156,7 +201,7 @@ public static class ProjectNumericOperations
         var basis = SourceJson.FromObject(new { value = ContentDigest.Compute("coglatas.numeric-operand/1", value.Data.ToCanonicalBytes()).Data.Value, scale, roundingMode,
             original = value.Amount is null ? null : new { numerator = value.Amount.Numerator.ToString(CultureInfo.InvariantCulture),
                 denominator = value.Amount.Denominator.ToString(CultureInfo.InvariantCulture) } });
-        NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis);
+        NumericEvaluationResult State(NumericEvaluationStatus state, string reason) => new(state, null, null, null, reason, basis, value);
         if (roundingMode != "coglatas.nearest-ties-to-even") return State(NumericEvaluationStatus.Unsupported, "coglatas.rounding-mode-unsupported");
         if (value.Status != NumericEvaluationStatus.Known) return State(value.Status, "coglatas.input-" + value.Status.ToString().ToLowerInvariant());
         try
@@ -166,7 +211,7 @@ public static class ProjectNumericOperations
             CheckOperand(value, limits);
             var quantization = value.Amount!.Quantize(scale, limits.Numbers);
             return new(NumericEvaluationStatus.Known, NumericOperand.Known(quantization.Rounded.ToRational(limits.Numbers),
-                value.Dimension!, new Dictionary<string, int>(value.UnitPowers), basis, operationCount), null, quantization, "coglatas.explicit-quantization", basis);
+                value.Dimension!, new Dictionary<string, int>(value.UnitPowers), basis, operationCount), null, quantization, "coglatas.explicit-quantization", basis, value);
         }
         catch (ArgumentOutOfRangeException) { return State(NumericEvaluationStatus.Invalid, "coglatas.invalid-quantization-scale"); }
         catch (OverflowException) { return State(NumericEvaluationStatus.Unknown, "coglatas.numeric-bound-exhausted"); }
