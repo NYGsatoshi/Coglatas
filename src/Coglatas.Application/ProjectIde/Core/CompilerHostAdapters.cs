@@ -23,7 +23,7 @@ public sealed class LocalNetCompilerHost(CompilerHostProfile profile) : ICoreCom
             var compilation = ProjectCompilation.Compile(input, _profile.Compiler, request.Snapshots, request.Units, request.Calendars, cancellationToken);
             if (cancellationToken.IsCancellationRequested) return Failure(CompilerHostStatus.Cancelled, "coglatas.host.cancelled");
             return new(compilation.Result.Execution == CompilerExecutionState.Cancelled ? CompilerHostStatus.Cancelled : CompilerHostStatus.Completed,
-                "coglatas.host.result-produced", input.InputDigest, request.ClientGeneration, attempt, compilation);
+                "coglatas.host.result-produced", input.InputDigest, request.ClientGeneration, attempt, new CompilerHostExecutionReceipt(request, compilation));
         }
         catch (UnsupportedSourceException) { return Failure(CompilerHostStatus.Unsupported, "coglatas.host.unsupported-input"); }
         catch (Exception error) when (error is FormatException or ArgumentException)
@@ -67,6 +67,9 @@ public sealed class ServerCompilerHost(CompilerHostProfile profile, IServerCompi
         if (response is null || !Enum.IsDefined(response.Status) || !Equals(response.RequestedInputDigest, input.InputDigest) || response.ClientGeneration != request.ClientGeneration || response.AttemptId.Version != 4)
             return false;
         if (response.Compilation is not { } compilation) return response.Status is not CompilerHostStatus.Completed;
+        var execution = response.Execution!;
+        if (!execution.InputBindingDigest.Equals(request.ExecutionInputDigest) || !execution.Materializations.Equals(request.Materializations) ||
+            !execution.Digest.Equals(ContentDigest.Compute("coglatas.host-execution/1", execution.Data.ToCanonicalBytes()))) return false;
         if (response.Status is not (CompilerHostStatus.Completed or CompilerHostStatus.Cancelled)) return false;
         var result = compilation.Result;
         if (!compilation.Input.InputDigest.Equals(input.InputDigest) || !compilation.Input.Data.Equals(input.Data) ||

@@ -70,6 +70,9 @@ public sealed class CompilerHostRequest
     public IReadOnlyList<CompilerMaterializedSnapshot> Snapshots { get; }
     public IReadOnlyList<UnitDefinition> Units { get; }
     public IReadOnlyList<CalendarSnapshot> Calendars { get; }
+    public SourceJson Materializations { get; }
+    public ContentDigest MaterializationDigest { get; }
+    public ContentDigest ExecutionInputDigest { get; }
     public CompilerHostRequest(CompilerInputTransfer input, long clientGeneration = 0, IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null,
         IEnumerable<UnitDefinition?>? units = null, IEnumerable<CalendarSnapshot?>? calendars = null)
     {
@@ -77,6 +80,23 @@ public sealed class CompilerHostRequest
         if (clientGeneration < 0) throw new ArgumentOutOfRangeException(nameof(clientGeneration));
         Input = input; ClientGeneration = clientGeneration;
         Snapshots = Freeze(snapshots ?? [], 32); Units = Freeze(units ?? [], 1024); Calendars = Freeze(calendars ?? [], 128);
+        if (Snapshots.Any(value => value.Version.Length > 128)) throw new ArgumentException("Snapshot version exceeds the initial host profile.");
+        Materializations = SourceJson.FromObject(new
+        {
+            format = "coglatas.host-materializations/1",
+            snapshots = Snapshots.Select(value => SourceJson.FromObject(new
+            {
+                snapshotId = value.SnapshotId.ToString(), version = value.Version, sourceDigest = value.Snapshot.Source.Digest.Data.Value,
+                authorized = value.Snapshot.IsAuthorized, declarationsComplete = value.Snapshot.DeclarationsComplete, relationsComplete = value.Snapshot.RelationsComplete
+            })).OrderBy(value => value.CanonicalText, StringComparer.Ordinal).Select(value => value.Value).ToArray(),
+            unitDefinitions = Units.Select(value => value.Digest.Value).Order(StringComparer.Ordinal).ToArray(),
+            calendarDefinitions = Calendars.Select(value => SourceJson.FromObject(new
+            { calendarDigest = value.Reference.RulesDigest.Data.Value, timeZoneDigest = value.TimeZone.RulesDigest.Data.Value }))
+                .OrderBy(value => value.CanonicalText, StringComparer.Ordinal).Select(value => value.Value).ToArray()
+        });
+        MaterializationDigest = ContentDigest.Compute("coglatas.host-materializations/1", Materializations.ToCanonicalBytes());
+        ExecutionInputDigest = ContentDigest.Compute("coglatas.compiler-host-input/1", SourceJson.FromObject(new
+        { declaredInputDigest = Input.ExpectedInputDigest.Data.Value, materializationsDigest = MaterializationDigest.Data.Value }).ToCanonicalBytes());
     }
     private static IReadOnlyList<T> Freeze<T>(IEnumerable<T?> values, int maximum) where T : class
     {
@@ -89,8 +109,30 @@ public sealed class CompilerHostRequest
 public enum CompilerHostStatus { Completed, Cancelled, Unsupported, InvalidInput, InternalError }
 
 /// <summary>Invocation metadata is outside the deterministic CompilerResult. Host completion never implies Pass.</summary>
+/// <summary>Derived immutable coupling of the actual executed host inputs and Core result. No remote authorization or binary attestation is implied.</summary>
+public sealed class CompilerHostExecutionReceipt
+{
+    public CoreCompilation Compilation { get; }
+    public SourceJson Materializations { get; }
+    public ContentDigest InputBindingDigest { get; }
+    public SourceJson Data { get; }
+    public ContentDigest Digest { get; }
+    internal CompilerHostExecutionReceipt(CompilerHostRequest executedRequest, CoreCompilation compilation)
+    {
+        ArgumentNullException.ThrowIfNull(executedRequest); ArgumentNullException.ThrowIfNull(compilation);
+        if (!executedRequest.Input.ExpectedInputDigest.Equals(compilation.Input.InputDigest)) throw new ArgumentException("Execution input binding mismatch.");
+        Compilation = compilation; Materializations = executedRequest.Materializations; InputBindingDigest = executedRequest.ExecutionInputDigest;
+        Data = SourceJson.FromObject(new { format = "coglatas.host-execution/1", inputBindingDigest = InputBindingDigest.Data.Value,
+            resultDigest = compilation.Result.ResultDigest.Data.Value });
+        Digest = ContentDigest.Compute("coglatas.host-execution/1", Data.ToCanonicalBytes());
+    }
+}
+
 public sealed record CompilerHostResponse(CompilerHostStatus Status, string ReasonCode, ContentDigest RequestedInputDigest,
-    long ClientGeneration, Guid AttemptId, CoreCompilation? Compilation);
+    long ClientGeneration, Guid AttemptId, CompilerHostExecutionReceipt? Execution)
+{
+    public CoreCompilation? Compilation => Execution?.Compilation;
+}
 
 public interface ICoreCompilerHost
 {
