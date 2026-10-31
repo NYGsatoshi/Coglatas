@@ -16,6 +16,10 @@ No OS timezone database, current clock, network or ambient culture is consulted.
 Snapshot validation establishes input consistency, not authorization or actual
 manifest availability. Providers must supply authorized fixed inputs.
 
+Resource bindings accept an optional pinned CalendarReference; Task working
+durations carry that same calendar contract. Both retain strict unknown-member
+handling and do not load snapshots or reserve real resources.
+
 Civil-time resolution tests every applicable segment. A gap remains Invalid;
 an overlap retains all candidates as Ambiguous. Only an explicitly supplied
 matching offset selects a candidate. Missing finite coverage stays Unknown.
