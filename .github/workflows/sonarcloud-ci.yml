@@ -220,7 +220,9 @@ jobs:
             tests/ci/test_release_image_graph.py \
             scripts/ci/test-functional-diagnostics.py \
             scripts/ci/test-postgres-log-privacy.py \
-            scripts/ci/test-functional-setup-failure-probe.py; do
+            scripts/ci/test-functional-setup-failure-probe.py \
+            tests/ci/test_security_zap_attribution.py \
+            tests/ci/test_performance_db_ci.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
