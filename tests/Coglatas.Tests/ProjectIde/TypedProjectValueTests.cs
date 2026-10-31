@@ -79,7 +79,24 @@ public sealed class TypedProjectValueTests
         var data = SourceJson.Parse(node.ToJsonString());
         var result = TypedProjectValueCodec.Decode(data);
         Assert.Equal(ValueDecodeStatus.Unsupported, result.Status);
+        Assert.Null(result.Value);
         Assert.Equal(data, SourceJson.Parse(TypedProjectValueCodec.Encode(result)));
+    }
+
+    [Theory]
+    [InlineData("future.numeric", 1)]
+    [InlineData("coglatas.decimal", 2)]
+    public void FutureTypeDescriptorsDoNotRequireVersionOneFlags(string kind, int version)
+    {
+        var data = SourceJson.Parse(JsonSerializer.Serialize(new
+        {
+            type = new { kind, schemaVersion = version, futureFlag = "future.null-semantics" },
+            state = "coglatas.known", value = "0"
+        }));
+        var result = TypedProjectValueCodec.Decode(data);
+        Assert.Equal(ValueDecodeStatus.Unsupported, result.Status);
+        Assert.Null(result.Value);
+        Assert.Equal(data.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
     }
 
     [Fact]
