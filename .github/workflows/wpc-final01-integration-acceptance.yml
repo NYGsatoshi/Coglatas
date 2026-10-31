@@ -43,7 +43,7 @@ jobs:
       - name: Configure PostgreSQL connection
         shell: bash
         run: |
-          postgres_port='${{ job.services.postgres.ports[5432] }}'
+          postgres_port='${{ job.services.postgres.ports['5432'] }}'
           test -n "$postgres_port"
           {
             echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final01;Username=coglatas_wpc_final01;Password=coglatas_wpc_final01_password"
@@ -61,7 +61,7 @@ jobs:
             sh -c "chown -R ${uid}:${gid} /workspace"
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -89,7 +89,7 @@ jobs:
           echo "$install_dir" >> "$GITHUB_PATH"
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json
 
@@ -153,9 +153,9 @@ jobs:
             artifacts/wpc-final01/backend/wpc-final01-acceptance.trx
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Configure persistent npm and Angular caches
         env:
@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload WPC-Final01 evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: wpc-final01-canonical-completion-evidence
           path: artifacts/wpc-final01

@@ -148,14 +148,14 @@
       ]
     },
     {
-      "description": "Retain approved Node 24 LTS for container images",
+      "description": "Retain approved Node 26 LTS for container images",
       "matchDatasources": [
         "docker"
       ],
       "matchPackageNames": [
         "node"
       ],
-      "allowedVersions": "/^24([.-]|$)/"
+      "allowedVersions": "/^26([.-]|$)/"
     },
     {
       "description": "Playwright Docker image must match the root Playwright lockfile",

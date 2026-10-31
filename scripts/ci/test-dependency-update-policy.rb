@@ -71,10 +71,10 @@ def update_errors(config)
     sdk['matchFileNames'] == ['global.json', '**/global.json'] && sdk['matchUpdateTypes'] == ['major'] &&
     sdk['dependencyDashboardApproval'] == true && sdk['enabled'] != false
 
-  node = find_rule.call('Retain approved Node 24 LTS for container images')
+  node = find_rule.call('Retain approved Node 26 LTS for container images')
   errors << 'Docker Node LTS major boundary is missing or broadened' unless node.is_a?(Hash) &&
     node['matchDatasources'] == ['docker'] && node['matchPackageNames'] == ['node'] &&
-    node['allowedVersions'] == '/^24([.-]|$)/'
+    node['allowedVersions'] == '/^26([.-]|$)/'
   playwright = find_rule.call('Playwright Docker image must match the root Playwright lockfile')
   errors << 'Playwright image cannot update independently from its npm lockfile' unless
     playwright.is_a?(Hash) && playwright['enabled'] == false &&
@@ -145,8 +145,8 @@ end
 # The production build and development images must stay on an owner-approved
 # Node LTS major. Renovate digest updates within that major remain allowed.
 NODE_LTS_DOCKER_IMAGES = {
-  'Dockerfile' => /\AFROM node:24@sha256:[0-9a-f]{64} AS frontend-deps\z/,
-  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:24-alpine@sha256:[0-9a-f]{64}\z/
+  'Dockerfile' => /\AFROM node:26@sha256:[0-9a-f]{64} AS frontend-deps\z/,
+  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:26-alpine@sha256:[0-9a-f]{64}\z/
 }.freeze
 
 def node_lts_image_errors(sources)
@@ -158,7 +158,7 @@ def node_lts_image_errors(sources)
     text = sources.fetch(name, nil) || path.read
     node_references = text.lines.map(&:strip).select { |line| line.start_with?('FROM node:') }
     if node_references.length != 1 || !expected.match?(node_references.first)
-      "#{name}: the only Node base image must be immutable SHA-pinned Node 24 LTS"
+      "#{name}: the only Node base image must be immutable SHA-pinned Node 26 LTS"
     end
   end
 end
@@ -195,7 +195,7 @@ mutations = {
   'unbounded PRs' => ->(x) { x['prConcurrentLimit'] = 0 },
   'bypass major approval' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep major upgrades individually approved' }['dependencyDashboardApproval'] = false },
   'disable SDK proposals' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Require dashboard approval for SDK major migration proposals' }['enabled'] = false },
-  'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
+  'unreviewed Node 28' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 26 LTS for container images' }['allowedVersions'] = '/^28/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
@@ -227,7 +227,7 @@ bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 
 bad_node_major = {
-  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
+  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:26@sha256:/, 'FROM node:28@sha256:')
 }
 abort('Guard missed unreviewed Node major') if node_lts_image_errors(bad_node_major).empty?
 bad_node_digest = {
