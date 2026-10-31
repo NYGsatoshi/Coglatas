@@ -21,6 +21,46 @@ an actor replacement.
 
 ## Source and regression evidence
 
+### Same-actor HTTP fallback refresh regression
+
+Main `eba360a8d4682a8a609c31428fdf61c167834740` exposed an unintended lifecycle
+dependency on the complete current-user object. A failed Hub start probes
+`/api/auth/status`; the authoritative mapper creates a fresh user object even
+when the actor ID is unchanged. That update could start another connection
+attempt and return the indicator to Reconnecting instead of stable HTTP fallback.
+
+Realtime now observes one shared computed actor ID in the lifecycle effect,
+connection admission and early-frame guard. AuthSession continues publishing
+the complete fresh profile/capability snapshot. Actor changes still invalidate
+the old epoch, stop the transport, clear protected scope and reject old frames.
+
+Test-only commit `5c15392cf4c7f26ad7593f4670fc357b7a9dc3cc` reproduced the defect
+with the real AuthSession status mapper, HttpTestingController and a rejecting
+transport that emits connecting: one test passed and one failed. The same-actor
+case observed two starts, Reconnecting and an unexpected second status probe.
+The changed-actor restart/old-frame control already passed.
+
+The minimal runtime correction passed both unchanged new controls, then all 87
+focused tests: 61 existing Realtime, 24 Auth read-boundary and two status-refresh
+controls, with zero failed or pending tests. These are local Windows Node
+24.22.2 controls using existing installed dependencies; source lockfiles match
+after LF normalization. They are not actual browser/backend or current Main CI
+qualification. The existing 15-second delayed-state browser assertions, transport
+retry policy, session/authorization contracts and release boundaries are unchanged.
+
+Independent review before merge found that the first selector normalized an
+absent user ID from undefined to null. During terminal clearing, a registered
+clearer can synchronously reenter frame delivery after the owned actor becomes
+null and before the old Tenant/Connected state is reset. That normalization
+changed the original early guard comparison. Test-only successor
+`a3863c75ff59c501f6b71ebf2725d1a5ae444fd5` retained the first runtime and observed
+one published reentrant frame: two status controls passed and the new one failed.
+The selector now preserves the original optional-read undefined value. All 88
+focused controls passed, including the unchanged two status-refresh controls and
+the added authoritative terminal-status reentrancy control. This is a bounded
+local regression, not evidence of an operational network exploit. The original
+87-test result and source-bound CI run remain historical evidence.
+
 The starting source is Main
 `88f8648cbcc9286407ea17e75cb2b9b7ed6ff599`, tree
 `24866051f0154b21cd337ed23ea53a54546d1a37`.
