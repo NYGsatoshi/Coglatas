@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, type Request, type TestInfo, test } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
+import { readSettledScrollTop } from './settled-scroll-position';
 
 const coreResponsiveRoutes = [
   '/app/workspaces',
@@ -1312,9 +1313,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
       if (width === 320) expect(scrollable).toBe(true);
       if (scrollable) {
         await page.keyboard.press('Home');
-        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBe(0);
+        await expect.poll(() => readSettledScrollTop(dialogContent)).toBe(0);
         await page.keyboard.press('PageDown');
-        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+        await expect.poll(() => readSettledScrollTop(dialogContent)).toBeGreaterThan(0);
       }
       const footer = await dialog.locator('.coglatas-dialog__actions').boundingBox();
       expect(footer).not.toBeNull();

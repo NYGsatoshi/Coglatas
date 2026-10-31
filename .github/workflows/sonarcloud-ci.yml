@@ -211,12 +211,18 @@ jobs:
             scripts/ci/test-sonar-dotnet-coverage.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
+            scripts/ci/test_sec17_deep_execution.py \
+            scripts/ci/test_sec17_file_policy_execution.py \
             scripts/ci/test-mbj02-trx-receipt.py \
             scripts/ci/test-workspace-icon-disclosure-policy.py \
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
-            scripts/ci/test-functional-diagnostics.py; do
+            scripts/ci/test-functional-diagnostics.py \
+            scripts/ci/test-postgres-log-privacy.py \
+            scripts/ci/test-functional-setup-failure-probe.py \
+            tests/ci/test_security_zap_attribution.py \
+            tests/ci/test_performance_db_ci.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
@@ -249,7 +255,11 @@ jobs:
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
           node --enable-source-maps --test --experimental-test-coverage \
             --test-coverage-exclude='**/*.node-test.mjs' \
+            --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/group-keyboard-control-*/**" \
+            --test-coverage-exclude="$coverage_temp_root/search-drawer-control-*/**" \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
             tests/functional/build-functional-grep.node-test.mjs \
@@ -257,10 +267,16 @@ jobs:
             tests/functional/messaging-observation.node-test.mjs \
             tests/functional/thread-initial-observation.node-test.mjs \
             tests/functional/thread-probe-observation.node-test.mjs \
+            tests/functional/private-playwright-output.node-test.mjs \
             tests/ui/readonly-roster-runner.node-test.mjs \
             tests/ui/mobile-mvp0-profile.node-test.mjs \
             tests/ui/mobile-mvp0-runner.node-test.mjs \
+            tests/diagnostics/thread-matrix.node-test.mjs \
+            tests/ui/group-keyboard-observation.node-test.mjs \
+            tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
+            tests/ci/test_restore_data_dependency_advisor.mjs \
+            tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
             scripts/ci/verify-sonar-node-coverage.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
           node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info
@@ -271,6 +287,51 @@ jobs:
         with:
           name: sonar-node-coverage
           path: artifacts/sonar-node/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Qualify existing private output CLI imports without coverage
+        run: |
+          test "$(/usr/bin/id -u)" -ne 0
+          unset NODE_V8_COVERAGE NODE_OPTIONS
+          node --test tests/functional/private-playwright-output-import.node-test.mjs
+
+      - name: Measure existing Pilot helpers in a separate native cohort
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sonar-pilot-helper
+          node --test --experimental-test-coverage --test-concurrency=1 \
+            --test-coverage-include='tests/ui/public-https-golden-path-helpers.mjs' \
+            --test-coverage-include='tests/ui/student-council-pilot-helpers.mjs' \
+            --test-coverage-include='tests/ui/student-council-pilot-run.mjs' \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=lcov --test-reporter-destination=artifacts/sonar-pilot-helper/lcov.info \
+            tests/ui/student-council-pilot-helpers.node-test.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { realpathSync } from 'node:fs';
+          import { relative, resolve } from 'node:path';
+          import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd());
+          const identity = source => relative(root, resolve(root, source)).replaceAll('\\', '/');
+          const text = readOwnedRepositoryText(root, 'artifacts/sonar-pilot-helper/lcov.info');
+          assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
+          const checked = validateNodeCoverage(text);
+          const sources = new Set(text.split(/\r?\n/).filter(row => row.startsWith('SF:')).map(row => identity(row.slice(3))));
+          assert.equal(checked.sourceFiles, 3); assert.equal(sources.size, 3);
+          for (const source of ['tests/ui/public-https-golden-path-helpers.mjs', 'tests/ui/student-council-pilot-helpers.mjs', 'tests/ui/student-council-pilot-run.mjs']) assert.ok(sources.has(source));
+          const baseline = readOwnedRepositoryText(root, 'artifacts/sonar-node/lcov.info');
+          validateNodeCoverage(baseline);
+          for (const row of baseline.split(/\r?\n/).filter(row => row.startsWith('SF:'))) assert.ok(!sources.has(identity(row.slice(3))), 'Native source reports must be disjoint.');
+          console.log('Pilot helper native source scope verified: ' + JSON.stringify(checked));
+          JS
+
+      - name: Retain original Pilot helper native coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-pilot-helper-coverage
+          path: artifacts/sonar-pilot-helper/lcov.info
           if-no-files-found: error
           retention-days: 7
 
@@ -315,7 +376,7 @@ jobs:
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info"
+            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
             /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"

@@ -5,7 +5,7 @@ namespace Coglatas.Tests.Files;
 
 public sealed class LocalFileStorageServiceTests : IDisposable
 {
-    private readonly string _rootPath = Path.Combine(Path.GetTempPath(), "coglatas-storage-tests", Guid.NewGuid().ToString("N"));
+    private readonly string _rootPath = Path.Combine(Path.GetTempPath(), "coglatas-storage-tests", Guid.NewGuid().ToString("N"), "storage-root");
 
     [Fact]
     public void InvalidExtensionIsRejected()
@@ -52,6 +52,20 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync("../escape.txt", content, "text/plain"));
     }
 
+    [Fact]
+    public async Task CaseChangedSiblingCannotEscapeRoot()
+    {
+        var storage = CreateStorage();
+        var siblingName = Path.GetFileName(_rootPath).ToUpperInvariant();
+        var key = Path.Combine("..", siblingName, "escape.txt");
+        await using var content = new MemoryStream("bad"u8.ToArray());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveAsync(key, content, "text/plain"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.OpenReadAsync(key));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.ExistsAsync(key));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.DeleteAsync(key));
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
@@ -74,10 +88,10 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         await using var content = new InterruptedReadStream(async token =>
         {
             // Observe the canonical key after a prefix has actually been copied.
-            Assert.Equal(replaceExisting, await storage.ExistsAsync(key));
+            Assert.Equal(replaceExisting, await storage.ExistsAsync(key, token));
             if (replaceExisting)
             {
-                await using var existing = await storage.OpenReadAsync(key);
+                await using var existing = await storage.OpenReadAsync(key, token);
                 using var observed = new MemoryStream();
                 await existing.CopyToAsync(observed, token);
                 Assert.Equal(original, observed.ToArray());
@@ -102,12 +116,12 @@ public sealed class LocalFileStorageServiceTests : IDisposable
             Assert.Same(failure, observed);
         }
 
-        Assert.Equal(replaceExisting, await storage.ExistsAsync(key));
+        Assert.Equal(replaceExisting, await storage.ExistsAsync(key, CancellationToken.None));
         if (replaceExisting)
         {
-            await using var saved = await storage.OpenReadAsync(key);
+            await using var saved = await storage.OpenReadAsync(key, CancellationToken.None);
             using var observed = new MemoryStream();
-            await saved.CopyToAsync(observed);
+            await saved.CopyToAsync(observed, CancellationToken.None);
             Assert.Equal(original, observed.ToArray());
         }
         Assert.Equal(replaceExisting ? 1 : 0, Directory.GetFiles(_rootPath, "*", SearchOption.AllDirectories).Length);
@@ -163,7 +177,7 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             storage.SaveAsync(key, content, "text/plain", cancellation.Token));
 
-        Assert.False(await storage.ExistsAsync(key));
+        Assert.False(await storage.ExistsAsync(key, CancellationToken.None));
         Assert.Empty(Directory.GetFiles(_rootPath, "*", SearchOption.AllDirectories));
     }
     private sealed class InterruptedReadStream(Func<CancellationToken, Task> interrupt) : Stream

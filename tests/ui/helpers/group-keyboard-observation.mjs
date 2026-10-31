@@ -7,7 +7,7 @@ export const groupKeyboardInputDirectory = 'artifacts/group-keyboard-observation
 export const groupKeyboardOutputDirectory = 'artifacts/group-keyboard-observation-validated';
 export const groupKeyboardV1ByteLimit = 32768;
 export const groupKeyboardByteLimit = 65536;
-const keys = (value, expected) => value && Object.keys(value).sort().join() === [...expected].sort().join();
+const keys = (value, expected) => value && Object.keys(value).sort(compareCodeUnits).join() === [...expected].sort(compareCodeUnits).join();
 const positions = ['LIST', 'SUMMARY', 'LEAVE', 'ASIDE', 'OTHER'];
 
 export function groupKeyboardFilename(profile, attempt) {
@@ -151,4 +151,12 @@ export async function observeGroupKeyboardCase(page, testInfo, body) {
       JSON.stringify(value) + '\n', { flag: 'wx' });
     if (!snapshot) { throw new Error('Group keyboard observation is unavailable.'); }
   });
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }

@@ -8,7 +8,8 @@ const manifest=(tables=['public.users'],foreignKeys=[],userTriggers=[])=>({
   completeInventory:true,targetEmpty:true,tables:tables.map(name=>({name,archiveData:true})),foreignKeys,userTriggers,
 });
 const fk=(name,child,parent,validated=true)=>({name,child,parent,validated});
-test('original-DDL data-only users must load before announcements',()=>{
+// Node's test runner owns completion and reports callback failures.
+void test('original-DDL data-only users must load before announcements',()=>{
   const a=plan(manifest(['public.announcements','public.users'],[
     fk('FK_announcements_users_AuthorUserId','public.announcements','public.users')
   ]));
@@ -16,31 +17,31 @@ test('original-DDL data-only users must load before announcements',()=>{
   assert.deepEqual(a.candidateTableDataOrder,['public.users','public.announcements']);
   assert.ok(a.additionalRequiredEvidence.includes('STRICT_SCHEMA_ROLE_RLS_CATALOG_COMPARISON'));
 });
-test('independent rows have deterministic lexical order',()=>{
+void test('independent rows have deterministic lexical order',()=>{
   assert.deepEqual(plan(manifest(['public.z','public.a','public.m'])).candidateTableDataOrder,
     ['public.a','public.m','public.z']);
 });
-test('multi-edge DAG parents load before child',()=>{
+void test('multi-edge DAG parents load before child',()=>{
   const a=plan(manifest(['public.c','public.a','public.b'],[
     fk('f1','public.c','public.a'),fk('f2','public.c','public.b'),fk('f3','public.b','public.a')
   ]));
   assert.deepEqual(a.candidateTableDataOrder,['public.a','public.b','public.c']);
 });
-test('duplicate dependency edges do not allow premature ready child',()=>{
+void test('duplicate dependency edges do not allow premature ready child',()=>{
   const a=plan(manifest(['public.b','public.a'],[fk('f1','public.b','public.a'),fk('f2','public.b','public.a')]));
   assert.deepEqual(a.candidateTableDataOrder,['public.a','public.b']);
 });
-test('self reference recorded, does not qualify self-FK COPY semantics',()=>{
+void test('self reference recorded, does not qualify self-FK COPY semantics',()=>{
   const a=plan(manifest(['public.users'],[fk('f_self','public.users','public.users')]));
   assert.deepEqual(a.selfForeignKeys,['f_self']);
   assert.equal(a.status,'REVIEW_ONLY_NOT_RESTORE_VERIFIED');
 });
-test('FK cycle blocks every proposed load order',()=>{
+void test('FK cycle blocks every proposed load order',()=>{
   const a=plan(manifest(['public.a','public.b'],[fk('f1','public.a','public.b'),fk('f2','public.b','public.a')]));
   assert.equal(a.status,'BLOCKED');assert.deepEqual(a.candidateTableDataOrder,[]);
   assert.ok(a.blockingReasons.includes('CROSS_TABLE_FOREIGN_KEY_CYCLE'));
 });
-test('unknown parent, missing table-data entry and catalog/TOC mismatch all block',()=>{
+void test('unknown parent, missing table-data entry and catalog/TOC mismatch all block',()=>{
   const unknown=plan(manifest(['public.child'],[fk('f','public.child','public.parent')]));
   assert.ok(unknown.blockingReasons.includes('FK_TABLE_MISSING_FROM_ARCHIVE'));
   const incomplete=manifest();incomplete.tables[0].archiveData=false;
@@ -48,7 +49,7 @@ test('unknown parent, missing table-data entry and catalog/TOC mismatch all bloc
   const wrong=manifest();wrong.counts.dataEntries+=1;
   assert.ok(plan(wrong).blockingReasons.includes('ARCHIVE_DATA_COUNT_MISMATCH'));
 });
-test('active BEFORE/AFTER insert user triggers block; disabled triggers are only advisory',()=>{
+void test('active BEFORE/AFTER insert user triggers block; disabled triggers are only advisory',()=>{
   for(const timing of ['BEFORE_INSERT','AFTER_INSERT']){
     const x=plan(manifest(['public.files'],[],[{name:'t',table:'public.files',timing,enabled:true}]));
     assert.ok(x.blockingReasons.includes('ENABLED_USER_TRIGGER_REQUIRES_SIDE_EFFECT_PROOF'));
@@ -57,7 +58,7 @@ test('active BEFORE/AFTER insert user triggers block; disabled triggers are only
     {name:'t',table:'public.files',timing:'AFTER_INSERT',enabled:false}
   ])).status,'REVIEW_ONLY_NOT_RESTORE_VERIFIED');
 });
-test('missing trigger table, nonempty target, inventory incomplete and unvalidated FK block',()=>{
+void test('missing trigger table, nonempty target, inventory incomplete and unvalidated FK block',()=>{
   assert.ok(plan(manifest(['public.a'],[],[
     {name:'t',table:'public.b',timing:'AFTER_INSERT',enabled:false}
   ])).blockingReasons.includes('TRIGGER_TABLE_NOT_ARCHIVED'));
@@ -66,7 +67,7 @@ test('missing trigger table, nonempty target, inventory incomplete and unvalidat
   const f=manifest(['public.a','public.b'],[fk('f','public.a','public.b',false)]);
   assert.ok(plan(f).blockingReasons.includes('UNVALIDATED_FOREIGN_KEY'));
 });
-test('malformed or suspicious metadata never emits success',()=>{
+void test('malformed or suspicious metadata never emits success',()=>{
   const values=[];
   const a=manifest();a.tables[0].payload='private';values.push(a);
   const b=manifest();b.sourceSha='bad';values.push(b);
@@ -143,7 +144,7 @@ function assertInvalidCli(result) {
   assert.equal(result.stderr, 'INVALID_SYNTHETIC_RESTORE_MANIFEST\n');
 }
 
-test('same catalog names on different tables remain distinct identities', () => {
+void test('same catalog names on different tables remain distinct identities', () => {
   const advice = plan(manifest(['public.a','public.b','public.parent'], [
     fk('same', 'public.a', 'public.parent'), fk('same', 'public.b', 'public.parent')
   ], [
@@ -154,7 +155,7 @@ test('same catalog names on different tables remain distinct identities', () => 
   assert.deepEqual(advice.candidateTableDataOrder, ['public.parent','public.a','public.b']);
 });
 
-test('same-table duplicate catalog identities still reject different payloads', () => {
+void test('same-table duplicate catalog identities still reject different payloads', () => {
   assert.throws(() => plan(manifest(['public.a','public.b','public.c'], [
     fk('same', 'public.a', 'public.b'), fk('same', 'public.a', 'public.c')
   ])), /INVALID_SYNTHETIC_RESTORE_MANIFEST/);
@@ -164,7 +165,7 @@ test('same-table duplicate catalog identities still reject different payloads', 
   ])), /INVALID_SYNTHETIC_RESTORE_MANIFEST/);
 });
 
-test('every adjacent joined-key collision in each closed-shape partition rejects', () => {
+void test('every adjacent joined-key collision in each closed-shape partition rejects', () => {
   const partitions = [
     {keys:['version','scope','sourceSha','catalogSha256','archiveTocSha256','counts','completeInventory','targetEmpty','tables','foreignKeys','userTriggers'], select:m=>m},
     {keys:['tables','foreignKeys','userTriggers','dataEntries'], select:m=>m.counts},
@@ -173,7 +174,7 @@ test('every adjacent joined-key collision in each closed-shape partition rejects
     {keys:['name','table','timing','enabled'], select:m=>m.userTriggers[0]}
   ];
   for (const partition of partitions) {
-    const keys = [...partition.keys].sort();
+    const keys = [...partition.keys].sort(compareCodeUnits);
     for (let index=0; index<keys.length-1; index++) {
       const value = manifest(['public.a','public.b'], [fk('fk', 'public.a', 'public.b')], [
         {name:'trigger',table:'public.a',timing:'AFTER_INSERT',enabled:false}
@@ -186,7 +187,7 @@ test('every adjacent joined-key collision in each closed-shape partition rejects
   }
 });
 
-test('every expected count is a bounded safe integer', () => {
+void test('every expected count is a bounded safe integer', () => {
   for (const key of ['tables','foreignKeys','userTriggers','dataEntries']) {
     for (const invalid of [undefined, null, '1', true, 0.5, NaN, Infinity, -1, 4097]) {
       const value = manifest(); value.counts[key] = invalid;
@@ -195,7 +196,7 @@ test('every expected count is a bounded safe integer', () => {
   }
 });
 
-test('real CLI accepts small and exact-limit regular manifests with advisory output only', () => {
+void test('real CLI accepts small and exact-limit regular manifests with advisory output only', () => {
   cliFixture(({directory,input}) => {
     for (const exactLimit of [false,true]) {
       const value = JSON.stringify(manifest());
@@ -211,7 +212,7 @@ test('real CLI accepts small and exact-limit regular manifests with advisory out
   });
 });
 
-test('real CLI retains blocked exit1 and usage exit2 without raw input output', () => {
+void test('real CLI retains blocked exit1 and usage exit2 without raw input output', () => {
   cliFixture(({directory,input}) => {
     const value = manifest(); value.targetEmpty = false;
     writeFileSync(input, JSON.stringify(value));
@@ -225,7 +226,7 @@ test('real CLI retains blocked exit1 and usage exit2 without raw input output', 
   });
 });
 
-test('oversize regular input is rejected before opening or reading it', () => {
+void test('oversize regular input is rejected before opening or reading it', () => {
   cliFixture(({directory,input}) => {
     writeFileSync(input, Buffer.alloc(inputLimit+1, 32));
     const result = runCli(input, directory);
@@ -234,7 +235,7 @@ test('oversize regular input is rejected before opening or reading it', () => {
   });
 });
 
-test('directory and symlink inputs never reach a data read', () => {
+void test('directory and symlink inputs never reach a data read', () => {
   cliFixture(({directory,input}) => {
     const link = join(directory, 'link.json'); symlinkSync(input, link);
     for (const path of [directory,link]) {
@@ -245,7 +246,7 @@ test('directory and symlink inputs never reach a data read', () => {
   });
 });
 
-test('regular-path replacement by a FIFO rejects without blocking or reading', () => {
+void test('regular-path replacement by a FIFO rejects without blocking or reading', () => {
   cliFixture(({directory,input}) => {
     const result = runCli(input, directory, `
       fs.renameSync(input, input+'.original');
@@ -258,7 +259,7 @@ test('regular-path replacement by a FIFO rejects without blocking or reading', (
   });
 });
 
-test('replacement regular inode and growth before descriptor validation reject before read', () => {
+void test('replacement regular inode and growth before descriptor validation reject before read', () => {
   for (const mutation of [
     `fs.renameSync(input, input+'.original'); fs.copyFileSync(input+'.original', input);`,
     `const fd = originalOpen(input, 'a'); try { fs.writeSync(fd, ' '); } finally { originalClose(fd); }`
@@ -269,7 +270,7 @@ test('replacement regular inode and growth before descriptor validation reject b
   });
 });
 
-test('growth or shrink during a read cannot escape cap or publish an advisory', () => {
+void test('growth or shrink during a read cannot escape cap or publish an advisory', () => {
   for (const change of [
     `const writer = originalOpen(input, 'a'); try { fs.writeSync(writer, Buffer.alloc(${inputLimit}, 32)); } finally { originalClose(writer); }`,
     `const writer = originalOpen(input, 'r+'); try { fs.ftruncateSync(writer, 0); } finally { originalClose(writer); }`
@@ -290,7 +291,7 @@ test('growth or shrink during a read cannot escape cap or publish an advisory', 
   });
 });
 
-test('malformed JSON and read errors close descriptors and emit only the fixed error', () => {
+void test('malformed JSON and read errors close descriptors and emit only the fixed error', () => {
   cliFixture(({directory,input}) => {
     writeFileSync(input, '{synthetic-invalid-json');
     const malformed = runCli(input, directory);
@@ -304,7 +305,7 @@ test('malformed JSON and read errors close descriptors and emit only the fixed e
 });
 
 
-test('partial regular-file reads retain byte bounds and the complete advisory', () => {
+void test('partial regular-file reads retain byte bounds and the complete advisory', () => {
   cliFixture(({directory,input}) => {
     const result = runCli(input, directory, `
       fs.readSync = (fd, buffer, offset, length, position) => {
@@ -321,3 +322,11 @@ test('partial regular-file reads retain byte bounds and the complete advisory', 
     assert.equal(result.stages.closes, 1);
   });
 });
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
+}
