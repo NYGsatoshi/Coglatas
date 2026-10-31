@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { actorFile, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
+import { actorFile, childCompletionObservation, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
 import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
 import { validateAdmission } from '../../tests/ui/run-real-backend-actor-replacement.mjs';
 
@@ -95,6 +95,17 @@ void test('summary observations retain only closed bounded counters and an ANSI-
   assert.equal(observed.ansiEscapePresent, true);
   assert.doesNotMatch(JSON.stringify(observed), /canary|99999999|private/);
   assert.throws(() => validateNativeSummary(exact));
+});
+
+void test('child completion observations cannot emit raw signals, arguments or diagnostics', () => {
+  assert.deepEqual(childCompletionObservation({exitCode:0,signal:null}),{exitCode:0,signal:'NONE'});
+  assert.deepEqual(childCompletionObservation({exitCode:null,signal:'SIGTERM'}),{exitCode:null,signal:'SIGTERM'});
+  for(const value of [{exitCode:-1,signal:'private-canary'}, {exitCode:256,signal:'secret-token'},
+    {exitCode:'password',signal:{toString(){throw new Error('private-canary');}}}]) {
+    const observed=childCompletionObservation(value);
+    assert.deepEqual(observed,{exitCode:null,signal:'OTHER'});
+    assert.doesNotMatch(JSON.stringify(observed),/private|secret|password|token/);
+  }
 });
 
 void test('measurement output follows actual Angular production configuration and canonical producer source together', () => {

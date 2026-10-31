@@ -181,7 +181,14 @@ function sourceGuard(source) {
   for (const file of tools) assert.equal(hash(readFileSync(file)), hash(spawnSync('/usr/bin/git', ['cat-file', 'blob', `${source}:${file}`], { maxBuffer: 1024 * 1024 }).stdout));
   assert.equal(hash(readFileSync(actorFile)), frozenActor);
 }
-async function invoke(program, args, env, fd) {
+export function childCompletionObservation(value) {
+  let signal = 'OTHER';
+  if (value.signal === null) signal = 'NONE';
+  else if (['SIGINT', 'SIGTERM', 'SIGKILL'].includes(value.signal)) signal = value.signal;
+  return { exitCode: Number.isSafeInteger(value.exitCode) && value.exitCode >= 0 && value.exitCode <= 255 ? value.exitCode : null, signal };
+}
+
+async function invoke(program, args, env, fd, observeCompletion) {
   assert.ok(isAbsolute(program));
   const child = spawn(program, args, { env, stdio: ['ignore', fd, fd] });
   let interrupted = false;
@@ -190,13 +197,14 @@ async function invoke(program, args, env, fd) {
   process.once('SIGINT', interrupt); process.once('SIGTERM', terminate);
   try {
     const result = await new Promise((done, reject) => { child.once('error', reject); child.once('close', (exitCode, signal) => done({ exitCode, signal })); });
+    if (observeCompletion) observeCompletion({ exitCode: result.exitCode, signal: result.signal });
     assert.equal(interrupted, false);
     assert.equal(result.signal, null); assert.equal(result.exitCode, 0);
     return result;
   } finally { process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate); }
 }
 async function run() {
-  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary;
+  let phase = 'ADMISSION', fd, outputOwned = false, nativeSummary, buildCleanChild, validatedLcov;
   const output = resolve('artifacts/sonar-actor');
   let receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
   try {
@@ -280,12 +288,19 @@ async function run() {
     phase = 'VALIDATION_NATIVE_LCOV';
     const lcov = ownedFile(join(control, 'actor-native.lcov'), 1024 * 1024, false, started);
     const coverage = validateActorCoverage(lcov, readFileSync(actorFile, 'utf8'));
-    phase = 'PRE_ANALYSIS_CLEAN'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
+    phase = 'VALIDATED_LCOV_WRITE';
+    writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });
+    validatedLcov = { sourceSha: source, scenarioSha256: frozenActor, lcovSha256: hash(Buffer.from(lcov)), coverage };
+    phase = 'PRE_ANALYSIS_CLEAN_FILE'; fd = openSync(join(control, 'clean.private.log'), 'wx', 0o600);
     // A pre-analysis build must not make the existing begin/build/end interval incremental.
-    await invoke(executors.paths.dotnet, ['clean', 'Coglatas.slnx', '--configuration', 'Release', '--verbosity', 'quiet'], env, fd);
+    phase = 'PRE_ANALYSIS_CLEAN_EXECUTION';
+    await invoke(executors.paths.dotnet, ['clean', 'Coglatas.slnx', '--configuration', 'Release', '--verbosity', 'quiet'], env, fd,
+      value => { buildCleanChild = childCompletionObservation(value); });
     closeSync(fd); fd = undefined;
-    sourceGuard(source);
+    phase = 'POST_CLEAN_SOURCE'; sourceGuard(source);
+    phase = 'POST_CLEAN_EXECUTORS';
     assert.deepEqual(await executorProvenance(executors.paths), executors.provenance);
+    phase = 'FINAL_RECEIPT';
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'BOUNDED_MEASUREMENT_PASS',
       eventName: 'push', ref: admission.ref, sourceSha: source, sourceTree: tree, runId: admission.runId, attempt: admission.attempt,
       analysisKind: admission.analysisKind, analysisPrNumber: admission.prNumber || null, imageName, producerObservedImageId: observedImage,
@@ -294,11 +309,11 @@ async function run() {
       executableProvenance: executors.provenance,
       ...finite, implicitFileTestsPassed: 1, criteriaPassed: 17, coverage, lcovSha256: hash(Buffer.from(lcov)),
       imageBeforeAfterVerified: true, cleanupSucceeded: true, release: 'RELEASE_NO_GO' };
-    writeFileSync(join(output, 'lcov.info'), lcov, { flag: 'wx', mode: 0o600 });
     process.exitCode = 0;
   } catch {
     receipt = { schemaVersion: 1, profile, canonicalRuntime: false, deployable: false, qualification: 'INCOMPLETE', phase,
-      ...(nativeSummary ? { nativeSummary } : {}), release: 'RELEASE_NO_GO' };
+      ...(nativeSummary ? { nativeSummary } : {}), ...(buildCleanChild ? { buildCleanChild } : {}),
+      ...(validatedLcov ? { validatedLcov } : {}), release: 'RELEASE_NO_GO' };
     process.exitCode = 1;
   }
   finally {
