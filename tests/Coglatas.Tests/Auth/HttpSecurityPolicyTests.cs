@@ -197,12 +197,12 @@ public sealed class HttpSecurityPolicyTests
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
         Assert.Equal(JsonValueKind.Object, root.ValueKind);
-        Assert.Equal(new[] { "error", "requestId" },
+        Assert.Equal(["error", "requestId"],
             root.EnumerateObject().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal(opaqueTrace, root.GetProperty("requestId").GetString());
         var error = root.GetProperty("error");
         Assert.Equal(JsonValueKind.Object, error.ValueKind);
-        Assert.Equal(new[] { "code", "message" },
+        Assert.Equal(["code", "message"],
             error.EnumerateObject().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal("RateLimitExceeded", error.GetProperty("code").GetString());
         Assert.Equal("Too many requests. Retry after the indicated interval.", error.GetProperty("message").GetString());
