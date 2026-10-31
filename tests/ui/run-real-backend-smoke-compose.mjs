@@ -113,8 +113,10 @@ function realBackendPlaywrightRunArgs() {
         'for directory in artifacts artifacts/sonar-real-backend-native artifacts/sonar-real-backend-native/raw; do ' +
           'test -d "$directory" && test ! -L "$directory"; done',
         'test -z "$(find artifacts/sonar-real-backend-native/raw -maxdepth 1 -type l -print -quit)"',
+        'test -n "$(find artifacts/sonar-real-backend-native/raw -maxdepth 1 -type f -name "coverage-*.json" -print -quit)"',
+        'test -s artifacts/sonar-real-backend-native/lcov.info',
         'find artifacts/sonar-real-backend-native/raw -maxdepth 1 -type f -name "coverage-*.json" ' +
-          '-exec chown --reference=. -- {} +',
+          '-exec chown --no-dereference --reference=. -- {} +',
         'exit "$native_status"',
       ].join('\n');
       args.push('--env', 'COGLATAS_NATIVE_COVERAGE_SUITE=mobile-mvp0',
