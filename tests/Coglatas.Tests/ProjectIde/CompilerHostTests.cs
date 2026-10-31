@@ -154,9 +154,15 @@ public sealed class CompilerHostTests
         var server = new ServerCompilerHost(profile, new FakeTransport((_, _) => { entered.SetResult(); return release.Task; }));
         using var cancellation = new CancellationTokenSource();
         var pending = server.CompileAsync(request, cancellation.Token); await entered.Task;
-        cancellation.Cancel(); release.SetResult(completed);
-        var response = await pending; Assert.Equal(CompilerHostStatus.Cancelled, response.Status); Assert.Null(response.Compilation);
-        Assert.Equal(CompilerHostStatus.Cancelled, (await local.CompileAsync(request, cancellation.Token)).Status);
+        cancellation.Cancel();
+        try
+        {
+            // Cancellation must complete before an uncooperative transport releases its late response.
+            var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(CompilerHostStatus.Cancelled, response.Status); Assert.Null(response.Compilation);
+            Assert.Equal(CompilerHostStatus.Cancelled, (await local.CompileAsync(request, cancellation.Token)).Status);
+        }
+        finally { release.TrySetResult(completed); }
     }
 
     [Fact]
