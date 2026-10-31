@@ -27,7 +27,7 @@ is checked before work and between bounded binding stages. Identical immutable
 inputs produce identical supported model findings; no incremental cache is claimed.
 
 This is partial binding, not semantic validation or an execution plan. Relation-
-target references, external Source-reference wire extensions, named structural/
+target references, typed value-reference literals, external Source-reference wire extensions, named structural/
 recursive descriptors, package/extension loading, DSL import and unsupported
 calendar/evidence semantics remain explicit Unsupported. Slice 6 owns graph/semantic
 validation and derived IR; Slice 7 owns actual supported rules. A complete binding
@@ -43,3 +43,5 @@ No protected branch push/merge, Required Check relaxation, dependency, productio
 RLS/SEC-ARCH/Shadow/Enforce or Student Council decision change. Angular retained;
 new Web UI NOT_STARTED and Windows/Avalonia BLOCKED by #1144. #1128 remains
 SUSPENDED / NOT_EVALUATED. Source review/CODEOWNER/integration acceptance are pending.
+
+Unknown value basis remains opaque provenance: binding and numeric semantic scans do not interpret tagged values inside it. Raw input still consumes the logical processing budget. Independent reference-shaped and numeric-shaped basis regressions preserve the original Source.
