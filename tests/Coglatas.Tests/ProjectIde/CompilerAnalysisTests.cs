@@ -128,4 +128,14 @@ public sealed class CompilerAnalysisTests
         Assert.Equal(CompilerVerdict.Fail, after.Verdict); Assert.Equal(before.ResultDigest, after.ResultDigest);
         Assert.Throws<FormatException>(() => new CompilerSuppressionRequest(Json(data), Source(9).Context));
     }
+
+    [Fact]
+    public void OverexpandedRuleManifestsAreRejectedBeforeAnyEvaluation()
+    {
+        var settings = Settings();
+        for (var i = 0; i < 1022; i++) settings["rules"]!.AsArray().Add(Obj(new { ruleId = "example.rule-" + i, version = 1, required = true, configuration = new { } }));
+        Assert.Throws<FormatException>(() => Input(settings));
+        var oversized = Artifact("example." + new string('x', 256));
+        Assert.Throws<FormatException>(() => new CompilerArtifactIdentity(Json(oversized)));
+    }
 }
