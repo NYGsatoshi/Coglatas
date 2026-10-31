@@ -7,6 +7,7 @@ public sealed record CalendarExceptionInterval(string Kind, InstantInterval Inte
 /// <summary>Finite, materialized calendar input. Recurrence expansion and snapshot authorization belong to input providers.</summary>
 public sealed class CalendarSnapshot
 {
+    private readonly TimeZoneSnapshot _zone;
     public CalendarReference Reference { get; }
     public TimeZoneReference TimeZone { get; }
     public InstantInterval Validity { get; }
@@ -50,7 +51,7 @@ public sealed class CalendarSnapshot
             exceptionList.Add(new(kind, interval));
         }
         Exceptions = new ReadOnlyCollection<CalendarExceptionInterval>(exceptionList);
-        Reference = reference; Data = data;
+        Reference = reference; Data = data; _zone = zone;
     }
 
     private IReadOnlyList<InstantInterval> ReadIntervals(SourceJson data, string name)
@@ -70,6 +71,21 @@ public sealed class CalendarSnapshot
 
     public static ContentDigest ComputeDigest(SourceJson data) => ContentDigest.Compute("coglatas.calendar-snapshot/1", data.ToCanonicalBytes());
     public bool Matches(CalendarReference reference) => Reference.Data.Equals(reference.Data);
+
+    internal bool CoversDate(DateOnly date)
+    {
+        if (date == DateOnly.MaxValue) return false;
+        var start = ResolveMidnight(date);
+        var end = ResolveMidnight(date.AddDays(1));
+        return start.Status == TimeEvaluationStatus.Known && end.Status == TimeEvaluationStatus.Known &&
+               start.Value!.CompareTo(end.Value) < 0 && Validity.Contains(new(start.Value, end.Value!));
+    }
+
+    private TimeEvaluationResult<ProjectInstant> ResolveMidnight(DateOnly date) => _zone.Resolve(new(SourceJson.FromObject(new
+    {
+        local = date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) + "T00:00:00.0000000",
+        timeZone = TimeZone.Data.Value
+    })));
 
     public static TimeEvaluationResult<CalendarSnapshot> Read(SourceJson data, CalendarReference reference, TimeZoneSnapshot? zone,
         TimeEvaluationLimits? limits = null)
@@ -172,7 +188,11 @@ public sealed class ProjectTimeInterval
     private static TypedProjectValue ReadEndpoint(SourceJson data, string name)
     {
         ArgumentNullException.ThrowIfNull(data);
-        var result = TypedProjectValueCodec.Decode(TimeContractFields.Child(data, name));
+        var endpoint = TimeContractFields.Child(data, name);
+        var kind = SourceFields.Token(SourceFields.Object(endpoint.Value, "type"), "kind");
+        if (kind is not ("coglatas.instant" or "coglatas.local-date" or "coglatas.local-date-time"))
+            throw new UnsupportedSourceException("An interval endpoint must be a comparable scalar time value; nested values are not decoded.");
+        var result = TypedProjectValueCodec.Decode(endpoint);
         if (result.Status == ValueDecodeStatus.Unsupported) throw new UnsupportedSourceException("Unsupported interval endpoint is retained without comparison.");
         return result.Value ?? throw new FormatException("Invalid interval endpoint.");
     }
