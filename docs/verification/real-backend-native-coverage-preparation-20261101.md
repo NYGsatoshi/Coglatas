@@ -3,7 +3,7 @@
 This is a diagnostic candidate, not a coverage import or Main test promotion authorization.
 
 Product baseline: `eb18fb3c5b82c05ca4cdc8b68b59276732eb2fef`.
-Independent test-management source: `991740af2a7b715e80d4595879ebde1a9d73d617`, based on
+Independent test-management source: `e326982f01f53268d3f5e679f1c3a3bcb7920d9d`, based on
 `SecurityTestImplimation` at `b18939f9104d52ae33e32a7f9b15a6e1b52892f1`.
 The three test files in the qualification checkout must match those Git blobs exactly.
 Neither the management PR nor this Draft is eligible to merge without the applicable
@@ -11,7 +11,8 @@ explicit test promotion authority. In particular, do not merge the management PR
 into `SecurityTestImplimation` or update #1502.
 
 The existing protected `Licensed Real Backend Acceptance` workflow gains an optional
-`native_coverage` boolean, default false and admitted only with `suite=mobile-mvp0`.
+`native_coverage` boolean, default false and admitted only with `suite=mobile-mvp0`
+or the original Desktop `suite=p0`.
 The existing clean-source, first-attempt, single-case/four-actor and source-built-image
 checks remain. Within the existing isolated Compose browser container, a native
 Node test delegates to the original real-backend runner with identical Mobile
@@ -97,3 +98,31 @@ arguments, assertions, selection, retries and deadlines and leaves the Group
 helper source unchanged. Worker-only loading is a source-supported correction
 hypothesis for the discovery/worker merge; fresh raw ranges and original LCOV
 must prove its effect. It does not authorize a general converter or report edit.
+
+The worker-only Group trial at `587687abbed273aee4b6f9f41275a5e4cac9532d`, tree
+`cd2b676e5537740f0c916ff8758dc329c79899bf`, passed actual Mobile run
+`41253001312/attempt 1`, job124690237041, with four actors and no retries. Image
+`sha256:f16560829b9e110961e9a00e0ea339f6e4b20bbb79f83aa5c78dd9d05492c359`;
+native artifact13062286882 ZIP SHA256
+`b6fc5fe3debf38c2666cda7d4a1a375473a31c40418ca4bb7f5819bbd89e4eae`;
+execution artifact13062570982 ZIP SHA256
+`b57a6860db1ef218fd34a23f3d203900e61187f61356dd102f6e7568d6aa06c3`.
+Exact raw/source-map comparison confirmed only one Group module record, but its
+geometry callback remained native count0 while pure body line972 remained
+positive in native LCOV. Worker-only loading did not repair that source-map
+attribution. The trial was withdrawn as a complete fix, and no report imported.
+
+The current preparation also measures the existing Desktop P0 owner. Its Mobile
+geometry helper is not invoked. The focused browser report covers only unchanged
+Group and Workspace-member helpers; other files remain in the existing Sonar
+analysis with their existing reports or uncovered state. Both helpers load only
+in their executing worker to avoid the separately established process-merge bug.
+This does not assert the Mobile source-map problem is fixed. The original P0
+host entry point also runs directly as a native Node test file, with its unchanged
+arguments and required-test manifest; no new host test wrapper is introduced.
+Original host/browser raw reports and LCOV are retained separately. A clean,
+exact-source/attempt-one receipt and actual running backend image/PostgreSQL
+server_version_num are required. The database query is read-only and synthetic;
+it makes no application-role or RLS claim. The base acceptance image remains
+floating postgres:18-alpine, not the separate Sonar PostgreSQL18.6 digest pin.
+No report is imported before independent raw/source qualification.

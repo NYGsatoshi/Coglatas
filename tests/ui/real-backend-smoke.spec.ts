@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { assertMobileMvp0Profile, mobileMvp0Project } from './mobile-mvp0-profile.mjs';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
-import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
 import { exerciseRealSearchReconnect } from './real-backend-search-reconnect';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
@@ -119,7 +118,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
-      // Load the journey in its executing worker, not the discovery process.
+      // Avoid merging discovery-process zero ranges with this journey's worker.
       const { exerciseGroupDm } = await import('./group-dm-real');
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
@@ -472,6 +471,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       recipientPage.on('response', (response) => recordFailedApiResponse(response, recipientEvidence));
       await loginAndVerifySession(recipientPage, recipientEvidence, { email: pr06ViewerEmail, password: `${smokePassword}:recipient` });
       recipientAuthenticated = true;
+      const { exerciseWorkspaceMemberManagement } = await import('./workspace-member-management-real');
       const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody, smokeRecipientName);
       evidence.steps.push({ name: 'workspace-member-management-real-roundtrip', method: 'UI', path: memberApiPath,
         status: 200, body: result, bodyPreview: 'Four real Angular commands, independent reads, reload and current-authority denials verified.' });

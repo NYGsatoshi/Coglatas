@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import {
   composeFailureObservation,
@@ -59,6 +60,26 @@ export async function runRealBackendSmokeCompose(control = null) {
       await waitForHealthy('app');
 
       if (rosterControl) await rosterControl.prepare(rosterIo());
+      if (composeEnv.COGLATAS_REAL_BACKEND_NATIVE_COVERAGE === '1') {
+        const version = await runCompose(['-p', projectName, '-f', composeFile, 'exec', '-T',
+          'postgres', 'psql', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke', '-Atqc',
+          "SELECT current_setting('server_version_num');"], { capture: true, silent: true });
+        if (version.exitCode !== 0 || !/^[0-9]{5,6}$/.test(version.stdout.trim())) {
+          throw new Error('Native measurement requires an actual PostgreSQL version receipt.');
+        }
+        const appId = await getServiceContainerId('app');
+        const image = await runDocker(['inspect', '--format', '{{.Image}}', appId], { capture: true, silent: true });
+        if (image.exitCode !== 0 || !/^sha256:[a-f0-9]{64}$/.test(image.stdout.trim())) {
+          throw new Error('Native measurement requires the running backend image identity.');
+        }
+        mkdirSync('artifacts/sonar-real-backend-native', { recursive: true });
+        writeFileSync('artifacts/sonar-real-backend-native/environment.json', JSON.stringify({
+          sourceSha: composeEnv.TARGET_SHA, hostNodeVersion: process.version,
+          postgresVersionNum: Number(version.stdout.trim()),
+          backendImage: image.stdout.trim(),
+          qualification: 'Synthetic Compose database version only; no application-role RLS claim.',
+        }) + '\n', { flag: 'wx', mode: 0o600 });
+      }
       exitCode = (await runCompose(realBackendPlaywrightRunArgs())).exitCode;
       if (rosterControl) await rosterControl.browserFinished(rosterIo());
     }
@@ -96,7 +117,11 @@ function realBackendPlaywrightRunArgs() {
       throw new Error('MVP0 Mobile is an independent selection, not a canonical owner override.');
     }
     args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1');
-    if (composeEnv.COGLATAS_REAL_BACKEND_NATIVE_COVERAGE === '1') {
+  }
+  if (composeEnv.COGLATAS_REAL_BACKEND_NATIVE_COVERAGE === '1') {
+      if (rosterControl || composeEnv.COGLATAS_REAL_BACKEND_P0_SETUP !== '1') {
+        throw new Error('Native measurement requires the unchanged P0 or MVP0 owner.');
+      }
       const nativeCommand = [
         'set -euo pipefail',
         'npm ci',
@@ -104,7 +129,8 @@ function realBackendPlaywrightRunArgs() {
         'native_status=0',
         'NODE_V8_COVERAGE="$PWD/artifacts/sonar-real-backend-native/raw" ' +
           'node --test --experimental-test-coverage ' +
-          '--test-coverage-include="tests/ui/**" --test-coverage-exclude="**/*.node-test.mjs" ' +
+          '--test-coverage-include="tests/ui/group-dm-real.ts" ' +
+          '--test-coverage-include="tests/ui/workspace-member-management-real.ts" ' +
           '--test-reporter=spec --test-reporter-destination=stdout ' +
           '--test-reporter=lcov --test-reporter-destination=artifacts/sonar-real-backend-native/lcov.info ' +
           'tests/ui/real-backend-native-coverage.node-test.mjs || native_status=$?',
@@ -119,12 +145,14 @@ function realBackendPlaywrightRunArgs() {
           '-exec chown --no-dereference --reference=. -- {} +',
         'exit "$native_status"',
       ].join('\n');
-      args.push('--env', 'COGLATAS_NATIVE_COVERAGE_SUITE=mobile-mvp0',
+      const suite = composeEnv.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1' ? 'mobile-mvp0' : 'p0';
+      args.push('--env', `COGLATAS_NATIVE_COVERAGE_SUITE=${suite}`,
         'real-backend-playwright', 'bash', '-lc', nativeCommand);
-    } else {
+      return args;
+  }
+  if (composeEnv.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
       args.push('real-backend-playwright', 'bash', '-lc',
         'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
-    }
     return args;
   }
   args.push('real-backend-playwright');
