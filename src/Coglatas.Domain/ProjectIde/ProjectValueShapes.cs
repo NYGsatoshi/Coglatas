@@ -77,8 +77,8 @@ internal static class ProjectValueShapes
         if (type.Kind == "coglatas.optional")
         {
             var present = ValueFields.Boolean(value, "present");
-            RequireFields(value, present ? ["present", "value"] : ["present"]);
             if (!present && value.TryGetProperty("value", out _)) throw new FormatException("Absent optional cannot carry a value.");
+            RequireFields(value, present ? ["present", "value"] : ["present"]);
             return new OptionalProjectValue(present, present ? Child(ValueFields.Required(value, "value"), type.ElementType!) : null);
         }
         if (type.Kind == "coglatas.structure")
