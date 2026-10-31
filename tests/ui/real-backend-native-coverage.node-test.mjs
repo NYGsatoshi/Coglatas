@@ -17,10 +17,13 @@ test('the original real-backend runner succeeds under native coverage', () => {
   // to the caller's requested directory after collection has completed.
   assert.ok(isAbsolute(process.env.NODE_V8_COVERAGE ?? ''), 'native raw collection must be enabled');
 
-  assert.equal(process.env.COGLATAS_NATIVE_COVERAGE_SUITE, 'mobile-mvp0');
-  assert.equal(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE, '1');
-  const args = ['--config=playwright.mobile-mvp0-real.config.ts', '--project=real-backend-mobile-mvp0-320',
-    '--retries=0', '--workers=1'];
+  const suite = process.env.COGLATAS_NATIVE_COVERAGE_SUITE;
+  assert.ok(suite === 'mobile-mvp0' || suite === 'p0', 'closed original suite selection');
+  const args = suite === 'mobile-mvp0'
+    ? ['--config=playwright.mobile-mvp0-real.config.ts', '--project=real-backend-mobile-mvp0-320',
+      '--retries=0', '--workers=1'] : [];
+  if (suite === 'mobile-mvp0') assert.equal(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE, '1');
+  else assert.notEqual(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE, '1');
   console.log(`Original-runner native coverage runtime: ${process.version}.`);
 
   const result = spawnSync(process.execPath,
