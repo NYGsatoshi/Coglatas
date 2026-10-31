@@ -130,4 +130,28 @@ public sealed class CompilerIrTests
         var result = Validate(Input(settings, source));
         Assert.Null(result.Ir); Assert.Contains(result.Findings, item => item.Diagnostic.Code == "coglatas.semantic.capability-unavailable");
     }
+
+    [Fact]
+    public void NestedQuantityTypesRequireUnitsEvenWhenTheCollectionHasNoValues()
+    {
+        var original = Source(); var task = Task(7);
+        var quantity = Obj(new { kind = "coglatas.quantity", schemaVersion = 1, nullable = false, acceptsUnknown = false, unitId = "unit.kg", dimension = new Dictionary<string, int> { ["dimension.mass"] = 1 } });
+        var type = Obj(new { kind = "coglatas.list", schemaVersion = 1, nullable = false, acceptsUnknown = false, elementType = quantity });
+        task["payload"]!["ports"] = new JsonArray(Obj(new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1,
+            defaultValue = new { type, state = "coglatas.known", value = Array.Empty<object>() } }));
+        var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task)));
+        var result = Validate(Input(source: source));
+        Assert.Null(result.Ir); Assert.Contains(result.Findings, item => item.Diagnostic.Code == "coglatas.semantic.unit-unavailable");
+    }
+
+    [Fact]
+    public void AReferenceTypeToAnUnknownKindIsNotCertifiedByMatchingTokenShape()
+    {
+        var original = Source(); var task = Task(7);
+        var type = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = false, expectedKind = "example.future-entity" });
+        task["payload"]!["ports"] = new JsonArray(Obj(new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1 }));
+        var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task)));
+        var result = Validate(Input(source: source));
+        Assert.Null(result.Ir); Assert.Contains(result.Findings, item => item.Diagnostic.Code == "coglatas.semantic.reference-type-unavailable");
+    }
 }
