@@ -224,6 +224,7 @@ public sealed class CalendarEvaluationTests
         Assert.Equal(TimeSpan.TicksPerDay, ProjectTimeArithmetic.ElapsedBetween(first.Start, first.End).Value!.Ticks);
         Assert.Equal(TimeEvaluationStatus.Unknown, ProjectTimeArithmetic.ElapsedBetween(first.Start, unknown.End).Status);
         Assert.Equal(TimeEvaluationStatus.Null, ProjectTimeArithmetic.ElapsedBetween(first.Start, nullEnd.End).Status);
+        Assert.Equal(first.Data.CanonicalText, new ProjectTimeInterval(SourceJson.Parse(first.Data.ToCanonicalBytes())).Data.CanonicalText);
     }
 
     [Fact]
@@ -241,6 +242,31 @@ public sealed class CalendarEvaluationTests
         var instant = Value("coglatas.instant", "coglatas.known", "2026-07-01T00:00:00.0000000Z");
         Assert.Throws<ArgumentException>(() => new ProjectTimeInterval(start, instant));
         Assert.Equal(TimeEvaluationStatus.Invalid, ProjectTimeArithmetic.ElapsedBetween(start, end).Status);
+    }
+
+    [Theory]
+    [InlineData("workingIntervals", "2026-07-01T12:00:00.0000000Z", "2026-07-01T11:00:00.0000000Z")]
+    [InlineData("workingIntervals", "2026-07-01T12:00:00.0000000Z", "2026-07-01T12:00:00.0000000Z")]
+    [InlineData("nonWorkingIntervals", "2025-07-01T12:00:00.0000000Z", "2025-07-01T13:00:00.0000000Z")]
+    public void InvalidCalendarIntervalsCannotBeEvaluated(string field, string start, string end)
+    {
+        var calendar = Calendar(); var node = JsonNode.Parse(calendar.Data.CanonicalText)!;
+        node[field]![0]!["start"] = start; node[field]![0]!["end"] = end;
+        var data = SourceJson.Parse(node.ToJsonString());
+        var result = CalendarSnapshot.Read(data, CalendarRef(data), Zone().Snapshot);
+        Assert.Equal(TimeEvaluationStatus.Invalid, result.Status); Assert.Null(result.Value);
+    }
+
+    [Fact]
+    public void UnsupportedZoneRulesAndUnknownIntervalsRetainSource()
+    {
+        var zone = Zone(); var node = JsonNode.Parse(zone.Data.CanonicalText)!; node["futureRule"] = "future.unknown";
+        var data = SourceJson.Parse(node.ToJsonString());
+        var result = TimeZoneSnapshot.Read(data, zone.Reference);
+        Assert.Equal(TimeEvaluationStatus.Unsupported, result.Status); Assert.Equal(data.CanonicalText, result.Data!.CanonicalText);
+        var endpoint = Value("coglatas.instant", "coglatas.unknown");
+        var interval = new ProjectTimeInterval(endpoint, endpoint);
+        Assert.Equal(TimeEvaluationStatus.Unknown, new ProjectTimeInterval(interval.Data).Overlaps(interval).Status);
     }
 
     [Theory]
