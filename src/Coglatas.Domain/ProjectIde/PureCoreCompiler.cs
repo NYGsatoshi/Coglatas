@@ -41,6 +41,7 @@ public static class PureCoreCompiler
             {
                 var facts = ruleFacts[finding.Diagnostic.RuleId];
                 if (finding.State == RelationFindingState.Invalid) facts.Failed = true; else facts.Incomplete = true;
+                if (finding.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)) facts.Execution = CompilerExecutionState.ResourceExhausted;
             }
             var remaining = input.ExecutionProfile.MaximumOperations - validation.LogicalOperationsConsumed;
             var exhausted = validation.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
@@ -76,9 +77,9 @@ public static class PureCoreCompiler
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (--remaining < 0)
-                { exhausted = true; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, root); continue; }
+                { exhausted = true; ruleFacts[rule.RuleId].Execution = CompilerExecutionState.ResourceExhausted; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, root); continue; }
                 if (!SupportedRules.Contains(rule.RuleId) || rule.Version != 1 || rule.Configuration.Value.EnumerateObject().Any())
-                { Finding(rule, "coglatas.analysis.unsupported-rule", RelationFindingState.Unsupported, root); continue; }
+                { ruleFacts[rule.RuleId].Execution = CompilerExecutionState.NotRun; Finding(rule, "coglatas.analysis.unsupported-rule", RelationFindingState.Unsupported, root); continue; }
                 if (rule.RuleId is CoreCompilerRules.Schema or CoreCompilerRules.Declarations or CoreCompilerRules.Relations) continue;
                 if (!validation.StructuralClosureValidated)
                 { Finding(rule, "coglatas.analysis.semantic-closure-unavailable", RelationFindingState.Unknown, root); continue; }
@@ -94,7 +95,7 @@ public static class PureCoreCompiler
                             if (constraint.IsRequired) Finding(rule, "coglatas.analysis.unattached-required-constraint", RelationFindingState.Unknown, location);
                             continue;
                         }
-                        if (!SpendPredicate(constraint.Predicate)) { Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location); continue; }
+                        if (!SpendPredicate(constraint.Predicate)) { ruleFacts[rule.RuleId].Execution = CompilerExecutionState.ResourceExhausted; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location); continue; }
                         var evaluation = constraint.Predicate.Evaluate();
                         ruleFacts[rule.RuleId].Premises.AddRange(evaluation.EvaluatedPremises);
                         if (evaluation.Truth == PredicateTruth.False)
@@ -113,7 +114,7 @@ public static class PureCoreCompiler
                             ruleFacts[rule.RuleId].Premises.AddRange(evaluation.EvaluatedPremises);
                             if (evaluation.Truth == PredicateTruth.False) Finding(rule, "coglatas.analysis.requirement-condition-false", RelationFindingState.Invalid, location, Proof(evaluation.EvaluatedPremises));
                         }
-                        else Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location);
+                        else { ruleFacts[rule.RuleId].Execution = CompilerExecutionState.ResourceExhausted; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location); }
                         Finding(rule, "coglatas.analysis.requirement-evidence-unavailable", RelationFindingState.Unknown, location);
                     }
                 if (rule.RuleId == CoreCompilerRules.Resources)
@@ -130,9 +131,9 @@ public static class PureCoreCompiler
             var outcomes = input.Rules.Select(rule =>
             {
                 var facts = ruleFacts[rule.RuleId];
-                return new CompilerRuleOutcome(rule.RuleId, rule.Version, CompilerExecutionState.Completed,
-                    facts.Incomplete ? CompilerCoverage.Partial : CompilerCoverage.Complete,
-                    facts.Failed ? CompilerVerdict.Fail : facts.Incomplete ? CompilerVerdict.Inconclusive : CompilerVerdict.Pass,
+                return new CompilerRuleOutcome(rule.RuleId, rule.Version, facts.Execution,
+                    facts.Execution == CompilerExecutionState.NotRun ? CompilerCoverage.None : facts.Incomplete ? CompilerCoverage.Partial : CompilerCoverage.Complete,
+                    facts.Execution == CompilerExecutionState.NotRun ? CompilerVerdict.NotRun : facts.Failed ? CompilerVerdict.Fail : facts.Incomplete ? CompilerVerdict.Inconclusive : CompilerVerdict.Pass,
                     facts.Incomplete ? new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.incomplete-basis") : Proof(facts.Premises));
             }).ToArray();
             var complete = input.SourceCoverageComplete && outcomes.All(item => item.Coverage == CompilerCoverage.Complete) && !exhausted;
@@ -169,6 +170,7 @@ public static class PureCoreCompiler
     {
         internal bool Failed { get; set; }
         internal bool Incomplete { get; set; }
+        internal CompilerExecutionState Execution { get; set; } = CompilerExecutionState.Completed;
         internal List<SourceJson> Premises { get; } = [];
     }
 }
