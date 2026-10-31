@@ -46,15 +46,16 @@ public static class PlanDeclarationReader
     {
         ArgumentNullException.ThrowIfNull(source);
         var results = new List<DeclarationDecodeResult>();
-        foreach (var document in source.Documents) results.Add(Read(document.Root.Data, document.DocumentId));
+        foreach (var document in source.Documents) results.Add(CheckTenant(Read(document.Root.Data, document.DocumentId), source.TenantId));
         foreach (var declaration in source.Declarations.Value.EnumerateArray())
         {
             var data = SourceJson.FromElement(declaration, source.Data.Limits);
-            var result = Read(data, SourceFields.Identity<DocumentId>(declaration, "documentId"));
-            if (result.Declaration is ResourceBindingDeclaration resource && resource.TenantId != source.TenantId)
-                result = new(ValueDecodeStatus.Invalid, null, data, result.DocumentId);
-            results.Add(result);
+            results.Add(CheckTenant(Read(data, SourceFields.Identity<DocumentId>(declaration, "documentId")), source.TenantId));
         }
         return new ReadOnlyCollection<DeclarationDecodeResult>(results);
     }
+
+    private static DeclarationDecodeResult CheckTenant(DeclarationDecodeResult result, TenantId tenant) =>
+        result.Declaration is ResourceBindingDeclaration resource && resource.TenantId != tenant
+            ? new(ValueDecodeStatus.Invalid, null, result.Data, result.DocumentId) : result;
 }
