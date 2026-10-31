@@ -111,7 +111,7 @@ public static class ProjectUnitConversions
 {
     /// <summary>No registry search or implicit inverse. The caller supplies the exact ordered manifest entries.</summary>
     public static UnitConversionResult Convert(Quantity quantity, UnitDefinition sourceUnit, UnitDefinition targetUnit,
-        IReadOnlyList<UnitConversionDefinition> path, NumericEvaluationLimits? limits = null)
+        IReadOnlyList<UnitConversionDefinition?> path, NumericEvaluationLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(quantity);
         ArgumentNullException.ThrowIfNull(sourceUnit);
@@ -163,7 +163,7 @@ public static class ProjectUnitConversions
     }
 
     public static UnitConversionResult CanConvert(UnitDefinition sourceUnit, UnitDefinition targetUnit,
-        IReadOnlyList<UnitConversionDefinition> path, NumericEvaluationLimits? limits = null)
+        IReadOnlyList<UnitConversionDefinition?> path, NumericEvaluationLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(sourceUnit);
         var zero = new Quantity(SourceJson.FromObject(new { amount = "0", unitId = sourceUnit.UnitId, dimension = sourceUnit.Dimension.Data.Value }));
