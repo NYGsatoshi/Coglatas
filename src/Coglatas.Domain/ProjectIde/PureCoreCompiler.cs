@@ -55,8 +55,12 @@ public static class PureCoreCompiler
                     affectsRequiredTruth ? CompilerDiagnosticSeverity.Error : CompilerDiagnosticSeverity.Warning, discriminator);
                 if (ids.Add(diagnostic.DiagnosticId.Value)) diagnostics.Add(diagnostic);
             }
-            CompilerEvidenceBasis Proof(IEnumerable<SourceJson>? premises = null) => new(CompilerEvidenceKind.ModelProof,
-                new[] { input.InputDigest, input.Source.Digest }.Concat((premises ?? []).Select(premise => ContentDigest.Compute("coglatas.predicate-premise/1", premise.ToCanonicalBytes()))));
+            CompilerEvidenceBasis Proof(IEnumerable<SourceJson>? premises = null)
+            {
+                var actual = (premises ?? []).Distinct().OrderBy(item => item.CanonicalText, StringComparer.Ordinal).Select(item => item.Value).ToArray();
+                return new(CompilerEvidenceKind.ModelProof, actual.Length == 0 ? [input.InputDigest, input.Source.Digest]
+                    : [input.InputDigest, input.Source.Digest, ContentDigest.Compute("coglatas.predicate-premises/1", SourceJson.FromObject(actual).ToCanonicalBytes())]);
+            }
             var schemaRule = input.Rules.Single(rule => rule.RuleId == CoreCompilerRules.Schema);
             var declarationRule = input.Rules.Single(rule => rule.RuleId == CoreCompilerRules.Declarations);
             var capabilities = RelationKindDescriptor.BuiltIns.SelectMany(item => item.RequiredCapabilities).Prepend("coglatas.core.structural").ToHashSet(StringComparer.Ordinal);
@@ -157,8 +161,23 @@ public static class PureCoreCompiler
                 new CompilerArtifactReference("coglatas.source-map", "coglatas.semantic-source-map", 1, input.InputDigest, produced.SourceMapDigest)
             } : [];
             var coverage = complete && stages.All(stage => stage.Coverage == CompilerCoverage.Complete) ? CompilerCoverage.Complete : CompilerCoverage.Partial;
-            var result = new CompilerResult(input, exhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
-                coverage, outcomes, diagnostics, stages, complete, artifacts);
+            CompilerResult result;
+            try
+            {
+                result = new(input, exhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
+                    coverage, outcomes, diagnostics, stages, complete, artifacts);
+            }
+            catch (FormatException)
+            {
+                var limited = outcomes.Select(outcome => new CompilerRuleOutcome(outcome.RuleId, outcome.Version, CompilerExecutionState.ResourceExhausted,
+                    CompilerCoverage.Partial, outcome.Verdict == CompilerVerdict.Fail ? CompilerVerdict.Fail : CompilerVerdict.Inconclusive,
+                    new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"))).ToArray();
+                var diagnostic = new CompilerDiagnostic(input, schemaRule.RuleId, schemaRule.Version, 3, "coglatas.analysis.publication-budget", root,
+                    new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"));
+                result = new(input, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, limited, [diagnostic],
+                    [new CompilerStageOutcome("coglatas.publication", 1, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, input.InputDigest, [], "coglatas.analysis.publication-budget")], false);
+                return new(input, model, null, result);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             return new(input, model, validation, result);
         }
