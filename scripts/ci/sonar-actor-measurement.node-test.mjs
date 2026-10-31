@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { actorFile, measurementBranch, nativeSummaryObservation, trustedExecutorPaths, validateActorCoverage, validateMeasurementAdmission, validateNativeSummary } from './sonar-actor-measurement.mjs';
 import { measurementFrontendOutput } from './sonar-actor-frontend-output.mjs';
@@ -58,6 +60,31 @@ void test('native summary requires one completed implicit case and rejects faile
   validateNativeSummary(original);
   for (const text of ['', original + '\nℹ tests 1', original.replace('pass 1', 'pass 0'), original.replace('fail 0', 'fail 1'),
     original.replace('cancelled 0', 'cancelled 1'), original.replace('skipped 0', 'skipped 1'), original.replace('tests 1', 'tests 17')]) assert.throws(() => validateNativeSummary(text));
+});
+
+void test('actual native coverage directory named tests cannot masquerade as a second terminal summary', () => {
+  const parent=realpathSync(tmpdir()), root=mkdtempSync(join(parent,'coglatas-summary-control-'));
+  try {
+    mkdirSync(join(root,'tests'));
+    writeFileSync(join(root,'tests','control.mjs'),"console.log('synthetic summary fixture');\n");
+    const env={...process.env};delete env.NODE_TEST_CONTEXT; // This owned fixture starts a distinct native test runner.
+    const child=spawnSync(process.execPath,['--test','--experimental-test-coverage','--test-concurrency=1',
+      '--test-coverage-include=tests/control.mjs','--test-reporter=spec','tests/control.mjs'],{cwd:root,env,encoding:'utf8',maxBuffer:1024*1024});
+    assert.equal(child.status,0);assert.equal(child.signal,null);
+    assert.match(child.stdout,/^ℹ tests +\| +\| +\| +\| *$/mu);
+    validateNativeSummary(child.stdout);
+    const directory=child.stdout.split(/\r?\n/).find(row=>/^ℹ tests +\| +\| +\| +\| *$/u.test(row));
+    for(const invalid of [child.stdout+'\nℹ tests 1',child.stdout+'\nℹ tests bad',child.stdout+'\nℹ fail 0',
+      child.stdout.replace('ℹ fail 0','ℹ fail 1'),child.stdout.replace('ℹ cancelled 0','ℹ cancelled 1'),
+      child.stdout.replace('ℹ skipped 0','ℹ skipped 1'),child.stdout.replace(directory,directory+'\n'+directory),
+      child.stdout.replace('ℹ start of coverage report','missing start marker'),
+      child.stdout.replace('ℹ end of coverage report','missing end marker'),
+      child.stdout.replace('ℹ end of coverage report','ℹ fail 1\nℹ end of coverage report')]) assert.throws(()=>validateNativeSummary(invalid));
+  } finally {
+    assert.equal(lstatSync(root).isSymbolicLink(),false);
+    assert.equal(dirname(realpathSync(root)),parent);
+    rmSync(root,{recursive:true,force:true});
+  }
 });
 
 void test('summary observations retain only closed bounded counters and an ANSI-presence boolean', () => {

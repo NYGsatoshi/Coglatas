@@ -101,10 +101,23 @@ export function nativeSummaryObservation(text) {
 
 export function validateNativeSummary(text) {
   assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
+  const rows = text.split(/\r?\n/);
+  // Native spec coverage renders the top-level tests directory using this exact blank-column row.
+  const directoryRows = rows.flatMap((row, index) => /^ℹ tests +\| +\| +\| +\| *$/u.test(row) ? [index] : []);
+  assert.ok(directoryRows.length <= 1);
+  const directory = directoryRows[0] ?? -1;
+  const coverageStart = rows.indexOf('ℹ start of coverage report');
+  if (directory !== -1) {
+    const coverageEnd = rows.indexOf('ℹ end of coverage report');
+    assert.ok(coverageStart > 0 && directory > coverageStart && coverageEnd > directory);
+    assert.equal(rows.filter(row => row === 'ℹ start of coverage report').length, 1);
+    assert.equal(rows.filter(row => row === 'ℹ end of coverage report').length, 1);
+  }
   for (const [name, count] of [['tests', 1], ['suites', 0], ['pass', 1], ['fail', 0], ['cancelled', 0], ['skipped', 0], ['todo', 0]]) {
     const records = text.split(/\r?\n/).filter(row => row === `ℹ ${name} ${count}`);
     assert.equal(records.length, 1);
-    assert.equal(text.split(/\r?\n/).filter(row => row.startsWith(`ℹ ${name} `)).length, 1);
+    assert.equal(rows.filter((row, index) => index !== directory && row.startsWith(`ℹ ${name} `)).length, 1);
+    if (directory !== -1) assert.ok(rows.indexOf(`ℹ ${name} ${count}`) < coverageStart);
   }
 }
 
