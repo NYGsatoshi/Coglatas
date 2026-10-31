@@ -178,6 +178,16 @@ public sealed class ProjectUnitConversionTests
         finally { CultureInfo.CurrentCulture = old; }
     }
 
+    [Fact]
+    public void UnitIdentityMatchesTheFixedCanonicalGoldenVector()
+    {
+        var data = SourceJson.Parse("{\"version\":1,\"unitId\":\"fixture.meter\",\"dimension\":{\"coglatas.length\":1}}");
+        var digest = ContentDigest.Parse(SourceJson.Parse("{\"algorithm\":\"sha-256\",\"value\":\"0428ec0bd6a2ea5ac2c94643445b37bcde9286c6abd334f3e5a5f7b992a969a8\"}"));
+        var unit = new UnitDefinition(data, digest);
+        Assert.Equal("{\"dimension\":{\"coglatas.length\":1},\"unitId\":\"fixture.meter\",\"version\":1}", unit.Data.CanonicalText);
+        Assert.Equal(digest, unit.Digest);
+    }
+
     [Theory]
     [InlineData(NumericOperator.Add, "0.1", "0.2", "3/10")]
     [InlineData(NumericOperator.Subtract, "0.1", "0.2", "-1/10")]
