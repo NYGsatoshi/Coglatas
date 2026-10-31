@@ -40,6 +40,15 @@ warning is suppressed and no live scan is substituted for the failed fixture.
 
 Fixture base: `python:3.12-slim-bookworm`, immutable digest
 `sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337`.
+An independent fresh reviewer verified all 20 downloaded wheel hashes and
+metadata, repeated installation/consistency/version/help and both negative
+controls, and found no concrete surviving bypass or compatibility regression.
+Missing-credential invocation exits 3 and invalid arguments exit 2. Inert
+sentinel parsing verifies the existing environment and GitHub SCM aliases
+without scanning. Reviewed workflow SHA-256 is
+`88eb1d4e9bbc5fd513cb3e039c49bb9c299df16134e428b1da70d535d7caff15`;
+lock SHA-256 is `78fefd365fe37d43409d46fadaab763d4c11dd399e36b41370f1a70f6d2f1b0b`
+(canonical LF bytes). This review does not replace hosted checks.
 No .NET, Node or Ubuntu baseline changes are included. The optional authenticated
 Socket scan remains NOT_EXECUTED locally. Its existing opt-in and protected
 environment govern any future real execution. Independent review, exact-head
