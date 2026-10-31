@@ -43,3 +43,5 @@ No protected branch push/merge, Required Check relaxation, dependency, productio
 RLS/SEC-ARCH/Shadow/Enforce or Student Council decision change. Angular retained;
 new Web UI NOT_STARTED and Windows/Avalonia BLOCKED by #1144. #1128 remains
 SUSPENDED / NOT_EVALUATED. Source review/CODEOWNER/integration acceptance are pending.
+
+Unknown value basis remains opaque provenance: binding and numeric semantic scans do not interpret tagged values inside it. Raw input still consumes the logical processing budget. Independent reference-shaped and numeric-shaped basis regressions preserve the original Source.
