@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { createHash } from 'node:crypto';
+import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
 import { assertDisjoint, assertSameSnapshot, awaitOutboxIdle, beneath, corruptCopy,
   hostedContract, resourceNames, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
@@ -180,4 +182,34 @@ test('private raw material cannot enter the explicit workflow upload boundary', 
   assert.ok(upload.includes('retention-days: 7'));
   for (const forbidden of ['database.dump', 'uploads.tar', 'keys.tar', 'RUNNER_TEMP', 'probe-checkpoint.json'])
     assert.ok(!upload.includes(forbidden));
+});
+
+test('the actual API probe rejects foreign file bytes and canaries even with a denial status', async () => {
+  const bytes = Buffer.from('ORIGINAL_SYNTHETIC_PRIVATE_FILE_CANARY\n');
+  const foreign = { tenant: 'security-beta', fileId: '11111111-1111-1111-1111-111111111111',
+    fileBytes: bytes.length, fileSha256: createHash('sha256').update(bytes).digest('hex'),
+    denialMarkers: ['private-file.txt', 'private/storage/key', 'foreign@example.test'] };
+  const owner = new Actor(foreign), caller = new Actor({ tenant: 'security-alpha' });
+  const originalFetch = globalThis.fetch;
+  try {
+    const requests = [];
+    globalThis.fetch = async (url, options) => {
+      requests.push({ url, tenant: options.headers['X-Tenant-Slug'], redirect: options.redirect });
+      return new Response(bytes, { status: 200 });
+    };
+    const actualOwnedBytes = await owner.ownFile();
+    assert.deepEqual(actualOwnedBytes, bytes);
+    for (const status of [400, 403, 404]) {
+      for (const body of [bytes, Buffer.concat([Buffer.from('denied: '), bytes]), bytes.toString('utf8').trim(),
+        'denied private-file.txt', 'denied foreign@example.test']) {
+        globalThis.fetch = async () => new Response(body, { status });
+        await assert.rejects(() => caller.foreignFile(foreign, actualOwnedBytes));
+      }
+      globalThis.fetch = async () => new Response('{"error":"not_found"}', { status });
+      await caller.foreignFile(foreign, actualOwnedBytes);
+    }
+    assert.deepEqual(requests, [{ url: 'http://127.0.0.1:8080/api/files/' + foreign.fileId + '/download',
+      tenant: 'security-beta', redirect: 'manual' }]);
+    await assert.rejects(() => caller.foreignFile(foreign, Buffer.from('wrong oracle')));
+  } finally { globalThis.fetch = originalFetch; }
 });

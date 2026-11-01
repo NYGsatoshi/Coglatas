@@ -104,3 +104,21 @@ the existing Bash trust-boundary script from starting in Linux, and the cached
 Python image lacked PyYAML. Those environment failures are retained, not counted
 as validation. No application build, migration, restore or protected execution
 was performed in this local preparation.
+
+Independent review found that a denial status could still contain the foreign
+file body. The corrected probe retains the counterpart owner's hash-verified
+download bytes and rejects those bytes, embedded bytes and the trimmed synthetic
+canary in every denied response, in addition to metadata. The original exact-head
+mock reproduction reported PASS with two complete foreign bodies; that failure
+is retained. The actual corrected module is exercised with `Response`/`fetch`
+controls for all admitted denial statuses, genuine closed denials, and an
+incorrect oracle. Removing the byte/canary rejection reproduces the failure.
+The new guard count is 16; these mocks do not establish real backend isolation.
+
+All seven actual SQL templates also executed once against a fresh network-none
+PostgreSQL 18.6 container with a minimal original synthetic schema. They parsed
+and returned the expected JSON/count shapes. The container was owned, removed
+and its absence checked. This is SQL-template qualification only, not product
+schema, migration or recovery qualification. An initial reported SQL-escaping
+finding was retracted after immutable source byte inspection; no SQL text was
+changed for that report.

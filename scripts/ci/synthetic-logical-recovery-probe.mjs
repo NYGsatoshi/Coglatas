@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 // Run inside only the explicitly owned app's network namespace. Credentials and
 // cookie state stay in this private mount, never in stdout or uploaded output.
 const origin = 'http://127.0.0.1:8080';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-class Actor {
+export class Actor {
   constructor(identity, cookies = {}) { this.identity = identity; this.cookies = { ...cookies }; }
   async request(path, { method = 'GET', body, csrf } = {}) {
     assert.ok(path.startsWith('/api/') && !path.includes('://'));
@@ -56,11 +57,21 @@ class Actor {
     assert.equal(response.status, 200);
     assert.equal(response.body.length, this.identity.fileBytes);
     assert.equal(digest(response.body), this.identity.fileSha256);
+    return response.body;
   }
-  async foreignFile(foreign) {
+  async foreignFile(foreign, expectedBytes) {
+    // Bind the denial oracle to bytes just downloaded by their rightful owner,
+    // rather than accepting an error status that still returns private content.
+    assert.ok(Buffer.isBuffer(expectedBytes) && expectedBytes.length > 0);
+    assert.equal(expectedBytes.length, foreign.fileBytes);
+    assert.equal(digest(expectedBytes), foreign.fileSha256);
     const response = await this.request('/api/files/' + foreign.fileId + '/download');
     assert.ok([400, 403, 404].includes(response.status));
+    assert.ok(!response.body.includes(expectedBytes));
     const text = response.body.toString('utf8');
+    const canary = expectedBytes.toString('utf8').trim();
+    assert.ok(canary.length > 0);
+    assert.ok(!text.includes(canary));
     for (const marker of foreign.denialMarkers) assert.ok(!text.includes(marker));
   }
 }
@@ -92,9 +103,10 @@ async function main() {
     actors = input.actors.map((identity, index) => new Actor(identity, state.actors[index]));
     revoked = state.revoked;
   }
-  for (const actor of actors) { await actor.me(); await actor.ownFile(); }
-  await actors[0].foreignFile(input.actors[1]);
-  await actors[1].foreignFile(input.actors[0]);
+  const ownedBytes = [];
+  for (const actor of actors) { await actor.me(); ownedBytes.push(await actor.ownFile()); }
+  await actors[0].foreignFile(input.actors[1], ownedBytes[1]);
+  await actors[1].foreignFile(input.actors[0], ownedBytes[0]);
   await new Actor(input.revoked, revoked).me(401);
   if (phase !== 'checkpoint') {
     const fresh = new Actor(input.actors[0]);
@@ -107,4 +119,6 @@ async function main() {
   }), { flag: 'wx', mode: 0o600 });
 }
 
-main().catch(() => { process.stderr.write('Synthetic logical recovery API probe failed.\n'); process.exitCode = 1; });
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
+  main().catch(() => { process.stderr.write('Synthetic logical recovery API probe failed.\n'); process.exitCode = 1; });
+}
