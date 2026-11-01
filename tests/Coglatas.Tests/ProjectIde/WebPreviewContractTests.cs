@@ -13,6 +13,8 @@ public sealed class WebPreviewContractTests
         if (directory is null) throw new InvalidOperationException("Combined Product fixture is required; this test cannot pass without it.");
         using var data = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory.FullName, "frontend", "public", "assets", "projectide", "preview-v1.json")));
         Assert.Equal("synthetic-fixture", data.RootElement.GetProperty("mode").GetString());
+        var contexts = data.RootElement.GetProperty("cases").EnumerateArray().Select(item => item.GetProperty("context").GetRawText()).ToArray();
+        Assert.Equal(contexts.Length, contexts.Distinct(StringComparer.Ordinal).Count());
         foreach (var item in data.RootElement.GetProperty("cases").EnumerateArray()) yield return [item.GetRawText()];
     }
     [Theory]
