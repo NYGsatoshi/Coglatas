@@ -55,6 +55,15 @@ def observe(root: ET.Element) -> dict:
     return evidence.observed_trx(ET.tostring(root), NOW)
 
 
+def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, now):
+    invalid_input = root / "artifacts/directory.trx"
+    invalid_input.mkdir()
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, invalid_input, candidate, now)
+    summary = capture_module.failure_summary(candidate, invalid_input)
+    test.assertIsNone(summary["executionDigest"])
+
+
 class ExecutionInputTests(unittest.TestCase):
     def test_regular_input_retains_exact_original_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

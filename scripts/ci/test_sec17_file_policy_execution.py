@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 import sec17_file_policy_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec17_execution_support import assert_unavailable_capture_is_closed
+from test_sec_arch_evidence import assert_unavailable_capture_is_closed
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
