@@ -181,7 +181,8 @@ esac
 
 class RuntimeArtifactTests(unittest.TestCase):
     def restore(self, *, source=SHA, dotnet=SHA, image=None, identity=IMAGE_ID,
-                actual=IMAGE_ID, event="push", missing=None):
+                actual=IMAGE_ID, event="push", missing=None, split_pr=False,
+                producer_sha=SHA, producer_missing=None, duplicate=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact, workspace, commands = (root / name for name in ("artifact", "workspace", "bin"))
@@ -191,7 +192,11 @@ class RuntimeArtifactTests(unittest.TestCase):
             family = "coglatas-pr-functional" if event == "pull_request" else "coglatas-main-runtime"
             (artifact / "runtime-image-name").write_text((image or family + ":" + SHA) + "\n")
             (artifact / "runtime-image-id").write_text(identity + "\n")
-            with tarfile.open(artifact / "dotnet-release-build.tar", "w") as archive:
+            dotnet_artifact = root / "dotnet-producer" if split_pr else artifact
+            if split_pr:
+                dotnet_artifact.mkdir()
+                (dotnet_artifact / "source-sha").write_text(producer_sha + "\n")
+            with tarfile.open(dotnet_artifact / "dotnet-release-build.tar", "w") as archive:
                 content = (dotnet + "\n").encode()
                 entry = tarfile.TarInfo("artifacts/ci/dotnet-build-sha")
                 entry.size = len(content)
@@ -205,9 +210,16 @@ class RuntimeArtifactTests(unittest.TestCase):
             docker.chmod(0o755)
             if missing:
                 (artifact / missing).unlink()
+            if producer_missing:
+                (dotnet_artifact / producer_missing).unlink()
+            if duplicate:
+                (artifact / "dotnet-release-build.tar").write_text("duplicate")
             exported = root / "exported-env"
-            result = subprocess.run(["bash", (ROOT / "scripts/ci/restore-main-build-artifacts.sh").as_posix(),
-                                     "artifact", SHA, "workspace"], cwd=root,
+            command = ["bash", (ROOT / "scripts/ci/restore-main-build-artifacts.sh").as_posix(),
+                       "artifact", SHA, "workspace"]
+            if split_pr:
+                command.append("dotnet-producer")
+            result = subprocess.run(command, cwd=root,
                                     env=os.environ | {"PATH": str(commands) + os.pathsep + os.environ["PATH"],
                                                       "GITHUB_EVENT_NAME": event,
                                                       "GITHUB_ENV": str(exported), "TEST_IMAGE_ID": actual},
@@ -221,6 +233,42 @@ class RuntimeArtifactTests(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertIn("COGLATAS_REUSE_PREBUILT_APP_IMAGE=1", exported)
                 self.assertIn(f"COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID={IMAGE_ID}", exported)
+
+    def test_pr_split_restores_original_dotnet_without_duplicate_artifact(self):
+        result, exported = self.restore(event="pull_request", split_pr=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("COGLATAS_REUSE_PREBUILT_DOTNET_BUILD=true", exported)
+
+    def test_pr_split_rejects_wrong_or_missing_producer_and_duplicate_bundle(self):
+        cases = (
+            {"producer_sha": "c" * 40},
+            {"dotnet": "c" * 40},
+            {"producer_missing": "source-sha"},
+            {"producer_missing": "dotnet-release-build.tar"},
+            {"duplicate": True},
+        )
+        for case in cases:
+            with self.subTest(case=case):
+                result, exported = self.restore(event="pull_request", split_pr=True, **case)
+                self.assertNotEqual(0, result.returncode)
+                self.assertEqual("", exported)
+
+    def test_pr_split_rejected_on_main_push(self):
+        result, exported = self.restore(event="push", split_pr=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("", exported)
+
+    def test_pr_functional_runtime_only_packages_image_not_second_dotnet_tar(self):
+        producer = (ROOT / "scripts/ci/package-pr-functional-runtime.sh").read_text()
+        self.assertNotIn('cp "$inputs/dotnet-release-build.tar" "$output/dotnet-release-build.tar"', producer)
+        self.assertIn('test -s "$inputs/dotnet-release-build.tar"', producer)
+        functional = (ROOT / ".github/workflows/functional-validation.yml").read_text()
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("Download exact-run PR .NET producer without repackaging", functional)
+        self.assertIn("name: dotnet-release-build", functional)
+        self.assertIn('"$RUNNER_TEMP/pr-dotnet-build"', functional)
+        self.assertIn("Download same-run .NET producer for actor", ci)
+        self.assertIn('"$RUNNER_TEMP/actor-dotnet-build"', ci)
 
     def test_wrong_source_dotnet_tag_family_or_loaded_image_fails_before_export(self):
         changes = ({"source": "c" * 40}, {"dotnet": "c" * 40},
