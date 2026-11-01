@@ -74,6 +74,23 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
     await expect(page.getByTestId('projectide-workbench')).toContainText('denied');
     await expect(page.getByTestId('projectide-workbench')).not.toContainText('private details');await expect(page.getByTestId('ide-context')).toHaveCount(0);
   });
+  test('rejects wrong-scope artifact diagnostics before rendering context',async({page})=>{
+    await page.route('**/assets/projectide/preview-v1.json',async route=>{
+      const response=await route.fetch();const body=await response.json();body.cases[0].result.diagnostics[0].primaryLocation.context.branch.tenantId='wrong-tenant';await route.fulfill({json:body});
+    });
+    await preview(page);await expect(page.getByTestId('projectide-workbench')).toContainText('Scope or revision mismatch');await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
+  test('recovers from an unavailable read without reusing an earlier result',async({page})=>{
+    let fail=true;await page.route('**/assets/projectide/preview-v1.json',route=>fail?route.fulfill({status:503,body:'private'}):route.continue());
+    await preview(page);await expect(page.getByTestId('projectide-workbench')).toContainText('Preview could not be loaded');fail=false;
+    await page.getByRole('button',{name:'Reload preview',exact:true}).click();await choose(page,'pass');await expect(page.getByTestId('ide-analysis-status')).toContainText('Complete current PASS fixture');
+  });
+  test('cancels loading and discards a delayed artifact',async({page})=>{
+    let release!:()=>void;const held=new Promise<void>(resolve=>release=resolve);
+    await page.route('**/assets/projectide/preview-v1.json',async route=>{await held;await route.continue().catch(()=>undefined);});
+    await preview(page);await page.getByRole('button',{name:'Cancel loading',exact:true}).click();release();
+    await expect(page.getByTestId('projectide-workbench')).toContainText('Preview loading cancelled');await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
   test('does not admit an unauthenticated route',async({page})=>{
     await page.route('**/api/auth/me',r=>r.fulfill({status:401,body:'{}'}));
     await page.route('**/api/auth/status',r=>r.fulfill({status:200,contentType:'application/json',body:'{"isAuthenticated":false}'}));

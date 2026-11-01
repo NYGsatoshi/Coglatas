@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { hasCompleteCurrentPass, PreviewBundle, ProjectLocation, SourceRecord } from './projectide.contracts';
+import { hasCompleteCurrentPass, PreviewBundle, ProjectLocation, Identity } from './projectide.contracts';
 import { readPreviewBundle, resolveLocation } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -29,7 +29,7 @@ describe('ProjectIDE Core artifact view contract', () => {
   it('rejects a substituted result input', () => { const b = structuredClone(bundle()); (b.cases[0].result as { compilerInputId: string }).compilerInputId = 'other'; expect(() => readPreviewBundle(b)).toThrow('wrong-scope'); });
   it('rejects a substituted source digest', () => { const b = structuredClone(bundle()); (b.cases[0].sourceDigest as { value: string }).value = 'b'.repeat(64); expect(() => readPreviewBundle(b)).toThrow('wrong-scope'); });
   it('rejects a source map from another input', () => { const b = structuredClone(bundle()); (b.cases[0].sourceMap as { compilerInputId: string }).compilerInputId = 'other'; expect(() => readPreviewBundle(b)).toThrow('wrong-scope'); });
-  it('rejects a source map without its producing result artifact', () => { const b=structuredClone(bundle()); (b.cases[0].result as {artifacts:unknown[]}).artifacts=[]; expect(()=>readPreviewBundle(b)).toThrow('wrong-scope'); });
+  it('rejects a source map without its producing result artifact', () => { const b=structuredClone(bundle()); (b.cases[0].result as unknown as {artifacts:unknown[]}).artifacts=[]; expect(()=>readPreviewBundle(b)).toThrow('wrong-scope'); });
   it.each(['not-run','cancelled','timeout'])('does not associate a produced SourceMap with %s', key=>{expect(fixture(key).sourceMap).toBeNull();});
   it('preserves exact diagnostic order and semantic identities', () => { const value = fixture('unsupported'); expect(readPreviewBundle(bundle()).cases.find(c => c.key === 'unsupported')!.result.diagnostics.map(d => d.diagnosticId)).toEqual(value.result.diagnostics.map(d => d.diagnosticId)); });
 });
@@ -44,7 +44,7 @@ describe('ProjectIDE semantic source navigation', () => {
     for (const loc of [{ ...location(), documentId: 'absent' }, { ...location(), entityId: 'absent' }, { ...location(), propertyPath: '/missing' }]) { expect(resolveLocation(fixture(), loc as ProjectLocation)).toBe('unavailable'); }
   });
   it('does not use a logical filename as identity', () => { const c = changed(fixture(), d => (d.source.documents[0] as {logicalName: string}).logicalName = 'renamed'); expect(typeof resolveLocation(c, location())).toBe('object'); });
-  it('rejects navigation absent from a produced SourceMap',()=>{const c=changed(fixture(),d=>(d.sourceMap as {nodes:unknown[]}).nodes=[]);expect(resolveLocation(c,location())).toBe('unavailable');});
+  it('rejects navigation absent from a produced SourceMap',()=>{const c=changed(fixture(),d=>(d.sourceMap as unknown as {nodes:unknown[]}).nodes=[]);expect(resolveLocation(c,location())).toBe('unavailable');});
   it('resolves Core property paths and relations', () => { const c = fixture(); expect(typeof resolveLocation(c, { ...location(), propertyPath: '/payload/predicate' })).toBe('object'); expect(typeof resolveLocation(c, c.relations[0].location)).toBe('object'); });
   it('validates exact UTF-16 boundaries rather than Unicode scalar counts', () => {
     const c = fixture(); const index = c.sourceText.indexOf('🌌'); expect(index).toBeGreaterThan(0);
@@ -71,5 +71,5 @@ describe('ProjectIDE context and cancellation generation', () => {
   });
   it('does not repopulate after disposal or cancel', async () => { const s = store(); let release!: (b: PreviewBundle) => void; const read = s.load(() => new Promise(resolve => release = resolve)); s.clear('cancelled'); release(bundle()); await read; expect(s.bundle()).toBeNull(); expect(s.state()).toBe('cancelled'); });
   it('reports errors without carrying an earlier result and supports recovery', async () => { const s = store(); await s.load(async () => bundle()); s.choose('pass'); s.loadResult(); await s.load(async () => { throw new Error('private'); }); expect(s.state()).toBe('error'); expect(s.result()).toBeNull(); await s.load(async () => bundle()); expect(s.state()).toBe('ready'); });
-  it('keeps unknown selections unavailable', async () => { const s = store(); await s.load(async () => bundle()); s.choose('fail'); s.select({kind:'record',id:'absent' as SourceRecord['identity']}); expect(s.inspectedRecord()).toBeNull(); expect(s.navigate()).toBe(false); });
+  it('keeps unknown selections unavailable', async () => { const s = store(); await s.load(async () => bundle()); s.choose('fail'); s.select({kind:'entity',id:'absent' as Identity<'Entity'>}); expect(s.inspectedRecord()).toBeNull(); expect(s.navigate()).toBe(false); });
 });

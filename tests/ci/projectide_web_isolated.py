@@ -16,7 +16,10 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     git(repository, "merge-base", "--is-ancestor", CORE_PRODUCT, product)
     git(repository, "merge-base", "--is-ancestor", CORE_TEST, test)
     product_changes = changes(repository, CORE_PRODUCT, product, (
-        "frontend/src/", "frontend/public/assets/projectide/", "tools/ProjectIde.Preview/", "docs/verification/"))
+        "frontend/src/", "frontend/public/assets/projectide/", "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"))
+    for commit in product_changes:
+        if any(path.endswith(".spec.ts") for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines()):
+            raise ValueError("Product candidate contains independent Test source")
     web_tests = changes(repository, CORE_TEST, test, (
         "frontend/src/app/features/projectide/", "tests/", ".github/workflows/projectide-web-isolated.yml"))
     test_changes = changes(repository, TEST_BASE, test, (
