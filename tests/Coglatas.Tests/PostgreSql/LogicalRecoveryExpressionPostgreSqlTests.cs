@@ -1,3 +1,5 @@
+using Coglatas.Infrastructure.Persistence.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Npgsql;
 using Xunit.Abstractions;
 
@@ -19,6 +21,26 @@ public sealed class LogicalRecoveryExpressionPostgreSqlTests(ITestOutputHelper o
         "CK_task_execution_materialized_sources_media_type", "CK_task_execution_runs_status",
         "CK_task_workflow_template_stages_category"
     ];
+
+    [Fact]
+    public void MigrationOnlyReplacesTheObservedChecksAndActiveAttemptIndex()
+    {
+        var migration = new StabilizeLogicalRecoveryConstraintExpressions();
+        foreach (var operations in new[] { migration.UpOperations, migration.DownOperations })
+        {
+            Assert.Equal(30, operations.Count);
+            Assert.Equal(CheckNames.Order(), operations.OfType<AddCheckConstraintOperation>().Select(check => check.Name).Order());
+            Assert.Equal(CheckNames.Order(), operations.OfType<DropCheckConstraintOperation>().Select(check => check.Name).Order());
+            var removedIndex = Assert.Single(operations.OfType<DropIndexOperation>());
+            Assert.Equal(ActiveAttemptIndex, removedIndex.Name);
+            Assert.Equal("task_deadline_digest_attempts", removedIndex.Table);
+            var createdIndex = Assert.Single(operations.OfType<CreateIndexOperation>());
+            Assert.Equal(ActiveAttemptIndex, createdIndex.Name);
+            Assert.Equal(removedIndex.Table, createdIndex.Table);
+            Assert.True(createdIndex.IsUnique);
+            Assert.Equal(["JobId"], createdIndex.Columns);
+        }
+    }
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]

@@ -89,6 +89,39 @@ SHA256 values are respectively
 
 ## Limits and remaining evidence
 
+### Migration maintenance refactor
+
+The initial `6377b10a487cbfdab32e6d2abcbda45d57223447` candidate's
+[PR #1641](https://github.com/NYGsatoshi/Coglatas/pull/1641) official gate failed
+the duplication condition (40.9%, maximum 3%). Its 100% PR coverage and Security A
+did not make that gate pass or qualify Main. The failure remains historical.
+
+The new migration now keeps one immutable catalog of original definitions,
+grouped by its eight actual tables, and one frozen shared Security reason
+expression. A common Up/Down replacement path renders text selection for nine
+fixed quoted column names only before `IN`. It does not read current model or
+configuration classes. The original partial-index specification is also stored
+once. This removes duplicated migration maintenance; source scope, scanner
+configuration, exclusions and quality thresholds are unchanged.
+
+An isolated metadata reader verifies the same 30 operation identities in each
+direction, including all 14 CHECK replacements and the unique `JobId` index.
+Every Down SQL string is byte-identical to the initial candidate. The four
+multiline Up expressions now use the frozen original SQL's LF line endings
+instead of CRLF; object replacement order follows table groups. These command
+text/order differences are retained explicitly, not normalized in a comparison.
+An added regression prohibits any operation outside the exact CHECK/index set.
+
+A fresh source build and one fresh full logical dump/restore on actual
+PostgreSQL `180006` requalify the refactor. Source/target schema, catalog
+definitions/state and ordered 75-row migration history compare byte-identically;
+each also exactly matches the initial candidate's three hashes recorded above.
+The new generated source SQL SHA256 is
+`1842d8171be2a49564ce8844c14bcf3326e43315c61b68cbd5ec243728457cf1`;
+the new custom archive SHA256 is
+`fc82e95f65ab619ec8efdad18e7cb6e13386961a773a77c0f1ae1e307fe52d4d`.
+This is fresh bounded runtime proof, not a current-head CI or official-gate pass.
+
 This source-only fixture contains migration history, not a complete application
 checkpoint. Files, Data Protection keys, login, Audit continuity, full row data,
 failure injection, target isolation/rollback and approved HTTPS still require
