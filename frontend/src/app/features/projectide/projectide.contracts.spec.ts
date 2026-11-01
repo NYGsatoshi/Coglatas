@@ -7,7 +7,7 @@ import {
   ProjectLocation,
   Identity,
 } from './projectide.contracts';
-import { readPreviewBundle, resolveLocation } from './projectide-preview.adapter';
+import { PreviewReadError, readPreviewBundle, resolveLocation } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 export const bundle = () =>
@@ -20,8 +20,27 @@ const changed = <T>(value: T, update: (draft: T) => void): T => {
   update(draft);
   return draft;
 };
+const without = <T>(value: T, path: string): T => {
+  const copy = structuredClone(value);
+  const parts = path.split('.');
+  let target = copy as unknown as Record<string, unknown>;
+  for (const key of parts.slice(0, -1)) { target = target[key] as Record<string, unknown>; }
+  delete target[parts.at(-1)!];
+  return copy;
+};
 
 describe('ProjectIDE Core artifact view contract', () => {
+  it.each(['context.branch', 'result.boundInputStamp', 'result.boundInputStamp.sourceDigest',
+    'source.documents', 'sourceText', 'sourceMap.nodes', 'sourceMap.relations', 'declarations.0.data',
+    'result.diagnostics.0.primaryLocation.context', 'result.rules', 'result.diagnostics.0.evidence.premises', 'result.rules.0.evidence'])
+    ('rejects missing nested %s with an explicit unsupported error', path => {
+      const value = without(bundle(), 'cases.0.' + path);
+      expect(() => readPreviewBundle(value)).toThrow(PreviewReadError);
+      expect(() => readPreviewBundle(value)).toThrow('unsupported');
+    });
+  it('rejects null cases without a native TypeError', () => {
+    expect(() => readPreviewBundle({...bundle(), cases:[null]})).toThrow(PreviewReadError);
+  });
   it('reads only explicitly synthetic exporter artifacts', () => {
     expect(bundle().mode).toBe('synthetic-fixture');
     expect(bundle().cases).toHaveLength(10);
@@ -103,6 +122,13 @@ describe('ProjectIDE Core artifact view contract', () => {
 
 describe('ProjectIDE semantic source navigation', () => {
   const location = (): ProjectLocation => fixture().result.diagnostics[0].primaryLocation;
+  it.each(['source.documents', 'sourceText', 'sourceMap.nodes', 'sourceMap.relations', 'context.branch', 'declarations.0.location'])
+    ('safely rejects malformed navigation input %s', path => {
+      expect(resolveLocation(without(fixture(), path), {...location(), textSpan:{start:0,length:0}})).toBe('unavailable');
+    });
+  it('safely rejects a malformed location context', () => {
+    expect(resolveLocation(fixture(), without(location(), 'context.branch'))).toBe('unavailable');
+  });
   it('resolves the same revision by stable entity and document ID', () => {
     const target = resolveLocation(fixture(), location());
     expect(typeof target).toBe('object');
