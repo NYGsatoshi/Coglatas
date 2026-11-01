@@ -61,4 +61,5 @@ jobs:
         with:
           name: projectide-web-isolated-${{ github.run_attempt }}
           path: ${{ runner.temp }}/projectide-web/evidence
+          include-hidden-files: true
           if-no-files-found: error
