@@ -118,6 +118,9 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Verify PR Security prebuilt-image source and negative controls
+        run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
@@ -1154,7 +1157,23 @@ jobs:
         run: |
           set -euo pipefail
           image="coglatas-security-runtime:${GITHUB_SHA}"
-          docker build --file infra/docker/security-runtime.Dockerfile --tag "$image" .
+          dockerfile="infra/docker/security-runtime.Dockerfile"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            # Only the exact verified .NET producer's compiled output may be
+            # shipped into the PR security image. Main/manual retain baseline.
+            expected="$(git rev-parse HEAD)"
+            [[ "$expected" == "$GITHUB_SHA" ]]
+            stamp="artifacts/ci/dotnet-build-sha"
+            [[ -f "$stamp" && ! -L "$stamp" ]]
+            [[ "$(tr -d '\r\n' < "$stamp")" == "$expected" ]] || {
+              echo "::error::Security runtime prebuilt .NET source does not match the tested revision."
+              exit 1
+            }
+            [[ -s src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll ]]
+            [[ -f src/Coglatas.Web/obj/project.assets.json ]]
+            dockerfile="infra/docker/security-runtime-pr-prebuilt.Dockerfile"
+          fi
+          docker build --file "$dockerfile" --tag "$image" .
           printf 'COGLATAS_SECURITY_RUNTIME_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
 
       - name: Run isolated security runtime lanes in parallel
