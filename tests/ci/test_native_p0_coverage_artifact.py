@@ -66,6 +66,7 @@ class Api:
                     "repository": {"id": subject.REPOSITORY_ID, "full_name": subject.REPOSITORY},
                     "head_repository": {"id": subject.REPOSITORY_ID, "full_name": subject.REPOSITORY}}
         self.job = {"id": JOB, "name": "licensed-real-backend", "run_id": RUN, "head_sha": SHA,
+                    "run_attempt": 1, "status": "completed",
                     "conclusion": "success", "steps": [
                         {"name": "Validate closed native coverage selection", "conclusion": "success"},
                         {"name": "Run P0 acceptance", "conclusion": "success"},
@@ -122,6 +123,8 @@ class ProvenanceTests(unittest.TestCase):
                      lambda a: a.run.update(run_attempt=2), lambda a: a.run.update(run_attempt=True),
                      lambda a: a.run.update(conclusion="failure"), lambda a: a.job.update(head_sha="4" * 40),
                      lambda a: a.job.update(run_id=0), lambda a: a.job.update(conclusion="failure"),
+                     lambda a: a.job.update(run_attempt=2), lambda a: a.job.update(run_attempt=True),
+                     lambda a: a.job.update(status="in_progress"),
                      lambda a: a.job["steps"][0].update(conclusion="failure"),
                      lambda a: a.job["steps"][1].update(conclusion="failure"),
                      lambda a: a.workflow.update(state="disabled_manually")]
@@ -199,6 +202,12 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaises(subject.ArtifactError): subject.validate_zip(archive(extra=(link, b"/outside")), SHA, TREE, RUN, 8)
         with self.assertWarns(UserWarning): duplicate = archive(extra=("sonar-native-host/source.json", b"fixture"))
         with self.assertRaises(subject.ArtifactError): subject.validate_zip(duplicate, SHA, TREE, RUN, 8)
+
+    def test_duplicate_or_nonfinite_json_cannot_override_provenance(self):
+        for data in (b'{"sourceSha":"first","sourceSha":"second"}', b'{"schemaVersion":NaN}', b'[]'):
+            files = fixture_files(); files["sonar-native-host/source.json"] = data
+            with self.assertRaises((subject.ArtifactError, subject.binding.ReconciliationError)):
+                subject.validate_zip(archive(files), SHA, TREE, RUN, 8)
 
     def test_output_is_owned_and_existing_receipts_are_not_overwritten(self):
         files = subject.validate_zip(archive(), SHA, TREE, RUN, 8)
