@@ -200,7 +200,7 @@ The independent review and fresh-head qualification must be recorded separately;
 the previous139 CI, protected execution and Sonar result do not qualify this fix.
 
 The pending-selection repair now has a separate original persistent regression
-file, `tests/ci/test_native_p0_pending_selection.py`. Its eleven controls preserve
+file, `tests/ci/test_native_p0_pending_selection.py`. Its initial eleven controls preserve
 the four frozen Test524 blobs and use distinct run-bound job responses to reject
 pending/failed history followed by a later success. They also cover pending
 native/Mobile/P0 selection, wrong owner/run/attempt/source, completed malformed
@@ -209,7 +209,26 @@ first; the new file appends actual reader measurement before standard XML output
 The PR scope is now eleven files. No test-management branch, original coverage
 counter, source scope, threshold or provider disposition changes. Earlier a232
 qualification remains historical and does not qualify the new combined tree.
-An isolated pre-repair139 reader fails the unchanged new controls with four
-assertion failures and two errors; the current reader passes the original17
-and new11 controls. These are local synthetic results, not fresh hosted P0,
-Sonar or Main acceptance.
+At the initial eleven-control stage, an isolated pre-repair139 reader produced
+four assertion failures and two errors; the repaired source passed the original17
+and new11 controls. These are historical local synthetic results, not fresh
+hosted P0, Sonar or Main acceptance.
+
+Further independent schema review identified valid queued GitHub responses with
+an absent or empty `steps` field, or no owner job yet. This is an API-shape gap,
+not an observed hosted failure. An incomplete run retains those unresolved
+states as candidates after the available owner/run/job identity checks. They
+contribute no report and cannot be discarded in favor of a later success.
+An absent `steps` field is permitted only for an incomplete run; present null or
+malformed steps, duplicate selection steps and completed malformed jobs remain
+errors. Only one explicit skipped native-selection step identifies a nonnative
+run. Completed runs without an owner job retain their existing unavailable
+behavior. The additional original controls exercise these shapes, identity
+boundaries and correctly mapped two-run/two-job history without changing the
+four frozen Test524 blobs. Earlier qualification does not qualify this source.
+The expanded file has24 controls: together with the original17, they pass41
+local synthetic tests. Against an isolated pre-queued-shape e3a21abc reader,
+the expanded controls produce nine subtest failures and three errors, including
+selection of a later pass when the earlier owner job is absent. No hosted
+failure is claimed from that synthetic control. Fresh source-bound review,
+CI, protected execution and official Sonar qualification remain required.

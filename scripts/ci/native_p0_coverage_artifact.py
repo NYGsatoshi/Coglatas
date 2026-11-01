@@ -91,21 +91,25 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
                        + "/attempts/" + str(attempt) + "/jobs", "jobs")
         owners = [job for job in jobs if job.get("name") == "licensed-real-backend"]
         require(len(owners) <= 1, "JOB")
+        incomplete = run.get("status") != "completed"
         if not owners:
+            if incomplete:
+                require(run.get("actor", {}).get("login") == REPOSITORY.partition("/")[0], "RUN")
+                candidates.append((run, None, None))
             continue
         job = owners[0]
-        steps = job.get("steps")
+        steps = [] if incomplete and "steps" not in job else job.get("steps")
         require(isinstance(steps, list) and all(isinstance(step, dict) for step in steps), "JOB")
         selected = [step for step in steps if step.get("name") == "Validate closed native coverage selection"]
-        require(len(selected) == 1, "SELECTION")
-        if selected[0].get("conclusion") == "skipped":
+        require(len(selected) <= 1 and (incomplete or len(selected) == 1), "SELECTION")
+        if selected and selected[0].get("conclusion") == "skipped":
             continue
         require(run.get("actor", {}).get("login") == REPOSITORY.partition("/")[0], "RUN")
         require(job.get("run_id") == run["id"] and type(job.get("run_attempt")) is int
                 and job["run_attempt"] == attempt and job.get("head_sha") == sha, "EXECUTION")
         # Selection and suite steps can still be pending. Retain this unresolved
         # history so a later success cannot replace it, but import no coverage.
-        if run.get("status") != "completed":
+        if incomplete:
             candidates.append((run, job, None))
             continue
         require(selected[0].get("conclusion") == "success", "SELECTION")
