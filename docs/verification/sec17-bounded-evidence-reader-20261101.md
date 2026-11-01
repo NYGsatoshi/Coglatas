@@ -35,3 +35,12 @@ measurement list. It retains the checksum-pinned coverage 7.17.0 tool, pytrace,
 subprocess bootstrap, original parallel data and standard XML generation. No
 report counts, source exclusions or Quality Gate thresholds change. Coverage
 improvement remains subject to the official exact-source Sonar analysis.
+
+The first published coverage-wiring head retained an official failed gate at
+100% new coverage, 6.4% new duplication and Security C. Its two repeated
+unavailable-input assertion blocks now share one test helper, while both
+actual-Git capture owners still execute all original assertions. Their workflow
+path filters also include the shared test dependency. A separate exception test
+reads its fixture before entering the parser's exception assertion. No quality
+threshold, source exclusion or test selection changes. The new single-key
+Security finding remains OPEN pending its own formal review and authority.

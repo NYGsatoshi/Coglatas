@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
+from test_sec17_execution_support import assert_unavailable_capture_is_closed
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -205,11 +206,7 @@ class DeepExecutionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
             receipt = deep.capture(root, trx, candidate, NOW)
-            invalid_input = root / "artifacts/directory.trx"
-            invalid_input.mkdir()
-            with self.assertRaises(ValueError):
-                deep.capture(root, invalid_input, candidate, NOW)
-            self.assertIsNone(deep.failure_summary(candidate, invalid_input)["executionDigest"])
+            assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])

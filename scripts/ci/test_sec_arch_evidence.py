@@ -112,11 +112,12 @@ class ExecutionInputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "execution.trx"
             path.write_bytes(b"123456789")
+            data = path.read_bytes()
             with patch.object(evidence, "MAX_TRX_BYTES", 8):
                 with self.assertRaises(ValueError):
                     evidence.read_execution_trx(path)
                 with self.assertRaisesRegex(ValueError, "Unbounded or unsupported XML input"):
-                    evidence.observed_trx(path.read_bytes(), NOW)
+                    evidence.observed_trx(data, NOW)
 
 
 @unittest.skipUnless(shutil.which("git"), "Actual capture subprocess controls require Git.")
