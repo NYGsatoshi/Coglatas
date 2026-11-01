@@ -207,6 +207,21 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
       'Complete current PASS fixture',
     );
   });
+  test('rejects malformed nested artifact data before navigation can render it', async ({
+    page,
+  }) => {
+    await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      delete body.cases[0].sourceMap.nodes;
+      await route.fulfill({ json: body });
+    });
+    await preview(page);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Unsupported preview contract version or value',
+    );
+    await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
   test('cancels loading and discards a delayed artifact', async ({ page }) => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
