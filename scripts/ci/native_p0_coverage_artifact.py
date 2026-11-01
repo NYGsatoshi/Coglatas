@@ -101,6 +101,13 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
         if selected[0].get("conclusion") == "skipped":
             continue
         require(run.get("actor", {}).get("login") == REPOSITORY.partition("/")[0], "RUN")
+        require(job.get("run_id") == run["id"] and type(job.get("run_attempt")) is int
+                and job["run_attempt"] == attempt and job.get("head_sha") == sha, "EXECUTION")
+        # Selection and suite steps can still be pending. Retain this unresolved
+        # history so a later success cannot replace it, but import no coverage.
+        if run.get("status") != "completed":
+            candidates.append((run, job, None))
+            continue
         require(selected[0].get("conclusion") == "success", "SELECTION")
         p0 = [step for step in steps if step.get("name") == "Run P0 acceptance"]
         mobile = [step for step in steps if step.get("name") == "Run independent real-backend MVP0 Mobile acceptance"]
@@ -115,10 +122,7 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
     run, job, step = candidates[0]
     if run.get("status") != "completed":
         return None
-    require(job.get("run_id") == run["id"]
-            and job.get("status") == "completed" and type(job.get("run_attempt")) is int
-            and job["run_attempt"] == run["run_attempt"]
-            and job.get("head_sha") == sha, "EXECUTION")
+    require(job.get("status") == "completed", "EXECUTION")
     # Preserve all candidate history above: a failed run plus a later pass must
     # never become a selectively green first-attempt coverage source.
     if (run["run_attempt"] != 1 or run.get("conclusion") != "success"

@@ -181,3 +181,20 @@ the real artifact reader contributes its separate Python report. The unchanged
 44 Compose/Mobile controls pass locally. New-head execution, full source binding,
 Sonar ingestion and independent review remain pending. The Draft stays
 DO_NOT_MERGE until exact test Main-promotion authority and all normal checks pass.
+
+## Pending-selection availability repair
+
+The full independent review of `13920cc485618e887dd07a9fbd2303025e27f95c`
+reproduced an additional availability defect with network-disabled synthetic
+GitHub responses: a pending native selection or pending Mobile step raised
+`SELECTION` before the existing incomplete-run fallback. This could stop the
+security analysis while the optional producer was still running.
+
+The reader now validates the selected owner's run, attempt and source identity
+before progress handling, and retains an incomplete run as an unresolved
+candidate. A sole incomplete candidate contributes no report; it is not
+discarded to select a later success. Completed malformed selections and unsafe
+identity still fail. The four canonical Test524 blobs, acceptance behavior,
+original reports, HTTP rejection fixture and provider state remain unchanged.
+The independent review and fresh-head qualification must be recorded separately;
+the previous139 CI, protected execution and Sonar result do not qualify this fix.
