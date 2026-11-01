@@ -13,6 +13,11 @@ on:
         default: false
   workflow_dispatch:
     inputs:
+      native_coverage:
+        description: Retain original p0 or mobile-mvp0 ranges for separate provenance-checked analysis
+        required: false
+        default: false
+        type: boolean
       suite:
         description: Licensed acceptance suite to run
         required: true
@@ -59,6 +64,12 @@ jobs:
       TARGET_SHA: ${{ github.sha }}
 
     steps:
+      - name: Validate closed native coverage selection
+        if: github.event_name == 'workflow_dispatch' && inputs.native_coverage == true
+        env:
+          SELECTED_SUITE: ${{ inputs.suite }}
+        run: test "$SELECTED_SUITE" = mobile-mvp0 || test "$SELECTED_SUITE" = p0
+
       - name: Checkout reviewed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -146,10 +157,67 @@ jobs:
         run: node tests/ui/run-real-backend-fci04.mjs functional-fast functional-full
 
       - name: Run P0 acceptance
+        id: p0_acceptance
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'p0' || inputs.suite == 'all'
         env:
           COGLATAS_FCI04_GATES: ${{ (inputs.reuse_main_artifacts == true || inputs.suite == 'all') && 'functional-full' || 'functional-fast' }}
-        run: node tests/ui/run-real-backend-p0.mjs
+          COGLATAS_REAL_BACKEND_NATIVE_COVERAGE: ${{ inputs.native_coverage && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          if [[ "$COGLATAS_REAL_BACKEND_NATIVE_COVERAGE" == 1 ]]; then
+            export COGLATAS_APP_IMAGE="coglatas-native-p0:$TARGET_SHA"
+            node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { mkdirSync, writeFileSync } from 'node:fs';
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const sha = git('rev-parse', 'HEAD'), tree = git('rev-parse', 'HEAD^{tree}');
+          if (sha !== process.env.TARGET_SHA || !/^[a-f0-9]{40}$/.test(tree) ||
+              git('status', '--porcelain', '--untracked-files=all') ||
+              process.env.GITHUB_RUN_ATTEMPT !== '1' || process.env.COGLATAS_REUSE_PREBUILT_APP_IMAGE === '1') {
+            throw new Error('Native P0 requires exact clean source, attempt one and a fresh source build.');
+          }
+          mkdirSync('artifacts/sonar-native-host', { recursive: true, mode: 0o700 });
+          writeFileSync('artifacts/sonar-native-host/source.json', JSON.stringify({
+            schemaVersion: 1, sourceSha: sha, treeSha: tree, suite: 'p0', nativeCoverage: true,
+            runId: process.env.GITHUB_RUN_ID, attempt: 1,
+          }) + '\n', { flag: 'wx', mode: 0o600 });
+          NODE
+            NODE_V8_COVERAGE="$PWD/artifacts/sonar-native-host/raw" \
+              node --test --experimental-test-coverage \
+              --test-coverage-include='tests/ui/run-real-backend-p0.mjs' \
+              --test-coverage-include='tests/ui/run-real-backend-smoke-compose.mjs' \
+              --test-reporter=spec --test-reporter-destination=stdout \
+              --test-reporter=lcov --test-reporter-destination=artifacts/sonar-native-host/lcov.info \
+              tests/ui/run-real-backend-p0.mjs
+            node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { verifyPlaywrightRequiredTests } from './scripts/ci/verify-playwright-required-tests.mjs';
+          const source = JSON.parse(readFileSync('artifacts/sonar-native-host/source.json', 'utf8'));
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          if (git('rev-parse', 'HEAD') !== source.sourceSha || git('rev-parse', 'HEAD^{tree}') !== source.treeSha ||
+              git('status', '--porcelain', '--untracked-files=all')) throw new Error('Native P0 source changed during execution.');
+          const result = await verifyPlaywrightRequiredTests('scripts/ci/real-backend-pr-p0-required-tests.txt', 'test-results/playwright-results.xml');
+          if (result.requiredCount !== result.discoveredCaseCount) throw new Error('Native P0 requires exactly its unchanged manifest.');
+          writeFileSync('artifacts/sonar-native-host/execution.json', JSON.stringify({
+            sourceSha: source.sourceSha, treeSha: source.treeSha, runId: source.runId, attempt: 1, retries: 0,
+            requiredCases: result.requiredCount, junitCases: result.discoveredCaseCount, status: 'PASS',
+          }) + '\n', { flag: 'wx', mode: 0o600 });
+          NODE
+          else
+            node tests/ui/run-real-backend-p0.mjs
+          fi
+
+      - name: Retain same-run original P0 native reports for independent review
+        if: success() && steps.p0_acceptance.outcome == 'success' && inputs.suite == 'p0' && inputs.native_coverage == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-real-backend-p0-native-${{ github.sha }}
+          path: |
+            artifacts/sonar-real-backend-native/
+            artifacts/sonar-native-host/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run Issue 683 fixed-SHA repeated race evidence
         if: github.event_name == 'workflow_dispatch' && inputs.suite == 'issue683'
@@ -175,10 +243,26 @@ jobs:
           retention-days: 7
 
       - name: Run independent real-backend MVP0 Mobile acceptance
+        id: mobile_mvp0
         if: inputs.suite == 'mobile-mvp0'
+        env:
+          COGLATAS_REAL_BACKEND_NATIVE_COVERAGE: ${{ inputs.native_coverage && '1' || '0' }}
         run: |
           node --test tests/ui/mobile-mvp0-profile.node-test.mjs tests/ui/mobile-mvp0-runner.node-test.mjs
           node tests/ui/run-real-backend-mobile-mvp0.mjs
+
+      - name: Retain original Mobile native coverage for independent attribution review
+        if: success() && steps.mobile_mvp0.outcome == 'success' && inputs.suite == 'mobile-mvp0' && inputs.native_coverage == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-real-backend-native-${{ github.sha }}
+          path: |
+            artifacts/sonar-real-backend-native/lcov.info
+            artifacts/sonar-real-backend-native/raw
+            artifacts/mobile-mvp0/source-sha
+            artifacts/mobile-mvp0/execution.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitized MVP0 Mobile execution and device receipts
         if: always() && inputs.suite == 'mobile-mvp0'

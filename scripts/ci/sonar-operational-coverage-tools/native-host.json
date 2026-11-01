@@ -1,0 +1,9 @@
+{
+  "include": [
+    "tests/ui/run-real-backend-p0.mjs",
+    "tests/ui/run-real-backend-smoke-compose.mjs"
+  ],
+  "exclude": ["**/node_modules/**"],
+  "exclude-after-remap": false,
+  "reporter": ["lcovonly"]
+}
