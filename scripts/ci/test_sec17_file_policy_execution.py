@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import sec17_file_policy_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
+from test_sec_arch_evidence import assert_unavailable_capture_is_closed
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -205,6 +206,7 @@ class FilePolicyExecutionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
             receipt = deep.capture(root, trx, candidate, NOW)
+            assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])

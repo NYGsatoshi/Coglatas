@@ -7,9 +7,11 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
@@ -51,6 +53,80 @@ def recalculate(root: ET.Element) -> None:
 
 def observe(root: ET.Element) -> dict:
     return evidence.observed_trx(ET.tostring(root), NOW)
+
+
+def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, now):
+    invalid_input = root / "artifacts/directory.trx"
+    invalid_input.mkdir()
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, invalid_input, candidate, now)
+    summary = capture_module.failure_summary(candidate, invalid_input)
+    test.assertIsNone(summary["executionDigest"])
+
+
+class ExecutionInputTests(unittest.TestCase):
+    def test_regular_input_retains_exact_original_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            data = ET.tostring(fixture())
+            path.write_bytes(data)
+            self.assertEqual(data, evidence.read_execution_trx(path))
+            self.assertEqual("PASS", evidence.observed_trx(evidence.read_execution_trx(path), NOW)["outcome"])
+
+    def test_oversized_input_is_rejected_before_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            with path.open("wb") as output:
+                output.truncate(evidence.MAX_TRX_BYTES + 1)
+            with patch.object(evidence.os, "open") as opened, self.assertRaises(ValueError):
+                evidence.read_execution_trx(path)
+            opened.assert_not_called()
+
+    def test_directory_symlink_and_special_file_metadata_is_rejected_before_open(self):
+        for mode in (stat.S_IFDIR, stat.S_IFLNK, stat.S_IFIFO, stat.S_IFCHR, stat.S_IFSOCK):
+            with self.subTest(mode=mode), patch.object(Path, "lstat", return_value=SimpleNamespace(
+                    st_mode=mode, st_size=0)), patch.object(evidence.os, "open") as opened:
+                with self.assertRaises(ValueError):
+                    evidence.read_execution_trx(Path("synthetic-execution.trx"))
+                opened.assert_not_called()
+
+    def test_replaced_regular_file_is_rejected_before_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, replacement = Path(directory) / "execution.trx", Path(directory) / "replacement.trx"
+            path.write_bytes(b"original")
+            replacement.write_bytes(b"replaced")
+            actual_open = evidence.os.open
+
+            def replace_before_open(*args, **kwargs):
+                replacement.replace(path)
+                return actual_open(*args, **kwargs)
+
+            with patch.object(evidence.os, "open", side_effect=replace_before_open), self.assertRaises(ValueError):
+                evidence.read_execution_trx(path)
+
+    def test_changed_open_descriptor_metadata_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            path.write_bytes(b"original")
+            original = path.stat()
+            names = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_mode")
+            for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"):
+                changed = {name: getattr(original, name) for name in names}
+                changed[field] += 1
+                with self.subTest(field=field), patch.object(evidence.os, "fstat", side_effect=(
+                        original, SimpleNamespace(**changed))), self.assertRaises(ValueError):
+                    evidence.read_execution_trx(path)
+
+    def test_input_size_limit_is_shared_with_the_xml_parser(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            path.write_bytes(b"123456789")
+            data = path.read_bytes()
+            with patch.object(evidence, "MAX_TRX_BYTES", 8):
+                with self.assertRaises(ValueError):
+                    evidence.read_execution_trx(path)
+                with self.assertRaisesRegex(ValueError, "Unbounded or unsupported XML input"):
+                    evidence.observed_trx(data, NOW)
 
 
 @unittest.skipUnless(shutil.which("git"), "Actual capture subprocess controls require Git.")
