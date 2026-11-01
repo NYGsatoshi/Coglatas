@@ -11,7 +11,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
-from sec_arch_evidence import digest, observed_trx
+from sec_arch_evidence import digest, observed_trx, read_execution_trx
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 
 METHOD = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureFilePolicyTransportTests.ActualWorkspaceFileSharingPolicyReauthorizesEstablishedAndFreshTransportAndReplay"
@@ -48,7 +48,7 @@ def capture(root: Path, trx: Path, candidate: str, now: datetime) -> dict:
     declaration = rb"public\s+Task\s+" + METHOD.rsplit(".", 1)[1].encode() + rb"\s*\(\s*\)"
     if len(re.findall(declaration, source)) != 1:
         raise ValueError("The exact File policy owner source declaration is required.")
-    data = trx.read_bytes()
+    data = read_execution_trx(trx)
     observed = observe(data, now)
     assemblies = capture_assemblies(root)
     if git("rev-parse", "HEAD") != candidate or git("status", "--porcelain"):
@@ -85,8 +85,8 @@ def failure_summary(candidate: str, trx: Path) -> dict:
     # No native TestOutput/ErrorInfo, exception text, identifiers or payloads
     # are copied, including when build, selection or evidence capture fails.
     try:
-        data = trx.read_bytes() if trx.is_file() and trx.stat().st_size <= 64 * 1024 * 1024 else None
-    except OSError:
+        data = read_execution_trx(trx)
+    except (OSError, ValueError):
         data = None
     return {
         "schemaVersion": 1, "verifierId": "SEC-17-FILE-POLICY-EXECUTION",

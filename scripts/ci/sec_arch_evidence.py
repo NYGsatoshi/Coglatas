@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import stat
 import subprocess
 import xml.etree.ElementTree as ET
 
@@ -18,6 +19,7 @@ from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 from sec_arch_http_theory_cases import THEORY_CASES, case_id
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+MAX_TRX_BYTES = 64 * 1024 * 1024
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
 CATALOG = {
@@ -261,11 +263,37 @@ def instant(value: str) -> datetime:
     return result.astimezone(timezone.utc)
 
 
+def read_execution_trx(path: Path) -> bytes:
+    """Read one unchanged bounded regular file before any XML interpretation."""
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def bounded_regular(info):
+        return stat.S_ISREG(info.st_mode) and 0 <= info.st_size <= MAX_TRX_BYTES
+
+    before = path.lstat()
+    if not bounded_regular(before):
+        raise ValueError("Execution evidence must be a bounded regular file.")
+    # Reject special-file replacements without blocking, then verify the opened
+    # descriptor rather than trusting the preceding path check.
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    with os.fdopen(os.open(path, flags), "rb") as source:
+        opened = os.fstat(source.fileno())
+        if not bounded_regular(opened) or identity(opened) != identity(before):
+            raise ValueError("Execution evidence changed before reading.")
+        data = source.read(opened.st_size + 1)
+        after = os.fstat(source.fileno())
+        if (not bounded_regular(after) or identity(after) != identity(opened) or
+                len(data) != opened.st_size):
+            raise ValueError("Execution evidence changed while reading.")
+    return data
+
+
 def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
     expected = EXPECTED if expected_methods is None else expected_methods
     if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):
         raise ValueError("Expected verifier catalogue invalid.")
-    if len(data) > 64 * 1024 * 1024 or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
+    if len(data) > MAX_TRX_BYTES or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
         raise ValueError("Unbounded or unsupported XML input.")
     root = ET.fromstring(data)
     if root.tag != "{" + NS["t"] + "}TestRun":
@@ -349,7 +377,7 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
     if (stamp.is_file() and not binding) or (os.environ.get("GITHUB_ACTIONS") == "true" and not binding):
         raise ValueError("Required build stamp missing or mismatched.")
     assemblies = capture_assemblies(root)
-    data = trx.read_bytes()
+    data = read_execution_trx(trx)
     observed = observed_trx(data, now)
     report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
               "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,

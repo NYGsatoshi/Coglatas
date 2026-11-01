@@ -205,6 +205,11 @@ class FilePolicyExecutionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
             receipt = deep.capture(root, trx, candidate, NOW)
+            invalid_input = root / "artifacts/directory.trx"
+            invalid_input.mkdir()
+            with self.assertRaises(ValueError):
+                deep.capture(root, invalid_input, candidate, NOW)
+            self.assertIsNone(deep.failure_summary(candidate, invalid_input)["executionDigest"])
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])
