@@ -18,7 +18,7 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
         self.assertIn("dotnet tool restore", source)
         self.assertIn("dotnet restore src/Coglatas.Web/Coglatas.Web.csproj", source)
         self.assertIn("dotnet ef", (ROOT / "infra/compose/security/runtime.yml").read_text())
-        self.assertNotRegex(source, r"(?m)^[^#\\n]*\\bdotnet\\s+(build|publish|test|run)\\b")
+        self.assertNotRegex(source, r"(?m)^[^#\n]*\bdotnet\s+(build|publish|test|run)\b")
         for required in (
             "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll",
             "src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll",
@@ -61,9 +61,9 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
 
     def test_no_build_negative_mutation_is_detected(self):
         source = DOCKERFILE.read_text()
-        self.assertTrue(re.search(r"(?m)^[^#\\n]*\\bdotnet\\s+(build|publish)\\b",
+        self.assertTrue(re.search(r"(?m)^[^#\n]*\bdotnet\s+(build|publish)\b",
                                   source + "\nRUN dotnet build src/Coglatas.Web/Coglatas.Web.csproj"))
-        self.assertFalse(re.search(r"(?m)^[^#\\n]*\\bdotnet\\s+(build|publish)\\b", source))
+        self.assertFalse(re.search(r"(?m)^[^#\n]*\bdotnet\s+(build|publish)\b", source))
 
 
 if __name__ == "__main__":
