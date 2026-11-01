@@ -1,0 +1,104 @@
+<article class="workbench" data-testid="projectide-workbench">
+  <a routerLink="/projects">{{ t('ide.return') }}</a>
+  <header><p class="eyebrow">{{ t('ide.preview') }}</p><h1>{{ t('ide.title') }}</h1><p>{{ t('ide.notice') }}</p></header>
+  @if (!flags.projectIdePreviewEnabled()) { <p role="status">{{ t('ide.disabled') }}</p> }
+  @else if (!canRead() || store.state() === 'denied') { <p role="alert">{{ t('ide.denied') }}</p> }
+  @else {
+    <p>{{ t('ide.runtime') }}</p>
+    <button type="button" disabled [title]="t('ide.runtime')">{{ t('ide.compile') }}</button>
+    <p role="status" aria-live="polite">{{ t('ide.transport') }}: {{ store.state() === 'ready' ? t('ide.ready') : stateMessage() }}</p>
+    @if (store.state() === 'loading') { <button type="button" (click)="store.clear('cancelled')">{{ t('ide.cancel') }}</button> }
+    @else if (store.state() !== 'ready') { <p role="alert">{{ stateMessage() }}</p><button type="button" (click)="reload()">{{ t('ide.retry') }}</button> }
+    @if (store.bundle()) {
+      <label class="context-picker">{{ t('ide.choose') }}
+        <select data-testid="ide-context" [value]="store.context()?.key ?? ''" (change)="choose($any($event.target).value)">
+          <option value="">{{ t('ide.none') }}</option>
+          @for (item of store.bundle()!.cases; track item.key) { <option [value]="item.key">{{ item.projectName }} · {{ item.branchName }} · {{ item.context.revisionId }} · {{ item.key }}</option> }
+        </select>
+      </label>
+      @if (store.context(); as ctx) {
+        <section class="context" aria-label="Project context" data-testid="ide-context-header">
+          <h2>{{ ctx.projectName }}</h2>
+          <dl>
+            <div><dt>{{ t('ide.project') }}</dt><dd>{{ ctx.context.branch.projectId }}</dd></div>
+            <div><dt>Tenant ID</dt><dd>{{ ctx.context.branch.tenantId }}</dd></div>
+            <div><dt>{{ t('ide.workspace') }}</dt><dd>{{ ctx.workspaceName }} · {{ ctx.workspaceId }}</dd></div>
+            <div><dt>{{ t('ide.branch') }}</dt><dd>{{ ctx.branchName }} · {{ ctx.context.branch.branchId }}</dd></div>
+            <div><dt>{{ t('ide.revision') }}</dt><dd>{{ ctx.context.revisionId }}</dd></div>
+            <div><dt>{{ t('ide.desired') }}</dt><dd>{{ ctx.desiredContext.revisionId }}</dd></div>
+            <div><dt>{{ t('ide.context') }}</dt><dd>{{ ctx.context.kind }}</dd></div>
+            <div><dt>{{ t('ide.candidate') }}</dt><dd>{{ t('ide.notApplicable') }}</dd></div>
+            <div><dt>{{ t('ide.sourceDigest') }}</dt><dd>{{ ctx.sourceDigest.value }}</dd></div>
+            <div><dt>{{ t('ide.manifest') }}</dt><dd>{{ ctx.inputDigest.value }}</dd></div>
+          </dl>
+          <button type="button" (click)="store.loadResult()">{{ t('ide.load') }}</button>
+        </section>
+        <section class="analysis" aria-live="polite" data-testid="ide-analysis-status">
+          @if (store.result(); as loaded) {
+            <p>{{ t('ide.execution') }}: {{ loaded.result.execution }} · {{ t('ide.coverage') }}: {{ loaded.result.coverage }} · {{ t('ide.verdict') }}: {{ loaded.result.verdict }} · {{ t('ide.freshness') }}: {{ loaded.freshness }}</p>
+            @if (loaded.freshness !== 'Current') { <p class="notice">{{ t('ide.stale') }} {{ t('ide.changed') }}: {{ loaded.changedDimensions.join(', ') }}</p> }
+            @if (completePass()) { <p>{{ t('ide.pass') }}</p> }
+            @else if (loaded.result.coverage !== 'coglatas.complete' || !loaded.result.evidenceComplete) { <p>{{ t('ide.partial') }}</p> }
+          } @else { <p>{{ t('ide.notRun') }}</p> }
+        </section>
+        <nav class="panels" [attr.aria-label]="t('ide.title')">
+          @for (tab of tabs; track tab) {
+            @if (tab === 'inspector') { <button #inspectorButton type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab)">{{ t('ide.' + tab) }}</button> }
+            @else { <button type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab)">{{ t('ide.' + tab) }}</button> }
+          }
+        </nav>
+        <section class="panel" [attr.aria-label]="t('ide.' + panel())">
+          <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
+          @switch (panel()) {
+            @case ('overview') {
+              <p>{{ t('ide.binding') }}</p>
+              <dl><div><dt>{{ t('ide.inputId') }}</dt><dd>{{ ctx.inputId }}</dd></div></dl>
+              @if (store.result(); as loaded) {
+                <dl><div><dt>{{ t('ide.resultId') }}</dt><dd>{{ loaded.resultId }}</dd></div><div><dt>{{ t('ide.resultDigest') }}</dt><dd>{{ loaded.resultDigest.value }}</dd></div></dl>
+                @for (rule of loaded.result.rules; track rule.ruleId) { <p>{{ rule.ruleId }} v{{ rule.version }} · {{ rule.execution }} · {{ rule.coverage }} · {{ rule.verdict }} · {{ rule.evidence.kind }}</p> }
+              }
+              <details><summary>{{ t('ide.declared') }}</summary><pre>{{ ctx.manifest | json }}</pre></details>
+            }
+            @case ('problems') {
+              <div class="filters">
+                <label>{{ t('ide.severity') }}<select [value]="severity()" (change)="severity.set($any($event.target).value)"><option value="">{{ t('ide.all') }}</option>@for (value of ['coglatas.error', 'coglatas.warning', 'coglatas.suggestion', 'coglatas.info']; track value) { <option [value]="value">{{ value }}</option> }</select></label>
+                <label>{{ t('ide.kind') }}<select [value]="kind()" (change)="kind.set($any($event.target).value)"><option value="">{{ t('ide.all') }}</option>@for (value of kinds(); track value) { <option [value]="value">{{ value }}</option> }</select></label>
+                <label>{{ t('ide.search') }}<input type="search" [value]="search()" (input)="search.set($any($event.target).value)" /></label>
+              </div>
+              <p role="status">{{ t('ide.count', {visible: filtered().length, total: diagnostics().length}) }}</p>
+              @if (!diagnostics().length) { <p>{{ t('ide.empty') }}</p> }
+              @else if (!filtered().length) { <p>{{ t('ide.noFilter') }}</p> }
+              <ol class="diagnostics">
+                @for (d of filtered(); track d.diagnosticId) {
+                  <li [attr.data-selected]="store.selection()?.id === d.diagnosticId">
+                    <p><strong>{{ d.severity }}</strong> · {{ d.ruleId }} v{{ d.ruleVersion }} · <code>{{ d.code }}</code></p>
+                    <p>{{ d.primaryLocation.entityId ?? d.primaryLocation.relationId ?? d.primaryLocation.documentId }} · {{ d.primaryLocation.propertyPath }}</p>
+                    <p>{{ t('ide.revision') }}: {{ d.primaryLocation.context.revisionId }} · {{ store.result()?.freshness }} · {{ t('ide.evidence') }}: {{ d.evidence.kind }}</p>
+                    <p>{{ t('ide.verdict') }}: {{ store.result()?.result.verdict }}</p>
+                    <button type="button" (click)="inspectDiagnostic(d)">{{ t('ide.select') }}: {{ d.code }}</button>
+                  </li>
+                }
+              </ol>
+            }
+            @case ('inspector') {
+              <button type="button" (click)="closeInspector()">{{ t('ide.close') }}</button>
+              @if (store.diagnostic(); as d) { <dl><div><dt>{{ t('ide.identity') }}</dt><dd>{{ d.diagnosticId }}</dd></div><div><dt>{{ t('ide.type') }}</dt><dd>Diagnostic · {{ d.code }} · {{ d.ruleId }} v{{ d.ruleVersion }}</dd></div><div><dt>{{ t('ide.evidence') }}</dt><dd><pre>{{ d.evidence | json }}</pre></dd></div></dl> }
+              @if (store.inspectedRecord(); as record) {
+                <dl><div><dt>{{ t('ide.identity') }}</dt><dd>{{ record.identity }}</dd></div><div><dt>{{ t('ide.type') }}</dt><dd>{{ record.kind }} · {{ record.status }}</dd></div><div><dt>{{ t('ide.revision') }}</dt><dd>{{ record.location.context.revisionId }}</dd></div></dl>
+                <p>{{ t('ide.unsupported') }}</p><h3>{{ t('ide.properties') }}</h3><pre>{{ record.data | json }}</pre>
+                <p>{{ t('ide.related') }}: @for (d of related(); track d.diagnosticId) { <code>{{ d.code }} </code> }</p>
+              } @else { <p>{{ store.selection() ? t('ide.unavailable') : t('ide.selectTarget') }}</p> }
+              @if (store.selection()) { <h3>{{ t('ide.location') }}</h3><pre>{{ (store.diagnostic()?.primaryLocation ?? store.inspectedRecord()?.location) | json }}</pre><button type="button" (click)="navigate()">{{ t('ide.go') }}</button> }
+              @if (store.navigationState() && store.navigationState() !== 'ready') { <p role="alert">{{ store.navigationState() === 'stale' ? t('ide.stale') : t('ide.unavailable') }}</p> }
+            }
+            @case ('source') {
+              <h3>{{ t('ide.elements') }}</h3><ul class="elements">@for (record of records(); track record.identity) { <li><button type="button" (click)="inspectRecord(record)">{{ record.kind }} · {{ record.identity }}</button></li> }</ul>
+              @if (store.sourceTarget(); as target) { <section data-testid="ide-source-target"><h3>{{ t('ide.record') }}</h3><p>{{ target.identity }} · {{ t('ide.document') }}: {{ target.location.documentId }}</p><pre>{{ target.data | json }}</pre></section> }
+              <h3>{{ t('ide.buffer') }}</h3><p>@for (doc of ctx.source.documents; track doc.documentId) { {{ doc.logicalName }} · {{ doc.documentId }} }</p><pre class="source-buffer" tabindex="0">{{ ctx.sourceText }}</pre>
+            }
+          }
+        </section>
+      }
+    }
+  }
+</article>

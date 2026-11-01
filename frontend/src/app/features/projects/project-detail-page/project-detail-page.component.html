@@ -21,6 +21,9 @@
         </div>
       }
     </header>
+    @if (projectIdeFlags.projectIdePreviewEnabled()) {
+      <a routerLink="/projectide/preview">{{ i18n.translate('ide.title') }} · {{ i18n.translate('ide.preview') }}</a>
+    }
     <nav class="project-detail-page__tabs" [attr.aria-label]="t('Project views')" role="tablist">
       @for (item of tabs(); track item.id) {
         <button type="button" class="coglatas-button coglatas-button--quiet" role="tab" [attr.aria-selected]="tab() === item.id" (click)="tab.set(item.id)">{{ t(item.label) }}</button>

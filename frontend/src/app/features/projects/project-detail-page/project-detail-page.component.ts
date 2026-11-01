@@ -1,4 +1,6 @@
 import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { FrontendFeatureFlagsService } from '../../../core/feature-flags/frontend-feature-flags.service';
+import { PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES } from '../../../core/i18n/messages/projectide.messages';
 import { projectPriorityText, projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
@@ -40,6 +42,7 @@ import { ProjectArtifactsPanelComponent } from '../../artifacts/project-artifact
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
+  readonly projectIdeFlags = inject(FrontendFeatureFlagsService);
   readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly route = inject(ActivatedRoute);
@@ -85,6 +88,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
   ];
 
   constructor() {
+    this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     this.route.paramMap.pipe(
       map((params) => params.get('projectId')?.trim() ?? ''),
       distinctUntilChanged(),
