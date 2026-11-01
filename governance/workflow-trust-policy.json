@@ -130,6 +130,20 @@
         "packages:write"
       ],
       "reason": "Mint a short-lived GitHub Actions OIDC identity and publish Cosign signatures and attestations for the immutable release subject."
+    },
+    {
+      "workflow": ".github/workflows/qodana-signed-shadow.yml",
+      "jobs": [
+        "shadow-attestor"
+      ],
+      "events": [
+        "push"
+      ],
+      "permissions": [
+        "id-token:write",
+        "attestations:write"
+      ],
+      "reason": "Run the pinned GitHub/Sigstore signing Action only in the separately isolated shadow-attestor on a SecurityTestImplimation push; no untrusted pull requests, no Qodana container or Cloud token in the signer. The signature is advisory and cannot qualify Main Qodana Cloud reuse."
     }
   ]
 }

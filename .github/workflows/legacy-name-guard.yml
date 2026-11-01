@@ -1,8 +1,11 @@
 name: LegacyNameGuard
 
 on:
+  # PR CI also audits the changed content; avoid a duplicate standalone run on
+  # every feature-branch push. Preserve PR, merge-queue, Main and security-integration coverage.
   pull_request:
   push:
+    branches: [main, SecurityTestImplimation]
   merge_group:
   workflow_dispatch:
 

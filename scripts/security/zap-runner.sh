@@ -239,6 +239,7 @@ security_zap_run_role() {
   printf 'SEC-06 ZAP: role=%s target=%s policy=sec06-strict-api timeout=%s\n' \
     "$role" "$SECURITY_SCAN_TARGET" "$role_timeout"
 
+  local scan_started=$SECONDS
   set +e
   timeout --signal=TERM --kill-after=30s "$role_timeout" \
     docker run --rm \
@@ -261,6 +262,10 @@ security_zap_run_role() {
       -lc 'mkdir -p /tmp/zap-home && exec /zap/zap.sh -cmd -silent -dir /tmp/zap-home -autorun "$COGLATAS_SECURITY_ZAP_PLAN"' \
       2>&1 | security_zap_redact_stream
   status=${PIPESTATUS[0]}
+  # Advisory-only timing, emitted even when a role's ZAP process fails.
+  # The native scanner status still drives cleanup and the strict gate.
+  printf 'CI security scanner timing: tool=zap role=%s elapsed_seconds=%d scanner_exit=%d\n' \
+    "$role" "$((SECONDS - scan_started))" "$status" || true
   if (( status != 0 )); then
     docker rm -f "$container_name" >/dev/null 2>&1 || true
   fi

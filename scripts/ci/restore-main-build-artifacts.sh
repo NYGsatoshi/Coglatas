@@ -9,7 +9,36 @@ source_sha_file="$artifact_root/source-sha"
 image_name_file="$artifact_root/runtime-image-name"
 image_id_file="$artifact_root/runtime-image-id"
 image_archive="$artifact_root/runtime-image.tar.gz"
-dotnet_archive="$artifact_root/dotnet-release-build.tar"
+
+# Public PR Functional consumers download the existing, same-run .NET producer
+# separately; Main's existing combined artifact remains byte-for-byte compatible.
+dotnet_source_root="${4:-}"
+if [[ -n "$dotnet_source_root" ]]; then
+  if [[ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]]; then
+    echo "Separate .NET producer is supported only for the PR Functional artifact." >&2
+    exit 1
+  fi
+  if [[ -e "$artifact_root/dotnet-release-build.tar" || -L "$artifact_root/dotnet-release-build.tar" ]]; then
+    echo "PR Functional runtime must not duplicate the .NET producer archive." >&2
+    exit 1
+  fi
+  producer_stamp="$dotnet_source_root/source-sha"
+  if [[ ! -f "$producer_stamp" || -L "$producer_stamp" || ! -s "$producer_stamp" ]]; then
+    echo "Separate .NET producer source stamp is missing or invalid." >&2
+    exit 1
+  fi
+  if [[ "$(tr -d '\r\n' < "$producer_stamp")" != "$expected_sha" ]]; then
+    echo "Separate .NET producer source differs from the checked-out revision." >&2
+    exit 1
+  fi
+  dotnet_archive="$dotnet_source_root/dotnet-release-build.tar"
+  if [[ -L "$dotnet_archive" ]]; then
+    echo "Separate .NET producer archive must not be a symbolic link." >&2
+    exit 1
+  fi
+else
+  dotnet_archive="$artifact_root/dotnet-release-build.tar"
+fi
 
 for required in "$source_sha_file" "$image_name_file" "$image_id_file" "$image_archive" "$dotnet_archive"; do
   [[ -f "$required" ]] || {

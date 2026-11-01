@@ -16,7 +16,7 @@ on:
   # merge. GitHub keeps fork pull-request tokens read-only; Code Scanning allows
   # SARIF upload for pull_request-triggered analyses.
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "SecurityTestImplimation" ]
     paths:
       - ".github/workflows/**"
       - "**/*.cs"
@@ -34,7 +34,7 @@ on:
       - "package.json"
       - "package-lock.json"
   push:
-    branches: [ "main" ]
+    branches: [ "main", "SecurityTestImplimation" ]
   # Scheduled trigger temporarily disabled on 2026-09-19 to reduce CI consumption.
   # schedule:
   #   - cron: '27 17 * * 0'
