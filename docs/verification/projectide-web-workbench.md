@@ -8,9 +8,8 @@ Merge operation. Runtime Compile is disabled with an explanation.
 
 ## Audited baseline and authority
 
-The supplied RiderProjects path does not exist on this host. The actual clean
-checkout is `C:/Users/Hirota Kaname/source/repos/NYGsatoshi/Coglatas`. Work uses
-independent `.codex/worktrees/projectide-web-*` directories; the original checkout
+The repository checkout is kept separate. Work uses independent
+`.codex/worktrees/projectide-web-*` directories; the original checkout
 and existing worktrees are retained. Remote observations on 2026-11-01:
 
 | Reference | Observed SHA |
@@ -34,7 +33,7 @@ Parallel Web/Windows direction does not satisfy Windows' independent gate.
 
 ## Existing Angular and API seams
 
-`frontend` is active. Package declarations say Angular 22.2.0; the existing
+`frontend` is active. Package declarations say Angular 22.2.4; the existing
 lockfile installation resolves Angular Core 22.2.4. No package or lockfile was
 changed. Routing uses an authenticated AppShell and lazy feature components.
 `/projects`, `/workspaces/:workspaceId/projects` and `/projects/:projectId`

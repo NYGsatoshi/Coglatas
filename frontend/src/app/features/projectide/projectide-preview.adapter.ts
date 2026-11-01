@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
 import {
+  isPreviewBundleShape,
+  isPreviewCaseShape,
+  isProjectLocationShape,
+} from './projectide-preview.validation';
+import {
   PreviewBundle,
   PreviewCase,
   ProjectLocation,
@@ -17,51 +22,15 @@ export class PreviewReadError extends Error {
 
 /** Only accepts the bounded exporter profile. No inferred mapping of future Core versions. */
 export function readPreviewBundle(raw: unknown): PreviewBundle {
-  if (!raw || typeof raw !== 'object') {
+  if (!isPreviewBundleShape(raw)) {
     throw new PreviewReadError('unsupported');
   }
-  const bundle = raw as PreviewBundle;
-  if (
-    bundle.format !== 'coglatas.web-preview/1' ||
-    bundle.mode !== 'synthetic-fixture' ||
-    !Array.isArray(bundle.cases) ||
-    bundle.cases.length > 32
-  ) {
-    throw new PreviewReadError('unsupported');
-  }
+  const bundle = raw;
   if (new Set(bundle.cases.map((item) => item.key)).size !== bundle.cases.length) {
     throw new PreviewReadError('unsupported');
   }
   for (const item of bundle.cases) {
     const r = item.result;
-    if (
-      item.context?.kind !== 'coglatas.committed' ||
-      item.desiredContext?.kind !== 'coglatas.committed' ||
-      r?.format !== 'coglatas.compiler-result/1' ||
-      r.resultFormatVersion !== 1 ||
-      ![
-        'coglatas.completed',
-        'coglatas.not-run',
-        'coglatas.cancelled',
-        'coglatas.timed-out',
-        'coglatas.resource-exhausted',
-        'coglatas.internal-error',
-      ].includes(r.execution) ||
-      !['coglatas.complete', 'coglatas.partial', 'coglatas.none'].includes(r.coverage) ||
-      ![
-        'coglatas.pass',
-        'coglatas.fail',
-        'coglatas.inconclusive',
-        'coglatas.error',
-        'coglatas.not-run',
-      ].includes(r.verdict) ||
-      !['Current', 'Stale', 'Undetermined'].includes(item.freshness) ||
-      !Array.isArray(r.diagnostics) ||
-      !Array.isArray(item.declarations) ||
-      !Array.isArray(item.relations)
-    ) {
-      throw new PreviewReadError('unsupported');
-    }
     if (
       !sameContext(item.context, r.boundInputStamp.sourceContext) ||
       !sameDigest(item.sourceDigest, r.boundInputStamp.sourceDigest) ||
@@ -137,6 +106,9 @@ export function resolveLocation(
   value: PreviewCase,
   location: ProjectLocation,
 ): SourceRecord | 'unavailable' | 'stale' | 'wrong-scope' {
+  if (!isPreviewCaseShape(value) || !isProjectLocationShape(location)) {
+    return 'unavailable';
+  }
   if (location.format !== 'coglatas.project-location/1' || location.schemaVersion !== 1) {
     return 'unavailable';
   }
