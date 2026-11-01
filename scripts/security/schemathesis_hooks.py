@@ -6,7 +6,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import schemathesis
@@ -22,10 +24,15 @@ _STRUCTURED_JSON_EXAMPLE = "application/vnd.coglatas+json"
 _integration_inputs = IntegrationInputAttribution()
 
 
-def _load_auth() -> dict[str, Any]:
-    path = os.environ.get(_AUTH_FILE_ENV)
-    if not path:
-        raise RuntimeError(f"{_AUTH_FILE_ENV} is required")
+@lru_cache(maxsize=1)
+def _read_role_auth(path: str) -> dict[str, Any]:
+    """Validate one immutable SEC-03 role fixture in this scanner process.
+
+    SEC-04 executes each role in its own one-worker scanner container. Its
+    authenticated scanner never performs login/logout/password rotation; SEC-03
+    owns that lifecycle. Never persist these short-lived credentials to a
+    global/multi-run cache or expose their values in CI logs.
+    """
     with open(path, encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
@@ -36,7 +43,15 @@ def _load_auth() -> dict[str, Any]:
         raise RuntimeError("SEC-04 auth headers are invalid")
     if not isinstance(forbidden, list) or not all(isinstance(item, str) for item in forbidden):
         raise RuntimeError("SEC-04 forbidden value list is invalid")
-    return payload
+    # Never allow request hooks or checks to mutate the shared frozen fixture.
+    return {**payload, "headers": MappingProxyType(dict(headers)), "forbidden_values": tuple(forbidden)}
+
+
+def _load_auth() -> dict[str, Any]:
+    path = os.environ.get(_AUTH_FILE_ENV)
+    if not path:
+        raise RuntimeError(f"{_AUTH_FILE_ENV} is required")
+    return _read_role_auth(path)
 
 
 def _append_evidence(event: dict[str, Any]) -> None:

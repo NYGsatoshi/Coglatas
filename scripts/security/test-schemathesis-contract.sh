@@ -15,6 +15,7 @@ python3 -m py_compile \
   scripts/security/schemathesis_policy.py \
   scripts/security/schemathesis_hooks.py \
   scripts/security/process-schemathesis-report.py
+python3 -B -m unittest discover -s tests/ci -p test_schemathesis_auth_cache.py -v
 
 python3 - <<'PY'
 from pathlib import Path
