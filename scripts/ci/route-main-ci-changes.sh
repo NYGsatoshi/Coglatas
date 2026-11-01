@@ -619,7 +619,7 @@ while IFS= read -r path; do
   # Runtime/API/harness changes require both deterministic contracts and the
   # live authenticated Core/Schemathesis/ZAP stacks before PR merge.
   case "$path" in
-    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|.dockerignore|.config/*)
+    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.dockerignore|.config/*)
       security=true
       security_compose=true
       ;;
@@ -648,7 +648,7 @@ while IFS= read -r path; do
   esac
 
   case "$path" in
-    .dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|*/syncfusion-license.txt|syncfusion-license.txt)
+    .dockerignore|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|*/syncfusion-license.txt|syncfusion-license.txt)
       security=true
       security_image=true
       ;;

@@ -18,7 +18,7 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
         self.assertIn("dotnet tool restore", source)
         self.assertIn("dotnet restore src/Coglatas.Web/Coglatas.Web.csproj", source)
         self.assertIn("dotnet ef", (ROOT / "infra/compose/security/runtime.yml").read_text())
-        self.assertNotRegex(source, r"(?m)^[^#\n]*\bdotnet\s+(build|publish|test|run)\b")
+        self.assertNotRegex(source, r"(?m)^[^#\n]*\bdotnet\s+(build|msbuild|publish|test|run)\b")
         for required in (
             "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll",
             "src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll",
@@ -60,10 +60,16 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
         self.assertIn('run: python3 -B scripts/ci/test-security-runtime-prebuilt.py', workflow)
 
     def test_no_build_negative_mutation_is_detected(self):
-        source = DOCKERFILE.read_text()
-        self.assertTrue(re.search(r"(?m)^[^#\n]*\bdotnet\s+(build|publish)\b",
-                                  source + "\nRUN dotnet build src/Coglatas.Web/Coglatas.Web.csproj"))
-        self.assertFalse(re.search(r"(?m)^[^#\n]*\bdotnet\s+(build|publish)\b", source))
+        source = DOCKERFILE.read_text(encoding="utf-8")
+        compile_pattern = r"(?m)^[^#\n]*\bdotnet\s+(build|msbuild|publish|test|run)\b"
+        for command in (
+            "RUN dotnet build src/Coglatas.Web/Coglatas.Web.csproj",
+            "RUN dotnet msbuild src/Coglatas.Web/Coglatas.Web.csproj -target:Build",
+            "RUN dotnet publish src/Coglatas.Web/Coglatas.Web.csproj",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNotNone(re.search(compile_pattern, source + "\n" + command))
+        self.assertIsNone(re.search(compile_pattern, source))
 
 
 if __name__ == "__main__":
