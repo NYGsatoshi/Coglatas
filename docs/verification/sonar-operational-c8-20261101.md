@@ -33,7 +33,7 @@ Local replay used original Main eb18fb3c5b82c05ca4cdc8b68b59276732eb2fef artifac
 The exact workflow guard passed: two sources, 213 branches, 21 uncovered branches;
 all 16 npm raw module records leave returns at lines141/144/147 uncovered.
 Patched/unpatched dependencies and before/after-remap filtering produced
-byte-identical 11,195-byte LCOV, SHA256
+byte-identical 11,205-byte LCOV, SHA256
 47eb93b06c10712d628922269207bc508e824a4897984f758460049213392205.
 Existing Node24.22.2/npm11.17.0 performed local qualification; actual CI versions
 are recorded by each new execution, not inferred from this replay.
