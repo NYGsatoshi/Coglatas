@@ -120,6 +120,9 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Test single-owner Security artifacts and negative controls
+        run: python3 -B scripts/ci/test-security-artifact-single-owner.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
@@ -1237,11 +1240,11 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: security-scan-reports
+          # Scanner evidence is already published once by sec06-zap-evidence,
+          # including on scanner failure. Do not duplicate its payload here.
           path: |
             dotnet-vulnerable-packages.txt
             trivy-filesystem-report.txt
             gitleaks-report.json
-            artifacts/security/schemathesis/
-            artifacts/security/zap/
           if-no-files-found: warn
           retention-days: 7
