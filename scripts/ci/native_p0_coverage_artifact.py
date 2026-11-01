@@ -100,7 +100,7 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
         require(len(selected) == 1, "SELECTION")
         if selected[0].get("conclusion") == "skipped":
             continue
-        require(run.get("actor", {}).get("login") == "NYGsatoshi", "RUN")
+        require(run.get("actor", {}).get("login") == REPOSITORY.partition("/")[0], "RUN")
         require(selected[0].get("conclusion") == "success", "SELECTION")
         p0 = [step for step in steps if step.get("name") == "Run P0 acceptance"]
         mobile = [step for step in steps if step.get("name") == "Run independent real-backend MVP0 Mobile acceptance"]
