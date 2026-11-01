@@ -137,10 +137,24 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fail closed"):
             validate(tampered)
 
-    def test_main_required_check_contexts_are_untouched(self):
-        for context in ("build-test", "frontend-test", "security-scan",
-                        "functional-fast", "specification-contract", "performance-fast"):
-            self.assertIn(f"    name: {context}", self.source)
+    def test_registered_required_check_contexts_are_unchanged(self):
+        # publication-readiness and performance-fast live in other workflows;
+        # specification-contract is an Advisory, not a required status.
+        import json
+        policy = json.loads((ROOT / "governance/required-checks.json").read_text(encoding="utf-8"))
+        actual = {record["context"]: record["workflow"] for record in policy["checks"]}
+        required = {
+            "build-test": ".github/workflows/ci.yml",
+            "frontend-test": ".github/workflows/ci.yml",
+            "security-scan": ".github/workflows/ci.yml",
+            "functional-fast": ".github/workflows/ci.yml",
+            "publication-readiness": ".github/workflows/publication-readiness.yml",
+            "performance-fast": ".github/workflows/performance-api.yml",
+        }
+        self.assertEqual(required, actual)
+        for context, workflow in required.items():
+            if workflow == ".github/workflows/ci.yml":
+                self.assertIn(f"    name: {context}", self.source)
 
 
 if __name__ == "__main__":
