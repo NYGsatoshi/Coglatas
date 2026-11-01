@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -41,6 +42,13 @@ def verify(root: Path, receipt: Path) -> None:
         frontend=root/"frontend"
         execute("typecheck",["node","node_modules/typescript/bin/tsc","--noEmit","-p","tsconfig.app.json"],frontend)
         execute("frontend-architecture",["node","scripts/check-architecture.mjs"],frontend)
+        execute("route-inventory",["node","scripts/check-av-mig-source.mjs"],frontend)
+        execute("frontend-node-tests",["node","--test","--test-reporter=tap",*[str(p.relative_to(frontend)) for p in sorted((frontend/"scripts").glob("*.node-test.mjs"))]],frontend)
+        node_tests=(evidence/"frontend-node-tests.log").read_text(encoding="utf-8")
+        counts={key:int(re.search(r"^# "+key+r" (\d+)$",node_tests,re.M)[1]) for key in ["tests","pass","fail","cancelled","skipped","todo"]}
+        if not counts["tests"] or counts["pass"] != counts["tests"] or any(counts[key] for key in ["fail","cancelled","skipped","todo"]): raise ValueError("Incomplete frontend Node results")
+        value["frontendNodeCounts"]=counts
+        value["frontendNodeTests"]=re.findall(r"^# Subtest: (.+)$",node_tests,re.M)
         execute("angular-build",cli+["build","--configuration","production"],frontend)
         execute("sanitize-themes",["node","scripts/sanitize-syncfusion-theme-css.mjs"],frontend)
         command=cli+["test","--watch=false","--reporters=json","--output-file="+str(evidence/"vitest.json")]

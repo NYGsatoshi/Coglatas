@@ -49,7 +49,7 @@ function byPath(entries) {
 }
 
 // Node's test runner owns completion and reports callback failures.
-void test('historical inventories retain 38 routes and current Web requires the explicit five-route addendum', async () => {
+void test('historical inventories retain 38 routes and current Web requires the explicit six-route addendum', async () => {
   const [inventory, legacyFreeze, targetMap, currentWeb] = await Promise.all([
     readJson(inventoryPath),
     readJson(legacyFreezePath),
@@ -70,7 +70,7 @@ void test('historical inventories retain 38 routes and current Web requires the 
   const inventoryPaths = inventory.routes.map((route) => route.path).sort();
   const legacyPaths = legacyFreeze.routes.map((route) => route.path).sort();
   const targetPaths = targetMap.routes.map((route) => route.path).sort();
-  assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/home', '/teams', '/teams/activity']);
+  assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/home', '/projectide/preview', '/teams', '/teams/activity']);
   for (const path of ['/dm', '/teams/activity']) {
     const route = currentWeb.routes.find((entry) => entry.path === path);
     assert.deepEqual(route?.stateOwners, [
@@ -88,7 +88,7 @@ void test('historical inventories retain 38 routes and current Web requires the 
   assert.equal(targetMap.sourceSnapshot, pinnedSourceSha, 'v5.8.1 target map must remain pinned to the approved snapshot');
   assert.equal(targetMap.parentProgram, 764, 'target map parent program must remain #764');
   assert.equal(targetMap.executionRoadmap, 798, 'target map execution roadmap must remain #798');
-  assert.equal(SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 43);
+  assert.equal(SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 44);
 });
 
 test('every v5.8.1 target route has PNL/mode, disposition and execution owner', async () => {

@@ -8,6 +8,13 @@ from projectide_slice2_isolated import changes, git, sha
 CORE_PRODUCT = "ddb456dbf2eca1b005a8aac5ffb1ca8861b73b5d"
 CORE_TEST = "5bd53a614b9cfe27de53cfa2b7901a18b95aa36d"
 TEST_BASE = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
+INVENTORY_TESTS = (
+    "frontend/scripts/av-mig-inventory.node-test.mjs",
+    "frontend/scripts/av-mig-source.node-test.mjs",
+)
+
+def frontend_test(path: str) -> bool:
+    return path.endswith(".spec.ts") or path in INVENTORY_TESTS
 
 def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
     sha(product); sha(test)
@@ -16,25 +23,25 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     git(repository, "merge-base", "--is-ancestor", CORE_PRODUCT, product)
     git(repository, "merge-base", "--is-ancestor", CORE_TEST, test)
     product_changes = changes(repository, CORE_PRODUCT, product, (
-        "frontend/src/", "frontend/public/assets/projectide/", "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"))
+        "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"))
     for commit in product_changes:
-        if any(path.endswith(".spec.ts") for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines()):
+        if any(frontend_test(path) for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines()):
             raise ValueError("Product candidate contains independent Test source")
     web_tests = changes(repository, CORE_TEST, test, (
-        "frontend/src/app/features/projectide/", "tests/", ".github/workflows/projectide-web-isolated.yml"))
+        "frontend/src/app/features/projectide/", *INVENTORY_TESTS, "tests/", ".github/workflows/projectide-web-isolated.yml"))
     test_changes = changes(repository, TEST_BASE, test, (
-        "frontend/src/app/features/projectide/", "tests/", ".github/workflows/projectide-slice2-isolated.yml",
+        "frontend/src/app/features/projectide/", *INVENTORY_TESTS, "tests/", ".github/workflows/projectide-slice2-isolated.yml",
         ".github/workflows/projectide-core-isolated.yml", ".github/workflows/projectide-web-isolated.yml"))
     for commit in web_tests:
         paths = git(repository, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines()
-        if any(path.startswith("frontend/") and not path.endswith(".spec.ts") for path in paths):
+        if any(path.startswith("frontend/") and not frontend_test(path) for path in paths):
             raise ValueError("Test candidate changed frontend Product source")
     git(repository, "worktree", "add", "--detach", str(target), product)
     for commit in test_changes:
         git(target, "cherry-pick", commit)
     # The full source delta may contain only independent Web tests.
-    paths = git(target, "diff", "--name-only", product, "HEAD", "--", "frontend/src", "src", "tools").splitlines()
-    if any(not path.startswith("frontend/src/app/features/projectide/") or not path.endswith(".spec.ts") for path in paths):
+    paths = git(target, "diff", "--name-only", product, "HEAD", "--", "frontend/src", "frontend/scripts", "src", "tools").splitlines()
+    if any(path not in INVENTORY_TESTS and (not path.startswith("frontend/src/app/features/projectide/") or not path.endswith(".spec.ts")) for path in paths):
         raise ValueError("Composition changed Product runtime source")
     value = dict(schemaVersion=1, coreProduct=CORE_PRODUCT, coreTest=CORE_TEST,
         productHead=product, testHead=test, productTree=git(repository,"rev-parse",product+"^{tree}"),
