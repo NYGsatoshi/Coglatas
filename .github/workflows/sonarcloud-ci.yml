@@ -481,6 +481,8 @@ jobs:
           mkdir -p artifacts/sonar-native-artifact
           python3 -B -m coverage run --branch --include='*/scripts/ci/native_p0_coverage_artifact.py' \
             tests/ci/test_native_p0_coverage_artifact.py
+          python3 -B -m coverage run --append --branch --include='*/scripts/ci/native_p0_coverage_artifact.py' \
+            tests/ci/test_native_p0_pending_selection.py
           python3 -B -m coverage xml -o artifacts/sonar-native-artifact/coverage.xml
 
       - name: Resolve one exact-source protected native P0 artifact

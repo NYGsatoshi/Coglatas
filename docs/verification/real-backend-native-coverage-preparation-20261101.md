@@ -198,3 +198,18 @@ identity still fail. The four canonical Test524 blobs, acceptance behavior,
 original reports, HTTP rejection fixture and provider state remain unchanged.
 The independent review and fresh-head qualification must be recorded separately;
 the previous139 CI, protected execution and Sonar result do not qualify this fix.
+
+The pending-selection repair now has a separate original persistent regression
+file, `tests/ci/test_native_p0_pending_selection.py`. Its eleven controls preserve
+the four frozen Test524 blobs and use distinct run-bound job responses to reject
+pending/failed history followed by a later success. They also cover pending
+native/Mobile/P0 selection, wrong owner/run/attempt/source, completed malformed
+selection and an unchanged positive import. The existing seventeen controls run
+first; the new file appends actual reader measurement before standard XML output.
+The PR scope is now eleven files. No test-management branch, original coverage
+counter, source scope, threshold or provider disposition changes. Earlier a232
+qualification remains historical and does not qualify the new combined tree.
+An isolated pre-repair139 reader fails the unchanged new controls with four
+assertion failures and two errors; the current reader passes the original17
+and new11 controls. These are local synthetic results, not fresh hosted P0,
+Sonar or Main acceptance.
