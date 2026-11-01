@@ -8,6 +8,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-sec04-deep-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec17_deep_execution.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec17_file_policy_execution.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_evidence.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/runtime_image_identity.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-acceptance-image-reuse.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/release_image_graph.py

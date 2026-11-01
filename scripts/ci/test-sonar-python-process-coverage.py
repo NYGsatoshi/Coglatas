@@ -92,6 +92,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
             ROOT.as_posix() + '/scripts/ci/sec17_deep_execution.py',
             ROOT.as_posix() + '/scripts/ci/sec17_file_policy_execution.py',
+            ROOT.as_posix() + '/scripts/ci/sec_arch_evidence.py',
             ROOT.as_posix() + '/scripts/ci/runtime_image_identity.py',
             ROOT.as_posix() + '/scripts/ci/verify-acceptance-image-reuse.py',
             ROOT.as_posix() + '/scripts/ci/release_image_graph.py',
@@ -106,6 +107,45 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
         })
 
+
+    def test_execution_reader_controls_measure_exact_source_and_preserve_uncalled_cli(self):
+        tracked = ROOT / 'scripts/ci/sec_arch_evidence.py'
+        functions = {node.name: node for node in ast.parse(tracked.read_text(encoding='utf-8')).body
+                     if isinstance(node, ast.FunctionDef)}
+        covered = next(node.lineno for node in ast.walk(functions['read_execution_trx'])
+                       if isinstance(node, ast.Return) and isinstance(node.value, ast.Name)
+                       and node.value.id == 'data')
+        container = next(node for node in functions['main'].body
+                         if isinstance(node, ast.If) and isinstance(node.test, ast.Name)
+                         and node.test.id == 'container')
+        uncalled = container.body[0].lineno
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            env = self.environment()
+            env.pop('SEC_ARCH_POSTGRES_CONTAINER', None)
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(folder / 'data')
+            self.run_python([str(ROOT / 'scripts/ci/test_sec_arch_evidence.py')], folder, env)
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--keep', '--rcfile=' + str(CONFIG)], folder, env)
+            data = coverage.CoverageData(basename=str(folder / 'data'))
+            data.read()
+            sources = [name for name in data.measured_files() if Path(name).resolve() == tracked.resolve()]
+            self.assertEqual(len(sources), 1)
+            self.assertIn(covered, data.lines(sources[0]))
+            self.assertNotIn(uncalled, data.lines(sources[0]))
+            report = folder / 'coverage.xml'
+            self.run_python(['-m', 'coverage', 'xml', '--rcfile=' + str(CONFIG), '-o', str(report)], folder, env)
+            xml = ET.parse(report).getroot()
+            roots = [Path(node.text or '.') for node in xml.findall('./sources/source')]
+            classes = [node for node in xml.findall('.//class')
+                       if tracked.resolve() in {(root / node.attrib['filename']).resolve() for root in roots}]
+            self.assertEqual(len(classes), 1)
+            hits = {int(node.attrib['number']): int(node.attrib['hits'])
+                    for node in classes[0].findall('./lines/line')}
+            self.assertGreater(hits[covered], 0)
+            self.assertEqual(hits[uncalled], 0)
 
     def test_existing_receipt_cli_controls_measure_tracked_source_and_preserve_zero_branch(self):
         tracked = ROOT / 'scripts/ci/verify-acceptance-image-reuse.py'

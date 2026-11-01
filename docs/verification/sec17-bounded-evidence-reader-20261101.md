@@ -28,3 +28,10 @@ local evidence, not hosted or real-backend acceptance.
 The original Main observation and independent current-candidate review remain
 separate evidence. Required CI and official Sonar results must qualify the exact
 published candidate; these local controls grant no release approval.
+
+The existing credential-free Python coverage cohort now also runs the original
+SEC-ARCH capture tests and includes their shared source in its explicit
+measurement list. It retains the checksum-pinned coverage 7.17.0 tool, pytrace,
+subprocess bootstrap, original parallel data and standard XML generation. No
+report counts, source exclusions or Quality Gate thresholds change. Coverage
+improvement remains subject to the official exact-source Sonar analysis.
