@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       native_coverage:
-        description: Retain diagnostic native coverage for p0 or mobile-mvp0; never import it into Sonar
+        description: Retain original p0 or mobile-mvp0 ranges for separate provenance-checked analysis
         required: false
         default: false
         type: boolean
