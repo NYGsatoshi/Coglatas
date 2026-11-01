@@ -171,7 +171,7 @@ describe('ProjectIDE Workbench components', () => {
     c.closeInspector();
     fixture.detectChanges();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(document.activeElement?.textContent).toBe('Inspector');
+    expect(document.activeElement?.textContent?.trim()).toBe('Inspector');
     expect(c.store.selection()).toBeNull();
   });
   it('discards an obsolete focus request when Revision changes before the timer', async () => {
