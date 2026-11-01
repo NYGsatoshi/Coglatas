@@ -274,6 +274,7 @@ jobs:
             tests/diagnostics/thread-matrix.node-test.mjs \
             tests/ui/group-keyboard-observation.node-test.mjs \
             tests/ui/search-drawer-observation.node-test.mjs \
+            tests/ui/observer-dom-runtime.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
             tests/ci/test_restore_data_dependency_advisor.mjs \
             tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
