@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const historicalSourceSnapshot = '4e6a10903a5a472ca89f833aba993a29e1b2cf73';
-const currentWebPaths = ['/dm', '/drafts', '/home', '/teams', '/teams/activity'];
-const currentWebOwnerNames = ['DraftsPageComponent', 'HomePageComponent', 'LocalDraftStore', 'LocalFileStarsService', 'WorkspaceChannelsFacade', 'WorkspaceChannelsPageComponent'];
+const currentWebPaths = ['/dm', '/drafts', '/home', '/projectide/preview', '/teams', '/teams/activity'];
+const currentWebOwnerNames = ['DraftsPageComponent', 'HomePageComponent', 'LocalDraftStore', 'LocalFileStarsService', 'ProjectIdeWorkbenchComponent', 'ProjectIdeWorkbenchStore', 'WorkspaceChannelsFacade', 'WorkspaceChannelsPageComponent'];
 const currentWebExtensionPaths = ['/files', '/workspaces/:workspaceId/files'];
 
 const isPathInside = (baseDir, targetPath) => {
@@ -254,7 +254,7 @@ export class SourceInventory {
       SourceInventory.exactKeys(owner, ['name', 'sourcePath', 'kind'], `${owner.name}: unsupported current Web owner field`);
       assert.equal(sources.get(owner.name), resolveInside(SourceInventory.root, owner.sourcePath), `${owner.name}: current Web source owner drift`);
       assert.ok(!context.owners.has(owner.name), `${owner.name}: current Web owner shadows historical owner`);
-      assert.equal(owner.kind, { DraftsPageComponent: 'component-local', HomePageComponent: 'component-local', LocalDraftStore: 'ngrx-component-store', LocalFileStarsService: 'signals-service', WorkspaceChannelsFacade: 'signals-service', WorkspaceChannelsPageComponent: 'component-local' }[owner.name], `${owner.name}: current Web owner kind drift`);
+      assert.equal(owner.kind, { DraftsPageComponent: 'component-local', HomePageComponent: 'component-local', LocalDraftStore: 'ngrx-component-store', LocalFileStarsService: 'signals-service', ProjectIdeWorkbenchComponent: 'component-local', ProjectIdeWorkbenchStore: 'signals-service', WorkspaceChannelsFacade: 'signals-service', WorkspaceChannelsPageComponent: 'component-local' }[owner.name], `${owner.name}: current Web owner kind drift`);
     }
     const owners = new Map([...context.owners, ...current.stateOwners.map((owner) => [owner.name, owner])]);
     for (const route of current.routes) {
@@ -268,6 +268,8 @@ export class SourceInventory {
         expectedComponent = 'HomePageComponent';
       } else if (route.path === '/teams') {
         expectedComponent = 'WorkspaceChannelsPageComponent';
+      } else if (route.path === '/projectide/preview') {
+        expectedComponent = 'ProjectIdeWorkbenchComponent';
       }
       assert.equal(route.component, expectedComponent, `${route.path}: current Web component role drift`);
       if (directoryRoute) { assert.equal(route.conversationDirectory, route.path === '/dm' ? 'dm' : 'teams', `${route.path}: current Web directory role drift`); }

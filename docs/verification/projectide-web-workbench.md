@@ -128,6 +128,14 @@ no old result is evidence for a changed HEAD. Windows screenshots are diagnostic
 Linux hosted artifacts supply the additional browser evidence, without approving
 new visual baselines. Failures, skips and review limits remain explicit.
 
+The current Web route inventory explicitly registers the synthetic preview and
+its component/store owners (44 current routes). The pinned 38-route Avalonia
+snapshot, freeze and target map remain unchanged. The independent Test PR updates
+the existing five-route addendum assertion to six and adds component/owner
+negative controls. Until that Test delta is integrated, ordinary Product CI's
+historical five-route assertion remains a visible dependency failure; supplemental
+composition runs the updated inventory tests without waiving any required check.
+
 Current bounded status: WEB_WORKBENCH_PREVIEW_IMPLEMENTED candidate; review and
 acceptance pending. Runtime Compiler/API/jobs/capability negotiation, real Project
 Source authorization, editing/Quick Fix, Table/Board/Gantt semantic Revision
