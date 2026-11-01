@@ -120,6 +120,7 @@ jobs:
     name: SonarQube Cloud / .NET and multi-language analysis
     permissions:
       contents: read
+      actions: read
     needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
@@ -470,9 +471,140 @@ jobs:
           npm --prefix frontend run test:coverage
           test -s frontend/coverage/frontend/lcov.info
 
+      - name: Measure native artifact provenance rejection controls without analysis credentials
+        env:
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_FILE: ${{ runner.temp }}/sonar-native-artifact.coverage
+          COVERAGE_CORE: pytrace
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sonar-native-artifact
+          python3 -B -m coverage run --branch --include='*/scripts/ci/native_p0_coverage_artifact.py' \
+            tests/ci/test_native_p0_coverage_artifact.py
+          python3 -B -m coverage xml -o artifacts/sonar-native-artifact/coverage.xml
+
+      - name: Resolve one exact-source protected native P0 artifact
+        id: native_artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/native_p0_coverage_artifact.py --sha "$GITHUB_SHA" \
+            --tree "$(git rev-parse 'HEAD^{tree}')" --branch "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Convert original same-source P0 ranges with the locked tool
+        id: native_coverage
+        if: steps.native_artifact.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -m 700 artifacts/sonar-native-import/host-c8 artifacts/sonar-native-import/browser-c8
+          native_uid="$(id -u)"
+          native_gid="$(id -g)"
+          docker run --rm --network none --user "$native_uid:$native_gid" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/work,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=$GITHUB_WORKSPACE,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/artifacts/sonar-native-import/host-c8,target=/report-host" \
+            --workdir "$GITHUB_WORKSPACE" \
+            node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413 \
+            node /work/scripts/ci/sonar-operational-coverage-tools/node_modules/c8/bin/c8.js report \
+            --config=/work/scripts/ci/sonar-operational-coverage-tools/native-host.json \
+            --temp-directory="$GITHUB_WORKSPACE/artifacts/sonar-native-import/sonar-native-host/raw" --reports-dir=/report-host
+          docker run --rm --network none --user "$native_uid:$native_gid" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/work,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/artifacts/sonar-native-import/browser-c8,target=/report-browser" \
+            --workdir /work \
+            node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413 \
+            node /work/scripts/ci/sonar-operational-coverage-tools/node_modules/c8/bin/c8.js report \
+            --config=/work/scripts/ci/sonar-operational-coverage-tools/native-p0.json \
+            --temp-directory=artifacts/sonar-native-import/sonar-real-backend-native/raw --reports-dir=/report-browser
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          import { readdirSync, realpathSync, writeFileSync } from 'node:fs';
+          import { SourceMap } from 'node:module';
+          import { resolve } from 'node:path';
+          import { pathToFileURL } from 'node:url';
+          import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd()), base = 'artifacts/sonar-native-import/';
+          const cohorts = [
+            { producer: 'sonar-native-host', report: 'host-c8', mapped: false,
+              sources: ['tests/ui/run-real-backend-p0.mjs', 'tests/ui/run-real-backend-smoke-compose.mjs'] },
+            { producer: 'sonar-real-backend-native', report: 'browser-c8', mapped: true,
+              sources: ['tests/ui/group-dm-real.ts', 'tests/ui/workspace-member-management-real.ts'] },
+          ];
+          const evidence = [];
+          for (const cohort of cohorts) {
+            const report = readOwnedRepositoryText(root, base + cohort.report + '/lcov.info');
+            const checked = validateNodeCoverage(report);
+            const records = report.split('end_of_record').filter(block => block.trim()).map(block => block.trim().split(/\r?\n/));
+            const sources = records.map(rows => rows.find(row => row.startsWith('SF:')).slice(3));
+            assert.equal(checked.sourceFiles, 2); assert.deepEqual([...sources].sort(), [...cohort.sources].sort());
+            for (const path of cohort.sources) {
+              const source = readOwnedRepositoryText(root, path);
+              const uri = cohort.mapped ? 'file:///work/' + path : pathToFileURL(resolve(root, path)).href;
+              const hits = new Map(records.find(rows => rows.includes('SF:' + path)).filter(row => row.startsWith('DA:'))
+                .map(row => row.slice(3).split(',').map(Number)));
+              let modules = 0, zeroRanges = 0, zeroInteriorLines = 0;
+              for (const name of readdirSync(base + cohort.producer + '/raw')) {
+                assert.match(name, /^coverage-[0-9]+-[0-9]+-[0-9]+\.json$/);
+                const raw = JSON.parse(readOwnedRepositoryText(root, base + cohort.producer + '/raw/' + name));
+                for (const script of raw.result.filter(item => item.url === uri)) {
+                  modules++;
+                  const cache = raw['source-map-cache']?.[uri];
+                  let origin;
+                  if (cohort.mapped) {
+                    assert.ok(cache?.data?.sourcesContent?.some(content => content === source));
+                    const decoder = new SourceMap(cache.data);
+                    origin = start => {
+                      let offset = start, line = 0;
+                      while (line < cache.lineLengths.length && offset > cache.lineLengths[line]) {
+                        offset -= cache.lineLengths[line] + 1; line++;
+                      }
+                      return decoder.findEntry(line, offset);
+                    };
+                  } else {
+                    assert.ok(!cache?.data); assert.equal(script.functions[0].ranges[0].endOffset, source.length);
+                    origin = start => ({ originalSource: uri, originalLine: source.slice(0, start).split('\n').length - 1 });
+                  }
+                  for (const fn of script.functions) for (const range of fn.ranges.filter(item => item.count === 0)) {
+                    const start = origin(range.startOffset), end = origin(range.endOffset - 1);
+                    if (start.originalSource !== uri || end.originalSource !== uri) continue;
+                    zeroRanges++;
+                    for (let line = start.originalLine + 2; line <= end.originalLine; line++) {
+                      if (!hits.has(line)) continue;
+                      assert.equal(hits.get(line), 0, 'A pure unexecuted range interior cannot be credited.'); zeroInteriorLines++;
+                    }
+                  }
+                }
+              }
+              assert.equal(modules, 1, 'Only one executing source module may qualify.');
+              assert.ok([...hits.values()].some(value => value > 0));
+              evidence.push({ path, modules, zeroRanges, zeroInteriorLines,
+                sourceSha256: createHash('sha256').update(source).digest('hex') });
+            }
+          }
+          writeFileSync(base + 'qualified.json', JSON.stringify({ sourceSha: process.env.GITHUB_SHA, evidence }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+          JS
+          echo 'qualified=true' >> "$GITHUB_OUTPUT"
+
+      - name: Retain native provenance, range qualification and rejection-control coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-native-p0-provenance
+          path: |
+            artifacts/sonar-native-artifact/coverage.xml
+            artifacts/sonar-native-import/provenance.json
+            artifacts/sonar-native-import/qualified.json
+            artifacts/sonar-native-import/host-c8/lcov.info
+            artifacts/sonar-native-import/browser-c8/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Begin pinned SonarCloud analysis
         shell: bash
         env:
+          NATIVE_COVERAGE_QUALIFIED: ${{ steps.native_coverage.outputs.qualified }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           set -euo pipefail
@@ -500,15 +632,20 @@ jobs:
             exit 1
           fi
 
+          lcov_paths='frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info'
+          if [[ "$NATIVE_COVERAGE_QUALIFIED" == true ]]; then
+            lcov_paths+=',artifacts/sonar-native-import/host-c8/lcov.info,artifacts/sonar-native-import/browser-c8/lcov.info'
+          fi
+
           scanner_args=(
             begin
             "/k:$SONAR_PROJECT_KEY"
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
+            "/d:sonar.javascript.lcov.reportPaths=$lcov_paths"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
-            /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
+            /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-native-artifact/coverage.xml
             "${scope_args[@]}"
           )
 

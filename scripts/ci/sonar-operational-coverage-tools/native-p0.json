@@ -1,0 +1,9 @@
+{
+  "include": [
+    "tests/ui/group-dm-real.ts",
+    "tests/ui/workspace-member-management-real.ts"
+  ],
+  "exclude": ["**/node_modules/**"],
+  "exclude-after-remap": false,
+  "reporter": ["lcovonly"]
+}

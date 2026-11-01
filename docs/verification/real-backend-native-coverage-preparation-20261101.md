@@ -1,11 +1,12 @@
 # Real-backend native coverage preparation
 
-This is a diagnostic candidate, not a coverage import or Main test promotion authorization.
+This Draft prepares conditional, provenance-checked P0 coverage import. It is not
+Main test promotion authority or evidence that the current Main gate passes.
 
-Product baseline: `eb18fb3c5b82c05ca4cdc8b68b59276732eb2fef`.
-Independent test-management source: `e326982f01f53268d3f5e679f1c3a3bcb7920d9d`, based on
+Product baseline: `49962886a875d30dd16c822e4b25b1dccd205ae6`.
+Independent test-management source: `33e2a56ac3d73de5063e3e8cf8e904f63dd28ca8`, based on
 `SecurityTestImplimation` at `b18939f9104d52ae33e32a7f9b15a6e1b52892f1`.
-The three test files in the qualification checkout must match those Git blobs exactly.
+The four test files in the qualification checkout must match those Git blobs exactly.
 Neither the management PR nor this Draft is eligible to merge without the applicable
 explicit test promotion authority. In particular, do not merge the management PR
 into `SecurityTestImplimation` or update #1502.
@@ -21,9 +22,10 @@ signal fails the outer test. The existing Compose wrapper still owns cleanup.
 Without the opt-in, its original command is unchanged.
 
 The workflow retains the original native LCOV and raw V8 reports together with the
-existing source/execution receipts for seven days. It does not change a Sonar
-report path, source scope, exclusion, threshold, runtime, package dependency,
-browser assertion, retry or timeout. No production, cloud-host, firewall, DNS,
+existing source/execution receipts for seven days. The conditional consumer below
+adds reports only after qualification. Source scope, exclusions, thresholds,
+runtimes, package dependencies, browser assertions, retries and timeouts remain
+unchanged. No production, cloud-host, firewall, DNS,
 school-data or user operation is involved. The runtime version must be retained
 from the actual container log; the host setup version is not substituted for it.
 
@@ -45,8 +47,8 @@ The first delegation fixture correctly exposed a mistaken exact raw-directory
 assertion: `node:test` substitutes an owned temporary directory. The test now
 requires native collection without changing Node's directory or report behavior.
 
-Actual protected-workflow execution, artifact integrity, source/range comparison
-and independent latest-head review remain to be recorded. A successful diagnostic
+Actual new-head protected execution and independent latest-head review remain to
+be recorded. Historical trials below are not successes for the latest SHA. A successful diagnostic
 run does not by itself establish valid Sonar attribution, 80% Main coverage,
 physical-device acceptance, public HTTPS or Pilot admission.
 
@@ -125,4 +127,51 @@ exact-source/attempt-one receipt and actual running backend image/PostgreSQL
 server_version_num are required. The database query is read-only and synthetic;
 it makes no application-role or RLS claim. The base acceptance image remains
 floating postgres:18-alpine, not the separate Sonar PostgreSQL18.6 digest pin.
-No report is imported before independent raw/source qualification.
+No original native LCOV from these trials is imported.
+
+The Desktop P0 diagnostic at `d95acf64b0dfdf8a48e76844a800caa6bedc01b4`, tree
+`2c7dd43fef2def7fb2a6f3cde035dbd5e55c72e6`, passed run41254537206/attempt1,
+job124694797882: 8 required / 8 JUnit cases, no retry or skip. Native
+artifact13062414217 ZIP SHA256
+`9964bb69c803429cfdf7ce60bd1f4cfd2f365274125d184100b7a99f21725d10`
+retains original bytes. Host Node24.22.1 and browser Node24.21.0 differ; actual
+PostgreSQL server_version_num was180006 and backend image was
+`sha256:8556fa7d4c84aef10503193e8c71367bbff156f5b0f37ffae998a6263ac62f1d`.
+Original native LCOV still overcredits the uncalled Mobile geometry callback.
+Standard locked c8, scoped to these two TypeScript sources, leaves lines969-975
+zero. Read-only comparison finds one raw module per source, 38/1 zero ranges and
+zero pure-interior mismatches. Separate standard conversion of the two host
+entry points finds one module each, 2/55 zero ranges and zero mismatches across
+2/71 pure interior lines. This historical replay qualifies that approach, not a
+future SHA or a custom counter adjustment. It cannot satisfy the new receipt
+schema retrospectively: that archive lacks browser.json and execution.json.
+
+The new consumer requires one exact-SHA, same-repository, Owner-dispatched P0
+run of the existing protected workflow. It rejects multiple candidate runs,
+attempts other than one, failures, changed tree, missing required cases, retries,
+unbound runtime/image receipts, expired artifacts and wrong ZIP digests. GitHub
+metadata is read with actions:read. The initial API request carries authorization;
+the separate allowlisted HTTPS Azure Blob request never does. Signed URLs and
+responses are excluded from diagnostic output. ZIP paths, file types, entry
+counts and expanded sizes are bounded before original bytes are retained.
+Run/job/artifact authority is rechecked after download.
+
+Absent or incomplete matching evidence produces no additional native import.
+An invalid completed candidate fails analysis rather than silently falling back.
+The existing four LCOV paths remain; only successful qualification appends the
+two standard c8 reports for the original P0 host entry points and the unchanged
+Group/member helpers. Conversion uses the existing locked tool, a pinned Node24
+image, read-only original source/raw mounts and no container network. Absolute
+producer paths are matched by mount locations, never by rewriting raw data.
+Every source must be tracked, source-map contents/module length must match,
+there must be exactly one actual source module, and every pure interior of an
+original zero range must remain zero. The original report/raw bytes are retained
+unchanged. The common Compose helper stays measured by its existing report.
+
+Fifteen synthetic transport/provenance tests cover authority, ambiguity, failure,
+attempt, digest, JSON/ZIP paths, metadata, non-overwrite and credential forwarding.
+These fixtures are explicitly not coverage for P0 helpers; only execution of
+the real artifact reader contributes its separate Python report. The unchanged
+44 Compose/Mobile controls pass locally. New-head execution, full source binding,
+Sonar ingestion and independent review remain pending. The Draft stays
+DO_NOT_MERGE until exact test Main-promotion authority and all normal checks pass.

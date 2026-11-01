@@ -184,10 +184,26 @@ jobs:
           NODE
             NODE_V8_COVERAGE="$PWD/artifacts/sonar-native-host/raw" \
               node --test --experimental-test-coverage \
-              --test-coverage-include='tests/ui/*.mjs' --test-coverage-exclude='**/*.node-test.mjs' \
+              --test-coverage-include='tests/ui/run-real-backend-p0.mjs' \
+              --test-coverage-include='tests/ui/run-real-backend-smoke-compose.mjs' \
               --test-reporter=spec --test-reporter-destination=stdout \
               --test-reporter=lcov --test-reporter-destination=artifacts/sonar-native-host/lcov.info \
               tests/ui/run-real-backend-p0.mjs
+            node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { verifyPlaywrightRequiredTests } from './scripts/ci/verify-playwright-required-tests.mjs';
+          const source = JSON.parse(readFileSync('artifacts/sonar-native-host/source.json', 'utf8'));
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          if (git('rev-parse', 'HEAD') !== source.sourceSha || git('rev-parse', 'HEAD^{tree}') !== source.treeSha ||
+              git('status', '--porcelain', '--untracked-files=all')) throw new Error('Native P0 source changed during execution.');
+          const result = await verifyPlaywrightRequiredTests('scripts/ci/real-backend-pr-p0-required-tests.txt', 'test-results/playwright-results.xml');
+          if (result.requiredCount !== result.discoveredCaseCount) throw new Error('Native P0 requires exactly its unchanged manifest.');
+          writeFileSync('artifacts/sonar-native-host/execution.json', JSON.stringify({
+            sourceSha: source.sourceSha, treeSha: source.treeSha, runId: source.runId, attempt: 1, retries: 0,
+            requiredCases: result.requiredCount, junitCases: result.discoveredCaseCount, status: 'PASS',
+          }) + '\n', { flag: 'wx', mode: 0o600 });
+          NODE
           else
             node tests/ui/run-real-backend-p0.mjs
           fi
