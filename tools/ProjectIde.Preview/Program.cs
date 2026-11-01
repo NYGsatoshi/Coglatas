@@ -17,6 +17,7 @@ foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run"
         _ => compilation.Result
     };
     var desired = name == "stale-pass" ? Input(name, 52) : input;
+    var ir = result.Artifacts.Any(artifact => artifact.Role == "coglatas.source-map") ? compilation.Validation?.Ir : null;
     var freshness = CompilerFreshnessAssessment.Assess(result, desired);
     var declarations = PlanDeclarationReader.Read(input.Source).Select(item => new
     {
@@ -42,8 +43,8 @@ foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run"
         result = result.Data.Value, resultId = result.ResultId.ToString(), resultDigest = result.ResultDigest.Data.Value,
         freshness = freshness.State.ToString(), changedDimensions = freshness.ChangedDimensions,
         declarations, relations,
-        sourceMap = compilation.Validation?.Ir?.SourceMap.Value,
-        sourceMapDigest = compilation.Validation?.Ir?.SourceMapDigest.Data.Value
+        sourceMap = ir?.SourceMap.Value,
+        sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "ddb456dbf2eca1b005a8aac5ffb1ca8861b73b5d", cases }, new JsonSerializerOptions { WriteIndented = true });

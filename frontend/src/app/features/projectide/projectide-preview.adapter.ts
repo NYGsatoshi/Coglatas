@@ -10,6 +10,7 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
   if (!raw || typeof raw !== 'object') { throw new PreviewReadError('unsupported'); }
   const bundle = raw as PreviewBundle;
   if (bundle.format !== 'coglatas.web-preview/1' || bundle.mode !== 'synthetic-fixture' || !Array.isArray(bundle.cases) || bundle.cases.length > 32) { throw new PreviewReadError('unsupported'); }
+  if (new Set(bundle.cases.map(item => item.key)).size !== bundle.cases.length) { throw new PreviewReadError('unsupported'); }
   for (const item of bundle.cases) {
     const r = item.result;
     if (item.context?.kind !== 'coglatas.committed' || item.desiredContext?.kind !== 'coglatas.committed' || r?.format !== 'coglatas.compiler-result/1' || r.resultFormatVersion !== 1 ||
@@ -19,9 +20,13 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
     if (!sameContext(item.context, r.boundInputStamp.sourceContext) || !sameDigest(item.sourceDigest, r.boundInputStamp.sourceDigest) ||
         item.inputId !== r.compilerInputId || !sameDigest(item.inputDigest, r.inputDigest) || !sameDigest(item.inputDigest, r.boundInputStamp.inputDigest) ||
         (item.freshness === 'Current' && !sameContext(item.context, item.desiredContext))) { throw new PreviewReadError('wrong-scope'); }
-    if (item.sourceMap && (item.sourceMap.format !== 'coglatas.semantic-source-map/1' || item.sourceMap.compilerInputId !== item.inputId)) { throw new PreviewReadError('wrong-scope'); }
+    if (item.sourceMap && (item.sourceMap.format !== 'coglatas.semantic-source-map/1' || item.sourceMap.compilerInputId !== item.inputId ||
+        !item.sourceMapDigest || !r.artifacts.some(a => a.role === 'coglatas.source-map' && sameDigest(a.digest, item.sourceMapDigest!) && sameDigest(a.inputDigest, item.inputDigest)))) { throw new PreviewReadError('wrong-scope'); }
     for (const location of [...r.diagnostics.map(d => d.primaryLocation), ...item.declarations.map(d => d.location), ...item.relations.map(d => d.location)]) {
       if (!sameContext(item.context, location.context)) { throw new PreviewReadError('wrong-scope'); }
+    }
+    for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
+      if (!sameContext(item.context, entry.location.context)) { throw new PreviewReadError('wrong-scope'); }
     }
   }
   return bundle;
@@ -45,6 +50,8 @@ export function resolveLocation(value: PreviewCase, location: ProjectLocation): 
   const record = [...value.declarations, ...value.relations].find(r => r.location.documentId === location.documentId &&
     (location.entityId ? r.location.entityId === location.entityId : location.relationId ? r.location.relationId === location.relationId : false));
   if (!record) { return 'unavailable'; }
+  if (value.sourceMap && ![...value.sourceMap.nodes, ...value.sourceMap.relations].some(entry => entry.location.documentId === location.documentId &&
+      (location.entityId ? entry.location.entityId === location.entityId : entry.location.relationId === location.relationId))) { return 'unavailable'; }
   let target: unknown = record.data;
   if (location.propertyPath && (!location.propertyPath.startsWith('/') || /~(?![01])/u.test(location.propertyPath))) { return 'unavailable'; }
   for (const part of location.propertyPath ? location.propertyPath.slice(1).split('/') : []) {

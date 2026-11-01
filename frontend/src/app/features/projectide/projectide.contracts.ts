@@ -28,6 +28,7 @@ export interface CompilerResult {
   readonly compilerInputId: Identity<'CompilerInput'>; readonly inputDigest: Digest;
   readonly execution: Execution; readonly coverage: Coverage; readonly verdict: Verdict; readonly evidenceComplete: boolean;
   readonly diagnostics: readonly Diagnostic[];
+  readonly artifacts: readonly { readonly role: string; readonly digest: Digest; readonly inputDigest: Digest }[];
   readonly rules: readonly { readonly ruleId: string; readonly version: number; readonly execution: Execution; readonly coverage: Coverage; readonly verdict: Verdict; readonly evidence: Evidence }[];
   readonly boundInputStamp: { readonly sourceContext: RevisionContext; readonly sourceDigest: Digest; readonly inputDigest: Digest };
 }
