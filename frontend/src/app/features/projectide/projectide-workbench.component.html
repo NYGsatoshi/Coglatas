@@ -162,7 +162,7 @@
               }
               <details>
                 <summary>{{ t('ide.declared') }}</summary>
-                <pre>{{ ctx.manifest | json }}</pre>
+                <pre tabindex="0">{{ ctx.manifest | json }}</pre>
               </details>
             }
             @case ('problems') {
@@ -257,7 +257,7 @@
                   <div>
                     <dt>{{ t('ide.evidence') }}</dt>
                     <dd>
-                      <pre>{{ d.evidence | json }}</pre>
+                      <pre tabindex="0">{{ d.evidence | json }}</pre>
                     </dd>
                   </div>
                 </dl>
@@ -279,7 +279,7 @@
                 </dl>
                 <p>{{ t('ide.unsupported') }}</p>
                 <h3>{{ t('ide.properties') }}</h3>
-                <pre>{{ record.data | json }}</pre>
+                <pre tabindex="0">{{ record.data | json }}</pre>
                 <p>
                   {{ t('ide.related') }}:
                   @for (d of related(); track d.diagnosticId) {
@@ -291,7 +291,7 @@
               }
               @if (store.selection()) {
                 <h3>{{ t('ide.location') }}</h3>
-                <pre>{{
+                <pre tabindex="0">{{
                   store.diagnostic()?.primaryLocation ?? store.inspectedRecord()?.location | json
                 }}</pre>
                 <button type="button" (click)="navigate()">{{ t('ide.go') }}</button>
@@ -325,7 +325,7 @@
                     {{ target.identity }} · {{ t('ide.document') }}:
                     {{ target.location.documentId }}
                   </p>
-                  <pre>{{ target.data | json }}</pre>
+                  <pre tabindex="0">{{ target.data | json }}</pre>
                 </section>
               }
               <h3>{{ t('ide.buffer') }}</h3>
