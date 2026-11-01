@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import stat
 import sys
 import tempfile
 import types
@@ -56,6 +57,7 @@ class RoleAuthCacheTests(unittest.TestCase):
             "forbidden_values": [secret, f"auth={secret}"],
         }
         path.write_text(json.dumps(payload), encoding="utf-8")
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
     @staticmethod
     def case():
@@ -94,10 +96,31 @@ class RoleAuthCacheTests(unittest.TestCase):
         self.assertEqual(f"auth={self.secret}", self.hooks._load_auth()["headers"]["Cookie"])
         self.assertEqual(3, self.hooks._read_role_auth.cache_info().misses)
 
+    def test_same_file_role_and_tenant_replacements_invalidate_cached_auth(self):
+        """The native SEC-04 role/Tenant negative replay rewrites this same path."""
+        first = self.hooks._load_auth()
+        self.assertEqual("alpha-owner", first["role"])
+        self.write_auth(self.auth, "beta-owner", "synthetic-second-role-987654321")
+        second = self.hooks._load_auth()
+        self.assertEqual("beta-owner", second["role"])
+        self.assertNotEqual(first["headers"]["Cookie"], second["headers"]["Cookie"])
+        self.assertEqual(2, self.hooks._read_role_auth.cache_info().misses)
+        self.assertEqual(0o600, stat.S_IMODE(self.auth.stat().st_mode))
+
+        # Retain role input and change just the tenant at the original path.
+        payload = json.loads(self.auth.read_text())
+        payload["tenant"] = "security-beta"
+        self.auth.write_text(json.dumps(payload), encoding="utf-8")
+        third = self.hooks._load_auth()
+        self.assertEqual("security-beta", third["tenant"])
+        self.assertEqual(3, self.hooks._read_role_auth.cache_info().misses)
+
     def test_missing_malformed_and_unset_auth_fail_closed(self):
         with patch.dict(os.environ, {AUTH_ENV: ""}):
             with self.assertRaises(RuntimeError):
                 self.hooks._load_auth()
+        # Cache a previously accepted file, then reject its invalid replacement.
+        self.hooks._load_auth()
         self.auth.write_text("{not-json", encoding="utf-8")
         with self.assertRaises(json.JSONDecodeError):
             self.hooks._load_auth()

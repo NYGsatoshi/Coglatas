@@ -24,17 +24,30 @@ _STRUCTURED_JSON_EXAMPLE = "application/vnd.coglatas+json"
 _integration_inputs = IntegrationInputAttribution()
 
 
-@lru_cache(maxsize=1)
-def _read_role_auth(path: str) -> dict[str, Any]:
-    """Validate one immutable SEC-03 role fixture in this scanner process.
+def _auth_revision(path: str) -> tuple[int, int, int, int, int]:
+    """Read cheap file identity so in-process cache cannot hide auth changes.
 
-    SEC-04 executes each role in its own one-worker scanner container. Its
-    authenticated scanner never performs login/logout/password rotation; SEC-03
-    owns that lifecycle. Never persist these short-lived credentials to a
-    global/multi-run cache or expose their values in CI logs.
+    The existing SEC-04 attribution contract deliberately rewrites the same
+    role-auth pathname to verify role/Tenant separation. Preserve this
+    fail-closed behavior even though normal one-role scanner inputs are stable.
+    """
+    state = os.stat(path)
+    return state.st_dev, state.st_ino, state.st_size, state.st_mtime_ns, state.st_ctime_ns
+
+
+@lru_cache(maxsize=1)
+def _read_role_auth(path: str, revision: tuple[int, int, int, int, int]) -> dict[str, Any]:
+    """Validate one revision of the SEC-03 role fixture in this scanner process.
+
+    SEC-04 executes each role in its own one-worker scanner container. The file
+    revision key preserves the same-path mutation checks in native SEC-04's
+    authorization attribution replay while caching stable role phases. Never
+    persist these short-lived credentials outside the scanner process.
     """
     with open(path, encoding="utf-8") as handle:
         payload = json.load(handle)
+    if _auth_revision(path) != revision:
+        raise RuntimeError("SEC-04 auth fixture changed during validation")
     if not isinstance(payload, dict):
         raise RuntimeError("SEC-04 auth payload must be an object")
     headers = payload.get("headers")
@@ -51,7 +64,7 @@ def _load_auth() -> dict[str, Any]:
     path = os.environ.get(_AUTH_FILE_ENV)
     if not path:
         raise RuntimeError(f"{_AUTH_FILE_ENV} is required")
-    return _read_role_auth(path)
+    return _read_role_auth(path, _auth_revision(path))
 
 
 def _append_evidence(event: dict[str, Any]) -> None:
