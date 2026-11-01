@@ -70,7 +70,7 @@
               @else if (!filtered().length) { <p>{{ t('ide.noFilter') }}</p> }
               <ol class="diagnostics">
                 @for (d of filtered(); track d.diagnosticId) {
-                  <li [attr.data-selected]="store.selection()?.id === d.diagnosticId">
+                  <li [attr.data-selected]="store.selection()?.kind === 'diagnostic' && store.selection()?.id === d.diagnosticId">
                     <p><strong>{{ d.severity }}</strong> · {{ d.ruleId }} v{{ d.ruleVersion }} · <code>{{ d.code }}</code></p>
                     <p>{{ d.primaryLocation.entityId ?? d.primaryLocation.relationId ?? d.primaryLocation.documentId }} · {{ d.primaryLocation.propertyPath }}</p>
                     <p>{{ t('ide.revision') }}: {{ d.primaryLocation.context.revisionId }} · {{ store.result()?.freshness }} · {{ t('ide.evidence') }}: {{ d.evidence.kind }}</p>

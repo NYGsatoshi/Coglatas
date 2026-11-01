@@ -30,6 +30,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly severity = signal(''); readonly kind = signal(''); readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
+  private focusGeneration = 0;
   readonly tabs = ['overview', 'source', 'problems', 'inspector'] as const;
   readonly canRead = computed(() => this.flags.projectIdePreviewEnabled() && this.auth.isAuthenticated() && this.auth.currentTenant()?.isAvailable === true && this.auth.session().capabilities.includes('projects:view'));
   readonly diagnostics = computed(() => this.store.result()?.result.diagnostics ?? []);
@@ -42,12 +43,13 @@ export class ProjectIdeWorkbenchComponent {
   readonly t = (key: keyof typeof PROJECTIDE_ENGLISH_MESSAGES, parameters: Record<string, string | number> = {}) => this.i18n.translate(key as TranslationKey, parameters);
   constructor() {
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
-    const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => { this.store.clear('denied'); this.panel.set('overview'); });
-    inject(DestroyRef).onDestroy(() => { unregister(); this.store.clear(); });
+    const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => { this.focusGeneration++; this.store.clear('denied'); this.panel.set('overview'); });
+    inject(DestroyRef).onDestroy(() => { this.focusGeneration++; unregister(); this.store.clear(); });
     effect(() => {
       // Identity and active Workspace are invalidation boundaries, never fixture authority.
       this.auth.currentTenant()?.tenantId; this.auth.currentUser()?.userId; this.workspace.activeWorkspace()?.id;
       const allowed = this.canRead();
+      this.focusGeneration++;
       this.store.clear(allowed ? 'idle' : 'denied'); this.panel.set('overview');
       if (allowed) { void this.reload(); }
     });
@@ -57,16 +59,18 @@ export class ProjectIdeWorkbenchComponent {
     return this.store.load(signal => this.adapter.read(new URL('assets/projectide/preview-v1.json', this.document.baseURI).href, signal));
   }
   choose(key: string): void {
+    this.focusGeneration++;
     this.store.choose(key); this.panel.set('overview'); this.severity.set(''); this.kind.set(''); this.search.set('');
   }
   open(panel: typeof this.tabs[number], focus = false): void {
+    const generation = ++this.focusGeneration;
     this.panel.set(panel);
-    if (focus) { setTimeout(() => this.heading()?.nativeElement.focus()); }
+    if (focus) { setTimeout(() => { if (generation === this.focusGeneration && this.panel() === panel) { this.heading()?.nativeElement.focus(); } }); }
   }
   inspectDiagnostic(diagnostic: Diagnostic): void { this.store.select({ kind: 'diagnostic', id: diagnostic.diagnosticId }); this.open('inspector', true); }
   inspectRecord(record: SourceRecord): void { this.store.select(record.recordType === 'entity' ? { kind: 'entity', id: record.identity } : { kind: 'relation', id: record.identity }); this.open('inspector', true); }
   navigate(): void { if (this.store.navigate()) { this.open('source', true); } }
-  closeInspector(): void { this.store.selection.set(null); this.open('overview'); setTimeout(() => this.inspectorButton()?.nativeElement.focus()); }
+  closeInspector(): void { this.store.selection.set(null); this.open('overview'); const generation = this.focusGeneration; setTimeout(() => { if (generation === this.focusGeneration) { this.inspectorButton()?.nativeElement.focus(); } }); }
   stateMessage(): string {
     const state = this.store.state();
     return this.t(state === 'loading' ? 'ide.loading' : state === 'denied' ? 'ide.denied' : state === 'cancelled' ? 'ide.cancelled' : state === 'wrong-scope' ? 'ide.wrong-scope' : state === 'unsupported' ? 'ide.unsupportedState' : state === 'unavailable' ? 'ide.unavailable' : 'ide.error');
