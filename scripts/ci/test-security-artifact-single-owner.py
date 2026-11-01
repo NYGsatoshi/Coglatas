@@ -23,22 +23,22 @@ def security_uploads(document: str) -> dict[str, tuple[str, tuple[str, ...], str
     step = None
     blocks = []
     for line in document.splitlines():
-        job_match = re.match(r"^  ([a-z0-9-]+):\\s*$", line)
+        job_match = re.match(r"^  ([a-z0-9-]+):\s*$", line)
         if job_match:
             job = job_match.group(1)
         if line.startswith("      - name: "):
             if step is not None:
-                blocks.append((job_for_step, "\\n".join(step)))
+                blocks.append((job_for_step, "\n".join(step)))
             step = [line]
             job_for_step = job
         elif step is not None:
             step.append(line)
     if step is not None:
-        blocks.append((job_for_step, "\\n".join(step)))
+        blocks.append((job_for_step, "\n".join(step)))
     for owner, block in blocks:
         if UPLOAD not in block:
             continue
-        name = re.search(r"(?m)^          name: ([^\\n]+)$", block)
+        name = re.search(r"(?m)^          name: ([^\n]+)$", block)
         path = re.search(r"(?m)^          path: (.*)$", block)
         if name is None or path is None:
             raise ValueError("Upload step without a literal name/path")
@@ -109,8 +109,8 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
 
     def test_reintroducing_overlapping_evidence_fails(self):
         tampered = self.source.replace(
-            "            gitleaks-report.json\\n          if-no-files-found: warn",
-            "            gitleaks-report.json\\n            artifacts/security/schemathesis/\\n"
+            "            gitleaks-report.json\n          if-no-files-found: warn",
+            "            gitleaks-report.json\n            artifacts/security/schemathesis/\n"
             "          if-no-files-found: warn", 1,
         )
         self.assertNotEqual(tampered, self.source)
@@ -120,18 +120,18 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
     def test_missing_canonical_zap_or_schemathesis_fails(self):
         for path in ("artifacts/security/zap/", "artifacts/security/schemathesis/"):
             with self.subTest(path=path):
-                tampered = self.source.replace("            " + path + "\\n", "", 1)
+                tampered = self.source.replace("            " + path + "\n", "", 1)
                 self.assertNotEqual(tampered, self.source)
                 with self.assertRaisesRegex(ValueError, "remain complete"):
                     validate(tampered)
 
     def test_optional_or_silent_security_evidence_fails(self):
         tampered = self.source.replace(
-            "name: sec06-zap-evidence\\n          path:",
-            "name: sec06-zap-evidence\\n          path:", 1,
+            "name: sec06-zap-evidence\n          path:",
+            "name: sec06-zap-evidence\n          path:", 1,
         ).replace(
-            "            artifacts/security/schemathesis/\\n          if-no-files-found: error",
-            "            artifacts/security/schemathesis/\\n          if-no-files-found: ignore", 1,
+            "            artifacts/security/schemathesis/\n          if-no-files-found: error",
+            "            artifacts/security/schemathesis/\n          if-no-files-found: ignore", 1,
         )
         self.assertNotEqual(tampered, self.source)
         with self.assertRaisesRegex(ValueError, "fail closed"):
