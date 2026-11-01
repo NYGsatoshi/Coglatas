@@ -114,19 +114,35 @@ class ProvenanceTests(unittest.TestCase):
                 else: api.run["status"] = "in_progress"
                 self.assertIsNone(subject.resolve(api, SHA, BRANCH))
 
+    def test_terminal_nonqualifying_evidence_is_unavailable_not_imported(self):
+        for kind in ("failed_run", "cancelled_run", "failed_job", "failed_step", "repeated", "expired"):
+            with self.subTest(kind=kind):
+                api = Api()
+                if kind == "failed_run": api.run["conclusion"] = "failure"
+                elif kind == "cancelled_run": api.run["conclusion"] = "cancelled"
+                elif kind == "failed_job": api.job["conclusion"] = "failure"
+                elif kind == "failed_step": api.job["steps"][1]["conclusion"] = "failure"
+                elif kind == "repeated":
+                    api.run["run_attempt"] = 2; api.job["run_attempt"] = 2
+                else: api.artifact["expired"] = True
+                self.assertIsNone(subject.resolve(api, SHA, BRANCH))
+
+    def test_an_earlier_failed_candidate_cannot_be_discarded_to_select_a_pass(self):
+        api = Api()
+        api.runs.insert(0, {**api.run, "id": RUN + 1, "conclusion": "failure"})
+        with self.assertRaises(subject.ArtifactError): subject.resolve(api, SHA, BRANCH)
+
     def test_wrong_run_authority_source_attempt_or_outcome_is_rejected(self):
         mutations = [lambda a: a.run.update(head_sha="4" * 40), lambda a: a.run.update(head_branch="main"),
                      lambda a: a.run.update(event="pull_request"), lambda a: a.run.update(path="untrusted.yml"),
                      lambda a: a.run.update(workflow_id=0), lambda a: a.run["repository"].update(id=0),
                      lambda a: a.run["head_repository"].update(full_name="other/repository"),
                      lambda a: a.run["actor"].update(login="unapproved-actor"),
-                     lambda a: a.run.update(run_attempt=2), lambda a: a.run.update(run_attempt=True),
-                     lambda a: a.run.update(conclusion="failure"), lambda a: a.job.update(head_sha="4" * 40),
-                     lambda a: a.job.update(run_id=0), lambda a: a.job.update(conclusion="failure"),
+                     lambda a: a.run.update(run_attempt=True), lambda a: a.job.update(head_sha="4" * 40),
+                     lambda a: a.job.update(run_id=0),
                      lambda a: a.job.update(run_attempt=2), lambda a: a.job.update(run_attempt=True),
                      lambda a: a.job.update(status="in_progress"),
                      lambda a: a.job["steps"][0].update(conclusion="failure"),
-                     lambda a: a.job["steps"][1].update(conclusion="failure"),
                      lambda a: a.workflow.update(state="disabled_manually")]
         for index, mutate in enumerate(mutations):
             with self.subTest(index=index):
@@ -144,7 +160,7 @@ class ProvenanceTests(unittest.TestCase):
                 with self.assertRaises(subject.ArtifactError): subject.resolve(api, SHA, BRANCH)
 
     def test_missing_expired_foreign_or_unhashed_artifact_is_rejected(self):
-        for key, value in (("expired", True), ("size_in_bytes", 0), ("size_in_bytes", subject.MAX_ZIP + 1),
+        for key, value in (("expired", 1), ("size_in_bytes", 0), ("size_in_bytes", subject.MAX_ZIP + 1),
                            ("digest", "not-a-digest"), ("workflow_run", {"id": 0, "head_sha": SHA}),
                            ("workflow_run", {"id": RUN, "head_sha": "4" * 40})):
             with self.subTest(key=key, value=value):
@@ -243,6 +259,10 @@ class DownloadTests(unittest.TestCase):
             with self.subTest(url=url), patch.object(subject.urllib.request, "build_opener") as factory:
                 factory.return_value.open.side_effect = urllib.error.HTTPError("https://api.github.com/", 302, "synthetic", {"Location": url}, io.BytesIO())
                 with self.assertRaises(subject.ArtifactError): subject.download(Api().artifact, secrets.token_urlsafe(16))
+                self.assertEqual(factory.return_value.open.call_count, 1)
+                requested = factory.return_value.open.call_args.args[0]
+                self.assertEqual(subject.urllib.parse.urlsplit(requested.full_url).scheme, "https")
+                self.assertEqual(subject.urllib.parse.urlsplit(requested.full_url).hostname, "api.github.com")
         with patch.object(subject.urllib.request, "build_opener") as factory:
             factory.return_value.open.return_value = self.Response(b"SYNTHETIC_WRONG_ARCHIVE")
             with self.assertRaises(subject.ArtifactError): subject.download(Api().artifact, secrets.token_urlsafe(16))

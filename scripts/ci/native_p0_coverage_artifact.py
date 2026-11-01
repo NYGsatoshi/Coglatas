@@ -108,7 +108,6 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
         if p0[0].get("conclusion") == "skipped":
             require(mobile[0].get("conclusion") in {"success", "failure"}, "SELECTION")
             continue
-        require(attempt == 1, "ATTEMPT")
         candidates.append((run, job, p0[0]))
     require(len(candidates) <= 1, "AMBIGUOUS")
     if not candidates:
@@ -116,21 +115,27 @@ def resolve(api, sha: str, branch: str) -> tuple[dict, dict, dict] | None:
     run, job, step = candidates[0]
     if run.get("status") != "completed":
         return None
-    require(run.get("conclusion") == "success" and job.get("conclusion") == "success"
-            and step.get("conclusion") == "success" and job.get("run_id") == run["id"]
+    require(job.get("run_id") == run["id"]
             and job.get("status") == "completed" and type(job.get("run_attempt")) is int
-            and job["run_attempt"] == 1
+            and job["run_attempt"] == run["run_attempt"]
             and job.get("head_sha") == sha, "EXECUTION")
+    # Preserve all candidate history above: a failed run plus a later pass must
+    # never become a selectively green first-attempt coverage source.
+    if (run["run_attempt"] != 1 or run.get("conclusion") != "success"
+            or job.get("conclusion") != "success" or step.get("conclusion") != "success"):
+        return None
     artifacts = collect(api, PREFIX + "actions/runs/" + str(run["id"]) + "/artifacts", "artifacts")
     selected = [item for item in artifacts if item.get("name") == "sonar-real-backend-p0-native-" + sha]
     require(len(selected) == 1, "ARTIFACT")
     artifact = selected[0]
-    require(artifact.get("expired") is False and type(artifact.get("size_in_bytes")) is int
+    require(type(artifact.get("expired")) is bool and type(artifact.get("size_in_bytes")) is int
             and 0 < artifact["size_in_bytes"] <= MAX_ZIP
             and isinstance(artifact.get("digest"), str)
             and re.fullmatch(r"sha256:[a-f0-9]{64}", artifact["digest"]) is not None
             and artifact.get("workflow_run", {}).get("id") == run["id"]
             and artifact.get("workflow_run", {}).get("head_sha") == sha, "ARTIFACT")
+    if artifact["expired"]:
+        return None
     return run, job, artifact
 
 

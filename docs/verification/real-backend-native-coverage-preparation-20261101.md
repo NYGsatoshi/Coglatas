@@ -4,7 +4,7 @@ This Draft prepares conditional, provenance-checked P0 coverage import. It is no
 Main test promotion authority or evidence that the current Main gate passes.
 
 Product baseline: `49962886a875d30dd16c822e4b25b1dccd205ae6`.
-Independent test-management source: `33e2a56ac3d73de5063e3e8cf8e904f63dd28ca8`, based on
+Independent test-management source: `524a002555fabbcbe0a6b987192ba9904108b32d`, based on
 `SecurityTestImplimation` at `b18939f9104d52ae33e32a7f9b15a6e1b52892f1`.
 The four test files in the qualification checkout must match those Git blobs exactly.
 Neither the management PR nor this Draft is eligible to merge without the applicable
@@ -157,7 +157,13 @@ counts and expanded sizes are bounded before original bytes are retained.
 Run/job/artifact authority is rechecked after download.
 
 Absent or incomplete matching evidence produces no additional native import.
-An invalid completed candidate fails analysis rather than silently falling back.
+A failed/cancelled run, repeated attempt or expired artifact also produces no
+optional native import. The original acceptance outcome is not relabeled, and
+its separate reliability/release condition remains. Every P0 candidate, including
+a failed one, is counted before selection: a later pass cannot replace a failed
+first run. Ambiguous history, wrong authority/source, malformed archives or
+digest mismatches fail analysis. Unavailable optional coverage must not prevent
+the existing security analysis from running with its original four reports.
 The existing four LCOV paths remain; only successful qualification appends the
 two standard c8 reports for the original P0 host entry points and the unchanged
 Group/member helpers. Conversion uses the existing locked tool, a pinned Node24
@@ -168,7 +174,7 @@ there must be exactly one actual source module, and every pure interior of an
 original zero range must remain zero. The original report/raw bytes are retained
 unchanged. The common Compose helper stays measured by its existing report.
 
-Fifteen synthetic transport/provenance tests cover authority, ambiguity, failure,
+Seventeen synthetic transport/provenance tests cover authority, ambiguity, failure,
 attempt, digest, JSON/ZIP paths, metadata, non-overwrite and credential forwarding.
 These fixtures are explicitly not coverage for P0 helpers; only execution of
 the real artifact reader contributes its separate Python report. The unchanged
