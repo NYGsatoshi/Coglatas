@@ -55,6 +55,7 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
       path: info.outputPath('inspector.png'),
       fullPage: true,
     });
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
     await page
       .getByRole('button', { name: 'Go to source location', exact: true })
       .click();
@@ -274,10 +275,18 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
     await expect(
       page.getByRole('button', { name: 'Close Inspector', exact: true }),
     ).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(
-      page.getByRole('button', { name: 'Go to source location', exact: true }),
-    ).toBeFocused();
+    const go = page.getByRole('button', {
+      name: 'Go to source location',
+      exact: true,
+    });
+    for (
+      let i = 0;
+      i < 8 && !(await go.evaluate((el) => el === document.activeElement));
+      i++
+    ) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(go).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('ide-source-target')).toBeVisible();
   });

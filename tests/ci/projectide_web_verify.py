@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from projectide_core_isolated import inventory
 
@@ -26,6 +27,7 @@ def verify(root: Path, receipt: Path) -> None:
     try:
         value["node"]=subprocess.check_output(["node","--version"],text=True).strip()
         value["sdk"]=subprocess.check_output(["dotnet","--version"],cwd=root,text=True).strip()
+        execute("composition-controls",[sys.executable,"-m","unittest","discover","-s","tests/ci","-p","test_projectide*isolated.py","-v"])
         execute("fixture-export",["dotnet","run","--project","tools/ProjectIde.Preview","-c","Release","--",str(evidence/"preview-reproduced.json")])
         if (evidence/"preview-reproduced.json").read_text(encoding="utf-8") != (root/"frontend/public/assets/projectide/preview-v1.json").read_text(encoding="utf-8"):
             raise ValueError("Committed fixture differs from actual Core exporter")
