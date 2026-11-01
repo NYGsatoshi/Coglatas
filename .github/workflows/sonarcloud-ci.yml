@@ -645,7 +645,7 @@ jobs:
             /d:sonar.scanner.scanAll=true
             "/d:sonar.javascript.lcov.reportPaths=$lcov_paths"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
-            /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-native-artifact/coverage.xml
+            "/d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-native-artifact/coverage.xml"
             "${scope_args[@]}"
           )
 
