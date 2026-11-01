@@ -378,6 +378,84 @@ jobs:
           console.log('Operational native source scope verified: ' + JSON.stringify(checked));
           JS
 
+      - name: Install locked operational report converter without analysis credentials
+        run: >-
+          npm ci --prefix scripts/ci/sonar-operational-coverage-tools
+          --ignore-scripts --no-audit --no-fund --engine-strict
+
+      - name: Convert only original untransformed operational ranges and verify zero controls
+        run: |
+          set -euo pipefail
+          node scripts/ci/sonar-operational-coverage-tools/node_modules/c8/bin/c8.js report \
+            --config=scripts/ci/sonar-operational-coverage-tools/c8.json \
+            --temp-directory=artifacts/sonar-operational/raw \
+            --reports-dir=artifacts/sonar-operational/c8
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          import { relative, resolve } from 'node:path';
+          import { pathToFileURL } from 'node:url';
+          import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd());
+          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs'];
+          const report = readOwnedRepositoryText(root, 'artifacts/sonar-operational/c8/lcov.info');
+          const checked = validateNodeCoverage(report);
+          const sources = report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
+            .map(row => relative(root, resolve(root, row.slice(3))).replaceAll('\\', '/'));
+          assert.equal(checked.sourceFiles, 2); assert.deepEqual(sources.sort(), [...paths].sort());
+          const originals = new Map(paths.map(path => [pathToFileURL(resolve(root, path)).href,
+            { path, source: readFileSync(resolve(root, path), 'utf8'), scripts: [] }]));
+          const rawFiles = readdirSync('artifacts/sonar-operational/raw').filter(name => /^coverage-.*\.json$/.test(name));
+          assert.ok(rawFiles.length > 0);
+          for (const name of rawFiles) {
+            const raw = JSON.parse(readOwnedRepositoryText(root, 'artifacts/sonar-operational/raw/' + name));
+            for (const script of raw.result) {
+              const original = originals.get(script.url);
+              if (!original) continue;
+              assert.ok(!raw['source-map-cache']?.[script.url]?.data, 'Transformed source requires separate qualification.');
+              assert.equal(script.functions[0].ranges[0].endOffset, original.source.length);
+              original.scripts.push(script);
+            }
+          }
+          for (const original of originals.values()) assert.ok(original.scripts.length > 0);
+          const audit = [...originals.values()].find(item => item.path === paths[1]);
+          const auditRecord = report.split('end_of_record').find(block => block.split(/\r?\n/)
+            .some(row => row.startsWith('SF:') && relative(root, resolve(root, row.slice(3))).replaceAll('\\', '/') === paths[1]));
+          assert.ok(auditRecord);
+          const countsAt = offset => audit.scripts.map(script => {
+            const ranges = script.functions.flatMap(fn => fn.ranges)
+              .filter(range => range.startOffset <= offset && offset < range.endOffset)
+              .sort((a, b) => (a.endOffset - a.startOffset) - (b.endOffset - b.startOffset));
+            assert.ok(ranges.length > 0);
+            return ranges[0].count;
+          });
+          const markers = ['url', 'title'].map(key => 'return ' + String.fromCharCode(96) + key + ':');
+          markers.push("return 'unknown';");
+          const zeroControls = [];
+          for (const marker of markers) {
+            const offset = audit.source.indexOf(marker);
+            assert.ok(offset > 0); assert.equal(audit.source.indexOf(marker, offset + 1), -1);
+            const counts = countsAt(offset); assert.ok(counts.every(count => count === 0));
+            const line = audit.source.slice(0, offset).split('\n').length;
+            assert.ok(auditRecord.split(/\r?\n/).includes('DA:' + line + ',0'), 'A never-executed return must remain uncovered in its own source record.');
+            zeroControls.push({ line, rawRecords: counts.length, allZero: true });
+          }
+          const positive = audit.source.indexOf('return ' + String.fromCharCode(96) + 'advisory:');
+          assert.ok(positive > 0); assert.ok(countsAt(positive).some(count => count > 0));
+          assert.match(process.env.GITHUB_SHA ?? '', /^[a-f0-9]{40}$/);
+          const digest = value => createHash('sha256').update(value).digest('hex');
+          writeFileSync('artifacts/sonar-operational/c8/report-tool.json', JSON.stringify({
+            sourceSha: process.env.GITHUB_SHA, processorNodeVersion: process.version,
+            c8Version: JSON.parse(readOwnedRepositoryText(root, 'scripts/ci/sonar-operational-coverage-tools/node_modules/c8/package.json')).version,
+            toolLockSha256: digest(readOwnedRepositoryText(root, 'scripts/ci/sonar-operational-coverage-tools/package-lock.json')),
+            originalNativeReportSha256: digest(readOwnedRepositoryText(root, 'artifacts/sonar-operational/lcov.info')),
+            convertedReportSha256: digest(report), zeroControls,
+            matchedRawScripts: [...originals.values()].map(item => ({ source: item.path, records: item.scripts.length })),
+          }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+          console.log('Original operational range/source identity and uncovered returns verified: ' + JSON.stringify({ checked, zeroControls }));
+          JS
+
       - name: Retain original operational native coverage and ranges
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -428,7 +506,7 @@ jobs:
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info"
+            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
             /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"
