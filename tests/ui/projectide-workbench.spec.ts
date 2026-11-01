@@ -80,7 +80,7 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
     await preview(page);await expect(page).toHaveURL(/\/app\/login/u);await expect(page.getByTestId('projectide-workbench')).toHaveCount(0);
   });
   test('supports keyboard-only context, Problems, Inspector and navigation',async({page})=>{
-    await preview(page);const context=page.getByTestId('ide-context');await context.focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+    await preview(page);const context=page.getByTestId('ide-context');await context.focus();await page.keyboard.press('ArrowDown');await expect(context).toHaveValue('fail');
     const load=page.getByRole('button',{name:'Load result fixture',exact:true});await page.keyboard.press('Tab');await expect(load).toBeFocused();await page.keyboard.press('Enter');
     for(let i=0;i<3;i++)await page.keyboard.press('Tab');
     await expect(page.getByRole('button',{name:'Problems',exact:true})).toBeFocused();await page.keyboard.press('Enter');

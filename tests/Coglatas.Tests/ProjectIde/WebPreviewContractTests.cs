@@ -44,10 +44,11 @@ public sealed class WebPreviewContractTests
             Assert.Equal(declaration.Status.ToString(), record.GetProperty("status").GetString());
             Assert.Equal(declaration.Data, SourceJson.Parse(record.GetProperty("data").GetRawText()));
         }
-        if (compilation.Validation?.Ir is { } ir)
+        if (result.Artifacts.Any(artifact => artifact.Role == "coglatas.source-map") && compilation.Validation?.Ir is { } ir)
         {
             Assert.Equal(ir.SourceMap, SourceJson.Parse(item.GetProperty("sourceMap").GetRawText()));
             Assert.Equal(ir.SourceMapDigest.Data, SourceJson.Parse(item.GetProperty("sourceMapDigest").GetRawText()));
         }
+        else Assert.Equal(JsonValueKind.Null, item.GetProperty("sourceMap").ValueKind);
     }
 }
