@@ -122,3 +122,19 @@ and its absence checked. This is SQL-template qualification only, not product
 schema, migration or recovery qualification. An initial reported SQL-escaping
 finding was retracted after immutable source byte inspection; no SQL text was
 changed for that report.
+
+Further independent review found two oracle gaps before protected execution.
+The corrupt-copy negative control now requires native pg_restore exit 1 with
+its exact truncated-input diagnostic, followed by an actual fault-database
+readiness query; Docker/exec/connection failures do not qualify. A separate
+network-none PostgreSQL 18.6 control generated a valid original custom dump,
+verified its listing, truncated a distinct 128-byte copy, observed that native
+rejection, preserved the original row/hash, and removed its owned container.
+This is archive-client attribution only, not application recovery acceptance.
+
+Sequence bigint parameters and last_value are serialized as decimal text so
+adjacent values above JavaScript's safe-integer range remain distinct. Strict
+snapshot comparison additionally rejects unsafe numeric input instead of
+comparing already rounded values. The zero-sequence product fixture is not
+claimed as populated-sequence coverage. The dedicated native sequence control
+and adjacent-value/unsafe-number regressions remain separate evidence.

@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
-import { assertDisjoint, assertSameSnapshot, awaitOutboxIdle, beneath, corruptCopy,
+import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy,
   hostedContract, resourceNames, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -29,6 +29,28 @@ const configuration = () => ({
   volumes: Object.fromEntries(['pgdata', 'uploads', 'protection_keys'].map(key => [key, { name: project + '_' + key }])),
 });
 const options = { target: true, image, project };
+
+test('only native pg_restore truncated-input rejection qualifies the fault injection', () => {
+  const native = { status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') };
+  assert.doesNotThrow(() => assertTruncatedArchiveFailure(native));
+  for (const result of [
+    { ...native, status: 0 }, { ...native, status: 125 }, { ...native, status: 127 },
+    { ...native, status: null, signal: 'SIGTERM' }, { ...native, error: new Error('exec unavailable') },
+    { ...native, stderr: Buffer.from('Error response from daemon: container not running\n') },
+    { ...native, stderr: Buffer.from('pg_restore: error: connection to server failed\n') },
+    { ...native, stderr: Buffer.alloc(0) }, { ...native, stderr: native.stderr.toString() },
+  ]) assert.throws(() => assertTruncatedArchiveFailure(result), { code: 'FAULT_NOT_ARCHIVE_REJECTION' });
+});
+
+test('strict snapshots preserve adjacent bigint sequence values and reject lossy numeric input', () => {
+  const source = JSON.parse('{"sequences":[["public","original",["bigint","1","1","9223372036854775807","1","1",false],"9007199254740992",true]]}');
+  const changed = structuredClone(source);
+  changed.sequences[0][3] = '9007199254740993';
+  assert.doesNotThrow(() => assertSameSnapshot(source, structuredClone(source)));
+  assert.throws(() => assertSameSnapshot(source, changed), { code: 'STRICT_SNAPSHOT' });
+  const lossy = JSON.parse('{"sequences":[9007199254740993]}');
+  assert.throws(() => assertSameSnapshot(lossy, lossy), { code: 'SNAPSHOT_NUMBER_PRECISION' });
+});
 
 test('only the exact first-attempt owner-dispatched Linux workflow is admitted', () => {
   assert.deepEqual(hostedContract(validHost(), 'linux', []), { runId: '123', attempt: 1, sourceSha: 'b'.repeat(40) });

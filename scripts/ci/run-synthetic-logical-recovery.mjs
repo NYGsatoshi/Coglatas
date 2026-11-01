@@ -88,12 +88,26 @@ export function assertDisjoint(source, target) {
 }
 
 export function assertSameSnapshot(expected, actual, code = 'STRICT_SNAPSHOT') {
+  const exactNumbers = value => {
+    if (typeof value === 'number') require(Number.isSafeInteger(value), 'SNAPSHOT_NUMBER_PRECISION');
+    else if (value && typeof value === 'object') for (const child of Object.values(value)) exactNumbers(child);
+  };
+  exactNumbers(expected); exactNumbers(actual);
   require(JSON.stringify(expected) === JSON.stringify(actual), code);
 }
 
 export function corruptCopy(original) {
   require(Buffer.isBuffer(original) && original.length > 512 && original.subarray(0, 5).equals(Buffer.from('PGDMP')), 'DUMP_FORMAT');
   return Buffer.from(original.subarray(0, 128));
+}
+
+export function assertTruncatedArchiveFailure(result) {
+  // A failed Docker exec is not evidence that pg_restore read the archive.
+  // Match the native client failure produced by this bounded truncation only.
+  require(result.status === 1 && !result.signal && !result.error &&
+    Buffer.isBuffer(result.stderr) &&
+    /^pg_restore: error: could not read from input file: end of file\r?\n$/.test(result.stderr.toString('utf8')),
+  'FAULT_NOT_ARCHIVE_REJECTION');
 }
 
 export async function awaitOutboxIdle(read, pause = () => new Promise(done => setTimeout(done, 1000))) {
@@ -171,13 +185,13 @@ SELECT json_build_object(
 const SEQUENCES_SQL = String.raw`
 CREATE TEMP TABLE recovery_sequences(schema_name text,sequence_name text,parameters jsonb,last_value bigint,is_called boolean);
 DO $capture$ DECLARE item record; value_last bigint; value_called boolean; BEGIN
- FOR item IN SELECT n.nspname,c.relname,jsonb_build_array(format_type(s.seqtypid,NULL),s.seqstart,s.seqincrement,s.seqmax,s.seqmin,s.seqcache,s.seqcycle) parameters
+ FOR item IN SELECT n.nspname,c.relname,jsonb_build_array(format_type(s.seqtypid,NULL),s.seqstart::text,s.seqincrement::text,s.seqmax::text,s.seqmin::text,s.seqcache::text,s.seqcycle) parameters
  FROM pg_sequence s JOIN pg_class c ON c.oid=s.seqrelid JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' LOOP
  EXECUTE format('SELECT last_value,is_called FROM %I.%I',item.nspname,item.relname) INTO value_last,value_called;
  INSERT INTO recovery_sequences VALUES(item.nspname,item.relname,item.parameters,value_last,value_called);
  END LOOP; END $capture$;
-SELECT coalesce(json_agg(json_build_array(schema_name,sequence_name,parameters,last_value,is_called) ORDER BY schema_name COLLATE "C",sequence_name COLLATE "C"),'[]') FROM recovery_sequences;`;
+SELECT coalesce(json_agg(json_build_array(schema_name,sequence_name,parameters,last_value::text,is_called) ORDER BY schema_name COLLATE "C",sequence_name COLLATE "C"),'[]') FROM recovery_sequences;`;
 
 const OUTBOX_IDLE_SQL = String.raw`SELECT count(*) FROM public.outbox_events
 WHERE "Status"::text NOT IN ('Delivered','Cancelled') OR "LockedAt" IS NOT NULL OR "LockOwner" IS NOT NULL OR "LockToken" IS NOT NULL;`;
@@ -357,7 +371,11 @@ export async function runRecovery() {
     const kind = project === names.target ? 'target' : 'fault'; require(receipt.restoreCalls[kind]++ === 0, 'RESTORE_RETRY');
     const result = compose(project, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
       '--no-owner', '--no-privileges', '--exit-on-error'], { input: bytes, allowFailure: expectedFailure });
-    require(expectedFailure ? result.status !== 0 : result.status === 0, 'RESTORE_OUTCOME');
+    if (expectedFailure) {
+      assertTruncatedArchiveFailure(result);
+      require(psql(project, 'SELECT 1;') === '1', 'FAULT_DB_UNAVAILABLE');
+      receipt.corruptArchiveRejectedByPgRestore = true;
+    } else require(result.status === 0, 'RESTORE_OUTCOME');
   };
   let failure;
   try {
