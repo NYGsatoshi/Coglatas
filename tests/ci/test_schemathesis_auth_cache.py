@@ -40,8 +40,10 @@ class RoleAuthCacheTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.auth = self.root / "auth.json"
         self.evidence = self.root / "evidence.ndjson"
-        self.secret = "synthetic-credential-keep-private-123456"
-        self.write_auth(self.auth, "alpha-owner", self.secret)
+        # A public, noncredential canary exercises the same sensitive-value
+        # detection policy without writing an auth token to a test fixture.
+        self.canary = "public-sec04-disclosure-canary-123456"
+        self.write_auth(self.auth, "alpha-owner")
         self.environment = patch.dict(os.environ, {
             AUTH_ENV: str(self.auth), EVIDENCE_ENV: str(self.evidence), ROLE_ENV: "alpha-owner"
         })
@@ -50,14 +52,19 @@ class RoleAuthCacheTests(unittest.TestCase):
         self.hooks = load_hooks()
 
     @staticmethod
-    def write_auth(path, role, secret):
+    def write_auth(path, role):
+        """Use role labels and a documented public marker, never test credentials."""
         payload = {
             "role": role, "tenant": "security-alpha",
-            "headers": {"X-Tenant-Slug": "security-alpha", "Cookie": f"auth={secret}"},
-            "forbidden_values": [secret, f"auth={secret}"],
+            "headers": {"X-Tenant-Slug": "security-alpha", "X-Synthetic-Role": role},
+            "forbidden_values": ["public-sec04-disclosure-canary-123456"],
         }
-        path.write_text(json.dumps(payload), encoding="utf-8")
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        # Test files are owner-only before any content is written.
+        flags = os.O_CREAT | os.O_TRUNC | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            os.fchmod(handle.fileno(), stat.S_IRUSR | stat.S_IWUSR)
+            json.dump(payload, handle)
 
     @staticmethod
     def case():
@@ -74,7 +81,7 @@ class RoleAuthCacheTests(unittest.TestCase):
             self.hooks.before_call(None, case, {})
             self.assertEqual("application/vnd.coglatas+json", case.media_type)
             self.assertEqual("preserved", case.headers["X-Original"])
-            self.assertEqual(f"auth={self.secret}", case.headers["Cookie"])
+            self.assertEqual("alpha-owner", case.headers["X-Synthetic-Role"])
             self.hooks.no_sensitive_internal_error_disclosure(None, response, case)
         self.assertEqual(1, self.hooks._read_role_auth.cache_info().misses)
         self.assertEqual(499, self.hooks._read_role_auth.cache_info().hits)
@@ -82,28 +89,28 @@ class RoleAuthCacheTests(unittest.TestCase):
     def test_cache_is_role_path_scoped_and_readonly(self):
         first = self.hooks._load_auth()
         with self.assertRaises(TypeError):
-            first["headers"]["Cookie"] = "tampered"
+            first["headers"]["X-Synthetic-Role"] = "tampered"
         with self.assertRaises(AttributeError):
             first["forbidden_values"].append("tampered")
         second_path = self.root / "beta.json"
-        self.write_auth(second_path, "beta-owner", "synthetic-second-role-987654321")
+        self.write_auth(second_path, "beta-owner")
         with patch.dict(os.environ, {AUTH_ENV: str(second_path), ROLE_ENV: "beta-owner"}):
             second = self.hooks._load_auth()
             self.assertEqual("beta-owner", second["role"])
-            self.assertEqual("auth=synthetic-second-role-987654321", second["headers"]["Cookie"])
+            self.assertEqual("beta-owner", second["headers"]["X-Synthetic-Role"])
         self.assertEqual(2, self.hooks._read_role_auth.cache_info().misses)
         # Switching paths back must never substitute the previous role.
-        self.assertEqual(f"auth={self.secret}", self.hooks._load_auth()["headers"]["Cookie"])
+        self.assertEqual("alpha-owner", self.hooks._load_auth()["headers"]["X-Synthetic-Role"])
         self.assertEqual(3, self.hooks._read_role_auth.cache_info().misses)
 
     def test_same_file_role_and_tenant_replacements_invalidate_cached_auth(self):
         """The native SEC-04 role/Tenant negative replay rewrites this same path."""
         first = self.hooks._load_auth()
         self.assertEqual("alpha-owner", first["role"])
-        self.write_auth(self.auth, "beta-owner", "synthetic-second-role-987654321")
+        self.write_auth(self.auth, "beta-owner")
         second = self.hooks._load_auth()
         self.assertEqual("beta-owner", second["role"])
-        self.assertNotEqual(first["headers"]["Cookie"], second["headers"]["Cookie"])
+        self.assertNotEqual(first["headers"]["X-Synthetic-Role"], second["headers"]["X-Synthetic-Role"])
         self.assertEqual(2, self.hooks._read_role_auth.cache_info().misses)
         self.assertEqual(0o600, stat.S_IMODE(self.auth.stat().st_mode))
 
@@ -131,13 +138,13 @@ class RoleAuthCacheTests(unittest.TestCase):
     def test_sensitive_response_still_fails_without_leaking_auth(self):
         case = self.case()
         response = types.SimpleNamespace(
-            status_code=200, content=('{"message":"' + self.secret + '"}').encode()
+            status_code=200, content=('{"message":"' + self.canary + '"}').encode()
         )
         self.hooks.before_call(None, case, {})
         with self.assertRaises(AssertionError) as err:
             self.hooks.no_sensitive_internal_error_disclosure(None, response, case)
         self.assertIn("ephemeral-auth-material", str(err.exception))
-        self.assertNotIn(self.secret, str(err.exception))
+        self.assertNotIn(self.canary, str(err.exception))
 
     def test_all_response_and_network_evidence_remains_append_only(self):
         case = self.case()
@@ -148,7 +155,7 @@ class RoleAuthCacheTests(unittest.TestCase):
         self.assertEqual(["alpha-owner", "alpha-owner"], [x["role"] for x in events])
         self.assertEqual("GET /api/auth/me", events[0]["operation"])
         self.assertEqual(403, events[0]["status"])
-        self.assertNotIn(self.secret, self.evidence.read_text())
+        self.assertNotIn(self.canary, self.evidence.read_text())
 
 
 if __name__ == "__main__":
