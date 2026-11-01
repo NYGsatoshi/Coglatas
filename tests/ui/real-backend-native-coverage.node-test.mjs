@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
-import { realpathSync } from 'node:fs';
+import { realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -33,4 +33,7 @@ test('the original real-backend runner succeeds under native coverage', () => {
   assert.equal(result.error, undefined, 'the original child must start');
   assert.equal(result.signal, null, 'a signaled child cannot qualify');
   assert.equal(result.status, 0, 'the original runner must pass');
+  writeFileSync(resolve(root, 'artifacts/sonar-real-backend-native/browser.json'), JSON.stringify({
+    sourceSha: process.env.TARGET_SHA, nodeVersion: process.version, suite,
+  }) + '\n', { flag: 'wx', mode: 0o644 });
 });
