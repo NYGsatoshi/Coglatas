@@ -5,9 +5,11 @@ using Coglatas.Domain.ProjectIde;
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
 var cases = new List<object>();
-foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project" })
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project" };
+foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
-    var input = Input(name, name == "stale-pass" ? 51 : 5);
+    // Displayed committed revisions must never identify two different Sources.
+    var input = Input(name, 100 + index);
     var compilation = PureCoreCompiler.Compile(input, input.Compiler);
     var result = name switch
     {
@@ -16,7 +18,7 @@ foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run"
         "timeout" => new CompilerResult(input, CompilerExecutionState.TimedOut, CompilerCoverage.None, [], [], [], false),
         _ => compilation.Result
     };
-    var desired = name == "stale-pass" ? Input(name, 52) : input;
+    var desired = name == "stale-pass" ? Input(name, 200 + index) : input;
     var ir = result.Artifacts.Any(artifact => artifact.Role == "coglatas.source-map") ? compilation.Validation?.Ir : null;
     var freshness = CompilerFreshnessAssessment.Assess(result, desired);
     var declarations = PlanDeclarationReader.Read(input.Source).Select(item => new
