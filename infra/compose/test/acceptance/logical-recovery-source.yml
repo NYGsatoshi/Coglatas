@@ -1,0 +1,36 @@
+# Explicit Test-only source fixture. Never use with a deployment project.
+services:
+  app:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Test
+      Tenancy__AppMode: SaaS
+      Tenancy__TenantResolutionStrategy: HeaderForDevelopmentOnly
+      Tenancy__AllowDevelopmentHeaderTenantResolution: "true"
+      Tenancy__DevelopmentTenantHeaderName: X-Tenant-Slug
+      Tenancy__SeedOnStartup: "false"
+      UiShell__SeedOnStartup: "false"
+      LocalAdmin__SeedOnStartup: "false"
+      COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"
+      COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "false"
+      COGLATAS_DEMO_DATASET_ENABLED: "false"
+      COGLATAS_SEED_ADMIN_ENABLED: "false"
+      SecurityCiFixture__Enabled: ${COGLATAS_RECOVERY_SOURCE_SEED:?set explicit source seed phase}
+      SecurityCiFixture__Password: ${COGLATAS_RECOVERY_FIXTURE_PASSWORD:?set fresh synthetic password}
+  migrate:
+    image: ${COGLATAS_APP_IMAGE:?set the same recorded application image}
+    working_dir: /app
+    entrypoint: [/recovery-tools/migrate]
+    command: []
+    volumes: !override
+      - type: bind
+        source: ${COGLATAS_RECOVERY_PRIVATE:?set private runner directory}/tools
+        target: /recovery-tools
+        read_only: true
+    environment:
+      Tenancy__AppMode: SaaS
+      Tenancy__SeedOnStartup: "false"
+  real-backend-playwright:
+    profiles: [unused-logical-recovery-browser]
+networks:
+  default:
+    internal: true

@@ -6,6 +6,11 @@ on:
       - ".github/workflows/licensed-real-backend-acceptance.yml"
       - ".github/workflows/real-backend-p0-preflight.yml"
       - "infra/compose/test/real-backend-smoke.yml"
+      - "infra/compose/test/acceptance/logical-recovery-source.yml"
+      - "infra/compose/test/logical-recovery-target.yml"
+      - "scripts/ci/run-synthetic-logical-recovery.mjs"
+      - "scripts/ci/synthetic-logical-recovery-probe.mjs"
+      - "tests/ci/synthetic-logical-recovery.node-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -38,6 +43,11 @@ on:
       - ".github/workflows/licensed-real-backend-acceptance.yml"
       - ".github/workflows/real-backend-p0-preflight.yml"
       - "infra/compose/test/real-backend-smoke.yml"
+      - "infra/compose/test/acceptance/logical-recovery-source.yml"
+      - "infra/compose/test/logical-recovery-target.yml"
+      - "scripts/ci/run-synthetic-logical-recovery.mjs"
+      - "scripts/ci/synthetic-logical-recovery-probe.mjs"
+      - "tests/ci/synthetic-logical-recovery.node-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -91,6 +101,7 @@ jobs:
       - name: Test P0 manifest and existing real-backend helpers
         run: >-
           node --test
+          tests/ci/synthetic-logical-recovery.node-test.mjs
           tests/functional/fci04-owner-reporter.node-test.mjs
           tests/ui/build-playwright-grep.node-test.mjs
           tests/ui/real-backend-smoke-compose-helpers.node-test.mjs
