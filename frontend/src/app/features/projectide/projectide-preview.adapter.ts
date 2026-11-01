@@ -25,6 +25,9 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
     for (const location of [...r.diagnostics.map(d => d.primaryLocation), ...item.declarations.map(d => d.location), ...item.relations.map(d => d.location)]) {
       if (!sameContext(item.context, location.context)) { throw new PreviewReadError('wrong-scope'); }
     }
+    for (const record of [...item.declarations, ...item.relations]) {
+      if ((record.recordType === 'entity' ? record.location.entityId : record.recordType === 'relation' ? record.location.relationId : null) !== record.identity) { throw new PreviewReadError('wrong-scope'); }
+    }
     for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
       if (!sameContext(item.context, entry.location.context)) { throw new PreviewReadError('wrong-scope'); }
     }
@@ -48,7 +51,7 @@ export function resolveLocation(value: PreviewCase, location: ProjectLocation): 
   if (value.freshness !== 'Current' || !sameContext(value.context, value.desiredContext)) { return 'stale'; }
   if (!sameDigest(value.sourceDigest, value.result.boundInputStamp.sourceDigest) || !value.source.documents.some(d => d.documentId === location.documentId)) { return 'unavailable'; }
   const record = [...value.declarations, ...value.relations].find(r => r.location.documentId === location.documentId &&
-    (location.entityId ? r.location.entityId === location.entityId : location.relationId ? r.location.relationId === location.relationId : false));
+    (location.entityId ? r.recordType === 'entity' && r.location.entityId === location.entityId : location.relationId ? r.recordType === 'relation' && r.location.relationId === location.relationId : false));
   if (!record) { return 'unavailable'; }
   if (value.sourceMap && ![...value.sourceMap.nodes, ...value.sourceMap.relations].some(entry => entry.location.documentId === location.documentId &&
       (location.entityId ? entry.location.entityId === location.entityId : entry.location.relationId === location.relationId))) { return 'unavailable'; }

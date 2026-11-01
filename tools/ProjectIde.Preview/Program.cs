@@ -21,7 +21,7 @@ foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run"
     var freshness = CompilerFreshnessAssessment.Assess(result, desired);
     var declarations = PlanDeclarationReader.Read(input.Source).Select(item => new
     {
-        identity = item.Data.Value.GetProperty("entityId").GetString(),
+        recordType = "entity", identity = item.Data.Value.GetProperty("entityId").GetString(),
         kind = item.Data.Value.GetProperty("kind").GetString(),
         status = item.Status.ToString(), data = item.Data.Value,
         location = ProjectLocation.Create(item.DocumentId, input.Source.Context,
@@ -29,7 +29,7 @@ foreach (var name in new[] { "fail", "pass", "unknown", "unsupported", "not-run"
     }).ToArray();
     var relations = input.Source.Relations.Value.EnumerateArray().Select(item => new
     {
-        identity = item.GetProperty("relationId").GetString(), kind = item.GetProperty("kind").GetString(),
+        recordType = "relation", identity = item.GetProperty("relationId").GetString(), kind = item.GetProperty("kind").GetString(),
         status = "Decoded", data = item,
         location = ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context,
             relationId: RelationId.Parse(item.GetProperty("relationId").GetString()!)).Data.Value

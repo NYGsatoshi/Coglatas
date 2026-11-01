@@ -21,8 +21,9 @@ export class ProjectIdeWorkbenchStore {
   readonly inspectedRecord = computed(() => {
     const context = this.context(); const selected = this.selection(); const diagnostic = this.diagnostic();
     if (!context || !selected) { return null; }
-    const id = selected.kind === 'record' ? selected.id : diagnostic?.primaryLocation.entityId ?? diagnostic?.primaryLocation.relationId;
-    return [...context.declarations, ...context.relations].find(r => r.identity === id) ?? null;
+    const kind = selected.kind === 'diagnostic' ? (diagnostic?.primaryLocation.entityId ? 'entity' : 'relation') : selected.kind;
+    const id = selected.kind !== 'diagnostic' ? selected.id : diagnostic?.primaryLocation.entityId ?? diagnostic?.primaryLocation.relationId;
+    return [...context.declarations, ...context.relations].find(r => r.recordType === kind && r.identity === id) ?? null;
   });
   async load(read: (signal: AbortSignal) => Promise<PreviewBundle>): Promise<void> {
     this.clear('loading');

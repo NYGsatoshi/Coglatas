@@ -32,10 +32,14 @@ export interface CompilerResult {
   readonly rules: readonly { readonly ruleId: string; readonly version: number; readonly execution: Execution; readonly coverage: Coverage; readonly verdict: Verdict; readonly evidence: Evidence }[];
   readonly boundInputStamp: { readonly sourceContext: RevisionContext; readonly sourceDigest: Digest; readonly inputDigest: Digest };
 }
-export interface SourceRecord {
-  readonly identity: Identity<'Entity'> | Identity<'Relation'>; readonly kind: string;
+interface SourceRecordFields {
+  readonly kind: string;
   readonly status: 'Decoded' | 'Unsupported' | 'Invalid'; readonly data: Readonly<Record<string, unknown>>; readonly location: ProjectLocation;
 }
+export type SourceRecord = SourceRecordFields & (
+  { readonly recordType: 'entity'; readonly identity: Identity<'Entity'> } |
+  { readonly recordType: 'relation'; readonly identity: Identity<'Relation'> }
+);
 export interface PreviewCase {
   readonly key: string; readonly projectName: string; readonly workspaceName: string; readonly workspaceId: Identity<'Workspace'>; readonly branchName: string;
   readonly context: RevisionContext; readonly desiredContext: RevisionContext;
@@ -50,7 +54,7 @@ export interface PreviewCase {
 }
 export interface PreviewBundle { readonly format: 'coglatas.web-preview/1'; readonly mode: 'synthetic-fixture'; readonly coreProduct: string; readonly cases: readonly PreviewCase[]; }
 export type ReadState = 'idle' | 'loading' | 'ready' | 'cancelled' | 'unavailable' | 'unsupported' | 'wrong-scope' | 'denied' | 'error';
-export type Selection = { readonly kind: 'diagnostic'; readonly id: Identity<'Diagnostic'> } | { readonly kind: 'record'; readonly id: SourceRecord['identity'] };
+export type Selection = { readonly kind: 'diagnostic'; readonly id: Identity<'Diagnostic'> } | { readonly kind: 'entity'; readonly id: Identity<'Entity'> } | { readonly kind: 'relation'; readonly id: Identity<'Relation'> };
 export const sameContext = (a: RevisionContext, b: RevisionContext): boolean => a.kind === b.kind && a.revisionId === b.revisionId && a.branch.tenantId === b.branch.tenantId && a.branch.projectId === b.branch.projectId && a.branch.branchId === b.branch.branchId;
 export const sameDigest = (a: Digest, b: Digest): boolean => a.algorithm === b.algorithm && a.value === b.value;
 

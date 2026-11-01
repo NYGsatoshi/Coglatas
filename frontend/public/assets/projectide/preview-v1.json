@@ -1023,6 +1023,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -1053,6 +1054,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -1099,6 +1101,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -1142,6 +1145,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -1184,6 +1188,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -1224,6 +1229,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -2385,6 +2391,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -2415,6 +2422,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -2461,6 +2469,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -2504,6 +2513,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -2546,6 +2556,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -2586,6 +2597,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -3786,6 +3798,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -3816,6 +3829,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -3865,6 +3879,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -3908,6 +3923,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -3950,6 +3966,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -3990,6 +4007,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -5318,6 +5336,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -5348,6 +5367,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -5394,6 +5414,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -5437,6 +5458,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -5479,6 +5501,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -5517,6 +5540,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000b-0000-4000-8000-000000000001",
           "kind": "coglatas.requirement",
           "status": "Decoded",
@@ -5577,6 +5601,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000c-0000-4000-8000-000000000001",
           "kind": "coglatas.resource-binding",
           "status": "Decoded",
@@ -5617,6 +5642,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000d-0000-4000-8000-000000000001",
           "kind": "example.future",
           "status": "Unsupported",
@@ -5652,6 +5678,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -6318,6 +6345,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -6348,6 +6376,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -6394,6 +6423,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -6437,6 +6467,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -6479,6 +6510,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -6519,6 +6551,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -7185,6 +7218,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -7215,6 +7249,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -7261,6 +7296,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -7304,6 +7340,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -7346,6 +7383,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -7386,6 +7424,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -8052,6 +8091,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -8082,6 +8122,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -8128,6 +8169,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -8171,6 +8213,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -8213,6 +8256,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -8253,6 +8297,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -9281,6 +9326,7 @@
       ],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -9311,6 +9357,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -9357,6 +9404,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -9400,6 +9448,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -9442,6 +9491,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -9482,6 +9532,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -10643,6 +10694,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -10673,6 +10725,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -10719,6 +10772,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -10762,6 +10816,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -10804,6 +10859,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -10844,6 +10900,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",
@@ -12005,6 +12062,7 @@
       "changedDimensions": [],
       "declarations": [
         {
+          "recordType": "entity",
           "identity": "00000006-0000-4000-8000-000000000001",
           "kind": "coglatas.project",
           "status": "Decoded",
@@ -12035,6 +12093,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000007-0000-4000-8000-000000000001",
           "kind": "coglatas.constraint",
           "status": "Decoded",
@@ -12081,6 +12140,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000008-0000-4000-8000-000000000001",
           "kind": "coglatas.task",
           "status": "Decoded",
@@ -12124,6 +12184,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "00000009-0000-4000-8000-000000000001",
           "kind": "coglatas.milestone",
           "status": "Decoded",
@@ -12166,6 +12227,7 @@
           }
         },
         {
+          "recordType": "entity",
           "identity": "0000000a-0000-4000-8000-000000000001",
           "kind": "coglatas.workflow",
           "status": "Decoded",
@@ -12206,6 +12268,7 @@
       ],
       "relations": [
         {
+          "recordType": "relation",
           "identity": "00000014-0000-4000-8000-000000000001",
           "kind": "coglatas.constrains",
           "status": "Decoded",

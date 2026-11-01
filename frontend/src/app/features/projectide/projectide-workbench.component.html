@@ -17,7 +17,7 @@
         </select>
       </label>
       @if (store.context(); as ctx) {
-        <section class="context" aria-label="Project context" data-testid="ide-context-header">
+        <section class="context" [attr.aria-label]="t('ide.context')" data-testid="ide-context-header">
           <h2>{{ ctx.projectName }}</h2>
           <dl>
             <div><dt>{{ t('ide.project') }}</dt><dd>{{ ctx.context.branch.projectId }}</dd></div>
@@ -92,7 +92,7 @@
               @if (store.navigationState() && store.navigationState() !== 'ready') { <p role="alert">{{ store.navigationState() === 'stale' ? t('ide.stale') : t('ide.unavailable') }}</p> }
             }
             @case ('source') {
-              <h3>{{ t('ide.elements') }}</h3><ul class="elements">@for (record of records(); track record.identity) { <li><button type="button" (click)="inspectRecord(record)">{{ record.kind }} · {{ record.identity }}</button></li> }</ul>
+              <h3>{{ t('ide.elements') }}</h3><ul class="elements">@for (record of records(); track record.recordType + ':' + record.identity) { <li><button type="button" (click)="inspectRecord(record)">{{ record.kind }} · {{ record.identity }}</button></li> }</ul>
               @if (store.sourceTarget(); as target) { <section data-testid="ide-source-target"><h3>{{ t('ide.record') }}</h3><p>{{ target.identity }} · {{ t('ide.document') }}: {{ target.location.documentId }}</p><pre>{{ target.data | json }}</pre></section> }
               <h3>{{ t('ide.buffer') }}</h3><p>@for (doc of ctx.source.documents; track doc.documentId) { {{ doc.logicalName }} · {{ doc.documentId }} }</p><pre class="source-buffer" tabindex="0">{{ ctx.sourceText }}</pre>
             }

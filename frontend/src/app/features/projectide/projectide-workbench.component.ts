@@ -64,7 +64,7 @@ export class ProjectIdeWorkbenchComponent {
     if (focus) { setTimeout(() => this.heading()?.nativeElement.focus()); }
   }
   inspectDiagnostic(diagnostic: Diagnostic): void { this.store.select({ kind: 'diagnostic', id: diagnostic.diagnosticId }); this.open('inspector', true); }
-  inspectRecord(record: SourceRecord): void { this.store.select({ kind: 'record', id: record.identity }); this.open('inspector', true); }
+  inspectRecord(record: SourceRecord): void { this.store.select(record.recordType === 'entity' ? { kind: 'entity', id: record.identity } : { kind: 'relation', id: record.identity }); this.open('inspector', true); }
   navigate(): void { if (this.store.navigate()) { this.open('source', true); } }
   closeInspector(): void { this.store.selection.set(null); this.open('overview'); setTimeout(() => this.inspectorButton()?.nativeElement.focus()); }
   stateMessage(): string {
