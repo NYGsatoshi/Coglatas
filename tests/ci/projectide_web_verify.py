@@ -23,6 +23,36 @@ def assert_candidate(root: Path, value: dict) -> None:
     if git("status", "--porcelain", "--untracked-files=no"):
         raise ValueError("Candidate tracked checkout contains uncommitted changes")
 
+def vitest_inventory(value: dict) -> list[dict]:
+    tests = [dict(file=f["name"], name=t["fullName"], status=t["status"])
+             for f in value["testResults"] for t in f["assertionResults"]]
+    if (not value["success"] or not tests or value["numTotalTests"] != len(tests) or
+            value["numPassedTests"] != len(tests) or any(value[key] for key in
+                ["numFailedTests", "numPendingTests", "numTodoTests"]) or
+            any(not t["file"] or not t["name"] or t["status"] != "passed" for t in tests) or
+            len({(t["file"], t["name"]) for t in tests}) != len(tests)):
+        raise ValueError("Incomplete, duplicated or inconsistent Vitest results")
+    return tests
+
+def browser_inventory(path: Path) -> list[dict]:
+    root = ET.parse(path).getroot()
+    tests = []
+    for suite in root.findall(".//testsuite"):
+        cases = suite.findall("testcase")
+        if int(suite.get("tests", "-1")) != len(cases) or any(int(suite.get(key, "0")) for key in ["failures", "errors", "skipped"]):
+            raise ValueError("Browser suite counters disagree with executed cases")
+        for case in cases:
+            if any(case.find(tag) is not None for tag in ["failure", "error", "skipped"]):
+                raise ValueError("Failed or skipped browser result")
+            tests.append(dict(project=suite.get("hostname"), name=case.get("name"), classname=case.get("classname")))
+    if (not tests or int(root.get("tests", "-1")) != len(tests) or
+            any(int(root.get(key, "0")) for key in ["failures", "errors", "skipped"]) or
+            any(not all(t.values()) for t in tests) or
+            {t["project"] for t in tests} != {"chromium-desktop", "chromium-mobile"} or
+            len({(t["project"], t["classname"], t["name"]) for t in tests}) != len(tests)):
+        raise ValueError("Incomplete, duplicated or unbound desktop/mobile browser results")
+    return tests
+
 def verify(root: Path, receipt: Path) -> None:
     evidence=receipt.parent
     value=json.loads(receipt.read_text(encoding="utf-8"))
@@ -66,15 +96,11 @@ def verify(root: Path, receipt: Path) -> None:
             command += ["--include",pattern]
         execute("vitest",command,frontend)
         tests=json.loads((evidence/"vitest.json").read_text(encoding="utf-8"))
-        if not tests["success"] or tests["numTotalTests"] == 0 or tests["numFailedTests"] or tests["numPendingTests"] or tests["numTodoTests"]: raise ValueError("Incomplete Vitest results")
         value["vitestCounts"]={k:tests[k] for k in ["numTotalTests","numPassedTests","numFailedTests","numPendingTests","numTodoTests"]}
-        value["vitestTests"]=[dict(file=f["name"],name=t["fullName"],status=t["status"]) for f in tests["testResults"] for t in f["assertionResults"]]
+        value["vitestTests"]=vitest_inventory(tests)
         environment["PLAYWRIGHT_JUNIT_OUTPUT_FILE"]=str(evidence/"playwright.xml")
         execute("playwright",["node","node_modules/@playwright/test/cli.js","test","tests/ui/projectide-workbench.spec.ts","tests/ui/angular-smoke.spec.ts","--grep","ProjectIDE synthetic|canonical Project Kanban|maintained Project Task List|canonical Schedule tab|maintained read-only Schedule","--reporter=list,junit","--output="+str(evidence/"browser")])
-        suites=ET.parse(evidence/"playwright.xml").getroot()
-        results=suites.findall(".//testcase")
-        if not results or any(t.find(tag) is not None for t in results for tag in ["failure","error","skipped"]): raise ValueError("Failed, skipped or empty browser run")
-        value["browserTests"]=[dict(name=t.get("name"),classname=t.get("classname")) for t in results]
+        value["browserTests"]=browser_inventory(evidence/"playwright.xml")
         assert_candidate(root, value)
         value["status"]="LOCAL_VERIFIED" if platform.system()=="Windows" else "ISOLATED_CI_VERIFIED"
     except Exception as error:
