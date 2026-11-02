@@ -11,7 +11,7 @@ are not transferred to a new candidate or Main source.
 
 The initial source baseline is Main
 `49962886a875d30dd16c822e4b25b1dccd205ae6`. Its known strict-schema failure
-remains a failure. This branch now normally adopts Main
+remains a failure. A historical revision adopted Main
 `f987379b7601df1a8c7bb810f191924dd2208fa2`, including normal schema repair
 #1641 and startup repair #1646. Its fresh Main CI `41384212616/1` completed
 41 successful jobs and two existing policy skips, with the three strict schema

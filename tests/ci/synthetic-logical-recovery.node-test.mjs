@@ -7,7 +7,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
 import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy, disableSourceSeed,
-  hostedContract, resourceNames, restoreArchive, restoreDatabaseOnce, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+  hostedContract, resourceNames, restoreArchive, restoreCheckpointArchives, restoreDatabaseOnce, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const repository = 'NYGsatoshi/Coglatas';
@@ -93,6 +93,46 @@ test('archive extraction preserves the first command failure without retry or re
   assert.throws(() => restoreArchive(docker, [], project + '_uploads', tar('./upload.txt')),
     error => error === failure);
   assert.equal(calls, 1);
+});
+
+test('actual checkpoint archives restore original upload then key bytes with their closed stages', () => {
+  const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
+  const labels = ['--label', 'com.docker.compose.project=owned-source'];
+  const volumes = ['owned-target-uploads', 'owned-target-keys'], stages = [], calls = [];
+  const docker = (args, options) => { calls.push({ args, input: options.input, stage: stages.at(-1) }); };
+  restoreCheckpointArchives(docker, labels, volumes, [uploads, keys], stage => { stages.push(stage); });
+  assert.deepEqual(stages, ['restore-uploads', 'restore-keys']);
+  assert.equal(calls.length, 2);
+  calls.forEach((call, index) => {
+    assert.equal(call.input, [uploads, keys][index]);
+    assert.ok(call.args.includes(`type=volume,source=${volumes[index]},target=/restore`));
+    assert.ok(call.args.includes('--interactive'));
+    assert.deepEqual(call.args.slice(-4), ['-xpf', '-', '-C', '/restore']);
+    assert.equal(call.stage, stages[index]);
+  });
+});
+
+test('an upload archive failure preserves the original error and never attempts the key archive', () => {
+  const failure = new Error('Original upload extraction failure'), calls = [], stages = [];
+  const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
+  const docker = (args, options) => { calls.push({ args, input: options.input }); throw failure; };
+  assert.throws(() => restoreCheckpointArchives(docker, [], ['uploads', 'keys'], [uploads, keys], stage => { stages.push(stage); }),
+    error => error === failure);
+  assert.equal(calls.length, 1); assert.equal(calls[0].input, uploads);
+  assert.deepEqual(stages, ['restore-uploads']);
+});
+
+test('a key archive failure preserves both original commands and never retries either archive', () => {
+  const failure = new Error('Original key extraction failure'), calls = [], stages = [];
+  const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
+  const docker = (args, options) => {
+    calls.push({ args, input: options.input });
+    if (calls.length === 2) throw failure;
+  };
+  assert.throws(() => restoreCheckpointArchives(docker, [], ['uploads', 'keys'], [uploads, keys], stage => { stages.push(stage); }),
+    error => error === failure);
+  assert.equal(calls.length, 2); assert.equal(calls[0].input, uploads); assert.equal(calls[1].input, keys);
+  assert.deepEqual(stages, ['restore-uploads', 'restore-keys']);
 });
 
 const restoreContext = (result = { status: 0 }) => {

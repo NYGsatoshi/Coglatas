@@ -143,6 +143,13 @@ export function restoreArchive(docker, helperLabels, volume, bytes) {
     '-xpf', '-', '-C', '/restore'], { input: bytes });
 }
 
+export function restoreCheckpointArchives(docker, helperLabels, targetVolumes, archives, setStage) {
+  for (let index = 0; index < 2; index++) {
+    setStage(index ? 'restore-keys' : 'restore-uploads');
+    restoreArchive(docker, helperLabels, targetVolumes[index], archives[index]);
+  }
+}
+
 export function restoreDatabaseOnce({ compose, psql, names, receipt }, project, bytes, expectedFailure, restoreList) {
   const kind = project === names.target ? 'target' : 'fault';
   require(receipt.restoreCalls[kind] === 0, 'RESTORE_RETRY');
@@ -522,10 +529,7 @@ export async function runRecovery() {
     stage = 'restore-postgres'; restoreOnce(names.target, dump, false, restoreList.bytes);
     stage = 'restore-version';
     require(Number(psql(names.target, "SELECT current_setting('server_version_num');")) === receipt.postgresVersionNum, 'PG_VERSION');
-    for (let index = 0; index < 2; index++) {
-      stage = index ? 'restore-keys' : 'restore-uploads';
-      restoreArchive(docker, helperLabels, targetVolumes[index], archives[index]);
-    }
+    restoreCheckpointArchives(docker, helperLabels, targetVolumes, archives, value => { stage = value; });
     stage = 'restore-checkpoint';
     const beforeStart = snapshot(names.target, targetVolumes, 'target-before-start');
     receipt.strictCheckpointComparison = snapshotEquality(sourceSnapshot, beforeStart);
