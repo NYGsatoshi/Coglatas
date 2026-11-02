@@ -18,6 +18,25 @@ namespace Coglatas.Tests.Audit;
 public sealed class AuditPackageExportServiceTests
 {
     [Theory]
+    [InlineData("audit")]
+    [InlineData("save")]
+    public async Task DownloadFailureOwnershipProbeDisposesUnreturnedResponseStream(string stage)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Audit.Fail = stage == "audit";
+        fixture.UnitOfWork.Fail = stage == "save";
+
+        var result = await fixture.Service.DownloadAsync(fixture.Job.Id);
+
+        AssertFailure(result, "ExportPackageUnavailable");
+        Assert.Equal(3, fixture.Storage.Reads.Count);
+        Assert.False(fixture.Storage.Reads[0].CanRead);
+        Assert.False(fixture.Storage.Reads[1].CanRead);
+        Assert.Equal(stage == "audit" ? 0 : 1, fixture.UnitOfWork.Calls);
+        Assert.False(fixture.Storage.Reads[2].CanRead);
+    }
+
+    [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]
     public async Task DownloadRequiresAuthenticatedActorBeforeAuthorizationOrStorage(bool authenticated, bool hasUser)
@@ -508,9 +527,11 @@ public sealed class AuditPackageExportServiceTests
 
     private sealed class Audit : IAuditLogger
     {
+        public bool Fail { get; set; }
         public List<AuditLogEntry> Entries { get; } = [];
         public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default)
         {
+            if (Fail) throw new IOException("Synthetic download audit staging failure.");
             Entries.Add(entry);
             return Task.CompletedTask;
         }
@@ -518,10 +539,12 @@ public sealed class AuditPackageExportServiceTests
 
     private sealed class UnitOfWork(AppDbContext context) : IUnitOfWork
     {
+        public bool Fail { get; set; }
         public int Calls { get; private set; }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
+            if (Fail) throw new IOException("Synthetic download audit persistence failure.");
             return context.SaveChangesAsync(cancellationToken);
         }
     }
