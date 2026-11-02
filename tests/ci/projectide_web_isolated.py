@@ -73,14 +73,20 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         raise ValueError("Composition changed Product runtime source")
     if git(target, "diff", CORE_PRODUCT, product, "--", "src"):
         raise ValueError("Web Product differs from the exact pinned Core runtime source")
-    if git(target, "diff", test, "HEAD", "--", "tests", ".github/workflows/projectide-*.yml",
-           *INVENTORY_TESTS, "frontend/src/app/features/projectide/*.spec.ts"):
+    # Independent Test and Product have different pre-existing non-ProjectIDE
+    # baselines. Compare exact owned files, rather than absorbing unrelated tests.
+    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde",
+           "tests/ci/projectide*", "tests/ci/test_projectide*", "tests/ui/projectide-workbench.spec.ts",
+           ".github/workflows/projectide-*.yml", *INVENTORY_TESTS,
+           "frontend/src/app/features/projectide/*.spec.ts"):
         raise ValueError("Composition differs from the exact Test candidate source")
     value = dict(schemaVersion=1, coreProduct=CORE_PRODUCT, coreTest=CORE_TEST,
         productHead=product, testHead=test, productTree=git(repository,"rev-parse",product+"^{tree}"),
         testTree=git(repository,"rev-parse",test+"^{tree}"), productChanges=product_changes, testChanges=test_changes,
         productDependencyMerges=product_merges, testDependencyMerges=test_merges,
         coreTestChanges=core_tests, webTestChanges=web_tests,
+        inheritedTestBaselineDifferences=git(repository, "diff", "--name-only", TEST_BASE, CORE_PRODUCT,
+                                             "--", "tests").splitlines(),
         combinedCommit=git(target,"rev-parse","HEAD"), combinedTree=git(target,"rev-parse","HEAD^{tree}"),
         status="COMPOSED_NOT_VERIFIED")
     receipt.parent.mkdir(parents=True, exist_ok=True)
