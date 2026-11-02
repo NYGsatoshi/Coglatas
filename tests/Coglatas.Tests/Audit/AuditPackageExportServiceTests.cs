@@ -462,7 +462,8 @@ public sealed class AuditPackageExportServiceTests
         Assert.Equal("Queued", queued.State);
         Assert.Equal(10, queued.ProgressPercent);
         Assert.Equal(fixture.Projection.ArtifactVersionId, queued.ArtifactVersionId);
-        Assert.Equal((ExportJobStatus.Queued, (string?)null, (DateTimeOffset?)null, 0L, (string?)null), fixture.Snapshot());
+        (ExportJobStatus, string?, DateTimeOffset?, long, string?) expected = (ExportJobStatus.Queued, null, null, 0L, null);
+        Assert.Equal(expected, fixture.Snapshot());
         Assert.False(fixture.Storage.Present);
         Assert.Equal(1, fixture.Storage.DeleteCalls);
         Assert.Equal("AuditPackageExportRetried", Assert.Single(fixture.Audit.Entries).Action);
@@ -635,8 +636,9 @@ public sealed class AuditPackageExportServiceTests
 
     private sealed class Storage(string key, byte[] bytes, List<string> operations) : IFileStorageService
     {
+        private readonly HashSet<string> _keys = [key];
         public byte[] Bytes { get; set; } = bytes;
-        public bool Present { get; private set; } = true;
+        public bool Present => _keys.Contains(key);
         public bool FailDelete { get; set; }
         public bool FailResponseDispose { get; set; }
         public int ExistsCalls { get; private set; }
@@ -658,14 +660,14 @@ public sealed class AuditPackageExportServiceTests
             Assert.Equal(key, storageKey);
             DeleteCalls++;
             if (FailDelete) throw new IOException("Synthetic cleanup failure.");
-            Present = false;
+            _keys.Remove(storageKey);
             return Task.CompletedTask;
         }
         public Task<bool> ExistsAsync(string storageKey, CancellationToken cancellationToken = default)
         {
             Assert.Equal(key, storageKey);
             ExistsCalls++;
-            return Task.FromResult(Present);
+            return Task.FromResult(_keys.Contains(storageKey));
         }
         public Task<string?> CreateSignedReadUrlAsync(string storageKey, TimeSpan expiresIn, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Audit delivery must return an authorized stream.");
     }
