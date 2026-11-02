@@ -146,8 +146,10 @@ integration, Graph layout and History/Diff projection are not implemented.
 Relation records are available read-only in the Source outline and Inspector.
 No production Source/API contract is inferred from synthetic fixtures.
 
-Main/integration/SecurityTestImplimation and Core Draft PRs are not pushed,
-merged or closed by this work. No Required Check, protection, dependency, DB/RLS,
+Main/integration/SecurityTestImplimation are not pushed or merged by this work.
+Core and Web PRs remain open, Draft and unmerged; only their existing feature/test
+heads receive authorized continuation commits. No Required Check, protection,
+package dependency, DB/RLS,
 Shadow/Enforce, Student Council release judgment or #1128 performance assurance
 change. Windows/Avalonia real UI remains BLOCKED under #1144. No shared dual-client,
 runtime Compiler, security-gate, release or CODEOWNER acceptance is claimed.
