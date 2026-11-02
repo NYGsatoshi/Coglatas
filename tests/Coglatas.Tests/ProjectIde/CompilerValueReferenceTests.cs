@@ -58,7 +58,7 @@ public sealed class CompilerValueReferenceTests
         var source = ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(Task(8, ports))));
         var settings = Settings();
         settings["authorizedExternalSnapshots"] = new JsonArray(Obj(new { snapshotId = Id(30), version = "1", digest = target.Digest.Data.Value, context = target.Context.Data.Value, coverage = change == "partial" ? "coglatas.partial" : "coglatas.complete", asOf = (string?)null }));
-        return (Input(settings, source), new(ExternalSnapshotId.Parse(Id(30)), "1", new(target, change != "unauthorized")));
+        return (Input(settings, source), new(ExternalSnapshotId.Parse(Id(30)), "1", new(target, change != "unauthorized", true, true)));
     }
 
     [Theory]
