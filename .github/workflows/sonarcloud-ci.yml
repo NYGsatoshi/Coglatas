@@ -276,6 +276,7 @@ jobs:
             tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
             tests/ci/synthetic-logical-recovery.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.node-test.mjs \
             tests/ci/test_restore_data_dependency_advisor.mjs \
             tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
             scripts/ci/verify-sonar-node-coverage.node-test.mjs
