@@ -40,7 +40,7 @@ public sealed class SemanticInspectionTests
         Assert.Null(compilation.Validation!.Ir);
         var index = new CompilerSemanticInspection(compilation.Model!);
         Assert.False(index.BindingComplete);
-        var unsupported = Assert.Single(index.Symbols.Where(item => item.Symbol.EntityId == EntityId.Parse(Id(7))));
+        var unsupported = Assert.Single(index.Symbols, item => item.Symbol.EntityId == EntityId.Parse(Id(7)));
         Assert.Equal(ValueDecodeStatus.Unsupported, unsupported.Symbol.Status); Assert.Null(unsupported.DeclaredType);
     }
 
@@ -55,7 +55,7 @@ public sealed class SemanticInspectionTests
         } });
         var input = Input(source: ProjectSource.Create(original.Context, original.Documents, Json(new JsonArray(task))));
         var index = new CompilerSemanticInspection(ProjectSemanticBinder.Bind(input));
-        var port = Assert.Single(index.Symbols.Where(item => item.Symbol.PortId is not null));
+        var port = Assert.Single(index.Symbols, item => item.Symbol.PortId is not null);
         Assert.Equal(Json(type), port.DeclaredType); Assert.Same(port, index.Inspect(port.Symbol.Location));
     }
 
