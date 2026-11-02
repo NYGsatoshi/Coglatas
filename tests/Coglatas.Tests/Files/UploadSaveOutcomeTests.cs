@@ -9,6 +9,7 @@ using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Coglatas.Tests.Files;
 
@@ -106,7 +107,7 @@ public sealed class UploadSaveOutcomeTests
                 }
                 await using var verification = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
                     .UseNpgsql(database).Options, new PlatformScope());
-                Assert.Equal(durable, await verification.Tenants.AnyAsync(item => item.Id == tenant.Id));
+                Assert.Equal(durable, await verification.Tenants.AnyAsync(item => item.Id == tenant.Id, CancellationToken.None));
 
                 if (expected == UploadCommitDisposition.NotCommitted)
                 {
@@ -115,7 +116,7 @@ public sealed class UploadSaveOutcomeTests
                     Assert.True(unit.TryDiscardFailedUploadChanges());
                     fault.Enabled = false;
                     Assert.Equal(0, await unit.SaveChangesAsync(CancellationToken.None));
-                    Assert.False(await verification.Tenants.AnyAsync(item => item.Id == tenant.Id));
+                    Assert.False(await verification.Tenants.AnyAsync(item => item.Id == tenant.Id, CancellationToken.None));
                 }
             });
 
@@ -159,7 +160,7 @@ public sealed class UploadSaveOutcomeTests
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
                 var tenant = OwnedTenant();
-                using (var ambient = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+                using (new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
                     await using var context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
                         .UseNpgsql(database).Options, new PlatformScope());
@@ -186,7 +187,7 @@ public sealed class UploadSaveOutcomeTests
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
                 var tenant = OwnedTenant();
-                using (var transaction = new System.Transactions.CommittableTransaction())
+                using (var transaction = new CommittableTransaction())
                 {
                     await using var context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
                         .UseNpgsql(database).Options, new PlatformScope());
@@ -224,8 +225,13 @@ public sealed class UploadSaveOutcomeTests
                 try
                 {
                     var fault = new TransactionFault(saveFails ? "save" : "success", null);
+                    await using var services = new ServiceCollection()
+                        .AddEntityFrameworkNpgsql()
+                        .AddScoped<IRelationalTransactionFactory>(provider => new DisposalTransactionFactory(
+                            provider.GetRequiredService<RelationalTransactionFactoryDependencies>()))
+                        .BuildServiceProvider();
                     var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database)
-                        .ReplaceService<IRelationalTransactionFactory, DisposalTransactionFactory>()
+                        .UseInternalServiceProvider(services)
                         .AddInterceptors(new SaveFault(fault)).Options;
                     await using var context = new AppDbContext(options, new PlatformScope());
                     var tenant = OwnedTenant();
@@ -301,12 +307,9 @@ public sealed class UploadSaveOutcomeTests
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (fault.Enabled && fault.Stage is "save" or "rollback" or "cancel")
-            {
-                fault.Cancellation?.Cancel();
-                throw fault.Primary;
-            }
-            return ValueTask.FromResult(result);
+            if (fault is not { Enabled: true, Stage: "save" or "rollback" or "cancel" }) return ValueTask.FromResult(result);
+            fault.Cancellation?.Cancel();
+            throw fault.Primary;
         }
     }
 

@@ -137,7 +137,7 @@ public sealed class EfUnitOfWork(
 
     public bool TryDiscardFailedUploadChanges()
     {
-        if (System.Transactions.Transaction.Current is not null ||
+        if (Transaction.Current is not null ||
             (dbContext.Database.IsRelational() &&
              (dbContext.Database.CurrentTransaction is not null || dbContext.Database.GetEnlistedTransaction() is not null)))
         {
@@ -151,7 +151,7 @@ public sealed class EfUnitOfWork(
     {
         outcome.Disposition = UploadCommitDisposition.Unknown;
         if (!dbContext.Database.IsRelational() || dbContext.Database.CurrentTransaction is not null ||
-            System.Transactions.Transaction.Current is not null || dbContext.Database.GetEnlistedTransaction() is not null)
+            Transaction.Current is not null || dbContext.Database.GetEnlistedTransaction() is not null)
         {
             return await SaveWithPolicyDocumentsAsync(cancellationToken);
         }

@@ -64,6 +64,9 @@ public sealed class UploadCommitOutcomeTests(ITestOutputHelper output)
             Assert.True(fixture.Persistence.CommitVerifiedBeforeFault);
             Assert.NotEqual(previousKey, committedKey);
             Assert.Equal(witness, afterFailure);
+            Assert.NotEqual(Guid.Empty, afterFailure.FileId);
+            Assert.NotEqual(Guid.Empty, afterFailure.AttachmentId);
+            Assert.Equal(committedKey, afterFailure.StorageKey);
             Assert.Equal(2, afterFailure.FileRows);
             Assert.Equal(2, afterFailure.AttachmentRows);
             Assert.Equal(consumer == "artifact" ? 2 : 0, afterFailure.VersionRows);
@@ -83,9 +86,9 @@ public sealed class UploadCommitOutcomeTests(ITestOutputHelper output)
 
     private sealed class Fixture : IAsyncDisposable
     {
-        public static readonly byte[] PreviousBytes = "Previously committed owned upload."u8.ToArray();
-        public static readonly byte[] NewBytes = "New durably committed owned upload."u8.ToArray();
-        public static readonly byte[] SentinelBytes = "Unrelated owned tenant-namespace sentinel."u8.ToArray();
+        public static readonly byte[] PreviousBytes = [.. "Previously committed owned upload."u8];
+        public static readonly byte[] NewBytes = [.. "New durably committed owned upload."u8];
+        public static readonly byte[] SentinelBytes = [.. "Unrelated owned tenant-namespace sentinel."u8];
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "coglatas-upload-commit-outcome", Guid.NewGuid().ToString("N"));
         private readonly Guid _tenantId = Guid.NewGuid();
         private readonly Guid _actorId = Guid.NewGuid();
@@ -270,7 +273,7 @@ public sealed class UploadCommitOutcomeTests(ITestOutputHelper output)
     {
         public Guid? UserId => id;
         public Guid? SessionId => null;
-        public string? Email => "commit@example.invalid";
+        public string Email => "commit@example.invalid";
         public SystemRole? SystemRole => Coglatas.Domain.Enums.SystemRole.User;
         public bool IsAuthenticated => true;
     }
