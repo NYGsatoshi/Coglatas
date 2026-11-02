@@ -149,3 +149,25 @@ class PinnedDependencyMergeTests(unittest.TestCase):
 
 
 if __name__ == "__main__": unittest.main()
+
+class StackedTestReplayTests(unittest.TestCase):
+    def test_stacked_parent_deltas_are_validated_and_replayed_before_later_changes(self):
+        base, head, first, side, merge, last = [letter * 40 for letter in 'bhapmc']
+        def fake_git(_repository, *arguments):
+            if arguments[0] == 'merge-base': return ''
+            if arguments[:2] == ('rev-list', '--first-parent'):
+                return '\n'.join([first, merge, last] if arguments[-1] == base+'..'+head else [side])
+            if arguments[:2] == ('rev-list', '--parents'):
+                commit = arguments[-1]
+                return ' '.join([commit, first, side] if commit == merge else [commit, base])
+            if arguments[0] in ('merge-tree', 'rev-parse'): return 'exact-merge-tree'
+            if arguments[0] == 'diff-tree': return 'tests/fixture.py'
+            raise AssertionError(arguments)
+        with patch.object(composer, 'STACKED_TEST_PARENT', side), patch.object(composer, 'git', side_effect=fake_git):
+            self.assertEqual([first, side, last], composer.changes(Path('.'), base, head, ('tests/',), (side,)))
+        def invalid_parent(repository, *arguments):
+            if arguments[0] == 'diff-tree' and arguments[-1] == side: return 'src/unapproved.cs'
+            return fake_git(repository, *arguments)
+        with patch.object(composer, 'STACKED_TEST_PARENT', side), patch.object(composer, 'git', side_effect=invalid_parent):
+            with self.assertRaisesRegex(ValueError, 'ownership boundary'):
+                composer.changes(Path('.'), base, head, ('tests/',), (side,))

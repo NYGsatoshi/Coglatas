@@ -9,6 +9,7 @@ CORE_PRODUCT = "610f9911f9ce31739188437972f7eeb018f611da"
 CORE_PRODUCT_DEPENDENCIES = ("1218495bdd4e1280c968b0e6d2067c921c64ab31", "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4", CORE_PRODUCT, "0a79e05a6533a7e4468bb7b74f47aeceb04ae119")
 CORE_TEST = "9e969183f5b311789b0197d0b6aac12a88206e7c"
 CORE_TEST_DEPENDENCIES = ("8348083cc04e9bd85147b32bb1805e94aa14fd3a", "f057f5e86fd28c6ca00875f20f8e30a49fb82f8b", CORE_TEST, "5f2825e1d88f307efddc5edac16579ec220cbd4b")
+STACKED_TEST_PARENT = "5f2825e1d88f307efddc5edac16579ec220cbd4b"
 TEST_BASE = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
 INVENTORY_TESTS = (
     "frontend/scripts/av-mig-inventory.node-test.mjs",
@@ -84,6 +85,13 @@ def changes(repository: Path, base: str, head: str, allowed: tuple[str, ...],
                 raise ValueError("Dependency merge contains additional resolution changes")
             if merges is not None:
                 merges.append(commit)
+            if parents[1] == STACKED_TEST_PARENT:
+                # A stacked Test parent may have advanced on its own line. Validate
+                # and replay its missing independent deltas exactly once, before
+                # applying changes authored after this merge.
+                for inherited in changes(repository, base, parents[1], allowed, dependency):
+                    if inherited not in result:
+                        result.append(inherited)
             continue
         if len(parents) != 1:
             raise ValueError("Only independent single-parent changes or the pinned dependency merge are allowed")
