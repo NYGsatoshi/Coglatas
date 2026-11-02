@@ -4,6 +4,7 @@ using System.Text.Json;
 using Coglatas.Application.Audit;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Files;
 using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -377,21 +378,7 @@ public sealed class AuditPackageExportService(
         {
             if (responseStream is not null)
             {
-                try
-                {
-                    await responseStream.DisposeAsync();
-                }
-                catch
-                {
-                    try
-                    {
-                        _logger.LogWarning("Audit package download stream cleanup failed.");
-                    }
-                    catch
-                    {
-                        // Cleanup observability must preserve the original unavailable result.
-                    }
-                }
+                await DownloadResponseStreamCleanup.TryDisposeAsync(responseStream, _logger);
             }
         }
     }

@@ -271,9 +271,17 @@ public sealed class ArtifactService(
         }
 
         var content = await storage.OpenReadAsync(version.FileObject.StorageKey, cancellationToken);
-        await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionDownloaded", "ArtifactVersion", version.Id), cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, version.FileObject.OriginalFileName, version.FileObject.ContentType, version.FileObject.SizeBytes));
+        try
+        {
+            await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionDownloaded", "ArtifactVersion", version.Id), cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, version.FileObject.OriginalFileName, version.FileObject.ContentType, version.FileObject.SizeBytes));
+        }
+        catch
+        {
+            await DownloadResponseStreamCleanup.TryDisposeAsync(content, logger);
+            throw;
+        }
     }
 
     public async Task<Result> DeleteVersionAsync(Guid versionId, CancellationToken cancellationToken = default)

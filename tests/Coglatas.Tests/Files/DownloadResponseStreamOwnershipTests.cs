@@ -9,6 +9,7 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Coglatas.Tests.Files;
@@ -16,6 +17,76 @@ namespace Coglatas.Tests.Files;
 // Actual services/repositories and owned local bytes; synthetic authority and InMemory are not runtime security qualification.
 public sealed class DownloadResponseStreamOwnershipTests
 {
+    [Theory]
+    [InlineData("artifact")]
+    [InlineData("file")]
+    public async Task DisposalFailureWithoutLoggerPreservesOriginalErrorAndStoredBytes(string consumer)
+    {
+        await using var fixture = await Fixture.CreateAsync(withLogger: false);
+        var expected = new InvalidOperationException("Synthetic primary download failure.");
+        fixture.FailAt("audit", expected);
+        fixture.Storage.FailDispose = true;
+
+        var attempt = await CaptureDownloadAsync(fixture, consumer);
+
+        Assert.Same(expected, attempt.Error);
+        Assert.Null(attempt.Result);
+        Assert.Equal(1, Assert.IsType<DisposalFaultStream>(fixture.Storage.ResponseWrapper).Attempts);
+        Assert.Equal(0, fixture.ArtifactLogger.Attempts);
+        Assert.Equal(0, fixture.FileLogger.Attempts);
+        Assert.Empty(fixture.Storage.DeletedKeys);
+        Assert.True(await fixture.Storage.ExistsAsync(fixture.StorageKey));
+        Assert.Equal(Fixture.Content, await fixture.Storage.ReadStoredBytesAsync(fixture.StorageKey));
+    }
+
+    [Theory]
+    [InlineData("artifact", "audit", false)]
+    [InlineData("artifact", "persistence", false)]
+    [InlineData("file", "audit", false)]
+    [InlineData("file", "persistence", false)]
+    [InlineData("artifact", "audit", true)]
+    [InlineData("artifact", "persistence", true)]
+    [InlineData("file", "audit", true)]
+    [InlineData("file", "persistence", true)]
+    public async Task DisposalOrWarningFailurePreservesPrimaryErrorAndStoredBytes(string consumer, string stage, bool warningFails)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var originalBytes = await fixture.Storage.ReadStoredBytesAsync(fixture.StorageKey);
+        var expected = new InvalidOperationException("Synthetic primary download failure.");
+        fixture.FailAt(stage, expected);
+        fixture.Storage.FailDispose = true;
+        fixture.ArtifactLogger.Fail = warningFails;
+        fixture.FileLogger.Fail = warningFails;
+
+        var attempt = await CaptureDownloadAsync(fixture, consumer);
+
+        Assert.Same(expected, attempt.Error);
+        Assert.Null(attempt.Result);
+        Assert.Equal(1, Assert.IsType<DisposalFaultStream>(fixture.Storage.ResponseWrapper).Attempts);
+        Assert.Single(fixture.Storage.Opened);
+        Assert.Empty(fixture.Storage.DeletedKeys);
+        Assert.True(await fixture.Storage.ExistsAsync(fixture.StorageKey));
+        Assert.Equal(Fixture.Content, originalBytes);
+        Assert.Equal(originalBytes, await fixture.Storage.ReadStoredBytesAsync(fixture.StorageKey));
+        var attempts = consumer == "artifact" ? fixture.ArtifactLogger.Attempts : fixture.FileLogger.Attempts;
+        var entries = consumer == "artifact" ? fixture.ArtifactLogger.Entries : fixture.FileLogger.Entries;
+        Assert.Equal(1, attempts);
+        Assert.Equal(0, consumer == "artifact" ? fixture.FileLogger.Attempts : fixture.ArtifactLogger.Attempts);
+        if (warningFails) Assert.Empty(entries);
+        else
+        {
+            var warning = Assert.Single(entries);
+            Assert.Equal(LogLevel.Warning, warning.Level);
+            Assert.Equal(0, warning.Event.Id);
+            Assert.Null(warning.Event.Name);
+            Assert.Equal("Download response stream cleanup failed.", warning.Message);
+            Assert.Null(warning.Exception);
+            var state = Assert.Single(warning.State);
+            Assert.Equal("{OriginalFormat}", state.Key);
+            Assert.Equal(warning.Message, state.Value);
+        }
+    }
+
     [Theory]
     [InlineData("artifact", "audit")]
     [InlineData("artifact", "persistence")]
@@ -91,8 +162,10 @@ public sealed class DownloadResponseStreamOwnershipTests
         public TrackingStorage Storage { get; }
         public RecordingAudit Audit { get; } = new();
         public RecordingPersistence Persistence { get; }
+        public RecordingDownloadLogger<ArtifactService> ArtifactLogger { get; } = new();
+        public RecordingDownloadLogger<FileService> FileLogger { get; } = new();
 
-        private Fixture()
+        private Fixture(bool withLogger)
         {
             var tenant = new CurrentTenant(_tenantId);
             var user = new CurrentUser(_userId);
@@ -103,15 +176,15 @@ public sealed class DownloadResponseStreamOwnershipTests
             var repository = new FileRepository(_context);
             _artifacts = new ArtifactService(new ArtifactRepository(_context), new ProjectRepository(_context), null!,
                 repository, Storage, new UploadPolicy(), new FeatureFlags(), new Quotas(), new ArtifactAuthorization(),
-                user, tenant, new Clock(), Audit, new Notifications(), Persistence);
+                user, tenant, new Clock(), Audit, new Notifications(), Persistence, logger: withLogger ? ArtifactLogger : null);
             _files = new FileService(repository, new FileDownloadGrantRepository(_context), Storage, new FileAuthorization(),
                 new UploadPolicy(), new FeatureFlags(), new Quotas(), user, tenant, new Clock(), Audit,
-                new Sha256TokenHasher(), null!, Persistence);
+                new Sha256TokenHasher(), null!, Persistence, logger: withLogger ? FileLogger : null);
         }
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(bool withLogger = true)
         {
-            var fixture = new Fixture();
+            var fixture = new Fixture(withLogger);
             var workspaceId = Guid.NewGuid();
             var projectId = Guid.NewGuid();
             var artifactId = Guid.NewGuid();
@@ -164,6 +237,8 @@ public sealed class DownloadResponseStreamOwnershipTests
         public List<Stream> Opened { get; } = [];
         public List<string> SavedKeys { get; } = [];
         public List<string> DeletedKeys { get; } = [];
+        public bool FailDispose { get; set; }
+        public DisposalFaultStream? ResponseWrapper { get; private set; }
         public async Task<Result> SaveAsync(string key, Stream stream, string type, CancellationToken cancellationToken = default)
         {
             var result = await inner.SaveAsync(key, stream, type, cancellationToken);
@@ -174,6 +249,11 @@ public sealed class DownloadResponseStreamOwnershipTests
         {
             var stream = await inner.OpenReadAsync(key, cancellationToken);
             Opened.Add(stream);
+            if (FailDispose)
+            {
+                ResponseWrapper = new DisposalFaultStream(stream);
+                return ResponseWrapper;
+            }
             return stream;
         }
         public Task DeleteAsync(string key, CancellationToken cancellationToken = default)
@@ -189,6 +269,47 @@ public sealed class DownloadResponseStreamOwnershipTests
             await using var bytes = new MemoryStream();
             await source.CopyToAsync(bytes);
             return bytes.ToArray();
+        }
+    }
+
+    private sealed class DisposalFaultStream(Stream inner) : Stream
+    {
+        public int Attempts { get; private set; }
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => inner.CanSeek;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length => inner.Length;
+        public override long Position { get => inner.Position; set => inner.Position = value; }
+        public override void Flush() => inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+        public override void SetLength(long value) => inner.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+        public override ValueTask DisposeAsync()
+        {
+            Attempts++;
+            return ValueTask.FromException(new IOException("Synthetic private stream disposal detail."));
+        }
+    }
+
+    private sealed class RecordingDownloadLogger<T> : ILogger<T>
+    {
+        public bool Fail { get; set; }
+        public int Attempts { get; private set; }
+        public List<(LogLevel Level, EventId Event, string Message, Exception? Exception, KeyValuePair<string, object?>[] State)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Attempts++;
+            if (Fail) throw new IOException("Synthetic warning failure.");
+            Entries.Add((logLevel, eventId, formatter(state, exception), exception,
+                state is IEnumerable<KeyValuePair<string, object?>> values ? values.ToArray() : []));
         }
     }
 

@@ -686,20 +686,22 @@ public sealed class AuditPackageExportServiceTests
     {
         public bool Fail { get; set; }
         public int Attempts { get; private set; }
-        public List<(LogLevel Level, string Message, Exception? Exception, KeyValuePair<string, object?>[] State)> Entries { get; } = [];
+        public List<(LogLevel Level, EventId Event, string Message, Exception? Exception, KeyValuePair<string, object?>[] State)> Entries { get; } = [];
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             Attempts++;
             if (Fail) throw new IOException("Synthetic warning failure.");
-            Entries.Add((logLevel, formatter(state, exception), exception, state is IEnumerable<KeyValuePair<string, object?>> fields ? fields.ToArray() : []));
+            Entries.Add((logLevel, eventId, formatter(state, exception), exception, state is IEnumerable<KeyValuePair<string, object?>> fields ? fields.ToArray() : []));
         }
         public void AssertFixedWarning()
         {
             var warning = Assert.Single(Entries);
             Assert.Equal(LogLevel.Warning, warning.Level);
-            Assert.Equal("Audit package download stream cleanup failed.", warning.Message);
+            Assert.Equal(0, warning.Event.Id);
+            Assert.Null(warning.Event.Name);
+            Assert.Equal("Download response stream cleanup failed.", warning.Message);
             Assert.Null(warning.Exception);
             var state = Assert.Single(warning.State);
             Assert.Equal("{OriginalFormat}", state.Key);
