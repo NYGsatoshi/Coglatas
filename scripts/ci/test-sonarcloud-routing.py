@@ -396,6 +396,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         block = workflow[start:end]
         self.assertEqual(re.findall(r"--test-coverage-exclude=([^\n]+)", block), [
             "'**/*.node-test.mjs' \\",
+            "'**/tests/ci/synthetic-trigger-catalog.postgres-test.mjs' \\",
+            "'**/scripts/security/zap-attribution.test.cjs' \\",
             "'**/tests/ci/test_restore_data_dependency_advisor.mjs' \\",
             '"$coverage_temp_root/thread-secondary-reporter-*/**" \\',
             '"$coverage_temp_root/coglatas-thread-matrix-*/**" \\',
