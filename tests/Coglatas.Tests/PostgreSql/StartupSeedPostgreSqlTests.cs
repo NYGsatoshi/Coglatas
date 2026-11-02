@@ -12,6 +12,11 @@ namespace Coglatas.Tests.PostgreSql;
 
 public sealed class StartupSeedPostgreSqlTests
 {
+    private static readonly HttpClient Client = new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false, UseCookies = false
+    }) { Timeout = TimeSpan.FromSeconds(15) };
+
     [PostgreSqlFact]
     public Task DisabledOnPremSeedPreservesAnExistingTenantWithoutAddingPlans() =>
         VerifyStartupAsync(seedEnabled: false, existingTenant: true);
@@ -84,10 +89,9 @@ public sealed class StartupSeedPostgreSqlTests
 
                 await using (var host = await StartupHost.StartAsync(database, slug, seedEnabled, development, localAdmin, mode))
                 {
-                    using var client = new HttpClient { BaseAddress = host.Address, Timeout = TimeSpan.FromSeconds(15) };
-                    using var live = await client.GetAsync("/health/live");
+                    using var live = await Client.GetAsync(new Uri(host.Address, "/health/live"));
                     Assert.Equal(HttpStatusCode.OK, live.StatusCode);
-                    using var ready = await client.GetAsync("/health/ready");
+                    using var ready = await Client.GetAsync(new Uri(host.Address, "/health/ready"));
                     Assert.Equal(seedRequested || existingTenant || mode == AppMode.SaaS ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable,
                         ready.StatusCode);
                 }
