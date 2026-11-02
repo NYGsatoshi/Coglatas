@@ -131,6 +131,45 @@ public sealed class FileWorkspaceWorkflowTests
         Assert.Empty(fixture.Files.CommittedAttachments);
     }
 
+    [Theory]
+    [InlineData("unknown", false)]
+    [InlineData("committed", false)]
+    [InlineData("discard-refused", false)]
+    [InlineData("discard-failed", false)]
+    [InlineData("unknown", true)]
+    public async Task UnprovenCleanupRetainsBytesAndPreservesTheOriginalFailure(string mode, bool loggerFails)
+    {
+        var fixture = new Fixture();
+        var expected = new IOException("Synthetic private acknowledgement canary MUST_NOT_BE_LOGGED.");
+        fixture.UnitOfWork.UploadFailure = expected;
+        fixture.UnitOfWork.FailureDisposition = mode switch
+        {
+            "unknown" => UploadCommitDisposition.Unknown,
+            "committed" => UploadCommitDisposition.Committed,
+            _ => UploadCommitDisposition.NotCommitted
+        };
+        fixture.UnitOfWork.DiscardRefused = mode == "discard-refused";
+        fixture.UnitOfWork.DiscardFails = mode == "discard-failed";
+        fixture.Logger.ThrowOnLog = loggerFails;
+
+        var actual = await Assert.ThrowsAsync<IOException>(() => fixture.UploadTextAsync("private.txt", "private content"));
+
+        Assert.Same(expected, actual);
+        Assert.Single(fixture.Storage.SavedKeys);
+        Assert.Empty(fixture.Storage.DeletedKeys);
+        Assert.Equal(mode.StartsWith("discard-", StringComparison.Ordinal) ? 1 : 0, fixture.UnitOfWork.DiscardCalls);
+        if (loggerFails) { Assert.Empty(fixture.Logger.Entries); return; }
+        var warning = Assert.Single(fixture.Logger.Entries);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        Assert.Equal(53502, warning.Event.Id);
+        Assert.Equal("UploadCompensationSkipped", warning.Event.Name);
+        Assert.Equal("Stored file retained after an upload failure with a committed or unknown outcome.", warning.Message);
+        Assert.Null(warning.Exception);
+        var format = Assert.Single(warning.State);
+        Assert.Equal("{OriginalFormat}", format.Key);
+        Assert.Equal(warning.Message, format.Value);
+    }
+
     [Fact]
     public async Task WorkspaceFileListRequiresCurrentAuthorization()
     {
@@ -489,6 +528,11 @@ public sealed class FileWorkspaceWorkflowTests
     private sealed class FakeUnitOfWork(FakeFileRepository files) : IUnitOfWork
     {
         public bool ThrowOnSave { get; set; }
+        public Exception? UploadFailure { get; set; }
+        public UploadCommitDisposition FailureDisposition { get; set; }
+        public bool DiscardRefused { get; set; }
+        public bool DiscardFails { get; set; }
+        public int DiscardCalls { get; private set; }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -506,6 +550,11 @@ public sealed class FileWorkspaceWorkflowTests
 
         public async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
         {
+            if (UploadFailure is { } failure)
+            {
+                outcome.Disposition = FailureDisposition;
+                throw failure;
+            }
             // This fake throws before committing or moving any pending rows.
             outcome.Disposition = UploadCommitDisposition.NotCommitted;
             var count = await SaveChangesAsync(cancellationToken);
@@ -515,6 +564,9 @@ public sealed class FileWorkspaceWorkflowTests
 
         public bool TryDiscardFailedUploadChanges()
         {
+            DiscardCalls++;
+            if (DiscardFails) throw new IOException("Synthetic private discard canary MUST_NOT_BE_LOGGED.");
+            if (DiscardRefused) return false;
             files.PendingFileObjects.Clear();
             files.PendingAttachments.Clear();
             return true;
