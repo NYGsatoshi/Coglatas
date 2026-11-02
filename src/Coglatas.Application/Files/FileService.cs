@@ -6,6 +6,7 @@ using Coglatas.Application.Realtime;
 using Coglatas.Application.Workspaces;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Coglatas.Application.Files;
 
@@ -25,7 +26,8 @@ public sealed class FileService(
     IBusinessInvalidationPublisher invalidations,
     IUnitOfWork unitOfWork,
     IFileSharingService? sharing = null,
-    IWorkspaceAuthorizationService? workspaceAuthorization = null) : IFileService
+    IWorkspaceAuthorizationService? workspaceAuthorization = null,
+    ILogger<FileService>? logger = null) : IFileService
     , IFileObjectService
 {
     private static readonly TimeSpan FileDownloadGrantLifetime = TimeSpan.FromMinutes(10);
@@ -123,7 +125,7 @@ public sealed class FileService(
                 owner == await files.ResolveOwnerAsync(input.OwnerType, input.OwnerId, token), cancellationToken);
             if (!stillAllowed)
             {
-                await TryDeleteStoredFileAsync(fileObject.StorageKey, CancellationToken.None);
+                await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
                 return Result<AttachmentResponse>.Failure("You are not allowed to upload an attachment for this resource.");
             }
 
@@ -142,7 +144,7 @@ public sealed class FileService(
         }
         catch
         {
-            await TryDeleteStoredFileAsync(fileObject.StorageKey, CancellationToken.None);
+            await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
             throw;
         }
 
@@ -563,18 +565,6 @@ public sealed class FileService(
             Metadata: metadata,
             TenantId: currentTenant.IsAvailable ? currentTenant.TenantId : attachment.TenantId), cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task TryDeleteStoredFileAsync(string storageKey, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await storage.DeleteAsync(storageKey, cancellationToken);
-        }
-        catch
-        {
-            // The original persistence/audit failure is the one callers need to see.
-        }
     }
 
     private async Task<FileGrantDecision> ValidateAttachmentForGrantAsync(

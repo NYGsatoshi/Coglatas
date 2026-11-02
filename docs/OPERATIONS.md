@@ -25,6 +25,27 @@ Do not treat an environment as pilot-ready until these pass in that environment:
 - File upload/download authorization works.
 - Backup and restore drill is recorded.
 
+## Upload compensation warnings
+
+File and Artifact-version uploads use the same best-effort cleanup when an
+unsuccessful operation has already stored new bytes. Cleanup ignores the failed
+request's cancellation token and targets only that operation's new storage key.
+If deletion fails, the application emits warning event `53501`
+(`UploadCompensationFailed`) with the fixed message
+`Stored file cleanup failed after an unsuccessful upload.` No exception,
+storage path, resource identity, credential or file content is included.
+The original upload exception or authorization denial remains authoritative,
+even if the log provider also fails. A warning can therefore indicate retained
+unreferenced bytes; investigate through approved operational access rather than
+inferring an object to delete from the warning. No follow-up database save or
+repair is attempted. Successful commits do not invoke compensation.
+
+`ArtifactUploadCompensationTests` and `FileWorkspaceWorkflowTests` cover the
+shared behavior. The native PostgreSQL duplicate-version control additionally
+checks transaction rollback, existing-file preservation and both successful and
+failed cleanup. It requires `POSTGRES_TEST_CONNECTION_STRING`; an absent local
+connection is a skip, not PostgreSQL qualification.
+
 ## Smoke Test
 
 Run this before a local demo, internal pilot handoff, or on-prem school demonstration.
