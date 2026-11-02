@@ -94,6 +94,7 @@ public sealed class StartupSeedPostgreSqlTests
                     using var ready = await Client.GetAsync(new Uri(host.Address, "/health/ready"));
                     Assert.Equal(seedRequested || existingTenant || mode == AppMode.SaaS ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable,
                         ready.StatusCode);
+                    await host.StopAsync();
                 }
 
                 await using var restored = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
@@ -147,18 +148,27 @@ public sealed class StartupSeedPostgreSqlTests
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "coglatas-startup-seed-" + Guid.NewGuid().ToString("N"));
         private readonly Process _server;
         private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _stopAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ConcurrentDictionary<string, byte> _startupTypes = new();
         private bool _started;
         public Uri Address { get; private set; } = null!;
 
         private StartupHost(string database, string slug, bool seedEnabled, bool development, bool localAdmin, AppMode mode)
         {
-            Directory.CreateDirectory(_directory);
             var start = new ProcessStartInfo("dotnet")
             {
                 WorkingDirectory = _directory, UseShellExecute = false, CreateNoWindow = true,
-                RedirectStandardOutput = true, RedirectStandardError = true
+                RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true
             };
+            start.ArgumentList.Add("exec");
+            var packages = Environment.GetEnvironmentVariable("NUGET_PACKAGES") ??
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+            if (!Path.IsPathFullyQualified(packages) || !Directory.Exists(packages))
+                throw new InvalidOperationException("The owned startup host requires its restored NuGet package directory.");
+            start.ArgumentList.Add("--additionalprobingpath");
+            start.ArgumentList.Add(packages);
+            start.ArgumentList.Add("--additional-deps");
+            start.ArgumentList.Add(Path.ChangeExtension(typeof(StartupSeedPostgreSqlTests).Assembly.Location, ".deps.json"));
             start.ArgumentList.Add(typeof(AuthController).Assembly.Location);
             var inherited = new Dictionary<string, string?>();
             foreach (var key in new[] { "PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "DOTNET_ROOT" })
@@ -168,6 +178,8 @@ public sealed class StartupSeedPostgreSqlTests
             foreach (var (key, value) in new Dictionary<string, string>
             {
                 ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1", ["DOTNET_NOLOGO"] = "1",
+                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = typeof(StartupSeedHostLifetimeStartup).Assembly.GetName().Name!,
+                [StartupSeedHostLifetimeStartup.EnabledKey] = "true",
                 ["ASPNETCORE_ENVIRONMENT"] = development ? "Development" : "Test",
                 ["DOTNET_ENVIRONMENT"] = development ? "Development" : "Test",
                 ["ASPNETCORE_URLS"] = "http://127.0.0.1:0", ["ConnectionStrings__DefaultConnection"] = database,
@@ -190,9 +202,12 @@ public sealed class StartupSeedPostgreSqlTests
                 start.Environment["LocalAdmin__Password"] = Guid.NewGuid().ToString("N");
                 start.Environment["LocalAdmin__DisplayName"] = "Synthetic Startup Admin";
             }
+            Directory.CreateDirectory(_directory);
             _server = new Process { StartInfo = start, EnableRaisingEvents = true };
             _server.OutputDataReceived += (_, args) =>
             {
+                if (args.Data == StartupSeedHostLifetimeStartup.StopAcknowledgement)
+                    _stopAccepted.TrySetResult(true);
                 const string marker = "Now listening on: ";
                 var index = args.Data?.IndexOf(marker, StringComparison.Ordinal) ?? -1;
                 if (index >= 0 && Uri.TryCreate(args.Data![(index + marker.Length)..].Trim(), UriKind.Absolute, out var address) &&
@@ -229,6 +244,19 @@ public sealed class StartupSeedPostgreSqlTests
                 await host.DisposeAsync();
                 throw;
             }
+        }
+
+        public async Task StopAsync()
+        {
+            if (!_started || _server.HasExited)
+                throw new InvalidOperationException("Synthetic startup process exited before its stop request.");
+            using var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await _server.StandardInput.WriteLineAsync(StartupSeedHostLifetimeStartup.StopCommand.AsMemory(), shutdown.Token);
+            await _server.StandardInput.FlushAsync(shutdown.Token);
+            _server.StandardInput.Close();
+            await _stopAccepted.Task.WaitAsync(shutdown.Token);
+            await _server.WaitForExitAsync(shutdown.Token);
+            Assert.Equal(0, _server.ExitCode);
         }
 
         public async ValueTask DisposeAsync()
