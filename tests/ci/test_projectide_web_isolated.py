@@ -7,6 +7,23 @@ from unittest.mock import patch
 import projectide_web_isolated as composer
 
 class WebCompositionTests(unittest.TestCase):
+    def test_only_the_exact_existing_internal_inventory_maintenance_is_allowed(self):
+        baseline = "explicit five-route addendum\n'/home', '/teams'\nSourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 43)\nassert.equal(inventory.routes.length, 38);"
+        approved = "explicit six-route addendum\n'/home', '/projectide/preview', '/teams'\nSourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 44)\nassert.equal(inventory.routes.length, 38);"
+        with patch.object(composer,"git",side_effect=[baseline,approved]):
+            composer.verify_internal_inventory(Path("."),"0"*40)
+        for altered in [approved.replace("inventory.routes.length, 38", "inventory.routes.length, 39"),
+                        approved.replace("assert.equal(inventory.routes.length, 38);", ""),
+                        approved + "\n// Additional test changes are not permitted."]:
+            with patch.object(composer,"git",side_effect=[baseline,altered]):
+                with self.assertRaisesRegex(ValueError,"Only exact internal inventory maintenance"):
+                    composer.verify_internal_inventory(Path("."),"0"*40)
+
+    def test_a_changed_pinned_internal_baseline_is_rejected(self):
+        with patch.object(composer,"git",return_value="different baseline"):
+            with self.assertRaisesRegex(ValueError,"Pinned internal inventory baseline"):
+                composer.verify_internal_inventory(Path("."),"0"*40)
+
     def test_symbolic_or_abbreviated_refs_are_rejected_before_composition(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(composer,"git") as git:
             root=Path(directory)

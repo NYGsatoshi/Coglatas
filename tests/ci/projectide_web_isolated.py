@@ -12,6 +12,23 @@ INVENTORY_TESTS = (
     "frontend/scripts/av-mig-inventory.node-test.mjs",
     "frontend/scripts/av-mig-source.node-test.mjs",
 )
+INTERNAL_INVENTORY = INVENTORY_TESTS[0]
+
+def verify_internal_inventory(repository: Path, product: str) -> None:
+    """Permit only existing internal assertions following the newly registered route."""
+    baseline = git(repository, "show", CORE_PRODUCT + ":" + INTERNAL_INVENTORY)
+    expected = baseline
+    for before, after in (
+        ("explicit five-route addendum", "explicit six-route addendum"),
+        ("'/home', '/teams'", "'/home', '/projectide/preview', '/teams'"),
+        ("SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 43)",
+         "SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 44)"),
+    ):
+        if expected.count(before) != 1:
+            raise ValueError("Pinned internal inventory baseline differs from the approved maintenance profile")
+        expected = expected.replace(before, after)
+    if git(repository, "show", product + ":" + INTERNAL_INVENTORY) != expected:
+        raise ValueError("Only exact internal inventory maintenance is permitted on Product")
 
 def frontend_test(path: str) -> bool:
     return path.endswith(".spec.ts") or path in INVENTORY_TESTS
@@ -51,10 +68,14 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     product_merges: list[str] = []
     test_merges: list[str] = []
     product_changes = changes(repository, CORE_PRODUCT, product, (
-        "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT, product_merges)
+        "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", INTERNAL_INVENTORY,
+        "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT, product_merges)
     for commit in product_changes:
-        if any(frontend_test(path) for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines()):
-            raise ValueError("Product candidate contains independent Test source")
+        for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines():
+            if path == INTERNAL_INVENTORY:
+                verify_internal_inventory(repository, product)
+            elif frontend_test(path):
+                raise ValueError("Product candidate contains independent Test source")
     web_tests = changes(repository, CORE_TEST, test, (
         "frontend/src/app/features/projectide/", *INVENTORY_TESTS, "tests/", ".github/workflows/projectide-web-isolated.yml"), CORE_TEST, test_merges)
     core_tests = changes(repository, TEST_BASE, CORE_TEST, (
