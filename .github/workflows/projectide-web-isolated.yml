@@ -1,0 +1,65 @@
+name: ProjectIDE Web isolated candidates
+
+on:
+  pull_request:
+    paths:
+      - frontend/src/app/features/projectide/**
+      - tests/Coglatas.Tests/ProjectIde/WebPreviewContractTests.cs
+      - tests/ui/projectide-workbench.spec.ts
+      - tests/ci/projectide_web*
+      - tests/ci/projectide-web-product.sha
+      - tests/ci/test_projectide_web*.py
+      - .github/workflows/projectide-web-isolated.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-web-isolated-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  isolated:
+    name: Exact Web Product and Test candidates (supplemental)
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'test/projectide-web-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.22.2'
+      - name: Compose exact independent candidates
+        env:
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 -m unittest discover -s tests/ci -p 'test_projectide*.py' -v
+          PRODUCT_HEAD=$(cat tests/ci/projectide-web-product.sha)
+          python3 tests/ci/projectide_web_isolated.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD" --worktree "$RUNNER_TEMP/projectide-web/combined" --receipt "$RUNNER_TEMP/projectide-web/evidence/receipt.json"
+      - name: Install existing locked dependencies and browser
+        working-directory: ${{ runner.temp }}/projectide-web/combined
+        run: |
+          npm install --global npm@11.17.0
+          npm ci
+          npm --prefix frontend ci
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Execute Core contract, Angular regression and browser inventories
+        run: python3 tests/ci/projectide_web_verify.py --worktree "$RUNNER_TEMP/projectide-web/combined" --receipt "$RUNNER_TEMP/projectide-web/evidence/receipt.json"
+      - name: Retain exact candidates and actual evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-web-isolated-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/projectide-web/evidence
+          include-hidden-files: true
+          if-no-files-found: error

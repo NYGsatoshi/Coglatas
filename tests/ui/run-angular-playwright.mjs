@@ -13,6 +13,7 @@ const serverPath = fileURLToPath(new URL('./serve-static.mjs', import.meta.url))
 const playwrightCli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));
 const playwrightArgs = process.argv.slice(2);
 const staticSuiteFiles = [
+  'tests/ui/projectide-workbench.spec.ts',
   'tests/ui/angular-smoke.spec.ts',
   'tests/ui/core-workflow-localization.spec.ts',
   'tests/ui/penpot-responsive.spec.ts',

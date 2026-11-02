@@ -62,6 +62,8 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
         values.failure,
       ],
       ['unknown current Web route', (inventory, freeze, target, current) => { current.routes[0].path = '/unknown'; }, values.failure],
+      ['ProjectIDE preview component drift', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/projectide/preview').component = 'DraftsPageComponent'; }, values.failure],
+      ['ProjectIDE preview semantic owner removal', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/projectide/preview').stateOwners = ['ProjectIdeWorkbenchComponent']; }, values.failure],
       ['Home component role drift', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/home').component = 'MessagesPageComponent'; }, values.failure],
       ['Home direct owner removal', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/home').stateOwners.pop(); }, values.failure],
       ['missing current Web route', (inventory, freeze, target, current) => { current.routes.pop(); }, values.failure],
@@ -202,11 +204,13 @@ test('source inventory denies lexical and symlink escapes for data-driven source
   try {
     SourceInventory.root = root;
     const outsideFile = resolve(outside, 'external.ts'),
-      alias = resolve(root, 'alias.ts'),
+      alias = resolve(root, 'alias'),
       route = { component: 'ExampleComponent', path: '/example', stateOwners: ['ExampleComponent'] };
     writeFileSync(outsideFile, 'export class ExampleComponent {}');
-    symlinkSync(outsideFile, alias);
-    for (const ownerPath of ['../other/external.ts', 'alias.ts']) {
+    // A directory junction exercises realpath containment on Windows without
+    // requiring elevation; Node creates a directory symlink on Unix.
+    symlinkSync(outside, alias, 'junction');
+    for (const ownerPath of ['../other/external.ts', 'alias/external.ts']) {
       assert.throws(
         () => SourceInventory.verifyScreen(route, { ownerPath }, { owners: new Map(), sources: new Map() }),
         /Invalid file path/u,
@@ -214,7 +218,7 @@ test('source inventory denies lexical and symlink escapes for data-driven source
     }
     const inventory = { routes: [], stateOwners: [] },
       target = { routes: [] };
-    for (const routeDefinition of ['../other/external.ts', 'alias.ts']) {
+    for (const routeDefinition of ['../other/external.ts', 'alias/external.ts']) {
       const freeze = { routes: [], routeDefinition };
       assert.throws(() => SourceInventory.verify([inventory, freeze, target]), /Invalid file path/u);
     }
