@@ -11,6 +11,7 @@ describe('Source-backed semantic inspection', () => {
     const bundle = readPreviewBundle(fixture()); const store = new ProjectIdeWorkbenchStore();
     await store.load(async () => bundle); store.choose('pass'); store.loadResult();
     const record = store.context()!.declarations.find((record) => record.kind === 'coglatas.project')!;
+    if (record.recordType !== 'entity') throw new Error('Expected an entity fixture');
     store.select({ kind: 'entity', id: record.identity });
     expect(store.inspectedSymbols().length).toBe(1);
     expect(store.inspectedReferences().some((reference) => reference.state === 'Resolved')).toBe(true);
@@ -32,7 +33,9 @@ describe('Source-backed semantic inspection', () => {
   it('retains compatibility with a fixture that has no optional inspection, without inferring symbols', async () => {
     const raw = fixture(); for (const item of raw.cases) delete item.semanticInspection;
     const bundle = readPreviewBundle(raw); const store = new ProjectIdeWorkbenchStore(); await store.load(async () => bundle);
-    store.choose('pass'); store.loadResult(); store.select({ kind: 'entity', id: store.context()!.declarations[0].identity });
+    store.choose('pass'); store.loadResult(); const record = store.context()!.declarations[0];
+    if (record.recordType !== 'entity') throw new Error('Expected an entity fixture');
+    store.select({ kind: 'entity', id: record.identity });
     expect(store.inspectedSymbols()).toEqual([]);
   });
 });

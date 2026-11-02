@@ -147,7 +147,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         raise ValueError("Web Product differs from the exact pinned Core runtime source")
     # Independent Test and Product have different pre-existing non-ProjectIDE
     # baselines. Compare exact owned files, rather than absorbing unrelated tests.
-    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde",
+    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj",
            "tests/ci/projectide*", "tests/ci/test_projectide*", "tests/ui/projectide-workbench.spec.ts",
            ".github/workflows/projectide-*.yml", *INVENTORY_TESTS,
            "frontend/src/app/features/projectide/*.spec.ts"):

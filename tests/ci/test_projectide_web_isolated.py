@@ -82,12 +82,14 @@ class WebCompositionTests(unittest.TestCase):
                 composer.compose(root,root/"new",root/"receipt.json","0"*40,"1"*40)
 
     def test_composed_projectide_test_files_must_equal_the_test_head(self):
-        def git(*arguments):
-            return "changed ProjectIDE test" if "tests/Coglatas.Tests/ProjectIde" in arguments else ""
-        with tempfile.TemporaryDirectory() as directory, patch.object(composer,"changes",return_value=[]), patch.object(composer,"git",side_effect=git):
-            root=Path(directory)
-            with self.assertRaisesRegex(ValueError,"differs from the exact Test candidate source"):
-                composer.compose(root,root/"new",root/"receipt.json","0"*40,"1"*40)
+        for owned_path in ("tests/Coglatas.Tests/ProjectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj"):
+            with self.subTest(path=owned_path):
+                def git(*arguments):
+                    return "changed Test source or project graph" if owned_path in arguments else ""
+                with tempfile.TemporaryDirectory() as directory, patch.object(composer,"changes",return_value=[]), patch.object(composer,"git",side_effect=git):
+                    root=Path(directory)
+                    with self.assertRaisesRegex(ValueError,"differs from the exact Test candidate source"):
+                        composer.compose(root,root/"new",root/"receipt.json","0"*40,"1"*40)
 
 class PinnedDependencyMergeTests(unittest.TestCase):
     def setUp(self):
