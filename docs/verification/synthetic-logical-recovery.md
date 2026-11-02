@@ -7,16 +7,21 @@ HTTPS, a school target, or pilot release. Held PR #1379 is not reused.
 
 The initial source baseline is Main
 `49962886a875d30dd16c822e4b25b1dccd205ae6`. Its known strict-schema failure
-remains a failure. Execution must wait for the independent schema repair to
-merge normally and the resulting Main to qualify; this branch must then merge
-that Main normally. No comparison, constraint, trigger or migration-history
-condition may be weakened to obtain a successful receipt.
+remains a failure. This branch now normally adopts Main
+`f987379b7601df1a8c7bb810f191924dd2208fa2`, including normal schema repair
+#1641 and startup repair #1646. Its fresh Main CI `41384212616/1` completed
+41 successful jobs and two existing policy skips, with the three strict schema
+and seven startup regressions passing. This qualifies the technical dependency
+for an isolated drill; official Main Sonar analysis
+`003d7a54-6cfb-4bf5-856d-bf90ff37b02f` still fails 74.2% new coverage and
+Security E. Release readiness and Owner approval are not established. No
+comparison, constraint, trigger or migration-history condition may be weakened.
 
-The current production OnPrem startup path invokes default tenant/plan seeding
-even with `Tenancy:SeedOnStartup=false`. This harness deliberately uses the
-existing Test/SaaS fixture and cannot establish OnPrem startup preservation.
-Changing that production behavior or accepting a different recovery strategy
-requires its own review and, where applicable, Owner decision.
+The historical OnPrem path invoked default tenant/plan seeding even with
+`Tenancy:SeedOnStartup=false`; #1646 now honors the explicit controls and retains
+the reviewed Development/OnPrem LocalAdmin compatibility path. This mechanism
+still uses the existing Test/SaaS fixture and does not establish full OnPrem
+recovery, an actual-target operation or a different accepted recovery strategy.
 
 ## Invocation and authority
 
