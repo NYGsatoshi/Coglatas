@@ -11,6 +11,8 @@ on:
       - "scripts/ci/run-synthetic-logical-recovery.mjs"
       - "scripts/ci/synthetic-logical-recovery-probe.mjs"
       - "tests/ci/synthetic-logical-recovery.node-test.mjs"
+      - "tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs"
+      - "tests/ci/synthetic-logical-recovery-probe.node-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -48,6 +50,8 @@ on:
       - "scripts/ci/run-synthetic-logical-recovery.mjs"
       - "scripts/ci/synthetic-logical-recovery-probe.mjs"
       - "tests/ci/synthetic-logical-recovery.node-test.mjs"
+      - "tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs"
+      - "tests/ci/synthetic-logical-recovery-probe.node-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -102,6 +106,8 @@ jobs:
         run: >-
           node --test
           tests/ci/synthetic-logical-recovery.node-test.mjs
+          tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs
+          tests/ci/synthetic-logical-recovery-probe.node-test.mjs
           tests/functional/fci04-owner-reporter.node-test.mjs
           tests/ui/build-playwright-grep.node-test.mjs
           tests/ui/real-backend-smoke-compose-helpers.node-test.mjs

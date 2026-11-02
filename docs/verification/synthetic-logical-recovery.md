@@ -105,6 +105,22 @@ contracts. A configured workflow or passing guards do not establish application
 startup, PostgreSQL restore, actual cookies, Data Protection continuity or G09.
 Keep first-attempt failures and unexecuted checks visible in the release ledger.
 
+The actual owned-project cleanup loop is shared with focused fail-closed Node
+controls. They exercise foreign labels/services, source-only helper deletion,
+residual compute/storage/network rejection, and unchanged first-error propagation.
+The API probe's same fixed-loopback implementation additionally runs against a
+stateful synthetic fetch fixture. Saved-cookie identity, CSRF, file bytes,
+cross-tenant denials and server-side logout revocation have negative controls;
+these are probe-oracle tests, not evidence that a Product backend passed.
+
+A retained counterexample returned HTTP 401 containing the revoked actor's
+known identity while the old probe published PASS. Denied `me` checks now reject
+the three validated private fixture actors' known user IDs or emails in raw,
+case-varied or JSON-escaped response text, including each logout confirmation,
+while preserving safe empty/non-JSON errors and the exact HTTP-status and
+successful-identity assertions. No response body is logged. The unit I/O seam
+changes neither CLI admission, private paths/creation modes nor the fixed target.
+
 The initial local preparation ran 15 new guards successfully on host Node 24
 and the pinned Linux Node container, with no skipped tests. The existing
 preflight cohort plus the initial 14 guards passed 105 tests; the added source

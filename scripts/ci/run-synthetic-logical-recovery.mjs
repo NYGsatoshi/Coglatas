@@ -141,6 +141,24 @@ export function restoreArchive(docker, helperLabels, volume, bytes) {
     '-xpf', '-', '-C', '/restore'], { input: bytes });
 }
 
+export function cleanupOwnedProjects(created, source, { docker, inspect, compose }) {
+  for (const project of created) {
+    const containers = docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim().split(/\s+/).filter(Boolean);
+    for (const id of containers) {
+      const info = inspect(id), service = info.Config.Labels['com.docker.compose.service'];
+      require(info.Config.Labels['com.docker.compose.project'] === project &&
+        ['postgres', 'app', 'migrate', 'mechanism-helper'].includes(service), 'CLEANUP_OWNER');
+      if (service === 'mechanism-helper') {
+        require(project === source, 'CLEANUP_OWNER'); docker(['rm', '--force', id]);
+      }
+    }
+    compose(project, ['down', '--volumes', '--remove-orphans']);
+    require(!docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim() &&
+      !docker(['volume', 'ls', '-q', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim() &&
+      !docker(['network', 'ls', '-q', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim(), 'CLEANUP_REMAINS');
+  }
+}
+
 export async function awaitOutboxIdle(read, pause = () => new Promise(done => setTimeout(done, 1000))) {
   for (let sample = 0; sample < 30; sample++) {
     const count = read(); require(/^[0-9]+$/.test(count), 'OUTBOX_SCHEMA');
@@ -523,21 +541,7 @@ export async function runRecovery() {
     // A failed target never replaces or writes into the original source.
     // Cleanup only projects first observed absent and subsequently owned here.
     try {
-      for (const project of created) {
-        const containers = docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim().split(/\s+/).filter(Boolean);
-        for (const id of containers) {
-          const info = inspect(id), service = info.Config.Labels['com.docker.compose.service'];
-          require(info.Config.Labels['com.docker.compose.project'] === project &&
-            ['postgres', 'app', 'migrate', 'mechanism-helper'].includes(service), 'CLEANUP_OWNER');
-          if (service === 'mechanism-helper') {
-            require(project === names.source, 'CLEANUP_OWNER'); docker(['rm', '--force', id]);
-          }
-        }
-        compose(project, ['down', '--volumes', '--remove-orphans']);
-        require(!docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim() &&
-          !docker(['volume', 'ls', '-q', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim() &&
-          !docker(['network', 'ls', '-q', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim(), 'CLEANUP_REMAINS');
-      }
+      cleanupOwnedProjects(created, names.source, { docker, inspect, compose });
       receipt.cleanup = true;
     } catch { receipt.cleanup = false; receipt.status = 'ERROR'; receipt.cleanupError = 'OWNED_CLEANUP_FAILED'; }
     const artifacts = join(ROOT, 'artifacts');
