@@ -126,7 +126,15 @@ The Web composer records both dependency merge commits, accepts only their exact
 pinned second parent and checks each merge tree against Git's automatic merge.
 Additional resolution edits, unknown parents and later ownership violations are
 rejected. It composes independent Core Test commits followed by Web Test commits,
-then requires exact Test-owned file equality and unchanged Product runtime source.
+then requires exact ProjectIDE-owned Test file equality and unchanged Product
+runtime source. Product and Test retain different pre-existing non-ProjectIDE
+baselines; those differences are inventoried rather than absorbed into Product.
+Shared runner/inventory maintenance uses the validated independent commit patches.
+The first dependency composition correctly stopped before verification when an
+overbroad whole-tests-directory equality check encountered these inherited
+differences. Its failure log is retained. The corrected comparison retains all
+ProjectIDE-owned files and adds a negative control for their exact equality;
+it neither imports unrelated tests nor removes a required check.
 The Web verifier checks both the recorded commit and tree plus a clean tracked
 checkout before and after execution. Real temporary-Git controls cover dirty and
 staged checkouts, same-tree commit substitution, receipt tampering and dependency
