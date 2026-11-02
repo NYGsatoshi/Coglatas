@@ -161,3 +161,69 @@ the final updated heads must run fresh verification. Skip/exclusion policies are
 unchanged. The original ordinary Product route-assertion failure remains historical
 and the corrected Product must pass its own new ordinary CI. Standalone Test
 dependency failures remain visible and separate from supplemental evidence.
+
+## Continuation checkpoint — 2026-11-03
+
+The inherited register above remains historical. A fresh GitHub REST/GraphQL audit
+found the same 21 open ProjectIDE PRs, all Draft and auto-merge unset. Their initial
+HEADs match the supplied 2026-11-02 snapshot. Both review-thread pagination and
+per-thread comment pagination were exhausted. Only #1628 has new unresolved
+inline threads (Cancellation, Expected Kind); its latest CodeRabbit review also
+contains the Unknown-basis observation outside the diff. Spec #300 is MERGED
+(`16066f182beef0cd7ce57aa23849922f634d82c7`), overriding stale Draft text in Issues.
+The current #888/#798/#905/#782/#793-#795/#906/#1144/#1128 bodies and normative
+2026-10-31 owner decision were fetched. No earlier Core chain is recreated.
+
+The supplied RiderProjects checkout is absent on this host. Existing clean Product
+and independent Test worktrees under `.codex/worktrees` are reused. A historical
+Slice 3 reproduction has a pre-existing modified TypedRelationTests file; it is
+preserved. Existing Python caches are not source changes. Main and integration
+worktrees/refs are not development targets. The current SecurityTestImplimation
+remote tip differs from the historical register; the fixed Test ancestor and all
+existing review bases remain unchanged.
+
+Core Product `e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4` and independent Test
+`f057f5e86fd28c6ca00875f20f8e30a49fb82f8b` correct all three observations.
+Before-fix combined `00a86e1d993d723f42bf4e0ce49d0c50315e324c`, tree
+`2329ebb7db13cb62ea05c93583a1d1ff9a80ddd1`: 8 FAIL / 3 PASS / 0 skipped.
+After-fix combined `bbcb59b7825722a52b1f250126e3a709af4d55c4`, tree
+`a85b3a67eb902ceb269d5a7e1e5a8f3b49718397`: Windows SDK 10.0.403 Release solution
+build with warnings as errors, 0 warnings/errors; Core 725/725, Architecture 12/12,
+0 failed/skipped. Four isolated composition controls pass. Existing inventories,
+late-response cancellation controls and all assertion responsibilities are retained.
+Core TRX SHA-256: `458916dc78c1bb39b7746a012856be7a245637b7969743f075156d03479596c1`.
+Actual new-head hosted conclusions are recorded separately in PRs; these local
+results do not imply hosted, reviewer, security or client acceptance.
+
+Web dependencies advance through automatic merge trees with exact Core parents,
+Product-to-Product and Test-to-Test only. The composer explicitly enumerates both
+historical and current Core dependency parents and rejects all others, preserving
+existing history and fixed review bases. Fixture producer metadata is regenerated
+from corrected Core; synthetic cases retain their actual Core-produced values.
+All 28 composition/verification negative controls pass. New full Web evidence is
+required; the earlier 724/263/70/42 result set is not reused for the changed heads.
+
+Ordinary CI classification at inherited heads:
+
+| PR / run | Producer or consumer | Observed failure classification |
+| --- | --- | --- |
+| #1629 / 41371615115 | .NET build producer | CS0234/CS0246 for absent unmerged Product Core/types |
+| #1629 / same run | build-test, security-scan, Functional, specification-contract | Producer-dependent failed/skipped execution and missing evidence, not PASS |
+| #1638 / 41379288123 | .NET build producer | Same independent Test/Product dependency boundary |
+| #1638 / same run | frontend-test | 34 browser failures: Preview Product route absent from standalone Test build; retries also fail |
+| #1638 / same run | dependent gates | Missing producer/runtime/Advisory evidence; retained as failures |
+
+The repository uses rulesets rather than legacy branch protection (that endpoint
+returns 404). Active owner-only Main ruleset 24643016 requires build-test,
+frontend-test, security-scan, publication-readiness, functional-fast and
+performance-fast, strict status checking, thread resolution, no deletion and no
+non-fast-forward update. No ruleset, workflow gate, exclusion or threshold is
+relaxed. Supplemental evidence is a separate candidate evaluation axis.
+
+Next bounded implementation candidate: Source-backed semantic inspection, with
+immutable input/Source identity, deterministic symbols/types/reference status,
+Angular Inspector consumption and a pure .NET synthetic Workbench adapter for the
+Windows lane. Actual Avalonia startup, native E2E and real API/authorization remain
+HOLD under #1144. This is independent of complete Requirement evidence/resource
+materialization, which remain unimplemented. Shared-client completion is not claimed.
+#1128 remains SUSPENDED / NOT_EVALUATED.
