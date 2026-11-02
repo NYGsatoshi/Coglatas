@@ -99,6 +99,7 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
     if (new Set(inspection.symbols.map((symbol) => symbol.key)).size !== inspection.symbols.length ||
         new Set(inspection.symbols.map((symbol) => [symbol.location.documentId, symbol.location.entityId, symbol.location.propertyPath].join(':'))).size !== inspection.symbols.length)
       throw new PreviewReadError('unsupported');
+    const portIndexes = new Map<SourceRecord, Map<string, Record<string, unknown>>>();
     for (const symbol of inspection.symbols) {
       const location = symbol.location;
       let key: Record<string, unknown>;
@@ -119,10 +120,20 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
         if (symbol.kind !== declaration.kind || symbol.status !== declaration.status || symbol.declaredType !== null)
           throw new PreviewReadError('unsupported');
       } else {
-        const payload = declaration.data['payload'] as Record<string, unknown> | undefined;
-        const ports = payload?.['ports'];
-        const port = Array.isArray(ports) ? ports.find((entry: unknown) => typeof entry === 'object' && entry !== null &&
-          location.propertyPath === '/payload/ports/' + (entry as Record<string, unknown>)['portId']) as Record<string, unknown> | undefined : undefined;
+        let ports = portIndexes.get(declaration);
+        if (!ports) {
+          ports = new Map();
+          const payload = declaration.data['payload'] as Record<string, unknown> | undefined;
+          const entries = payload?.['ports'];
+          if (Array.isArray(entries)) for (const entry of entries) {
+            if (typeof entry !== 'object' || entry === null) continue;
+            const candidate = entry as Record<string, unknown>;
+            const path = '/payload/ports/' + candidate['portId'];
+            if (!ports.has(path)) ports.set(path, candidate);
+          }
+          portIndexes.set(declaration, ports);
+        }
+        const port = ports.get(location.propertyPath);
         if (!port || symbol.status !== 'Decoded' || !symbol.declaredType ||
             symbol.kind !== symbol.declaredType['kind'] || !sameJson(symbol.declaredType, port['type']))
           throw new PreviewReadError('unsupported');
