@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -29,6 +29,25 @@ await test('tracked test bodies remain outside the operational coverage scope', 
   for (const path of ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs']) {
     assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', path), { ...options, tracked: new Set([path]) }));
   }
+});
+await test('actual ZAP tests execute while native LCOV excludes only their body and raw V8 retains it', t => {
+  const directory = ownedDirectory(t, 'coglatas-zap-coverage-body-');
+  const output = join(directory, 'lcov.info'), raw = join(directory, 'raw'); mkdirSync(raw);
+  const environment = { ...process.env, NODE_V8_COVERAGE: raw }; delete environment.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, ['--enable-source-maps', '--test', '--experimental-test-coverage',
+    '--test-coverage-exclude=**/scripts/security/zap-attribution.test.cjs',
+    '--test-reporter=spec', '--test-reporter-destination=' + join(directory, 'tests.log'),
+    '--test-reporter=lcov', '--test-reporter-destination=' + output,
+    'scripts/security/zap-attribution.test.cjs'], { cwd: root, env: environment, encoding: 'utf8', timeout: 40000 });
+  assert.equal(result.status, 0);
+  const text = readFileSync(output, 'utf8');
+  assert.doesNotMatch(text, /SF:.*zap-attribution\.test\.cjs/);
+  assert.match(text, /SF:scripts\/security\/zap-attribution\.cjs/);
+  assert.equal(validateNodeCoverage(text, { root }).sourceFiles, 1);
+  assert.match(text, /BRDA:[^\n]*,0(?:\r?\n|$)/);
+  const evidence = readdirSync(raw).filter(name => name.endsWith('.json')).flatMap(name => JSON.parse(readFileSync(join(raw, name))).result);
+  const bodies = evidence.filter(entry => entry.url.endsWith('/scripts/security/zap-attribution.test.cjs'));
+  assert.ok(bodies.length > 0 && bodies.some(entry => entry.functions.some(fn => fn.ranges.some(range => range.count > 0))));
 });
 await test('empty and truncated records cannot silently qualify', () => {
   for (const text of ['', record.replace('end_of_record\n', '')]) assert.throws(() => validateNodeCoverage(text, options));
