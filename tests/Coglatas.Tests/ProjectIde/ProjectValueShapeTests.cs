@@ -46,7 +46,7 @@ public sealed class ProjectValueShapeTests
             ["origin"] = JsonNode.Parse(ProjectLocation.Create(DocumentId.Parse(Document), Context(), "/ports/0/defaultValue").Data.CanonicalText),
             ["manifest"] = new JsonObject { ["version"] = "1", ["digest"] = new JsonObject { ["algorithm"] = "sha-256", ["value"] = new string('a', 64) } }
         };
-        var type = Type(kind); type["expectedKind"] = "coglatas.task";
+        var type = Type(kind); type["expectedKind"] = kind == "coglatas.document-reference" ? SourceDocument.SchemaId : "coglatas.task";
         return Known(type, payload);
     }
 
