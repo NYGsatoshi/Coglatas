@@ -113,6 +113,13 @@ public sealed class SemanticInspectionTests
         if (mismatch == "status") bad = bad with { Status = CompilerHostStatus.Cancelled };
         using var view = new SyntheticWorkbenchViewModel(); view.BeginSynthetic(desired); Assert.True(view.TryAccept(good));
         Assert.False(view.TryAccept(bad)); Assert.Same(good.Compilation!.Result, view.Result);
+        using var pending = new SyntheticWorkbenchViewModel(); pending.BeginSynthetic(desired);
+        Assert.False(pending.TryAccept(bad));
+        if (mismatch == "status")
+        {
+            Assert.Equal("Cancelled", pending.State); Assert.False(pending.TryAccept(good)); Assert.Null(pending.Result);
+        }
+        else Assert.True(pending.TryAccept(good));
     }
 }
 
