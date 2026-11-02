@@ -15,7 +15,7 @@ import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMON_PATH = ROOT / "scripts" / "performance" / "common.py"
@@ -516,7 +516,8 @@ class PerformanceHttpRedirectTests(unittest.TestCase):
                             'csrf': request.headers.get('X-Owned-CSRF') == self.canary,
                             'cookie': f'owned-session={self.canary}' in request.headers.get('Cookie', '')})
             if stage == redirect_stage:
-                self.reply(request, code, {'private': self.canary}, [('Location', location)])
+                headers = [('Location', location)] if location is not None else []
+                self.reply(request, code, {'private': self.canary}, headers)
             elif stage == 'csrf':
                 self.reply(request, document={'headerName': 'X-Owned-CSRF', 'token': self.canary})
             elif stage == 'login':
@@ -577,6 +578,81 @@ class PerformanceHttpRedirectTests(unittest.TestCase):
 
     def test_authenticated_reads_reject_forbidden_redirect(self):
         self.assert_warmup_redirect_rejected('read')
+
+    def test_all_redirect_statuses_and_location_forms_stop_before_followup(self):
+        hits = []
+        with self.server(lambda request: (hits.append(True), self.reply(request))) as target:
+            for code in (300, 301, 302, 303, 304, 305, 306, 307, 308, 399):
+                for location in (target, target.replace('http:', '', 1), '/relative', None):
+                    with self.subTest(code=code, location_kind='absent' if location is None else 'present'):
+                        requests = []
+
+                        def redirect(request):
+                            requests.append(True)
+                            headers = [] if location is None else [('Location', location)]
+                            self.reply(request, code, {'private': self.canary}, headers)
+
+                        with self.server(redirect) as base:
+                            with self.assertRaisesRegex(self.preflight.PerformanceContractError,
+                                                        '^performance HTTP redirects are not permitted$'):
+                                self.preflight.request_ok(common.validate_target(base) + '/health/ready',
+                                                         'owned-control', 10)
+                        self.assertEqual(1, len(requests))
+                        self.assertEqual(0, len(hits))
+
+    def test_warmup_does_not_accept_a_3xx_status_without_location(self):
+        with self.server(self.responder([], 'read', code=304)) as base:
+            status, document, stdout, stderr = self.invoke_warmup(common.validate_target(base))
+        self.assertEqual(2, status)
+        self.assertIsNone(document)
+        self.assertNotIn(self.canary, stdout + stderr)
+
+    def test_rejected_response_is_closed_even_when_close_raises(self):
+        opener = self.warmup.performance_opener()
+        processor = next(handler for handler in opener.handlers
+                         if isinstance(handler, self.preflight.urllib.request.HTTPErrorProcessor))
+        for transport in (processor.http_response, processor.https_response):
+            for failure in (None, OSError(self.canary), ValueError(self.canary), RuntimeError(self.canary)):
+                with self.subTest(close_failure=type(failure).__name__):
+                    response = Mock(code=302)
+                    response.close.side_effect = failure
+                    with self.assertRaises(self.preflight.PerformanceContractError) as caught:
+                        transport(Mock(), response)
+                    response.close.assert_called_once_with()
+                    self.assertEqual('performance HTTP redirects are not permitted', str(caught.exception))
+                    self.assertTrue(caught.exception.__suppress_context__)
+                    self.assertNotIn(self.canary, str(caught.exception))
+
+    def test_explicit_opener_preserves_the_global_opener(self):
+        sentinel = object()
+        with patch.object(self.preflight.urllib.request, '_opener', sentinel):
+            with self.server(lambda request: self.reply(request)) as base:
+                status, _ = self.preflight.request_ok(common.validate_target(base) + '/health/ready',
+                                                     'owned-control', 10)
+            self.assertEqual(200, status)
+            self.assertIs(sentinel, self.preflight.urllib.request._opener)
+
+    def test_shared_authenticated_probe_keeps_direct_cookies_and_denies_redirects(self):
+        from db_probe_import import login, request
+        import http.cookiejar
+
+        records = []
+        with self.server(self.responder(records)) as base:
+            opener = self.warmup.performance_opener(http.cookiejar.CookieJar())
+            headers = login(opener, common.validate_target(base), {'identities': {
+                'tenantSlug': 'owned-control', 'operatorEmail': 'owned-control@example.test'}})
+            status, _ = request(opener, base, '/api/announcements', headers)
+        self.assertEqual(200, status)
+        self.assertTrue(any(row['stage'] == 'login' and row['csrf'] for row in records))
+        self.assertTrue(any(row['stage'] == 'read' and row['cookie'] for row in records))
+
+        hits = []
+        with self.server(lambda response: (hits.append(True), self.reply(response))) as target:
+            with self.server(self.responder([], 'read', target)) as base:
+                opener = self.warmup.performance_opener(http.cookiejar.CookieJar())
+                with self.assertRaises(self.preflight.PerformanceContractError):
+                    request(opener, common.validate_target(base), '/api/announcements', {})
+        self.assertEqual(0, len(hits))
 
 
 if __name__ == "__main__":

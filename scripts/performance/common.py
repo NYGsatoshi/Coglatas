@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import hashlib
+import http.cookiejar
 import json
 import os
 import tempfile
+import urllib.request
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -25,6 +27,27 @@ REQUIRED_FOCUS = frozenset({
 
 class PerformanceContractError(RuntimeError):
     pass
+
+
+class _PerformanceHttpErrorProcessor(urllib.request.HTTPErrorProcessor):
+    def http_response(self, request, response):
+        if 300 <= response.code < 400:
+            try:
+                response.close()
+            except Exception:
+                pass  # A secondary close failure must not expose private response diagnostics.
+            raise PerformanceContractError("performance HTTP redirects are not permitted") from None
+        return super().http_response(request, response)
+
+    https_response = http_response
+
+
+def performance_opener(cookie_jar: http.cookiejar.CookieJar | None = None) -> urllib.request.OpenerDirector:
+    """Keep direct transport/cookies while rejecting redirects before another request."""
+    handlers: list[urllib.request.BaseHandler] = [_PerformanceHttpErrorProcessor()]
+    if cookie_jar is not None:
+        handlers.append(urllib.request.HTTPCookieProcessor(cookie_jar))
+    return urllib.request.build_opener(*handlers)
 
 
 def repository_root() -> Path:
