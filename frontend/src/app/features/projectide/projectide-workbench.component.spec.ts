@@ -186,6 +186,26 @@ describe('ProjectIDE Workbench components', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(document.activeElement).toBe(picker);
   });
+  it('resets panels and filters and cancels deferred focus on a preview reload', async () => {
+    const { c, fixture, root } = await render();
+    c.choose('fail');
+    c.store.loadResult();
+    c.inspectDiagnostic(c.diagnostics()[0]);
+    c.search.set('previous');
+    c.severity.set('coglatas.error');
+    c.kind.set('previous-rule');
+    fixture.detectChanges();
+    const picker = root.querySelector<HTMLSelectElement>('[data-testid="ide-context"]')!;
+    picker.focus();
+    await c.reload();
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(c.panel()).toBe('overview');
+    expect(c.store.result()).toBeNull();
+    expect(c.store.selection()).toBeNull();
+    expect(document.activeElement).toBe(picker);
+    expect([c.search(), c.severity(), c.kind()]).toEqual(['', '', '']);
+  });
   it('announces errors without private details', async () => {
     const { root } = await render(true, true, true);
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('could not be loaded');

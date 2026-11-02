@@ -53,6 +53,39 @@ describe('ProjectIDE Core artifact view contract', () => {
   it('rejects null cases without a native TypeError', () => {
     expect(() => readPreviewBundle({ ...bundle(), cases: [null] })).toThrow(PreviewReadError);
   });
+  it.each(['source.documents', 'declarations', 'relations', 'result.diagnostics', 'result.rules', 'result.artifacts'])(
+    'rejects ambiguous duplicate identities in %s', (path) => {
+      const b = structuredClone(bundle());
+      const parts = path.split('.');
+      let target = b.cases[0] as unknown as Record<string, unknown>;
+      for (const key of parts.slice(0, -1)) {
+        target = target[key] as Record<string, unknown>;
+      }
+      const items = target[parts.at(-1)!] as unknown[];
+      items.push(structuredClone(items[0]));
+      expect(() => readPreviewBundle(b)).toThrow('unsupported');
+    },
+  );
+  it('rejects a diagnostic pointing outside the Source document set', () => {
+    const b = structuredClone(bundle());
+    (b.cases[0].result.diagnostics[0].primaryLocation as { documentId: string }).documentId = 'absent';
+    expect(() => readPreviewBundle(b)).toThrow('wrong-scope');
+  });
+  it.each(['missing-with-premises', 'proof-without-premises', 'proof-with-missing-reason'])(
+    'rejects an impossible Core evidence shape: %s', (mode) => {
+      const b = structuredClone(bundle());
+      const e = b.cases[0].result.rules[0].evidence as unknown as { kind: string; premises: unknown[]; missingReason: string | null };
+      if (mode === 'missing-with-premises') {
+        e.kind = 'coglatas.missing';
+        e.missingReason = 'coglatas.fixture.missing';
+      } else if (mode === 'proof-without-premises') {
+        e.premises = [];
+      } else {
+        e.missingReason = 'coglatas.fixture.missing';
+      }
+      expect(() => readPreviewBundle(b)).toThrow('unsupported');
+    },
+  );
   it('reads only explicitly synthetic exporter artifacts', () => {
     expect(bundle().mode).toBe('synthetic-fixture');
     expect(bundle().cases).toHaveLength(10);
@@ -134,6 +167,28 @@ describe('ProjectIDE Core artifact view contract', () => {
 
 describe('ProjectIDE semantic source navigation', () => {
   const location = (): ProjectLocation => fixture().result.diagnostics[0].primaryLocation;
+  it.each([
+    'result.boundInputStamp.sourceContext.branch.tenantId',
+    'result.compilerInputId',
+    'sourceMap.compilerInputId',
+    'sourceMap.nodes.0.location.context.branch.tenantId',
+    'declarations.0.location.context.branch.tenantId',
+  ])('rechecks direct navigation binding for %s', (path) => {
+    const c = structuredClone(fixture());
+    const parts = path.split('.');
+    let target = c as unknown as Record<string, unknown>;
+    for (const key of parts.slice(0, -1)) {
+      target = target[key] as Record<string, unknown>;
+    }
+    target[parts.at(-1)!] = 'substituted';
+    expect(resolveLocation(c, location())).toBe('wrong-scope');
+  });
+  it('rejects direct navigation when the producing artifact is missing', () => {
+    const c = changed(fixture(), (draft) => {
+      (draft.result as unknown as { artifacts: unknown[] }).artifacts = [];
+    });
+    expect(resolveLocation(c, location())).toBe('wrong-scope');
+  });
   it.each([
     'source.documents',
     'sourceText',
