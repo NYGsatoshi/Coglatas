@@ -8,7 +8,7 @@ on:
       - tests/ui/projectide-workbench.spec.ts
       - tests/ci/projectide_web*
       - tests/ci/projectide-web-product.sha
-      - tests/ci/test_projectide_web_isolated.py
+      - tests/ci/test_projectide_web*.py
       - .github/workflows/projectide-web-isolated.yml
 
 permissions:
@@ -43,7 +43,7 @@ jobs:
         env:
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
+          python3 -m unittest discover -s tests/ci -p 'test_projectide*.py' -v
           PRODUCT_HEAD=$(cat tests/ci/projectide-web-product.sha)
           python3 tests/ci/projectide_web_isolated.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD" --worktree "$RUNNER_TEMP/projectide-web/combined" --receipt "$RUNNER_TEMP/projectide-web/evidence/receipt.json"
       - name: Install existing locked dependencies and browser

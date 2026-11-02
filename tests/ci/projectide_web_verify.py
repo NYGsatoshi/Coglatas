@@ -12,11 +12,20 @@ import sys
 import xml.etree.ElementTree as ET
 from projectide_core_isolated import inventory
 
+def assert_candidate(root: Path, value: dict) -> None:
+    """A matching HEAD tree alone does not prove the tracked checkout was executed."""
+    def git(*arguments: str) -> str:
+        return subprocess.check_output(["git", *arguments], cwd=root, text=True).strip()
+    if git("rev-parse", "HEAD") != value["combinedCommit"]:
+        raise ValueError("Candidate commit mismatch")
+    if git("rev-parse", "HEAD^{tree}") != value["combinedTree"]:
+        raise ValueError("Candidate tree mismatch")
+    if git("status", "--porcelain", "--untracked-files=no"):
+        raise ValueError("Candidate tracked checkout contains uncommitted changes")
+
 def verify(root: Path, receipt: Path) -> None:
     evidence=receipt.parent
     value=json.loads(receipt.read_text(encoding="utf-8"))
-    actual=subprocess.check_output(["git","rev-parse","HEAD^{tree}"],cwd=root,text=True).strip()
-    if actual != value["combinedTree"]: raise ValueError("Candidate tree mismatch")
     value.update(os=platform.platform(), commands=[], status="VERIFYING")
     environment=os.environ.copy(); environment["NG_BUILD_MAX_WORKERS"]="4"; environment["PLAYWRIGHT_SKIP_BUILD"]="1"
     def execute(name: str, command: list[str], cwd: Path=root) -> None:
@@ -26,9 +35,10 @@ def verify(root: Path, receipt: Path) -> None:
         print(name, result.returncode, flush=True)
         if result.returncode: raise RuntimeError(name+" failed; inspect retained log")
     try:
+        assert_candidate(root, value)
         value["node"]=subprocess.check_output(["node","--version"],text=True).strip()
         value["sdk"]=subprocess.check_output(["dotnet","--version"],cwd=root,text=True).strip()
-        execute("composition-controls",[sys.executable,"-m","unittest","discover","-s","tests/ci","-p","test_projectide*isolated.py","-v"])
+        execute("composition-controls",[sys.executable,"-m","unittest","discover","-s","tests/ci","-p","test_projectide*.py","-v"])
         execute("fixture-export",["dotnet","run","--project","tools/ProjectIde.Preview","-c","Release","--",str(evidence/"preview-reproduced.json")])
         if (evidence/"preview-reproduced.json").read_text(encoding="utf-8") != (root/"frontend/public/assets/projectide/preview-v1.json").read_text(encoding="utf-8"):
             raise ValueError("Committed fixture differs from actual Core exporter")
@@ -65,6 +75,7 @@ def verify(root: Path, receipt: Path) -> None:
         results=suites.findall(".//testcase")
         if not results or any(t.find(tag) is not None for t in results for tag in ["failure","error","skipped"]): raise ValueError("Failed, skipped or empty browser run")
         value["browserTests"]=[dict(name=t.get("name"),classname=t.get("classname")) for t in results]
+        assert_candidate(root, value)
         value["status"]="LOCAL_VERIFIED" if platform.system()=="Windows" else "ISOLATED_CI_VERIFIED"
     except Exception as error:
         value["status"]="FAILED"; value["failure"]=str(error); raise
