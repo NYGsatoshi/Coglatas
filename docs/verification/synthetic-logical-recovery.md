@@ -5,7 +5,7 @@ already-Main `SecurityCiFixtureSeed` contract. It is Test/SaaS evidence only.
 It does not qualify G09, production recovery, application/migration roles, RLS,
 HTTPS, a school target, or pilot release. Held PR #1379 is not reused.
 
-The candidate normally adopts Main `500dfac15cd934d9bf617568c088c190b759c76c`,
+The candidate normally adopts Main `1542923a203191dbe7f37032ef655728ead54533`,
 including the script-free Sonar npm lockfile repair in #1651. This synchronization
 preserves the recovery commands, strict comparison oracles and original failures.
 The following earlier Main results qualify historical dependencies only; they
@@ -205,14 +205,38 @@ and [PostgreSQL 18 generated trigger naming implementation](https://github.com/p
 ## Evidence and privacy
 
 Raw dumps, SQL/catalog snapshots, file/key archives, credentials and cookies
-remain under an owner-only `RUNNER_TEMP` directory, outside every upload glob.
-The helper never prints private response bodies or command stderr. Upload is
-restricted to `artifacts/synthetic-logical-recovery/*/receipt.json`, retained
-seven days. Receipts contain closed verdicts, hashes and counts only, and keep
+remain under an owner-only `RUNNER_TEMP` directory, outside the receipt upload.
+The helper never prints private response bodies or command stderr. Selecting
+`logical-recovery` always reaches the original hosted admission contract before
+dependency, artifact-reuse or Docker setup. Unsupported events, non-Owner
+dispatches, later attempts and Main-artifact reuse fail instead of skipping the
+mechanism and leaving a green job.
+
+The existing nonce-owned writer creates one exclusive current-run receipt and
+only then emits that exact relative path. A separate validation step admits
+only the emitted current run/attempt/SHA/nonce and admitted source tree, an
+owned regular file with stable descriptor and bounded canonical UTF-8 JSON,
+and the closed metadata schema. It never searches a glob. A genuine current
+`ERROR` receipt remains uploadable when the mechanism fails, while the job
+retains its failed result. `admittedSourceTree` records the admission snapshot;
+`testedCombinedTree` remains null on failures before the original source check,
+so early errors do not claim an executed checkpoint. Upload uses only the
+validated exact path, retained seven days. Receipts keep
 `technicalReleaseReady=false`, `studentCouncilPilot=RELEASE_NO_GO`, and roles,
 RLS and production HTTPS `NOT_EVALUATED` even when the mechanism passes.
 Provider job-ID reconciliation and trusted final attestation remain explicitly
 unverified until the reviewer binds the receipt to exact provider metadata.
+
+The previous `3e6453bf` Sonar input included the executable native PostgreSQL
+test body: 290 lines and 66 conditions, with 335 of 356 measurement points
+covered in the official PR analysis. Its old gate must not be described as a
+clean operational-code measurement. The native producer now excludes only
+that exact test body and the independently test-classified ZAP CJS test body;
+both tests still execute and their raw V8 evidence remains retained. The exact
+PostgreSQL test body also joins the existing coverage-only test-body policy.
+Operational catalog/recovery/ZAP helpers remain measured, issue analysis stays
+enabled, and no Quality Gate threshold changes. A fresh official measurement
+is required; no resulting coverage gain is predicted.
 
 Local Node guard tests and Compose configuration checks prove only their stated
 contracts. A configured workflow or passing guards do not establish application

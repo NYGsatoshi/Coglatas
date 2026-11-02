@@ -265,6 +265,8 @@ jobs:
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
           node --enable-source-maps --test --experimental-test-coverage \
             --test-coverage-exclude='**/*.node-test.mjs' \
+            --test-coverage-exclude='**/tests/ci/synthetic-trigger-catalog.postgres-test.mjs' \
+            --test-coverage-exclude='**/scripts/security/zap-attribution.test.cjs' \
             --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
             --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \

@@ -26,6 +26,9 @@ await test('missing, duplicate, outside-root and untracked sources cannot qualif
 });
 await test('tracked test bodies remain outside the operational coverage scope', () => {
   assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', 'subject.node-test.mjs'), { ...options, tracked: new Set(['subject.node-test.mjs']) }));
+  for (const path of ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs']) {
+    assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', path), { ...options, tracked: new Set([path]) }));
+  }
 });
 await test('empty and truncated records cannot silently qualify', () => {
   for (const text of ['', record.replace('end_of_record\n', '')]) assert.throws(() => validateNodeCoverage(text, options));

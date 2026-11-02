@@ -72,6 +72,20 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Admit explicitly selected synthetic logical recovery
+        id: logical_recovery_admission
+        if: inputs.suite == 'logical-recovery'
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { hostedContract } from './scripts/ci/run-synthetic-logical-recovery.mjs';
+          import { prepareRecoveryWorkflow } from './scripts/ci/synthetic-logical-recovery-receipt.mjs';
+          try { prepareRecoveryWorkflow(hostedContract(process.env), process.env); }
+          catch { console.error('Synthetic logical recovery admission rejected.'); process.exitCode = 1; }
+          NODE
+
       - name: Download main build artifacts
         if: inputs.reuse_main_artifacts == true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -143,17 +157,36 @@ jobs:
         run: docker network prune --force
 
       - name: Run isolated synthetic logical recovery mechanism
-        if: github.event_name == 'workflow_dispatch' && github.repository == 'NYGsatoshi/Coglatas' && github.repository_id == '1261244608' && github.actor == github.repository_owner && inputs.suite == 'logical-recovery' && inputs.reuse_main_artifacts != true
+        id: logical_recovery
+        if: steps.logical_recovery_admission.outputs.admitted == 'true'
         env:
           COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+          COGLATAS_RECOVERY_SOURCE_TREE: ${{ steps.logical_recovery_admission.outputs.source_tree }}
         run: node scripts/ci/run-synthetic-logical-recovery.mjs
 
+      - name: Validate only the current synthetic logical recovery receipt
+        id: logical_recovery_receipt
+        if: always() && steps.logical_recovery_admission.outputs.admitted == 'true'
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+          COGLATAS_RECOVERY_SOURCE_TREE: ${{ steps.logical_recovery_admission.outputs.source_tree }}
+          COGLATAS_RECOVERY_RECEIPT_PATH: ${{ steps.logical_recovery.outputs.receipt_path }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { hostedContract } from './scripts/ci/run-synthetic-logical-recovery.mjs';
+          import { validateRecoveryReceipt } from './scripts/ci/synthetic-logical-recovery-receipt.mjs';
+          try { validateRecoveryReceipt(hostedContract(process.env), process.env); }
+          catch { console.error('Current synthetic logical recovery receipt rejected.'); process.exitCode = 1; }
+          NODE
+
       - name: Upload closed synthetic logical recovery receipt
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.suite == 'logical-recovery'
+        if: always() && steps.logical_recovery_admission.outputs.admitted == 'true' && steps.logical_recovery_receipt.outputs.receipt_path != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: synthetic-logical-recovery-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/synthetic-logical-recovery/*/receipt.json
+          path: ${{ steps.logical_recovery_receipt.outputs.receipt_path }}
           if-no-files-found: error
           retention-days: 7
 

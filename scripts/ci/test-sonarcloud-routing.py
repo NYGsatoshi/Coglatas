@@ -217,13 +217,30 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py,tests/ci/test_restore_data_dependency_advisor.mjs',
+            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py,tests/ci/test_restore_data_dependency_advisor.mjs,tests/ci/synthetic-trigger-catalog.postgres-test.mjs',
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
             "sonar.issue.ignore.multicriteria", settings,
             "Keep the reviewed Docker rule exception in SonarCloud project settings.",
         )
+
+    def test_recovery_native_test_body_classification_preserves_operational_sources(self) -> None:
+        import fnmatch
+        settings = dict(line.split("=", 1) for line in (ROOT / ".sonarcloud.properties").read_text().splitlines()
+                        if line and not line.startswith("#") and "=" in line)
+        patterns = settings["sonar.coverage.exclusions"].split(",")
+        body = "tests/ci/synthetic-trigger-catalog.postgres-test.mjs"
+        self.assertIn(body, patterns)
+        self.assertIn("from 'node:test'", (ROOT / body).read_text())
+        workflow = WORKFLOW.read_text()
+        self.assertIn("--test-coverage-exclude='**/" + body + "'", workflow)
+        self.assertIn("--test-coverage-exclude='**/scripts/security/zap-attribution.test.cjs'", workflow)
+        self.assertIn("            " + body + " \\", workflow)
+        self.assertIn("            scripts/security/zap-attribution.test.cjs \\", workflow)
+        for source in ["scripts/ci/synthetic-trigger-catalog.mjs", "scripts/ci/run-synthetic-logical-recovery.mjs",
+                       "scripts/ci/synthetic-logical-recovery-receipt.mjs", "scripts/security/zap-attribution.cjs"]:
+            self.assertFalse(any(fnmatch.fnmatchcase(source, pattern) for pattern in patterns), source)
 
     def test_schemathesis_coverage_exception_is_only_live_unit_test_body(self) -> None:
         relative = "scripts/security/test-schemathesis-input-attribution.py"

@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep, posix } from 'node:p
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { logicalTriggerCatalog, TRIGGER_CATALOG_SQL } from './synthetic-trigger-catalog.mjs';
 import { installRestoreList, planRestoreList } from './synthetic-restore-list.mjs';
+import { writeRecoveryReceipt } from './synthetic-logical-recovery-receipt.mjs';
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const DOCKER = '/usr/bin/docker', GIT = '/usr/bin/git', SOCKET = '/var/run/docker.sock';
@@ -306,6 +307,8 @@ function runnerDirectory(path) {
 
 export async function runRecovery() {
   const identity = hostedContract(process.env);
+  require(process.env.COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS === 'false' &&
+    /^[a-f0-9]{40}$/.test(process.env.COGLATAS_RECOVERY_SOURCE_TREE ?? ''), 'HOST_CONTRACT');
   trustedExecutable(DOCKER); trustedExecutable(GIT);
   const socketPath = realpathSync(SOCKET);
   require(['/var/run/docker.sock', '/run/docker.sock'].includes(socketPath), 'LOCAL_DOCKER');
@@ -323,6 +326,7 @@ export async function runRecovery() {
     SYNCFUSION_LICENSE: 'not-used-without-build' };
   const created = new Set(); let stage = 'source', sourceApp, sourceVolumes, sourceSnapshot;
   const receipt = { schemaVersion: 1, kind: 'SYNTHETIC_LOGICAL_RECOVERY_MECHANISM', ...identity,
+    receiptNonce: nonce, admittedSourceTree: process.env.COGLATAS_RECOVERY_SOURCE_TREE,
     githubJob: process.env.GITHUB_JOB, jobIdReconciliation: 'REQUIRES_PROVIDER_METADATA', trustedAttestation: 'UNVERIFIED',
     status: 'ERROR', testedCombinedTree: null, specificationBaseline: '850a5d9376db11e75235cf55e03ebed4de9c0510',
     firstAttemptOnly: true, runtimeMode: 'Test/SaaS', publicPorts: false, restoredTargetMigrations: false,
@@ -456,7 +460,8 @@ export async function runRecovery() {
     require(git(['rev-parse', '--show-toplevel']) === ROOT && git(['rev-parse', 'HEAD']) === identity.sourceSha &&
       !git(['status', '--porcelain', '--untracked-files=all']), 'SOURCE');
     receipt.testedCombinedTree = git(['rev-parse', 'HEAD^{tree}']);
-    require(/^[a-f0-9]{40}$/.test(receipt.testedCombinedTree), 'SOURCE');
+    require(/^[a-f0-9]{40}$/.test(receipt.testedCombinedTree) &&
+      receipt.testedCombinedTree === receipt.admittedSourceTree, 'SOURCE');
     initialAbsence(names.source); configuration(names.source);
     stage = 'build'; require(Boolean(process.env.SYNCFUSION_LICENSE), 'BUILD_LICENSE');
     compose(names.source, ['build', 'app'], { timeout: 1800000, commandEnv: { ...env, SYNCFUSION_LICENSE: process.env.SYNCFUSION_LICENSE } });
@@ -569,16 +574,7 @@ export async function runRecovery() {
       cleanupOwnedProjects(created, names.source, { docker, inspect, compose });
       receipt.cleanup = true;
     } catch { receipt.cleanup = false; receipt.status = 'ERROR'; receipt.cleanupError = 'OWNED_CLEANUP_FAILED'; }
-    const artifacts = join(ROOT, 'artifacts');
-    if (!existsSync(artifacts)) mkdirSync(artifacts, { mode: 0o700 });
-    require(lstatSync(artifacts).isDirectory() && realpathSync(artifacts) === artifacts, 'RECEIPT_PATH');
-    const parent = join(artifacts, 'synthetic-logical-recovery');
-    if (!existsSync(parent)) mkdirSync(parent, { mode: 0o700 });
-    runnerDirectory(parent);
-    const output = join(parent, identity.runId + '-1-' + nonce);
-    mkdirSync(output, { mode: 0o700 });
-    require(realpathSync(output) === output, 'RECEIPT_PATH');
-    writeFileSync(join(output, 'receipt.json'), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+    writeRecoveryReceipt(receipt, identity);
   }
   return !failure && receipt.status === 'PASS' && receipt.cleanup ? 0 : 1;
 }

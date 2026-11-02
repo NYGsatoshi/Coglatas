@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import { createHash, randomBytes } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
 import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy, disableSourceSeed,
   hostedContract, resourceNames, restoreArchive, restoreCheckpointArchives, restoreDatabaseOnce, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+import { prepareRecoveryWorkflow, validateRecoveryReceipt, validateRecoveryReceiptData, writeRecoveryReceipt } from '../../scripts/ci/synthetic-logical-recovery-receipt.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const repository = 'NYGsatoshi/Coglatas';
@@ -417,13 +419,206 @@ test('tar validation admits regular original bytes but rejects traversal, links,
 
 test('private raw material cannot enter the explicit workflow upload boundary', () => {
   const workflow = readFileSync(resolve(root, '.github/workflows/licensed-real-backend-acceptance.yml'), 'utf8');
-  assert.ok(workflow.includes('artifacts/synthetic-logical-recovery/*/receipt.json'));
+  assert.ok(!workflow.includes('artifacts/synthetic-logical-recovery/*/receipt.json'));
   const upload = workflow.slice(workflow.indexOf('- name: Upload closed synthetic logical recovery receipt'),
     workflow.indexOf('- name: Run canonical FCI-04'));
   assert.ok(upload.includes('retention-days: 7'));
+  assert.ok(upload.includes('steps.logical_recovery_admission.outputs.admitted'));
+  assert.ok(upload.includes('path: ${{ steps.logical_recovery_receipt.outputs.receipt_path }}'));
   for (const forbidden of ['database.dump', 'uploads.tar', 'keys.tar', 'RUNNER_TEMP', 'probe-checkpoint.json',
     'catalog.raw.json', 'triggers.raw.json', 'restore-original.list', 'restore-planned.list'])
     assert.ok(!upload.includes(forbidden));
+});
+
+function receiptFixture(t) {
+  const temporary = realpathSync(mkdtempSync(join(realpathSync(tmpdir()), 'coglatas-recovery-receipt-test-')));
+  const source = join(temporary, 'source'); mkdirSync(source, { mode: 0o700 });
+  writeFileSync(join(source, '.gitignore'), 'artifacts/\n');
+  writeFileSync(join(source, 'source.txt'), 'Owned synthetic receipt protocol source.\n');
+  const git = args => execFileSync('/usr/bin/git', args, { cwd: source, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  git(['init', '--quiet']); git(['add', '.']);
+  git(['-c', 'commit.gpgsign=false', '-c', 'user.name=Synthetic Receipt Fixture',
+    '-c', 'user.email=synthetic-receipt@example.test', 'commit', '--quiet', '-m', 'Prepare owned synthetic source']);
+  const output = join(temporary, 'command-output'); writeFileSync(output, '', { mode: 0o600 });
+  const env = { ...validHost(), GITHUB_WORKSPACE: source, GITHUB_SHA: git(['rev-parse', 'HEAD']),
+    GITHUB_JOB: 'licensed-real-backend', GITHUB_OUTPUT: output,
+    COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: 'false', COGLATAS_RECOVERY_SOURCE_TREE: git(['rev-parse', 'HEAD^{tree}']) };
+  t.after(() => {
+    assert.ok(temporary.startsWith(realpathSync(tmpdir()) + sep));
+    assert.ok(temporary.slice(realpathSync(tmpdir()).length + 1).startsWith('coglatas-recovery-receipt-test-'));
+    rmSync(temporary, { recursive: true, force: true });
+  });
+  return { root: source, env, git, output, identity: hostedContract(env, 'linux', []),
+    outputText: () => readFileSync(output, 'utf8'), resetOutput: () => writeFileSync(output, '') };
+}
+
+function closedReceipt(fixture, status = 'ERROR') {
+  const receipt = { schemaVersion: 1, kind: 'SYNTHETIC_LOGICAL_RECOVERY_MECHANISM', ...fixture.identity,
+    receiptNonce: '0123456789ab', admittedSourceTree: fixture.env.COGLATAS_RECOVERY_SOURCE_TREE,
+    githubJob: fixture.env.GITHUB_JOB, jobIdReconciliation: 'REQUIRES_PROVIDER_METADATA', trustedAttestation: 'UNVERIFIED',
+    status, testedCombinedTree: status === 'ERROR' ? null : fixture.env.COGLATAS_RECOVERY_SOURCE_TREE,
+    specificationBaseline: '850a5d9376db11e75235cf55e03ebed4de9c0510', firstAttemptOnly: true,
+    runtimeMode: 'Test/SaaS', publicPorts: false, restoredTargetMigrations: false,
+    postgresVersionNum: null, appImage: null, postgresImage: null, restoreCalls: { target: 0, fault: 0 },
+    helperImage: 'node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413',
+    migrationSdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:afd0ccff9d306812a69ef0f47458376b6acb544ae866cfc4b8d28ff0eef35ea7',
+    strictCheckpoint: 'NOT_EVALUATED', startupDelta: 'NOT_EVALUATED', api: 'NOT_EVALUATED',
+    faultSourcePreserved: false, originalSourceRollback: false, cleanup: false,
+    rolesAndRlsQualification: 'NOT_EVALUATED', productionHttps: 'NOT_EVALUATED',
+    technicalReleaseReady: false, studentCouncilPilot: 'RELEASE_NO_GO', seedFlags: {},
+    privateEvidenceUploaded: false, corruptTargetQuarantined: false };
+  if (status === 'PASS') {
+    const comparison = { components: Object.fromEntries(['schema', 'rows', 'catalog', 'sequences', 'uploads', 'keys'].map(key => [key, true])),
+      catalog: Object.fromEntries(['relations', 'constraints', 'indexes', 'triggers', 'functions', 'policies', 'schemas', 'defaults', 'roles', 'memberships', 'migrations'].map(key => [key, true])) };
+    Object.assign(receipt, { postgresVersionNum: 180006, appImage: image, postgresImage: image,
+      restoreCalls: { target: 1, fault: 1 }, strictCheckpoint: 'PASS',
+      startupDelta: { equalToCheckpoint: true, changedTables: 0, schemaUnchanged: true },
+      api: { phase: 'verify', status: 'PASS', actualActors: 3, currentCookieIdentities: 2, fileByteChecks: 2,
+        crossTenantDenials: 2, revokedSessionDenied: true, freshLoginLogout: true, deploymentHttps: 'NOT_EVALUATED' },
+      faultSourcePreserved: true, originalSourceRollback: true, cleanup: true, corruptTargetQuarantined: true,
+      migrationBundleSha256: 'a'.repeat(64), databaseDumpSha256: 'b'.repeat(64), checkpointDigest: 'c'.repeat(64),
+      restoreList: { entryCount: 2, foreignKeyCount: 1, originalSha256: 'd'.repeat(64), plannedSha256: 'e'.repeat(64) },
+      strictCheckpointComparison: comparison, startupCheckpointComparison: structuredClone(comparison),
+      corruptArchiveRejectedByPgRestore: true,
+      componentDigests: Object.fromEntries(Object.keys(comparison.components).map(key => [key, 'f'.repeat(64)])), tableCount: 1 });
+  }
+  return receipt;
+}
+
+test('selected unsupported workflow identities fail before admission output or receipt selection', t => {
+  const fixture = receiptFixture(t);
+  for (const change of [{ GITHUB_EVENT_NAME: 'schedule' }, { GITHUB_EVENT_NAME: 'workflow_call' },
+    { GITHUB_ACTOR: 'another-user' }, { GITHUB_RUN_ATTEMPT: '2' }, { GITHUB_REPOSITORY_ID: '0' },
+    { DOCKER_HOST: 'ssh://example.test' }, { COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: 'true' }]) {
+    const env = { ...fixture.env, ...change };
+    assert.throws(() => prepareRecoveryWorkflow(hostedContract(env, 'linux', []), env, fixture));
+    assert.equal(fixture.outputText(), '');
+  }
+});
+
+test('actual clean source admission binds current SHA and tree before dependency or Docker setup', t => {
+  const fixture = receiptFixture(t);
+  assert.equal(prepareRecoveryWorkflow(fixture.identity, fixture.env, fixture), fixture.env.COGLATAS_RECOVERY_SOURCE_TREE);
+  assert.equal(fixture.outputText(), 'admitted=true\nsource_tree=' + fixture.env.COGLATAS_RECOVERY_SOURCE_TREE + '\n');
+  fixture.resetOutput();
+  writeFileSync(join(fixture.root, 'source.txt'), 'Uncommitted synthetic change.\n');
+  assert.throws(() => prepareRecoveryWorkflow(fixture.identity, fixture.env, fixture));
+  assert.equal(fixture.outputText(), '');
+});
+
+for (const status of ['PASS', 'ERROR']) test('only the fresh exact current ' + status + ' receipt is emitted and selected', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture, status);
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  const bytes = readFileSync(join(fixture.root, selected));
+  fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected;
+  fixture.resetOutput();
+  assert.equal(validateRecoveryReceipt(fixture.identity, fixture.env, fixture), selected);
+  assert.equal(fixture.outputText(), 'receipt_path=' + selected + '\n');
+  assert.deepEqual(readFileSync(join(fixture.root, selected)), bytes);
+  assert.deepEqual(JSON.parse(bytes), receipt);
+  assert.equal(receipt.status, status);
+  assert.equal(receipt.trustedAttestation, 'UNVERIFIED');
+  assert.equal(receipt.technicalReleaseReady, false);
+});
+
+test('missing runner output and old run receipts cannot satisfy validation or overwrite the fresh writer', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  const bytes = readFileSync(join(fixture.root, selected)); fixture.resetOutput();
+  for (const path of [undefined, '', selected.replace('/123-1-', '/122-1-'), selected.replace('-1-', '-2-'),
+    '../receipt.json', selected + '\nreceipt_path=other']) {
+    assert.throws(() => validateRecoveryReceipt(fixture.identity, { ...fixture.env, COGLATAS_RECOVERY_RECEIPT_PATH: path }, fixture));
+    assert.equal(fixture.outputText(), '');
+  }
+  assert.throws(() => writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture));
+  assert.deepEqual(readFileSync(join(fixture.root, selected)), bytes);
+  assert.equal(fixture.outputText(), '');
+});
+
+test('current path rejects stale or substituted run, attempt, source, tree, job and nonce headers', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected; fixture.resetOutput();
+  for (const change of [{ runId: '122' }, { attempt: 2 }, { sourceSha: 'a'.repeat(40) },
+    { admittedSourceTree: 'b'.repeat(40) }, { testedCombinedTree: 'c'.repeat(40) },
+    { githubJob: 'foreign-job' }, { receiptNonce: 'aaaaaaaaaaaa' }]) {
+    writeFileSync(join(fixture.root, selected), JSON.stringify({ ...receipt, ...change }, null, 2) + '\n');
+    assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture));
+    assert.equal(fixture.outputText(), '');
+  }
+});
+
+test('unknown private fields, malformed duplicate JSON and oversized bytes cannot cross the upload boundary', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected; fixture.resetOutput();
+  const canonical = JSON.stringify(receipt, null, 2) + '\n';
+  for (const bytes of [JSON.stringify({ ...receipt, privateDump: 'PRIVATE_UPLOAD_CANARY' }, null, 2) + '\n',
+    canonical.replace('  "status": "ERROR",', '  "status": "PRIVATE_UPLOAD_CANARY",\n  "status": "ERROR",'),
+    canonical.replace('"seedFlags": {}', '"seedFlags": {"password":"PRIVATE_UPLOAD_CANARY"}'),
+    '{', 'x'.repeat(65537), Buffer.from([255, 254])]) {
+    writeFileSync(join(fixture.root, selected), bytes);
+    assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture));
+    assert.equal(fixture.outputText(), '');
+  }
+});
+
+test('receipt selection rejects nonregular, redirected, hardlinked and readable-by-others files', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  const path = join(fixture.root, selected), bytes = readFileSync(path);
+  fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected; fixture.resetOutput();
+  chmodSync(path, 0o644); assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture)); chmodSync(path, 0o600);
+  const backup = join(fixture.root, 'artifacts', 'original.json'); writeFileSync(backup, bytes, { mode: 0o600 });
+  rmSync(path); symlinkSync(backup, path); assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture));
+  rmSync(path); mkdirSync(path); assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture));
+  rmSync(path, { recursive: true }); linkSync(backup, path); assert.throws(() => validateRecoveryReceipt(fixture.identity, fixture.env, fixture));
+  assert.deepEqual(readFileSync(backup), bytes); assert.equal(fixture.outputText(), '');
+});
+
+test('a PASS label cannot replace original restore, startup, rollback, cleanup or comparison verdicts', t => {
+  const fixture = receiptFixture(t);
+  for (const change of [{ cleanup: false }, { originalSourceRollback: false }, { restoreCalls: { target: 0, fault: 1 } },
+    { strictCheckpoint: 'NOT_EVALUATED' }, { startupDelta: { equalToCheckpoint: true, changedTables: 1, schemaUnchanged: true } },
+    { api: 'NOT_EVALUATED' }, { trustedAttestation: 'VERIFIED' }, { technicalReleaseReady: true }])
+    assert.throws(() => validateRecoveryReceiptData({ ...closedReceipt(fixture, 'PASS'), ...change }));
+  const failed = closedReceipt(fixture, 'PASS'); failed.strictCheckpointComparison.catalog.triggers = false;
+  assert.throws(() => validateRecoveryReceiptData(failed));
+});
+
+test('every original fixed failure stage remains representable without leaking arbitrary errors', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const driver = readFileSync(resolve(root, 'scripts/ci/run-synthetic-logical-recovery.mjs'), 'utf8');
+  const stages = new Set([...driver.matchAll(/stage = '([a-z-]+)'/g)].map(match => match[1]));
+  for (const match of driver.matchAll(/\['(migration-[a-z-]+)', \[/g)) stages.add(match[1]);
+  for (const stage of ['restore-upload-extract', 'restore-key-extract']) stages.add(stage);
+  assert.ok(stages.size >= 18);
+  for (const failedStage of stages) assert.doesNotThrow(() => validateRecoveryReceiptData({ ...receipt, failedStage, failureCode: 'COMMAND_FAILED' }));
+  assert.throws(() => validateRecoveryReceiptData({ ...receipt, failedStage: 'PRIVATE_EXCEPTION_CANARY' }));
+});
+
+test('early native version errors retain the original JSON null encoding in their ERROR receipt', t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  receipt.postgresVersionNum = Number('synthetic unavailable version');
+  receipt.failedStage = 'source-seed'; receipt.failureCode = 'PG_VERSION';
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected;
+  assert.equal(validateRecoveryReceipt(fixture.identity, fixture.env, fixture), selected);
+  const written = JSON.parse(readFileSync(join(fixture.root, selected)));
+  assert.equal(written.postgresVersionNum, null);
+  assert.equal(written.status, 'ERROR'); assert.equal(written.failureCode, 'PG_VERSION');
+});
+
+test('workflow rejects selected unsupported paths early and validates emitted failure receipts before upload', () => {
+  const workflow = readFileSync(resolve(root, '.github/workflows/licensed-real-backend-acceptance.yml'), 'utf8');
+  const admission = workflow.slice(workflow.indexOf('- name: Admit explicitly selected'), workflow.indexOf('- name: Download main build artifacts'));
+  assert.ok(admission.includes("if: inputs.suite == 'logical-recovery'"));
+  assert.ok(admission.includes('prepareRecoveryWorkflow(hostedContract(process.env), process.env)'));
+  assert.ok(workflow.indexOf('- name: Admit explicitly selected') < workflow.indexOf('- name: Install acceptance runner dependencies'));
+  const validation = workflow.slice(workflow.indexOf('- name: Validate only the current'), workflow.indexOf('- name: Upload closed synthetic'));
+  assert.ok(validation.includes("if: always() && steps.logical_recovery_admission.outputs.admitted == 'true'"));
+  assert.ok(validation.includes('steps.logical_recovery.outputs.receipt_path'));
+  assert.ok(!validation.includes('continue-on-error'));
 });
 
 test('the actual API probe rejects foreign file bytes and canaries even with a denial status', async () => {
