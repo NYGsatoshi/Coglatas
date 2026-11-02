@@ -13,8 +13,8 @@ from projectide_slice2_isolated import changes, git, run, sha
 
 CORE_PRODUCT = '610f9911f9ce31739188437972f7eeb018f611da'
 CORE_TEST = '9e969183f5b311789b0197d0b6aac12a88206e7c'
-INSPECTOR_PRODUCT = '2c1336dd4a45af82d6eb7bfe1a7a0720c580e00d'
-INSPECTOR_TEST = '6fdf09436452cd7d91fe3d04df94dcea88406579'
+INSPECTOR_PRODUCT = 'd77b9814f96ba593b98b8842cf1d1355cf310885'
+INSPECTOR_TEST = '930bb8866cf2b8c3c08a414ffc2aa782072ba443'
 
 
 def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
