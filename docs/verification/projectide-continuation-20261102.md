@@ -98,10 +98,18 @@ failure (11 PASS / 1 FAIL) despite the correct route registration. The continuat
 instruction explicitly permits necessary minimal Product internal verification,
 so this existing test now retains every assertion with the six-route addendum and
 44-route current total. Its fixed 38-route snapshots remain unchanged. Only these
-three exact lines are permitted by the composer; independent component/owner
+three exact inventory lines are permitted by the composer; independent component/owner
 negative controls stay on Test. No Test commit is blindly absorbed. Standalone
 Test backend CI still lacks the unmerged Product types; composition does not turn
 that failure into PASS.
+
+The Product-only full Node inventory then exposed an existing Windows file-symlink
+privilege limitation (67 PASS / 1 FAIL, EPERM). Its existing realpath-denial test
+now uses a directory junction/Unix directory symlink with the same lexical and
+realpath denial assertions, without elevation or skips. This exact bounded
+portability delta is also checked against the pinned baseline; the two independent
+ProjectIDE component/owner controls remain Test-only. Both failed initial logs are
+retained separately from the new Product-only run.
 
 CodeRabbit CLI 0.9.1 is installed but initially unauthenticated. Browser login was
 initiated; a completed independent new-head review is not claimed until an actual

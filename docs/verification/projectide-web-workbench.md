@@ -134,9 +134,11 @@ snapshot, freeze and target map remain unchanged. The existing internal inventor
 test follows the six-route addendum and current 44-route total. This minimal
 Product maintenance keeps every assertion and the fixed 38-route snapshots intact.
 The independent Test PR retains additional component/owner negative controls;
-those are not copied into Product. The composer accepts only the exact three-line
-internal inventory maintenance against its pinned Core baseline and rejects
-additional Product test edits. Ordinary Product CI must execute and qualify this
+those are not copied into Product. The existing realpath-escape internal test uses
+a directory junction on Windows so its negative assertions execute without elevated
+file-symlink privileges; Unix exercises the corresponding directory symlink.
+The composer accepts only exact internal inventory/portability maintenance against
+its pinned Core baseline and rejects additional Product test edits. Ordinary Product CI must execute and qualify this
 change separately; supplemental success does not waive it.
 
 Current bounded status: WEB_WORKBENCH_PREVIEW_IMPLEMENTED candidate; review and
