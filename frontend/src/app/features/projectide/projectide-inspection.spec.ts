@@ -16,8 +16,10 @@ describe('Source-backed semantic inspection', () => {
     expect(store.inspectedReferences().some((reference) => reference.state === 'Resolved')).toBe(true);
     store.choose('branch-pass'); expect(store.inspectedSymbols()).toEqual([]); expect(store.inspectedReferences()).toEqual([]);
   });
-  it.each(['input', 'context', 'source', 'symbol-kind', 'duplicate', 'location', 'reference-state'])('rejects a substituted %s inspection envelope', (mode) => {
+  it.each(['input', 'context', 'source', 'symbol-kind', 'duplicate', 'location', 'reference-state', 'symbol-key', 'declared-type'])('rejects a substituted %s inspection envelope', (mode) => {
     const raw = fixture(); const item = raw.cases[0]; const inspection = item.semanticInspection;
+    if (mode === 'symbol-key') inspection.symbols[0].key = '{}';
+    if (mode === 'declared-type') inspection.symbols[0].declaredType = { kind: 'coglatas.text' };
     if (mode === 'input') inspection.compilerInputId = raw.cases[1].inputId;
     if (mode === 'context') inspection.context = raw.cases[1].context;
     if (mode === 'source') inspection.sourceDigest = raw.cases[1].sourceDigest;

@@ -386,3 +386,18 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
   });
 });
+
+test('ProjectIDE synthetic semantic inspection shows Source-bound symbols and clears across contexts', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'pass');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  const inspection = page.getByTestId('ide-semantic-inspection');
+  await expect(inspection).toBeVisible();
+  await expect(inspection).toContainText('coglatas.project');
+  await expect(inspection).toContainText('Resolved references in loaded scope: 1');
+  await expect(page.getByRole('button', { name: 'Compile unavailable', exact: true })).toBeDisabled();
+  await choose(page, 'branch-pass');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(inspection).toHaveCount(0);
+});
