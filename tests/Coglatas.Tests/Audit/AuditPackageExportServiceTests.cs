@@ -10,7 +10,13 @@ using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
+using Coglatas.Web.Controllers;
+using Coglatas.Web.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Coglatas.Tests.Audit;
 
@@ -34,6 +40,135 @@ public sealed class AuditPackageExportServiceTests
         Assert.False(fixture.Storage.Reads[1].CanRead);
         Assert.Equal(stage == "audit" ? 0 : 1, fixture.UnitOfWork.Calls);
         Assert.False(fixture.Storage.Reads[2].CanRead);
+    }
+
+    [Theory]
+    [InlineData("audit", false)]
+    [InlineData("save", false)]
+    [InlineData("audit", true)]
+    [InlineData("save", true)]
+    public async Task DownloadCleanupOrWarningFailurePreservesOriginalUnavailableResultAndStoredBytes(string stage, bool warningFails)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Audit.Fail = stage == "audit";
+        fixture.UnitOfWork.Fail = stage == "save";
+        fixture.Storage.FailResponseDispose = true;
+        fixture.Logger.Fail = warningFails;
+        var originalBytes = fixture.Storage.Bytes.ToArray();
+
+        var result = await fixture.Service.DownloadAsync(fixture.Job.Id);
+
+        AssertFailure(result, "ExportPackageUnavailable");
+        Assert.Equal("The Audit package is not currently available.", result.ErrorDetail?.Message);
+        Assert.Equal(3, fixture.Storage.Reads.Count);
+        Assert.Equal(1, fixture.Storage.Reads[2].AsyncDisposeCalls);
+        Assert.False(fixture.Storage.Reads[0].CanRead);
+        Assert.False(fixture.Storage.Reads[1].CanRead);
+        Assert.Equal(originalBytes, fixture.Storage.Bytes);
+        Assert.True(fixture.Storage.Present);
+        Assert.Equal(0, fixture.Storage.DeleteCalls);
+        Assert.Equal(1, fixture.Logger.Attempts);
+        if (warningFails) Assert.Empty(fixture.Logger.Entries);
+        else fixture.Logger.AssertFixedWarning();
+        Assert.Equal(stage == "audit" ? new[] { "response-open", "audit", "response-dispose" } :
+            new[] { "response-open", "audit", "save", "response-dispose" }, fixture.Operations);
+    }
+
+    [Fact]
+    public async Task DependencyInjectionSelectsUniqueLoggerConstructorForCleanupWarning()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Audit.Fail = true;
+        fixture.Storage.FailResponseDispose = true;
+        var services = new ServiceCollection();
+        services.AddSingleton(fixture.Context);
+        services.AddSingleton<IArtifactRepository>(new ArtifactRepository(fixture.Context));
+        services.AddSingleton<IAuditClaimsEvidenceService>(fixture.Claims);
+        services.AddSingleton<IAuditAuthorizationService>(fixture.Authorization);
+        services.AddSingleton<ICurrentUser>(fixture.User);
+        services.AddSingleton<IFileStorageService>(fixture.Storage);
+        services.AddSingleton<IAuditLogger>(fixture.Audit);
+        services.AddSingleton<IUnitOfWork>(fixture.UnitOfWork);
+        services.AddSingleton<IClock>(new Clock());
+        services.AddSingleton<ILogger<AuditPackageExportService>>(fixture.Logger);
+        services.AddScoped<IAuditPackageExportService, AuditPackageExportService>();
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        await using var scope = provider.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<IAuditPackageExportService>();
+
+        var result = await service.DownloadAsync(fixture.Job.Id);
+
+        AssertFailure(result, "ExportPackageUnavailable");
+        fixture.Logger.AssertFixedWarning();
+        Assert.Equal(1, fixture.Storage.Reads[2].AsyncDisposeCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExistingDirectConstructionSignaturesPreserveSuccessfulStreamTransfer(bool withClock)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var repository = new ArtifactRepository(fixture.Context);
+        var service = withClock
+            ? new AuditPackageExportService(fixture.Context, repository, fixture.Claims, fixture.Authorization, fixture.User, fixture.Storage, fixture.Audit, fixture.UnitOfWork, new Clock())
+            : new AuditPackageExportService(fixture.Context, repository, fixture.Claims, fixture.Authorization, fixture.User, fixture.Storage, fixture.Audit, fixture.UnitOfWork);
+
+        var result = await service.DownloadAsync(fixture.Job.Id);
+
+        Assert.True(result.IsSuccess, result.Error ?? result.ErrorDetail?.Message);
+        var response = Assert.IsType<AuditPackageExportDownloadResponse>(result.Value);
+        await using var content = response.Content;
+        Assert.True(content.CanRead);
+        Assert.Same(fixture.Storage.Reads[2], content);
+        Assert.Equal(0, fixture.Storage.Reads[2].AsyncDisposeCalls);
+        Assert.True(fixture.Storage.Present);
+        Assert.Equal(0, fixture.Storage.DeleteCalls);
+    }
+
+    [Theory]
+    [InlineData("audit")]
+    [InlineData("save")]
+    public async Task ControllerPreservesConflictErrorAfterDownloadAuditFailure(string stage)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        fixture.Audit.Fail = stage == "audit";
+        fixture.UnitOfWork.Fail = stage == "save";
+        var controller = new AuditPackageExportsController(fixture.Service)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+
+        var result = await controller.Download(fixture.Job.Id, CancellationToken.None);
+
+        var failure = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, failure.StatusCode);
+        Assert.Equal("ExportPackageUnavailable", Assert.IsType<ApiErrorEnvelope>(failure.Value).Error.Code);
+        Assert.All(fixture.Storage.Reads, stream => Assert.False(stream.CanRead));
+        Assert.True(fixture.Storage.Present);
+        Assert.Equal(0, fixture.Storage.DeleteCalls);
+    }
+
+    [Fact]
+    public async Task ControllerTransfersLiveAuthorizedStreamToMvcWithoutDeletingPackage()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var originalBytes = fixture.Storage.Bytes.ToArray();
+        var controller = new AuditPackageExportsController(fixture.Service);
+
+        var result = await controller.Download(fixture.Job.Id, CancellationToken.None);
+
+        var download = Assert.IsType<FileStreamResult>(result);
+        await using var content = download.FileStream;
+        Assert.Same(fixture.Storage.Reads[2], content);
+        Assert.True(content.CanRead);
+        Assert.Equal(0, fixture.Storage.Reads[2].AsyncDisposeCalls);
+        using var received = new MemoryStream();
+        await content.CopyToAsync(received);
+        Assert.Equal(originalBytes, received.ToArray());
+        Assert.Equal(originalBytes, fixture.Storage.Bytes);
+        Assert.True(fixture.Storage.Present);
+        Assert.Equal(0, fixture.Storage.DeleteCalls);
     }
 
     [Theory]
@@ -228,6 +363,9 @@ public sealed class AuditPackageExportServiceTests
         Assert.True(result.IsSuccess, result.Error ?? result.ErrorDetail?.Message);
         var download = Assert.IsType<AuditPackageExportDownloadResponse>(result.Value);
         await using var content = download.Content;
+        Assert.True(content.CanRead);
+        Assert.Same(fixture.Storage.Reads[2], content);
+        Assert.Equal(0, fixture.Storage.Reads[2].AsyncDisposeCalls);
         using var received = new MemoryStream();
         await content.CopyToAsync(received);
         Assert.Equal(expected, received.ToArray());
@@ -242,6 +380,7 @@ public sealed class AuditPackageExportServiceTests
         Assert.Equal(1, fixture.UnitOfWork.Calls);
         Assert.Equal(0, fixture.Storage.DeleteCalls);
         Assert.Equal(fixture.Projection.ArtifactVersionId, Assert.Single(fixture.Claims.Requests));
+        Assert.Equal(new[] { "response-open", "audit", "save" }, fixture.Operations);
     }
 
     [Fact]
@@ -365,7 +504,9 @@ public sealed class AuditPackageExportServiceTests
         public Authorization Authorization { get; } = new();
         public Claims Claims { get; }
         public Storage Storage { get; }
-        public Audit Audit { get; } = new();
+        public Audit Audit { get; }
+        public DownloadLogger Logger { get; } = new();
+        public List<string> Operations { get; } = [];
         public UnitOfWork UnitOfWork { get; }
         public AppDbContext Context { get; }
         public AuditPackageExportService Service { get; }
@@ -397,10 +538,11 @@ public sealed class AuditPackageExportServiceTests
             };
             Job.FileObject = File;
             Job.FileObjectId = File.Id;
-            Storage = new Storage(File.StorageKey, Package(Projection, false));
+            Storage = new Storage(File.StorageKey, Package(Projection, false), Operations);
             Claims = new Claims(Projection);
-            UnitOfWork = new UnitOfWork(Context);
-            Service = new AuditPackageExportService(Context, new ArtifactRepository(Context), Claims, Authorization, User, Storage, Audit, UnitOfWork);
+            Audit = new Audit(Operations);
+            UnitOfWork = new UnitOfWork(Context, Operations);
+            Service = new AuditPackageExportService(Context, new ArtifactRepository(Context), Claims, Authorization, User, Storage, Audit, UnitOfWork, new Clock(), Logger);
         }
 
         public static async Task<Fixture> CreateAsync(ExportJobStatus status = ExportJobStatus.Completed)
@@ -491,20 +633,23 @@ public sealed class AuditPackageExportServiceTests
         }
     }
 
-    private sealed class Storage(string key, byte[] bytes) : IFileStorageService
+    private sealed class Storage(string key, byte[] bytes, List<string> operations) : IFileStorageService
     {
         public byte[] Bytes { get; set; } = bytes;
         public bool Present { get; private set; } = true;
         public bool FailDelete { get; set; }
+        public bool FailResponseDispose { get; set; }
         public int ExistsCalls { get; private set; }
         public int DeleteCalls { get; private set; }
-        public List<MemoryStream> Reads { get; } = [];
+        public List<ObservedStream> Reads { get; } = [];
         public Task<Result> SaveAsync(string storageKey, Stream stream, string contentType, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Download/retry must not create storage bytes.");
         public Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
         {
             Assert.Equal(key, storageKey);
             Assert.True(Present);
-            var stream = new MemoryStream(Bytes, writable: false);
+            var response = Reads.Count == 2;
+            if (response) operations.Add("response-open");
+            var stream = new ObservedStream(Bytes, response && FailResponseDispose, response ? operations : null);
             Reads.Add(stream);
             return Task.FromResult<Stream>(stream);
         }
@@ -525,25 +670,69 @@ public sealed class AuditPackageExportServiceTests
         public Task<string?> CreateSignedReadUrlAsync(string storageKey, TimeSpan expiresIn, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Audit delivery must return an authorized stream.");
     }
 
-    private sealed class Audit : IAuditLogger
+    private sealed class ObservedStream(byte[] bytes, bool fail, List<string>? operations) : MemoryStream(bytes, writable: false)
+    {
+        public int AsyncDisposeCalls { get; private set; }
+        public override async ValueTask DisposeAsync()
+        {
+            AsyncDisposeCalls++;
+            operations?.Add("response-dispose");
+            if (fail && AsyncDisposeCalls == 1) throw new IOException("Synthetic private stream disposal detail.");
+            await base.DisposeAsync();
+        }
+    }
+
+    private sealed class DownloadLogger : ILogger<AuditPackageExportService>
+    {
+        public bool Fail { get; set; }
+        public int Attempts { get; private set; }
+        public List<(LogLevel Level, string Message, Exception? Exception, KeyValuePair<string, object?>[] State)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Attempts++;
+            if (Fail) throw new IOException("Synthetic warning failure.");
+            Entries.Add((logLevel, formatter(state, exception), exception, state is IEnumerable<KeyValuePair<string, object?>> fields ? fields.ToArray() : []));
+        }
+        public void AssertFixedWarning()
+        {
+            var warning = Assert.Single(Entries);
+            Assert.Equal(LogLevel.Warning, warning.Level);
+            Assert.Equal("Audit package download stream cleanup failed.", warning.Message);
+            Assert.Null(warning.Exception);
+            var state = Assert.Single(warning.State);
+            Assert.Equal("{OriginalFormat}", state.Key);
+            Assert.Equal(warning.Message, state.Value);
+        }
+    }
+
+    private sealed class Clock : IClock
+    {
+        public DateTimeOffset UtcNow => DateTimeOffset.Parse("2026-11-01T00:00:00Z");
+    }
+
+    private sealed class Audit(List<string> operations) : IAuditLogger
     {
         public bool Fail { get; set; }
         public List<AuditLogEntry> Entries { get; } = [];
         public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default)
         {
+            operations.Add("audit");
             if (Fail) throw new IOException("Synthetic download audit staging failure.");
             Entries.Add(entry);
             return Task.CompletedTask;
         }
     }
 
-    private sealed class UnitOfWork(AppDbContext context) : IUnitOfWork
+    private sealed class UnitOfWork(AppDbContext context, List<string> operations) : IUnitOfWork
     {
         public bool Fail { get; set; }
         public int Calls { get; private set; }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
+            operations.Add("save");
             if (Fail) throw new IOException("Synthetic download audit persistence failure.");
             return context.SaveChangesAsync(cancellationToken);
         }

@@ -8,6 +8,8 @@ using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Coglatas.Infrastructure.Persistence;
 
@@ -21,6 +23,8 @@ public sealed class AuditPackageExportService(
     IAuditLogger auditLogger,
     IUnitOfWork unitOfWork) : IAuditPackageExportService
 {
+    private readonly ILogger<AuditPackageExportService> _logger = NullLogger<AuditPackageExportService>.Instance;
+
     // Retain the original direct-construction signature for existing consumers.
     // DI still resolves the longest satisfiable public constructor.
     public AuditPackageExportService(
@@ -36,6 +40,22 @@ public sealed class AuditPackageExportService(
         : this(dbContext, artifacts, claimsEvidence, auditAuthorization, currentUser, storage, auditLogger, unitOfWork)
     {
         ArgumentNullException.ThrowIfNull(clock);
+    }
+
+    public AuditPackageExportService(
+        AppDbContext dbContext,
+        IArtifactRepository artifacts,
+        IAuditClaimsEvidenceService claimsEvidence,
+        IAuditAuthorizationService auditAuthorization,
+        ICurrentUser currentUser,
+        IFileStorageService storage,
+        IAuditLogger auditLogger,
+        IUnitOfWork unitOfWork,
+        IClock clock,
+        ILogger<AuditPackageExportService> logger)
+        : this(dbContext, artifacts, claimsEvidence, auditAuthorization, currentUser, storage, auditLogger, unitOfWork, clock)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     private const string PackageContentType = "application/zip";
@@ -316,6 +336,7 @@ public sealed class AuditPackageExportService(
         }
         var capabilities = await auditAuthorization.GetCapabilitiesAsync(cancellationToken);
 
+        Stream? responseStream = null;
         try
         {
             if (!await storage.ExistsAsync(fileObject.StorageKey, cancellationToken) ||
@@ -330,7 +351,7 @@ public sealed class AuditPackageExportService(
                     "The Audit package can no longer be delivered safely.");
             }
 
-            var stream = await storage.OpenReadAsync(fileObject.StorageKey, cancellationToken);
+            responseStream = await storage.OpenReadAsync(fileObject.StorageKey, cancellationToken);
             await auditLogger.LogAsync(new AuditLogEntry(
                 userId,
                 "AuditPackageExportDownloaded",
@@ -339,16 +360,39 @@ public sealed class AuditPackageExportService(
                 "Audit package export downloaded.",
                 TenantId: job.TenantId), cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result<AuditPackageExportDownloadResponse>.Success(new AuditPackageExportDownloadResponse(
+            var result = Result<AuditPackageExportDownloadResponse>.Success(new AuditPackageExportDownloadResponse(
                 fileObject.OriginalFileName,
                 PackageContentType,
-                stream));
+                responseStream));
+            responseStream = null;
+            return result;
         }
         catch
         {
             return Failure<AuditPackageExportDownloadResponse>(
                 "ExportPackageUnavailable",
                 "The Audit package is not currently available.");
+        }
+        finally
+        {
+            if (responseStream is not null)
+            {
+                try
+                {
+                    await responseStream.DisposeAsync();
+                }
+                catch
+                {
+                    try
+                    {
+                        _logger.LogWarning("Audit package download stream cleanup failed.");
+                    }
+                    catch
+                    {
+                        // Cleanup observability must preserve the original unavailable result.
+                    }
+                }
+            }
         }
     }
 
