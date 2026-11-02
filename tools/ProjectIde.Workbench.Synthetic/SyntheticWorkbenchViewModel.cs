@@ -33,7 +33,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public bool TryAccept(CompilerHostResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
-        if (_disposed || _desired is null || State == "Ready") return false;
+        if (_disposed || _desired is null || State != "Waiting") return false;
         if (response.ClientGeneration != _desired.ClientGeneration || !response.RequestedInputDigest.Equals(_desired.Input.ExpectedInputDigest)) return false;
         if (response.Status != CompilerHostStatus.Completed)
         {
