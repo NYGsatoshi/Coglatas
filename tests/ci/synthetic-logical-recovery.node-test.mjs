@@ -268,7 +268,8 @@ test('private raw material cannot enter the explicit workflow upload boundary', 
   const upload = workflow.slice(workflow.indexOf('- name: Upload closed synthetic logical recovery receipt'),
     workflow.indexOf('- name: Run canonical FCI-04'));
   assert.ok(upload.includes('retention-days: 7'));
-  for (const forbidden of ['database.dump', 'uploads.tar', 'keys.tar', 'RUNNER_TEMP', 'probe-checkpoint.json'])
+  for (const forbidden of ['database.dump', 'uploads.tar', 'keys.tar', 'RUNNER_TEMP', 'probe-checkpoint.json',
+    'catalog.raw.json', 'triggers.raw.json'])
     assert.ok(!upload.includes(forbidden));
 });
 

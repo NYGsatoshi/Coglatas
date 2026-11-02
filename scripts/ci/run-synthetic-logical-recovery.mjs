@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync, chmodSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { logicalTriggerCatalog, TRIGGER_CATALOG_SQL } from './synthetic-trigger-catalog.mjs';
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const DOCKER = '/usr/bin/docker', GIT = '/usr/bin/git', SOCKET = '/var/run/docker.sock';
@@ -201,7 +202,7 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 CREATE TEMP TABLE recovery_rows(schema_name text,table_name text,row_count bigint,data_digest text);
 DO $capture$ DECLARE item record; value_count bigint; value_digest text; BEGIN
  FOR item IN SELECT n.nspname,c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p')
+ WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p')
  ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C" LOOP
  EXECUTE format('LOCK TABLE %I.%I IN SHARE MODE',item.nspname,item.relname);
  EXECUTE format('SELECT count(*),encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text COLLATE "C")::text,''[]''),''UTF8'')),''hex'') FROM %I.%I r',item.nspname,item.relname)
@@ -214,20 +215,20 @@ COMMIT;`;
 const CATALOG_SQL = String.raw`
 SELECT json_build_object(
  'relations',(SELECT coalesce(json_agg(json_build_array(n.nspname,c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity,c.relreplident,c.reloptions,c.relacl::text,pg_get_userbyid(c.relowner)) ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C"),'[]')
- FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'),
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
  'constraints',(SELECT coalesce(json_agg(json_build_array(n.nspname,r.relname,c.conname,c.contype,c.convalidated,c.condeferrable,c.condeferred,pg_get_constraintdef(c.oid,false)) ORDER BY n.nspname COLLATE "C",r.relname COLLATE "C",c.conname COLLATE "C"),'[]')
- FROM pg_constraint c JOIN pg_class r ON r.oid=c.conrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'),
+ FROM pg_constraint c JOIN pg_class r ON r.oid=c.conrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
  'indexes',(SELECT coalesce(json_agg(json_build_array(n.nspname,r.relname,c.relname,i.indisunique,i.indisvalid,i.indisready,pg_get_indexdef(i.indexrelid)) ORDER BY n.nspname COLLATE "C",r.relname COLLATE "C",c.relname COLLATE "C"),'[]')
- FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_class r ON r.oid=i.indrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'),
+ FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_class r ON r.oid=i.indrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
  'triggers',(SELECT coalesce(json_agg(json_build_array(n.nspname,c.relname,t.tgname,t.tgenabled,t.tgisinternal,pg_get_triggerdef(t.oid,false)) ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",t.tgname COLLATE "C"),'[]')
- FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'),
+ FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
  'functions',(SELECT coalesce(json_agg(json_build_array(n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),p.prosecdef,p.proconfig,p.proacl::text,pg_get_functiondef(p.oid)) ORDER BY n.nspname COLLATE "C",p.proname COLLATE "C",pg_get_function_identity_arguments(p.oid) COLLATE "C"),'[]')
- FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND p.prokind IN ('f','p')),
+ FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND p.prokind IN ('f','p')),
  'policies',(SELECT coalesce(json_agg(json_build_array(n.nspname,c.relname,p.polname,p.polcmd,p.polpermissive,pg_get_expr(p.polqual,p.polrelid),pg_get_expr(p.polwithcheck,p.polrelid)) ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",p.polname COLLATE "C"),'[]')
- FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'),
- 'schemas',(SELECT coalesce(json_agg(json_build_array(nspname,pg_get_userbyid(nspowner),nspacl::text) ORDER BY nspname COLLATE "C"),'[]') FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname<>'information_schema'),
+ FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
+ 'schemas',(SELECT coalesce(json_agg(json_build_array(nspname,pg_get_userbyid(nspowner),nspacl::text) ORDER BY nspname COLLATE "C"),'[]') FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname<>'information_schema'),
  'defaults',(SELECT coalesce(json_agg(json_build_array(pg_get_userbyid(d.defaclrole),n.nspname,d.defaclobjtype,d.defaclacl::text) ORDER BY pg_get_userbyid(d.defaclrole) COLLATE "C",n.nspname COLLATE "C",d.defaclobjtype),'[]') FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace),
- 'roles',(SELECT coalesce(json_agg(json_build_array(rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,rolconnlimit,rolvaliduntil,rolconfig) ORDER BY rolname COLLATE "C"),'[]') FROM pg_roles WHERE rolname NOT LIKE 'pg_%'),
+ 'roles',(SELECT coalesce(json_agg(json_build_array(rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,rolconnlimit,rolvaliduntil,rolconfig) ORDER BY rolname COLLATE "C"),'[]') FROM pg_roles WHERE rolname !~ '^pg_'),
  'memberships',(SELECT coalesce(json_agg(json_build_array(pg_get_userbyid(roleid),pg_get_userbyid(member),admin_option,inherit_option,set_option) ORDER BY pg_get_userbyid(roleid) COLLATE "C",pg_get_userbyid(member) COLLATE "C"),'[]') FROM pg_auth_members),
  'migrations',(SELECT coalesce(json_agg(json_build_array("MigrationId","ProductVersion") ORDER BY "MigrationId" COLLATE "C"),'[]') FROM public."__EFMigrationsHistory"));`;
 
@@ -236,7 +237,7 @@ CREATE TEMP TABLE recovery_sequences(schema_name text,sequence_name text,paramet
 DO $capture$ DECLARE item record; value_last bigint; value_called boolean; BEGIN
  FOR item IN SELECT n.nspname,c.relname,jsonb_build_array(format_type(s.seqtypid,NULL),s.seqstart::text,s.seqincrement::text,s.seqmax::text,s.seqmin::text,s.seqcache::text,s.seqcycle) parameters
  FROM pg_sequence s JOIN pg_class c ON c.oid=s.seqrelid JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' LOOP
+ WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' LOOP
  EXECUTE format('SELECT last_value,is_called FROM %I.%I',item.nspname,item.relname) INTO value_last,value_called;
  INSERT INTO recovery_sequences VALUES(item.nspname,item.relname,item.parameters,value_last,value_called);
  END LOOP; END $capture$;
@@ -386,7 +387,12 @@ export async function runRecovery() {
     const dump = compose(project, ['exec', '-T', 'postgres', '/usr/local/bin/pg_dump', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
       '--schema-only', '--no-owner', '--no-privileges', '--restrict-key=' + nonce]).stdout;
     privateFile(privateRoot, name + '.schema.sql', dump);
-    const rows = JSON.parse(psql(project, ROWS_SQL)), catalog = JSON.parse(psql(project, CATALOG_SQL));
+    const rows = JSON.parse(psql(project, ROWS_SQL)), catalogText = psql(project, CATALOG_SQL);
+    privateFile(privateRoot, name + '.catalog.raw.json', catalogText);
+    const rawCatalog = JSON.parse(catalogText), triggerText = psql(project, TRIGGER_CATALOG_SQL);
+    privateFile(privateRoot, name + '.triggers.raw.json', triggerText);
+    const rawTriggers = JSON.parse(triggerText);
+    const catalog = { ...rawCatalog, triggers: logicalTriggerCatalog(rawTriggers, rawCatalog.triggers) };
     const sequences = JSON.parse(psql(project, SEQUENCES_SQL));
     const value = { schema: sha256(dump), rows, catalog, sequences,
       uploads: manifest(volumes[0]), keys: manifest(volumes[1]) };

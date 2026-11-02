@@ -88,6 +88,76 @@ claim of physical OID or `pg_node_tree` identity. File metadata compares modes,
 owners, paths, kinds and bytes; timestamps and physical disk identity are not
 qualified.
 
+### Generated internal RI trigger rendering
+
+The original catalog query retains its fields and its complete scalar output is
+retained privately as `<checkpoint>.catalog.raw.json`. A separate PostgreSQL 18
+inventory is retained as `<checkpoint>.triggers.raw.json`. Non-trigger catalog
+fields, strict raw schema bytes, complete row contents, sequences, files, keys,
+restore counts and original assertion calls remain unchanged. The inventory
+predicate correction below additionally includes previously omitted user names.
+
+The system-namespace/role predicates use the literal reserved `pg_` prefix.
+An actual PostgreSQL counterexample showed the former `NOT LIKE 'pg_%'`
+predicate also excluded legitimate user names such as `pgx`, allowing a changed
+restored row to produce an identical manifest. Only those predicates changed to
+`!~ '^pg_'` consistently across rows/catalog/sequences/roles and the trigger
+inventory. This strengthens complete user inventory; no row/table exclusion or
+data normalization is added. Native controls retain the original red result,
+include a `pgx` table/sequence/trigger and nonreserved `pgfixture` role, reject
+its restored-row mutation, and still exclude system/temp namespaces.
+
+Only a known built-in `pg_catalog` internal RI function, linked to the matching
+foreign key and relation/index identities, with the server-generated name
+verified against that trigger's own OID, receives a structured logical identity.
+Unexpected internal names/functions and every user-trigger name/definition stay
+exact. No arbitrary suffix removal, internal-row filtering or data/schema
+normalization occurs. Full inventory counts and original raw rows are reconciled
+before rendering. Parent trigger references and column numbers resolve to
+logical trigger/column names; missing links, cycles and duplicate identities fail.
+
+The representation preserves event/type, enabled/replication mode,
+deferrability, arguments, columns, WHEN-bearing definitions, transition aliases,
+function definition/signature/security attributes, constraint/index/relation
+identities and partition-parent relationships. The original PostgreSQL name
+order separately determines effective co-firing sequences per table, timing,
+row/statement level, individual event and origin/replica mode. Multi-event user
+triggers participate in every applicable sequence. A changed RI/RI or RI/user
+order remains a failure even when the unordered logical records match.
+
+Function cost/row estimates use PostgreSQL's decimal text, preserving fractional
+metadata without passing floating-point JSON numbers to the unchanged strict
+safe-integer guard. Nonfinite or malformed estimates fail closed. The native
+positive invokes the actual original snapshot assertion on the complete
+database snapshot; fractional-cost mutation must fail that same assertion.
+Empty file/key manifests in this database-only fixture do not qualify files or
+Data Protection restoration.
+
+This repairs a rendering that unintentionally depended on physical OIDs,
+consistent with the documented assurance above; it does not waive a meaningful
+catalog difference or approve a new backup strategy, actual target, role/RLS
+change or release. Historical first-attempt failures remain unchanged.
+
+The durable unit controls run in the existing preflight and canonical native
+Node-coverage cohort. The separate native test requires explicit opt-in:
+
+```bash
+COGLATAS_RI_NATIVE_TEST=1 node --test tests/ci/synthetic-trigger-catalog.postgres-test.mjs
+```
+
+It admits only an explicit local Docker endpoint and cached immutable PostgreSQL
+18.6 image, creates a fresh network-none/tmpfs cluster, performs one original
+custom dump/restore, retains raw schema/catalog/trigger evidence privately, and
+checks semantic/order mutations before removing and verifying only its owned
+container. Windows additionally requires `COGLATAS_RI_DOCKER` to name the trusted
+absolute Docker executable. No configured or local control qualifies the full
+application recovery path; exact-source hosted Full/CI/Sonar and independent
+review remain separate requirements.
+
+Primary contracts: [PostgreSQL 18 trigger catalog](https://www.postgresql.org/docs/18/catalog-pg-trigger.html)
+[PostgreSQL 18 event and alphabetical firing rules](https://www.postgresql.org/docs/18/sql-createtrigger.html),
+and [PostgreSQL 18 generated trigger naming implementation](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/commands/trigger.c).
+
 ## Evidence and privacy
 
 Raw dumps, SQL/catalog snapshots, file/key archives, credentials and cookies

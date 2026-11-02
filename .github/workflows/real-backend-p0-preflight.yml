@@ -13,6 +13,9 @@ on:
       - "tests/ci/synthetic-logical-recovery.node-test.mjs"
       - "tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs"
       - "tests/ci/synthetic-logical-recovery-probe.node-test.mjs"
+      - "scripts/ci/synthetic-trigger-catalog.mjs"
+      - "tests/ci/synthetic-trigger-catalog.node-test.mjs"
+      - "tests/ci/synthetic-trigger-catalog.postgres-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -52,6 +55,9 @@ on:
       - "tests/ci/synthetic-logical-recovery.node-test.mjs"
       - "tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs"
       - "tests/ci/synthetic-logical-recovery-probe.node-test.mjs"
+      - "scripts/ci/synthetic-trigger-catalog.mjs"
+      - "tests/ci/synthetic-trigger-catalog.node-test.mjs"
+      - "tests/ci/synthetic-trigger-catalog.postgres-test.mjs"
       - "package.json"
       - "scripts/ci/build-playwright-grep.mjs"
       - "scripts/ci/functional-compose-harness.sh"
@@ -108,6 +114,7 @@ jobs:
           tests/ci/synthetic-logical-recovery.node-test.mjs
           tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs
           tests/ci/synthetic-logical-recovery-probe.node-test.mjs
+          tests/ci/synthetic-trigger-catalog.node-test.mjs
           tests/functional/fci04-owner-reporter.node-test.mjs
           tests/ui/build-playwright-grep.node-test.mjs
           tests/ui/real-backend-smoke-compose-helpers.node-test.mjs
