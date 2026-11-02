@@ -14,20 +14,34 @@ INVENTORY_TESTS = (
 )
 INTERNAL_INVENTORY = INVENTORY_TESTS[0]
 
-def verify_internal_inventory(repository: Path, product: str) -> None:
+def verify_internal_inventory(repository: Path, product: str, path: str = INTERNAL_INVENTORY) -> None:
     """Permit only existing internal assertions following the newly registered route."""
-    baseline = git(repository, "show", CORE_PRODUCT + ":" + INTERNAL_INVENTORY)
+    baseline = git(repository, "show", CORE_PRODUCT + ":" + path)
     expected = baseline
-    for before, after in (
+    inventory_changes = (
         ("explicit five-route addendum", "explicit six-route addendum"),
         ("'/home', '/teams'", "'/home', '/projectide/preview', '/teams'"),
         ("SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 43)",
          "SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 44)"),
-    ):
+    )
+    source_link_changes = (
+        ("alias = resolve(root, 'alias.ts')", "alias = resolve(root, 'alias')"),
+        ("symlinkSync(outsideFile, alias);",
+         "// A directory junction exercises realpath containment on Windows without\n"
+         "    // requiring elevation; Node creates a directory symlink on Unix.\n"
+         "    symlinkSync(outside, alias, 'junction');"),
+        ("for (const ownerPath of ['../other/external.ts', 'alias.ts'])",
+         "for (const ownerPath of ['../other/external.ts', 'alias/external.ts'])"),
+        ("for (const routeDefinition of ['../other/external.ts', 'alias.ts'])",
+         "for (const routeDefinition of ['../other/external.ts', 'alias/external.ts'])"),
+    )
+    if path not in INVENTORY_TESTS:
+        raise ValueError("Unknown internal maintenance path")
+    for before, after in (inventory_changes if path == INTERNAL_INVENTORY else source_link_changes):
         if expected.count(before) != 1:
             raise ValueError("Pinned internal inventory baseline differs from the approved maintenance profile")
         expected = expected.replace(before, after)
-    if git(repository, "show", product + ":" + INTERNAL_INVENTORY) != expected:
+    if git(repository, "show", product + ":" + path) != expected:
         raise ValueError("Only exact internal inventory maintenance is permitted on Product")
 
 def frontend_test(path: str) -> bool:
@@ -67,13 +81,15 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     git(repository, "merge-base", "--is-ancestor", CORE_TEST, test)
     product_merges: list[str] = []
     test_merges: list[str] = []
+    internal_maintenance: set[str] = set()
     product_changes = changes(repository, CORE_PRODUCT, product, (
-        "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", INTERNAL_INVENTORY,
+        "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", *INVENTORY_TESTS,
         "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT, product_merges)
     for commit in product_changes:
         for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines():
-            if path == INTERNAL_INVENTORY:
-                verify_internal_inventory(repository, product)
+            if path in INVENTORY_TESTS:
+                verify_internal_inventory(repository, product, path)
+                internal_maintenance.add(path)
             elif frontend_test(path):
                 raise ValueError("Product candidate contains independent Test source")
     web_tests = changes(repository, CORE_TEST, test, (
@@ -106,6 +122,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         testTree=git(repository,"rev-parse",test+"^{tree}"), productChanges=product_changes, testChanges=test_changes,
         productDependencyMerges=product_merges, testDependencyMerges=test_merges,
         coreTestChanges=core_tests, webTestChanges=web_tests,
+        internalMaintenancePaths=sorted(internal_maintenance),
         inheritedTestBaselineDifferences=git(repository, "diff", "--name-only", TEST_BASE, CORE_PRODUCT,
                                              "--", "tests").splitlines(),
         combinedCommit=git(target,"rev-parse","HEAD"), combinedTree=git(target,"rev-parse","HEAD^{tree}"),

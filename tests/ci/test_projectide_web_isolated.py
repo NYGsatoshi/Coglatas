@@ -24,6 +24,15 @@ class WebCompositionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Pinned internal inventory baseline"):
                 composer.verify_internal_inventory(Path("."),"0"*40)
 
+    def test_internal_portability_maintenance_cannot_absorb_independent_controls(self):
+        baseline = "alias = resolve(root, 'alias.ts')\nsymlinkSync(outsideFile, alias);\nfor (const ownerPath of ['../other/external.ts', 'alias.ts'])\nfor (const routeDefinition of ['../other/external.ts', 'alias.ts'])"
+        approved = "alias = resolve(root, 'alias')\n// A directory junction exercises realpath containment on Windows without\n    // requiring elevation; Node creates a directory symlink on Unix.\n    symlinkSync(outside, alias, 'junction');\nfor (const ownerPath of ['../other/external.ts', 'alias/external.ts'])\nfor (const routeDefinition of ['../other/external.ts', 'alias/external.ts'])"
+        with patch.object(composer,"git",side_effect=[baseline,approved]):
+            composer.verify_internal_inventory(Path("."),"0"*40,composer.INVENTORY_TESTS[1])
+        with patch.object(composer,"git",side_effect=[baseline,approved+"\n// Independent component/owner controls"]):
+            with self.assertRaisesRegex(ValueError,"Only exact internal inventory maintenance"):
+                composer.verify_internal_inventory(Path("."),"0"*40,composer.INVENTORY_TESTS[1])
+
     def test_symbolic_or_abbreviated_refs_are_rejected_before_composition(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(composer,"git") as git:
             root=Path(directory)
