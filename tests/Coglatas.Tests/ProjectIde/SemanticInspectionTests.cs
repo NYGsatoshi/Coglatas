@@ -144,3 +144,22 @@ public sealed class SyntheticWorkbenchFixtureTests
         else { Assert.Null(view.Result); Assert.Empty(view.Problems); Assert.Null(view.Inspection); }
     }
 }
+
+public sealed class SyntheticWorkbenchTerminalStateTests
+{
+    [Theory]
+    [InlineData(CompilerHostStatus.Cancelled)]
+    [InlineData(CompilerHostStatus.Unsupported)]
+    [InlineData(CompilerHostStatus.InvalidInput)]
+    [InlineData(CompilerHostStatus.InternalError)]
+    public void CurrentFailureStopsWaitingAndAChangedGenerationCanRetry(CompilerHostStatus status)
+    {
+        var input = Input(); var request = new CompilerHostRequest(new(input), 4);
+        using var view = new SyntheticWorkbenchViewModel(); view.BeginSynthetic(request);
+        var response = new CompilerHostResponse(status, "test.terminal", input.InputDigest, 4, Guid.NewGuid(), null);
+        Assert.False(view.TryAccept(response)); Assert.Equal(status.ToString(), view.State);
+        Assert.Empty(view.Problems); Assert.Null(view.Result); Assert.Null(view.Selected); Assert.Null(view.SourceTarget);
+        view.BeginSynthetic(new(new(input), 5)); Assert.Equal("Waiting", view.State);
+        Assert.False(view.TryAccept(response)); Assert.Equal("Waiting", view.State);
+    }
+}
