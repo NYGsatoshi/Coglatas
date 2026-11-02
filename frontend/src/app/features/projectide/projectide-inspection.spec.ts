@@ -42,7 +42,7 @@ describe('Source-backed semantic inspection', () => {
     store.select({ kind: 'entity', id: record.identity });
     expect(store.inspectedSymbols()).toEqual([]);
   });
-  it.each(['declarations', 'documents'])('visits Source %s a bounded number of times while validating many inspection entries', (mode) => {
+  it.each(['declarations', 'documents', 'ports'])('visits Source %s a bounded number of times while validating many inspection entries', (mode) => {
     const raw = fixture(); const item = raw.cases[0]; raw.cases = [item];
     const count = 64;
     const document = structuredClone(item.source.documents[0]);
@@ -63,13 +63,26 @@ describe('Source-backed semantic inspection', () => {
     item.semanticInspection.references = item.declarations.map((entry: typeof declaration) => ({
       origin: structuredClone(entry.location), state: 'Resolved', symbolKey: item.semanticInspection.symbols[0].key,
     }));
+    if (mode === 'ports') {
+      const entry = item.declarations[0];
+      const type = { kind: 'coglatas.text', schemaVersion: 1, nullable: false, acceptsUnknown: false };
+      entry.data.payload.ports = Array.from({ length: count }, (_, index) => ({ portId: `port-${index}`, type }));
+      item.declarations = [entry]; item.semanticInspection.references = [];
+      item.semanticInspection.symbols = entry.data.payload.ports.map((port: { portId: string }) => ({
+        key: JSON.stringify({ context: item.context, entityId: entry.identity, portId: port.portId }),
+        kind: type.kind, status: 'Decoded', declaredType: type,
+        location: { ...structuredClone(entry.location), propertyPath: '/payload/ports/' + port.portId },
+      }));
+    }
     let reads = 0;
-    const entries = mode === 'declarations' ? item.declarations : item.source.documents;
+    const entries = mode === 'declarations' ? item.declarations : mode === 'ports' ? item.declarations[0].data.payload.ports : item.source.documents;
     const observed = new Proxy(entries, { get(target, key, receiver) {
       if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
       return Reflect.get(target, key, receiver);
     } });
-    if (mode === 'declarations') item.declarations = observed; else item.source.documents = observed;
+    if (mode === 'declarations') item.declarations = observed;
+    else if (mode === 'ports') item.declarations[0].data.payload.ports = observed;
+    else item.source.documents = observed;
     expect(readPreviewBundle(raw)).toBe(raw);
     // Structural work bound, not elapsed time or hardware-dependent assurance.
     expect(reads).toBeLessThanOrEqual(10 * count);
