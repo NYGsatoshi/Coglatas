@@ -27,7 +27,7 @@ public sealed class TaskDeadlineDigestJobConfiguration : IEntityTypeConfiguratio
                 "\"ClaimExpiresAt\" IS NULL OR \"ClaimExpiresAt\" > \"ClaimedAt\"");
             table.HasCheckConstraint(
                 "CK_task_deadline_digest_jobs_completion",
-                "((\"Status\" IN ('Succeeded', 'Failed')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\" IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
+                "((\"Status\"::text IN ('Succeeded', 'Failed')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\"::text IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
             table.HasCheckConstraint(
                 "CK_task_deadline_digest_jobs_next_attempt",
                 "\"Status\" <> 'Pending' OR \"NextAttemptAt\" IS NOT NULL");
@@ -105,7 +105,7 @@ public sealed class TaskDeadlineDigestAttemptConfiguration : IEntityTypeConfigur
                 "\"ClaimExpiresAt\" IS NULL OR \"ClaimExpiresAt\" > \"ClaimedAt\"");
             table.HasCheckConstraint(
                 "CK_task_deadline_digest_attempts_completion",
-                "((\"Status\" IN ('Succeeded', 'Failed', 'Expired', 'Deferred')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\" IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
+                "((\"Status\"::text IN ('Succeeded', 'Failed', 'Expired', 'Deferred')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\"::text IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
         });
         builder.ConfigureAuditableEntity();
 
@@ -124,7 +124,7 @@ public sealed class TaskDeadlineDigestAttemptConfiguration : IEntityTypeConfigur
             .IsUnique();
         builder.HasIndex(attempt => attempt.JobId)
             .HasDatabaseName("IX_task_deadline_digest_attempts_one_active")
-            .HasFilter("\"Status\" IN ('Pending', 'Claimed')")
+            .HasFilter("\"Status\"::text IN ('Pending', 'Claimed')")
             .IsUnique();
 
         builder
