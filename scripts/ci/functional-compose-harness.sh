@@ -355,6 +355,9 @@ run_harness() {
   fi
   wait_for_healthy app "$timeout_seconds" || setup_failure application-readiness "Application did not become healthy: $last_wait_state"
 
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    acceptance_verify_image_reuse container || setup_failure runtime-image-continuity "Application image could not be verified before the probe."
+  fi
   "${compose[@]}" run --rm --no-deps --entrypoint /bin/true real-backend-playwright ||
     setup_failure prepare-browser "Browser runtime could not be prepared before test execution."
 
@@ -370,9 +373,6 @@ run_harness() {
   fi
   suite_args+=(real-backend-playwright)
 
-  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
-    acceptance_verify_image_reuse container || setup_failure runtime-image-continuity "Application image could not be verified before the probe."
-  fi
   set +e
   if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
     acceptance_compose_run no-deps "${suite_args[@]:1}"
