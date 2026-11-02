@@ -536,6 +536,7 @@ self_test() {
             ! grep -Fq '[INFRA/SETUP FAILURE]' "$runtime_temp/output" ;;
         success)
           [[ "$runtime_status" == 0 && "$(< "$runtime_temp/calls")" == $'prepare\nsuite\ncleanup' ]] ;;
+        *) false ;;
       esac
     }; then
       printf 'Runtime classification control failed: %s (exit %s).\n' "$runtime_case" "$runtime_status" >&2
