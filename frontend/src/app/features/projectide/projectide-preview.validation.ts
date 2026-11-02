@@ -86,7 +86,9 @@ const evidence = (value: unknown): boolean =>
     'coglatas.missing',
   ]) &&
   list(value['premises'], digest, 1024) &&
-  (value['missingReason'] === null || token(value['missingReason']));
+  (value['kind'] === 'coglatas.missing'
+    ? (value['premises'] as unknown[]).length === 0 && token(value['missingReason'])
+    : (value['premises'] as unknown[]).length > 0 && value['missingReason'] === null);
 const diagnostic = (value: unknown): boolean =>
   record(value) &&
   token(value['diagnosticId']) &&
@@ -205,5 +207,21 @@ export function isPreviewBundleShape(value: unknown): value is PreviewBundle {
     value['mode'] === 'synthetic-fixture' &&
     token(value['coreProduct']) &&
     list(value['cases'], isPreviewCaseShape, 32)
+  );
+}
+
+/** Ambiguous identities cannot be used as Angular tracking keys or semantic targets. */
+export function hasUniquePreviewIdentities(value: PreviewCase): boolean {
+  const unique = <T>(items: readonly T[], key: (item: T) => string) =>
+    new Set(items.map(key)).size === items.length;
+  return (
+    unique(value.source.documents, (item) => item.documentId) &&
+    unique(value.declarations, (item) => item.identity) &&
+    unique(value.relations, (item) => item.identity) &&
+    value.declarations.every((item) => item.recordType === 'entity') &&
+    value.relations.every((item) => item.recordType === 'relation') &&
+    unique(value.result.diagnostics, (item) => item.diagnosticId) &&
+    unique(value.result.rules, (item) => item.ruleId) &&
+    unique(value.result.artifacts, (item) => item.role)
   );
 }

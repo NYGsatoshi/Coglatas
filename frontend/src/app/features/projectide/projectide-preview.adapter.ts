@@ -3,6 +3,7 @@ import {
   isPreviewBundleShape,
   isPreviewCaseShape,
   isProjectLocationShape,
+  hasUniquePreviewIdentities,
 } from './projectide-preview.validation';
 import {
   PreviewBundle,
@@ -30,58 +31,72 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
     throw new PreviewReadError('unsupported');
   }
   for (const item of bundle.cases) {
-    const r = item.result;
-    if (
-      !sameContext(item.context, r.boundInputStamp.sourceContext) ||
-      !sameDigest(item.sourceDigest, r.boundInputStamp.sourceDigest) ||
-      item.inputId !== r.compilerInputId ||
-      !sameDigest(item.inputDigest, r.inputDigest) ||
-      !sameDigest(item.inputDigest, r.boundInputStamp.inputDigest) ||
-      (item.freshness === 'Current' && !sameContext(item.context, item.desiredContext))
-    ) {
-      throw new PreviewReadError('wrong-scope');
-    }
-    if (
-      item.sourceMap &&
-      (item.sourceMap.format !== 'coglatas.semantic-source-map/1' ||
-        item.sourceMap.compilerInputId !== item.inputId ||
-        !item.sourceMapDigest ||
-        !r.artifacts.some(
-          (a) =>
-            a.role === 'coglatas.source-map' &&
-            sameDigest(a.digest, item.sourceMapDigest!) &&
-            sameDigest(a.inputDigest, item.inputDigest),
-        ))
-    ) {
-      throw new PreviewReadError('wrong-scope');
-    }
-    for (const location of [
-      ...r.diagnostics.map((d) => d.primaryLocation),
-      ...item.declarations.map((d) => d.location),
-      ...item.relations.map((d) => d.location),
-    ]) {
-      if (!sameContext(item.context, location.context)) {
-        throw new PreviewReadError('wrong-scope');
-      }
-    }
-    for (const record of [...item.declarations, ...item.relations]) {
-      if (
-        (record.recordType === 'entity'
-          ? record.location.entityId
-          : record.recordType === 'relation'
-            ? record.location.relationId
-            : null) !== record.identity
-      ) {
-        throw new PreviewReadError('wrong-scope');
-      }
-    }
-    for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
-      if (!sameContext(item.context, entry.location.context)) {
-        throw new PreviewReadError('wrong-scope');
-      }
-    }
+    validatePreviewCaseBindings(item);
   }
   return bundle;
+}
+
+/** Reused by direct navigation so shape validation cannot bypass exact artifact binding. */
+function validatePreviewCaseBindings(item: PreviewCase): void {
+  if (!hasUniquePreviewIdentities(item)) {
+    throw new PreviewReadError('unsupported');
+  }
+  const r = item.result;
+  if (
+    !sameContext(item.context, r.boundInputStamp.sourceContext) ||
+    !sameDigest(item.sourceDigest, r.boundInputStamp.sourceDigest) ||
+    item.inputId !== r.compilerInputId ||
+    !sameDigest(item.inputDigest, r.inputDigest) ||
+    !sameDigest(item.inputDigest, r.boundInputStamp.inputDigest) ||
+    (item.freshness === 'Current' && !sameContext(item.context, item.desiredContext))
+  ) {
+    throw new PreviewReadError('wrong-scope');
+  }
+  if (
+    item.sourceMap &&
+    (item.sourceMap.format !== 'coglatas.semantic-source-map/1' ||
+      item.sourceMap.compilerInputId !== item.inputId ||
+      !item.sourceMapDigest ||
+      !r.artifacts.some(
+        (a) =>
+          a.role === 'coglatas.source-map' &&
+          sameDigest(a.digest, item.sourceMapDigest!) &&
+          sameDigest(a.inputDigest, item.inputDigest),
+      ))
+  ) {
+    throw new PreviewReadError('wrong-scope');
+  }
+  for (const location of [
+    ...r.diagnostics.map((d) => d.primaryLocation),
+    ...item.declarations.map((d) => d.location),
+    ...item.relations.map((d) => d.location),
+  ]) {
+    if (
+      !sameContext(item.context, location.context) ||
+      !item.source.documents.some((document) => document.documentId === location.documentId)
+    ) {
+      throw new PreviewReadError('wrong-scope');
+    }
+  }
+  for (const record of [...item.declarations, ...item.relations]) {
+    if (
+      (record.recordType === 'entity'
+        ? record.location.entityId
+        : record.recordType === 'relation'
+          ? record.location.relationId
+          : null) !== record.identity
+    ) {
+      throw new PreviewReadError('wrong-scope');
+    }
+  }
+  for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
+    if (
+      !sameContext(item.context, entry.location.context) ||
+      !item.source.documents.some((document) => document.documentId === entry.location.documentId)
+    ) {
+      throw new PreviewReadError('wrong-scope');
+    }
+  }
 }
 
 @Injectable()
@@ -114,6 +129,13 @@ export function resolveLocation(
   }
   if (!sameContext(value.context, location.context)) {
     return 'wrong-scope';
+  }
+  try {
+    validatePreviewCaseBindings(value);
+  } catch (error) {
+    return error instanceof PreviewReadError && error.state === 'wrong-scope'
+      ? 'wrong-scope'
+      : 'unavailable';
   }
   if (value.freshness !== 'Current' || !sameContext(value.context, value.desiredContext)) {
     return 'stale';

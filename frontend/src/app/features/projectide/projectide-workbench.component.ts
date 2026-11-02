@@ -118,6 +118,11 @@ export class ProjectIdeWorkbenchComponent {
     });
   }
   reload(): Promise<void> {
+    this.focusGeneration++;
+    this.panel.set('overview');
+    this.severity.set('');
+    this.kind.set('');
+    this.search.set('');
     if (!this.canRead()) {
       this.store.clear('denied');
       return Promise.resolve();
