@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
 import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy,
-  hostedContract, resourceNames, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+  hostedContract, resourceNames, restoreArchive, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const repository = 'NYGsatoshi/Coglatas';
@@ -30,6 +30,49 @@ const configuration = () => ({
   volumes: Object.fromEntries(['pgdata', 'uploads', 'protection_keys'].map(key => [key, { name: project + '_' + key }])),
 });
 const options = { target: true, image, project };
+
+test('checkpoint diagnostics expose only fixed component equality without weakening strict rejection', () => {
+  const privateValue = 'SYNTHETIC_PRIVATE_SNAPSHOT_VALUE';
+  const source = { schema: privateValue, rows: [[privateValue]], sequences: [], uploads: [], keys: [],
+    catalog: Object.fromEntries(['relations', 'constraints', 'indexes', 'triggers', 'functions', 'policies',
+      'schemas', 'defaults', 'roles', 'memberships', 'migrations'].map(key => [key, [privateValue]])) };
+  const target = structuredClone(source); target.catalog.triggers = ['different'];
+  const result = snapshotEquality(source, target);
+  assert.deepEqual(result.components, { schema: true, rows: true, catalog: false, sequences: true, uploads: true, keys: true });
+  assert.equal(result.catalog.triggers, false);
+  assert.equal(Object.values(result.catalog).filter(value => value === true).length, 10);
+  assert.equal(JSON.stringify(result).includes(privateValue), false);
+  assert.ok(Object.values(snapshotEquality({}, {}).components).every(value => value === false));
+  assert.throws(() => assertSameSnapshot(source, target), { code: 'STRICT_SNAPSHOT' });
+});
+
+test('actual upload and key extraction forwards the original archive buffers without a TTY', () => {
+  const labels = ['--label', 'com.docker.compose.project=' + project,
+    '--label', 'com.docker.compose.service=mechanism-helper'];
+  const volumes = [project + '_uploads', project + '_protection_keys'];
+  const archives = [tar('./upload.txt'), tar('./key.xml')];
+  const calls = [], result = { status: 0 };
+  const docker = (args, options) => { calls.push({ args, options }); return result; };
+  for (let index = 0; index < volumes.length; index++)
+    assert.equal(restoreArchive(docker, labels, volumes[index], archives[index]), result);
+  assert.equal(calls.length, 2);
+  for (let index = 0; index < calls.length; index++) {
+    assert.deepEqual(calls[index].args, ['run', '--rm', '--interactive', ...labels, '--network', 'none', '--read-only',
+      '--mount', `type=volume,source=${volumes[index]},target=/restore`, '--entrypoint', '/bin/tar',
+      'node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413',
+      '-xpf', '-', '-C', '/restore']);
+    assert.deepEqual(Object.keys(calls[index].options), ['input']);
+    assert.equal(calls[index].options.input, archives[index]);
+  }
+});
+
+test('archive extraction preserves the first command failure without retry or replacement', () => {
+  const failure = new Error('Synthetic extraction failure'); let calls = 0;
+  const docker = () => { calls++; throw failure; };
+  assert.throws(() => restoreArchive(docker, [], project + '_uploads', tar('./upload.txt')),
+    error => error === failure);
+  assert.equal(calls, 1);
+});
 
 test('only native pg_restore truncated-input rejection qualifies the fault injection', () => {
   const native = { status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') };

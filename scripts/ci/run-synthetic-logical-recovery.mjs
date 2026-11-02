@@ -99,6 +99,18 @@ export function assertSameSnapshot(expected, actual, code = 'STRICT_SNAPSHOT') {
   require(JSON.stringify(expected) === JSON.stringify(actual), code);
 }
 
+export function snapshotEquality(expected, actual) {
+  const equal = (left, right) => left !== undefined && right !== undefined &&
+    JSON.stringify(left) === JSON.stringify(right);
+  return {
+    components: Object.fromEntries(['schema', 'rows', 'catalog', 'sequences', 'uploads', 'keys']
+      .map(key => [key, equal(expected?.[key], actual?.[key])])),
+    catalog: Object.fromEntries(['relations', 'constraints', 'indexes', 'triggers', 'functions', 'policies',
+      'schemas', 'defaults', 'roles', 'memberships', 'migrations']
+      .map(key => [key, equal(expected?.catalog?.[key], actual?.catalog?.[key])])),
+  };
+}
+
 export function corruptCopy(original) {
   require(Buffer.isBuffer(original) && original.length > 512 && original.subarray(0, 5).equals(Buffer.from('PGDMP')), 'DUMP_FORMAT');
   return Buffer.from(original.subarray(0, 128));
@@ -111,6 +123,12 @@ export function assertTruncatedArchiveFailure(result) {
     Buffer.isBuffer(result.stderr) &&
     /^pg_restore: error: could not read from input file: end of file\r?\n$/.test(result.stderr.toString('utf8')),
   'FAULT_NOT_ARCHIVE_REJECTION');
+}
+
+export function restoreArchive(docker, helperLabels, volume, bytes) {
+  return docker(['run', '--rm', '--interactive', ...helperLabels, '--network', 'none', '--read-only',
+    '--mount', `type=volume,source=${volume},target=/restore`, '--entrypoint', '/bin/tar', NODE_IMAGE,
+    '-xpf', '-', '-C', '/restore'], { input: bytes });
 }
 
 export async function awaitOutboxIdle(read, pause = () => new Promise(done => setTimeout(done, 1000))) {
@@ -458,15 +476,15 @@ export async function runRecovery() {
     require(Number(psql(names.target, "SELECT current_setting('server_version_num');")) === receipt.postgresVersionNum, 'PG_VERSION');
     for (let index = 0; index < 2; index++) {
       stage = index ? 'restore-keys' : 'restore-uploads';
-      docker(['run', '--rm', '--interactive', ...helperLabels, '--network', 'none', '--read-only',
-        '--mount', `type=volume,source=${targetVolumes[index]},target=/restore`, '--entrypoint', '/bin/tar', NODE_IMAGE,
-        '-xpf', '-', '-C', '/restore'], { input: archives[index] });
+      restoreArchive(docker, helperLabels, targetVolumes[index], archives[index]);
     }
     stage = 'restore-checkpoint';
     const beforeStart = snapshot(names.target, targetVolumes, 'target-before-start');
+    receipt.strictCheckpointComparison = snapshotEquality(sourceSnapshot, beforeStart);
     assertSameSnapshot(sourceSnapshot, beforeStart); receipt.strictCheckpoint = 'PASS';
     stage = 'startup'; compose(names.target, ['up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '180', 'app']);
     stopped(names.target); const afterStart = snapshot(names.target, targetVolumes, 'target-after-start');
+    receipt.startupCheckpointComparison = snapshotEquality(beforeStart, afterStart);
     receipt.startupDelta = { equalToCheckpoint: JSON.stringify(beforeStart) === JSON.stringify(afterStart),
       changedTables: beforeStart.rows.filter((row, index) => JSON.stringify(row) !== JSON.stringify(afterStart.rows[index])).length,
       schemaUnchanged: beforeStart.schema === afterStart.schema };
