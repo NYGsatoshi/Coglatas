@@ -27,6 +27,14 @@ public sealed class TypeReference
     public TypeReference? KeyType { get; }
     public TypeReference? ValueType { get; }
     public string? ExpectedKind { get; }
+    internal bool ReferenceKindSupported => ExpectedKind is null || Kind switch
+    {
+        "coglatas.entity-reference" => ExpectedKind is "coglatas.project" or "coglatas.task" or "coglatas.milestone" or
+            "coglatas.requirement" or "coglatas.resource-binding" or "coglatas.constraint" or "coglatas.workflow",
+        "coglatas.document-reference" => ExpectedKind == SourceDocument.SchemaId,
+        "coglatas.resource-reference" => ExpectedKind is "coglatas.human" or "coglatas.equipment" or "coglatas.facility" or "coglatas.material",
+        _ => false
+    };
     public IReadOnlyList<StructureField> Fields { get; } = Array.Empty<StructureField>();
     public SourceJson Data { get; }
 
@@ -98,6 +106,7 @@ public sealed class TypeReference
         if (Kind is "coglatas.entity-reference" or "coglatas.document-reference" or "coglatas.resource-reference" or "coglatas.external-snapshot-reference")
         {
             ExpectedKind = SourceFields.Token(data.Value, "expectedKind");
+            if (Kind is "coglatas.entity-reference" or "coglatas.document-reference") childrenSupported &= ReferenceKindSupported;
             fields.Add("expectedKind");
         }
         if (Kind == "coglatas.quantity")

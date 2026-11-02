@@ -83,3 +83,27 @@ Unknown value basis stays opaque provenance through binding and numeric semantic
 scans, while raw JSON continues to consume logical processing budget. Regressions
 reproduce both review findings before correction, including all three materialized
 input families, and independent Python golden vectors bind the host receipt.
+
+## Review corrections — 2026-11-03
+
+The three 2026-11-02 CodeRabbit observations were checked against MODEL-10/17,
+COMP-04 and the current codec/Binder contracts. Independent Test commit
+`48372ff6` reproduced 8 failures and 3 passes on Product `1218495b`, combined
+`00a86e1d993d723f42bf4e0ce49d0c50315e324c` / tree
+`2329ebb7db13cb62ea05c93583a1d1ff9a80ddd1` on Windows SDK 10.0.403.
+
+- The Server host rechecks cancellation immediately before transport submission.
+  A deterministic TPL-event test cancels after the entry guard and before the
+  materialization delegate returns; a token-ignoring transport must remain uncalled.
+  Existing cancellation of an already submitted uncooperative transport remains.
+- Entity and Document reference descriptors enforce their distinct target categories,
+  including nested/defaultless ports. Unsupported descriptors retain Source and
+  cannot produce IR. Existing reference fixture inputs now use the proper Document
+  target kind; assertions and test cases are retained.
+- Semantic value traversal skips only the basis of a successfully decoded Unknown.
+  Type checks and raw input size/logical budgets remain active. Unknown carries no
+  known payload; opaque quantities/references are not dependencies or missing units.
+
+These changes supply no runtime transport, authorization, complete reference binding
+or accepted client/release state. New-head test and CI receipts are recorded in PRs;
+old successful receipts do not qualify this correction.
