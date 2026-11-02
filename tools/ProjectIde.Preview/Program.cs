@@ -49,7 +49,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
 }
-var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "ddb456dbf2eca1b005a8aac5ffb1ca8861b73b5d", cases }, new JsonSerializerOptions { WriteIndented = true });
+var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "1218495bdd4e1280c968b0e6d2067c921c64ab31", cases }, new JsonSerializerOptions { WriteIndented = true });
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");

@@ -6,7 +6,7 @@ Remote state was fetched before implementation. All 21 open ProjectIDE PRs below
 are Draft with auto-merge unset and no unresolved inline review threads. Review
 submission/comments, current check rollups, changed files and recent run history
 were inspected; resolved threads do not establish new-head approval. No branch
-was merged, rebased, reset or force-pushed. Existing working trees were retained.
+was merged, rebased, reset or force-pushed during the initial audit. Existing working trees were retained.
 The original checkout is on an older clean Main and is not the development base.
 
 Observed remote Main: `0c11a1e973740c6829ca263d6fa764d9c1bc62e1`;
@@ -108,3 +108,33 @@ real read-only artifact endpoint/current authority contract, trusted-producer
 acceptance, integration and release. No Main/integration merge, Ready/Close,
 auto-merge, production action or security/check relaxation is authorized here.
 Full shared-client completion is not claimed.
+
+## Exact dependency continuation
+
+Core Product `1218495bdd4e1280c968b0e6d2067c921c64ab31` and independent Core Test
+`8348083cc04e9bd85147b32bb1805e94aa14fd3a` add exact-request freshness and seven
+independent checks. Their local pair passes 714 Core and 12 architecture tests,
+with zero warnings/errors/failed/skipped. These are separate from the old 707-case
+receipts. Current local Python is 3.12.14; hosted Python remains pinned at 3.12.12.
+
+Only these pinned Product-to-Product and Test-to-Test dependencies are merged into
+the existing Web development heads. No Main/integration/other-purpose branch or
+PR is merged. Web fixture producer metadata is regenerated from the new Core pin;
+its semantic cases retain their actual Core-produced values.
+
+The Web composer records both dependency merge commits, accepts only their exact
+pinned second parent and checks each merge tree against Git's automatic merge.
+Additional resolution edits, unknown parents and later ownership violations are
+rejected. It composes independent Core Test commits followed by Web Test commits,
+then requires exact Test-owned file equality and unchanged Product runtime source.
+The Web verifier checks both the recorded commit and tree plus a clean tracked
+checkout before and after execution. Real temporary-Git controls cover dirty and
+staged checkouts, same-tree commit substitution, receipt tampering and dependency
+merge substitution. These improve candidate evidence; Test-head-controlled scripts
+still do not establish trusted-producer or independent acceptance authority.
+
+The first Web fix pair completed its selected full local inventory before this
+dependency/script continuation. Its receipt is retained as historical evidence;
+the final updated heads must run fresh verification. Skip/exclusion policies are
+unchanged. Existing ordinary Product route-assertion and standalone Test dependency
+failures remain visible and separate from supplemental evidence.
