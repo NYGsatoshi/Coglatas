@@ -41,6 +41,8 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
   if (!hasUniquePreviewIdentities(item)) {
     throw new PreviewReadError('unsupported');
   }
+  const documentIds = new Set(item.source.documents.map((document) => document.documentId));
+  const declarations = new Map(item.declarations.map((declaration) => [declaration.identity, declaration]));
   const r = item.result;
   if (
     !sameContext(item.context, r.boundInputStamp.sourceContext) ||
@@ -73,7 +75,7 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
   ]) {
     if (
       !sameContext(item.context, location.context) ||
-      !item.source.documents.some((document) => document.documentId === location.documentId)
+      !documentIds.has(location.documentId)
     ) {
       throw new PreviewReadError('wrong-scope');
     }
@@ -109,9 +111,9 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
           !sameJson(key['context'], item.context) || key['entityId'] !== location.entityId ||
           (location.propertyPath === '' ? key['portId'] !== null : location.propertyPath !== '/payload/ports/' + key['portId']))
         throw new PreviewReadError('wrong-scope');
-      const declaration = item.declarations.find((entry) => entry.identity === location.entityId &&
-        entry.location.documentId === location.documentId);
-      if (!sameContext(location.context, item.context) || !declaration || location.relationId)
+      const declaration = location.entityId ? declarations.get(location.entityId) : undefined;
+      if (!sameContext(location.context, item.context) || !declaration ||
+          declaration.location.documentId !== location.documentId || location.relationId)
         throw new PreviewReadError('wrong-scope');
       if (location.propertyPath === '') {
         if (symbol.kind !== declaration.kind || symbol.status !== declaration.status || symbol.declaredType !== null)
@@ -128,14 +130,14 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
     }
     for (const reference of inspection.references) {
       if (!sameContext(reference.origin.context, item.context) ||
-          !item.source.documents.some((document) => document.documentId === reference.origin.documentId) ||
+          !documentIds.has(reference.origin.documentId) ||
           (reference.state === 'Resolved') !== (reference.symbolKey !== null)) throw new PreviewReadError('wrong-scope');
     }
   }
   for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
     if (
       !sameContext(item.context, entry.location.context) ||
-      !item.source.documents.some((document) => document.documentId === entry.location.documentId)
+      !documentIds.has(entry.location.documentId)
     ) {
       throw new PreviewReadError('wrong-scope');
     }
