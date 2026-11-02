@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\Coglatas.Infrastructure\Coglatas.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Web\Coglatas.Web.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.UI.Core\Coglatas.UI.Core.csproj" />
+    <ProjectReference Include="../../tools/ProjectIde.Workbench.Synthetic/ProjectIde.Workbench.Synthetic.csproj" />
   </ItemGroup>
 
 </Project>

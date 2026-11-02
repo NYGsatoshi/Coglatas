@@ -38,6 +38,9 @@ public sealed class WebPreviewContractTests
         Assert.Equal(result.Data, SourceJson.Parse(item.GetProperty("result").GetRawText()));
         Assert.Equal(result.ResultDigest.Data, SourceJson.Parse(item.GetProperty("resultDigest").GetRawText()));
         Assert.Equal(result.ResultId.ToString(), item.GetProperty("resultId").GetString());
+        if (result.Execution == CompilerExecutionState.Completed && compilation.Model is { } model)
+            Assert.Equal(new CompilerSemanticInspection(model).Data, SourceJson.Parse(item.GetProperty("semanticInspection").GetRawText()));
+        else Assert.Equal(JsonValueKind.Null, item.GetProperty("semanticInspection").ValueKind);
         foreach (var record in item.GetProperty("declarations").EnumerateArray())
         {
             var location = ProjectLocation.Parse(SourceJson.Parse(record.GetProperty("location").GetRawText()));
