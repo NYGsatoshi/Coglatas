@@ -42,7 +42,7 @@ await test('actual ZAP tests execute while native LCOV excludes only their body 
   assert.equal(result.status, 0);
   const text = readFileSync(output, 'utf8');
   assert.doesNotMatch(text, /SF:.*zap-attribution\.test\.cjs/);
-  assert.match(text, /SF:scripts\/security\/zap-attribution\.cjs/);
+  assert.match(text.replaceAll('\\', '/'), /SF:scripts\/security\/zap-attribution\.cjs/);
   assert.equal(validateNodeCoverage(text, { root }).sourceFiles, 1);
   assert.match(text, /BRDA:[^\n]*,0(?:\r?\n|$)/);
   const evidence = readdirSync(raw).filter(name => name.endsWith('.json')).flatMap(name => JSON.parse(readFileSync(join(raw, name))).result);
