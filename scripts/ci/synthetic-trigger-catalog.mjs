@@ -68,7 +68,15 @@ const text = value => typeof value === 'string';
 const identity = (value, length = 2) => Array.isArray(value) && value.length === length && value.every(text);
 const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
-const compareCodeUnits = (a, b) => { if (a < b) return -1; if (a > b) return 1; return 0; };
+const compareCodeUnits = (a, b) => {
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
+  return 0;
+};
 const decimalText = value => text(value) && /^(?:0|[1-9]\d*)(?:\.\d+)?(?:e[+-]?\d+)?$/.test(value) &&
   Number.isFinite(Number(value));
 

@@ -7,7 +7,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
 import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy, disableSourceSeed,
-  hostedContract, resourceNames, restoreArchive, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+  hostedContract, resourceNames, restoreArchive, restoreDatabaseOnce, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const repository = 'NYGsatoshi/Coglatas';
@@ -93,6 +93,119 @@ test('archive extraction preserves the first command failure without retry or re
   assert.throws(() => restoreArchive(docker, [], project + '_uploads', tar('./upload.txt')),
     error => error === failure);
   assert.equal(calls, 1);
+});
+
+const restoreContext = (result = { status: 0 }) => {
+  const calls = [], probes = [], names = { target: 'owned-target', fault: 'owned-fault' };
+  const receipt = { restoreCalls: { target: 0, fault: 0 }, corruptArchiveRejectedByPgRestore: false };
+  const context = { calls, probes, names, receipt,
+    compose(project, args, options) {
+      calls.push({ project, args, options, countsAtCall: { ...receipt.restoreCalls } });
+      if (args[3] === '/bin/sh') return { status: 0,
+        stdout: Buffer.from(createHash('sha256').update(options.input).digest('hex') + '  /tmp/coglatas-recovery.list\n') };
+      return result;
+    },
+    psql(project, sql) { probes.push({ project, sql }); return '1'; },
+  };
+  return context;
+};
+const restoreList = Buffer.from('1; 2606 12 FK CONSTRAINT public child parent_fk postgres\n');
+const restoreDump = Buffer.concat([Buffer.from('PGDMP'), Buffer.alloc(1024, 7)]);
+
+test('actual database restore installs the original list before exactly one native target command', () => {
+  const context = restoreContext();
+  restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList);
+  assert.equal(context.calls.length, 2);
+  assert.equal(context.calls[0].args[3], '/bin/sh');
+  assert.equal(context.calls[0].options.input, restoreList);
+  assert.deepEqual(context.calls[0].countsAtCall, { target: 0, fault: 0 });
+  assert.deepEqual(context.calls[1].args, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
+    '--no-owner', '--no-privileges', '--exit-on-error', '--use-list=/tmp/coglatas-recovery.list']);
+  assert.deepEqual(context.calls[1].options, { input: restoreDump, allowFailure: false });
+  assert.equal(context.calls[1].project, context.names.target);
+  assert.deepEqual(context.calls[1].countsAtCall, { target: 1, fault: 0 });
+  assert.deepEqual(context.receipt.restoreCalls, { target: 1, fault: 0 });
+  assert.deepEqual(context.probes, []); assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
+});
+
+test('actual fault restore requires native EOF rejection followed by a ready fault database', () => {
+  const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
+  const corrupt = corruptCopy(restoreDump);
+  restoreDatabaseOnce(context, context.names.fault, corrupt, true, restoreList);
+  assert.equal(context.calls.length, 2);
+  assert.deepEqual(context.calls[1].options, { input: corrupt, allowFailure: true });
+  assert.equal(context.calls[1].project, context.names.fault);
+  assert.deepEqual(context.receipt.restoreCalls, { target: 0, fault: 1 });
+  assert.deepEqual(context.probes, [{ project: context.names.fault, sql: 'SELECT 1;' }]);
+  assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, true);
+});
+
+test('a repeated target or fault restore performs no helper, native command or counter increment', () => {
+  for (const kind of ['target', 'fault']) {
+    const context = restoreContext(); context.receipt.restoreCalls[kind] = 1;
+    assert.throws(() => restoreDatabaseOnce(context, context.names[kind], restoreDump, kind === 'fault', restoreList), { code: 'RESTORE_RETRY' });
+    assert.deepEqual(context.calls, []); assert.deepEqual(context.probes, []);
+    assert.equal(context.receipt.restoreCalls[kind], 1);
+  }
+});
+
+test('unrelated client failures cannot qualify the actual fault restore or trigger a readiness probe', () => {
+  for (const result of [{ status: 125, stderr: Buffer.from('Docker unavailable\n') },
+    { status: 1, stderr: Buffer.from('pg_restore: error: connection to server failed\n') },
+    { status: 0, stderr: Buffer.alloc(0) }]) {
+    const context = restoreContext(result);
+    assert.throws(() => restoreDatabaseOnce(context, context.names.fault, restoreDump, true, restoreList), { code: 'FAULT_NOT_ARCHIVE_REJECTION' });
+    assert.equal(context.calls.length, 2); assert.deepEqual(context.probes, []);
+    assert.deepEqual(context.receipt.restoreCalls, { target: 0, fault: 1 });
+    assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
+  }
+});
+
+test('a dead fault database keeps native archive rejection unqualified', () => {
+  const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
+  context.psql = (project, sql) => { context.probes.push({ project, sql }); return '0'; };
+  assert.throws(() => restoreDatabaseOnce(context, context.names.fault, restoreDump, true, restoreList), { code: 'FAULT_DB_UNAVAILABLE' });
+  assert.equal(context.calls.length, 2); assert.equal(context.probes.length, 1);
+  assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
+});
+
+test('the original fault readiness command error escapes unchanged without retry or success credit', () => {
+  const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
+  const failure = new Error('Original readiness command failure');
+  context.psql = (project, sql) => { context.probes.push({ project, sql }); throw failure; };
+  assert.throws(() => restoreDatabaseOnce(context, context.names.fault, restoreDump, true, restoreList), error => error === failure);
+  assert.equal(context.calls.length, 2); assert.equal(context.probes.length, 1);
+  assert.equal(context.receipt.restoreCalls.fault, 1);
+  assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
+});
+
+test('the original native command error escapes by identity once and cannot be retried', () => {
+  const context = restoreContext(), original = context.compose, failure = new Error('Original native command failure');
+  context.compose = (...args) => {
+    const result = original(...args);
+    if (args[1][3] === '/usr/local/bin/pg_restore') throw failure;
+    return result;
+  };
+  assert.throws(() => restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList), error => error === failure);
+  assert.equal(context.calls.length, 2); assert.deepEqual(context.receipt.restoreCalls, { target: 1, fault: 0 });
+  assert.throws(() => restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList), { code: 'RESTORE_RETRY' });
+  assert.equal(context.calls.length, 2); assert.deepEqual(context.probes, []);
+});
+
+test('installation failure leaves zero restore calls and preserves its original command error', () => {
+  const context = restoreContext(), failure = new Error('Original list installation failure');
+  let calls = 0;
+  context.compose = () => { calls++; throw failure; };
+  assert.throws(() => restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList), error => error === failure);
+  assert.equal(calls, 1); assert.deepEqual(context.receipt.restoreCalls, { target: 0, fault: 0 });
+  assert.deepEqual(context.probes, []); assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
+});
+
+test('a nonzero ordinary target outcome is rejected without qualifying the fault oracle', () => {
+  const context = restoreContext({ status: 1 });
+  assert.throws(() => restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList), { code: 'RESTORE_OUTCOME' });
+  assert.equal(context.calls.length, 2); assert.deepEqual(context.probes, []);
+  assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
 test('only native pg_restore truncated-input rejection qualifies the fault injection', () => {

@@ -143,6 +143,20 @@ export function restoreArchive(docker, helperLabels, volume, bytes) {
     '-xpf', '-', '-C', '/restore'], { input: bytes });
 }
 
+export function restoreDatabaseOnce({ compose, psql, names, receipt }, project, bytes, expectedFailure, restoreList) {
+  const kind = project === names.target ? 'target' : 'fault';
+  require(receipt.restoreCalls[kind] === 0, 'RESTORE_RETRY');
+  installRestoreList(compose, project, restoreList);
+  require(receipt.restoreCalls[kind]++ === 0, 'RESTORE_RETRY');
+  const result = compose(project, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
+    '--no-owner', '--no-privileges', '--exit-on-error', '--use-list=/tmp/coglatas-recovery.list'], { input: bytes, allowFailure: expectedFailure });
+  if (expectedFailure) {
+    assertTruncatedArchiveFailure(result);
+    require(psql(project, 'SELECT 1;') === '1', 'FAULT_DB_UNAVAILABLE');
+    receipt.corruptArchiveRejectedByPgRestore = true;
+  } else require(result.status === 0, 'RESTORE_OUTCOME');
+}
+
 export function cleanupOwnedProjects(created, source, { docker, inspect, compose }) {
   for (const project of created) {
     const containers = docker(['ps', '-aq', '--filter', 'label=com.docker.compose.project=' + project]).stdout.toString().trim().split(/\s+/).filter(Boolean);
@@ -362,7 +376,8 @@ export async function runRecovery() {
     const network = json(docker(['network', 'inspect', project + '_default']))[0];
     require(network.Internal === true && network.Driver === 'bridge' &&
       network.Labels?.['com.docker.compose.project'] === project, 'RUNTIME_NETWORK');
-    receipt.seedFlags[project === names.source ? 'sourceCheckpoint' : project === names.target ? 'target' : 'fault'] = {
+    const seedPhase = new Map([[names.target, 'target'], [names.source, 'sourceCheckpoint']]).get(project) ?? 'fault';
+    receipt.seedFlags[seedPhase] = {
       runtimeEnvironment: 'Test', appMode: 'SaaS', fixture: false, tenancy: false, uiShell: false, administrator: false, browser: false, demo: false,
     };
     const selected = ['/app/storage/uploads', '/app/data/protection-keys'].map(destination => {
@@ -426,19 +441,8 @@ export async function runRecovery() {
     const volumes = mounts(project, appId(project)); assertDisjoint(sourceVolumes, volumes);
     return volumes;
   };
-  const restoreOnce = (project, bytes, expectedFailure, restoreList) => {
-    const kind = project === names.target ? 'target' : 'fault';
-    require(receipt.restoreCalls[kind] === 0, 'RESTORE_RETRY');
-    installRestoreList(compose, project, restoreList);
-    require(receipt.restoreCalls[kind]++ === 0, 'RESTORE_RETRY');
-    const result = compose(project, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
-      '--no-owner', '--no-privileges', '--exit-on-error', '--use-list=/tmp/coglatas-recovery.list'], { input: bytes, allowFailure: expectedFailure });
-    if (expectedFailure) {
-      assertTruncatedArchiveFailure(result);
-      require(psql(project, 'SELECT 1;') === '1', 'FAULT_DB_UNAVAILABLE');
-      receipt.corruptArchiveRejectedByPgRestore = true;
-    } else require(result.status === 0, 'RESTORE_OUTCOME');
-  };
+  const restoreOnce = (project, bytes, expectedFailure, restoreList) =>
+    restoreDatabaseOnce({ compose, psql, names, receipt }, project, bytes, expectedFailure, restoreList);
   let failure;
   try {
     require(Boolean(docker(['info', '--format', '{{.ID}}']).stdout.toString().trim()), 'LOCAL_DOCKER');
@@ -576,7 +580,7 @@ export async function runRecovery() {
 }
 
 if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
-  runRecovery().then(code => { process.exitCode = code; }).catch(() => {
+  try { process.exitCode = await runRecovery(); } catch {
     process.stderr.write('Synthetic logical recovery rejected before qualification.\n'); process.exitCode = 1;
-  });
+  }
 }

@@ -133,5 +133,7 @@ async function main() {
 }
 
 if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
-  main().catch(() => { process.stderr.write('Synthetic logical recovery API probe failed.\n'); process.exitCode = 1; });
+  try { await main(); } catch {
+    process.stderr.write('Synthetic logical recovery API probe failed.\n'); process.exitCode = 1;
+  }
 }
