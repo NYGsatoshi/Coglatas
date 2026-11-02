@@ -116,6 +116,7 @@ public sealed class FileService(
             ScanStatus = FileScanStatus.Skipped
         };
 
+        var saveOutcome = new UploadSaveOutcome();
         try
         {
             // Storage can await external I/O. Re-evaluate the existing admission
@@ -125,7 +126,7 @@ public sealed class FileService(
                 owner == await files.ResolveOwnerAsync(input.OwnerType, input.OwnerId, token), cancellationToken);
             if (!stillAllowed)
             {
-                await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
+                await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
                 return Result<AttachmentResponse>.Failure("You are not allowed to upload an attachment for this resource.");
             }
 
@@ -140,11 +141,12 @@ public sealed class FileService(
                 WorkspaceId: owner.WorkspaceId,
                 ProjectId: owner.ProjectId), cancellationToken);
             await invalidations.FileChangedAsync(fileObject, attachment, userId, "uploaded", cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            saveOutcome.Disposition = UploadCommitDisposition.Unknown;
+            await unitOfWork.SaveUploadChangesAsync(saveOutcome, cancellationToken);
         }
         catch
         {
-            await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
+            await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
             throw;
         }
 

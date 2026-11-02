@@ -2,6 +2,7 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Coglatas.Infrastructure.Persistence;
@@ -132,6 +133,93 @@ public sealed class EfUnitOfWork(
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         SaveWithPolicyDocumentsAsync(cancellationToken);
+
+    public bool TryDiscardFailedUploadChanges()
+    {
+        if (System.Transactions.Transaction.Current is not null ||
+            (dbContext.Database.IsRelational() &&
+             (dbContext.Database.CurrentTransaction is not null || dbContext.Database.GetEnlistedTransaction() is not null)))
+        {
+            return false;
+        }
+        ClearTaskCommandTracking();
+        return true;
+    }
+
+    public async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
+    {
+        outcome.Disposition = UploadCommitDisposition.Unknown;
+        if (!dbContext.Database.IsRelational() || dbContext.Database.CurrentTransaction is not null ||
+            System.Transactions.Transaction.Current is not null || dbContext.Database.GetEnlistedTransaction() is not null)
+        {
+            return await SaveWithPolicyDocumentsAsync(cancellationToken);
+        }
+
+        IDbContextTransaction? transaction = null;
+        var commitStarted = false;
+        var preservingFailure = false;
+        try
+        {
+            try
+            {
+                transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            }
+            catch
+            {
+                try
+                {
+                    ClearTaskCommandTracking();
+                    outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                }
+                catch
+                {
+                    // No save ran, but an undiscarded scope still cannot authorize deletion.
+                }
+                throw;
+            }
+
+            var count = await SaveWithPolicyDocumentsAsync(cancellationToken);
+            commitStarted = true;
+            await transaction.CommitAsync(cancellationToken);
+            outcome.Disposition = UploadCommitDisposition.Committed;
+            return count;
+        }
+        catch
+        {
+            preservingFailure = true;
+            if (transaction is not null)
+            {
+                try
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    if (!commitStarted)
+                    {
+                        ClearTaskCommandTracking();
+                        outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                    }
+                }
+                catch
+                {
+                    // Rollback/discard cannot replace the initiating error or prove an uncertain commit.
+                }
+            }
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                try
+                {
+                    await transaction.DisposeAsync();
+                }
+                catch when (preservingFailure)
+                {
+                    // Preserve the first failure. An acknowledged commit remains Committed.
+                }
+            }
+        }
+    }
 
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<CancellationToken, Task<T>> operation,

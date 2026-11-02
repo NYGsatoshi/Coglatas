@@ -277,8 +277,26 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Persistence(AppDbContext context) : IUnitOfWork
     {
         public Exception? Failure { get; set; }
+        public DbUpdateException? DatabaseFailure { get; private set; }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Failure is { } error
             ? Task.FromException<int>(error) : context.SaveChangesAsync(cancellationToken);
+
+        public bool TryDiscardFailedUploadChanges()
+        {
+            context.ChangeTracker.Clear();
+            return true;
+        }
+
+        public async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
+        {
+            if (Failure is { } error)
+            {
+                outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                throw error;
+            }
+            try { return await new EfUnitOfWork(context).SaveUploadChangesAsync(outcome, cancellationToken); }
+            catch (DbUpdateException databaseError) { DatabaseFailure = databaseError; throw; }
+        }
     }
     private sealed class RecordingAudit : IAuditLogger
     {

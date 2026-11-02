@@ -47,6 +47,16 @@ public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Opaque saves establish no upload durability or rollback evidence.</summary>
+    async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
+    {
+        outcome.Disposition = UploadCommitDisposition.Unknown;
+        return await SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>True only after failed upload writes can no longer escape through a later save.</summary>
+    bool TryDiscardFailedUploadChanges() => false;
+
     /// <summary>
     /// Executes a complete application operation in one database transaction.
     /// The default keeps lightweight/non-relational test implementations source
