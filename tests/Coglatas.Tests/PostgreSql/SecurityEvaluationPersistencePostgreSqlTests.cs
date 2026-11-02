@@ -168,7 +168,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
                 await using var current = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
                 Assert.Empty(await current.Database.GetPendingMigrationsAsync());
-                Assert.Equal(74, (await current.Database.GetAppliedMigrationsAsync()).Count());
+                Assert.Equal(current.Database.GetMigrations(), await current.Database.GetAppliedMigrationsAsync());
                 Assert.Empty(await current.SecurityEvaluationRuns.AsNoTracking().ToArrayAsync());
             });
     }
