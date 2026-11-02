@@ -42,6 +42,17 @@ class WebVerificationCandidateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "uncommitted changes"):
             assert_candidate(self.root, self.value)
 
+    def test_untracked_compiler_or_browser_source_is_rejected_with_the_same_head_tree(self):
+        for name in ("injected.cs", "injected.spec.ts"):
+            with self.subTest(source=name):
+                path = self.root / name
+                path.write_text("unapproved source\n", encoding="utf-8")
+                try:
+                    with self.assertRaisesRegex(ValueError, "untracked files"):
+                        assert_candidate(self.root, self.value)
+                finally:
+                    path.unlink()
+
     def test_another_commit_with_the_same_tree_is_not_the_recorded_candidate(self):
         self.git("commit", "--quiet", "--allow-empty", "-m", "Another commit")
         self.assertEqual(self.value["combinedTree"], self.git("rev-parse", "HEAD^{tree}"))

@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+sys.dont_write_bytecode = True
 from projectide_core_isolated import inventory
 
 def assert_candidate(root: Path, value: dict) -> None:
@@ -20,8 +21,8 @@ def assert_candidate(root: Path, value: dict) -> None:
         raise ValueError("Candidate commit mismatch")
     if git("rev-parse", "HEAD^{tree}") != value["combinedTree"]:
         raise ValueError("Candidate tree mismatch")
-    if git("status", "--porcelain", "--untracked-files=no"):
-        raise ValueError("Candidate tracked checkout contains uncommitted changes")
+    if git("status", "--porcelain", "--untracked-files=all"):
+        raise ValueError("Candidate checkout contains uncommitted changes or untracked files")
 
 def vitest_inventory(value: dict) -> list[dict]:
     tests = [dict(file=f["name"], name=t["fullName"], status=t["status"])
@@ -57,7 +58,7 @@ def verify(root: Path, receipt: Path) -> None:
     evidence=receipt.parent
     value=json.loads(receipt.read_text(encoding="utf-8"))
     value.update(os=platform.platform(), commands=[], status="VERIFYING")
-    environment=os.environ.copy(); environment["NG_BUILD_MAX_WORKERS"]="4"; environment["PLAYWRIGHT_SKIP_BUILD"]="1"
+    environment=os.environ.copy(); environment["PYTHONDONTWRITEBYTECODE"]="1"; environment["NG_BUILD_MAX_WORKERS"]="4"; environment["PLAYWRIGHT_SKIP_BUILD"]="1"
     def execute(name: str, command: list[str], cwd: Path=root) -> None:
         with (evidence/(name+".log")).open("w",encoding="utf-8") as output:
             result=subprocess.run(command,cwd=cwd,env=environment,stdout=output,stderr=subprocess.STDOUT)
