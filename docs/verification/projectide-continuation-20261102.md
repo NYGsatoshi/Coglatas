@@ -256,3 +256,62 @@ Playwright Desktop/Mobile 42/42, controls 28/28, no failures/skips. Local Node i
 Installed dependency directories were reused only after both exact lockfile hashes
 matched; no lockfile/dependency changes were made. This evidence is retained for
 those exact pins; subsequent metadata/ancestry updates require their own receipt.
+
+## Source-backed inspection continuation — 2026-11-03
+
+One bounded Draft pair follows the existing Web lanes; the inherited register is
+not replaced. [Product #1653](https://github.com/NYGsatoshi/Coglatas/pull/1653),
+`feature/projectide-workbench-inspection-20261103`, bases on #1637 at
+`0a79e05a6533a7e4468bb7b74f47aeceb04ae119`. [Independent Test #1654](https://github.com/NYGsatoshi/Coglatas/pull/1654),
+`test/projectide-web-windows-inspection-20261103`, bases on #1638 at
+`5f2825e1d88f307efddc5edac16579ec220cbd4b`. Both remain Draft/open with no
+integration authority. Exact new-head receipts and check state are appended to PRs.
+
+The new pure Core projection exposes input-bound local symbols, actual port types
+and distinct reference resolution states, including partial models before IR.
+Angular Inspector consumes the optional exported projection and validates exact
+Source/type/identity binding. A separate pure .NET synthetic Windows ViewModel
+prepares Source/Problems/Inspector/navigation with monotonic generations, exact
+materializations and boundary cleanup. It contains no Avalonia package/window or
+real API/data loader. See [implementation/limits](projectide-source-inspection.md).
+Windows Native UI, keyboard/IME and actual Avalonia acceptance remain NOT_RUN/HOLD;
+Angular success is not Windows E2E. Complete value-reference/evidence materialization
+and production API/current authority remain incomplete.
+
+The additional composer permits only the exact existing Web Product/Test parents
+and the one new Core inspection file. An initial composition failed because a
+stacked Test parent had advanced on its own line. The correction validates and
+replays its missing independent deltas exactly once, with an ownership-negative
+control; no duplicate patch or Product source substitution is permitted. Test-owned
+project-reference files are also compared exactly. The failed candidate is retained.
+The initial full build then failed on two xUnit2031 checks; the next run passed all
+754 .NET ProjectIDE/fixture/ViewModel tests but exposed two strongly typed Entity vs
+Relation ID errors in the new UI Test. Both Test issues are fixed without rule,
+assertion or type relaxation; failed receipts remain historical.
+
+Reconciled Core Product `610f9911` / Test `9e969183` now qualifies on Windows and
+Ubuntu at 725 Core + 12 Architecture cases; all input/combined pins, trees, inventory
+names/outcomes and producer hashes match. Hosted run **41499617923**, attempt 1,
+artifact **13167922631**, ZIP SHA-256
+`be661c775e038b3e6bc7b9e14a552ce1fdf3c2ffbabbe30ba060f3659621e7e9`.
+Both 2026-11-02 inline review threads have reproduction/code/evidence replies and
+are resolved. The outside-diff Unknown-basis observation is recorded separately;
+manual new-head review was requested and remains independent of approval.
+
+Reconciled Web Product `0a79e05a` / Test `5f2825e1`, combined
+`7c396789e9cf37bfed8cfbaa339025b3d7126e36`, tree
+`e49ae5a2d83a7d20e78873a8ee774d4e2ac4cdf4`, passed full local verification:
+735 Core/fixture, 12 Architecture, 263 Vitest, 70 Node, 42 Desktop/Mobile browser,
+29 composition controls, zero failures/skips. Hosted run **41500323945**, attempt 1,
+artifact **13168084539**, ZIP SHA-256
+`c9b2dc93c16ed35addb6b98b8a9e7aebef153321dd10aa67b2a91ce1dad38cf2`.
+Downloaded pins/trees, all producer hashes and parsed complete inventories match.
+Its job queued 2 seconds (created 18:24:49Z, started 18:24:51Z), then executed
+456 seconds (completed 18:32:27Z). These are workflow timings, not #1128 assurance.
+Ordinary Product PR CI is still separately running/queued; standalone Test CI
+remains failed on unmerged Product dependencies. No required check is waived.
+
+No Main/ProjectIDEMain/integration/SecurityTestImplimation push/merge, force push,
+Ready/Close, auto-merge, production/DB/RLS/Enforce activation or gate relaxation.
+#1128 stays SUSPENDED / NOT_EVALUATED. Remaining work is recorded in the focused
+feature document and the live Draft PRs; no shared-client or release GO is claimed.
