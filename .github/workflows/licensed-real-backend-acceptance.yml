@@ -30,6 +30,7 @@ on:
           - mbj01
           - mbj02
           - mbj03
+          - logical-recovery
           - all
   push:
     branches:
@@ -138,8 +139,23 @@ jobs:
           NODE
 
       - name: Prune unused Docker networks
-        if: inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
+        if: inputs.suite != 'roster' && inputs.suite != 'logical-recovery' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         run: docker network prune --force
+
+      - name: Run isolated synthetic logical recovery mechanism
+        if: github.event_name == 'workflow_dispatch' && github.actor == 'NYGsatoshi' && inputs.suite == 'logical-recovery' && inputs.reuse_main_artifacts != true
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+        run: node scripts/ci/run-synthetic-logical-recovery.mjs
+
+      - name: Upload closed synthetic logical recovery receipt
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.suite == 'logical-recovery'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: synthetic-logical-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/synthetic-logical-recovery/*/receipt.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run canonical FCI-04 fast and full owner on the reviewed candidate
         if: startsWith(github.ref, 'refs/heads/test/fci04-') || inputs.suite == 'fci04'
