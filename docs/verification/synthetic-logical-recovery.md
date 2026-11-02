@@ -5,6 +5,10 @@ already-Main `SecurityCiFixtureSeed` contract. It is Test/SaaS evidence only.
 It does not qualify G09, production recovery, application/migration roles, RLS,
 HTTPS, a school target, or pilot release. Held PR #1379 is not reused.
 
+The candidate normally adopts Main `cb4159738d026bfa49d0eac5df110839cc5052b1`.
+The following earlier Main results qualify historical dependencies only; they
+are not transferred to a new candidate or Main source.
+
 The initial source baseline is Main
 `49962886a875d30dd16c822e4b25b1dccd205ae6`. Its known strict-schema failure
 remains a failure. This branch now normally adopts Main
@@ -63,7 +67,8 @@ and use the repository's existing pinned SDK/image contracts.
    contract, sequence state, file byte hash/owner/mode and Data Protection key.
    There is no data normalization or row/table exclusion.
 4. Restore once to disjoint fresh target volumes with `pg_restore
-   --no-owner --no-privileges --exit-on-error`. No target migration/bootstrap
+   --no-owner --no-privileges --exit-on-error --use-list=/tmp/coglatas-recovery.list`.
+   The complete list preserves source FK creation order as described below. No target migration/bootstrap
    service exists. Upload/key extraction explicitly forwards archive stdin with
    Docker `--interactive`, preserving bytes, owners and modes. Fixed restore
    substeps distinguish PostgreSQL, archive extraction and strict comparison.
@@ -89,6 +94,35 @@ owners, paths, kinds and bytes; timestamps and physical disk identity are not
 qualified.
 
 ### Generated internal RI trigger rendering
+
+The complete product migration schema exposed a separate restore-order defect:
+the original custom archive restored FKs in name order, changing effective
+co-firing sequences despite equal raw schema bytes and all 950 logical trigger
+records. The original failing comparison remains evidence. Replaying that same
+frozen archive with only a complete FK-slot TOC permutation preserved all 950
+records and their actual co-firing order in an isolated PostgreSQL 18.6 control.
+
+Before restore, one native `pg_restore --list` inventories the original archive.
+The bounded strict-UTF8 planner preserves every line, entry, comment and non-FK
+position, moving only whole FK-entry lines among their original FK slots by
+ascending original constraint OID. IDs and FK OIDs must be unique and bounded;
+independent plan verification rejects omissions, substitutions and other moves.
+The native header's total includes implicit entries and is not asserted equal
+to the selected line count. Original/planned lists stay private. A fixed stdin
+command writes the same list with mode 0600, without clobbering an existing
+path, into each owned PostgreSQL target/fault container and verifies its hash.
+Both retain one `pg_restore` attempt, the original archive/corrupt copy and
+unchanged error/strict-snapshot assertions. No filter, parallel restore,
+constraint disabling, schema rewrite or additional restore is introduced.
+
+Original OIDs only guide replay order; they are not snapshot identities or a
+universal ordering guarantee. OID wrap, decimal-name-width changes, unusual
+dependencies or user/internal interleaving can make the target order differ.
+Such cases still fail the complete original firing-order assertion; no fallback
+or normalization accepts them. The native regression includes FKs created on
+different child tables in an order opposite to their archive name order.
+This is a causal repair within the same logical backup strategy, not approval
+of a new strategy, actual target, role/RLS change or G09 qualification.
 
 The original catalog query retains its fields and its complete scalar output is
 retained privately as `<checkpoint>.catalog.raw.json`. A separate PostgreSQL 18
@@ -139,7 +173,14 @@ catalog difference or approve a new backup strategy, actual target, role/RLS
 change or release. Historical first-attempt failures remain unchanged.
 
 The durable unit controls run in the existing preflight and canonical native
-Node-coverage cohort. The separate native test requires explicit opt-in:
+Node-coverage cohort. That same canonical Node producer prepares the identical
+immutable PostgreSQL repository digest before analysis credentials and admits
+the original native PostgreSQL test with step-local `COGLATAS_RI_NATIVE_TEST=1`.
+Its actual native V8 ranges enter the original LCOV report and source verifier;
+no coverage exclusion, threshold, report counter or source scope changes.
+Raw database/schema/catalog/list diagnostics stay outside the narrow LCOV and
+raw-V8 upload paths. This does not qualify the protected application Full drill.
+The native test remains default-off in other contexts and can run explicitly:
 
 ```bash
 COGLATAS_RI_NATIVE_TEST=1 node --test tests/ci/synthetic-trigger-catalog.postgres-test.mjs
@@ -156,6 +197,7 @@ review remain separate requirements.
 
 Primary contracts: [PostgreSQL 18 trigger catalog](https://www.postgresql.org/docs/18/catalog-pg-trigger.html)
 [PostgreSQL 18 event and alphabetical firing rules](https://www.postgresql.org/docs/18/sql-createtrigger.html),
+[PostgreSQL 18 complete-list restore ordering](https://www.postgresql.org/docs/18/app-pgrestore.html),
 and [PostgreSQL 18 generated trigger naming implementation](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/commands/trigger.c).
 
 ## Evidence and privacy

@@ -7,7 +7,8 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { logicalTriggerCatalog, TRIGGER_CATALOG_SQL } from '../../scripts/ci/synthetic-trigger-catalog.mjs';
-import { assertSameSnapshot } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+import { assertSameSnapshot, assertTruncatedArchiveFailure, corruptCopy } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
+import { installRestoreList, planRestoreList } from '../../scripts/ci/synthetic-restore-list.mjs';
 
 if (process.env.COGLATAS_RI_NATIVE_TEST !== '1') throw new Error('Explicit isolated native RI test opt-in is required.');
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -15,7 +16,7 @@ const dockerPath = process.env.COGLATAS_RI_DOCKER ?? '/usr/bin/docker';
 if (!isAbsolute(dockerPath) || !existsSync(dockerPath) || !lstatSync(dockerPath).isFile() ||
     realpathSync(dockerPath) !== resolve(dockerPath)) throw new Error('A regular absolute Docker executable is required.');
 const endpoint = process.platform === 'win32' ? 'npipe:////./pipe/dockerDesktopLinuxEngine' : 'unix:///var/run/docker.sock';
-const image = 'sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
+const image = 'postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
 const hash = value => createHash('sha256').update(value).digest('hex');
 
 const FIXTURE_SQL = `
@@ -41,6 +42,10 @@ END;$rename$;
 CREATE TABLE public.partition_parent(id integer PRIMARY KEY) PARTITION BY RANGE(id);
 CREATE TABLE public.partition_zero PARTITION OF public.partition_parent FOR VALUES FROM(0) TO(100);
 CREATE TRIGGER zz_partition AFTER INSERT OR UPDATE ON public.partition_parent FOR EACH ROW EXECUTE FUNCTION public.user_trigger('partition');
+CREATE TABLE public.z_first_child(id integer PRIMARY KEY,parent_id integer NOT NULL,
+ CONSTRAINT z_first_fk FOREIGN KEY(parent_id) REFERENCES public.parents(id) ON DELETE RESTRICT);
+CREATE TABLE public.a_later_child(id integer PRIMARY KEY,parent_id integer NOT NULL,
+ CONSTRAINT a_later_fk FOREIGN KEY(parent_id) REFERENCES public.parents(id) ON DELETE CASCADE);
 CREATE SCHEMA pgx;
 CREATE TABLE pgx.inventory_control(id integer PRIMARY KEY,value text NOT NULL);
 CREATE SEQUENCE pgx.sequence_control START 42;
@@ -50,6 +55,8 @@ SELECT nextval('pgx.sequence_control');
 CREATE ROLE pgfixture NOLOGIN;
 INSERT INTO public.parents VALUES(1);
 INSERT INTO public.children(id,parent_id,other_parent_id) VALUES(1,1,1);
+INSERT INTO public.z_first_child VALUES(1,1);
+INSERT INTO public.a_later_child VALUES(1,1);
 INSERT INTO public.partition_parent VALUES(1);`;
 
 test('native PostgreSQL 18.6 logical RI identities preserve exact schema and reject semantic/order changes', async t => {
@@ -60,7 +67,8 @@ test('native PostgreSQL 18.6 logical RI identities preserve exact schema and rej
   const receipt = { schemaVersion: 1, scope: 'ISOLATED_SYNTHETIC_RI_CATALOG_ONLY', image,
     sourceSqlSha256: hash(Buffer.from(TRIGGER_CATALOG_SQL)), network: 'none', publicPorts: false,
     sourceFiles: Object.fromEntries(['scripts/ci/synthetic-trigger-catalog.mjs',
-      'scripts/ci/run-synthetic-logical-recovery.mjs', 'tests/ci/synthetic-trigger-catalog.postgres-test.mjs']
+      'scripts/ci/run-synthetic-logical-recovery.mjs', 'scripts/ci/synthetic-restore-list.mjs',
+      'tests/ci/synthetic-trigger-catalog.postgres-test.mjs']
       .map(file => [file, hash(readFileSync(join(root, file)))])),
     production: false, originalFailureErased: false, controls: [], cleanup: false };
   let created = false, originalFailure;
@@ -148,7 +156,17 @@ test('native PostgreSQL 18.6 logical RI identities preserve exact schema and rej
     const before = capture('ri_source', 'source'), beforeSchema = schema('ri_source'); save('source.schema.sql', beforeSchema);
     const dump = exec(['pg_dump', '-U', 'postgres', '-d', 'ri_source', '--format=custom', '--no-owner', '--no-privileges']).stdout;
     save('database.dump', dump); receipt.dumpSha256 = hash(dump);
-    exec(['pg_restore', '-U', 'postgres', '-d', 'ri_target', '--no-owner', '--no-privileges', '--exit-on-error'], dump);
+    const originalList = exec(['pg_restore', '--list'], dump).stdout, restoreList = planRestoreList(originalList);
+    save('restore-original.list', originalList); save('restore-planned.list', restoreList.bytes);
+    receipt.restoreList = { entryCount: restoreList.entryCount, foreignKeyCount: restoreList.foreignKeyCount,
+      originalSha256: hash(originalList), plannedSha256: hash(restoreList.bytes) };
+    installRestoreList((database, args, options) => {
+      assert.equal(database, 'ri_target'); assert.deepEqual(args.slice(0, 3), ['exec', '-T', 'postgres']);
+      return exec(args.slice(3), options.input);
+    }, 'ri_target', restoreList.bytes);
+    exec(['pg_restore', '-U', 'postgres', '-d', 'ri_target', '--no-owner', '--no-privileges', '--exit-on-error',
+      '--use-list=/tmp/coglatas-recovery.list'], dump);
+    receipt.restoreCount = 1;
     const restored = capture('ri_target', 'target'), afterSchema = schema('ri_target'); save('target.schema.sql', afterSchema);
     await control('one original custom dump/restore preserves raw schema and complete logical catalog', () => {
       assert.deepEqual(beforeSchema, afterSchema);
@@ -161,11 +179,31 @@ test('native PostgreSQL 18.6 logical RI identities preserve exact schema and rej
       assertSameSnapshot(snapshot(before, beforeSchema), snapshot(restored, afterSchema));
       assert.ok(restored.logical.triggers.rows.some(row => row.function.cost === '100.5'));
       assert.equal(before.logical.triggers.rowCount, before.raw.triggers.length);
-      assert.equal(before.logical.triggers.rows.filter(row => row.identity[2][0] === 'generated-ri').length, 8);
+      assert.equal(before.logical.triggers.rows.filter(row => row.identity[2][0] === 'generated-ri' &&
+        row.constraint.relation === 'children').length, 8);
+      assert.equal(before.logical.triggers.rows.filter(row => row.identity[2][0] === 'generated-ri').length, 16);
       assert.ok(before.logical.triggers.rows.some(row => row.parent !== null));
       assert.ok(before.logical.triggers.rows.some(row => row.identity[2][0] === 'exact-name' && row.identity[2][1].startsWith('RI_ConstraintTrigger_c_')));
       receipt.rawSchemaEqual = true; receipt.logicalCatalogEqual = true;
       receipt.schemaSha256 = hash(beforeSchema); receipt.triggerCount = before.raw.triggers.length;
+    });
+    await control('native TOC reverses cross-table FK creation order while complete plan preserves co-firing order', () => {
+      const actionNames = before.rows.filter(row => row.relation === 'parents' && row.function.name.endsWith('_del'))
+        .map(row => row.constraint.name);
+      assert.ok(actionNames.indexOf('z_first_fk') < actionNames.indexOf('a_later_fk'));
+      const a = ' FK CONSTRAINT public a_later_child ', z = ' FK CONSTRAINT public z_first_child ';
+      assert.ok(originalList.includes(a) && originalList.includes(z));
+      assert.ok(originalList.indexOf(a) < originalList.indexOf(z));
+      assert.ok(restoreList.bytes.indexOf(z) < restoreList.bytes.indexOf(a));
+      assert.equal(restoreList.foreignKeyCount, 4);
+    });
+    await control('same complete list preserves the original corrupt-copy rejection and a ready fault database', () => {
+      exec(['createdb', '-U', 'postgres', 'ri_fault']);
+      const rejected = docker(['exec', '--interactive', name, 'pg_restore', '-U', 'postgres', '-d', 'ri_fault',
+        '--no-owner', '--no-privileges', '--exit-on-error', '--use-list=/tmp/coglatas-recovery.list'], corruptCopy(dump), true);
+      save('fault-restore.stderr', rejected.stderr); receipt.faultRestoreCount = 1;
+      assertTruncatedArchiveFailure(rejected);
+      assert.equal(psql('ri_fault', 'SELECT 1;').toString().trim(), '1');
     });
     await control('complete user inventory includes pgx data sequence trigger and nonreserved pgfixture role', () => {
       assert.ok(restored.dataRows.some(row => row[0] === 'pgx' && row[1] === 'inventory_control' && row[2] === 1));

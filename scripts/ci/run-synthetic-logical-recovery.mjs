@@ -4,6 +4,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSy
 import { dirname, isAbsolute, join, relative, resolve, sep, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { logicalTriggerCatalog, TRIGGER_CATALOG_SQL } from './synthetic-trigger-catalog.mjs';
+import { installRestoreList, planRestoreList } from './synthetic-restore-list.mjs';
 
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const DOCKER = '/usr/bin/docker', GIT = '/usr/bin/git', SOCKET = '/var/run/docker.sock';
@@ -425,10 +426,13 @@ export async function runRecovery() {
     const volumes = mounts(project, appId(project)); assertDisjoint(sourceVolumes, volumes);
     return volumes;
   };
-  const restoreOnce = (project, bytes, expectedFailure) => {
-    const kind = project === names.target ? 'target' : 'fault'; require(receipt.restoreCalls[kind]++ === 0, 'RESTORE_RETRY');
+  const restoreOnce = (project, bytes, expectedFailure, restoreList) => {
+    const kind = project === names.target ? 'target' : 'fault';
+    require(receipt.restoreCalls[kind] === 0, 'RESTORE_RETRY');
+    installRestoreList(compose, project, restoreList);
+    require(receipt.restoreCalls[kind]++ === 0, 'RESTORE_RETRY');
     const result = compose(project, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
-      '--no-owner', '--no-privileges', '--exit-on-error'], { input: bytes, allowFailure: expectedFailure });
+      '--no-owner', '--no-privileges', '--exit-on-error', '--use-list=/tmp/coglatas-recovery.list'], { input: bytes, allowFailure: expectedFailure });
     if (expectedFailure) {
       assertTruncatedArchiveFailure(result);
       require(psql(project, 'SELECT 1;') === '1', 'FAULT_DB_UNAVAILABLE');
@@ -498,13 +502,20 @@ export async function runRecovery() {
     const dump = compose(names.source, ['exec', '-T', 'postgres', '/usr/local/bin/pg_dump', '-U', 'coglatas_smoke', '-d', 'coglatas_smoke',
       '--format=custom', '--no-owner', '--no-privileges']).stdout;
     privateFile(privateRoot, 'database.dump', dump); receipt.databaseDumpSha256 = sha256(dump);
+    stage = 'restore-list-plan';
+    const originalList = compose(names.source, ['exec', '-T', 'postgres', '/usr/local/bin/pg_restore', '--list'], { input: dump }).stdout;
+    privateFile(privateRoot, 'restore-original.list', originalList);
+    const restoreList = planRestoreList(originalList);
+    privateFile(privateRoot, 'restore-planned.list', restoreList.bytes);
+    receipt.restoreList = { entryCount: restoreList.entryCount, foreignKeyCount: restoreList.foreignKeyCount,
+      originalSha256: sha256(originalList), plannedSha256: sha256(restoreList.bytes) };
     const archives = sourceVolumes.slice(0, 2).map((volume, index) => {
       const bytes = docker(['run', '--rm', ...helperLabels, '--network', 'none', '--read-only', '--mount', `type=volume,source=${volume},target=/capture,readonly`,
         '--entrypoint', '/bin/tar', NODE_IMAGE, '-cpf', '-', '-C', '/capture', '.']).stdout;
       validateTar(bytes); privateFile(privateRoot, index ? 'keys.tar' : 'uploads.tar', bytes); return bytes;
     });
     stage = 'restore-target-prepare'; const targetVolumes = prepareTarget(names.target);
-    stage = 'restore-postgres'; restoreOnce(names.target, dump, false);
+    stage = 'restore-postgres'; restoreOnce(names.target, dump, false, restoreList.bytes);
     stage = 'restore-version';
     require(Number(psql(names.target, "SELECT current_setting('server_version_num');")) === receipt.postgresVersionNum, 'PG_VERSION');
     for (let index = 0; index < 2; index++) {
@@ -526,7 +537,7 @@ export async function runRecovery() {
     stage = 'target-probes'; receipt.api = probe(names.target, 'verify'); stopped(names.target);
     const targetAudit = new Map(audit(names.target));
     require(originalAudit.every(([id, digest]) => targetAudit.get(id) === digest) && targetAudit.size > originalAudit.length, 'AUDIT_CONTINUITY');
-    stage = 'fault'; prepareTarget(names.fault); restoreOnce(names.fault, corruptCopy(dump), true);
+    stage = 'fault'; prepareTarget(names.fault); restoreOnce(names.fault, corruptCopy(dump), true, restoreList.bytes);
     receipt.corruptTargetQuarantined = true;
     assertSameSnapshot(sourceSnapshot, snapshot(names.source, sourceVolumes, 'source-after-fault'), 'FAULT_SOURCE_CHANGED');
     require(sha256(readFileSync(join(privateRoot, 'database.dump'))) === receipt.databaseDumpSha256, 'BACKUP_CHANGED');
