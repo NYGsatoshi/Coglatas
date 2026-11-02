@@ -27,7 +27,7 @@ function parseList(bytes) {
   require(Buffer.from(text).equals(bytes));
   let lineCount = 0;
   for (const character of text) if (character === '\n') require(++lineCount <= MAX_ENTRIES * 4);
-  const lines = text.split(/(?<=\n)/), entries = lines.map(parseEntry).filter(Boolean);
+  const lines = text.split(/(?<=\n)/), entries = lines.map((line, index) => parseEntry(line, index)).filter(Boolean);
   require(entries.length > 0 && entries.length <= MAX_ENTRIES);
   require(new Set(entries.map(entry => entry.id)).size === entries.length);
   const foreignKeys = entries.filter(entry => entry.foreignKey);

@@ -3,6 +3,16 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { installRestoreList, planRestoreList, verifyRestoreList } from '../../scripts/ci/synthetic-restore-list.mjs';
 
+const compareCodeUnits = (left, right) => {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+};
+
 const source = Buffer.from('; TOC Entries: 9\n; native header counts implicit entries too\n' +
   '1; 2615 2200 SCHEMA - public postgres\n' +
   '2; 1259 200 TABLE public earlier postgres\n' +
@@ -18,7 +28,7 @@ test('complete list swaps only FK slots using original numeric OIDs, not names o
   const before = source.toString().split('\n'), after = planned.bytes.toString().split('\n');
   assert.equal(after[4], before[6]); assert.equal(after[6], before[4]);
   before.forEach((line, index) => { if (![4, 6].includes(index)) assert.equal(after[index], line); });
-  assert.deepEqual([...after].sort(), [...before].sort());
+  assert.deepEqual([...after].sort(compareCodeUnits), [...before].sort(compareCodeUnits));
   assert.deepEqual(planRestoreList(planned.bytes).bytes, planned.bytes);
 });
 
