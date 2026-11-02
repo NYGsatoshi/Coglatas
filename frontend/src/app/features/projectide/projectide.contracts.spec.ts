@@ -53,28 +53,39 @@ describe('ProjectIDE Core artifact view contract', () => {
   it('rejects null cases without a native TypeError', () => {
     expect(() => readPreviewBundle({ ...bundle(), cases: [null] })).toThrow(PreviewReadError);
   });
-  it.each(['source.documents', 'declarations', 'relations', 'result.diagnostics', 'result.rules', 'result.artifacts'])(
-    'rejects ambiguous duplicate identities in %s', (path) => {
-      const b = structuredClone(bundle());
-      const parts = path.split('.');
-      let target = b.cases[0] as unknown as Record<string, unknown>;
-      for (const key of parts.slice(0, -1)) {
-        target = target[key] as Record<string, unknown>;
-      }
-      const items = target[parts.at(-1)!] as unknown[];
-      items.push(structuredClone(items[0]));
-      expect(() => readPreviewBundle(b)).toThrow('unsupported');
-    },
-  );
+  it.each([
+    'source.documents',
+    'declarations',
+    'relations',
+    'result.diagnostics',
+    'result.rules',
+    'result.artifacts',
+  ])('rejects ambiguous duplicate identities in %s', (path) => {
+    const b = structuredClone(bundle());
+    const parts = path.split('.');
+    let target = b.cases[0] as unknown as Record<string, unknown>;
+    for (const key of parts.slice(0, -1)) {
+      target = target[key] as Record<string, unknown>;
+    }
+    const items = target[parts.at(-1)!] as unknown[];
+    items.push(structuredClone(items[0]));
+    expect(() => readPreviewBundle(b)).toThrow('unsupported');
+  });
   it('rejects a diagnostic pointing outside the Source document set', () => {
     const b = structuredClone(bundle());
-    (b.cases[0].result.diagnostics[0].primaryLocation as { documentId: string }).documentId = 'absent';
+    (b.cases[0].result.diagnostics[0].primaryLocation as { documentId: string }).documentId =
+      'absent';
     expect(() => readPreviewBundle(b)).toThrow('wrong-scope');
   });
   it.each(['missing-with-premises', 'proof-without-premises', 'proof-with-missing-reason'])(
-    'rejects an impossible Core evidence shape: %s', (mode) => {
+    'rejects an impossible Core evidence shape: %s',
+    (mode) => {
       const b = structuredClone(bundle());
-      const e = b.cases[0].result.rules[0].evidence as unknown as { kind: string; premises: unknown[]; missingReason: string | null };
+      const e = b.cases[0].result.rules[0].evidence as unknown as {
+        kind: string;
+        premises: unknown[];
+        missingReason: string | null;
+      };
       if (mode === 'missing-with-premises') {
         e.kind = 'coglatas.missing';
         e.missingReason = 'coglatas.fixture.missing';
