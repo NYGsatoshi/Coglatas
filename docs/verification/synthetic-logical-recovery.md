@@ -5,7 +5,9 @@ already-Main `SecurityCiFixtureSeed` contract. It is Test/SaaS evidence only.
 It does not qualify G09, production recovery, application/migration roles, RLS,
 HTTPS, a school target, or pilot release. Held PR #1379 is not reused.
 
-The candidate normally adopts Main `cb4159738d026bfa49d0eac5df110839cc5052b1`.
+The candidate normally adopts Main `500dfac15cd934d9bf617568c088c190b759c76c`,
+including the script-free Sonar npm lockfile repair in #1651. This synchronization
+preserves the recovery commands, strict comparison oracles and original failures.
 The following earlier Main results qualify historical dependencies only; they
 are not transferred to a new candidate or Main source.
 
