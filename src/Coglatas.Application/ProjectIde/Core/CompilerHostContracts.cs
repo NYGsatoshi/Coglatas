@@ -148,6 +148,22 @@ public interface IServerCompilerTransport
 
 public sealed record CompilerHostFreshnessAssessment(CompilerFreshness State, CompilerResultId? ResultId, IReadOnlyList<string> ChangedDimensions)
 {
+    /// <summary>Assesses the exact desired host execution, including materializations outside the declared manifest. No current authorization is implied.</summary>
+    public static CompilerHostFreshnessAssessment Assess(CompilerHostResponse response, CompilerHostRequest? desired)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        if (response.Execution is not { } execution || desired is null) return Assess(response, null, null);
+        CompilerInputManifest input;
+        try { input = desired.Input.Materialize(); }
+        catch (Exception error) when (error is FormatException or ArgumentException or UnsupportedSourceException or JsonException)
+        { return Assess(response, null, null); }
+        var manifestAssessment = Assess(response, input, desired.ClientGeneration);
+        var changed = manifestAssessment.ChangedDimensions.ToList();
+        if (!execution.Materializations.Equals(desired.Materializations)) changed.Add("coglatas.materializations");
+        return manifestAssessment with { State = changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, ChangedDimensions = changed.AsReadOnly() };
+    }
+
+    /// <summary>Assesses only the supplied manifest and generation; use the request overload when materializations may have changed.</summary>
     public static CompilerHostFreshnessAssessment Assess(CompilerHostResponse response, CompilerInputManifest? desired, long? desiredGeneration)
     {
         ArgumentNullException.ThrowIfNull(response);
