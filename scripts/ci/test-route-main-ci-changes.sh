@@ -190,6 +190,27 @@ assert_eq true "$(value_of "$output" security_compose)" "security harness compos
 assert_eq true "$(value_of "$output" avmig_contract)" "security harness same-revision OpenAPI producer"
 assert_eq false "$(value_of "$output" security_dotnet)" "security harness dependency scan"
 
+# The PR-only Security image must be scanned when its Dockerfile OR
+# Dockerfile-specific ignore policy is the *only* changed path.
+for security_runtime_input in \
+  infra/docker/security-runtime-pr-prebuilt.Dockerfile \
+  infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore; do
+  slug="${security_runtime_input//\//-}"
+  repo="$tmp_root/security-runtime-pr-${slug//./-}"
+  init_repo "$repo"
+  printf 'base\n' > "$repo/README.md"
+  base="$(commit_all "$repo" base)"
+  mkdir -p "$(dirname "$repo/$security_runtime_input")"
+  printf 'PR Security runtime input change\n' > "$repo/$security_runtime_input"
+  head="$(commit_all "$repo" changed)"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq true "$(value_of "$output" security)" "PR security Docker input scan $security_runtime_input"
+  assert_eq true "$(value_of "$output" security_compose)" "PR security Docker input live runtime $security_runtime_input"
+  assert_eq true "$(value_of "$output" security_image)" "PR security Docker input image scan $security_runtime_input"
+  assert_eq true "$(value_of "$output" avmig_contract)" "PR security Docker input OpenAPI $security_runtime_input"
+  assert_eq false "$(value_of "$output" security_dotnet)" "PR security Docker input dependency scan unchanged $security_runtime_input"
+done
+
 # AV-MIG contract verification depends on the effective .NET SDK/build
 # configuration as well as source files. Each of these inputs must route the
 # client-independent contract gate even when it is the only changed file.
