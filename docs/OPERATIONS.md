@@ -4,6 +4,14 @@ This is the active runbook for smoke tests, backup, restore, production checks, 
 
 Fresh environments can bootstrap the first administrator by setting `COGLATAS_SEED_ADMIN_ENABLED=true` plus the `COGLATAS_SEED_ADMIN_EMAIL`, `COGLATAS_SEED_ADMIN_USERNAME`, and `COGLATAS_SEED_ADMIN_PASSWORD` variables for startup. `PlatformAdminSetupMode` still does not create an administrator.
 
+`OnPremSingleTenant` selects tenant resolution; it does not itself request startup
+seeding. Set `Tenancy:SeedOnStartup=true` deliberately when provisioning tenant
+and plan data. With this flag false and no explicit administrator, UI-shell,
+browser-smoke or demo bootstrap requested, startup preserves restored tenant/plan
+data. A missing configured default tenant leaves `/health/ready` unhealthy instead
+of silently creating one. Keep every bootstrap input disabled during a recovery
+drill. This startup boundary alone does not qualify a complete restore.
+
 ## Readiness Rule
 
 Do not treat an environment as pilot-ready until these pass in that environment:
