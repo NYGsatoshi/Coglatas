@@ -8,9 +8,13 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Coglatas.Tests.Files;
+using Coglatas.Tests.PostgreSql;
+using Npgsql;
 
 namespace Coglatas.Tests.Artifacts;
 
+[Collection("PostgreSqlTaskV1")]
 public sealed class ArtifactUploadCompensationTests
 {
     [Theory]
@@ -57,10 +61,12 @@ public sealed class ArtifactUploadCompensationTests
         Assert.Empty(await fixture.Context.ArtifactVersions.ToListAsync(CancellationToken.None));
     }
 
-    [Fact]
-    public async Task CleanupFailureDoesNotReplaceOriginalPersistenceFailure()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CleanupFailureDoesNotReplaceOriginalPersistenceFailure(bool loggingEnabled)
     {
-        await using var fixture = await Fixture.CreateAsync();
+        await using var fixture = await Fixture.CreateAsync(loggingEnabled);
         var expected = new InvalidOperationException("Synthetic persistence failure.");
         fixture.FailAt("persistence", expected);
         fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup failure.");
@@ -70,6 +76,68 @@ public sealed class ArtifactUploadCompensationTests
         Assert.Same(expected, actual);
         Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
         Assert.True(await fixture.Storage.ExistsAsync(fixture.Storage.SavedKeys.Single()));
+        if (loggingEnabled) { fixture.Logger.AssertOnlyFixedWarning(); }
+        else { Assert.Empty(fixture.Logger.Entries); }
+    }
+
+    [Fact]
+    public async Task CleanupAndLoggerFailureStillPreserveOriginalFailure()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var expected = new InvalidOperationException("Synthetic metadata canary MUST_NOT_BE_LOGGED.");
+        fixture.FailAt("persistence", expected);
+        fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup canary MUST_NOT_BE_LOGGED.");
+        fixture.Logger.ThrowOnLog = true;
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.UploadAsync());
+
+        Assert.Same(expected, actual);
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        Assert.Empty(fixture.Logger.Entries);
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task NativeVersionConflictRollsBackMetadataAndPreservesCleanupFailureEvidence()
+    {
+        bool[] cleanupOutcomes = [false, true];
+        foreach (var cleanupFails in cleanupOutcomes)
+        {
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+                {
+                    await using var fixture = await Fixture.CreateAsync(connectionString: database);
+                    var previous = await fixture.UploadAsync();
+                    Assert.True(previous.IsSuccess, previous.Error);
+                    var existingKey = Assert.Single(fixture.Storage.SavedKeys);
+                    var existingVersion = await fixture.Context.ArtifactVersions.SingleAsync();
+                    fixture.Context.ArtifactVersions.Add(new ArtifactVersion
+                    {
+                        ArtifactId = existingVersion.ArtifactId,
+                        VersionNumber = existingVersion.VersionNumber,
+                        AttachmentId = existingVersion.AttachmentId,
+                        FileObjectId = existingVersion.FileObjectId,
+                        CreatedByUserId = existingVersion.CreatedByUserId
+                    });
+                    if (cleanupFails) { fixture.Storage.DeleteFailure = new IOException("Synthetic private cleanup canary."); }
+
+                    var error = await Assert.ThrowsAsync<DbUpdateException>(() => fixture.UploadAsync());
+
+                    Assert.Equal(PostgresErrorCodes.UniqueViolation, Assert.IsType<PostgresException>(error.InnerException).SqlState);
+                    var failedKey = fixture.Storage.SavedKeys.Last();
+                    Assert.NotEqual(existingKey, failedKey);
+                    Assert.Equal(failedKey, Assert.Single(fixture.Storage.DeletedKeys));
+                    Assert.Equal(cleanupFails, await fixture.Storage.ExistsAsync(failedKey));
+                    Assert.True(await fixture.Storage.ExistsAsync(existingKey));
+                    fixture.Context.ChangeTracker.Clear();
+                    Assert.Equal(existingVersion.Id, (await fixture.Context.ArtifactVersions.SingleAsync()).Id);
+                    Assert.Equal(existingVersion.Id, (await fixture.Context.Artifacts.SingleAsync()).CurrentVersionId);
+                    Assert.Single(await fixture.Context.FileObjects.ToListAsync());
+                    Assert.Single(await fixture.Context.Attachments.ToListAsync());
+                    if (cleanupFails) { fixture.Logger.AssertOnlyFixedWarning(); }
+                    else { Assert.Empty(fixture.Logger.Entries); }
+                });
+        }
     }
 
     [Fact]
@@ -81,6 +149,7 @@ public sealed class ArtifactUploadCompensationTests
 
         Assert.True(result.IsSuccess, result.Error);
         Assert.Empty(fixture.Storage.DeletedKeys);
+        Assert.Empty(fixture.Logger.Entries);
         var key = Assert.Single(fixture.Storage.SavedKeys);
         await using var stored = await fixture.Storage.OpenReadAsync(key);
         Assert.Equal(SHA256.HashData(Fixture.Content), await SHA256.HashDataAsync(stored));
@@ -124,29 +193,34 @@ public sealed class ArtifactUploadCompensationTests
         public AppDbContext Context { get; }
         public Storage Storage { get; }
         public FeatureFlags Features { get; } = new();
+        public UploadCleanupLogger<ArtifactService> Logger { get; } = new();
 
-        private Fixture(Guid tenantId, Guid userId)
+        private Fixture(Guid tenantId, Guid userId, bool loggingEnabled, string? connectionString)
         {
-            Context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, new CurrentTenant(tenantId));
+            var options = new DbContextOptionsBuilder<AppDbContext>();
+            if (connectionString is null) { options.UseInMemoryDatabase(Guid.NewGuid().ToString("N")); }
+            else { options.UseNpgsql(connectionString); }
+            Context = new AppDbContext(options.Options, new CurrentTenant(tenantId));
             Storage = new Storage(new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = _root })));
             _persistence = new Persistence(Context);
             _service = new ArtifactService(new ArtifactRepository(Context), new ProjectRepository(Context), null!,
                 new FileRepository(Context), Storage, new UploadPolicy(), Features, new Quotas(),
                 new ArtifactAuthorization(), new CurrentUser(userId), new CurrentTenant(tenantId), new Clock(),
-                _audit, _notifications, _persistence);
+                _audit, _notifications, _persistence, loggingEnabled ? Logger : null);
         }
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(bool loggingEnabled = true, string? connectionString = null)
         {
             var tenantId = Guid.NewGuid();
             var userId = Guid.NewGuid();
-            var fixture = new Fixture(tenantId, userId);
+            var fixture = new Fixture(tenantId, userId, loggingEnabled, connectionString);
             var projectId = Guid.NewGuid();
+            var workspaceId = Guid.NewGuid();
             fixture.Context.Tenants.Add(new Tenant(tenantId) { Name = "Synthetic", DisplayName = "Synthetic", Slug = "synthetic", Status = TenantStatus.Active });
             await fixture.Context.SaveChangesAsync();
             fixture.Context.Users.Add(new User { Id = userId, DisplayName = "Synthetic actor", Email = "synthetic@example.invalid", NormalizedEmail = "SYNTHETIC@EXAMPLE.INVALID", Status = UserStatus.Active });
-            fixture.Context.Projects.Add(new Project { Id = projectId, TenantId = tenantId, WorkspaceId = Guid.NewGuid(), OwnerUserId = userId, CreatedByUserId = userId, Name = "Synthetic", Slug = "synthetic" });
+            fixture.Context.Workspaces.Add(new Workspace { Id = workspaceId, TenantId = tenantId, Name = "Synthetic", Slug = "synthetic", CreatedByUserId = userId });
+            fixture.Context.Projects.Add(new Project { Id = projectId, TenantId = tenantId, WorkspaceId = workspaceId, OwnerUserId = userId, CreatedByUserId = userId, Name = "Synthetic", Slug = "synthetic" });
             fixture.Context.ProjectMembers.Add(new ProjectMember { TenantId = tenantId, ProjectId = projectId, UserId = userId, Role = ProjectRole.Owner });
             fixture.Context.Artifacts.Add(new Artifact { Id = fixture._artifactId, TenantId = tenantId, ProjectId = projectId, Name = "Synthetic", CreatedByUserId = userId });
             await fixture.Context.SaveChangesAsync();

@@ -29,6 +29,8 @@ public sealed class FileWorkspaceWorkflowTests
         Assert.True(item.CanDelete);
         Assert.Single(fixture.Files.FileObjects);
         Assert.Single(fixture.Files.Attachments);
+        Assert.Empty(fixture.Storage.DeletedKeys);
+        Assert.Empty(fixture.Logger.Entries);
     }
 
     [Fact]
@@ -56,6 +58,42 @@ public sealed class FileWorkspaceWorkflowTests
         Assert.Empty(fixture.Files.Attachments);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CleanupFailureLogsOnlyAFixedWarningAndPreservesOriginalFailure(bool loggingEnabled)
+    {
+        var fixture = new Fixture(loggingEnabled);
+        var expected = new InvalidOperationException("Synthetic admission canary MUST_NOT_BE_LOGGED.");
+        fixture.Authorization.SubsequentUploadFailure = expected;
+        fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup canary MUST_NOT_BE_LOGGED.");
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.UploadTextAsync("private-canary.txt", "private content"));
+
+        Assert.Same(expected, actual);
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        if (loggingEnabled) { fixture.Logger.AssertOnlyFixedWarning(); }
+        else { Assert.Empty(fixture.Logger.Entries); }
+    }
+
+    [Fact]
+    public async Task CleanupAndLoggerFailureDoNotReplaceUploadDenial()
+    {
+        var fixture = new Fixture();
+        fixture.Storage.AfterSave = () => fixture.Authorization.CanUploadResult = false;
+        fixture.Storage.DeleteFailure = new IOException("Synthetic cleanup canary MUST_NOT_BE_LOGGED.");
+        fixture.Logger.ThrowOnLog = true;
+
+        var result = await fixture.UploadTextAsync("private-canary.txt", "private content");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("You are not allowed to upload an attachment for this resource.", result.Error);
+        Assert.Single(fixture.Storage.DeletedKeys);
+        Assert.Empty(fixture.Files.FileObjects);
+        Assert.Empty(fixture.Logger.Entries);
+    }
+
     [Fact]
     public async Task MetadataFailureCleansUpStoredBytes()
     {
@@ -65,6 +103,7 @@ public sealed class FileWorkspaceWorkflowTests
 
         var key = Assert.Single(fixture.Storage.DeletedKeys);
         Assert.Contains($"/files/{fixture.Files.FileObjects.Single().Id:D}", key);
+        Assert.Empty(fixture.Logger.Entries);
     }
 
     [Fact]
@@ -160,7 +199,7 @@ public sealed class FileWorkspaceWorkflowTests
 
     private sealed class Fixture
     {
-        public Fixture()
+        public Fixture(bool loggingEnabled = true)
         {
             Service = new FileService(
                 Files,
@@ -176,7 +215,8 @@ public sealed class FileWorkspaceWorkflowTests
                 new FakeAuditLogger(),
                 new FakeTokenHasher(),
                 new NoopInvalidations(),
-                UnitOfWork);
+                UnitOfWork,
+                logger: loggingEnabled ? Logger : null);
         }
 
         private Guid TenantId { get; } = Guid.NewGuid();
@@ -187,6 +227,7 @@ public sealed class FileWorkspaceWorkflowTests
         public FakeStorage Storage { get; } = new();
         public FakeAuthorization Authorization { get; } = new();
         public FakeUnitOfWork UnitOfWork { get; } = new();
+        public UploadCleanupLogger<FileService> Logger { get; } = new();
         public FileService Service { get; }
 
         public Task<Result<AttachmentResponse>> UploadTextAsync(string fileName, string content, CancellationToken cancellationToken = default)

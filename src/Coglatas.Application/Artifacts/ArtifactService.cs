@@ -4,6 +4,7 @@ using Coglatas.Application.Files;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace Coglatas.Application.Artifacts;
 
@@ -22,7 +23,8 @@ public sealed class ArtifactService(
     IClock clock,
     IAuditLogger auditLogger,
     INotificationService notifications,
-    IUnitOfWork unitOfWork) : IArtifactService
+    IUnitOfWork unitOfWork,
+    ILogger<ArtifactService>? logger = null) : IArtifactService
 {
     public async Task<Result<IReadOnlyList<ArtifactListItemResponse>>> ListAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -249,14 +251,7 @@ public sealed class ArtifactService(
         }
         catch
         {
-            try
-            {
-                await storage.DeleteAsync(fileObject.StorageKey, CancellationToken.None);
-            }
-            catch
-            {
-                // Preserve the original metadata/audit failure if compensation fails.
-            }
+            await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
             throw;
         }
         return Result<ArtifactVersionResponse>.Success(ToVersion(version));
