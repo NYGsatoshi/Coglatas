@@ -227,3 +227,32 @@ Windows lane. Actual Avalonia startup, native E2E and real API/authorization rem
 HOLD under #1144. This is independent of complete Requirement evidence/resource
 materialization, which remain unimplemented. Shared-client completion is not claimed.
 #1128 remains SUSPENDED / NOT_EVALUATED.
+
+### Exact parent reconciliation and new verification
+
+GitHub marked #1628 CONFLICTING after the first correction; ordinary pull_request
+CI did not start. Its existing Slice 7 branch has additional approved Product
+ancestors, rather than the earlier single-parent review snapshot. Exact parent
+`5ef8b9caa4cbb0228a48b5c13b4f74bb07837547` is now incorporated in Core merge
+`610f9911f9ce31739188437972f7eeb018f611da`, whose first parent is
+`e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4`. The only conflicting file was
+CompilerSemanticValidation.cs; its verified correction was retained verbatim.
+The merge tree equals its first-parent tree. This reconciles real dependency
+ancestry; no earlier same-tree receipt is substituted for the new Commit.
+
+Independent Test `9e969183f5b311789b0197d0b6aac12a88206e7c` pins that exact merge
+Commit, both parents and its unchanged resolution tree; unknown merges, parents
+and resolution edits are rejected. Five composition controls pass. A new exact
+Windows combined candidate was built and tested: Release warnings-as-errors,
+Core 725/725, Architecture 12/12, zero warnings/errors/failures/skips.
+
+The preceding Web candidate Product `1b0d6e4d8db36d7b5a8196515aa72e94bec5b829`,
+Test `7efcc42117ca99110ba28aa0b06848af4c060841`, combined
+`65a9dc38d2892cb880b2527a7a18026b9f34e556`, tree
+`9754333d95323725ab33f68e9eb08aef7c074798`, passed Windows full verification:
+Core plus fixture 735/735, Architecture 12/12, Vitest 263/263, Node 70/70,
+Playwright Desktop/Mobile 42/42, controls 28/28, no failures/skips. Local Node is
+24.22.1 (hosted remains 24.22.2), Python 3.12.14 (hosted 3.12.12), SDK 10.0.403.
+Installed dependency directories were reused only after both exact lockfile hashes
+matched; no lockfile/dependency changes were made. This evidence is retained for
+those exact pins; subsequent metadata/ancestry updates require their own receipt.
