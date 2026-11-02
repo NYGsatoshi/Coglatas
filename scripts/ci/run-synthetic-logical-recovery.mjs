@@ -17,6 +17,16 @@ const MAX_BYTES = 128 * 1024 * 1024;
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const reject = code => { const error = new Error('Synthetic logical recovery failed.'); error.code = code; throw error; };
 const require = (condition, code) => { if (!condition) reject(code); };
+const compareCodeUnits = (left, right) => {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+};
+
+export function disableSourceSeed(env) {
+  env.COGLATAS_RECOVERY_SOURCE_SEED = 'false';
+  env.COGLATAS_RECOVERY_FIXTURE_PASSWORD = randomBytes(32).toString('base64url');
+}
 
 export function hostedContract(env, platform = process.platform, args = process.argv.slice(2)) {
   require(platform === 'linux' && args.length === 0 && env.GITHUB_ACTIONS === 'true' &&
@@ -48,8 +58,8 @@ export function beneath(root, path) {
 export function validateComposition(config, { target, image, project }) {
   const services = config?.services;
   require(services && typeof services === 'object' && services.app && services.postgres, 'COMPOSE');
-  if (target) require(JSON.stringify(Object.keys(services).sort()) === JSON.stringify(['app', 'postgres']), 'TARGET_SERVICES');
-  if (!target) require(JSON.stringify(Object.keys(services).sort()) ===
+  if (target) require(JSON.stringify(Object.keys(services).sort(compareCodeUnits)) === JSON.stringify(['app', 'postgres']), 'TARGET_SERVICES');
+  if (!target) require(JSON.stringify(Object.keys(services).sort(compareCodeUnits)) ===
     JSON.stringify(['app', 'migrate', 'postgres']), 'SOURCE_SERVICES');
   // The inherited browser is explicitly profiled out and is never selected by
   // this orchestrator. Only these three source services can execute.
@@ -445,8 +455,7 @@ export async function runRecovery() {
     require(seededEnvironment.includes('SecurityCiFixture__Enabled=true'), 'SOURCE_SEED');
     receipt.seedFlags.initialSourceFixture = true;
     // Freeze seed behavior before the original checkpoint/rollback container.
-    stopped(names.source); env.COGLATAS_RECOVERY_SOURCE_SEED = 'false';
-    env.COGLATAS_RECOVERY_FIXTURE_PASSWORD = 'fixture-seed-disabled';
+    stopped(names.source); disableSourceSeed(env);
     compose(names.source, ['up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '180', 'app']);
     sourceApp = appId(names.source); sourceVolumes = mounts(names.source, sourceApp);
     const actors = JSON.parse(psql(names.source, String.raw`SELECT json_agg(json_build_object('tenant',t."Slug",'email',u."Email",'userId',u."Id",'fileId',f."Id",'fileBytes',f."SizeBytes",'fileSha256',f."HashSha256",'denialMarkers',json_build_array(f."Id"::text,f."OriginalFileName",f."StorageKey",u."Email")) ORDER BY t."Slug") FROM public.file_objects f JOIN public.tenants t ON t."Id"=f."TenantId" JOIN public.users u ON u."Id"=f."UploadedByUserId" WHERE t."Slug" IN ('security-alpha','security-beta') AND f."StorageKey" LIKE '%/security-ci/%';`));

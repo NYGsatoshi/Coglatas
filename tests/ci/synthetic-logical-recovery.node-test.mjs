@@ -3,10 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Actor } from '../../scripts/ci/synthetic-logical-recovery-probe.mjs';
 import { fileURLToPath } from 'node:url';
-import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy,
+import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awaitOutboxIdle, beneath, corruptCopy, disableSourceSeed,
   hostedContract, resourceNames, restoreArchive, snapshotEquality, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -30,6 +30,27 @@ const configuration = () => ({
   volumes: Object.fromEntries(['pgdata', 'uploads', 'protection_keys'].map(key => [key, { name: project + '_' + key }])),
 });
 const options = { target: true, image, project };
+
+test('disabling the source fixture removes its active credential without a reusable replacement', () => {
+  const original = randomBytes(32).toString('base64url');
+  const env = { COGLATAS_RECOVERY_SOURCE_SEED: 'true', COGLATAS_RECOVERY_FIXTURE_PASSWORD: original, other: 'unchanged' };
+  disableSourceSeed(env);
+  const replacement = env.COGLATAS_RECOVERY_FIXTURE_PASSWORD;
+  assert.equal(env.COGLATAS_RECOVERY_SOURCE_SEED, 'false');
+  assert.equal(env.other, 'unchanged');
+  assert.match(replacement, /^[A-Za-z0-9_-]{43}$/);
+  assert.notEqual(replacement, original);
+  disableSourceSeed(env);
+  assert.notEqual(env.COGLATAS_RECOVERY_FIXTURE_PASSWORD, replacement);
+});
+
+test('the exact service allowlist is independent of insertion order', () => {
+  const config = configuration();
+  config.services = Object.fromEntries(Object.entries(config.services).reverse());
+  assert.equal(validateComposition(config, options), true);
+  config.services.unapproved = {};
+  assert.throws(() => validateComposition(config, options), { code: 'TARGET_SERVICES' });
+});
 
 test('checkpoint diagnostics expose only fixed component equality without weakening strict rejection', () => {
   const privateValue = 'SYNTHETIC_PRIVATE_SNAPSHOT_VALUE';
