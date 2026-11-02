@@ -43,14 +43,22 @@ export class Actor {
       body: { email: this.identity.email, password } });
     assert.equal(response.status, 200); await this.me();
   }
-  async me(status = 200) {
+  async me(status = 200, protectedIdentities = [this.identity]) {
     const response = await this.request('/api/auth/me');
     assert.equal(response.status, status);
     if (status === 200) assert.equal(JSON.parse(response.body).userId, this.identity.userId);
+    if (status === 401) {
+      const views = [response.body.toString('utf8')];
+      try { views.push(JSON.stringify(JSON.parse(views[0]))); }
+      catch (error) { if (!(error instanceof SyntaxError)) throw error; }
+      const markers = [this.identity, ...protectedIdentities].flatMap(identity => [identity.userId, identity.email]);
+      for (const marker of markers)
+        assert.ok(views.every(view => !view.toLowerCase().includes(marker.toLowerCase())));
+    }
   }
-  async logout() {
+  async logout(protectedIdentities = [this.identity]) {
     const response = await this.request('/api/auth/logout', { method: 'POST', csrf: await this.csrf() });
-    assert.equal(response.status, 200); await this.me(401);
+    assert.equal(response.status, 200); await this.me(401, protectedIdentities);
   }
   async ownFile() {
     const response = await this.request('/api/files/' + this.identity.fileId + '/download');
@@ -76,14 +84,13 @@ export class Actor {
   }
 }
 
-async function main() {
-  const [phase] = process.argv.slice(2);
-  assert.equal(process.argv.length, 3);
+export async function runProbe(phase, { readFile = readFileSync, writeFile = writeFileSync } = {}) {
   assert.ok(['checkpoint', 'verify', 'rollback'].includes(phase));
-  const input = JSON.parse(readFileSync('/private/probe-input.json', 'utf8'));
+  const input = JSON.parse(readFile('/private/probe-input.json', 'utf8'));
   assert.equal(input.actors.length, 2);
   assert.deepEqual(input.actors.map(actor => actor.tenant), ['security-alpha', 'security-beta']);
-  for (const actor of [...input.actors, input.revoked]) {
+  const protectedIdentities = [...input.actors, input.revoked];
+  for (const actor of protectedIdentities) {
     assert.match(actor.userId, /^[a-f0-9-]{36}$/);
     assert.ok(actor.email.endsWith('@example.test'));
   }
@@ -94,12 +101,12 @@ async function main() {
     const disposable = new Actor(input.revoked);
     await disposable.login(input.password);
     revoked = { ...disposable.cookies };
-    await disposable.logout();
-    writeFileSync('/private/cookie-checkpoint.json', JSON.stringify({
+    await disposable.logout(protectedIdentities);
+    writeFile('/private/cookie-checkpoint.json', JSON.stringify({
       actors: actors.map(actor => actor.cookies), revoked,
     }), { flag: 'wx', mode: 0o600 });
   } else {
-    const state = JSON.parse(readFileSync('/private/cookie-checkpoint.json', 'utf8'));
+    const state = JSON.parse(readFile('/private/cookie-checkpoint.json', 'utf8'));
     actors = input.actors.map((identity, index) => new Actor(identity, state.actors[index]));
     revoked = state.revoked;
   }
@@ -107,16 +114,22 @@ async function main() {
   for (const actor of actors) { await actor.me(); ownedBytes.push(await actor.ownFile()); }
   await actors[0].foreignFile(input.actors[1], ownedBytes[1]);
   await actors[1].foreignFile(input.actors[0], ownedBytes[0]);
-  await new Actor(input.revoked, revoked).me(401);
+  await new Actor(input.revoked, revoked).me(401, protectedIdentities);
   if (phase !== 'checkpoint') {
     const fresh = new Actor(input.actors[0]);
-    await fresh.login(input.password); await fresh.logout();
+    await fresh.login(input.password); await fresh.logout(protectedIdentities);
   }
-  writeFileSync('/private/probe-' + phase + '.json', JSON.stringify({
+  writeFile('/private/probe-' + phase + '.json', JSON.stringify({
     phase, status: 'PASS', actualActors: 3, currentCookieIdentities: 2,
     fileByteChecks: 2, crossTenantDenials: 2, revokedSessionDenied: true,
     freshLoginLogout: phase !== 'checkpoint', deploymentHttps: 'NOT_EVALUATED',
   }), { flag: 'wx', mode: 0o600 });
+}
+
+async function main() {
+  const [phase] = process.argv.slice(2);
+  assert.equal(process.argv.length, 3);
+  await runProbe(phase);
 }
 
 if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
