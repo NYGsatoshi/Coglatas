@@ -39,6 +39,25 @@ def inventory(path: Path) -> list[str]:
     return names
 
 
+def product_changes(repository: Path, base: str, head: str) -> list[str]:
+    """Permit only the audited Slice 7 reconciliation; never accept arbitrary merges."""
+    allowed = ("src/Coglatas.Domain/ProjectIde/", "src/Coglatas.Application/ProjectIde/", "docs/verification/")
+    git(repository, "merge-base", "--is-ancestor", base, head)
+    commits = git(repository, "rev-list", "--reverse", f"{base}..{head}").splitlines()
+    for commit in commits:
+        parents = git(repository, "rev-list", "--parents", "-n", "1", commit).split()[1:]
+        if len(parents) == 2:
+            if (commit != "610f9911f9ce31739188437972f7eeb018f611da" or parents != [
+                    "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4", "5ef8b9caa4cbb0228a48b5c13b4f74bb07837547"] or
+                    git(repository, "diff", parents[0], commit)):
+                raise ValueError("Unapproved Product dependency merge or resolution")
+            continue
+        paths = git(repository, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines()
+        if len(parents) != 1 or not paths or any(not path.startswith(allowed) for path in paths):
+            raise ValueError("Product change crosses its ownership boundary")
+    return commits
+
+
 def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
     sha(product); sha(test)
     if target.exists() or receipt.exists():
@@ -47,14 +66,13 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     prior_test = "15ae613d8db1397eb105a6753798afb948ea7758"
     product_base = "da112be55ea35794fe4416ba856ba35628a9fe53"
     git(repository, "merge-base", "--is-ancestor", prior_test, test)
-    product_changes = changes(repository, product_base, product,
-                              ("src/Coglatas.Domain/ProjectIde/", "src/Coglatas.Application/ProjectIde/", "docs/verification/"))
+    selected_product_changes = product_changes(repository, product_base, product)
     test_changes = changes(repository, test_base, test, ("tests/", ".github/workflows/projectide-slice2-isolated.yml",
                                                        ".github/workflows/projectide-core-isolated.yml"))
     git(repository, "worktree", "add", "--detach", str(target), product)
     for commit in test_changes:
         git(target, "cherry-pick", commit)
-    value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=product_changes,
+    value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})

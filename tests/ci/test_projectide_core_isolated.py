@@ -37,3 +37,20 @@ class CoreInventoryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ProductDependencyMergeTests(unittest.TestCase):
+    def test_only_the_exact_reconciled_parent_and_unchanged_resolution_tree_are_allowed(self):
+        from unittest.mock import patch
+        from projectide_core_isolated import product_changes
+        merge = "610f9911f9ce31739188437972f7eeb018f611da"
+        parents = merge + " e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4 5ef8b9caa4cbb0228a48b5c13b4f74bb07837547"
+        for candidate, actual_parents, delta, accepted in [
+                (merge, parents, "", True), ("a"*40, parents, "", False),
+                (merge, parents.replace("5ef8b9ca", "0ef8b9ca"), "", False),
+                (merge, parents, "unexpected resolution edit", False)]:
+            with self.subTest(candidate=candidate, delta=delta):
+                with patch("projectide_core_isolated.git", side_effect=["", candidate, actual_parents, delta]):
+                    if accepted: self.assertEqual([merge], product_changes(Path("."), "b"*40, "c"*40))
+                    else:
+                        with self.assertRaisesRegex(ValueError, "Unapproved Product dependency"):
+                            product_changes(Path("."), "b"*40, "c"*40)
