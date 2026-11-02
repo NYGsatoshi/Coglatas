@@ -87,6 +87,12 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertTrue(config.get_option('run:parallel'))
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
+            ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
+            ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',
+            ROOT.as_posix() + '/scripts/ci/github_action_pins.py',
+            ROOT.as_posix() + '/scripts/ci/verify_sbom_vulnerability_gate.py',
+            ROOT.as_posix() + '/scripts/ci/verify_sbom.py',
+            ROOT.as_posix() + '/scripts/ci/verify_grype_sbom_source.py',
             ROOT.as_posix() + '/scripts/security/finding_policy.py',
             ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
