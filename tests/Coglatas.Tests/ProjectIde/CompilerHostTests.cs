@@ -226,4 +226,80 @@ public sealed class CompilerHostTests
         Assert.Equal(a.ExecutionInputDigest, new CompilerHostRequest(new(a.Input.Materialize()), snapshots: [snapshot]).ExecutionInputDigest);
     }
 
+    [Theory]
+    [InlineData("snapshots")]
+    [InlineData("units")]
+    [InlineData("calendars")]
+    public async Task ExactRequestFreshnessIncludesMaterializationsOutsideTheDeclaredManifest(string dimension)
+    {
+        var input = Input();
+        var response = await Hosts(input).Local.CompileAsync(new(new(input), 7));
+        var unitData = Json(Obj(new { unitId = "unit.kg", version = 1, dimension = new Dictionary<string, int> { ["dimension.mass"] = 1 } }));
+        var unit = new UnitDefinition(unitData, ContentDigest.Compute("coglatas.unit-definition/1", unitData.ToCanonicalBytes()));
+        var snapshot = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(30)), "1", new(Source(9), true, true, true));
+        var desired = new CompilerHostRequest(new(input), 7, dimension == "snapshots" ? [snapshot] : [],
+            dimension == "units" ? [unit] : [], dimension == "calendars" ? [MaterializedCalendar()] : []);
+        var assessment = CompilerHostFreshnessAssessment.Assess(response, desired);
+        Assert.Equal(CompilerFreshness.Stale, assessment.State);
+        Assert.Equal(response.Compilation!.Result.ResultId, assessment.ResultId);
+        Assert.Equal(new[] { "coglatas.materializations" }, assessment.ChangedDimensions);
+        // The retained overload assesses only the manifest/generation explicitly supplied to it.
+        Assert.Equal(CompilerFreshness.Current, CompilerHostFreshnessAssessment.Assess(response, input, 7).State);
+    }
+
+    [Fact]
+    public async Task ExactRequestFreshnessPreservesCanonicalOrderButDetectsMultiplicityAndScopeClaims()
+    {
+        var input = Input();
+        var a = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(30)), "1", new(Source(9), true, true, true));
+        var b = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(31)), "1", new(Source(10), true, true, true));
+        var executed = new CompilerHostRequest(new(input), 7, [a, b]);
+        var response = await Hosts(input).Local.CompileAsync(executed);
+        Assert.Equal(CompilerFreshness.Current, CompilerHostFreshnessAssessment.Assess(response, new CompilerHostRequest(new(input), 7, [b, a])).State);
+        foreach (var snapshots in new[] { new[] { a, b, a }, new[] { a, new CompilerMaterializedSnapshot(b.SnapshotId, b.Version, b.Snapshot with { IsAuthorized = false }) },
+                     new[] { a, new CompilerMaterializedSnapshot(b.SnapshotId, b.Version, b.Snapshot with { DeclarationsComplete = false }) } })
+        {
+            var assessment = CompilerHostFreshnessAssessment.Assess(response, new CompilerHostRequest(new(input), 7, snapshots));
+            Assert.Equal(CompilerFreshness.Stale, assessment.State);
+            Assert.Contains("coglatas.materializations", assessment.ChangedDimensions);
+        }
+    }
+
+    [Fact]
+    public async Task ExactRequestFreshnessReportsManifestAndGenerationChangesIndependently()
+    {
+        var input = Input();
+        var response = await Hosts(input).Local.CompileAsync(new(new(input), 7));
+        var assessment = CompilerHostFreshnessAssessment.Assess(response, new CompilerHostRequest(new(Input(source: Source(9))), 8));
+        Assert.Equal(CompilerFreshness.Stale, assessment.State);
+        Assert.Equal(new[] { "coglatas.input-manifest", "coglatas.client-generation" }, assessment.ChangedDimensions);
+    }
+
+    [Fact]
+    public async Task ExactRequestFreshnessIsUndeterminedWithoutUsableDesiredInputOrExecution()
+    {
+        var input = Input();
+        var request = new CompilerHostRequest(new(input));
+        var response = await Hosts(input).Local.CompileAsync(request);
+        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, (CompilerHostRequest?)null).State);
+        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response with { Execution = null }, request).State);
+        var invalid = new CompilerHostRequest(new CompilerInputTransfer(Encoding.UTF8.GetBytes("invalid"), input.ToEnvelope().ToCanonicalBytes(), input.InputDigest));
+        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, invalid).State);
+        var future = JsonNode.Parse(input.Source.Data.CanonicalText)!; future["schemaVersion"] = 2;
+        var unsupported = new CompilerHostRequest(new CompilerInputTransfer(Encoding.UTF8.GetBytes(future.ToJsonString()), input.ToEnvelope().ToCanonicalBytes(), input.InputDigest));
+        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, unsupported).State);
+    }
+
+    [Fact]
+    public async Task ExactRequestFreshnessDoesNotUpgradeIncompleteCompilationToPass()
+    {
+        var input = Constraint(null);
+        var request = new CompilerHostRequest(new(input));
+        var response = await Hosts(input).Local.CompileAsync(request);
+        var before = response.Compilation!.Result.Data;
+        Assert.Equal(CompilerFreshness.Current, CompilerHostFreshnessAssessment.Assess(response, request).State);
+        Assert.Equal(CompilerVerdict.Inconclusive, response.Compilation.Result.Verdict);
+        Assert.Equal(before, response.Compilation.Result.Data);
+    }
+
 }
