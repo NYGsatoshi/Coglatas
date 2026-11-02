@@ -70,7 +70,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     git(repository, "merge-base", "--is-ancestor", prior_test, test)
     selected_product_changes = product_changes(repository, product_base, product)
     test_changes = changes(repository, test_base, test, ("tests/", ".github/workflows/projectide-slice2-isolated.yml",
-                                                       ".github/workflows/projectide-core-isolated.yml"))
+                                                       ".github/workflows/projectide-core-isolated.yml", ".github/workflows/projectide-value-consumers.yml"))
     git(repository, "worktree", "add", "--detach", str(target), product)
     for commit in test_changes:
         git(target, "cherry-pick", commit)
@@ -81,7 +81,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
-    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde", "tests/ci/projectide*", "tests/ci/test_projectide*", ".github/workflows/projectide-core-isolated.yml"):
+    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde", "tests/ci/projectide*", "tests/ci/test_projectide*", ".github/workflows/projectide-*.yml"):
         raise ValueError("Composition differs from exact independent Test source")
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")

@@ -1,0 +1,60 @@
+name: ProjectIDE value-binding consumer compatibility
+
+on:
+  pull_request:
+    paths:
+      - tests/Coglatas.Tests/ProjectIde/CompilerValueReferenceTests.cs
+      - tests/ci/projectide_value_consumers.py
+      - .github/workflows/projectide-value-consumers.yml
+
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  consumer:
+    name: Exact Core with Angular and Windows Pure ViewModel (supplemental)
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'test/projectide-core-value-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.22.2'
+      - name: Compose exact consumer and Core candidates
+        env:
+          PRODUCT_HEAD: '48ff196985ddbf90db82386c5413c8f659ea64a7'
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python3 tests/ci/projectide_value_consumers.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD"
+          --worktree "$RUNNER_TEMP/value-consumers/combined" --receipt "$RUNNER_TEMP/value-consumers/evidence/receipt.json"
+      - name: Install locked dependencies and browser
+        working-directory: ${{ runner.temp }}/value-consumers/combined
+        run: |
+          npm install --global npm@11.17.0
+          npm ci
+          npm --prefix frontend ci
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Verify reproduced fixture, Core, both synthetic consumers and browser
+        run: python3 "$RUNNER_TEMP/value-consumers/evidence/composer-source/projectide_web_verify.py" --worktree "$RUNNER_TEMP/value-consumers/combined" --receipt "$RUNNER_TEMP/value-consumers/evidence/receipt.json"
+      - name: Retain exact evidence including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-value-consumers-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/value-consumers/evidence
+          include-hidden-files: true
+          if-no-files-found: error
