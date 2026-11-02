@@ -24,6 +24,21 @@ class WebCompositionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Pinned internal inventory baseline"):
                 composer.verify_internal_inventory(Path("."),"0"*40)
 
+    def test_only_an_exact_already_applied_internal_patch_can_be_omitted_from_replay(self):
+        baseline = "explicit five-route addendum\n'/home', '/teams'\nSourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 43)"
+        approved = "explicit six-route addendum\n'/home', '/projectide/preview', '/teams'\nSourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 44)"
+        for after, difference, accepted in [(approved,"",True),
+                                            (approved+"\n// Independent Test source","",False),
+                                            (approved,"not applied",False)]:
+            with self.subTest(after=after, difference=difference):
+                def git(*arguments):
+                    if "diff-tree" in arguments: return composer.INTERNAL_INVENTORY
+                    if "show" in arguments: return baseline if "^:" in arguments[-1] else after
+                    if "diff" in arguments: return difference
+                    raise AssertionError(arguments)
+                with patch.object(composer,"git",side_effect=git):
+                    self.assertEqual(composer.preapplied_internal_maintenance(Path("."),Path("."),"0"*40),accepted)
+
     def test_internal_portability_maintenance_cannot_absorb_independent_controls(self):
         baseline = "alias = resolve(root, 'alias.ts')\nsymlinkSync(outsideFile, alias);\nfor (const ownerPath of ['../other/external.ts', 'alias.ts'])\nfor (const routeDefinition of ['../other/external.ts', 'alias.ts'])"
         approved = "alias = resolve(root, 'alias')\n// A directory junction exercises realpath containment on Windows without\n    // requiring elevation; Node creates a directory symlink on Unix.\n    symlinkSync(outside, alias, 'junction');\nfor (const ownerPath of ['../other/external.ts', 'alias/external.ts'])\nfor (const routeDefinition of ['../other/external.ts', 'alias/external.ts'])"

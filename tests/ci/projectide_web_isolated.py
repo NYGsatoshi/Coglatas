@@ -14,9 +14,8 @@ INVENTORY_TESTS = (
 )
 INTERNAL_INVENTORY = INVENTORY_TESTS[0]
 
-def verify_internal_inventory(repository: Path, product: str, path: str = INTERNAL_INVENTORY) -> None:
-    """Permit only existing internal assertions following the newly registered route."""
-    baseline = git(repository, "show", CORE_PRODUCT + ":" + path)
+def maintained_inventory_content(baseline: str, path: str) -> str:
+    """The only permitted internal maintenance deltas; independent controls stay on Test."""
     expected = baseline
     inventory_changes = (
         ("explicit five-route addendum", "explicit six-route addendum"),
@@ -41,8 +40,27 @@ def verify_internal_inventory(repository: Path, product: str, path: str = INTERN
         if expected.count(before) != 1:
             raise ValueError("Pinned internal inventory baseline differs from the approved maintenance profile")
         expected = expected.replace(before, after)
-    if git(repository, "show", product + ":" + path) != expected:
+    return expected
+
+def verify_internal_inventory(repository: Path, product: str, path: str = INTERNAL_INVENTORY) -> None:
+    baseline = git(repository, "show", CORE_PRODUCT + ":" + path)
+    if git(repository, "show", product + ":" + path) != maintained_inventory_content(baseline, path):
         raise ValueError("Only exact internal inventory maintenance is permitted on Product")
+
+def preapplied_internal_maintenance(repository: Path, target: Path, commit: str) -> bool:
+    paths = git(repository, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines()
+    if not paths or any(path not in INVENTORY_TESTS for path in paths):
+        return False
+    for path in paths:
+        before = git(repository, "show", commit + "^:" + path)
+        after = git(repository, "show", commit + ":" + path)
+        try:
+            expected = maintained_inventory_content(before, path)
+        except ValueError:
+            return False
+        if after != expected:
+            return False
+    return not git(target, "diff", commit, "HEAD", "--", *paths)
 
 def frontend_test(path: str) -> bool:
     return path.endswith(".spec.ts") or path in INVENTORY_TESTS
@@ -102,7 +120,11 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         if any(path.startswith("frontend/") and not frontend_test(path) for path in paths):
             raise ValueError("Test candidate changed frontend Product source")
     git(repository, "worktree", "add", "--detach", str(target), product)
+    preapplied: list[str] = []
     for commit in test_changes:
+        if preapplied_internal_maintenance(repository, target, commit):
+            preapplied.append(commit)
+            continue
         git(target, "cherry-pick", commit)
     # The full source delta may contain only independent Web tests.
     paths = git(target, "diff", "--name-only", product, "HEAD", "--", "frontend/src", "frontend/scripts", "src", "tools").splitlines()
@@ -123,6 +145,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         productDependencyMerges=product_merges, testDependencyMerges=test_merges,
         coreTestChanges=core_tests, webTestChanges=web_tests,
         internalMaintenancePaths=sorted(internal_maintenance),
+        preappliedInternalMaintenance=preapplied,
         inheritedTestBaselineDifferences=git(repository, "diff", "--name-only", TEST_BASE, CORE_PRODUCT,
                                              "--", "tests").splitlines(),
         combinedCommit=git(target,"rev-parse","HEAD"), combinedTree=git(target,"rev-parse","HEAD^{tree}"),
