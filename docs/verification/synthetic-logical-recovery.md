@@ -64,7 +64,10 @@ and use the repository's existing pinned SDK/image contracts.
    There is no data normalization or row/table exclusion.
 4. Restore once to disjoint fresh target volumes with `pg_restore
    --no-owner --no-privileges --exit-on-error`. No target migration/bootstrap
-   service exists. Strictly compare the stopped target before startup. Start
+   service exists. Upload/key extraction explicitly forwards archive stdin with
+   Docker `--interactive`, preserving bytes, owners and modes. Fixed restore
+   substeps distinguish PostgreSQL, archive extraction and strict comparison.
+   Strictly compare the stopped target before startup. Start
    and stop it, compare again before API probes, and reject any startup delta.
 5. Check restored saved-cookie identity, fresh login/logout, revoked-cookie
    denial, original file bytes and cross-tenant denials. Preserve all original

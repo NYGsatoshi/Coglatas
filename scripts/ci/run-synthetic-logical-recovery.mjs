@@ -452,11 +452,17 @@ export async function runRecovery() {
         '--entrypoint', '/bin/tar', NODE_IMAGE, '-cpf', '-', '-C', '/capture', '.']).stdout;
       validateTar(bytes); privateFile(privateRoot, index ? 'keys.tar' : 'uploads.tar', bytes); return bytes;
     });
-    stage = 'restore'; const targetVolumes = prepareTarget(names.target); restoreOnce(names.target, dump, false);
+    stage = 'restore-target-prepare'; const targetVolumes = prepareTarget(names.target);
+    stage = 'restore-postgres'; restoreOnce(names.target, dump, false);
+    stage = 'restore-version';
     require(Number(psql(names.target, "SELECT current_setting('server_version_num');")) === receipt.postgresVersionNum, 'PG_VERSION');
-    for (let index = 0; index < 2; index++) docker(['run', '--rm', ...helperLabels, '--network', 'none', '--read-only',
-      '--mount', `type=volume,source=${targetVolumes[index]},target=/restore`, '--entrypoint', '/bin/tar', NODE_IMAGE,
-      '-xpf', '-', '-C', '/restore'], { input: archives[index] });
+    for (let index = 0; index < 2; index++) {
+      stage = index ? 'restore-keys' : 'restore-uploads';
+      docker(['run', '--rm', '--interactive', ...helperLabels, '--network', 'none', '--read-only',
+        '--mount', `type=volume,source=${targetVolumes[index]},target=/restore`, '--entrypoint', '/bin/tar', NODE_IMAGE,
+        '-xpf', '-', '-C', '/restore'], { input: archives[index] });
+    }
+    stage = 'restore-checkpoint';
     const beforeStart = snapshot(names.target, targetVolumes, 'target-before-start');
     assertSameSnapshot(sourceSnapshot, beforeStart); receipt.strictCheckpoint = 'PASS';
     stage = 'startup'; compose(names.target, ['up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '180', 'app']);
