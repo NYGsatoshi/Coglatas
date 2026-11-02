@@ -1,0 +1,25 @@
+# Dockerfile-specific allowlist: authoritative source projects, prebuilt
+# Release binaries/obj and pinned .NET tool configuration only. This overrides
+# root .dockerignore which intentionally excludes bin/ and obj/ globally.
+**
+!src/
+!src/**
+!global.json
+!.config/
+!.config/dotnet-tools.json
+
+# Never capture unrelated products, local secrets or private runtime evidence.
+**/.env
+**/.env.*
+**/secrets/
+**/secrets/**
+**/storage/
+**/storage/**
+**/data/
+**/data/**
+**/TestResults/
+**/syncfusion-license.txt
+**/syncfusion_license.txt
+**/*.user
+**/*.suo
+**/*.log
