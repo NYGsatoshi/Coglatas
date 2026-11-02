@@ -41,7 +41,7 @@ public sealed class AppHubSubscriptionTests
     [InlineData("anonymous")]
     [InlineData("disabled-feature")]
     [InlineData("revoked-session")]
-    public async Task FailedConnectionAuthenticationAbortsBeforeAnyGroupRegistration(string denied)
+    public async Task FailedConnectionAuthenticationAbortsWithoutGroupRegistration(string denied)
     {
         using var fixture = new HubFixture();
         if (denied == "anonymous") { fixture.Caller.Principal = SubscriptionAuthorizationFixture.Principal(null, null, false); }
@@ -120,7 +120,7 @@ public sealed class AppHubSubscriptionTests
     }
 
     [Fact]
-    public async Task InvocationWithoutConnectionTenantAbortsBeforeAnyGroupOrSessionAccess()
+    public async Task InvocationWithoutConnectionTenantAbortsBeforeGroupOrSessionAccess()
     {
         using var fixture = new HubFixture();
         fixture.RequestTenant.IsAvailable = false;
