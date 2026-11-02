@@ -37,7 +37,7 @@ public sealed class CompilerValueReferenceTests
         if (shape == "null") { value.Remove("value"); value["state"] = "coglatas.null"; }
         if (shape is "list" or "sequence" or "set" or "nullable" or "optional" or "absent" or "structure" or "map")
         {
-            var outer = Obj(new { kind = "coglatas." + (shape == "absent" ? "optional" : shape), schemaVersion = 1, nullable = false, acceptsUnknown = false });
+            var outer = Obj(new { kind = "coglatas." + (shape == "absent" ? "optional" : shape), schemaVersion = 1, nullable = shape == "nullable", acceptsUnknown = false });
             JsonNode payload;
             if (shape == "structure") { outer["fields"] = new JsonArray(Obj(new { name = "a/b~c", required = true, type })); payload = Obj(new Dictionary<string, object> { ["a/b~c"] = value }); }
             else if (shape == "map")
