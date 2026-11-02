@@ -1,5 +1,14 @@
 # Testing
 
+The Functional Compose harness prepares the scoped browser runtime with a
+no-dependency `/bin/true` entrypoint before recording setup time and executing
+the real suite. Image acquisition or container preparation failure is
+`[INFRA/SETUP FAILURE] phase=prepare-browser`; it does not execute test owners.
+Preparation success is not browser, backend or journey acceptance. The actual
+suite keeps its original command, assertions, retries, deadlines and exit code.
+Its `[PRODUCT TEST FAILURE]` marker still requires causal investigation before
+classifying a failure as a product defect. Historical failures remain retained.
+
 The historical audit below predates the PR07-C remediation. No final
 post-remediation backend, frontend, or hosted result is recorded in this file;
 see `docs/verification/task-v1-pr07-c-deadline-digest.md` for the required
