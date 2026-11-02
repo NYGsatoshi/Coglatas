@@ -11,6 +11,8 @@ const SDK_IMAGE = 'mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:afd0ccff9d306812
 const BASE = 'infra/compose/test/real-backend-smoke.yml';
 const OVERLAY = 'infra/compose/test/acceptance/logical-recovery-source.yml';
 const TARGET = 'infra/compose/test/logical-recovery-target.yml';
+const REPOSITORY = 'NYGsatoshi/Coglatas';
+const WORKFLOW_PREFIX = REPOSITORY + '/.github/workflows/licensed-real-backend-acceptance.yml@refs/heads/';
 const MAX_BYTES = 128 * 1024 * 1024;
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const reject = code => { const error = new Error('Synthetic logical recovery failed.'); error.code = code; throw error; };
@@ -18,11 +20,12 @@ const require = (condition, code) => { if (!condition) reject(code); };
 
 export function hostedContract(env, platform = process.platform, args = process.argv.slice(2)) {
   require(platform === 'linux' && args.length === 0 && env.GITHUB_ACTIONS === 'true' &&
-    env.GITHUB_REPOSITORY === 'NYGsatoshi/Coglatas' && env.GITHUB_REPOSITORY_ID === '1261244608' &&
-    env.GITHUB_ACTOR === 'NYGsatoshi' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' &&
+    env.GITHUB_REPOSITORY === REPOSITORY && env.GITHUB_REPOSITORY_ID === '1261244608' &&
+    env.GITHUB_ACTOR === REPOSITORY.split('/')[0] && env.GITHUB_EVENT_NAME === 'workflow_dispatch' &&
     env.COGLATAS_LOGICAL_RECOVERY_SELECTED === '1' && env.GITHUB_RUN_ATTEMPT === '1' &&
     /^[1-9][0-9]{0,19}$/.test(env.GITHUB_RUN_ID ?? '') && /^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? '') &&
-    /^NYGsatoshi\/Coglatas\/\.github\/workflows\/licensed-real-backend-acceptance\.yml@refs\/heads\/[A-Za-z0-9_./-]+$/.test(env.GITHUB_WORKFLOW_REF ?? ''), 'HOST_CONTRACT');
+    (env.GITHUB_WORKFLOW_REF ?? '').startsWith(WORKFLOW_PREFIX) &&
+    /^[A-Za-z0-9_./-]+$/.test((env.GITHUB_WORKFLOW_REF ?? '').slice(WORKFLOW_PREFIX.length)), 'HOST_CONTRACT');
   require((!env.DOCKER_HOST || env.DOCKER_HOST === 'unix://' + SOCKET) &&
     (!env.DOCKER_CONTEXT || env.DOCKER_CONTEXT === 'default') && !env.DOCKER_TLS_VERIFY && !env.DOCKER_CERT_PATH, 'LOCAL_DOCKER');
   return { runId: env.GITHUB_RUN_ID, attempt: 1, sourceSha: env.GITHUB_SHA };
@@ -265,7 +268,10 @@ export async function runRecovery() {
     const result = spawnSync(executable, args, { cwd: ROOT, env: commandEnv, input,
       encoding: null, maxBuffer: MAX_BYTES, timeout, windowsHide: true });
     require(!result.error && !result.signal && Number.isInteger(result.status), 'COMMAND_UNAVAILABLE');
-    if (!allowFailure) require(result.status === 0, 'COMMAND_FAILED');
+    if (!allowFailure && result.status !== 0) {
+      receipt.commandExitCode ??= result.status;
+      reject('COMMAND_FAILED');
+    }
     return result;
   };
   const docker = (args, options) => command(DOCKER,
@@ -391,16 +397,23 @@ export async function runRecovery() {
     require(/^sha256:[a-f0-9]{64}$/.test(built), 'APP_IDENTITY');
     env.COGLATAS_APP_IMAGE = built; receipt.appImage = built;
     mkdirSync(join(privateRoot, 'tools'), { mode: 0o700 });
+    mkdirSync(join(privateRoot, 'tools/home'), { mode: 0o700 });
     // Dependency preparation is separate from the subsequently internal-only
     // runtime network. It uses the existing pinned SDK and no production DSN.
     const bundleArguments = ['run', '--rm', ...helperLabels, '--user', `${process.getuid()}:${process.getgid()}`,
       '--mount', `type=bind,source=${ROOT},target=/src`, '--mount', `type=bind,source=${privateRoot}/tools,target=/tools`,
-      '--workdir', '/src', '--env', 'DOTNET_CLI_HOME=/tools/home', '--env', 'NUGET_PACKAGES=/tools/packages',
+      '--workdir', '/src', '--env', 'HOME=/tools/home', '--env', 'DOTNET_CLI_HOME=/tools/home', '--env', 'NUGET_PACKAGES=/tools/packages',
       '--env', 'ASPNETCORE_ENVIRONMENT=Test', '--env', 'ConnectionStrings__DefaultConnection=Host=127.0.0.1;Database=unused;Username=unused;Password=unused',
       '--entrypoint', '/usr/share/dotnet/dotnet', SDK_IMAGE];
-    for (const args of [['tool', 'restore'], ['restore', 'src/Coglatas.Web/Coglatas.Web.csproj'],
-      ['ef', 'migrations', 'bundle', '--project', 'src/Coglatas.Infrastructure', '--startup-project', 'src/Coglatas.Web',
-        '--configuration', 'Release', '--output', '/tools/migrate']]) docker([...bundleArguments, ...args], { timeout: 1800000 });
+    for (const [preparationStage, args] of [
+      ['migration-tool-restore', ['tool', 'restore']],
+      ['migration-project-restore', ['restore', 'src/Coglatas.Web/Coglatas.Web.csproj']],
+      ['migration-bundle-build', ['ef', 'migrations', 'bundle', '--project', 'src/Coglatas.Infrastructure', '--startup-project', 'src/Coglatas.Web',
+        '--configuration', 'Release', '--output', '/tools/migrate']],
+    ]) {
+      stage = preparationStage;
+      docker([...bundleArguments, ...args], { timeout: 1800000 });
+    }
     receipt.migrationBundleSha256 = sha256(readFileSync(join(privateRoot, 'tools/migrate')));
     stage = 'source-seed'; configuration(names.source);
     compose(names.source, ['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);

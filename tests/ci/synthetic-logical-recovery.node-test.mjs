@@ -10,9 +10,10 @@ import { assertDisjoint, assertSameSnapshot, assertTruncatedArchiveFailure, awai
   hostedContract, resourceNames, validateComposition, validateTar } from '../../scripts/ci/run-synthetic-logical-recovery.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+const repository = 'NYGsatoshi/Coglatas';
 const image = 'sha256:' + 'a'.repeat(64), project = 'coglatas-recovery-123-1-0123456789ab-target';
 const validHost = () => ({ GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'NYGsatoshi/Coglatas',
-  GITHUB_REPOSITORY_ID: '1261244608', GITHUB_ACTOR: 'NYGsatoshi', GITHUB_EVENT_NAME: 'workflow_dispatch',
+  GITHUB_REPOSITORY_ID: '1261244608', GITHUB_ACTOR: repository.split('/')[0], GITHUB_EVENT_NAME: 'workflow_dispatch',
   COGLATAS_LOGICAL_RECOVERY_SELECTED: '1', GITHUB_RUN_ATTEMPT: '1', GITHUB_RUN_ID: '123', GITHUB_SHA: 'b'.repeat(40),
   GITHUB_WORKFLOW_REF: 'NYGsatoshi/Coglatas/.github/workflows/licensed-real-backend-acceptance.yml@refs/heads/test/recovery' });
 const configuration = () => ({
@@ -55,6 +56,7 @@ test('strict snapshots preserve adjacent bigint sequence values and reject lossy
 test('only the exact first-attempt owner-dispatched Linux workflow is admitted', () => {
   assert.deepEqual(hostedContract(validHost(), 'linux', []), { runId: '123', attempt: 1, sourceSha: 'b'.repeat(40) });
   for (const mutation of [{ GITHUB_ACTIONS: 'false' }, { GITHUB_REPOSITORY_ID: '0' }, { GITHUB_ACTOR: 'another-user' },
+    { GITHUB_REPOSITORY: 'other/Coglatas' }, { GITHUB_ACTOR: 'another-user', GITHUB_REPOSITORY_OWNER: 'another-user' },
     { GITHUB_EVENT_NAME: 'pull_request' }, { GITHUB_RUN_ATTEMPT: '2' }, { COGLATAS_LOGICAL_RECOVERY_SELECTED: '0' },
     { GITHUB_WORKFLOW_REF: 'other/repo/.github/workflows/licensed-real-backend-acceptance.yml@refs/heads/main' }])
     assert.throws(() => hostedContract({ ...validHost(), ...mutation }, 'linux', []), { code: 'HOST_CONTRACT' });

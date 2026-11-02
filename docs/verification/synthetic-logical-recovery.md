@@ -30,7 +30,7 @@ The only actual entry point is manual `suite=logical-recovery` in the existing
 `syncfusion-licensed-build` protected environment. It is absent from `all`, push
 selection, workflow-call selection, and the eight required P0 journeys.
 The script additionally admits only Linux GitHub Actions, the exact repository
-ID `1261244608`, Owner actor `NYGsatoshi`, that workflow identity, and run
+ID `1261244608`, its fixed repository-owner actor, that workflow identity, and run
 attempt 1. It accepts no CLI overrides. Adding a case does not approve a
 dispatch, target operation, production recovery, or release.
 
@@ -46,6 +46,10 @@ and use the repository's existing pinned SDK/image contracts.
 
 1. Verify the clean exact Git source/tree and absence of all nonce-named
    resources. Build one application image; prepare one EF migration bundle.
+   The runner-UID SDK uses an explicitly owned private HOME and tool cache.
+   Fixed preparation substeps and a numeric failure exit are retained without
+   exposing command output. The original first build failure remains UNKNOWN;
+   a separate pinned-SDK comparison reproduces the missing-owned-HOME defect.
    Record immutable application/PostgreSQL image IDs, actual PostgreSQL version,
    source SHA/tree, run/attempt and seed flags.
 2. Apply migrations only to a fresh synthetic source, seed the existing two
