@@ -1,7 +1,7 @@
 {
   "format": "coglatas.web-preview/1",
   "mode": "synthetic-fixture",
-  "coreProduct": "1218495bdd4e1280c968b0e6d2067c921c64ab31",
+  "coreProduct": "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4",
   "cases": [
     {
       "key": "fail",
