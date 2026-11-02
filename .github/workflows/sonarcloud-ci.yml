@@ -209,6 +209,9 @@ jobs:
           for control in \
             scripts/ci/test-sonar-python-process-coverage.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
+            scripts/ci/test-required-pr-checks.py \
+            scripts/ci/test-publication-readiness.py \
+            scripts/ci/test_github_action_pins.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
             scripts/ci/test_sec17_deep_execution.py \
