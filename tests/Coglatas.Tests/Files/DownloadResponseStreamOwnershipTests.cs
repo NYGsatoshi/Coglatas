@@ -149,7 +149,7 @@ public sealed class DownloadResponseStreamOwnershipTests
 
     private sealed class Fixture : IAsyncDisposable
     {
-        public static readonly byte[] Content = "Owned synthetic download bytes."u8.ToArray();
+        public static readonly byte[] Content = [.. "Owned synthetic download bytes."u8];
         private readonly string _root = Path.Combine(Path.GetTempPath(), "coglatas-download-streams", Guid.NewGuid().ToString("N"));
         private readonly Guid _tenantId = Guid.NewGuid();
         private readonly Guid _userId = Guid.NewGuid();
@@ -309,7 +309,7 @@ public sealed class DownloadResponseStreamOwnershipTests
             Attempts++;
             if (Fail) throw new IOException("Synthetic warning failure.");
             Entries.Add((logLevel, eventId, formatter(state, exception), exception,
-                state is IEnumerable<KeyValuePair<string, object?>> values ? values.ToArray() : []));
+                state is IEnumerable<KeyValuePair<string, object?>> values ? [.. values] : []));
         }
     }
 

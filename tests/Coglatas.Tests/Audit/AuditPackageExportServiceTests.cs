@@ -298,7 +298,7 @@ public sealed class AuditPackageExportServiceTests
     public async Task DownloadRejectsCorruptOrIncompletePackagesWithoutDeliveryAudit(string damage, string errorCode)
     {
         await using var fixture = await Fixture.CreateAsync();
-        var bytes = damage == "zip" ? Encoding.UTF8.GetBytes("not a zip archive") :
+        byte[] bytes = damage == "zip" ? [.. "not a zip archive"u8] :
             Package(fixture.Projection, false, omit: damage, corrupt: damage);
         await fixture.ReplacePackageAsync(bytes);
         if (damage == "hash")
@@ -695,7 +695,7 @@ public sealed class AuditPackageExportServiceTests
         {
             Attempts++;
             if (Fail) throw new IOException("Synthetic warning failure.");
-            Entries.Add((logLevel, eventId, formatter(state, exception), exception, state is IEnumerable<KeyValuePair<string, object?>> fields ? fields.ToArray() : []));
+            Entries.Add((logLevel, eventId, formatter(state, exception), exception, state is IEnumerable<KeyValuePair<string, object?>> fields ? [.. fields] : []));
         }
         public void AssertFixedWarning()
         {
