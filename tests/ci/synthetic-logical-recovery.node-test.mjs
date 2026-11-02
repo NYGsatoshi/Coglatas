@@ -591,10 +591,50 @@ test('every original fixed failure stage remains representable without leaking a
   const driver = readFileSync(resolve(root, 'scripts/ci/run-synthetic-logical-recovery.mjs'), 'utf8');
   const stages = new Set([...driver.matchAll(/stage = '([a-z-]+)'/g)].map(match => match[1]));
   for (const match of driver.matchAll(/\['(migration-[a-z-]+)', \[/g)) stages.add(match[1]);
-  for (const stage of ['restore-upload-extract', 'restore-key-extract']) stages.add(stage);
+  const archiveStages = [];
+  restoreCheckpointArchives(() => {}, [], ['uploads', 'keys'], [Buffer.from('uploads'), Buffer.from('keys')],
+    stage => { archiveStages.push(stage); stages.add(stage); });
+  assert.deepEqual(archiveStages, ['restore-uploads', 'restore-keys']);
   assert.ok(stages.size >= 18);
   for (const failedStage of stages) assert.doesNotThrow(() => validateRecoveryReceiptData({ ...receipt, failedStage, failureCode: 'COMMAND_FAILED' }));
   assert.throws(() => validateRecoveryReceiptData({ ...receipt, failedStage: 'PRIVATE_EXCEPTION_CANARY' }));
+});
+
+for (const failedArchive of [0, 1]) test(`actual ${failedArchive ? 'key' : 'upload'} extraction failure retains its ERROR receipt through upload selection`, t => {
+  const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
+  const archives = [Buffer.from('Original synthetic uploads'), Buffer.from('Original synthetic keys')];
+  const originals = archives.map(bytes => Buffer.from(bytes)), calls = [], stages = [];
+  const failure = Object.assign(new Error('PRIVATE_EXTRACTION_FAILURE_CANARY'), { code: 'COMMAND_FAILED' });
+  let stage = 'restore-postgres', caught;
+  try {
+    restoreCheckpointArchives((args, options) => {
+      calls.push({ args, input: options.input });
+      if (calls.length === failedArchive + 1) throw failure;
+    }, [], ['owned-uploads', 'owned-keys'], archives, current => { stage = current; stages.push(current); });
+  } catch (error) {
+    caught = error; receipt.failedStage = stage;
+    receipt.failureCode = /^[A-Z_]+$/.test(error?.code ?? '') ? error.code : 'UNAVAILABLE';
+  }
+  assert.equal(caught, failure);
+  assert.equal(calls.length, failedArchive + 1);
+  assert.deepEqual(stages, ['restore-uploads', 'restore-keys'].slice(0, failedArchive + 1));
+  calls.forEach((call, index) => {
+    assert.equal(call.input, archives[index]);
+    assert.ok(call.args.includes(`type=volume,source=${index ? 'owned-keys' : 'owned-uploads'},target=/restore`));
+  });
+  archives.forEach((bytes, index) => assert.deepEqual(bytes, originals[index]));
+  receipt.testedCombinedTree = fixture.env.COGLATAS_RECOVERY_SOURCE_TREE;
+  const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
+  const originalBytes = readFileSync(join(fixture.root, selected));
+  fixture.resetOutput(); fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected;
+  assert.equal(validateRecoveryReceipt(fixture.identity, fixture.env, fixture), selected);
+  assert.equal(fixture.outputText(), `receipt_path=${selected}\n`);
+  assert.deepEqual(readFileSync(join(fixture.root, selected)), originalBytes);
+  const written = JSON.parse(originalBytes);
+  assert.equal(written.status, 'ERROR'); assert.equal(written.failedStage, stages.at(-1));
+  assert.equal(written.failureCode, 'COMMAND_FAILED'); assert.equal(written.attempt, 1);
+  assert.equal(written.technicalReleaseReady, false); assert.equal(written.studentCouncilPilot, 'RELEASE_NO_GO');
+  assert.equal(originalBytes.includes(Buffer.from(failure.message)), false);
 });
 
 test('early native version errors retain the original JSON null encoding in their ERROR receipt', t => {

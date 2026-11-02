@@ -178,8 +178,12 @@ The durable unit controls run in the existing preflight and canonical native
 Node-coverage cohort. That same canonical Node producer prepares the identical
 immutable PostgreSQL repository digest before analysis credentials and admits
 the original native PostgreSQL test with step-local `COGLATAS_RI_NATIVE_TEST=1`.
-Its actual native V8 ranges enter the original LCOV report and source verifier;
-no coverage exclusion, threshold, report counter or source scope changes.
+Its operational-source native V8 ranges enter the original LCOV report and
+source verifier. The executed PostgreSQL regression body remains in raw V8
+evidence and is excluded from LCOV and Sonar coverage under the existing
+testbody policy. Earlier head `3e6453b` incorrectly included that body in both
+reports; its measured gate is not a clean operational-coverage baseline.
+Operational source scope, thresholds and report counters remain unchanged.
 Raw database/schema/catalog/list diagnostics stay outside the narrow LCOV and
 raw-V8 upload paths. This does not qualify the protected application Full drill.
 The native test remains default-off in other contexts and can run explicitly:
