@@ -33,7 +33,13 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public bool TryAccept(CompilerHostResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
-        if (_disposed || _desired is null) return false;
+        if (_disposed || _desired is null || State == "Ready") return false;
+        if (response.ClientGeneration != _desired.ClientGeneration || !response.RequestedInputDigest.Equals(_desired.Input.ExpectedInputDigest)) return false;
+        if (response.Status != CompilerHostStatus.Completed)
+        {
+            if (!Enum.IsDefined(response.Status)) return false;
+            ClearResult(); State = response.Status.ToString(); Changed(); return false;
+        }
         if (response.Status != CompilerHostStatus.Completed || response.Compilation is not { Model: { } model } compilation ||
             response.Execution is not { } execution ||
             CompilerHostFreshnessAssessment.Assess(response, _desired).State != CompilerFreshness.Current ||
