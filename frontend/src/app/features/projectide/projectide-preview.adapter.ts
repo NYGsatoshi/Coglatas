@@ -94,10 +94,21 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
     if (inspection.compilerInputId !== item.inputId || !sameContext(inspection.context, item.context) ||
         !sameDigest(inspection.inputDigest, item.inputDigest) || !sameDigest(inspection.sourceDigest, item.sourceDigest) ||
         r.execution !== 'coglatas.completed') throw new PreviewReadError('wrong-scope');
-    if (new Set(inspection.symbols.map((symbol) => symbol.key)).size !== inspection.symbols.length)
+    if (new Set(inspection.symbols.map((symbol) => symbol.key)).size !== inspection.symbols.length ||
+        new Set(inspection.symbols.map((symbol) => [symbol.location.documentId, symbol.location.entityId, symbol.location.propertyPath].join(':'))).size !== inspection.symbols.length)
       throw new PreviewReadError('unsupported');
     for (const symbol of inspection.symbols) {
       const location = symbol.location;
+      let key: Record<string, unknown>;
+      try {
+        const parsed: unknown = JSON.parse(symbol.key);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('Invalid symbol key');
+        key = parsed as Record<string, unknown>;
+      } catch { throw new PreviewReadError('unsupported'); }
+      if (Object.keys(key).length !== 3 || !Object.hasOwn(key, 'portId') ||
+          !sameJson(key['context'], item.context) || key['entityId'] !== location.entityId ||
+          (location.propertyPath === '' ? key['portId'] !== null : location.propertyPath !== '/payload/ports/' + key['portId']))
+        throw new PreviewReadError('wrong-scope');
       const declaration = item.declarations.find((entry) => entry.identity === location.entityId &&
         entry.location.documentId === location.documentId);
       if (!sameContext(location.context, item.context) || !declaration || location.relationId)
