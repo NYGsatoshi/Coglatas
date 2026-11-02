@@ -6,9 +6,9 @@ from pathlib import Path
 from projectide_slice2_isolated import changes as independent_changes, git, sha
 
 CORE_PRODUCT = "610f9911f9ce31739188437972f7eeb018f611da"
-CORE_PRODUCT_DEPENDENCIES = ("1218495bdd4e1280c968b0e6d2067c921c64ab31", "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4", CORE_PRODUCT)
+CORE_PRODUCT_DEPENDENCIES = ("1218495bdd4e1280c968b0e6d2067c921c64ab31", "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4", CORE_PRODUCT, "0a79e05a6533a7e4468bb7b74f47aeceb04ae119")
 CORE_TEST = "9e969183f5b311789b0197d0b6aac12a88206e7c"
-CORE_TEST_DEPENDENCIES = ("8348083cc04e9bd85147b32bb1805e94aa14fd3a", "f057f5e86fd28c6ca00875f20f8e30a49fb82f8b", CORE_TEST)
+CORE_TEST_DEPENDENCIES = ("8348083cc04e9bd85147b32bb1805e94aa14fd3a", "f057f5e86fd28c6ca00875f20f8e30a49fb82f8b", CORE_TEST, "5f2825e1d88f307efddc5edac16579ec220cbd4b")
 TEST_BASE = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
 INVENTORY_TESTS = (
     "frontend/scripts/av-mig-inventory.node-test.mjs",
@@ -104,7 +104,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     internal_maintenance: set[str] = set()
     product_changes = changes(repository, CORE_PRODUCT, product, (
         "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", *INVENTORY_TESTS,
-        "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT_DEPENDENCIES, product_merges)
+        "tools/ProjectIde.Preview/", "tools/ProjectIde.Workbench.Synthetic/", "src/Coglatas.Domain/ProjectIde/CompilerSemanticInspection.cs", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT_DEPENDENCIES, product_merges)
     for commit in product_changes:
         for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines():
             if path in INVENTORY_TESTS:
@@ -132,7 +132,10 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     paths = git(target, "diff", "--name-only", product, "HEAD", "--", "frontend/src", "frontend/scripts", "src", "tools").splitlines()
     if any(path not in INVENTORY_TESTS and (not path.startswith("frontend/src/app/features/projectide/") or not path.endswith(".spec.ts")) for path in paths):
         raise ValueError("Composition changed Product runtime source")
-    if git(target, "diff", CORE_PRODUCT, product, "--", "src"):
+    # This slice adds one pure read projection. All existing Compiler runtime files
+    # must still equal the exact Core dependency; no blanket source exception.
+    source_delta = git(target, "diff", "--name-only", CORE_PRODUCT, product, "--", "src").splitlines()
+    if any(path != "src/Coglatas.Domain/ProjectIde/CompilerSemanticInspection.cs" for path in source_delta):
         raise ValueError("Web Product differs from the exact pinned Core runtime source")
     # Independent Test and Product have different pre-existing non-ProjectIDE
     # baselines. Compare exact owned files, rather than absorbing unrelated tests.
