@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Coglatas.Application.Artifacts;
 using Coglatas.Application.Common;
@@ -140,6 +141,110 @@ public sealed class ArtifactUploadCompensationTests
         }
     }
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task ConcurrentNativeUploadsRetainWinnerAndCompensateOnlyTheConflictingUpload()
+    {
+        foreach (var failure in new[] { "none", "cleanup", "cleanup-and-logger" })
+        {
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(),
+                database => VerifyConcurrentUploadsAsync(database, failure));
+        }
+    }
+
+    private static async Task VerifyConcurrentUploadsAsync(string database, string failure)
+    {
+        await using var seed = await Fixture.CreateAsync(connectionString: database);
+        var previous = await seed.UploadAsync();
+        Assert.True(previous.IsSuccess, previous.Error);
+        var previousKey = Assert.Single(seed.Storage.SavedKeys);
+        var barrier = new AllocationBarrier();
+        await using var first = await seed.CreateCompetitorAsync(database, barrier);
+        await using var second = await seed.CreateCompetitorAsync(database, barrier);
+        Assert.NotSame(first.Context, second.Context);
+        first.UploadContent = "First concurrent synthetic Artifact bytes."u8.ToArray();
+        second.UploadContent = "Second concurrent synthetic Artifact bytes."u8.ToArray();
+        foreach (var competitor in new[] { first, second })
+        {
+            if (failure != "none") { competitor.Storage.DeleteFailure = new IOException("Synthetic private cleanup failure."); }
+            competitor.Logger.ThrowOnLog = failure == "cleanup-and-logger";
+        }
+
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var firstAttempt = CaptureUploadAsync(first, deadline.Token);
+        var secondAttempt = CaptureUploadAsync(second, deadline.Token);
+        var attempts = await Task.WhenAll(firstAttempt, secondAttempt);
+        var errors = attempts.Select(attempt => attempt.Error).ToArray();
+
+        Assert.Equal(new[] { 2, 2 }, barrier.ObservedNumbers.ToArray());
+        Assert.Single(errors, error => error is null);
+        var error = Assert.IsType<DbUpdateException>(Assert.Single(errors, error => error is not null));
+        var native = Assert.IsType<PostgresException>(error.InnerException);
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, native.SqlState);
+        Assert.Equal("IX_artifact_versions_TenantId_ArtifactId_VersionNumber", native.ConstraintName);
+        var winner = errors[0] is null ? first : second;
+        var loser = errors[0] is null ? second : first;
+        var result = errors[0] is null ? attempts[0].Result : attempts[1].Result;
+        Assert.NotNull(result);
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Same(loser.DatabaseFailure, error);
+        var winnerKey = Assert.Single(winner.Storage.SavedKeys);
+        var loserKey = Assert.Single(loser.Storage.SavedKeys);
+        Assert.NotEqual(previousKey, winnerKey);
+        Assert.NotEqual(previousKey, loserKey);
+        Assert.NotEqual(winnerKey, loserKey);
+        Assert.Empty(winner.Storage.DeletedKeys);
+        Assert.Equal(loserKey, Assert.Single(loser.Storage.DeletedKeys));
+        Assert.False(loser.Storage.DeleteTokenCanBeCancelled);
+        Assert.Equal(failure != "none", await loser.Storage.ExistsAsync(loserKey));
+        await AssertStoredBytesAsync(seed.Storage, previousKey, Fixture.Content);
+        await AssertStoredBytesAsync(winner.Storage, winnerKey, winner.UploadContent);
+        if (failure == "cleanup") { loser.Logger.AssertOnlyFixedWarning(); }
+        else { Assert.Empty(loser.Logger.Entries); }
+        Assert.Empty(winner.Logger.Entries);
+
+        seed.Context.ChangeTracker.Clear();
+        var versions = await seed.Context.ArtifactVersions.OrderBy(version => version.VersionNumber).ToListAsync();
+        Assert.Equal(new[] { 1, 2 }, versions.Select(version => version.VersionNumber));
+        Assert.Equal(previous.Value!.Id, versions[0].Id);
+        Assert.Equal(result.Value!.Id, versions[1].Id);
+        Assert.Equal(result.Value.Id, (await seed.Context.Artifacts.SingleAsync()).CurrentVersionId);
+        var files = await seed.Context.FileObjects.ToListAsync();
+        var attachments = await seed.Context.Attachments.ToListAsync();
+        Assert.Equal(2, files.Count);
+        Assert.Equal(2, attachments.Count);
+        Assert.DoesNotContain(files, file => file.StorageKey == loserKey);
+        Assert.DoesNotContain(attachments, attachment => attachment.StorageKey == loserKey);
+        Assert.Equal(previousKey, Assert.Single(files, file => file.Id == versions[0].FileObjectId).StorageKey);
+        Assert.Equal(winnerKey, Assert.Single(files, file => file.Id == versions[1].FileObjectId).StorageKey);
+        foreach (var version in versions)
+        {
+            var file = Assert.Single(files, file => file.Id == version.FileObjectId);
+            var attachment = Assert.Single(attachments, attachment => attachment.Id == version.AttachmentId);
+            Assert.Equal(file.Id, attachment.FileObjectId);
+            Assert.Equal(version.Id, attachment.OwnerId);
+            Assert.Equal(AttachmentOwnerType.ArtifactVersion, attachment.OwnerType);
+            Assert.Equal(file.StorageKey, attachment.StorageKey);
+            Assert.Equal(file.TenantId, version.TenantId);
+            Assert.Equal(file.TenantId, attachment.TenantId);
+            Assert.Equal(file.SizeBytes, attachment.SizeBytes);
+        }
+    }
+
+    private static async Task AssertStoredBytesAsync(Storage storage, string key, byte[] expected)
+    {
+        await using var content = await storage.OpenReadAsync(key);
+        Assert.Equal(SHA256.HashData(expected), await SHA256.HashDataAsync(content));
+    }
+
+    private static async Task<(Result<ArtifactVersionResponse>? Result, Exception? Error)> CaptureUploadAsync(
+        Fixture fixture, CancellationToken cancellationToken)
+    {
+        try { return (await fixture.UploadAsync(cancellationToken), null); }
+        catch (Exception error) { return (null, error); }
+    }
+
     [Fact]
     public async Task SuccessfulUploadRetainsExactBytesAndPersistsMatchingMetadata()
     {
@@ -184,8 +289,9 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Fixture : IAsyncDisposable
     {
         public static readonly byte[] Content = "Harmless synthetic Artifact bytes."u8.ToArray();
-        private readonly string _root = Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
-        private readonly Guid _artifactId = Guid.NewGuid();
+        private readonly string _root;
+        private readonly Guid _artifactId;
+        private readonly bool _ownsRoot;
         private readonly RecordingAudit _audit = new();
         private readonly RecordingNotifications _notifications = new();
         private readonly Persistence _persistence;
@@ -194,16 +300,24 @@ public sealed class ArtifactUploadCompensationTests
         public Storage Storage { get; }
         public FeatureFlags Features { get; } = new();
         public UploadCleanupLogger<ArtifactService> Logger { get; } = new();
+        public byte[] UploadContent { get; set; } = Content;
+        public DbUpdateException? DatabaseFailure => _persistence.DatabaseFailure;
 
-        private Fixture(Guid tenantId, Guid userId, bool loggingEnabled, string? connectionString)
+        private Fixture(Guid tenantId, Guid userId, bool loggingEnabled, string? connectionString,
+            string? sharedRoot = null, Guid? artifactId = null, AllocationBarrier? barrier = null)
         {
+            _root = sharedRoot ?? Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
+            _artifactId = artifactId ?? Guid.NewGuid();
+            _ownsRoot = sharedRoot is null;
             var options = new DbContextOptionsBuilder<AppDbContext>();
             if (connectionString is null) { options.UseInMemoryDatabase(Guid.NewGuid().ToString("N")); }
             else { options.UseNpgsql(connectionString); }
             Context = new AppDbContext(options.Options, new CurrentTenant(tenantId));
             Storage = new Storage(new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = _root })));
             _persistence = new Persistence(Context);
-            _service = new ArtifactService(new ArtifactRepository(Context), new ProjectRepository(Context), null!,
+            IArtifactRepository repository = new ArtifactRepository(Context);
+            if (barrier is not null) { repository = new SynchronizedArtifactRepository(repository, barrier); }
+            _service = new ArtifactService(repository, new ProjectRepository(Context), null!,
                 new FileRepository(Context), Storage, new UploadPolicy(), Features, new Quotas(),
                 new ArtifactAuthorization(), new CurrentUser(userId), new CurrentTenant(tenantId), new Clock(),
                 _audit, _notifications, _persistence, loggingEnabled ? Logger : null);
@@ -229,8 +343,14 @@ public sealed class ArtifactUploadCompensationTests
 
         public async Task<Result<ArtifactVersionResponse>> UploadAsync(CancellationToken cancellationToken = default)
         {
-            await using var content = new MemoryStream(Content);
-            return await _service.UploadVersionAsync(_artifactId, new UploadArtifactVersionInput("synthetic.txt", "text/plain", Content.Length, content, null), cancellationToken);
+            await using var content = new MemoryStream(UploadContent);
+            return await _service.UploadVersionAsync(_artifactId, new UploadArtifactVersionInput("synthetic.txt", "text/plain", UploadContent.Length, content, null), cancellationToken);
+        }
+
+        public async Task<Fixture> CreateCompetitorAsync(string database, AllocationBarrier barrier)
+        {
+            var artifact = await Context.Artifacts.SingleAsync();
+            return new Fixture(artifact.TenantId, artifact.CreatedByUserId, true, database, _root, _artifactId, barrier);
         }
 
         public void FailAt(string stage, Exception error)
@@ -244,8 +364,35 @@ public sealed class ArtifactUploadCompensationTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
-            if (Directory.Exists(_root)) { Directory.Delete(_root, recursive: true); }
+            if (_ownsRoot && Directory.Exists(_root)) { Directory.Delete(_root, recursive: true); }
         }
+    }
+
+    private sealed class AllocationBarrier
+    {
+        private readonly TaskCompletionSource _bothRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+        public ConcurrentQueue<int> ObservedNumbers { get; } = new();
+
+        public async Task<int> AfterReadAsync(int number, CancellationToken cancellationToken)
+        {
+            ObservedNumbers.Enqueue(number);
+            if (Interlocked.Increment(ref _arrivals) == 2) { _bothRead.SetResult(); }
+            await _bothRead.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+            return number;
+        }
+    }
+
+    private sealed class SynchronizedArtifactRepository(IArtifactRepository inner, AllocationBarrier barrier) : IArtifactRepository
+    {
+        public Task<IReadOnlyList<Artifact>> ListByProjectAsync(Guid projectId, CancellationToken cancellationToken = default) => inner.ListByProjectAsync(projectId, cancellationToken);
+        public Task<Artifact?> GetArtifactAsync(Guid artifactId, CancellationToken cancellationToken = default) => inner.GetArtifactAsync(artifactId, cancellationToken);
+        public Task<ArtifactVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken = default) => inner.GetVersionAsync(versionId, cancellationToken);
+        public Task<IReadOnlyList<ArtifactVersion>> ListVersionsAsync(Guid artifactId, CancellationToken cancellationToken = default) => inner.ListVersionsAsync(artifactId, cancellationToken);
+        public async Task<int> GetNextVersionNumberAsync(Guid artifactId, CancellationToken cancellationToken = default) =>
+            await barrier.AfterReadAsync(await inner.GetNextVersionNumberAsync(artifactId, cancellationToken), cancellationToken);
+        public Task AddArtifactAsync(Artifact artifact, CancellationToken cancellationToken = default) => inner.AddArtifactAsync(artifact, cancellationToken);
+        public Task AddVersionAsync(ArtifactVersion version, CancellationToken cancellationToken = default) => inner.AddVersionAsync(version, cancellationToken);
     }
 
     private sealed class Storage(IFileStorageService inner) : IFileStorageService
@@ -277,8 +424,13 @@ public sealed class ArtifactUploadCompensationTests
     private sealed class Persistence(AppDbContext context) : IUnitOfWork
     {
         public Exception? Failure { get; set; }
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Failure is { } error
-            ? Task.FromException<int>(error) : context.SaveChangesAsync(cancellationToken);
+        public DbUpdateException? DatabaseFailure { get; private set; }
+        public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            if (Failure is { } error) { throw error; }
+            try { return await context.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateException databaseError) { DatabaseFailure = databaseError; throw; }
+        }
     }
     private sealed class RecordingAudit : IAuditLogger
     {
