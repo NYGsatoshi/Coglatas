@@ -92,10 +92,16 @@ view checks, not remote binary attestation or a production authorization adapter
 
 ## Holds and next executable work
 
-The ordinary Web Product's five-route static assertion is an existing independent
-Test maintenance delta in #1638. Its six-route assertion is not copied into Product;
-required checks are retained. Independent Test ordinary backend CI is missing the
-unmerged Product types; composition does not turn that failure into PASS.
+The initial audit treated the ordinary Web Product's five-route static assertion
+as independent-Test-only maintenance. A fresh Product-only run reproduced its real
+failure (11 PASS / 1 FAIL) despite the correct route registration. The continuation
+instruction explicitly permits necessary minimal Product internal verification,
+so this existing test now retains every assertion with the six-route addendum and
+44-route current total. Its fixed 38-route snapshots remain unchanged. Only these
+three exact lines are permitted by the composer; independent component/owner
+negative controls stay on Test. No Test commit is blindly absorbed. Standalone
+Test backend CI still lacks the unmerged Product types; composition does not turn
+that failure into PASS.
 
 CodeRabbit CLI 0.9.1 is installed but initially unauthenticated. Browser login was
 initiated; a completed independent new-head review is not claimed until an actual
@@ -144,5 +150,6 @@ still do not establish trusted-producer or independent acceptance authority.
 The first Web fix pair completed its selected full local inventory before this
 dependency/script continuation. Its receipt is retained as historical evidence;
 the final updated heads must run fresh verification. Skip/exclusion policies are
-unchanged. Existing ordinary Product route-assertion and standalone Test dependency
-failures remain visible and separate from supplemental evidence.
+unchanged. The original ordinary Product route-assertion failure remains historical
+and the corrected Product must pass its own new ordinary CI. Standalone Test
+dependency failures remain visible and separate from supplemental evidence.

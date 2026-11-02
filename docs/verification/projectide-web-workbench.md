@@ -130,11 +130,14 @@ new visual baselines. Failures, skips and review limits remain explicit.
 
 The current Web route inventory explicitly registers the synthetic preview and
 its component/store owners (44 current routes). The pinned 38-route Avalonia
-snapshot, freeze and target map remain unchanged. The independent Test PR updates
-the existing five-route addendum assertion to six and adds component/owner
-negative controls. Until that Test delta is integrated, ordinary Product CI's
-historical five-route assertion remains a visible dependency failure; supplemental
-composition runs the updated inventory tests without waiving any required check.
+snapshot, freeze and target map remain unchanged. The existing internal inventory
+test follows the six-route addendum and current 44-route total. This minimal
+Product maintenance keeps every assertion and the fixed 38-route snapshots intact.
+The independent Test PR retains additional component/owner negative controls;
+those are not copied into Product. The composer accepts only the exact three-line
+internal inventory maintenance against its pinned Core baseline and rejects
+additional Product test edits. Ordinary Product CI must execute and qualify this
+change separately; supplemental success does not waive it.
 
 Current bounded status: WEB_WORKBENCH_PREVIEW_IMPLEMENTED candidate; review and
 acceptance pending. Runtime Compiler/API/jobs/capability negotiation, real Project
