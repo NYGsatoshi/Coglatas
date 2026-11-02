@@ -137,6 +137,39 @@ describe('ProjectIDE Workbench components', () => {
     expect(c.filtered()).toHaveLength(1);
     expect(c.diagnostics().map((d) => d.diagnosticId)).toEqual(before);
   });
+  it.each(['severity', 'kind'] as const)(
+    'restores the visible %s filter after recreating Problems',
+    async (field) => {
+      const { c, fixture, root } = await render();
+      c.choose('fail');
+      c.store.loadResult();
+      c.open('problems');
+      fixture.detectChanges();
+      const select = () =>
+        root.querySelectorAll<HTMLSelectElement>('.filters select')[field === 'severity' ? 0 : 1];
+      const value = field === 'severity' ? 'coglatas.warning' : c.kinds()[0];
+      select().value = value;
+      select().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      const visible = c.filtered().length;
+      expect(c[field]()).toBe(value);
+      c.open('overview');
+      fixture.detectChanges();
+      c.open('problems');
+      fixture.detectChanges();
+      expect(select().value).toBe(value);
+      expect(c.filtered()).toHaveLength(visible);
+      select().value = '';
+      select().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      c.open('overview');
+      fixture.detectChanges();
+      c.open('problems');
+      fixture.detectChanges();
+      expect(select().value).toBe('');
+      expect(c.filtered()).toHaveLength(c.diagnostics().length);
+    },
+  );
   it.each(['not-run', 'cancelled', 'timeout', 'unknown', 'unsupported'])(
     'does not call zero/incomplete %s results successful',
     async (key) => {

@@ -18,6 +18,29 @@ async function choose(page: Page, key: string) {
 }
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
+  test('keeps visible filter choices aligned with retained Problems state after panel recreation', async ({ page }) => {
+    await preview(page);
+    await choose(page, 'fail');
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    const severity = page.getByLabel(/^Severity/u);
+    const kind = page.getByLabel(/^Diagnostic kind/u);
+    await severity.selectOption('coglatas.warning');
+    const rule = await kind.locator('option').nth(1).getAttribute('value');
+    expect(rule).toBeTruthy();
+    await kind.selectOption(rule!);
+    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await expect(severity).toHaveValue('coglatas.warning');
+    await expect(kind).toHaveValue(rule!);
+    await expect(page.getByTestId('projectide-workbench')).toContainText('0 of 1 diagnostics');
+    await severity.selectOption('');
+    await kind.selectOption('');
+    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await expect(severity).toHaveValue('');
+    await expect(kind).toHaveValue('');
+    await expect(page.getByTestId('projectide-workbench')).toContainText('1 of 1 diagnostics');
+  });
   for (const mutation of [
     "outside-document",
     "duplicate-artifact",
