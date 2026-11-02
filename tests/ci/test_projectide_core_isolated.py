@@ -54,3 +54,16 @@ class ProductDependencyMergeTests(unittest.TestCase):
                     else:
                         with self.assertRaisesRegex(ValueError, "Unapproved Product dependency"):
                             product_changes(Path("."), "b"*40, "c"*40)
+
+class ExactCoreCandidateTests(unittest.TestCase):
+    def test_tracked_untracked_and_substituted_candidates_are_rejected(self):
+        from unittest.mock import patch
+        from projectide_core_isolated import assert_candidate
+        for commit, tree, status in [("a"*40,"b"*40,""),("c"*40,"b"*40,""),("a"*40,"c"*40,""),("a"*40,"b"*40," M source.cs"),("a"*40,"b"*40,"?? injected.cs")]:
+            with self.subTest(commit=commit, tree=tree, status=status):
+                value = dict(combinedCommit="a"*40, combinedTree="b"*40)
+                with patch("projectide_core_isolated.git", side_effect=[commit,tree,status]):
+                    if commit == "a"*40 and tree == "b"*40 and not status:
+                        assert_candidate(Path("."), value)
+                    else:
+                        with self.assertRaises(ValueError): assert_candidate(Path("."), value)

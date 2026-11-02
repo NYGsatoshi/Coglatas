@@ -1,0 +1,26 @@
+{
+  "productHead": "610f9911f9ce31739188437972f7eeb018f611da",
+  "testHead": "08bffa102ad3fb88d6a333716babab52f8efc788",
+  "combinedCommit": "fb927e871cfddeb1b9e38ef9def295d309b42ad1",
+  "combinedTree": "1a50c01c8708a9026dfd1c4c5496d45d6dc6f712",
+  "trxSha256": "dc2f3f0fc0f180656bc1f21ba213435428536cb62bacd5421c05378639bb0499",
+  "counters": {
+    "total": "28",
+    "executed": "28",
+    "passed": "6",
+    "failed": "22",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "scope": "CompilerValueReferenceTests; unchanged Product, independent new tests; initial test fixture compile failure retained separately"
+}

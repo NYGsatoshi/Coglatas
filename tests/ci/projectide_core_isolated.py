@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
+sys.dont_write_bytecode = True
 import xml.etree.ElementTree as ET
 
 from projectide_slice2_isolated import changes, git, run, sha
@@ -74,18 +76,29 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
         git(target, "cherry-pick", commit)
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
-                 testChanges=test_changes, combinedCommit=git(target, "rev-parse", "HEAD"),
+                 testChanges=test_changes, testTree=git(repository, "rev-parse", test + "^{tree}"),
+                 reviewProductBase="610f9911f9ce31739188437972f7eeb018f611da", reviewTestBase="9e969183f5b311789b0197d0b6aac12a88206e7c", combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
+    if git(target, "diff", test, "HEAD", "--", "tests/Coglatas.Tests/ProjectIde", "tests/ci/projectide*", "tests/ci/test_projectide*", ".github/workflows/projectide-core-isolated.yml"):
+        raise ValueError("Composition differs from exact independent Test source")
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
     return value
 
 
+def assert_candidate(target: Path, value: dict) -> None:
+    if git(target, "rev-parse", "HEAD") != value["combinedCommit"] or git(target, "rev-parse", "HEAD^{tree}") != value["combinedTree"]:
+        raise ValueError("Exact candidate commit/tree mismatch")
+    if git(target, "status", "--porcelain", "--untracked-files=all"):
+        raise ValueError("Candidate contains tracked or untracked changes")
+
+
 def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
     output = receipt.parent
     try:
+        assert_candidate(target, value)
         value["sdk"] = run(["dotnet", "--version"], target)
         expected_sdk = json.loads((target / "global.json").read_text())["sdk"]["version"]
         if value["sdk"] != expected_sdk:
@@ -134,8 +147,7 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
                                    for path in sorted(output.iterdir()) if path.is_file() and path != receipt}
-        if git(target, "status", "--porcelain", "--untracked-files=no"):
-            raise ValueError("Verification changed tracked files")
+        assert_candidate(target, value)
     finally:
         receipt.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
