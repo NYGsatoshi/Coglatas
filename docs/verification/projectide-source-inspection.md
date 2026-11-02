@@ -44,3 +44,18 @@ a running Avalonia shell nor Windows E2E evidence. Real API authentication/curre
 authority, Requirement evidence materialization, full typed value-reference closure,
 Resource evaluation and shared-client acceptance remain incomplete. #1128 stays
 SUSPENDED/NOT_EVALUATED. No integration, release or operational GO is claimed.
+
+## Synchronous notification lifecycle correction
+
+The 2026-11-03 CodeRabbit review identified reentrant Begin and Dispose paths in
+the pure synthetic ViewModel. A PropertyChanged subscriber may legitimately begin
+a newer context, reset or dispose during the outer Begin's clearing notification.
+Begin now reserves its monotonic generation/lifecycle before notifying, then
+rechecks that lifecycle before publishing Source or desired request. Reset
+invalidates pending publication. Dispose marks the instance disposed before
+notifying and is idempotent, preventing recursive disposal or a nested restart.
+Thread dispatch remains the caller's responsibility; no cross-thread guarantee or
+Avalonia activation is added. Independent bounded regressions cover newer Begin,
+Reset/Dispose during Begin, reentrant restart and repeated disposal without crashing
+the test host. Exact before/after receipts are recorded on #1653/#1654; the earlier
+758-case candidate remains historical and does not qualify this correction.

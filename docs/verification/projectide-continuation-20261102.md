@@ -315,3 +315,14 @@ No Main/ProjectIDEMain/integration/SecurityTestImplimation push/merge, force pus
 Ready/Close, auto-merge, production/DB/RLS/Enforce activation or gate relaxation.
 #1128 stays SUSPENDED / NOT_EVALUATED. Remaining work is recorded in the focused
 feature document and the live Draft PRs; no shared-client or release GO is claimed.
+
+### New-slice review continuation
+
+CodeRabbit reviewed Product `ba054507` and reported two synchronous ViewModel
+reentrancy defects. The independent Test chain adds five bounded reproductions;
+the corrected publication/disposal logic is documented in
+[the feature record](projectide-source-inspection.md). The earlier 758/274/70/44
+Windows/Ubuntu candidate and artifact 13170308202 are historical exact-pin evidence,
+not a PASS for the subsequent review correction. New-head receipts, CI and thread
+responses remain on the same Draft #1653/#1654 pair. No new feature or gate change
+is mixed into these corrections.

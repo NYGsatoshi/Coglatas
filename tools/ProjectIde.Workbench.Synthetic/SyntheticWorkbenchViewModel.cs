@@ -10,6 +10,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private CompilerHostRequest? _desired;
     private bool _disposed;
     private long _lastGeneration = -1;
+    private long _lifecycle;
     public string State { get; private set; } = "Empty";
     public ProjectSource? Source { get; private set; }
     public CompilerResult? Result { get; private set; }
@@ -23,10 +24,13 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(desired);
         if (desired.ClientGeneration <= _lastGeneration) throw new ArgumentException("A new lifecycle needs a strictly newer generation.", nameof(desired));
-        Reset();
+        var lifecycle = ++_lifecycle;
+        _lastGeneration = desired.ClientGeneration;
+        ClearContext(); Changed();
+        // A synchronous notification may reset, dispose or begin a newer context.
+        if (_disposed || lifecycle != _lifecycle) return;
         // Materialize before publishing context, so malformed input cannot leave a partial selection.
         var source = desired.Input.Materialize().Source;
-        _lastGeneration = desired.ClientGeneration;
         _desired = desired; Source = source; State = "Waiting"; Changed();
     }
 
@@ -66,9 +70,15 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
 
     public void Reset()
     {
-        _desired = null; Source = null; ClearResult(); State = "Empty"; Changed();
+        _lifecycle++; ClearContext(); Changed();
     }
+    private void ClearContext() { _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private void ClearResult() { Result = null; Inspection = null; Selected = null; SourceTarget = null; }
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
-    public void Dispose() { Reset(); _disposed = true; }
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Reset();
+    }
 }
