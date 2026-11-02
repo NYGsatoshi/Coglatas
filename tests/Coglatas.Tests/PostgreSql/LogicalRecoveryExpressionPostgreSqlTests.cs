@@ -217,8 +217,8 @@ public sealed class LogicalRecoveryExpressionPostgreSqlTests(ITestOutputHelper o
     };
 
     private static string[] TextCases(params string[] values) =>
-        values.Select(value => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'")
-            .Concat(["'INVALID'", "''", "NULL"]).ToArray();
+        [.. values.Select(value => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'"),
+            "'INVALID'", "''", "NULL"];
 
     private static string Identifier(string name)
     {
