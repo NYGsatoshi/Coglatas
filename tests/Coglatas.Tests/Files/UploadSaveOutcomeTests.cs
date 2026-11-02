@@ -153,6 +153,62 @@ public sealed class UploadSaveOutcomeTests
     };
 
     [PostgreSqlFact]
+    public Task AmbientTransactionRetainsItsRollbackAuthority() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var tenant = OwnedTenant();
+                using (var ambient = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+                {
+                    await using var context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                        .UseNpgsql(database).Options, new PlatformScope());
+                    context.Tenants.Add(tenant);
+                    var unit = new EfUnitOfWork(context);
+                    var outcome = new UploadSaveOutcome();
+
+                    Assert.Equal(1, await unit.SaveUploadChangesAsync(outcome));
+
+                    Assert.Equal(UploadCommitDisposition.Unknown, outcome.Disposition);
+                    Assert.Null(context.Database.CurrentTransaction);
+                    Assert.False(unit.TryDiscardFailedUploadChanges());
+                    Assert.Single(context.ChangeTracker.Entries());
+                    // Omitting Complete belongs to this caller and rolls back its transaction.
+                }
+                await using var verification = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                    .UseNpgsql(database).Options, new PlatformScope());
+                Assert.False(await verification.Tenants.AnyAsync(item => item.Id == tenant.Id));
+            });
+
+    [PostgreSqlFact]
+    public Task ExplicitlyEnlistedTransactionRetainsItsRollbackAuthority() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var tenant = OwnedTenant();
+                using (var transaction = new System.Transactions.CommittableTransaction())
+                {
+                    await using var context = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                        .UseNpgsql(database).Options, new PlatformScope());
+                    await context.Database.OpenConnectionAsync();
+                    context.Database.EnlistTransaction(transaction);
+                    context.Tenants.Add(tenant);
+                    var unit = new EfUnitOfWork(context);
+                    var outcome = new UploadSaveOutcome();
+
+                    Assert.Equal(1, await unit.SaveUploadChangesAsync(outcome));
+
+                    Assert.Equal(UploadCommitDisposition.Unknown, outcome.Disposition);
+                    Assert.Same(transaction, context.Database.GetEnlistedTransaction());
+                    Assert.False(unit.TryDiscardFailedUploadChanges());
+                    Assert.Single(context.ChangeTracker.Entries());
+                    transaction.Rollback();
+                }
+                await using var verification = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                    .UseNpgsql(database).Options, new PlatformScope());
+                Assert.False(await verification.Tenants.AnyAsync(item => item.Id == tenant.Id));
+            });
+
+    [PostgreSqlFact]
     public Task DisposalFailureAfterAcknowledgedCommitCannotAuthorizeDeletion() => VerifyDisposalAsync(false);
 
     [PostgreSqlFact]
