@@ -89,6 +89,38 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
       throw new PreviewReadError('wrong-scope');
     }
   }
+  const inspection = item.semanticInspection;
+  if (inspection) {
+    if (inspection.compilerInputId !== item.inputId || !sameContext(inspection.context, item.context) ||
+        !sameDigest(inspection.inputDigest, item.inputDigest) || !sameDigest(inspection.sourceDigest, item.sourceDigest) ||
+        r.execution !== 'coglatas.completed') throw new PreviewReadError('wrong-scope');
+    if (new Set(inspection.symbols.map((symbol) => symbol.key)).size !== inspection.symbols.length)
+      throw new PreviewReadError('unsupported');
+    for (const symbol of inspection.symbols) {
+      const location = symbol.location;
+      const declaration = item.declarations.find((entry) => entry.identity === location.entityId &&
+        entry.location.documentId === location.documentId);
+      if (!sameContext(location.context, item.context) || !declaration || location.relationId)
+        throw new PreviewReadError('wrong-scope');
+      if (location.propertyPath === '') {
+        if (symbol.kind !== declaration.kind || symbol.status !== declaration.status || symbol.declaredType !== null)
+          throw new PreviewReadError('unsupported');
+      } else {
+        const payload = declaration.data['payload'] as Record<string, unknown> | undefined;
+        const ports = payload?.['ports'];
+        const port = Array.isArray(ports) ? ports.find((entry: unknown) => typeof entry === 'object' && entry !== null &&
+          location.propertyPath === '/payload/ports/' + (entry as Record<string, unknown>)['portId']) as Record<string, unknown> | undefined : undefined;
+        if (!port || symbol.status !== 'Decoded' || !symbol.declaredType ||
+            symbol.kind !== symbol.declaredType['kind'] || !sameJson(symbol.declaredType, port['type']))
+          throw new PreviewReadError('unsupported');
+      }
+    }
+    for (const reference of inspection.references) {
+      if (!sameContext(reference.origin.context, item.context) ||
+          !item.source.documents.some((document) => document.documentId === reference.origin.documentId) ||
+          (reference.state === 'Resolved') !== (reference.symbolKey !== null)) throw new PreviewReadError('wrong-scope');
+    }
+  }
   for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
     if (
       !sameContext(item.context, entry.location.context) ||
@@ -97,6 +129,14 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
       throw new PreviewReadError('wrong-scope');
     }
   }
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => sameJson(item, b[index]));
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null || Array.isArray(a) || Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>; const right = b as Record<string, unknown>;
+  return Object.keys(left).length === Object.keys(right).length && Object.keys(left).every((key) => Object.hasOwn(right, key) && sameJson(left[key], right[key]));
 }
 
 @Injectable()

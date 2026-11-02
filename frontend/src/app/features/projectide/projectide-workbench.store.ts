@@ -49,6 +49,15 @@ export class ProjectIdeWorkbenchStore {
       ) ?? null
     );
   });
+  readonly inspectedSymbols = computed(() => {
+    const record = this.inspectedRecord();
+    return record?.recordType === 'entity' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
+      symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
+  });
+  readonly inspectedReferences = computed(() => {
+    const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
+    return (this.result()?.semanticInspection?.references ?? []).filter((reference) => reference.symbolKey !== null && keys.has(reference.symbolKey));
+  });
   async load(read: (signal: AbortSignal) => Promise<PreviewBundle>): Promise<void> {
     this.clear('loading');
     const generation = this.generation;

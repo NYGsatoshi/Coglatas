@@ -95,6 +95,26 @@ export type SourceRecord = SourceRecordFields &
     | { readonly recordType: 'entity'; readonly identity: Identity<'Entity'> }
     | { readonly recordType: 'relation'; readonly identity: Identity<'Relation'> }
   );
+export interface SemanticInspection {
+  readonly format: 'coglatas.semantic-inspection/1';
+  readonly compilerInputId: Identity<'CompilerInput'>;
+  readonly inputDigest: Digest;
+  readonly sourceDigest: Digest;
+  readonly context: RevisionContext;
+  readonly bindingComplete: boolean;
+  readonly symbols: readonly {
+    readonly key: string;
+    readonly kind: string;
+    readonly status: 'Decoded' | 'Unsupported' | 'Invalid';
+    readonly location: ProjectLocation;
+    readonly declaredType: Readonly<Record<string, unknown>> | null;
+  }[];
+  readonly references: readonly {
+    readonly origin: ProjectLocation;
+    readonly state: 'Resolved' | 'MissingWithinCompleteScope' | 'UnknownDueToCoverage' | 'Ambiguous' | 'Unsupported' | 'OutOfScope';
+    readonly symbolKey: string | null;
+  }[];
+}
 export interface PreviewCase {
   readonly key: string;
   readonly projectName: string;
@@ -121,6 +141,7 @@ export interface PreviewCase {
   readonly changedDimensions: readonly string[];
   readonly declarations: readonly SourceRecord[];
   readonly relations: readonly SourceRecord[];
+  readonly semanticInspection?: SemanticInspection | null;
   readonly sourceMap: {
     readonly format: string;
     readonly compilerInputId: Identity<'CompilerInput'>;
