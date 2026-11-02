@@ -71,6 +71,14 @@ the Local compiler and its Core result. Server verification compares this comple
 binding; a self-consistent compilation from different materializations is rejected.
 The receipt is derived invocation evidence, not another writable Source or proof of
 remote binary attestation/current authorization. Real transport remains gated.
+The additive exact-request freshness assessment reconstructs and validates the
+desired input and compares its declared manifest, client generation and complete
+materialization set with the executed receipt. A changed snapshot/unit/calendar,
+multiplicity or scope/coverage claim makes the response Stale even if the declared
+manifest is unchanged. Canonical collection reordering stays Current. Missing
+execution or invalid/unsupported desired input remains Undetermined. The retained
+manifest/generation overload assesses only those supplied dimensions. Neither
+overload upgrades execution/coverage/verdict or establishes current authority.
 Unknown value basis stays opaque provenance through binding and numeric semantic
 scans, while raw JSON continues to consume logical processing budget. Regressions
 reproduce both review findings before correction, including all three materialized
