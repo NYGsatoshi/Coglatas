@@ -93,6 +93,7 @@ public sealed class AppHubSubscriptionTests
         Assert.Equal(fixture.Caller.ConnectionId, user.ConnectionId);
         Assert.Equal(fixture.Caller.ConnectionId, tenant.ConnectionId);
         Assert.Equal(new[] { $"user:{fixture.Authorization.UserId:D}", $"tenant:{fixture.Authorization.TenantId:D}" }, fixture.Groups.Added.Select(call => call.Group));
+        Assert.All(fixture.Groups.Added, call => Assert.Equal(fixture.Caller.ConnectionId, call.Connection));
         Assert.All(fixture.Groups.Added, call => Assert.Equal(fixture.Caller.ConnectionAborted, call.Token));
         Assert.All(fixture.Authorization.Sessions.Calls, call => Assert.Equal(fixture.Authorization.TenantId, call.TenantId));
         Assert.Empty(fixture.Authorization.Resources.Calls);
@@ -157,7 +158,8 @@ public sealed class AppHubSubscriptionTests
     public async Task SessionRevokedAfterConnectionValidationCannotAuthorizeThePendingGroupJoin()
     {
         using var fixture = new HubFixture();
-        fixture.Authorization.Sessions.AfterValidation = () => fixture.Authorization.Sessions.Valid = false;
+        var sessions = fixture.Authorization.Sessions;
+        sessions.AfterValidation = () => sessions.Valid = false;
         var workspace = Guid.NewGuid();
 
         Assert.Equal(new HubSubscriptionResult(false, "AccessDenied"), await fixture.Hub.SubscribeWorkspace(workspace));
@@ -325,8 +327,8 @@ public sealed class AppHubSubscriptionTests
         public ClaimsPrincipal Principal { get; set; } = principal;
         public bool Aborted { get; private set; }
         public override string ConnectionId => "synthetic-connection";
-        public override string? UserIdentifier => "untrusted-alternate-user-identifier";
-        public override ClaimsPrincipal? User => Principal;
+        public override string UserIdentifier => "untrusted-alternate-user-identifier";
+        public override ClaimsPrincipal User => Principal;
         public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>();
         public override IFeatureCollection Features { get; } = new FeatureCollection();
         public override CancellationToken ConnectionAborted => _connection.Token;

@@ -171,12 +171,11 @@ public sealed class ArtifactUploadCompensationTests
             competitor.Logger.ThrowOnLog = failure == "cleanup-and-logger";
         }
 
-        Result<ArtifactVersionResponse>? firstResult = null;
-        Result<ArtifactVersionResponse>? secondResult = null;
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var firstAttempt = Record.ExceptionAsync(async () => firstResult = await first.UploadAsync(deadline.Token));
-        var secondAttempt = Record.ExceptionAsync(async () => secondResult = await second.UploadAsync(deadline.Token));
-        var errors = await Task.WhenAll(firstAttempt, secondAttempt);
+        var firstAttempt = CaptureUploadAsync(first, deadline.Token);
+        var secondAttempt = CaptureUploadAsync(second, deadline.Token);
+        var attempts = await Task.WhenAll(firstAttempt, secondAttempt);
+        var errors = attempts.Select(attempt => attempt.Error).ToArray();
 
         Assert.Equal(new[] { 2, 2 }, barrier.ObservedNumbers.ToArray());
         Assert.Single(errors, error => error is null);
@@ -186,7 +185,7 @@ public sealed class ArtifactUploadCompensationTests
         Assert.Equal("IX_artifact_versions_TenantId_ArtifactId_VersionNumber", native.ConstraintName);
         var winner = errors[0] is null ? first : second;
         var loser = errors[0] is null ? second : first;
-        var result = errors[0] is null ? firstResult : secondResult;
+        var result = errors[0] is null ? attempts[0].Result : attempts[1].Result;
         Assert.NotNull(result);
         Assert.True(result.IsSuccess, result.Error);
         Assert.Same(loser.DatabaseFailure, error);
@@ -237,6 +236,13 @@ public sealed class ArtifactUploadCompensationTests
     {
         await using var content = await storage.OpenReadAsync(key);
         Assert.Equal(SHA256.HashData(expected), await SHA256.HashDataAsync(content));
+    }
+
+    private static async Task<(Result<ArtifactVersionResponse>? Result, Exception? Error)> CaptureUploadAsync(
+        Fixture fixture, CancellationToken cancellationToken)
+    {
+        try { return (await fixture.UploadAsync(cancellationToken), null); }
+        catch (Exception error) { return (null, error); }
     }
 
     [Fact]
