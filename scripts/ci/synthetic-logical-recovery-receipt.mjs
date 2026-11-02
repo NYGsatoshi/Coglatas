@@ -28,7 +28,7 @@ const seed = value => object(value, { runtimeEnvironment: fixed('Test'), appMode
 const image = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
 const stages = ['source', 'build', 'migration-tool-restore', 'migration-project-restore', 'migration-bundle-build',
   'source-seed', 'checkpoint', 'restore-list-plan', 'restore-target-prepare', 'restore-postgres', 'restore-version',
-  'restore-upload-extract', 'restore-key-extract', 'restore-checkpoint', 'startup', 'target-probes', 'fault', 'rollback'];
+  'restore-uploads', 'restore-keys', 'restore-checkpoint', 'startup', 'target-probes', 'fault', 'rollback'];
 
 function require(condition) {
   if (!condition) throw new Error('Synthetic logical recovery evidence rejected.');
