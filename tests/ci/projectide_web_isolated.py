@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 from projectide_slice2_isolated import changes as independent_changes, git, sha
 
-CORE_PRODUCT = "1218495bdd4e1280c968b0e6d2067c921c64ab31"
-CORE_TEST = "8348083cc04e9bd85147b32bb1805e94aa14fd3a"
+CORE_PRODUCT = "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4"
+CORE_PRODUCT_DEPENDENCIES = ("1218495bdd4e1280c968b0e6d2067c921c64ab31", CORE_PRODUCT)
+CORE_TEST = "f057f5e86fd28c6ca00875f20f8e30a49fb82f8b"
+CORE_TEST_DEPENDENCIES = ("8348083cc04e9bd85147b32bb1805e94aa14fd3a", CORE_TEST)
 TEST_BASE = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
 INVENTORY_TESTS = (
     "frontend/scripts/av-mig-inventory.node-test.mjs",
@@ -66,7 +68,7 @@ def frontend_test(path: str) -> bool:
     return path.endswith(".spec.ts") or path in INVENTORY_TESTS
 
 def changes(repository: Path, base: str, head: str, allowed: tuple[str, ...],
-            dependency: str | None = None, merges: list[str] | None = None) -> list[str]:
+            dependency: str | tuple[str, ...] | None = None, merges: list[str] | None = None) -> list[str]:
     if dependency is None:
         return independent_changes(repository, base, head, allowed)
     git(repository, "merge-base", "--is-ancestor", base, head)
@@ -75,7 +77,7 @@ def changes(repository: Path, base: str, head: str, allowed: tuple[str, ...],
     for commit in commits:
         parents = git(repository, "rev-list", "--parents", "-n", "1", commit).split()[1:]
         if len(parents) == 2:
-            if parents[1] != dependency:
+            if parents[1] not in ((dependency,) if isinstance(dependency, str) else dependency):
                 raise ValueError("Only the exact pinned Core dependency may be merged")
             expected = git(repository, "merge-tree", "--write-tree", *parents).splitlines()[0]
             if git(repository, "rev-parse", commit + "^{tree}") != expected:
@@ -102,7 +104,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     internal_maintenance: set[str] = set()
     product_changes = changes(repository, CORE_PRODUCT, product, (
         "frontend/src/", "frontend/public/assets/projectide/", "frontend/scripts/check-av-mig-source.mjs", *INVENTORY_TESTS,
-        "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT, product_merges)
+        "tools/ProjectIde.Preview/", "docs/verification/", "Coglatas.slnx"), CORE_PRODUCT_DEPENDENCIES, product_merges)
     for commit in product_changes:
         for path in git(repository,"diff-tree","--no-commit-id","--name-only","-r",commit).splitlines():
             if path in INVENTORY_TESTS:
@@ -111,7 +113,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
             elif frontend_test(path):
                 raise ValueError("Product candidate contains independent Test source")
     web_tests = changes(repository, CORE_TEST, test, (
-        "frontend/src/app/features/projectide/", *INVENTORY_TESTS, "tests/", ".github/workflows/projectide-web-isolated.yml"), CORE_TEST, test_merges)
+        "frontend/src/app/features/projectide/", *INVENTORY_TESTS, "tests/", ".github/workflows/projectide-web-isolated.yml"), CORE_TEST_DEPENDENCIES, test_merges)
     core_tests = changes(repository, TEST_BASE, CORE_TEST, (
         "tests/", ".github/workflows/projectide-slice2-isolated.yml", ".github/workflows/projectide-core-isolated.yml"))
     test_changes = core_tests + web_tests
