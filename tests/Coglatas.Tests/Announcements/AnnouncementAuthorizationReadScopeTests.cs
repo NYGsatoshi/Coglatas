@@ -74,6 +74,7 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         var operation = repository.ReadCurrentAuthorizationAsync(async token =>
         {
             Assert.Equal(QueryTrackingBehavior.NoTracking, db.ChangeTracker.QueryTrackingBehavior);
+            Assert.Equal(cancellation.Token, token);
             cancellation.Cancel();
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return true;
