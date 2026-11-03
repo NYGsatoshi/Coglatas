@@ -127,12 +127,15 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
     expect(component.recipients()).toEqual([]);
     expect(component.selectedRecipients()).toEqual([]);
     expect((context.fixture.nativeElement as HTMLElement).textContent).not.toContain('Old protected name');
+    // NgModel applies its disabled input in a scheduled Angular microtask.
+    await context.fixture.whenStable();
     expect(context.fixture.nativeElement.querySelector('[data-testid="recipient-search"]').disabled).toBe(true);
     component.onRecipientQueryChange('Ignored'); component.createConversation();
     context.http.expectNone((request) => request.url !== '/api/conversations');
     context.http.expectOne('/api/conversations').flush({ items: [] }); await pending;
     context.fixture.detectChanges();
     expect(component.canSubmitCreate()).toBe(false);
+    await context.fixture.whenStable();
     expect(context.fixture.nativeElement.querySelector('[data-testid="recipient-search"]').disabled).toBe(false);
     component.onRecipientQueryChange('Local query');
     context.http.expectOne('/api/conversations/recipients?query=Local%20query').flush([
