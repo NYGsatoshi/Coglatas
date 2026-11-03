@@ -8,6 +8,7 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using Coglatas.Tests.Files;
 using Coglatas.Tests.PostgreSql;
@@ -18,6 +19,54 @@ namespace Coglatas.Tests.Artifacts;
 [Collection("PostgreSqlTaskV1")]
 public sealed class ArtifactUploadCompensationTests
 {
+    [PostgreSqlFact]
+    public Task CallerSavepointFailureRestoresTheArtifactGraphWithoutResurrectingTheFailedVersion() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var fault = new UploadSaveAcknowledgementFailure();
+                await using var fixture = await Fixture.CreateAsync(connectionString: database, interceptor: fault, actualPersistence: true);
+                var previous = await fixture.UploadAsync(CancellationToken.None);
+                Assert.True(previous.IsSuccess, previous.Error);
+                var artifact = await fixture.Context.Artifacts.SingleAsync(CancellationToken.None);
+                var originalVersion = Assert.Single(artifact.Versions);
+                var previousKey = Assert.Single(fixture.Storage.SavedKeys);
+                await using var caller = await fixture.Context.Database.BeginTransactionAsync(CancellationToken.None);
+                fault.Enabled = true;
+
+                var error = await Assert.ThrowsAsync<IOException>(() => fixture.UploadAsync(CancellationToken.None));
+
+                Assert.Same(fault.Failure, error);
+                var failedKey = fixture.Storage.SavedKeys.Last();
+                Assert.NotEqual(previousKey, failedKey);
+                Assert.Equal(failedKey, Assert.Single(fixture.Storage.DeletedKeys));
+                Assert.False(await fixture.Storage.ExistsAsync(failedKey, CancellationToken.None));
+                Assert.True(await fixture.Storage.ExistsAsync(previousKey, CancellationToken.None));
+                Assert.Equal(previous.Value!.Id, artifact.CurrentVersionId);
+                Assert.Same(originalVersion, artifact.CurrentVersion);
+                Assert.Same(originalVersion, Assert.Single(artifact.Versions));
+                Assert.Equal(EntityState.Unchanged, fixture.Context.Entry(originalVersion).State);
+                Assert.Same(caller, fixture.Context.Database.CurrentTransaction);
+                fault.Enabled = false;
+                Assert.Equal(0, await fixture.Context.SaveChangesAsync(CancellationToken.None));
+                await caller.CommitAsync(CancellationToken.None);
+
+                await using var verification = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options,
+                    new CurrentTenant(artifact.TenantId));
+                Assert.Equal(previous.Value.Id, (await verification.Artifacts.SingleAsync(CancellationToken.None)).CurrentVersionId);
+                Assert.Equal(previous.Value.Id, (await verification.ArtifactVersions.SingleAsync(CancellationToken.None)).Id);
+                Assert.Equal(previousKey, (await verification.FileObjects.SingleAsync(CancellationToken.None)).StorageKey);
+                Assert.Single(await verification.Attachments.ToListAsync(CancellationToken.None));
+            });
+
+    private sealed class UploadSaveAcknowledgementFailure : SaveChangesInterceptor
+    {
+        public bool Enabled { get; set; }
+        public IOException Failure { get; } = new("Synthetic Artifact save acknowledgement failure inside a caller transaction.");
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default) => Enabled ? throw Failure : ValueTask.FromResult(result);
+    }
+
     [Theory]
     [InlineData("audit")]
     [InlineData("notification")]
@@ -304,7 +353,8 @@ public sealed class ArtifactUploadCompensationTests
         public DbUpdateException? DatabaseFailure => _persistence.DatabaseFailure;
 
         private Fixture(Guid tenantId, Guid userId, bool loggingEnabled, string? connectionString,
-            string? sharedRoot = null, Guid? artifactId = null, AllocationBarrier? barrier = null)
+            string? sharedRoot = null, Guid? artifactId = null, AllocationBarrier? barrier = null,
+            IInterceptor? interceptor = null, bool actualPersistence = false)
         {
             _root = sharedRoot ?? Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
             _artifactId = artifactId ?? Guid.NewGuid();
@@ -312,6 +362,7 @@ public sealed class ArtifactUploadCompensationTests
             var options = new DbContextOptionsBuilder<AppDbContext>();
             if (connectionString is null) { options.UseInMemoryDatabase(Guid.NewGuid().ToString("N")); }
             else { options.UseNpgsql(connectionString); }
+            if (interceptor is not null) options.AddInterceptors(interceptor);
             Context = new AppDbContext(options.Options, new CurrentTenant(tenantId));
             Storage = new Storage(new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = _root })));
             _persistence = new Persistence(Context);
@@ -320,14 +371,15 @@ public sealed class ArtifactUploadCompensationTests
             _service = new ArtifactService(repository, new ProjectRepository(Context), null!,
                 new FileRepository(Context), Storage, new UploadPolicy(), Features, new Quotas(),
                 new ArtifactAuthorization(), new CurrentUser(userId), new CurrentTenant(tenantId), new Clock(),
-                _audit, _notifications, _persistence, loggingEnabled ? Logger : null);
+                _audit, _notifications, actualPersistence ? new EfUnitOfWork(Context) : _persistence, loggingEnabled ? Logger : null);
         }
 
-        public static async Task<Fixture> CreateAsync(bool loggingEnabled = true, string? connectionString = null)
+        public static async Task<Fixture> CreateAsync(bool loggingEnabled = true, string? connectionString = null,
+            IInterceptor? interceptor = null, bool actualPersistence = false)
         {
             var tenantId = Guid.NewGuid();
             var userId = Guid.NewGuid();
-            var fixture = new Fixture(tenantId, userId, loggingEnabled, connectionString);
+            var fixture = new Fixture(tenantId, userId, loggingEnabled, connectionString, interceptor: interceptor, actualPersistence: actualPersistence);
             var projectId = Guid.NewGuid();
             var workspaceId = Guid.NewGuid();
             fixture.Context.Tenants.Add(new Tenant(tenantId) { Name = "Synthetic", DisplayName = "Synthetic", Slug = "synthetic", Status = TenantStatus.Active });
@@ -429,6 +481,23 @@ public sealed class ArtifactUploadCompensationTests
         {
             if (Failure is { } error) { throw error; }
             try { return await context.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateException databaseError) { DatabaseFailure = databaseError; throw; }
+        }
+
+        public bool TryDiscardFailedUploadChanges()
+        {
+            context.ChangeTracker.Clear();
+            return true;
+        }
+
+        public async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
+        {
+            if (Failure is { } error)
+            {
+                outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                throw error;
+            }
+            try { return await new EfUnitOfWork(context).SaveUploadChangesAsync(outcome, cancellationToken); }
             catch (DbUpdateException databaseError) { DatabaseFailure = databaseError; throw; }
         }
     }
