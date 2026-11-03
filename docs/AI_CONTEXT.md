@@ -39,6 +39,11 @@ the scoped persistence tracking mode is restored and pending writes remain track
 This does not make multi-query authorization atomic or compensate a caller-owned
 transaction that rolls back after a successful upload. See the selected isolated
 File/version controls in `docs/verification/security-architecture-fixtures.md`.
+Upload persistence distinguishes committed, proven uncommitted and unknown outcomes.
+Caller savepoint rollback and captured tracking qualify only failed saves or
+pre-save denials; successful caller-owned saves retain their outer rollback hold.
+See `docs/verification/file-upload-commit-outcomes.md` for the cleanup proof and
+remaining reconciliation boundary.
 
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
