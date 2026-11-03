@@ -14,7 +14,9 @@ and submission cannot resume before a successful current inbox projection. Group
 member choices are remounted against current state after that success.
 
 An unsuccessful projection, authorization boundary, actor/Tenant/Workspace change
-or route unmount still clears the old dialog and pending work. The binding revision
+or route unmount still clears the old dialog and pending work. Preservation requires
+both the page and the inbox request to be loading. A response for the wrong inbox
+view is rejected and closes the dialog even when the page still shows loading. The binding revision
 also detects a hard boundary when loading and recovery complete before rendering.
 Late lookup or create responses cannot restore old identities, navigate to an old
 command result or repeat a command. Unsubscribing an HTTP request does not establish

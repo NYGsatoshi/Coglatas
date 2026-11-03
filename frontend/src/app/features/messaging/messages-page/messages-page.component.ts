@@ -316,8 +316,11 @@ export class MessagesPageComponent {
       const sameDialogScope = this.createDialogOpen() && binding !== null &&
         binding === this.createPresentationBinding && this.facade.activeWorkspaceId() === this.createWorkspaceId &&
         this.createIdentity === this.currentCreateIdentity();
+      // A rejected inbox projection can settle while the page still shows loading.
+      const revalidatingDialog = sameDialogScope && this.page().status === 'loading' &&
+        this.facade.inbox().status === 'loading';
       if ((this.createDialogOpen() && !sameDialogScope) ||
-          (!this.canCreateConversation() && !(sameDialogScope && this.page().status === 'loading'))) {
+          (!this.canCreateConversation() && !revalidatingDialog)) {
         this.createRequest?.unsubscribe();
         this.creating.set(false);
         this.closeCreateDialog();
