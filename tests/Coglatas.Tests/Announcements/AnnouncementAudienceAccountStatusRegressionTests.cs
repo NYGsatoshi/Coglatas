@@ -10,12 +10,14 @@ using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
+using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Xunit.Abstractions;
 
 namespace Coglatas.Tests.Announcements;
 
-// Actual Application services and repositories on InMemory. The worker tests
+// Actual Application services and repositories on InMemory and, in the explicit
+// PostgreSQL control, an isolated migrated database. The worker tests
 // start with an already-claimed Scheduled draft; they do not qualify PostgreSQL
 // leases, transactions, hosted-worker operation, notifications, or transport.
 public sealed class AnnouncementAudienceAccountStatusRegressionTests(ITestOutputHelper output)
@@ -67,8 +69,23 @@ public sealed class AnnouncementAudienceAccountStatusRegressionTests(ITestOutput
     [InlineData("archived", true)]
     [InlineData("deleted", true)]
     public async Task DurableProcessRechecksPersistedAuthorBeforePublicationAndInvalidation(string change, bool keepTrackedActor)
+        => await VerifyDurablePublicationAsync(change, keepTrackedActor);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task NativeDurableProcessRejectsCommittedInactiveAuthorDespiteTrackedActiveOwnership()
     {
-        await using var fixture = await Fixture.CreateAsync();
+        foreach (var change in new[] { "active", "suspended", "archived", "deleted" })
+        {
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(),
+                database => VerifyDurablePublicationAsync(change, true, database));
+        }
+    }
+
+    private async Task VerifyDurablePublicationAsync(string change, bool keepTrackedActor, string? connectionString = null)
+    {
+        await using var fixture = await Fixture.CreateAsync(connectionString);
         var active = await fixture.AuthorizeAsync(fixture.ActorId);
         Assert.True(active.IsSuccess, active.Error);
         Assert.True(active.Value);
@@ -152,11 +169,13 @@ public sealed class AnnouncementAudienceAccountStatusRegressionTests(ITestOutput
                 Invalidations, new EfUnitOfWork(db));
         }
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(string? connectionString = null)
         {
             var tenant = new CurrentTenantService();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase($"announcement-account-status-{Guid.NewGuid():N}").Options;
+            var builder = new DbContextOptionsBuilder<AppDbContext>();
+            if (connectionString is null) builder.UseInMemoryDatabase($"announcement-account-status-{Guid.NewGuid():N}");
+            else builder.UseNpgsql(connectionString);
+            var options = builder.Options;
             var db = new AppDbContext(options, tenant);
             var tenantId = Guid.NewGuid();
             tenant.SetPlatformScope();

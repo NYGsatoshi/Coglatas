@@ -190,6 +190,44 @@ public sealed class AnnouncementAudienceServiceContractTests
     }
 
     [Theory]
+    [InlineData(SystemRole.NormalUser, "suspended")]
+    [InlineData(SystemRole.NormalUser, "archived")]
+    [InlineData(SystemRole.NormalUser, "deleted")]
+    [InlineData(SystemRole.Teacher, "suspended")]
+    [InlineData(SystemRole.Teacher, "archived")]
+    [InlineData(SystemRole.Teacher, "deleted")]
+    [InlineData(SystemRole.Admin, "suspended")]
+    [InlineData(SystemRole.Admin, "archived")]
+    [InlineData(SystemRole.Admin, "deleted")]
+    [InlineData(SystemRole.PlatformAdmin, "suspended")]
+    [InlineData(SystemRole.PlatformAdmin, "archived")]
+    [InlineData(SystemRole.PlatformAdmin, "deleted")]
+    public async Task InactiveAccountStopsListAndEveryScopeBeforeMembershipOrPrivilegeFallback(SystemRole role, string change)
+    {
+        using var fixture = new Fixture();
+        fixture.StoredUser.SystemRole = role;
+        if (change == "deleted") fixture.StoredUser.MarkDeleted(DateTimeOffset.UtcNow);
+        else fixture.StoredUser.Status = change == "suspended" ? UserStatus.Suspended : UserStatus.Archived;
+        fixture.ExpectActor();
+
+        var list = await fixture.Service.ListAsync(fixture.Token);
+
+        Assert.True(list.IsSuccess, list.Error);
+        Assert.Empty(list.Value!);
+        foreach (var scope in new[] { "global", "workspace", "group", "channel" })
+        {
+            fixture.ExpectActor();
+            var result = await fixture.AuthorizeAsync(scope);
+            Assert.True(result.IsSuccess, result.Error);
+            Assert.False(result.Value);
+        }
+
+        fixture.Dependencies.VerifyComplete();
+        Assert.Equal(5, fixture.Dependencies.Calls.Count);
+        Assert.All(fixture.Dependencies.Calls, call => Assert.Equal("tenants.GetCurrentUserAsync", call.Method));
+    }
+
+    [Theory]
     [InlineData("workspace", SystemRole.NormalUser, true, false, true)]
     [InlineData("workspace", SystemRole.NormalUser, false, true, false)]
     [InlineData("workspace", SystemRole.Teacher, false, true, true)]
