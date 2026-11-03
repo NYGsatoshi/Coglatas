@@ -57,10 +57,14 @@ Actual snapshot acquisition and Resource arithmetic/reservation stay HOLD.
 The SecurityTestImplimation-derived Test line owns
 `CompilerMaterializationBindingTests`: duplicate/conflicting supplies, exact
 body/version/context substitution, unknown dependency, unknown envelope meaning,
-non-disclosure, cancellation, disposal and shared budgets. Initial behavioral
-reproduction on unchanged Product `585727a9` with Test `8404e250` executed
-**8 FAIL / 5 PASS / 0 SKIP** (13 cases), rather than a missing-API compile failure.
-Exact final candidate evidence is recorded in the existing continuation ledger.
+non-disclosure, cancellation, disposal and shared budgets. Initial execution on
+unchanged Product `585727a9` with Test `8404e250` reported **8 FAIL / 5 PASS /
+0 SKIP** (13 cases). That raw result includes a fixture assumption rejected by the
+existing unknown-pin constructor and a fixed budget that exhausted the local
+Source before supply. Both assumptions were corrected without relaxing product
+gates. The final corrected before/after behavioral evidence and exact candidate
+receipts are recorded in the existing continuation ledger; raw failures remain
+separately retained.
 
 `tests/ci/projectide_materialization_prototype.py` is a **test-only,
 non-normative** executable proposal model, owned entirely by Test. Independent
