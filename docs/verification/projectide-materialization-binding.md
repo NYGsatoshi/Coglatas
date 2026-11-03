@@ -20,6 +20,10 @@ snapshot for the local Source context. Conflicting contexts cannot select the
 first otherwise matching body. Findings use deterministic local locations and
 deduplicated stable codes. Unknown pin or Source envelope meaning remains
 Unsupported; original immutable data is preserved.
+Context conflict checks also compare versions, body completeness flags and
+declared pin coverage across distinct snapshot-ID aliases, even with the same
+Source digest and no consuming reference. Matching alias claims retain their
+existing admission behavior; they do not certify external closure.
 
 Supply enumeration checks cancellation before and after each `MoveNext`, disposes
 the enumerator on every exit, and charges entries and authorized bodies to the

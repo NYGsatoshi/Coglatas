@@ -146,11 +146,17 @@ public static class ProjectSemanticBinder
             foreach (var item in group) conflictingContexts.Add(item.Snapshot.Source.Context);
         }
         foreach (var group in supplied.GroupBy(item => item.Snapshot.Source.Context))
-            if (group.Key.Equals(source.Context) || group.Select(item => item.Snapshot.Source.Digest).Distinct().Count() > 1)
+            if (group.Key.Equals(source.Context) || group.Select(item => item.Snapshot.Source.Digest).Distinct().Count() > 1 ||
+                group.Select(item => (item.Version, item.Snapshot.DeclarationsComplete, item.Snapshot.RelationsComplete, CoverageClaim(item))).Distinct().Count() > 1)
             {
                 conflictingContexts.Add(group.Key);
                 Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-conflict", RelationFindingState.Invalid, root);
             }
+        string? CoverageClaim(CompilerMaterializedSnapshot item)
+        {
+            var pin = pins.SingleOrDefault(pin => SourceFields.Identity<ExternalSnapshotId>(pin, "snapshotId") == item.SnapshotId);
+            return pin.ValueKind == JsonValueKind.Undefined ? null : SourceFields.Token(pin, "coverage");
+        }
         foreach (var item in supplied.OrderBy(item => item.SnapshotId.ToString(), StringComparer.Ordinal)
             .ThenBy(item => item.Snapshot.Source.Digest.Value, StringComparer.Ordinal).ThenBy(item => item.Version, StringComparer.Ordinal))
         {
