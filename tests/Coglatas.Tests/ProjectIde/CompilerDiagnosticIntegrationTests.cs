@@ -67,6 +67,24 @@ public sealed class CompilerDiagnosticIntegrationTests
         Assert.All(result.Diagnostics, diagnostic => Assert.Equal(input.Source.Context, diagnostic.Location.Context));
     }
 
+    [Theory]
+    [InlineData("units")]
+    [InlineData("calendars")]
+    public void SemanticSupplyConsumesTheRemainingSharedBudgetBeforeRequestingAnotherItem(string family)
+    {
+        var baseline = CompilerSemanticValidation.Validate(ProjectSemanticBinder.Bind(Input()));
+        var settings = Settings(); settings["executionProfile"]!["maximumOperations"] = baseline.LogicalOperationsConsumed + 100;
+        var input = Input(settings); var units = new ObservedSupply<UnitDefinition>(() => { }, Unit(), count: 100);
+        var calendars = new ObservedSupply<CalendarSnapshot>(() => { }, Calendar(), count: 100);
+        var model = ProjectSemanticBinder.Bind(input);
+        Assert.True(model.BindingComplete);
+        var result = CompilerSemanticValidation.Validate(model, family == "units" ? units : null, family == "calendars" ? calendars : null);
+        Assert.Contains(result.Findings, finding => finding.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
+        Assert.InRange(family == "units" ? units.MoveNextCalls : calendars.MoveNextCalls, 1, 99);
+        Assert.True(family == "units" ? units.Disposed : calendars.Disposed); Assert.Null(result.Ir);
+        Assert.InRange(result.LogicalOperationsConsumed, model.LogicalOperationsConsumed, input.ExecutionProfile.MaximumOperations);
+    }
+
     [Fact]
     public void KnownConstraintFailureIsCompletedAndDistinctFromResourceExhaustion()
     {
