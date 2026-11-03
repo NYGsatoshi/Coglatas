@@ -241,6 +241,11 @@ public sealed partial class FormParentBoundaryCompatibilityTests
             fixture.Membership = new WorkspaceMember { TenantId = tenantId, WorkspaceId = fixture.Workspace.Id, UserId = fixture.Actor.Id, Role = WorkspaceRole.Member, Status = MembershipStatus.Active };
             fixture.Group = new Group { TenantId = tenantId, WorkspaceId = fixture.Workspace.Id, Name = "Synthetic group", Slug = "group", CreatedByUserId = fixture.Actor.Id };
             fixture.Project = new Project { TenantId = tenantId, WorkspaceId = fixture.Workspace.Id, Name = "Synthetic project", Slug = "project", CreatedByUserId = fixture.Actor.Id, OwnerUserId = fixture.Actor.Id, Status = ProjectStatus.Active, Visibility = ProjectVisibility.Restricted, ActivationState = ProjectActivationState.Activated };
+            if (connectionString is not null)
+            {
+                fixture.Project.ActivatedAtUtc = new Clock().UtcNow;
+                fixture.Project.ActivationVersion = 1;
+            }
             db.Workspaces.Add(fixture.Workspace);
             db.WorkspaceMembers.Add(fixture.Membership);
             db.Groups.Add(fixture.Group);
