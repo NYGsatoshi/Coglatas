@@ -24,6 +24,15 @@ internal sealed class AnnouncementContractDependencies
 
     private object Invoke(string dependency, MethodInfo method, object?[] arguments)
     {
+        // Non-EF contract doubles execute the interface's read callback semantics;
+        // freshness and tracking restoration are verified with actual repositories.
+        if (dependency == "announcements" && method.Name == "ReadCurrentAuthorizationAsync")
+        {
+            Assert.Equal(2, arguments.Length);
+            var read = Assert.IsAssignableFrom<Delegate>(arguments[0]);
+            return read.DynamicInvoke(Assert.IsType<CancellationToken>(arguments[1]))!;
+        }
+
         var call = new RecordedCall($"{dependency}.{method.Name}", arguments.ToArray());
         Calls.Add(call);
         Assert.NotEmpty(_expected);
