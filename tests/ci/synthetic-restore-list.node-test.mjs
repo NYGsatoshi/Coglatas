@@ -21,7 +21,7 @@ const source = Buffer.from('; TOC Entries: 9\n; native header counts implicit en
   '9; 2606 100 FK CONSTRAINT public later z_constraint postgres\n' +
   '12; 0 0 COMMENT public TABLE earlier postgres\n');
 
-test('complete list swaps only FK slots using original numeric OIDs, not names or header count', () => {
+await test('complete list swaps only FK slots using original numeric OIDs, not names or header count', () => {
   const original = Buffer.from(source), planned = planRestoreList(source);
   assert.equal(planned.entryCount, 5); assert.equal(planned.foreignKeyCount, 2);
   assert.deepEqual(source, original);
@@ -32,14 +32,14 @@ test('complete list swaps only FK slots using original numeric OIDs, not names o
   assert.deepEqual(planRestoreList(planned.bytes).bytes, planned.bytes);
 });
 
-test('zero/one FK, non-ASCII names and CRLF line bytes remain complete', () => {
+await test('zero/one FK, non-ASCII names and CRLF line bytes remain complete', () => {
   for (const value of ['1; 1259 5 TABLE public sample postgres\n',
     '; header\r\n1; 2606 5 FK CONSTRAINT public café foreign_key postgres\r\n']) {
     const bytes = Buffer.from(value); assert.deepEqual(planRestoreList(bytes).bytes, bytes);
   }
 });
 
-test('malformed UTF8, byte limits, missing final newline and nonnative lines fail closed', () => {
+await test('malformed UTF8, byte limits, missing final newline and nonnative lines fail closed', () => {
   for (const value of [null, 'text', Buffer.alloc(0), Buffer.alloc(16 * 1024 * 1024 + 1),
     Buffer.from([0xc3, 0x28, 10]), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), source]),
     Buffer.from('1; 0 0 TABLE public sample postgres'), Buffer.from('; only comments\n'),
@@ -48,7 +48,7 @@ test('malformed UTF8, byte limits, missing final newline and nonnative lines fai
     assert.throws(() => planRestoreList(value), { code: 'RESTORE_LIST' });
 });
 
-test('duplicate IDs, FK OIDs and malformed/out-of-range numeric identities are rejected', () => {
+await test('duplicate IDs, FK OIDs and malformed/out-of-range numeric identities are rejected', () => {
   for (const value of [source.toString().replace('9; 2606', '7; 2606'),
     source.toString().replace('2606 100', '2606 900'),
     source.toString().replace('9; 2606 100', '0; 2606 100'),
@@ -61,13 +61,13 @@ test('duplicate IDs, FK OIDs and malformed/out-of-range numeric identities are r
     assert.throws(() => planRestoreList(Buffer.from(value)), { code: 'RESTORE_LIST' });
 });
 
-test('entry inventory count is bounded independently from native header metadata', () => {
+await test('entry inventory count is bounded independently from native header metadata', () => {
   const bytes = Buffer.from(Array.from({ length: 100_001 }, (_, index) =>
     (index + 1) + '; 0 0 COMMENT public sample postgres\n').join(''));
   assert.throws(() => planRestoreList(bytes), { code: 'RESTORE_LIST' });
 });
 
-test('independent verifier rejects dropped/altered entries, comments, non-FK moves and wrong order', () => {
+await test('independent verifier rejects dropped/altered entries, comments, non-FK moves and wrong order', () => {
   const planned = planRestoreList(source).bytes.toString(), lines = planned.split('\n');
   const moved = [...lines]; [moved[3], moved[4]] = [moved[4], moved[3]];
   for (const value of [planned.replace(lines[4] + '\n', ''), planned.replace('TABLE public earlier', 'TABLE public changed'),
@@ -76,7 +76,7 @@ test('independent verifier rejects dropped/altered entries, comments, non-FK mov
     assert.throws(() => verifyRestoreList(source, Buffer.from(value)), { code: 'RESTORE_LIST' });
 });
 
-test('installer sends exact same complete private bytes to each owned target without interpolation', () => {
+await test('installer sends exact same complete private bytes to each owned target without interpolation', () => {
   const { bytes } = planRestoreList(source), calls = [];
   const compose = (project, args, options) => {
     calls.push({ project, args, options });
@@ -94,7 +94,7 @@ test('installer sends exact same complete private bytes to each owned target wit
   }
 });
 
-test('write failures and mismatched byte verification reject before restore; malformed input never writes', () => {
+await test('write failures and mismatched byte verification reject before restore; malformed input never writes', () => {
   const { bytes } = planRestoreList(source);
   for (const result of [{ status: 1, stdout: Buffer.alloc(0) }, { status: 0, stdout: Buffer.from('incorrect hash') }])
     assert.throws(() => installRestoreList(() => result, 'owned-target', bytes), { code: 'RESTORE_LIST' });
