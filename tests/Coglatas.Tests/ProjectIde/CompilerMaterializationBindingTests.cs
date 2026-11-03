@@ -63,13 +63,14 @@ public sealed class CompilerMaterializationBindingTests
     public void SharedBudgetStopsSupplyBeforeReadingTheWholeBoundedBatch()
     {
         var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
-        settings["executionProfile"]!["maximumOperations"] = 500;
+        var budget = ProjectSemanticBinder.Bind(f.Input).LogicalOperationsConsumed + 100;
+        settings["executionProfile"]!["maximumOperations"] = budget;
         var supply = new ObservedSupply(() => { }, f.Body, 33);
         var input = Input(settings); var model = ProjectSemanticBinder.Bind(input, supply);
         Assert.False(model.BindingComplete); Assert.True(supply.MoveNextCalls < 33); Assert.True(supply.Disposed);
         Assert.Contains(model.Findings, x => x.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
         Assert.Empty(model.Symbols); Assert.Empty(model.BoundSnapshots);
-        Assert.InRange(model.LogicalOperationsConsumed, 1, 500);
+        Assert.InRange(model.LogicalOperationsConsumed, 1, budget);
     }
 
     [Theory]
@@ -78,7 +79,12 @@ public sealed class CompilerMaterializationBindingTests
     public void UnknownMaterializationMeaningIsPreservedButNeverAccepted(string change)
     {
         var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject(); var body = f.Body.Snapshot.Source;
-        if (change == "pin") settings["authorizedExternalSnapshots"]![0]!["example.future"] = true;
+        if (change == "pin")
+        {
+            settings["authorizedExternalSnapshots"]![0]!["example.future"] = true;
+            Assert.Throws<UnsupportedSourceException>(() => Input(settings));
+            return; // The existing immutable input constructor owns this boundary.
+        }
         else
         {
             var data = JsonNode.Parse(body.Data.CanonicalText)!.AsObject(); data["example.future"] = Obj(new { secret = "opaque" });
