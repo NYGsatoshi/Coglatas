@@ -17,12 +17,10 @@ public sealed class AnnouncementAuthorizationReadScopeTests
     [InlineData(QueryTrackingBehavior.TrackAll, true)]
     [InlineData(QueryTrackingBehavior.NoTracking, true)]
     [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution, true)]
-    public async Task CurrentReadsRestoreTrackingAndPreservePendingWritesOnSuccessAndFailure(
+    public Task CurrentReadsRestoreTrackingAndPreservePendingWritesOnSuccessAndFailure(
         QueryTrackingBehavior previousTracking, bool fail)
+        => WithInMemoryContextAsync(async (db, options, cancellation) =>
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase($"announcement-authority-scope-{Guid.NewGuid():N}").Options;
-        await using var db = new AppDbContext(options, new CurrentTenantService());
         var actor = new User { DisplayName = "Persisted", SystemRole = SystemRole.Teacher };
         db.Users.Add(actor);
         await db.SaveChangesAsync();
@@ -38,7 +36,6 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         db.ChangeTracker.QueryTrackingBehavior = previousTracking;
         var expectedFailure = new InvalidOperationException("Synthetic authorization read failure");
         var repository = new AnnouncementRepository(db, new FixedClock(), new CurrentTenantService());
-        using var cancellation = new CancellationTokenSource();
         var operation = repository.ReadCurrentAuthorizationAsync(async token =>
         {
             await Task.CompletedTask.WaitAsync(token);
@@ -61,22 +58,19 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         Assert.Equal(SystemRole.Teacher, actor.SystemRole);
         Assert.Same(actor, Assert.Single(db.ChangeTracker.Entries<User>()).Entity);
         Assert.Equal("Persisted", (await db.Users.AsNoTracking().SingleAsync()).DisplayName);
-    }
+    });
 
     [Theory]
     [InlineData(QueryTrackingBehavior.TrackAll)]
     [InlineData(QueryTrackingBehavior.NoTracking)]
     [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution)]
-    public async Task CancelledReadRestoresTrackingWithoutSavingOrDetaching(QueryTrackingBehavior previousTracking)
+    public Task CancelledReadRestoresTrackingWithoutSavingOrDetaching(QueryTrackingBehavior previousTracking)
+        => WithInMemoryContextAsync(async (db, _, cancellation) =>
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase($"announcement-authority-cancel-{Guid.NewGuid():N}").Options;
-        await using var db = new AppDbContext(options, new CurrentTenantService());
         var pending = new User { DisplayName = "Caller pending" };
         db.Users.Add(pending);
         db.ChangeTracker.QueryTrackingBehavior = previousTracking;
         var repository = new AnnouncementRepository(db, new FixedClock(), new CurrentTenantService());
-        using var cancellation = new CancellationTokenSource();
         var operation = repository.ReadCurrentAuthorizationAsync(async token =>
         {
             Assert.Equal(QueryTrackingBehavior.NoTracking, db.ChangeTracker.QueryTrackingBehavior);
@@ -92,7 +86,7 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         Assert.Equal(EntityState.Added, db.Entry(pending).State);
         Assert.Same(pending, Assert.Single(db.ChangeTracker.Entries<User>()).Entity);
         Assert.Empty(await db.Users.AsNoTracking().ToListAsync());
-    }
+    });
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
@@ -133,6 +127,16 @@ public sealed class AnnouncementAuthorizationReadScopeTests
                 Assert.Equal("Persisted", persisted.DisplayName);
                 Assert.Equal(SystemRole.NormalUser, persisted.SystemRole);
             });
+
+    private static async Task WithInMemoryContextAsync(
+        Func<AppDbContext, DbContextOptions<AppDbContext>, CancellationTokenSource, Task> scenario)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"announcement-authority-scope-{Guid.NewGuid():N}").Options;
+        await using var db = new AppDbContext(options, new CurrentTenantService());
+        using var cancellation = new CancellationTokenSource();
+        await scenario(db, options, cancellation);
+    }
 
     private sealed class FixedClock : IClock
     {
