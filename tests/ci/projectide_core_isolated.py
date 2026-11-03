@@ -62,8 +62,13 @@ def product_changes(repository: Path, base: str, head: str) -> list[str]:
     return commits
 
 
-def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
+def compose(repository: Path, target: Path, receipt: Path, product: str, test: str,
+            review_product_base: str = "585727a9b480e61d08cbeeb3d996904b5f1f4b5e",
+            review_test_base: str = "6edddea75a8dfd0ecaca8559827ffb92ba06a365") -> dict:
     sha(product); sha(test)
+    sha(review_product_base); sha(review_test_base)
+    git(repository, "merge-base", "--is-ancestor", review_product_base, product)
+    git(repository, "merge-base", "--is-ancestor", review_test_base, test)
     if target.exists() or receipt.exists():
         raise ValueError("Fresh worktree and receipt paths required")
     test_base = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
@@ -79,7 +84,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, testTree=git(repository, "rev-parse", test + "^{tree}"),
-                 reviewProductBase="585727a9b480e61d08cbeeb3d996904b5f1f4b5e", reviewTestBase="6edddea75a8dfd0ecaca8559827ffb92ba06a365", combinedCommit=git(target, "rev-parse", "HEAD"),
+                 reviewProductBase=review_product_base, reviewTestBase=review_test_base, combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
@@ -167,6 +172,8 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                         raise ValueError("Evidence/Resource tests did not run: " + family)
             if name == "projectIde" and (target / 'tests/Coglatas.Tests/ProjectIde/CompilerMaterializationBindingTests.cs').exists() and not any('CompilerMaterializationBindingTests' in item for item in names):
                 raise ValueError('Materialization tests did not run')
+            if name == "projectIde" and (target / 'tests/Coglatas.Tests/ProjectIde/CompilerDiagnosticIntegrationTests.cs').exists() and not any('CompilerDiagnosticIntegrationTests' in item for item in names):
+                raise ValueError('Diagnostic integration tests did not run')
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -183,10 +190,13 @@ def main() -> None:
     parser.add_argument("--test-head", required=True)
     parser.add_argument("--worktree", required=True, type=Path)
     parser.add_argument("--receipt", required=True, type=Path)
+    parser.add_argument("--review-product-base", default="585727a9b480e61d08cbeeb3d996904b5f1f4b5e")
+    parser.add_argument("--review-test-base", default="6edddea75a8dfd0ecaca8559827ffb92ba06a365")
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
-    value = compose(repository, args.worktree.resolve(), args.receipt.resolve(), args.product_head, args.test_head)
+    value = compose(repository, args.worktree.resolve(), args.receipt.resolve(), args.product_head, args.test_head,
+                    args.review_product_base, args.review_test_base)
     if args.verify:
         verify(args.worktree.resolve(), args.receipt.resolve(), value, Path(__file__).with_name("projectide-core-baseline-inventory.json"))
     print(json.dumps(value, indent=2))

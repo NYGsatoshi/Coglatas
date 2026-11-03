@@ -13,12 +13,17 @@ from projectide_slice2_isolated import changes, git, run, sha
 
 CORE_PRODUCT = '610f9911f9ce31739188437972f7eeb018f611da'
 CORE_TEST = '9e969183f5b311789b0197d0b6aac12a88206e7c'
-INSPECTOR_PRODUCT = 'd77b9814f96ba593b98b8842cf1d1355cf310885'
-INSPECTOR_TEST = '930bb8866cf2b8c3c08a414ffc2aa782072ba443'
+INSPECTOR_PRODUCT = 'a32e0c8daa6429ee54178698153d87110b5c81f7'
+INSPECTOR_TEST = 'ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2'
 
 
-def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
+def compose(repository: Path, target: Path, receipt: Path, product: str, test: str,
+            review_product_base: str = '585727a9b480e61d08cbeeb3d996904b5f1f4b5e',
+            review_test_base: str = '6edddea75a8dfd0ecaca8559827ffb92ba06a365') -> dict:
     sha(product); sha(test)
+    sha(review_product_base); sha(review_test_base)
+    git(repository, 'merge-base', '--is-ancestor', review_product_base, product)
+    git(repository, 'merge-base', '--is-ancestor', review_test_base, test)
     if target.exists() or receipt.exists():
         raise ValueError('Fresh consumer worktree and receipt paths required')
     product_changes(repository, CORE_PRODUCT, product)
@@ -37,6 +42,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     value.update(inspectorProduct=INSPECTOR_PRODUCT, inspectorTest=INSPECTOR_TEST,
                  inspectorCombinedCommit=value['combinedCommit'], inspectorCombinedTree=value['combinedTree'],
                  coreProduct=product, coreProductBase=CORE_PRODUCT, coreTest=test, coreTestBase=CORE_TEST,
+                 coreReviewProductBase=review_product_base, coreReviewTestBase=review_test_base,
                  coreProductTree=git(repository,'rev-parse',product+'^{tree}'), coreTestTree=git(repository,'rev-parse',test+'^{tree}'),
                  pinnedComposerSha256=producer_hashes)
     patch = subprocess.check_output(['git','diff','--binary',CORE_PRODUCT,product,'--','src'],cwd=repository)
@@ -68,5 +74,8 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--product-head',required=True); parser.add_argument('--test-head',required=True)
     parser.add_argument('--worktree',type=Path,required=True); parser.add_argument('--receipt',type=Path,required=True)
+    parser.add_argument('--review-product-base',default='585727a9b480e61d08cbeeb3d996904b5f1f4b5e')
+    parser.add_argument('--review-test-base',default='6edddea75a8dfd0ecaca8559827ffb92ba06a365')
     args=parser.parse_args()
-    print(json.dumps(compose(Path.cwd(),args.worktree.resolve(),args.receipt.resolve(),args.product_head,args.test_head),indent=2))
+    print(json.dumps(compose(Path.cwd(),args.worktree.resolve(),args.receipt.resolve(),args.product_head,args.test_head,
+                             args.review_product_base,args.review_test_base),indent=2))

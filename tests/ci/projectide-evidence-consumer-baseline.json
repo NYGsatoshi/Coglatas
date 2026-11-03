@@ -179,6 +179,11 @@
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.CancellationDuringSupplyStopsBeforeRequestingTheNextBodyAndDisposesTheEnumerator",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ConflictingSupplyCannotChooseTheFirstBodyAndDiagnosticsAreOrderIndependent",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DeniedEntriesWithTheSameContextStillConsumeTheEntryCap",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DifferentAliasesCannotAssertConflictingClaimsForTheSameExactContext(change: \"declarations\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DifferentAliasesCannotAssertConflictingClaimsForTheSameExactContext(change: \"declared-coverage\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DifferentAliasesCannotAssertConflictingClaimsForTheSameExactContext(change: \"relations\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DifferentAliasesCannotAssertConflictingClaimsForTheSameExactContext(change: \"version\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DifferentAliasesWithMatchingClaimsRetainTheirExistingAdmissionBehavior",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DuplicateBodiesAreInvalidEvenWithoutAReference",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactBodyAdmitsSymbolsWithoutChangingInputIdentityOrProvingExternalClosure",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"revision\")",
@@ -2559,11 +2564,11 @@
     }
   ],
   "pins": {
-    "coreProduct": "7f5bb1d1f4902bf3e5505276031056ec3f7276e9",
-    "coreTest": "4eb77ef367510730ca1fa357a01700ad740fc980",
+    "coreProduct": "0601761abebf7bbf0ac7cb0384e5e9ddf6952358",
+    "coreTest": "1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6",
     "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
     "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
-    "combinedCommit": "f35408e77a87667b450b9e775e68156449df3d78",
-    "combinedTree": "291752d4cc3acb6f60c3aa4d84a86ee579c542e9"
+    "combinedCommit": "43f6181737b33741b73184a1cf5c6ae60e61c318",
+    "combinedTree": "9b833121f995e4e01f5b6b926548d887d4f65ce1"
   }
 }
