@@ -232,6 +232,12 @@ jobs:
             tests/ci/test_performance_comparator.py \
             tests/ci/test_performance_comparator_hardening.py \
             tests/ci/test_performance_db_campaign.py \
+            scripts/ci/test_specification_contract.py \
+            scripts/ci/test_specification_contract_check.py \
+            scripts/ci/test_sec_arch_http_accounting.py \
+            scripts/ci/test_sec_arch_signalr_accounting.py \
+            scripts/ci/test_sec_arch_worker_accounting.py \
+            scripts/ci/test_sec_arch_rls_matrix.py \
             scripts/ci/test-functional-diagnostics.py \
             scripts/ci/test-postgres-log-privacy.py \
             scripts/ci/test-functional-setup-failure-probe.py \
