@@ -67,26 +67,26 @@ public sealed class TenantSelectionHostedHttpTests
                 await AssertSwitchDeniedAsync(client, suspended.Id, "Tenant is not available.");
                 await AssertSwitchDeniedAsync(client, archived.Id, "Tenant is not available.");
                 await AssertCurrentAsync(client, beta, TenantUserRole.Staff);
-                Assert.Equal(session, await ReadSessionAsync(db, actorId));
+                await AssertSessionUnchangedAsync(db, actorId, session);
 
                 betaMembership.Status = TenantUserStatus.Suspended;
                 await db.SaveChangesAsync();
                 await AssertListedAsync(client, alpha.Id);
                 await AssertSwitchDeniedAsync(client, beta.Id, "Tenant membership is required.");
-                Assert.Equal(session, await ReadSessionAsync(db, actorId));
+                await AssertSessionUnchangedAsync(db, actorId, session);
 
                 // Current requires active membership in the selected Tenant.
                 // My and Switch already exercised the authenticated recovery routes.
                 using (var staleCurrent = await client.GetAsync("/api/tenants/current"))
                 {
                     Assert.Equal(HttpStatusCode.Unauthorized, staleCurrent.StatusCode);
-                    var cookie = Assert.Single(Cookies(staleCurrent), cookie => cookie.Name.Value == AuthenticationCookieName);
-                    Assert.True(string.IsNullOrEmpty(cookie.Value.Value));
+                    var expiredAuthCookie = Assert.Single(Cookies(staleCurrent), cookie => cookie.Name.Value == AuthenticationCookieName);
+                    Assert.True(string.IsNullOrEmpty(expiredAuthCookie.Value.Value));
                     Assert.DoesNotContain(Cookies(staleCurrent), cookie => cookie.Name.Value == TenantCookieName);
                 }
                 using var afterSignOut = await client.GetAsync("/api/tenants/my");
                 Assert.Equal(HttpStatusCode.Unauthorized, afterSignOut.StatusCode);
-                Assert.Equal(session, await ReadSessionAsync(db, actorId));
+                await AssertSessionUnchangedAsync(db, actorId, session);
             });
 
     private static Tenant NewTenant(string slug, TenantStatus status) =>
@@ -135,6 +135,14 @@ public sealed class TenantSelectionHostedHttpTests
         response.Headers.TryGetValues(HeaderNames.SetCookie, out var values)
             ? SetCookieHeaderValue.ParseList(values.ToList())
             : [];
+
+    private static async Task AssertSessionUnchangedAsync(AppDbContext db, Guid actorId, SessionState expected)
+    {
+        var current = await ReadSessionAsync(db, actorId);
+        Assert.Equal(expected.Id, current.Id);
+        Assert.Equal(expected.ExpiresAt, current.ExpiresAt);
+        Assert.Equal(expected.RevokedAt, current.RevokedAt);
+    }
 
     // LastSeen may advance as part of normal cookie validation.
     private static Task<SessionState> ReadSessionAsync(AppDbContext db, Guid actorId) =>
