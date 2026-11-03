@@ -3,7 +3,10 @@ name: ProjectIDE value-binding consumer compatibility
 on:
   pull_request:
     paths:
-      - tests/Coglatas.Tests/ProjectIde/CompilerValueReferenceTests.cs
+      - tests/Coglatas.Tests/ProjectIde/**
+      - tests/ci/projectide_evidence*
+      - tests/ci/projectide-evidence*
+      - tests/ci/test_projectide*
       - tests/ci/projectide_value_consumers.py
       - .github/workflows/projectide-value-consumers.yml
 
@@ -16,7 +19,7 @@ env:
 jobs:
   consumer:
     name: Exact Core with Angular and Windows Pure ViewModel (supplemental)
-    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'test/projectide-core-value-')
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'test/projectide-core-value-') || startsWith(github.head_ref, 'test/projectide-evidence-'))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -36,7 +39,7 @@ jobs:
           node-version: '24.22.2'
       - name: Compose exact consumer and Core candidates
         env:
-          PRODUCT_HEAD: '48ff196985ddbf90db82386c5413c8f659ea64a7'
+          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-evidence-') && 'd0327c9b0cd1e2ac9d8c703ecf1c2a761ed4f22f' || '48ff196985ddbf90db82386c5413c8f659ea64a7' }}
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
         run: >-
           python3 tests/ci/projectide_value_consumers.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD"
@@ -49,7 +52,7 @@ jobs:
           npm --prefix frontend ci
           node node_modules/@playwright/test/cli.js install --with-deps chromium
       - name: Verify reproduced fixture, Core, both synthetic consumers and browser
-        run: python3 "$RUNNER_TEMP/value-consumers/evidence/composer-source/projectide_web_verify.py" --worktree "$RUNNER_TEMP/value-consumers/combined" --receipt "$RUNNER_TEMP/value-consumers/evidence/receipt.json"
+        run: python3 tests/ci/projectide_evidence_consumer_verify.py --worktree "$RUNNER_TEMP/value-consumers/combined" --receipt "$RUNNER_TEMP/value-consumers/evidence/receipt.json"
       - name: Retain exact evidence including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

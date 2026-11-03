@@ -192,8 +192,60 @@ public sealed class RequirementEvidenceValidationTests
         settings["evidence"]!.AsArray().Add(Obj(new { snapshotId = Id(50), version = "1", digest = original.Digest.Data.Value,
             context = original.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null,
             receipt = new { verified = true, authorized = true } }));
+        Assert.Throws<UnsupportedSourceException>(() => EvidenceInput(settings));
+        settings["evidence"]![0]!.AsObject().Remove("receipt");
         var input = EvidenceInput(settings);
         Incomplete(RequirementEvidenceValidator.Assess(input, Location(input), [Claim(input)]));
         Assert.Contains(Compile(input).Result.Diagnostics, item => item.Code == "coglatas.analysis.requirement-evidence-unavailable");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CandidateAndScenarioStampsAreExactEvidenceInputs(bool scenario)
+    {
+        var original = Source();
+        CompilerInputManifest ContextInput(int stamp)
+        {
+            var settings = AllRulesSettings();
+            var context = scenario ? SourceRevisionContext.Hypothetical(new(ScenarioId.Parse(Id(30)), ScenarioRevisionId.Parse(Id(stamp)),
+                original.Context, original.Digest)) : SourceRevisionContext.Candidate(new(ProposalId.Parse(Id(30)), CandidateRevisionId.Parse(Id(stamp)),
+                original.Context.CommittedRevision!, original.Context.CommittedRevision!));
+            if (scenario) settings["scenario"] = Obj(new { baseContext = original.Context.Data.Value, overlayDigest = original.Digest.Data.Value, assumptions = Array.Empty<object>() });
+            return EvidenceInput(settings, ProjectSource.Create(context, original.Documents));
+        }
+        var desired = ContextInput(31); var old = ContextInput(32);
+        var claim = new RequirementEvidenceClaim(Location(desired), Target(desired), Pass(old));
+        var result = RequirementEvidenceValidator.Assess(desired, Location(desired), [claim]);
+        Has(result, "coglatas.evidence.input-mismatch"); Assert.Equal(CompilerFreshness.Stale, result.Freshness); Incomplete(result);
+    }
+
+    [Theory]
+    [InlineData("missing", "coglatas.evidence.target-unavailable")]
+    [InlineData("unsupported", "coglatas.evidence.target-unavailable")]
+    [InlineData("resource", "coglatas.evidence.resource-materialization-unavailable")]
+    public void ExactClaimCannotHideMissingUnsupportedOrResourceTargetBodies(string kind, string code)
+    {
+        var original = Source();
+        var root = kind == "resource" ? Obj(new { entityId = Id(6), kind = "coglatas.resource-binding", schemaVersion = 1,
+            payload = new { tenantId = Id(1), resourceId = Id(20), snapshotVersion = "1", snapshotDigest = original.Digest.Data.Value, resourceKind = "coglatas.material" } })
+            : Obj(new { entityId = Id(kind == "missing" ? 99 : 6), kind = kind == "unsupported" ? "example.future" : "coglatas.project", schemaVersion = 1, payload = new { } });
+        var source = ProjectSource.Create(original.Context, [SourceDocument.Create(DocumentId.Parse(Id(4)), "target", Json(root))]);
+        var input = EvidenceInput(original: source);
+        var result = RequirementEvidenceValidator.Assess(input, Location(input), [Claim(input)]);
+        Has(result, code); Incomplete(result);
+    }
+
+    [Fact]
+    public void ClaimLocatorPayloadConsumesBudgetBeforeSortingOrPublication()
+    {
+        var settings = AllRulesSettings(); settings["executionProfile"]!["maximumOperations"] = 1000;
+        var input = EvidenceInput(settings); var data = Obj(Location(input).Data.Value);
+        data["example.untrusted"] = new JsonArray(Enumerable.Range(0, 2000).Select(value => JsonValue.Create(value)).ToArray<JsonNode?>());
+        var claim = new RequirementEvidenceClaim(ProjectLocation.Parse(Json(data)), Target(input), Pass(input));
+        var result = RequirementEvidenceValidator.Assess(input, Location(input), [claim]);
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, result.Outcome.Execution);
+        Assert.Equal(CompilerFreshness.Undetermined, result.Freshness); Incomplete(result);
+        Assert.Empty(result.Claims);
     }
 }

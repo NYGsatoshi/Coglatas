@@ -1,0 +1,2503 @@
+{
+  "projectideTests": [
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"2024-02-28\", years: 0, months: 0, days: 1, expected: \"2024-02-29\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"2024-02-29\", years: 1, months: 0, days: 0, expected: null)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"2026-01-31\", years: 0, months: 1, days: 0, expected: null)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"2026-07-01\", years: 2147483647, months: 0, days: 0, expected: null)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"2026-12-31\", years: 0, months: 0, days: 1, expected: \"2027-01-01\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.AnchoredPeriodUsesExplicitRejectPolicyWithoutMonthClamping(anchor: \"9999-12-31\", years: 0, months: 0, days: 1, expected: null)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CalendarMeasuresMultipleWorkingIntervalsAndExcludesHolidayAndNonworking",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CalendarRequiresMatchingZoneSnapshotAndReference",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilIntervalsRejectCalendarAndDomainMismatch",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilTimeRejectsInvalidDatesOffsetsAndResolution(value: \"2026-02-29T01:00:00.0000000\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilTimeRejectsInvalidDatesOffsetsAndResolution(value: \"2026-07-01T01:00:00\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilTimeRejectsInvalidDatesOffsetsAndResolution(value: \"2026-07-01T01:00:00.00000001\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilTimeRejectsInvalidDatesOffsetsAndResolution(value: \"2026-07-01T01:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.CivilTimeRejectsInvalidDatesOffsetsAndResolution(value: \"2026-07-01T01:00:60.0000000\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ConflictingExceptionPrecedenceRemainsUnsupported",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.EvaluationAndCanonicalBytesAreCultureIndependent(culture: \"ar-SA\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.EvaluationAndCanonicalBytesAreCultureIndependent(culture: \"en-US\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.EvaluationAndCanonicalBytesAreCultureIndependent(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.GapIsInvalidAndOverlapRetainsBothCandidatesUntilExplicitOffset",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.IntervalsAreHalfOpenAndUnknownIsNotInfinity",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.InvalidCalendarIntervalsCannotBeEvaluated(field: \"nonWorkingIntervals\", start: \"2023-07-01T12:00:00.0000000Z\", end: \"2023-07-01T13:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.InvalidCalendarIntervalsCannotBeEvaluated(field: \"workingIntervals\", start: \"2026-07-01T12:00:00.0000000Z\", end: \"2026-07-01T11:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.InvalidCalendarIntervalsCannotBeEvaluated(field: \"workingIntervals\", start: \"2026-07-01T12:00:00.0000000Z\", end: \"2026-07-01T12:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.MissingCoverageIsUnknownAndBudgetExhaustionIsExplicit",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.NewlySupportedTimeCodecPreservesSourceAndRejectsIncompleteLegacyZonedShape",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.PeriodEvaluationRequiresBothDatesInsideFixedCalendarCoverage(anchor: \"2023-12-31\", days: 1)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.PeriodEvaluationRequiresBothDatesInsideFixedCalendarCoverage(anchor: \"2027-12-31\", days: 1)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ResourceAndTaskCarryPinnedCalendarsWithoutLoadingOrExecuting(resource: False)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ResourceAndTaskCarryPinnedCalendarsWithoutLoadingOrExecuting(resource: True)",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.SnapshotDigestMismatchDoesNotObtainKnownValue",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.SuppliedZoneConvertsCivilTimeExactly(local: \"2026-01-01T12:00:00\", expected: \"2026-01-01T17:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.SuppliedZoneConvertsCivilTimeExactly(local: \"2026-07-01T12:00:00\", expected: \"2026-07-01T16:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.SuppliedZoneConvertsCivilTimeExactly(local: \"2026-12-31T23:59:59\", expected: \"2027-01-01T04:59:59.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnknownCalendarMembersArePreservedUnsupported(field: \"futureExtension\", value: \"preserve-this\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnknownCalendarMembersArePreservedUnsupported(field: \"recurrence\", value: \"future.weekly-rule\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnsupportedEndpointKindsAreRejectedBeforeRecursiveDecoding(kind: \"coglatas.list\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnsupportedEndpointKindsAreRejectedBeforeRecursiveDecoding(kind: \"coglatas.time-interval\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnsupportedEndpointKindsAreRejectedBeforeRecursiveDecoding(kind: \"coglatas.zoned-local-date-time\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.UnsupportedZoneRulesAndUnknownIntervalsRetainSource",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ZoneSnapshotRejectsIdentityOrVersionDrift(field: \"timeZoneId\", replacement: \"Etc/UTC\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ZoneSnapshotRejectsIdentityOrVersionDrift(field: \"version\", replacement: \"different-version\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ZoneSnapshotRejectsInvalidOffsetsGapsAndOverlaps(field: \"end\", replacement: \"2026-03-09T07:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ZoneSnapshotRejectsInvalidOffsetsGapsAndOverlaps(field: \"offsetTicks\", replacement: \"864000000000\")",
+    "Coglatas.Tests.ProjectIde.CalendarEvaluationTests.ZoneSnapshotRejectsInvalidOffsetsGapsAndOverlaps(field: \"start\", replacement: \"2026-01-01T01:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.AdvisoryFailureIsRecordedWithoutChangingRequiredConstraintTruth",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.BudgetExhaustionAndCancellationAreExplicitAndNeverPass",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.CompilerIdentitySubstitutionIsRejectedBeforeEvaluation",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.FullCompileProducesDeterministicArtifactsAndExecutedRuleEvidence",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.KnownConstraintFailureSurvivesIncompleteRequirementEvidence",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.OverexpandedRuleManifestsAreRejectedBeforeAnyEvaluation",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.RequiredConstraintTruthAndUnknownHaveDistinctResults(truth: False, verdict: Fail, coverage: Complete)",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.RequiredConstraintTruthAndUnknownHaveDistinctResults(truth: True, verdict: Pass, coverage: Complete)",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.RequiredConstraintTruthAndUnknownHaveDistinctResults(truth: null, verdict: Inconclusive, coverage: Partial)",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.RequirementConditionsDoNotManufactureEligibleEvidence(truth: False, verdict: Fail)",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.RequirementConditionsDoNotManufactureEligibleEvidence(truth: True, verdict: Inconclusive)",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.ResourceBindingsWithoutMaterializedStockOrCapacityStayUnknown(kind: \"coglatas.human\")",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.ResourceBindingsWithoutMaterializedStockOrCapacityStayUnknown(kind: \"coglatas.material\")",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.ScopedSuppressionRequestDoesNotAlterCompilerTruthOrHistoricalFinding",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.UnattachedRequiredPredicateAndMissingRuleFamilyCannotPass",
+    "Coglatas.Tests.ProjectIde.CompilerAnalysisTests.UnknownRulesAreNotReportedAsExecutedChecks",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.BindingAbsenceDependsOnPinnedCoverage(complete: False, state: UnknownDueToCoverage)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.BindingAbsenceDependsOnPinnedCoverage(complete: True, state: MissingWithinCompleteScope)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.CanonicalParserPreservesInvalidAndUnsupportedBuffersWithoutPriorAstFallback",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.DuplicatePinnedMaterializationsAreAmbiguousWithoutFirstMatchResolution",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.ExternalCoverageAndAuthorizationDoNotCollapse(complete: False, authorized: True, state: UnknownDueToCoverage)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.ExternalCoverageAndAuthorizationDoNotCollapse(complete: True, authorized: False, state: OutOfScope)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.ExternalCoverageAndAuthorizationDoNotCollapse(complete: True, authorized: True, state: MissingWithinCompleteScope)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.LogicalBudgetsNullInputsAndCancellationRemainExplicit",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.MaterializedExternalSnapshotMustMatchItsAuthorizedManifestPin",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.MultiDocumentBindingPublishesTypedSymbolsAndStableLocations",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.NumericProfileExhaustionDoesNotBecomeInvalidSourceOrCompleteBinding",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.OpaqueDeclarationsStayPartialAndOriginalSourceRemainsRecoverable",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.ParsedReferenceValueIsNotSilentlyPromotedToCompleteBinding",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnknownDurationBasisRemainsOpaqueToValueBindingAndNumericProfiles(content: \"numeric\")",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnknownDurationBasisRemainsOpaqueToValueBindingAndNumericProfiles(content: \"reference\")",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnknownSchemaAndMissingPlatformBaselineCannotBecomeCompleteBinding",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: False, expected: Unknown)",
+    "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: True, expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.CompletePassCanBeStaleWithoutMutatingHistoricalResult",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.DiagnosticsBindInputAndStableTargetsWithDeterministicOrdering",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"allocationSnapshots\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"analysisScope\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"authorizedExternalSnapshots\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"clock\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"compiler\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"descriptors\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"evaluator\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"evidence\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"executionProfile\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"featureSet\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"importer\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"ir\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"observations\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"resourceSnapshots\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"rules\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"ruleset\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"scenario\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"scheduler\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"schema\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"semantics\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"solver\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"sourceCoverage\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"stochastic\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"targets\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"timeZones\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"units\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EvidenceCompletenessCannotHideMissingBasisOrNullEntries",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ExactInputEnvelopeRoundTripsAndRejectsForgedIdentity",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"compiler\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"evaluator\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"ir\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"ruleset\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"schema\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ImplementationAndContractVersionsChangeInputIdentity(field: \"semantics\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.IneligibleEvidenceCannotBecomeTechnicalPass(kind: Heuristic)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.IneligibleEvidenceCannotBecomeTechnicalPass(kind: HumanApproval)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.IneligibleEvidenceCannotBecomeTechnicalPass(kind: Missing)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.InterruptedExecutionCannotBePass(execution: Cancelled)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.InterruptedExecutionCannotBePass(execution: InternalError)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.InterruptedExecutionCannotBePass(execution: ResourceExhausted)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.InterruptedExecutionCannotBePass(execution: TimedOut)",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.LogicalBudgetChangesInvalidateResultReuse(field: \"maximumDeclarations\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.LogicalBudgetChangesInvalidateResultReuse(field: \"maximumDigits\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.LogicalBudgetChangesInvalidateResultReuse(field: \"maximumOperations\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.LogicalBudgetChangesInvalidateResultReuse(field: \"maximumRelations\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.LogicalBudgetChangesInvalidateResultReuse(field: \"maximumScale\")",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.PartialFailCanBeCurrentAndRetainsUnknownRequiredEvaluations",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.SnapshotScopeCoverageAndAsOfAreImmutableInputDimensions",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.UnorderedLocksNormalizeAndDuplicateIdentitiesFail",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.VersionEightIdentityMatchesIndependentPythonGoldenVectors",
+    "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.ZeroRulesMissingStagesAndCrossInputResultsCannotClaimComplete",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.CancellationDiscardsACompletedLateRemoteResponse",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.CompletedGoldenMatchesIndependentCanonicalHashesAcrossHosts",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessDoesNotUpgradeIncompleteCompilationToPass",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessIncludesMaterializationsOutsideTheDeclaredManifest(dimension: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessIncludesMaterializationsOutsideTheDeclaredManifest(dimension: \"snapshots\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessIncludesMaterializationsOutsideTheDeclaredManifest(dimension: \"units\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessIsUndeterminedWithoutUsableDesiredInputOrExecution",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessPreservesCanonicalOrderButDetectsMultiplicityAndScopeClaims",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ExactRequestFreshnessReportsManifestAndGenerationChangesIndependently",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.HostCompatibilityIsCheckedBeforeTransportOrEvaluation(mismatch: \"capability\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.HostCompatibilityIsCheckedBeforeTransportOrEvaluation(mismatch: \"version\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.HostErrorsAndUnsupportedSchemasExposeOnlySafeCodes",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.HostInputBindingRetainsMaterializationMultiplicityAndScopeClaims",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"budget\\\",\\\"verdict\\\":\\\"Inconclusive\\\",\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"constraint-fail\\\",\\\"verdict\\\":\\\"Fail\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"constraint-pass\\\",\\\"verdict\\\":\\\"Pass\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"constraint-unknown\\\",\\\"verdict\\\":\\\"Inc\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"empty\\\",\\\"verdict\\\":\\\"Pass\\\",\\\"coverag\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"opaque\\\",\\\"verdict\\\":\\\"Inconclusive\\\",\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.LocalAndFakeServerAgreeOnExactSupportedAndIncompleteManifests(fixture: \"{\\\"case\\\":\\\"partial-fail\\\",\\\"verdict\\\":\\\"Fail\\\",\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsACompilationUsingDifferentMaterializations(dimension: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsACompilationUsingDifferentMaterializations(dimension: \"snapshots\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsACompilationUsingDifferentMaterializations(dimension: \"units\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsResultSubstitutionAndIncompleteResponseBinding(mismatch: \"generation\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsResultSubstitutionAndIncompleteResponseBinding(mismatch: \"inner-manifest\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsResultSubstitutionAndIncompleteResponseBinding(mismatch: \"invalid-status\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsResultSubstitutionAndIncompleteResponseBinding(mismatch: \"no-result\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.ServerRejectsResultSubstitutionAndIncompleteResponseBinding(mismatch: \"outer-digest\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.TamperedInputCannotReachSuccessfulCompilation(subject: \"expected-digest\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.TamperedInputCannotReachSuccessfulCompilation(subject: \"manifest\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.TamperedInputCannotReachSuccessfulCompilation(subject: \"source\")",
+    "Coglatas.Tests.ProjectIde.CompilerHostTests.TransferBuffersAndGenerationDoNotChangeSemanticIdentity",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.AReferenceTypeToAnUnknownKindIsNotCertifiedByMatchingTokenShape",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.IrIsReproducibleMappedAndBoundToItsExactInput",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.MissingOpaqueAndUnsupportedClosureDoesNotProduceIr",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.NestedQuantityTypesRequireUnitsEvenWhenTheCollectionHasNoValues",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.NewRevisionRecompilesIrButRetainsScopedSourceNodeIdentity",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.OnlySupportedGraphClosureCanProduceIr(kind: \"coglatas.depends-on\", expected: False)",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.OnlySupportedGraphClosureCanProduceIr(kind: \"coglatas.related-to\", expected: True)",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.RequiredDescriptorCapabilityCannotBeImplicitlyEnabled",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.ResultArtifactsRequireMatchingInputAndAnActualProducingStage",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.SemanticBudgetIncludesWorkAlreadyConsumedByBinding",
+    "Coglatas.Tests.ProjectIde.CompilerIrTests.UnitMaterializationRequiresExactPinsAndCompatibleDimensions",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.CancellationAfterEntryBeforeMaterializationCompletesDoesNotSubmitTransport",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.DocumentReferenceToEntityCannotProduceIrEvenWithoutAnyDefault(nested: False)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.DocumentReferenceToEntityCannotProduceIrEvenWithoutAnyDefault(nested: True)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.document-reference\", expected: \"coglatas.project\", supported: False)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.document-reference\", expected: \"coglatas.requirement\", supported: False)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.document-reference\", expected: \"coglatas.source-document\", supported: True)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.document-reference\", expected: \"coglatas.task\", supported: False)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.entity-reference\", expected: \"coglatas.source-document\", supported: False)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.ReferenceDescriptorAndDefaultlessPortEnforceTheSameTargetCategory(kind: \"coglatas.entity-reference\", expected: \"coglatas.task\", supported: True)",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.UnknownBasisIsOpaqueToSemanticValidationWhileRetainingInputAndBudget(content: \"quantity\")",
+    "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.UnknownBasisIsOpaqueToSemanticValidationWhileRetainingInputAndBudget(content: \"reference\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.BudgetAndCancellationCannotPublishSuccessfulClosure",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"branch\", expected: UnknownDueToCoverage, code: \"coglatas.binding.reference-coverage-unknown\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"digest\", expected: Unsupported, code: \"coglatas.binding.value-reference-manifest-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"kind\", expected: Unsupported, code: \"coglatas.binding.value-reference-kind-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"missing\", expected: MissingWithinCompleteScope, code: \"coglatas.binding.reference-missing\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"opaque\", expected: Unsupported, code: \"coglatas.binding.reference-unsupported\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"origin-context\", expected: Unsupported, code: \"coglatas.binding.value-reference-origin-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"origin-document\", expected: Unsupported, code: \"coglatas.binding.value-reference-origin-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"origin-entity\", expected: Unsupported, code: \"coglatas.binding.value-reference-origin-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"resource\", expected: Unsupported, code: \"coglatas.binding.value-reference-unavailable\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"revision\", expected: UnknownDueToCoverage, code: \"coglatas.binding.reference-coverage-unknown\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"snapshot\", expected: Unsupported, code: \"coglatas.binding.value-reference-unavailable\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"tenant\", expected: OutOfScope, code: \"coglatas.binding.reference-out-of-scope\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"unauthorized\", expected: OutOfScope, code: \"coglatas.binding.reference-out-of-scope\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.InvalidUnavailableOrUnsupportedBindingsNeverProduceIr(change: \"version\", expected: Unsupported, code: \"coglatas.binding.value-reference-manifest-mismatch\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.NonKnownValuesAndAbsentOptionalsHaveNoFabricatedDependency(shape: \"absent\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.NonKnownValuesAndAbsentOptionalsHaveNoFabricatedDependency(shape: \"null\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.NonKnownValuesAndAbsentOptionalsHaveNoFabricatedDependency(shape: \"unknown\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PartialMissingAndDuplicateMaterializationsRemainDistinct",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"document\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"list\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"map\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"nullable\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"optional\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"scalar\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"sequence\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"set\")",
+    "Coglatas.Tests.ProjectIde.CompilerValueReferenceTests.PinnedKnownReferencesResolveWithStableSourceLocations(shape: \"structure\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.ArithmeticKeepsRepeatingFractionsAndExactComparisons",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.BoundsAreCheckedWithoutWraparoundOrTruncation",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalCanonicalizationIsExact(input: \"-0.000\", expected: \"0\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalCanonicalizationIsExact(input: \"-001.0200\", expected: \"-1.02\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalCanonicalizationIsExact(input: \"0.000000000000000000000000000001\", expected: \"0.000000000000000000000000000001\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalCanonicalizationIsExact(input: \"00012.3400\", expected: \"12.34\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalCanonicalizationIsExact(input: \"123456789012345678901234567890.1234567890123456789\"\u00b7\u00b7\u00b7, expected: \"123456789012345678901234567890.1234567890123456789\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \" 1\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"+1\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"-\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \".5\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"1,5\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"1.\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"1..2\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"1\\n\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"1e3\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"Infinity\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"NaN\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.DecimalRejectsNoncontractInputs(input: \"\uff11\uff12\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.NumericResultsDoNotDependOnCulture(culture: \"ar-SA\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.NumericResultsDoNotDependOnCulture(culture: \"en-US\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.NumericResultsDoNotDependOnCulture(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.NumericResultsDoNotDependOnCulture(culture: \"ja-JP\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.NumericResultsDoNotDependOnCulture(culture: \"tr-TR\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"-1\", denominator: \"2\", scale: 0, expected: \"0\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"-1\", denominator: \"8\", scale: 2, expected: \"-0.12\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"-3\", denominator: \"8\", scale: 2, expected: \"-0.38\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"1\", denominator: \"3\", scale: 6, expected: \"0.333333\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"1\", denominator: \"8\", scale: 2, expected: \"0.12\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"3\", denominator: \"8\", scale: 2, expected: \"0.38\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"5\", denominator: \"2\", scale: 0, expected: \"2\")",
+    "Coglatas.Tests.ProjectIde.ExactNumberTests.QuantizationIsExplicitAndKeepsEvidence(numerator: \"7\", denominator: \"2\", scale: 0, expected: \"4\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CandidateFreshnessIncludesAllCapturedRevisionIdentities(changed: \"base\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CandidateFreshnessIncludesAllCapturedRevisionIdentities(changed: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CandidateFreshnessIncludesAllCapturedRevisionIdentities(changed: \"head\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CandidateFreshnessIncludesAllCapturedRevisionIdentities(changed: \"proposal\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CompilerContradictionsAreQuarantine(changed: \"build\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CompilerContradictionsAreQuarantine(changed: \"commit\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.CompilerContradictionsAreQuarantine(changed: \"version\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.DigestObjectExtensionsAreNotNewDigestIdentity",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.EveryFoundationRuleHonorsCancellationBeforeInspectingEvidence",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownCompilerVersionAndBuildNeedNoFabricatedOptionalCommit",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownIndependentEvidenceVerifiesAllThreeBindingsWithoutMutation",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownPolicyContradictionsAreQuarantineIncludingSameVersionDifferentContent(changed: \"content\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownPolicyContradictionsAreQuarantineIncludingSameVersionDifferentContent(changed: \"schema\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownPolicyContradictionsAreQuarantineIncludingSameVersionDifferentContent(changed: \"set\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.KnownPolicyContradictionsAreQuarantineIncludingSameVersionDifferentContent(changed: \"version\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingCompilerOrUnverifiedOptionalCommitIsUnknown(missing: \"claim\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingCompilerOrUnverifiedOptionalCommitIsUnknown(missing: \"claim-commit\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingCompilerOrUnverifiedOptionalCommitIsUnknown(missing: \"host\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingCompilerOrUnverifiedOptionalCommitIsUnknown(missing: \"host-commit\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingOrUnsupportedPolicyIsUnknownNeverDeny(missing: \"claim\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingOrUnsupportedPolicyIsUnknownNeverDeny(missing: \"host\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingOrUnsupportedPolicyIsUnknownNeverDeny(missing: \"unsupported\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingSourceIsUnknownAndDoesNotReplaceIndependentEvidence(missingClaim: False)",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.MissingSourceIsUnknownAndDoesNotReplaceIndependentEvidence(missingClaim: True)",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.ProvenRevisionContradictionDominatesMissingSourceEvidence",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"branch\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"claimed-source\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"context-extension\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"host-source\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"input\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"project\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"revision\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"subject-tenant\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.RevisionContradictionsAreQuarantine(changed: \"tenant\")",
+    "Coglatas.Tests.ProjectIde.FoundationSecurityRuleTests.SelfDeclaredMatchingPolicyDigestCannotSupplyPolicyAuthority",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AdditionalTypedIdsUseExistingUuidCodec(type: typeof(Coglatas.Domain.ProjectIde.PortId))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AdditionalTypedIdsUseExistingUuidCodec(type: typeof(Coglatas.Domain.ProjectIde.ResourceId))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AdditionalTypedIdsUseExistingUuidCodec(type: typeof(Coglatas.Domain.ProjectIde.WorkflowStateId))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AdditionalTypedIdsUseExistingUuidCodec(type: typeof(Coglatas.Domain.ProjectIde.WorkflowTransitionId))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.constraint\", type: typeof(Coglatas.Domain.ProjectIde.ConstraintPlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.milestone\", type: typeof(Coglatas.Domain.ProjectIde.MilestonePlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.project\", type: typeof(Coglatas.Domain.ProjectIde.ProjectPlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.requirement\", type: typeof(Coglatas.Domain.ProjectIde.RequirementPlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.resource-binding\", type: typeof(Coglatas.Domain.ProjectIde.ResourceBindingDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.task\", type: typeof(Coglatas.Domain.ProjectIde.TaskPlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.AllSevenConceptsAreSourceBackedTypedViews(kind: \"coglatas.workflow\", type: typeof(Coglatas.Domain.ProjectIde.WorkflowPlanDeclaration))",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.MissingRequiredFieldsAreInvalidAndRetained(kind: \"coglatas.requirement\", field: \"target\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.MissingRequiredFieldsAreInvalidAndRetained(kind: \"coglatas.resource-binding\", field: \"snapshotDigest\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.MissingRequiredFieldsAreInvalidAndRetained(kind: \"coglatas.task\", field: \"duration\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.MissingRequiredFieldsAreInvalidAndRetained(kind: \"coglatas.task\", field: \"ports\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.MissingRequiredFieldsAreInvalidAndRetained(kind: \"coglatas.workflow\", field: \"maximumTransitions\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.PortDefaultCardinalityAndIdentityAreValidated",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.ReferenceScopeAndUnknownContextCannotBeGuessed",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.ResourceKindsKeepAllocationAndConsumptionDistinct(kind: \"coglatas.equipment\", behavior: Reusable)",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.ResourceKindsKeepAllocationAndConsumptionDistinct(kind: \"coglatas.facility\", behavior: Reusable)",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.ResourceKindsKeepAllocationAndConsumptionDistinct(kind: \"coglatas.human\", behavior: Reusable)",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.ResourceKindsKeepAllocationAndConsumptionDistinct(kind: \"coglatas.material\", behavior: Consumable)",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.SourceIntegrationRetainsIdentityAndRejectsCrossTenantResourceBinding",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.UnsupportedDataIsNotDiscardedOrGivenDefaultSemantics(kind: \"coglatas.requirement\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.UnsupportedDataIsNotDiscardedOrGivenDefaultSemantics(kind: \"coglatas.resource-binding\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.UnsupportedDataIsNotDiscardedOrGivenDefaultSemantics(kind: \"coglatas.task\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.UnsupportedDataIsNotDiscardedOrGivenDefaultSemantics(kind: \"coglatas.workflow\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.UnsupportedDataIsNotDiscardedOrGivenDefaultSemantics(kind: \"future.widget\")",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.WorkDurationAndMilestoneSemanticsHaveNegativeControls",
+    "Coglatas.Tests.ProjectIde.PlanDeclarationTests.WorkflowAllowsExplicitlyBoundedLoopsWithoutClaimingExecution",
+    "Coglatas.Tests.ProjectIde.ProjectIdentityBoundaryTests.EveryIdentityFactoryConstructorAndTryParseEnforcesTheUuidBoundary",
+    "Coglatas.Tests.ProjectIde.ProjectLocationTests.CandidateAndScenarioBindingsNeverBecomeCommittedIdentity",
+    "Coglatas.Tests.ProjectIde.ProjectLocationTests.ContextAndLocationUnknownDataAndNullPresenceArePreserved",
+    "Coglatas.Tests.ProjectIde.ProjectLocationTests.EntityPropertyAndRelationLocationsRoundTripWithExactRevision",
+    "Coglatas.Tests.ProjectIde.ProjectLocationTests.ScopeMismatchAndConflictingDiscriminantsAreRejected",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalBytesDoNotDependOnCulture(culture: \"ar-SA\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalBytesDoNotDependOnCulture(culture: \"en-US\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalBytesDoNotDependOnCulture(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalBytesDoNotDependOnCulture(culture: \"ja-JP\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalBytesDoNotDependOnCulture(culture: \"tr-TR\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalGoldenBytesAndDomainTaggedDigestsAreStable",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalJsonUsesScalarOrderingExactDecimalsAndRequiredEscapes",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"-0.9\", maximumCharacters: 4)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"-9\", maximumCharacters: 2)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"-999\", maximumCharacters: 4)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"0.9\", maximumCharacters: 3)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"9\", maximumCharacters: 1)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CanonicalNumbersAtExactProcessingBoundAreAccepted(number: \"999\", maximumCharacters: 3)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CoreHasNoProjectVendorTransportOrPersistenceDependency",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CrossTypeIdentityEqualityAndConversionsAreForbidden",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.CustomProcessingBoundsApplyThroughNestedUnknownObjectBoundaries",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.DecodeReasonsDistinguishOpaqueDataFromInvalidBuffersWithoutDisclosingValues",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.DocumentReorderingChangesNeitherBytesNorDigestButOpaqueArrayOrderDoes",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.DuplicateEntityRelationAndDescriptorSetsAreRejected",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.DuplicateIdsAndDocumentDigestTamperingAreRejected",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.EmptyProjectRootsBadScopeAndUnpinnedReferencesAreRejected",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.FutureWholeSchemasRetainOriginalBytesWithoutParsingAsV1(field: \"format\", value: \"coglatas.project-source/2\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.FutureWholeSchemasRetainOriginalBytesWithoutParsingAsV1(field: \"schemaId\", value: \"future.schema\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"\\\\udc00\\\":1}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"a\\\":{\\\"x\\\":1,\\\"x\\\":2}}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"x\\\":\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"x\\\":1,\\\"x\\\":2}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"x\\\":1e999999999999999}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"x\\\":NaN}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.InvalidDraftBuffersAreRetainedExactly(json: \"{\\\"x\\\":\\\"\\\\ud800\\\"}\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MalformedUtf8AndBoundExhaustionAreInvalidWithoutTruncation",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"declarations\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"documents\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"extensionDeclarations\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"manifest\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"packageLock\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"relations\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.MissingRequiredFieldsAreNotDefaulted(field: \"sourceReferences\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.PaddedExponentsPreserveTheirExactFiniteDecimalValue(number: \"1e+00000000000000000000000000001\", expected: \"10\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.PaddedExponentsPreserveTheirExactFiniteDecimalValue(number: \"1e-00000000000000000000000000001\", expected: \"0.1\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.PaddedExponentsPreserveTheirExactFiniteDecimalValue(number: \"1e000000000000000000000000000000\", expected: \"1\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.PaddedExponentsPreserveTheirExactFiniteDecimalValue(number: \"1e0000000000001\", expected: \"10\")",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.RenameAndMoveRetainIdentityAndCrossDocumentReference",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.SourceWithoutProjectRootIsInvalidEvenWhenManifestMatches(retainNonProjectDocument: False)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.SourceWithoutProjectRootIsInvalidEvenWhenManifestMatches(retainNonProjectDocument: True)",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.BranchId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.CandidateRevisionId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.DocumentId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.EntityId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.ProjectId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.ProposalId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.RelationId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.RevisionId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.ScenarioId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.ScenarioRevisionId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.TypedIdsRoundTripAndRejectNonDomainUuids(type: typeof(Coglatas.Domain.ProjectIde.TenantId))",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.UnknownContextAndManifestEntryDataCannotBeCalledSupported",
+    "Coglatas.Tests.ProjectIde.ProjectSourceTests.UnknownValuesRemainAtTheirOriginalObjectBoundaries",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.DurationKindsAndCivilDatesCannotBecomeElapsedImplicitly",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.ElapsedTicksRoundTripExactly(text: \"-1\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.ElapsedTicksRoundTripExactly(text: \"-9223372036854775808\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.ElapsedTicksRoundTripExactly(text: \"0\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.ElapsedTicksRoundTripExactly(text: \"9223372036854775807\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2016-12-31T23:59:60.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-02-29T00:00:00.0000000Z\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-10-31T00:00:00.0000000\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-10-31T00:00:00.0000000+00:00\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-10-31T00:00:00.0000000+09:00\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-10-31T00:00:00.00000000Z\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantRejectsRoundingAndImplicitZones(text: \"2026-10-31T00:00:00Z\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.InstantUsesExactTicksAndHalfOpenIntervals",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.NoncanonicalOrOverflowingTicksAreRejected(text: \"+1\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.NoncanonicalOrOverflowingTicksAreRejected(text: \"-0\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.NoncanonicalOrOverflowingTicksAreRejected(text: \"01\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.NoncanonicalOrOverflowingTicksAreRejected(text: \"1.0\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.NoncanonicalOrOverflowingTicksAreRejected(text: \"9223372036854775808\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.TimeParsingIsCultureIndependent(culture: \"ar-SA\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.TimeParsingIsCultureIndependent(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.ProjectTimeValueTests.TimeParsingIsCultureIndependent(culture: \"ja-JP\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ComparisonRequiresExplicitPinnedConversion",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionBudgetsAndNumberBoundsReturnUnknown",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionCanonicalBytesAndDigestsAreCultureIndependent(culture: \"ar-SA\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionCanonicalBytesAndDigestsAreCultureIndependent(culture: \"en-US\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionCanonicalBytesAndDigestsAreCultureIndependent(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionCanonicalBytesAndDigestsAreCultureIndependent(culture: \"ja-JP\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ConversionRetainsOriginalAndPinnedProvenanceWithoutDecimalRounding",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.DerivedDimensionsAndUnitsAreExplicitAndChecked",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ExplicitInverseAndMultistepConversionsAreExact",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.FactoryNumericBoundExhaustionBecomesUnknownAndKeepsItsBasis",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.IdentityRequiresUnitBindingAndFactorOne",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InconsistentCyclesAndConflictingVersionedDefinitionsAreInvalidEvenForZero",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidAndUnsupportedInputsNeverBecomeNumericSuccess",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidConversionFactorsAreRejected(numerator: \"-1\", denominator: \"1\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidConversionFactorsAreRejected(numerator: \"0\", denominator: \"1\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidConversionFactorsAreRejected(numerator: \"01\", denominator: \"1\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidConversionFactorsAreRejected(numerator: \"1\", denominator: \"-1\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.InvalidConversionFactorsAreRejected(numerator: \"2\", denominator: \"4\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.MissingConversionPathEntryIsInvalidAndNeverProducesANormalizedValue",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.MissingValuesAreNeverConvertedToZero(state: \"coglatas.null\", expected: Null)",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.MissingValuesAreNeverConvertedToZero(state: \"coglatas.unknown\", expected: Unknown)",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericBoundsAndCumulativeOperationBudgetsRemainUnknown",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericOperationsUseExactExistingRational(operation: Add, left: \"0.1\", right: \"0.2\", expected: \"3/10\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericOperationsUseExactExistingRational(operation: Add, left: \"123456789012345678901234567890\", right: \"0.00000000000000000001\", expected: \"12345678901234567890123456789000000000000000000001\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericOperationsUseExactExistingRational(operation: Divide, left: \"1\", right: \"3\", expected: \"1/3\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericOperationsUseExactExistingRational(operation: Multiply, left: \"-0.1\", right: \"0.2\", expected: \"-1/50\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.NumericOperationsUseExactExistingRational(operation: Subtract, left: \"0.1\", right: \"0.2\", expected: \"-1/10\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.QuantizationIsExplicitWithOriginalBasisAndOnlyApprovedRounding",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnitIdentityMatchesTheFixedCanonicalGoldenVector",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnknownExtensionsRemainLosslessAndNonExecutable",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnknownUnitsRequirePinnedBindingBeforeAnyNumericSuccess",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnsupportedConversionKindsAreNeverLinearized(kind: \"coglatas.affine\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnsupportedConversionKindsAreNeverLinearized(kind: \"coglatas.nonlinear\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.UnsupportedConversionKindsAreNeverLinearized(kind: \"future.conversion\")",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.VersionDigestDimensionAndPathMismatchesAreNotConvertible",
+    "Coglatas.Tests.ProjectIde.ProjectUnitConversionTests.ZeroDenominatorIsRejectedWithoutCreatingAConversion",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CanonicalBytesDigestAndRoundTripAreCultureIndependent(culture: \"en-US\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CanonicalBytesDigestAndRoundTripAreCultureIndependent(culture: \"fr-FR\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CanonicalBytesDigestAndRoundTripAreCultureIndependent(culture: \"tr-TR\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CollectionPortDefaultsKeepExistingConnectionAndTypeRules",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CollectionsContainTypedValuesAndPreserveOrder(kind: \"coglatas.list\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CollectionsContainTypedValuesAndPreserveOrder(kind: \"coglatas.sequence\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.CollectionsContainTypedValuesAndPreserveOrder(kind: \"coglatas.set\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.InconsistentReferenceScopeAndUnknownContextFailSafely",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.MapRequiresMatchingKeyAndValueTypesAndUniqueCanonicalKeys",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.NamedAndUnknownExternalTypesStayOpaqueWithoutRuntimeTypeLoading",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.NestedCollectionsEnforceDepthElementAndTotalNodeBudgets",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.NullAndUnknownElementsRetainTheirSeparateStates(token: \"coglatas.null\", expected: Null)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.NullAndUnknownElementsRetainTheirSeparateStates(token: \"coglatas.unknown\", expected: Unknown)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.OptionalAbsenceNullAndUnknownAreDifferentFromEmptyCollection",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceContextChecksNeverCollapseDistinctScopes(field: \"branch\", expected: BranchMismatch)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceContextChecksNeverCollapseDistinctScopes(field: \"project\", expected: ScopeMismatch)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceContextChecksNeverCollapseDistinctScopes(field: \"revision\", expected: RevisionMismatch)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceContextChecksNeverCollapseDistinctScopes(field: \"tenant\", expected: ScopeMismatch)",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRejectsNoncanonicalOrDisplayIdentity(id: \"\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRejectsNoncanonicalOrDisplayIdentity(id: \"00000000-0000-0000-0000-000000000000\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRejectsNoncanonicalOrDisplayIdentity(id: \"00000000-0000-4000-8000-00000000000A\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRejectsNoncanonicalOrDisplayIdentity(id: \"Task name\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"context\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"entityId\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"manifest\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"origin\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"projectId\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.ReferenceRequiresEveryIdentityAndInputContext(missing: \"tenantId\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.SetIdentityIsExplicitAndDuplicateAndUnorderedRepresentationsAreRejected",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.StructureCanCarryAResourceReferenceWithoutClaimingResourceAvailability",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.StructureFieldsRespectRequiredOptionalNullableAndUnknownContracts",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.TypedReferenceRetainsPinnedIdentityManifestAndSourceWithoutResolving(kind: \"coglatas.document-reference\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.TypedReferenceRetainsPinnedIdentityManifestAndSourceWithoutResolving(kind: \"coglatas.entity-reference\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.TypedReferenceRetainsPinnedIdentityManifestAndSourceWithoutResolving(kind: \"coglatas.external-snapshot-reference\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.TypedReferenceRetainsPinnedIdentityManifestAndSourceWithoutResolving(kind: \"coglatas.resource-reference\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.UnsupportedExtensionsAreLosslesslyRetained(boundary: \"root\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.UnsupportedExtensionsAreLosslesslyRetained(boundary: \"type\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.UnsupportedExtensionsAreLosslesslyRetained(boundary: \"value\")",
+    "Coglatas.Tests.ProjectIde.ProjectValueShapeTests.VersionedShapeFixturesRoundTripThroughSourceDocumentsAndManifests",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: False, right: False)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: False, right: True)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: False, right: null)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: True, right: False)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: True, right: True)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: True, right: null)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: null, right: False)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: null, right: True)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.BooleanOperatorsUseThreeValuedLogic(left: null, right: null)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.NegationRetainsUnknown(value: False, expected: True)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.NegationRetainsUnknown(value: True, expected: False)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.NegationRetainsUnknown(value: null, expected: Unknown)",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.ShortCircuitRetainsOnlyActuallyEvaluatedPremises",
+    "Coglatas.Tests.ProjectIde.PurePredicateTests.UnsupportedOperatorsAndExhaustedLogicalBoundsNeverExecute",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ApplicationOnlyHostHasNoPersistenceAuthorityAndDefaultsToDisabled",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CandidateIdentityAndCapturedRevisionsCannotBeReused(changed: \"base\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CandidateIdentityAndCapturedRevisionsCannotBeReused(changed: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CandidateIdentityAndCapturedRevisionsCannotBeReused(changed: \"head\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CandidateIdentityAndCapturedRevisionsCannotBeReused(changed: \"proposal\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CompositionRootUsesEffectiveHostOptions(mode: \"Disabled\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CompositionRootUsesEffectiveHostOptions(mode: \"Shadow\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.CoordinatorCancellationFinishesPendingWithAwaitedIndependentCleanup",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.DefaultHostModeOverridesRequestShadowOptInAndEnforceIsRejectedBeforeEffects",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"branch\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"compiler\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"host-compiler\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"host-policy\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"input\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"policy\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"project\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"revision\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ForeignOrStaleBindingCannotBeAttachedAsMatching(changed: \"tenant\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"allow\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"already-terminal\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"cancelled\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"create-failed\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"deny\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"disabled\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"exception\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"quarantine\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"terminal-failed\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"timeout\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"unavailable\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: False, scenario: \"unknown\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"allow\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"already-terminal\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"cancelled\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"create-failed\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"deny\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"disabled\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"exception\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"quarantine\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"terminal-failed\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"timeout\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"unavailable\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.HeadlessAnalysisPreservesLegacyDecisionAndReportsTruthfulShadowMetadata(permitted: True, scenario: \"unknown\")",
+    "Coglatas.Tests.ProjectIde.RevisionSecurityGateTests.ReturnedAnalysisWaitsForTerminalPersistence",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.AProvidedCompilerCommitMustBeExactCanonicalIdentity(commit: \"\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.AProvidedCompilerCommitMustBeExactCanonicalIdentity(commit: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.AProvidedCompilerCommitMustBeExactCanonicalIdentity(commit: \"main\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"base-branch\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"base-revision\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"head-revision\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"proposal\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CandidateBindingIncludesProposalBaseAndCapturedHead(changedField: \"target-branch\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CanonicalBindingMatchesIndependentGoldenBytesAndDigest",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CompilerIdentityChangesTheBinding(changedField: \"build\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CompilerIdentityChangesTheBinding(changedField: \"commit\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.CompilerIdentityChangesTheBinding(changedField: \"version\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"claimed-compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"claimed-policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"host-compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"host-policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"host-source\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"operation\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"resource-context\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"resource-digest\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"subject-tenant\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"subject-user\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.ContradictoryClaimsCannotAliasTheQualifiedInput(changedField: \"supplied-source\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.EvaluationIdentityAndModeRemainOutsideSemanticBinding",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.EveryCommittedScopeIdentityParticipates(changedField: \"branch\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.EveryCommittedScopeIdentityParticipates(changedField: \"project\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.EveryCommittedScopeIdentityParticipates(changedField: \"revision\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.EveryCommittedScopeIdentityParticipates(changedField: \"tenant\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.MissingCompilerOrHostEvidenceIsExplicitAndNeverFabricated",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicyIdentityAndActualContentAreIndependentlyBound(changedField: \"content\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicyIdentityAndActualContentAreIndependentlyBound(changedField: \"schema\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicyIdentityAndActualContentAreIndependentlyBound(changedField: \"set\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicyIdentityAndActualContentAreIndependentlyBound(changedField: \"version\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicySchemaVersionMustBePositive(version: -1)",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PolicySchemaVersionMustBePositive(version: 0)",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PreservedUnknownSourceAndContextMembersParticipate(changedBoundary: \"context\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PreservedUnknownSourceAndContextMembersParticipate(changedBoundary: \"futureSource\")",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.PropertyDictionaryAndNumericOrderingDoNotChangeBinding",
+    "Coglatas.Tests.ProjectIde.SecurityBindingTests.SchemaAndDomainTagsPreventAccidentalCrossContractEquivalence",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.CompletedDecisionRequiresExecutedUniqueRules",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.DecisionFreezesCallerCollectionsAndRetainsActualPartialResults",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.DecisionsAreCompletedOutcomesWithDistinctSemantics(outcome: Allow, reason: BindingsVerified)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.DecisionsAreCompletedOutcomesWithDistinctSemantics(outcome: Deny, reason: PolicyViolation)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.DecisionsAreCompletedOutcomesWithDistinctSemantics(outcome: Quarantine, reason: BindingMismatch)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.DecisionsAreCompletedOutcomesWithDistinctSemantics(outcome: Unknown, reason: MissingEvidence)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.EnforceCompatibilityValueCannotBeActivatedByAnOverride(enforcementAllowed: False)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.EnforceCompatibilityValueCannotBeActivatedByAnOverride(enforcementAllowed: True)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.MissingEvidenceCannotBecomeDenyAndIntegrityAnomalyCannotBecomeRiskDeny",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NoncompletedExecutionCannotMasqueradeAsUnknownOrDeny(status: Cancelled, reason: EvaluationCancelled)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NoncompletedExecutionCannotMasqueradeAsUnknownOrDeny(status: Failed, reason: EvaluationFailed)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NoncompletedExecutionCannotMasqueradeAsUnknownOrDeny(status: NotExecuted, reason: NotExecuted)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NoncompletedExecutionCannotMasqueradeAsUnknownOrDeny(status: Pending, reason: NotExecuted)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NoncompletedExecutionCannotMasqueradeAsUnknownOrDeny(status: TimedOut, reason: EvaluationTimedOut)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.NullRuleInputsAreRejectedAtTheContractBoundary",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.OnlyDisabledAndShadowAreRuntimeAllowed(mode: Disabled)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.OnlyDisabledAndShadowAreRuntimeAllowed(mode: Shadow)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.PolicyAndCompilerIdentityAreBoundedMetadataWithoutFabricatedDefaults",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ReferencesCannotCarryUnrestrictedFreeText(value: \"\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ReferencesCannotCarryUnrestrictedFreeText(value: \"credential=value\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ReferencesCannotCarryUnrestrictedFreeText(value: \"private input\\nwith stack\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.RequestReusesCanonicalSourceIdentityAndPreservesAbsentEvidence",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ShadowSummaryNeverGrantsAuthority(outcome: Allow, reason: BindingsVerified)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ShadowSummaryNeverGrantsAuthority(outcome: Deny, reason: PolicyViolation)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ShadowSummaryNeverGrantsAuthority(outcome: Quarantine, reason: BindingMismatch)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.ShadowSummaryNeverGrantsAuthority(outcome: Unknown, reason: MissingEvidence)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationContractTests.UndefinedStatesAndDefaultIdentitiesAreRejected",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.AlreadyCancelledRequestExecutesNoRule",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.ApplicationRegistersExactlyTheThreeAnalysisOnlyFoundationRules",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.CallerCancellationWinsOverAnExpiredDeadline",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.CancellationAwaitsEvaluatorCleanupAndPreservesEarlierResults",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.CooperativeTimeoutIsDistinctAndLeavesNoDetachedEvaluator",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.DisabledDoesNotExecuteAndRetainsUnexecutedCoverage",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.DuplicateAndNullRegistrationsAreRejected",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EmptyRuleCoverageCannotProduceAllow(mode: Disabled)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EmptyRuleCoverageCannotProduceAllow(mode: Shadow)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EnforceIsRejectedBeforeEvaluatorExecution",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EvaluatorExecutionStatesAreNeverPolicyDecisions(status: Cancelled, reason: EvaluationCancelled)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EvaluatorExecutionStatesAreNeverPolicyDecisions(status: Failed, reason: RuleExecutionFailed)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EvaluatorExecutionStatesAreNeverPolicyDecisions(status: NotExecuted, reason: RuleNotExecuted)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EvaluatorExecutionStatesAreNeverPolicyDecisions(status: TimedOut, reason: EvaluationTimedOut)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.EveryOutcomeIsRetainedAndQuarantineDominates",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.ExecutionTimeoutMustFitTheCooperativeTimer",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidOrFailedEvaluatorPreservesPartialResultsAndSafeFailure(failure: \"exception\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidOrFailedEvaluatorPreservesPartialResultsAndSafeFailure(failure: \"foreign-id\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidOrFailedEvaluatorPreservesPartialResultsAndSafeFailure(failure: \"null\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidOrFailedEvaluatorPreservesPartialResultsAndSafeFailure(failure: \"pending\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidOrFailedEvaluatorPreservesPartialResultsAndSafeFailure(failure: \"unrelated-cancellation\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidRuleIdentitiesAreRejected(ruleId: \"\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidRuleIdentitiesAreRejected(ruleId: \"line\\nbreak\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.InvalidRuleIdentitiesAreRejected(ruleId: \"unsafe rule\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.LateResultAfterCooperativeDeadlineIsNotQualifiedAsAllow",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.MutableRegistrationCannotChangeItsCapturedRuleIdentity",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.OrderingIsOrdinalStableAndRegistrationCollectionIsFrozen",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.ResultReturnedAfterCallerCancellationIsNotQualifiedAsAllow",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.SuccessfulOutcomesHaveExplicitSeverityPrecedence(first: Allow, second: Allow, expected: Allow)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.SuccessfulOutcomesHaveExplicitSeverityPrecedence(first: Allow, second: Unknown, expected: Unknown)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.SuccessfulOutcomesHaveExplicitSeverityPrecedence(first: Deny, second: Quarantine, expected: Quarantine)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.SuccessfulOutcomesHaveExplicitSeverityPrecedence(first: Quarantine, second: Unknown, expected: Quarantine)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationCoordinatorTests.SuccessfulOutcomesHaveExplicitSeverityPrecedence(first: Unknown, second: Deny, expected: Deny)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationDiagnosticsTests.ConcurrentProcessCountersAreBoundedAndDoNotLoseRequests",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationDiagnosticsTests.RejectedEnforceRequestIsVisibleWithoutExecutingOrRecording",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.ContradictoryAggregateAndEarlierTimeCannotPartiallyTerminalize",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.DurableIdentityContainsOnlySafeMetadataAndPreservesAbsentEvidence",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.EnforceCannotCreateEvenAnInMemoryDurableRun",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.PendingRulesAndInvalidSequenceCannotBecomeDurableResults",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.TerminalExecutionStatesPreserveBindingAndNeverFabricateFailureOutcomes(status: Cancelled, reason: EvaluationCancelled)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.TerminalExecutionStatesPreserveBindingAndNeverFabricateFailureOutcomes(status: Completed, reason: BindingsVerified)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.TerminalExecutionStatesPreserveBindingAndNeverFabricateFailureOutcomes(status: Failed, reason: EvaluationFailed)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.TerminalExecutionStatesPreserveBindingAndNeverFabricateFailureOutcomes(status: NotExecuted, reason: NotExecuted)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationPersistenceContractTests.TerminalExecutionStatesPreserveBindingAndNeverFabricateFailureOutcomes(status: TimedOut, reason: EvaluationTimedOut)",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.ApplicationCompositionExposesUnavailableCurrentnessWithoutInventingHostEvidence",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.AuthorizedProjectionRetainsSafeMetadataAndAnIndependentCurrentBinding",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.CandidateFreshnessIncludesProposalBaseAndCapturedHead(changed: \"base\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.CandidateFreshnessIncludesProposalBaseAndCapturedHead(changed: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.CandidateFreshnessIncludesProposalBaseAndCapturedHead(changed: \"head\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.CandidateFreshnessIncludesProposalBaseAndCapturedHead(changed: \"proposal\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.CurrentnessIgnoresHistoricalActorButNeverReplacesCurrentAuthorization",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"branch\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"candidate\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"extension\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"host-compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"host-policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"input\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"project\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"revision\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"subject-tenant\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.KnownChangesCannotMakeHistoricalEvidenceCurrent(changed: \"tenant\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"current-compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"current-policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"current-source\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"provider\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"saved-compiler\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"saved-policy\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.MissingEvidenceIsUnverifiedEvenWhenNullsWouldMatch(missing: \"saved-source\")",
+    "Coglatas.Tests.ProjectIde.SecurityEvaluationReaderTests.UnauthorizedKnownIdDoesNotInvokeContextProviderAndRevocationDuringResolutionReturnsNothing",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.DefaultlessPortInspectionUsesItsActualSourceType",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.FindReferencesUsesResolvedSymbolIdentityAndRetainsSourceCoverage",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.InspectionIsDeterministicInputBoundAndRejectsAnotherRevisionOrLocation",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.LateOrMismatchedResponsesCannotReplaceAnAcceptedSyntheticView(mismatch: \"generation\")",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.LateOrMismatchedResponsesCannotReplaceAnAcceptedSyntheticView(mismatch: \"materialization\")",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.LateOrMismatchedResponsesCannotReplaceAnAcceptedSyntheticView(mismatch: \"revision\")",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.LateOrMismatchedResponsesCannotReplaceAnAcceptedSyntheticView(mismatch: \"status\")",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.PartialInspectionRetainsUnsupportedSymbolsWithoutClaimingIrOrKnownValues",
+    "Coglatas.Tests.ProjectIde.SemanticInspectionTests.SyntheticWindowsViewModelPresentsSourceProblemsInspectorAndClearsEveryBoundary",
+    "Coglatas.Tests.ProjectIde.Slice2CrossContractTests.CollectionPortQuantitiesNeedPinnedBindingsBeforeArithmetic",
+    "Coglatas.Tests.ProjectIde.Slice2CrossContractTests.OpaqueCollectionExtensionsStayNonExecutableThroughSourceRoundTrip",
+    "Coglatas.Tests.ProjectIde.Slice2CrossContractTests.UnknownQuantityAndUnknownPredicateKeepInputBasisWithoutSuccessCoercion",
+    "Coglatas.Tests.ProjectIde.Slice2CrossContractTests.WorkingTimeAndCivilPeriodsCannotBeUsedAsNumericQuantities(kind: \"coglatas.calendar-period\")",
+    "Coglatas.Tests.ProjectIde.Slice2CrossContractTests.WorkingTimeAndCivilPeriodsCannotBeUsedAsNumericQuantities(kind: \"coglatas.working-duration\")",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"branch-pass\\\",\\n      \\\"projec\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"cancelled\\\",\\n      \\\"projectN\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"fail\\\",\\n      \\\"projectName\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"not-run\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"other-project\\\",\\n      \\\"proj\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"pass\\\",\\n      \\\"projectName\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"stale-pass\\\",\\n      \\\"project\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"timeout\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"unknown\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchFixtureTests.WindowsPureViewModelUsesTheSameCoreFixtureAndRejectsStaleOrUnexecutedResults(fixture: \"{\\n      \\\"key\\\": \\\"unsupported\\\",\\n      \\\"projec\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchReentrancyTests.ANewerLifecycleStartedByResetNotificationCannotBeOverwrittenByTheOuterBegin",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchReentrancyTests.DisposalBlocksReentrantBeginBeforeNotifyingSubscribers",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchReentrancyTests.ReentrantDisposeIsIdempotentWithoutRecursiveNotifications",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchReentrancyTests.ResetOrDisposeDuringBeginNotificationPreventsOuterPublication(dispose: False)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchReentrancyTests.ResetOrDisposeDuringBeginNotificationPreventsOuterPublication(dispose: True)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchTerminalStateTests.CurrentFailureStopsWaitingAndAChangedGenerationCanRetry(status: Cancelled)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchTerminalStateTests.CurrentFailureStopsWaitingAndAChangedGenerationCanRetry(status: InternalError)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchTerminalStateTests.CurrentFailureStopsWaitingAndAChangedGenerationCanRetry(status: InvalidInput)",
+    "Coglatas.Tests.ProjectIde.SyntheticWorkbenchTerminalStateTests.CurrentFailureStopsWaitingAndAChangedGenerationCanRetry(status: Unsupported)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.boolean\", json: \"0\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.boolean\", json: \"true\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.calendar-period\", json: \"{\\\"years\\\":0,\\\"months\\\":1,\\\"days\\\":0}\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.calendar-period\", json: \"{\\\"years\\\":0,\\\"months\\\":2147483648,\\\"days\\\":0}\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.decimal\", json: \"0.1\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.decimal\", json: \"\\\"-0\\\"\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.decimal\", json: \"\\\"1e2\\\"\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.elapsed-duration\", json: \"\\\"-1\\\"\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.instant\", json: \"\\\"2026-10-31T00:00:00.0000000Z\\\"\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.instant\", json: \"\\\"2026-10-31T00:00:00Z\\\"\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.rational\", json: \"{\\\"numerator\\\":\\\"-1\\\",\\\"denominator\\\":\\\"-3\\\"}\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.rational\", json: \"{\\\"numerator\\\":\\\"1\\\",\\\"denominator\\\":\\\"0\\\"}\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.rational\", json: \"{\\\"numerator\\\":\\\"1\\\",\\\"denominator\\\":\\\"3\\\"}\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.rational\", json: \"{\\\"numerator\\\":\\\"2\\\",\\\"denominator\\\":\\\"6\\\"}\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.text\", json: \"\\\"\\\"\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"coglatas.zoned-local-date-time\", json: \"{\\\"local\\\":\\\"2026-10-31T00:00:00\\\"}\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.BuiltInValuesValidateWithoutCoercion(kind: \"future.numeric\", json: \"{\\\"amount\\\":123456789012345678901234567890}\", expected: Unsupported)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.DimensionRejectsZeroAndOverflowingPowers",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.FutureTypeDescriptorsDoNotRequireVersionOneFlags(kind: \"coglatas.decimal\", version: 2)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.FutureTypeDescriptorsDoNotRequireVersionOneFlags(kind: \"future.numeric\", version: 1)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.KnownNullUnknownAndAbsenceAreDifferent",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.QuantityChecksDimensionsAndRequiresExplicitUnitConversion(unitId: \"unit.centimetre\", dimension: \"dimension.length\", expected: Unsupported)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.QuantityChecksDimensionsAndRequiresExplicitUnitConversion(unitId: \"unit.metre\", dimension: \"dimension.length\", expected: Decoded)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.QuantityChecksDimensionsAndRequiresExplicitUnitConversion(unitId: \"unit.second\", dimension: \"dimension.time\", expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.SharedGoldenFixturesRetainSourceCodecIdentityAndExactOpaquePayloads",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.StatePayloadsCannotContradictEachOther",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.UnknownEnumNeverFallsBackToFirstToken",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.UnknownMembersArePreservedAtEveryBoundaryAndPreventCompatibilityClaims(boundary: \"root\")",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.UnknownMembersArePreservedAtEveryBoundaryAndPreventCompatibilityClaims(boundary: \"type\")",
+    "Coglatas.Tests.ProjectIde.TypedProjectValueTests.UnknownMembersArePreservedAtEveryBoundaryAndPreventCompatibilityClaims(boundary: \"value\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ApplicationReceiptBindsSourceAndCancellation",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.AttachedConstraintChecksTargetAndPredicateWithoutClaimingSatisfaction",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.BoundedWorkflowRepetitionIsNotADependencyCycle",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ContextMismatchIsNeverResolved(project: 92, revision: 94, tenant: 91, branch: 95)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ContextMismatchIsNeverResolved(project: 92, revision: 94, tenant: 95, branch: 93)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ContextMismatchIsNeverResolved(project: 92, revision: 95, tenant: 91, branch: 93)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ContextMismatchIsNeverResolved(project: 95, revision: 94, tenant: 91, branch: 93)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.CrossProjectSnapshotMustBePinnedAuthorizedAndUnambiguous",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.CycleDiagnosticsDoNotAccuseADownstreamTail",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.DescriptorsHaveVersionedCapabilitiesScopesAndCanonicalIdentity",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowChecksDirectionAndExactTypes(side: \"source\", field: \"direction\", value: \"coglatas.input\", expected: \"port-direction\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowChecksDirectionAndExactTypes(side: \"target\", field: \"direction\", value: \"coglatas.output\", expected: \"port-direction\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowChecksDirectionAndExactTypes(side: \"target\", field: \"type\", value: \"coglatas.boolean\", expected: \"port-type\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowNullAndUnknownCapabilitiesAreCheckedDirectionally(outputNull: False, outputUnknown: False, inputNull: True, inputUnknown: True, invalid: False)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowNullAndUnknownCapabilitiesAreCheckedDirectionally(outputNull: False, outputUnknown: True, inputNull: True, inputUnknown: False, invalid: True)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowNullAndUnknownCapabilitiesAreCheckedDirectionally(outputNull: True, outputUnknown: False, inputNull: False, inputUnknown: True, invalid: True)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.FlowNullAndUnknownCapabilitiesAreCheckedDirectionally(outputNull: True, outputUnknown: True, inputNull: True, inputUnknown: True, invalid: False)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.InvalidSnapshotAndUnitEntriesFailSafelyWithoutDroppingTheirChecks",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MalformedSupportedShapeFailsSafely(field: \"descriptor\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MalformedSupportedShapeFailsSafely(field: \"payload\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MalformedSupportedShapeFailsSafely(field: \"source\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MalformedSupportedShapeFailsSafely(field: \"target\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MissingReferenceRequiresCompleteAuthorizedScope(complete: False, expected: UnknownDueToCoverage)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MissingReferenceRequiresCompleteAuthorizedScope(complete: True, expected: MissingWithinCompleteScope)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.MixedRelatednessCycleDoesNotEnterSchedulingGraph",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ReadableDependencyModeDoesNotImplyLoweringSupport(mode: \"coglatas.finish-to-finish\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ReadableDependencyModeDoesNotImplyLoweringSupport(mode: \"coglatas.start-to-finish\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ReadableDependencyModeDoesNotImplyLoweringSupport(mode: \"coglatas.start-to-start\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.RequiredInputCoverageAndDefaultAreSeparateFromMaximumCardinality",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.RequirementLinkNeverProvesEvidenceOrSatisfaction(kind: \"coglatas.satisfies\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.RequirementLinkNeverProvesEvidenceOrSatisfaction(kind: \"coglatas.verifies\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ResourceBehaviorAndUnboundUnitsCannotBeTreatedAsValid(kind: \"coglatas.allocates\", resourceKind: \"coglatas.material\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.ResourceBehaviorAndUnboundUnitsCannotBeTreatedAsValid(kind: \"coglatas.consumes\", resourceKind: \"coglatas.human\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.SourceOrderDoesNotChangeDiagnosticsOrSourceBytesAndBudgetIsExplicit",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"descriptorVersion\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"endpoint\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"extension\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"kind\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"payload\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.UnsupportedSemanticsRetainIdentityEndpointsAndRawPayload(change: \"schemaVersion\")",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"duplicate-association\\\",\\\"category\\\":\\\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"duplicate-dependency\\\",\\\"category\\\":\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"invalid-dataflow-cycle\\\",\\\"category\\\":\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"multi-node-cycle\\\",\\\"category\\\":\\\"Cycl\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"related-cycle\\\",\\\"category\\\":\\\"Valid R\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"scalar-multiple-binding\\\",\\\"category\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"self-dependency\\\",\\\"category\\\":\\\"Inval\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"two-node-cycle\\\",\\\"category\\\":\\\"Cycle \"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"unsupported-extension\\\",\\\"category\\\":\\\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"valid-dag\\\",\\\"category\\\":\\\"Valid Relat\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.TypedRelationTests.VersionedGraphFixturesDistinguishKindsAndInvariants(fixture: \"{\\\"name\\\":\\\"valid-port-binding\\\",\\\"category\\\":\\\"Po\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"branch-pass\\\",\\n      \\\"projec\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"cancelled\\\",\\n      \\\"projectN\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"fail\\\",\\n      \\\"projectName\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"not-run\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"other-project\\\",\\n      \\\"proj\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"pass\\\",\\n      \\\"projectName\\\"\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"stale-pass\\\",\\n      \\\"project\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"timeout\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"unknown\\\",\\n      \\\"projectNam\"\u00b7\u00b7\u00b7)",
+    "Coglatas.Tests.ProjectIde.WebPreviewContractTests.BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(fixture: \"{\\n      \\\"key\\\": \\\"unsupported\\\",\\n      \\\"projec\"\u00b7\u00b7\u00b7)"
+  ],
+  "architectureTests": [
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Application_DoesNotDependOnInfrastructure",
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Application_DoesNotDependOnWeb",
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Domain_DoesNotDependOnApplication",
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Domain_DoesNotDependOnInfrastructure",
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Domain_DoesNotDependOnWeb",
+    "Coglatas.Architecture.Tests.LayerDependencyTests.Infrastructure_DoesNotDependOnWeb",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.BoundaryRuleDetectsAnIntentionallyForbiddenEnvironmentDependency",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.BoundaryRuleDetectsAnIntentionallyForbiddenPlatformDependency",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.ProductSourceCoreUsesOnlyPureBclAndOwnedTypes",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.SecurityEvaluationEngineCannotDependOnStateOrTransportServices",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.SecurityFoundationContractsRemainInsideThePureSourceBoundary",
+    "Coglatas.Architecture.Tests.ProjectIdeBoundaryTests.ShadowSeamCannotObtainExistingMutationOrMergeServices"
+  ],
+  "vitestTests": [
+    {
+      "file": "src/app/app.routes.spec.ts",
+      "name": "application Project Task routes separates Workspace channel directory, joined-channel activity, and DM inside the authenticated shell",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/app.routes.spec.ts",
+      "name": "application Project Task routes places the New Task route before generic Task detail so \"new\" is never treated as an ID",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/auth/auth-session.guard.spec.ts",
+      "name": "authSessionGuard allows private routes only after validating the server session",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/auth/auth-session.guard.spec.ts",
+      "name": "authSessionGuard redirects unauthenticated users to login",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/auth/auth-session.guard.spec.ts",
+      "name": "authSessionGuard treats forbidden bootstrap responses as unauthenticated and redirects to login",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/feature-flags/frontend-feature-flags.service.spec.ts",
+      "name": "FrontendFeatureFlagsService defaults the v0.4 design system to enabled and supports rollback",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/feature-flags/frontend-feature-flags.service.spec.ts",
+      "name": "FrontendFeatureFlagsService keeps Syncfusion implementations disabled until their independent rollout flags are enabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/feature-flags/frontend-feature-flags.service.spec.ts",
+      "name": "FrontendFeatureFlagsService uses tasks.kanbanV1 only as a reversible presentation rollout",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/feature-flags/frontend-feature-flags.service.spec.ts",
+      "name": "FrontendFeatureFlagsService uses tasks.ganttV1 only as a reversible Schedule-tab presentation rollout",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/i18n/i18n.service.spec.ts",
+      "name": "I18nService uses Japanese by default and persists an explicit English selection",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/i18n/i18n.service.spec.ts",
+      "name": "I18nService restores a previously saved language preference",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/i18n/i18n.service.spec.ts",
+      "name": "I18nService keeps calendar-only dates on their original day across locale and timezone preferences",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/i18n/i18n.service.spec.ts",
+      "name": "I18nService switches typed work statuses without changing their machine identities",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/core/i18n/i18n.service.spec.ts",
+      "name": "I18nService supplies Japanese Files, API error, and grid labels from the same locale source",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection shows only selected Source symbols and resolved incoming references, then clears on context change",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted input inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted context inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted source inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted symbol-kind inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted duplicate inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted location inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted reference-state inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted symbol-key inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted declared-type inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection rejects a substituted location-document inspection envelope",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection retains compatibility with a fixture that has no optional inspection, without inferring symbols",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection visits Source declarations a bounded number of times while validating many inspection entries",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection visits Source documents a bounded number of times while validating many inspection entries",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection visits Source ports a bounded number of times while validating many inspection entries",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components is disabled by default and never reads fixtures when disabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components denies unauthenticated preview reads",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components labels synthetic artifacts and disables real Compile",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components shows project, workspace, branch and revision identities",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components keeps unloaded results NotRun",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components connects Problems to Inspector and a stable source target",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components filters without reordering diagnostic identities",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components restores the visible severity filter after recreating Problems",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components restores the visible kind filter after recreating Problems",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components does not call zero/incomplete not-run results successful",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components does not call zero/incomplete cancelled results successful",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components does not call zero/incomplete timeout results successful",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components does not call zero/incomplete unknown results successful",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components does not call zero/incomplete unsupported results successful",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components keeps stale pass visibly stale and refuses current source navigation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components restores focus to Inspector navigation on close and clears selection",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components discards an obsolete focus request when Revision changes before the timer",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components resets panels and filters and cancels deferred focus on a preview reload",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components announces errors without private details",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components announces loading, allows cancellation and discards the late result",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components shows unknown selection instead of inventing a target",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components clears context and data immediately on permission revocation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components clears data on authorization invalidation even with unchanged session identity",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components localizes view copy without translating semantic codes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide-workbench.component.spec.ts",
+      "name": "ProjectIDE Workbench components invalidates selection when active Workspace changes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested context.branch with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.boundInputStamp with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.boundInputStamp.sourceDigest with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested source.documents with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested sourceText with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested sourceMap.nodes with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested sourceMap.relations with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested declarations.0.data with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.diagnostics.0.primaryLocation.context with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.rules with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.diagnostics.0.evidence.premises with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects missing nested result.rules.0.evidence with an explicit unsupported error",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects null cases without a native TypeError",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in source.documents",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in declarations",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in relations",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in result.diagnostics",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in result.rules",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects ambiguous duplicate identities in result.artifacts",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects a diagnostic pointing outside the Source document set",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects an impossible Core evidence shape: missing-with-premises",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects an impossible Core evidence shape: proof-without-premises",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects an impossible Core evidence shape: proof-with-missing-reason",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract reads only explicitly synthetic exporter artifacts",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for fail",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for unknown",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for unsupported",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for not-run",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for cancelled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for timeout",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract retains independent Core axes for stale-pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects fail as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects unknown as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects unsupported as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects not-run as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects cancelled as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects timeout as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract never projects stale-pass as a complete current pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract projects only the current complete proven pass",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract does not turn missing evidence into success",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects unsupported format",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects unsupported mode",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects future execution tokens",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects a substituted result input",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects a substituted source digest",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects a source map from another input",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract rejects a source map without its producing result artifact",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract does not associate a produced SourceMap with not-run",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract does not associate a produced SourceMap with cancelled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract does not associate a produced SourceMap with timeout",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE Core artifact view contract preserves exact diagnostic order and semantic identities",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rechecks direct navigation binding for result.boundInputStamp.sourceContext.branch.tenantId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rechecks direct navigation binding for result.compilerInputId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rechecks direct navigation binding for sourceMap.compilerInputId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rechecks direct navigation binding for sourceMap.nodes.0.location.context.branch.tenantId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rechecks direct navigation binding for declarations.0.location.context.branch.tenantId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects direct navigation when the producing artifact is missing",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input source.documents",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input sourceText",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input sourceMap.nodes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input sourceMap.relations",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input context.branch",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects malformed navigation input declarations.0.location",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation safely rejects a malformed location context",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation resolves the same revision by stable entity and document ID",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects another tenantId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects another projectId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects another branchId",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects another revision",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation blocks stale source-map navigation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation fails safely for missing document/entity/path",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation does not use a logical filename as identity",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation rejects navigation absent from a produced SourceMap",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation resolves Core property paths and relations",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE semantic source navigation validates exact UTF-16 boundaries rather than Unicode scalar counts",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation clears prior state on branch-pass context changes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation clears prior state on other-project context changes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation discards results and selection on revision/branch context changes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation clears all protected data on permission revocation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation aborts and discards a late old generation even when the reader ignores cancellation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation does not repopulate after disposal or cancel",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation reports errors without carrying an earlier result and supports recovery",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projectide/projectide.contracts.spec.ts",
+      "name": "ProjectIDE context and cancellation generation keeps unknown selections unavailable",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban hot-switches mounted Draft feedback without loading an operational collection",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban loads the canonical snapshot independently from the legacy Task list",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban records only the parent Research after its authorized Project detail is applied",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not start stale Project subresource reads after the route switches to a Draft",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not let a held initial snapshot overwrite newer realtime HTTP reconciliation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban optimistically updates a schedule, accepts the flat command result, and refetches the authoritative snapshot",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban replaces resolved item warnings with the complete authoritative command warning set",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban reconciles mixed Task and dependency command warnings before the authoritative refetch",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban accepts an authoritative same-version response for a no-op progress command",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban rolls a validation failure back and preserves nested safe diagnostics",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban preserves a safe edit intent on conflict, refetches, and retries only on explicit user action",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not send schedule commands for a viewer even when called directly",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban adds and removes FS dependencies through the canonical PR02 routes and refetches after each mutation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban rolls an optimistic dependency addition back when the authoritative command rejects it",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban allows an authorized dependency edge to target a derived parent Task",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban keeps the HTTP schedule usable in degraded realtime mode",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban ignores stale realtime hints and coalesces duplicate authoritative refetches",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban coalesces invalidations arriving during an HTTP snapshot into one follow-up refetch",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban coalesces Task-list invalidations and applies the newest authoritative response",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not strand a dedicated Task-list refresh when Project projections overlap it",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban retains a valid initial Task list when a newer realtime refresh fails and clears visible feedback after retry",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not apply an old dedicated Task-list response after a same-Project remount",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban refetches the authoritative Task list after a successful schedule mutation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban refetches the authoritative Task list after a successful progress mutation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban refetches the authoritative Task list after a successful board move",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not restore an in-flight Task-list response after authorization is revoked",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban queues schedule invalidation while a schedule form is active and refetches after it closes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban applies an optimistic move and then replaces it with the authoritative HTTP response",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban refetches the selected query-only presentation after an authoritative move response uses board defaults",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban rolls a denied move back without hiding the still-authorized board",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban rolls back a stale move and refetches the authoritative board",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban queues invalidation during an active menu and reconciles only after it closes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban uses the centralized reauthorized reconnect catch-up to refetch authoritative HTTP state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban clears protected projections before HTTP refetch when reconnect reauthorization is denied",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban defers reconnect catch-up while a move menu is active",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban sends manager configuration as a versioned vendor-neutral intent and accepts the authoritative result",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban clears protected state before revalidating an authorization invalidation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not restore an in-flight schedule response after authorization is revoked",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not let an old command response release a new post-reauthorization command",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not let a command from an earlier same-Project load release the current command",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban discards an older authoritative Gantt GET after authorization revalidation denies access",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban accepts current read-only Gantt state after authorization changes while discarding an older editable GET",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban does not reapply in-flight command responses after authorization is revoked",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban restarts an initial Project load after authorization changes and discards the old response",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban loads only the authoritative Project detail for a canonical Draft",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban rechecks a mounted Draft after another actor activates it before loading operational views",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban posts one exact activation command then loads operational projections only after authoritative Active state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban restores the committed activation announcement after delayed authorization revalidation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban derives activation completion when authorization changes before the command response resumes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban fails closed when a pre-reauthorization activation response is denied",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban keeps activation feedback hidden when catch-up denies the Project",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban destroys retained activation feedback at the workspace boundary",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban destroys retained activation feedback at the tenant boundary",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban destroys retained activation feedback at the session boundary",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban reconciles mismatched success before allowing another activation attempt",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban reconciles conflict before allowing another activation attempt",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban reconciles server failure before allowing another activation attempt",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban keeps a Draft visible but disables retry when authoritative reconciliation is unavailable",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban drops a held activation response after the Project route boundary is released",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban uses the maintained List and does not request Kanban when the presentation flag is disabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail.facade.spec.ts",
+      "name": "ProjectDetailFacade canonical Kanban uses tasks.ganttV1 only as a presentation switch over the same canonical snapshot",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states opens an authorized Project artifact read-only list only on request",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states keeps the Project hierarchy breadcrumb as a real router link across locales",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states renders WIP, hierarchy, blocked, priority, recent-Done, and narrow-layout meaning as text",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states switches the Low Board priority label without translating supplied content or changing card state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states switches the Medium Board priority label without translating supplied content or changing card state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states switches the High Board priority label without translating supplied content or changing card state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states switches the Critical Board priority label without translating supplied content or changing card state",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states renders an authorized empty board separately from permission denial",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states falls back to the maintained Project Task List when the presentation flag is disabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states surfaces a transient authoritative Task-list refresh failure and offers a retry",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states renders the canonical narrow Schedule projection with calendar, WorkItem, dependency, warning, and form actions",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states uses backend permissions for read-only controls and the feature flag only for the maintained projection",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states updates compatibility schedule and workload framing while preserving supplied names and Stage text",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states forwards canonical edit intents and opens the existing Task Detail route",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states keeps preserved conflict intent actionable after authoritative refetch returns ready",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states opens on Overview and renders only the canonical Draft explanation before activation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states does not expose activation when the backend affordance is absent",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states moves focus to the stable Overview announcement when activation removes the button",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states restores focus to activation completion after authorization temporarily removes the live region",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states focuses the persistent page target when authorization clearing ends in denial",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states moves focus to the persistent page target when activation authorization is denied",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states offers New Task only from an operational Project with server create authority",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts",
+      "name": "ProjectDetailPageComponent canonical Kanban states reloads a reused detail page for each distinct route Project and resets local tabs",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.task-create-navigation.spec.ts",
+      "name": "ProjectDetailPageComponent Task create navigation recovery retries the same Task create navigation after a transient authorization clear reauthorizes the Project",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.task-create-navigation.spec.ts",
+      "name": "ProjectDetailPageComponent Task create navigation recovery discards the retry intent when the reauthorized Project no longer grants Task create authority",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/project-detail-page/project-detail-page.task-create-navigation.spec.ts",
+      "name": "ProjectDetailPageComponent Task create navigation recovery discards the pending retry when the mounted route moves to another Project",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent renders stage, category, independent Blocked state, update time, and artifact state in semantic cards",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent localizes UI and instant dates without translating a configured Stage or changing source timestamps",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent falls back to CreatedAt and states negative Blocked and artifact values with text",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent does not claim artifact absence when the source contract has no artifact projection",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent keeps every demo-critical state and the Open action ahead of secondary desktop columns",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/features/projects/task-table/task-table.component.spec.ts",
+      "name": "TaskTableComponent emits the same row action contract from the responsive card",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/angular22-third-party-compatibility.spec.ts",
+      "name": "Angular 22 third-party compatibility instantiates the current Syncfusion Inputs and Popups Angular wrappers with Lucide",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/angular22-third-party-compatibility.spec.ts",
+      "name": "Angular 22 third-party compatibility loads the production Gantt, Syncfusion Grid, and AG Grid Angular integration classes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/angular22-third-party-compatibility.spec.ts",
+      "name": "Angular 22 third-party compatibility loads the production SignalR transport and preserves RxJS execution in the jsdom test runtime",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/angular22-third-party-compatibility.spec.ts",
+      "name": "Angular 22 third-party compatibility loads the zone.js runtime used by the retained Storybook browser target",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells switches a Japanese move form to English without clearing its reason or changing Stage identities",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells updates an open progress validation message on locale change without submitting or losing the edit",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells retranslates canonical item kinds and dependency framing while preserving supplied names and enum values",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells renders stable Coglatas selectors and consumes theme/density context without vendor DOM",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells uses the same vendor-neutral move intent for keyboard ordering and keeps detail activation separate",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells opens the reason-required move form for a Cancelled drop and emits the preserved drag intent only after a reason is entered",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells keeps a reason-required drag active until Escape or Cancel and restores focus without emitting a command",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells emits a reason-free pointer drop directly with the canonical end-of-Stage intent",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells restores logical card focus and renders narrow grouped columns without exposing a vendor element",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells reapplies logical card focus when an authoritative snapshot replaces the focused items",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells cancels the keyboard move with Escape, restores focus, and hides denied move actions",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells uses canonical Stage rank for start and before while End stays null/null for a truncated presentation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells renders the canonical narrow Schedule as semantic ordered sections with textual state and opens details",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells routes schedule, clear, progress, Milestone, and FS dependency forms through canonical intents",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells traps the editor workflow, sends no command on Escape or Cancel, and restores logical focus",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells hides every mutating action for a read-only viewer while retaining semantic data and Open details",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells does not convert schedule edit permission into schedule-clear permission",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells allows an authorized derived parent to author an FS dependency without exposing derived date or progress edits",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts",
+      "name": "Coglatas complex adapter shells restricts Milestone progress to the canonical 0 or 100 values",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation blocks selection and Retry while preserving in-flight Cancel",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation preserves the existing global disabled control for selection, Cancel and Retry",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation honors explicit per-item retry eligibility while preserving the existing default",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation keeps selection single-file by default and permits selecting the same file again",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation presents accessible active progress with total percentage undefined",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation presents accessible active progress with total percentage 0",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation presents accessible active progress with total percentage 37",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-file-uploader.component.spec.ts",
+      "name": "Coglatas file uploader presentation presents accessible active progress with total percentage 100",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-gantt-vendor-eligibility.spec.ts",
+      "name": "CoglatasGanttComponent vendor eligibility keeps the desktop visual timeline eligible for an empty canonical snapshot",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-gantt-vendor-eligibility.spec.ts",
+      "name": "CoglatasGanttComponent vendor eligibility keeps the desktop visual timeline eligible when every Task is unscheduled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/coglatas-gantt-vendor-eligibility.spec.ts",
+      "name": "CoglatasGanttComponent vendor eligibility does not load the visual timeline for narrow presentation",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-adapter-registry.service.spec.ts",
+      "name": "CoglatasSyncfusionAdapterRegistry retains the fallback when the Syncfusion rollout flags are disabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-adapter-registry.service.spec.ts",
+      "name": "CoglatasSyncfusionAdapterRegistry delegates to the approved implementation when the corresponding rollout flag is enabled",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-data-grid.adapter-options.spec.ts",
+      "name": "SyncfusionDataGridComponent adapter options accepts the adapter-neutral sticky option and emits a row activation with its focus trigger",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-data-grid.adapter-options.spec.ts",
+      "name": "SyncfusionDataGridComponent adapter options keeps Enter activation on a rendered action local to the adapter",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-data-grid.adapter-options.spec.ts",
+      "name": "SyncfusionDataGridComponent adapter options keeps vendor settings stable until the relevant adapter input changes",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary loads lazy Gantt theme assets in official dependency order",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary keeps theme, density, focus, and reduced-motion policy scoped to the adapter",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary round-trips canonical DateOnly values through local date components",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary maps only canonical Finish-to-Start dependencies into manual vendor rows",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary keeps unscheduled canonical Tasks in the vendor projection with null dates",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary emits canonical pointer schedule and progress intents without vendor types",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary cancels parent, unauthorized, connector, and unsupported pointer edits",
+      "status": "passed"
+    },
+    {
+      "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
+      "name": "SyncfusionGanttComponent adapter boundary cancels pointer schedule edits for a partially scheduled task",
+      "status": "passed"
+    }
+  ],
+  "frontendNodeTests": [
+    "keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile",
+    "denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback",
+    "pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity",
+    "denies the Popups nested Syncfusion 35.1.41 base install script",
+    "keeps the sibling Storybook documentation workspace on Compodoc 2.x",
+    "retains the Angular Storybook browser builder and zone.js runtime",
+    "retains Syncfusion license and theme sanitation gates",
+    "keeps the Angular 22 Vitest runner contract on the reviewed jsdom toolchain",
+    "historical inventories retain 38 routes and current Web requires the explicit six-route addendum",
+    "every v5.8.1 target route has PNL/mode, disposition and execution owner",
+    "November scope remains aligned with \\#798 core roadmap",
+    "v5.8.1 corrections bind invite, artifact/report and communication owners",
+    "embedded Project WorkSurface surfaces are explicit migration units",
+    "embedded Project surfaces carry explicit freeze classifications",
+    "Graph/Dock are owned Avalonia-first capabilities and Calendar remains promotion-gated",
+    "architecture-only deferred PNLs stay explicit and out of active production routes",
+    "platform support remains provisional and delegated to \\#767",
+    "browser/session persisted state is fully classified and never claims authorization authority",
+    "every routed Angular retirement remains gated by \\#797",
+    "active target inventory has no owner-TBD and does not invent NgRx migration work",
+    "production source inventory CLI: baseline",
+    "production source inventory CLI: missing state owner",
+    "production source inventory CLI: unknown owner",
+    "production source inventory CLI: synchronized route deletion",
+    "production source inventory CLI: synchronized duplicate",
+    "production source inventory CLI: freeze disagreement",
+    "production source inventory CLI: orphan owner",
+    "production source inventory CLI: synchronized owner removal",
+    "production source inventory CLI: unknown current Web route",
+    "production source inventory CLI: ProjectIDE preview component drift",
+    "production source inventory CLI: ProjectIDE preview semantic owner removal",
+    "production source inventory CLI: Home component role drift",
+    "production source inventory CLI: Home direct owner removal",
+    "production source inventory CLI: missing current Web route",
+    "production source inventory CLI: duplicate current Web route",
+    "production source inventory CLI: missing current Web owner",
+    "production source inventory CLI: unknown current Web owner",
+    "production source inventory CLI: synchronized current Web owner removal",
+    "production source inventory CLI: current Web owner source drift",
+    "production source inventory CLI: missing Files owner extension",
+    "production source inventory CLI: synchronized Files owner extension removal",
+    "production source inventory CLI: current Web Avalonia promotion",
+    "production source inventory CLI: current Web target owner injection",
+    "production source inventory CLI: local draft persistence promotion",
+    "production source inventory CLI: Starred metadata payload promotion",
+    "production source inventory CLI: local state authorization promotion",
+    "production source inventory CLI: current Web adapter source drift",
+    "production source inventory CLI: missing current NgRx import fact",
+    "production source inventory CLI rejects component binding drift",
+    "production source inventory CLI rejects redirect target drift",
+    "production source inventory CLI rejects fallback kind drift",
+    "production source inventory CLI rejects current Web component binding drift",
+    "production source inventory CLI rejects current Web component module drift",
+    "production source inventory CLI rejects current Web directory binding drift",
+    "production source inventory CLI rejects undeclared current Web route",
+    "production source inventory CLI rejects synchronized current Web route deletion",
+    "production source inventory CLI rejects an absent current Web addendum",
+    "current Web direct owner bindings reject a different imported source and a missing injection",
+    "source inventory denies lexical and symlink escapes for data-driven source paths",
+    "rejects direct Syncfusion imports from a feature path",
+    "allows Syncfusion imports only in approved adapter locations",
+    "rejects direct SignalR imports outside the realtime transport adapter",
+    "rejects AG Grid Enterprise from every frontend boundary",
+    "rejects legacy and undefined theme token namespaces from active components",
+    "fails closed when SYNCFUSION_LICENSE is missing",
+    "fails closed when SYNCFUSION_LICENSE is empty or whitespace-only",
+    "accepts a non-empty license without printing it",
+    "keeps runtime license registration out of active and legacy browser sources",
+    "removes unquoted Google Fonts imports without changing local theme rules",
+    "removes every quoted Google Fonts import in a minified theme"
+  ],
+  "browserTests": [
+    {
+      "project": "chromium-desktop",
+      "name": "MVP-A P0 Angular frontend smoke \u203a uses the canonical Project Kanban for pointer, keyboard, conflict, rollback, and narrow flows",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "MVP-A P0 Angular frontend smoke \u203a keeps the maintained Project Task List when tasks.kanbanV1 is disabled",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "MVP-A P0 Angular frontend smoke \u203a uses the canonical Schedule tab forms for desktop and the 320px mobile projection",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "MVP-A P0 Angular frontend smoke \u203a keeps the maintained read-only Schedule projection when tasks.ganttV1 is disabled",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps visible filter choices aligned with retained Problems state after panel recreation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic outside-document before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic duplicate-artifact before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic missing-proof before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a completes context, Source, Problems, Inspector and source navigation in a real browser",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a drops prior revision results, selection and source targets",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps stale PASS visible and blocks source navigation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a distinguishes unknown, unsupported and zero unexecuted findings",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps preview disabled and avoids fetching artifacts without explicit opt-in",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects an unauthorized context read without exposing cached content",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects wrong-scope artifact diagnostics before rendering context",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a recovers from an unavailable read without reusing an earlier result",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects malformed nested artifact data before navigation can render it",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a cancels loading and discards a delayed artifact",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a does not admit an unauthenticated route",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a supports keyboard-only context, Problems, Inspector and navigation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic read-only workbench \u203a renders Japanese copy while retaining semantic diagnostic codes",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-desktop",
+      "name": "ProjectIDE synthetic semantic inspection shows Source-bound symbols and clears across contexts",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "MVP-A P0 Angular frontend smoke \u203a uses the canonical Project Kanban for pointer, keyboard, conflict, rollback, and narrow flows",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "MVP-A P0 Angular frontend smoke \u203a keeps the maintained Project Task List when tasks.kanbanV1 is disabled",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "MVP-A P0 Angular frontend smoke \u203a uses the canonical Schedule tab forms for desktop and the 320px mobile projection",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "MVP-A P0 Angular frontend smoke \u203a keeps the maintained read-only Schedule projection when tasks.ganttV1 is disabled",
+      "classname": "angular-smoke.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps visible filter choices aligned with retained Problems state after panel recreation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic outside-document before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic duplicate-artifact before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects inconsistent synthetic missing-proof before displaying Source",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a completes context, Source, Problems, Inspector and source navigation in a real browser",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a drops prior revision results, selection and source targets",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps stale PASS visible and blocks source navigation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a distinguishes unknown, unsupported and zero unexecuted findings",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a keeps preview disabled and avoids fetching artifacts without explicit opt-in",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects an unauthorized context read without exposing cached content",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects wrong-scope artifact diagnostics before rendering context",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a recovers from an unavailable read without reusing an earlier result",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a rejects malformed nested artifact data before navigation can render it",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a cancels loading and discards a delayed artifact",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a does not admit an unauthenticated route",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a supports keyboard-only context, Problems, Inspector and navigation",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic read-only workbench \u203a renders Japanese copy while retaining semantic diagnostic codes",
+      "classname": "projectide-workbench.spec.ts"
+    },
+    {
+      "project": "chromium-mobile",
+      "name": "ProjectIDE synthetic semantic inspection shows Source-bound symbols and clears across contexts",
+      "classname": "projectide-workbench.spec.ts"
+    }
+  ],
+  "pins": {
+    "coreProduct": "48ff196985ddbf90db82386c5413c8f659ea64a7",
+    "coreTest": "8f701e8db3097c74c9a63c30669fbfe36be7bb48",
+    "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
+    "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
+    "combinedCommit": "2b3e39ff5d6ef615f6d11bff0f37eaba52a6a4b0",
+    "combinedTree": "8a0d36c423ad34c779298d0adc658a692cfd6ace"
+  }
+}

@@ -52,6 +52,7 @@ public sealed class ResourceReferenceValidationTests
     [InlineData("digest", "coglatas.resource.pin-mismatch")]
     [InlineData("kind", "coglatas.resource.kind-mismatch")]
     [InlineData("origin", "coglatas.resource.origin-mismatch")]
+    [InlineData("origin-entity", "coglatas.resource.origin-mismatch")]
     [InlineData("revision", "coglatas.resource.context-unavailable")]
     [InlineData("project", "coglatas.resource.context-unavailable")]
     [InlineData("tenant", "coglatas.resource.identity-mismatch")]
@@ -64,6 +65,7 @@ public sealed class ResourceReferenceValidationTests
             if (change == "version") data["manifest"]!["version"] = "2";
             if (change == "digest") data["manifest"]!["digest"]!["value"] = new string('b', 64);
             if (change == "origin") data["origin"] = Obj(ProjectLocation.Create(DocumentId.Parse(Id(99)), input.Source.Context).Data.Value);
+            if (change == "origin-entity") data["origin"] = Obj(ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context, entityId: EntityId.Parse(Id(99))).Data.Value);
             if (change == "revision") data["context"] = Obj(Source(9).Context.Data.Value);
             if (change is "project" or "tenant")
             {
@@ -119,6 +121,8 @@ public sealed class ResourceReferenceValidationTests
         settings["resourceSnapshots"]!.AsArray().Add(Obj(new { snapshotId = Id(50), version = "1", digest = original.Digest.Data.Value,
             context = original.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null,
             receipt = new { verified = true, authorized = true } }));
+        Assert.Throws<UnsupportedSourceException>(() => Fixture(settings: settings));
+        settings["resourceSnapshots"]![0]!.AsObject().Remove("receipt");
         var (input, binding, reference) = Fixture(settings: settings);
         Limited(ResourceReferenceValidator.Assess(input, reference, binding));
         settings["resourceSnapshots"]!.AsArray().Clear();

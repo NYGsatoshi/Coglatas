@@ -77,7 +77,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, testTree=git(repository, "rev-parse", test + "^{tree}"),
-                 reviewProductBase="610f9911f9ce31739188437972f7eeb018f611da", reviewTestBase="9e969183f5b311789b0197d0b6aac12a88206e7c", combinedCommit=git(target, "rev-parse", "HEAD"),
+                 reviewProductBase="48ff196985ddbf90db82386c5413c8f659ea64a7", reviewTestBase="8f701e8db3097c74c9a63c30669fbfe36be7bb48", combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
@@ -143,6 +143,10 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                 raise ValueError("Slice 7 tests did not run")
             if name == "projectIde" and (target / "src/Coglatas.Application/ProjectIde/Core/CompilerHostAdapters.cs").exists() and not any("CompilerHostTests" in item for item in names):
                 raise ValueError("Slice 8 tests did not run")
+            if name == "projectIde" and (target / "src/Coglatas.Domain/ProjectIde/RequirementEvidenceValidation.cs").exists():
+                for family in ("RequirementEvidenceValidationTests", "ResourceReferenceValidationTests"):
+                    if not any(family in item for item in names):
+                        raise ValueError("Evidence/Resource tests did not run: " + family)
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
