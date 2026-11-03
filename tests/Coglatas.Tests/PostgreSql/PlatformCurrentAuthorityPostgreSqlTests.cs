@@ -20,6 +20,9 @@ namespace Coglatas.Tests.PostgreSql;
 // Native service/persistence controls; these do not simulate application-role RLS or HTTP interleaving.
 public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper output)
 {
+    private static readonly string[] TenantMutationActions =
+        ["PlatformAdminAccessedTenantDetail", "TenantActivated", "TenantSuspended", "TenantUpdated"];
+
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public Task CookieValidatedRoleRevocationDeniesPlatformTenantListing() => WithFixtureAsync(async fixture =>
@@ -123,14 +126,13 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
         Assert.Equal("Renamed display", target.DisplayName);
         Assert.Equal(TenantStatus.Active, target.Status);
         var audit = await read.AuditLogs.OrderBy(item => item.Action).ToListAsync();
-        Assert.Equal(new[] { "PlatformAdminAccessedTenantDetail", "TenantActivated", "TenantSuspended", "TenantUpdated" },
-            audit.Select(item => item.Action));
-        Assert.All(audit, item =>
+        Assert.Equal(TenantMutationActions, audit.Select(item => item.Action));
+        foreach (var item in audit)
         {
             Assert.Equal(fixture.Tenant.Id, item.TenantId);
             Assert.Equal(fixture.User.Id, item.ActorUserId);
             Assert.Equal(fixture.Tenant.Id, item.EntityId);
-        });
+        }
     });
 
     [PostgreSqlFact]
@@ -225,20 +227,6 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
         var integration = await integrations.CreateIntegrationAsync(new CreateIntegrationAccountRequest(IntegrationProvider.Other, "Synthetic integration", "{}"));
         Assert.True(integration.IsSuccess, integration.Error);
         var export = await exports.ExportAsync(new TenantExportRequest());
-        if (!export.IsSuccess)
-        {
-            try
-            {
-                await new TenantExportRepository(fixture.Db, new CanonicalRedactionService()).CreateMetadataZipAsync(
-                    fixture.Tenant.Id, new AuthorizationContext(fixture.User.Id, fixture.Tenant.Id, "TenantExport",
-                        "ExportBuild", "synthetic-export-diagnostic", RedactionAuthorizationState.Allowed,
-                        FieldAccessPolicySnapshot.ThroughConfidential));
-            }
-            catch (Exception error)
-            {
-                output.WriteLine("Native export diagnostic: " + error.GetType().Name + ": " + error.Message);
-            }
-        }
         Assert.True(export.IsSuccess, export.Error);
         Assert.NotEmpty(export.Value!.Content);
         Assert.Equal(ExportJobStatus.Completed, export.Value.Status);
