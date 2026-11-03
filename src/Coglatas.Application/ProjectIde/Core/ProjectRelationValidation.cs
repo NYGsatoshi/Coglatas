@@ -13,7 +13,7 @@ public static class ProjectRelationValidation
     {
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
-        var result = RelationGraphValidator.Validate(input, snapshots, units, limits);
+        var result = RelationGraphValidator.Validate(input, snapshots, units, limits, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return new(input.Source.Digest, input.Source.Context, result);
     }

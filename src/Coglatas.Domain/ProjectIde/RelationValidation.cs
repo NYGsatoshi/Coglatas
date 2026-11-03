@@ -38,9 +38,10 @@ public sealed class RelationValidationResult
 public static class RelationGraphValidator
 {
     public static RelationValidationResult Validate(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot?>? externalSnapshots = null,
-        IEnumerable<UnitDefinition?>? units = null, RelationValidationLimits? limits = null)
+        IEnumerable<UnitDefinition?>? units = null, RelationValidationLimits? limits = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(input.Source);
+        cancellationToken.ThrowIfCancellationRequested();
         limits ??= new();
         if (limits.MaximumDeclarations is < 1 or > 100_000 || limits.MaximumRelations is < 1 or > 100_000 || limits.MaximumSnapshots is < 1 or > 128)
             throw new ArgumentOutOfRangeException(nameof(limits));
@@ -49,11 +50,18 @@ public static class RelationGraphValidator
         var findings = new List<RelationFinding>();
         var resolutions = new List<RelationEndpointResolution>();
         void RootFinding(string code, RelationFindingState state) => findings.Add(new(code, state, root));
-        var supplied = (externalSnapshots ?? []).Take(limits.MaximumSnapshots + 1).ToArray();
+        RelationValidationResult Finish()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = new RelationValidationResult(findings, resolutions);
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
+        }
+        var supplied = ReadBounded(externalSnapshots ?? [], limits.MaximumSnapshots + 1, cancellationToken);
         if (supplied.Length > limits.MaximumSnapshots || supplied.Any(item => item is null))
         {
             RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
-            return new(findings, resolutions);
+            return Finish();
         }
         var snapshots = supplied.Select(item => item!).Prepend(input).ToArray();
         if (
@@ -61,28 +69,38 @@ public static class RelationGraphValidator
             snapshots.Sum(item => (long)item.Source.Relations.Value.GetArrayLength()) > limits.MaximumRelations)
         {
             RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
-            return new(findings, resolutions);
+            return Finish();
         }
         if (!input.IsAuthorized)
         {
             RootFinding("coglatas.relation.scope-unavailable", RelationFindingState.Unknown);
-            return new(findings, resolutions);
+            return Finish();
         }
         if (!input.DeclarationsComplete || !input.RelationsComplete)
             RootFinding("coglatas.relation.incomplete-coverage", RelationFindingState.Unknown);
-        var suppliedUnits = (units ?? []).Take(limits.MaximumDeclarations + 1).ToArray();
+        var suppliedUnits = ReadBounded(units ?? [], limits.MaximumDeclarations + 1, cancellationToken);
         if (suppliedUnits.Length > limits.MaximumDeclarations || suppliedUnits.Any(item => item is null))
         {
             RootFinding("coglatas.relation.unit-budget", RelationFindingState.Unknown);
-            return new(findings, resolutions);
+            return Finish();
         }
         var unitList = suppliedUnits.Select(item => item!).ToArray();
         var declarations = snapshots.Where(item => item.IsAuthorized).Distinct().ToDictionary(item => item,
-            item => PlanDeclarationReader.Read(item.Source).ToDictionary(result => EntityIdOf(result.Data)));
+            item =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return PlanDeclarationReader.Read(item.Source).ToDictionary(result =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return EntityIdOf(result.Data);
+                });
+            });
+        cancellationToken.ThrowIfCancellationRequested();
         var relations = TypedRelationReader.Read(source);
         var bound = new List<(TypedRelation Relation, PlanDeclaration Source, PlanDeclaration Target)>();
         foreach (var decoded in relations)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var id = SourceFields.Identity<RelationId>(decoded.Data.Value, "relationId");
             var document = SourceFields.Identity<DocumentId>(decoded.Data.Value, "documentId");
             var location = ProjectLocation.Create(document, source.Context, relationId: id);
@@ -160,6 +178,7 @@ public static class RelationGraphValidator
             void Add(string code, RelationFindingState state) => findings.Add(new(code, state, relation.Location));
             PlanDeclaration? Resolve(RelationEndpoint endpoint, bool isSource)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ReferenceResolutionState state;
                 PlanDeclaration? declaration = null;
                 var reference = endpoint.Reference;
@@ -193,13 +212,14 @@ public static class RelationGraphValidator
         CheckCardinality();
         CheckCycles(RelationKinds.DependsOn);
         CheckCycles(RelationKinds.FlowsTo);
-        return new(findings, resolutions);
+        return Finish();
 
         void CheckCardinality()
         {
             var connectionCounts = new Dictionary<(EntityId Entity, PortId Port), int>();
             foreach (var edge in bound.Where(item => item.Relation.Kind == RelationKinds.FlowsTo))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 foreach (var endpoint in new[] { edge.Relation.Source, edge.Relation.Target })
                     if (endpoint.Reference.Context.Equals(source.Context) && endpoint.PortId is { } port)
                     {
@@ -210,19 +230,29 @@ public static class RelationGraphValidator
             var keys = new Dictionary<string, TypedRelation>(StringComparer.Ordinal);
             foreach (var entry in bound)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var relation = entry.Relation;
                 var key = SourceJson.FromObject(new { kind = relation.Kind, source = relation.Source.IdentityKey, target = relation.Target.IdentityKey,
                     payload = relation.Data.Value.GetProperty("payload") }).CanonicalText;
                 if (!keys.TryAdd(key, relation)) findings.Add(new("coglatas.relation.duplicate", RelationFindingState.Invalid, relation.Location));
             }
             foreach (var group in bound.Where(item => item.Relation.Kind == RelationKinds.Governs).GroupBy(item => item.Relation.Target.IdentityKey))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (group.Count() > 1)
-                    foreach (var entry in group) findings.Add(new("coglatas.relation.workflow-cardinality", RelationFindingState.Invalid, entry.Relation.Location));
+                    foreach (var entry in group)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        findings.Add(new("coglatas.relation.workflow-cardinality", RelationFindingState.Invalid, entry.Relation.Location));
+                    }
+            }
             foreach (var declarationResult in declarations[input].Values)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (declarationResult.Declaration is not TaskPlanDeclaration task) continue;
                 foreach (var port in task.Ports)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var count = connectionCounts.GetValueOrDefault((task.EntityId, port.PortId));
                     var location = ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId);
                     if (port.MaximumConnections is { } maximum && count > maximum)
@@ -237,6 +267,7 @@ public static class RelationGraphValidator
 
         void CheckCycles(string kind)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // Iterative strongly connected components, O(V+E); downstream tails are not cycle members.
             var edges = bound.Where(item => item.Relation.Kind == kind).Select(item => item.Relation).ToArray();
             string Vertex(RelationEndpoint endpoint) => SourceJson.FromObject(new { context = endpoint.Reference.Context.Data.Value, entityId = endpoint.Reference.EntityId.ToString() }).CanonicalText;
@@ -244,6 +275,7 @@ public static class RelationGraphValidator
             var reverse = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             foreach (var edge in edges)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var from = Vertex(edge.Source); var to = Vertex(edge.Target);
                 if (!adjacency.ContainsKey(from)) adjacency[from] = [];
                 if (!adjacency.ContainsKey(to)) adjacency[to] = [];
@@ -255,10 +287,12 @@ public static class RelationGraphValidator
             var finish = new List<string>();
             foreach (var start in adjacency.Keys)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!visited.Add(start)) continue;
                 var stack = new Stack<(string Vertex, int Next)>(); stack.Push((start, 0));
                 while (stack.TryPop(out var frame))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (frame.Next == adjacency[frame.Vertex].Count) { finish.Add(frame.Vertex); continue; }
                     stack.Push((frame.Vertex, frame.Next + 1));
                     var next = adjacency[frame.Vertex][frame.Next];
@@ -269,21 +303,51 @@ public static class RelationGraphValidator
             var sizes = new List<int>();
             for (var i = finish.Count - 1; i >= 0; i--)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var start = finish[i]; if (components.ContainsKey(start)) continue;
                 var component = sizes.Count; var size = 0;
                 var stack = new Stack<string>(); stack.Push(start); components[start] = component;
                 while (stack.TryPop(out var vertex))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     size++;
                     foreach (var next in reverse[vertex])
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (components.TryAdd(next, component)) stack.Push(next);
+                    }
                 }
                 sizes.Add(size);
             }
-            foreach (var edge in edges.Where(edge => components[Vertex(edge.Source)] == components[Vertex(edge.Target)] &&
-                         (sizes[components[Vertex(edge.Source)]] > 1 || Vertex(edge.Source) == Vertex(edge.Target))))
-                findings.Add(new(kind == RelationKinds.DependsOn ? "coglatas.relation.dependency-cycle" : "coglatas.relation.dataflow-cycle", RelationFindingState.Invalid, edge.Location));
+            foreach (var edge in edges)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var from = Vertex(edge.Source); var to = Vertex(edge.Target);
+                if (components[from] == components[to] && (sizes[components[from]] > 1 || from == to))
+                    findings.Add(new(kind == RelationKinds.DependsOn ? "coglatas.relation.dependency-cycle" : "coglatas.relation.dataflow-cycle", RelationFindingState.Invalid, edge.Location));
+            }
         }
+    }
+
+    private static T[] ReadBounded<T>(IEnumerable<T> source, int maximum, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var values = new List<T>();
+        using (var iterator = source.GetEnumerator())
+        {
+            while (values.Count < maximum)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var hasNext = iterator.MoveNext();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!hasNext) break;
+                var value = iterator.Current;
+                cancellationToken.ThrowIfCancellationRequested();
+                values.Add(value);
+            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return values.ToArray();
     }
 
     private static EntityId EntityIdOf(SourceJson data) => SourceFields.Identity<EntityId>(data.Value, "entityId");
