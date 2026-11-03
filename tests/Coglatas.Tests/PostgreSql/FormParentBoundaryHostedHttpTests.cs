@@ -66,8 +66,11 @@ public sealed class FormParentBoundaryHostedHttpTests
                 }
 
                 var route = $"/api/forms/{form.Id:D}";
-                using (var anonymous = await PatchAsync(host.Client, route, "Anonymous mutation", includeCsrf: false))
+                using (var anonymous = await host.Client.GetAsync(route))
                     Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+                // Unsafe Forms routes enforce CSRF before their coarse authorization gate.
+                using (var anonymousWrite = await PatchAsync(host.Client, route, "Anonymous mutation", includeCsrf: false))
+                    Assert.Equal(HttpStatusCode.Forbidden, anonymousWrite.StatusCode);
                 await host.LoginAsync();
                 using (var missingCsrf = await PatchAsync(host.Client, route, "Missing CSRF mutation", includeCsrf: false))
                     Assert.Equal(HttpStatusCode.Forbidden, missingCsrf.StatusCode);
