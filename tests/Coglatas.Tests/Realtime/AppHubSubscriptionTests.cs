@@ -92,7 +92,7 @@ public sealed class AppHubSubscriptionTests
         Assert.Equal(fixture.Authorization.SessionId, tenant.SessionId);
         Assert.Equal(fixture.Caller.ConnectionId, user.ConnectionId);
         Assert.Equal(fixture.Caller.ConnectionId, tenant.ConnectionId);
-        Assert.Equal(new[] { $"user:{fixture.Authorization.UserId:D}", $"tenant:{fixture.Authorization.TenantId:D}" }, fixture.Groups.Added.Select(call => call.Group));
+        Assert.Equal([$"user:{fixture.Authorization.UserId:D}", $"tenant:{fixture.Authorization.TenantId:D}"], fixture.Groups.Added.Select(call => call.Group));
         Assert.All(fixture.Groups.Added, call => Assert.Equal(fixture.Caller.ConnectionId, call.Connection));
         Assert.All(fixture.Groups.Added, call => Assert.Equal(fixture.Caller.ConnectionAborted, call.Token));
         Assert.All(fixture.Authorization.Sessions.Calls, call => Assert.Equal(fixture.Authorization.TenantId, call.TenantId));

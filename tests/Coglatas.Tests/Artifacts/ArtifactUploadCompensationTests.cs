@@ -197,7 +197,7 @@ public sealed class ArtifactUploadCompensationTests
         Assert.Empty(winner.Storage.DeletedKeys);
         Assert.Equal(loserKey, Assert.Single(loser.Storage.DeletedKeys));
         Assert.False(loser.Storage.DeleteTokenCanBeCancelled);
-        Assert.Equal(failure != "none", await loser.Storage.ExistsAsync(loserKey));
+        Assert.Equal(failure != "none", await loser.Storage.ExistsAsync(loserKey, CancellationToken.None));
         await AssertStoredBytesAsync(seed.Storage, previousKey, Fixture.Content);
         await AssertStoredBytesAsync(winner.Storage, winnerKey, winner.UploadContent);
         if (failure == "cleanup") { loser.Logger.AssertOnlyFixedWarning(); }
@@ -205,13 +205,13 @@ public sealed class ArtifactUploadCompensationTests
         Assert.Empty(winner.Logger.Entries);
 
         seed.Context.ChangeTracker.Clear();
-        var versions = await seed.Context.ArtifactVersions.OrderBy(version => version.VersionNumber).ToListAsync();
-        Assert.Equal(new[] { 1, 2 }, versions.Select(version => version.VersionNumber));
+        var versions = await seed.Context.ArtifactVersions.OrderBy(version => version.VersionNumber).ToListAsync(CancellationToken.None);
+        Assert.Equal([1, 2], versions.Select(version => version.VersionNumber));
         Assert.Equal(previous.Value!.Id, versions[0].Id);
         Assert.Equal(result.Value!.Id, versions[1].Id);
-        Assert.Equal(result.Value.Id, (await seed.Context.Artifacts.SingleAsync()).CurrentVersionId);
-        var files = await seed.Context.FileObjects.ToListAsync();
-        var attachments = await seed.Context.Attachments.ToListAsync();
+        Assert.Equal(result.Value.Id, (await seed.Context.Artifacts.SingleAsync(CancellationToken.None)).CurrentVersionId);
+        var files = await seed.Context.FileObjects.ToListAsync(CancellationToken.None);
+        var attachments = await seed.Context.Attachments.ToListAsync(CancellationToken.None);
         Assert.Equal(2, files.Count);
         Assert.Equal(2, attachments.Count);
         Assert.DoesNotContain(files, file => file.StorageKey == loserKey);
