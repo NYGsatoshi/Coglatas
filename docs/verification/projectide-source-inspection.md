@@ -59,3 +59,14 @@ Avalonia activation is added. Independent bounded regressions cover newer Begin,
 Reset/Dispose during Begin, reentrant restart and repeated disposal without crashing
 the test host. Exact before/after receipts are recorded on #1653/#1654; the earlier
 758-case candidate remains historical and does not qualify this correction.
+
+## Synchronous browser cancellation boundary
+
+An AbortSignal subscriber may synchronously clear protected state or start a newer
+preview read. The Angular store now detaches the old controller and publishes its
+cleared lifecycle before aborting it. A new load reserves its generation before
+that callback and rechecks it before starting a reader. A newer load or denial
+therefore survives the interrupted outer load, and deferred old results stay
+rejected. Independent regressions cover nested reads, authorization denial and
+cancellation; the existing pure Windows notification-lifecycle controls remain
+applicable and unchanged. This adds no production transport or native activation.
