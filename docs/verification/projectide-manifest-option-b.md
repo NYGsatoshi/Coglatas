@@ -272,3 +272,34 @@ in that model are provisional, kind-specific examples; they do not authorize
 external IR lowering. Owner-dependent local reference mapping, actual receipt
 production/current authority, Resource/external acquisition, eligible evidence,
 transitive closure and native UI/activation remain HOLD.
+
+## Existing-contract integration versus schema approval — 2026-11-04
+
+The continuation audit confirms that the actual full-reference compiler already
+calls materialization admission and typed binding before semantic validation.
+Their existing diagnostics retain the exact input, local origin and deterministic
+identity in Result. Recreating those checks or introducing a receipt-shaped
+substitute would not resolve a schema decision.
+
+| Work boundary | Compatible independent work | Still requires a concrete decision |
+| --- | --- | --- |
+| Diagnostic integration | Preserve existing cancellation/exhaustion axes through binding, semantic validation, graph work and Result; test exact diagnostic identity/order and stale rejection | New diagnostic wire fields, aggregation tokens or satisfaction semantics |
+| Materialization enumeration | Stop before requesting the next item on cancellation or shared-budget exhaustion; dispose the iterator; preserve a cancelled false MoveNext before opening another supplier | Actual acquisition, receipt production, producer attestation or authorization freshness interface |
+| Graph analysis | Improve cancellation of the existing scoped local relation graph and its existing kind-specific cycle classification | Per-dependency Input/Manifest association, trusted transitive adjacency and executable closure |
+| Evidence / Resource helpers | Independently test consistency, identity/pin substitution and incomplete states using current in-memory APIs | Evidence Eligibility, Requirement satisfaction and Resource body/allocation mapping |
+
+Schema review should include interrupted-assembly negative cases: cancellation
+from a successful or terminal iterator callback, a later supplier that throws,
+exhaustion before acquisition begins, and exhaustion while consuming an otherwise
+valid body. A proposed actual-set/receipt must never certify the examined prefix
+as the entire set. Restarting such work must bind a fresh complete immutable set;
+it cannot amend the prior receipt in place. These are review requirements for the
+proposal, not an adopted receipt state machine or new wire format.
+
+Logical reference cycles remain separate from hash construction cycles. A local
+relation cycle may be legal under its existing descriptor while the artifact
+content dependencies must remain non-circular. Cancellation or unknown adjacency
+cannot classify an unexamined frontier as acyclic. Existing
+`external-closure-not-lowered` remains in force through all these improvements.
+Option B selection and every pending schema/trust/eligibility/activation decision
+above are unchanged; current-head source review is not a substitute for them.

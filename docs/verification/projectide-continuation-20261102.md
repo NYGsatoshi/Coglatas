@@ -842,3 +842,268 @@ Remaining integration/owner decisions are not presented as implemented or
 accepted production capabilities. No formal schema, authenticated receipt,
 current-authorization provider, eligible Requirement Evidence, transitive
 external lowering or native activation is enabled by these results.
+
+## Reacquired 30-PR audit — 2026-11-04
+
+This is the pre-implementation snapshot captured at 2026-11-03 15:31 UTC.
+Subsequent changed heads and new slices are recorded below, not substituted into
+the historical checks in this table.
+
+Live inventory contains 73 Open PRs, of which all 30 ProjectIDE PRs remain Draft. The 16 Product PRs and decision PR #1666 have exact-head ordinary PR CI SUCCESS; all 13 independent Test PRs retain ordinary CI FAILURE. Every failed .NET producer was separately inspected: missing unmerged Product namespaces/types (CS0234/CS0246). Downstream failed/skipped jobs remain visible. Supplemental success does not waive ordinary CI.
+
+All 30 PRs have zero unresolved inline review threads and zero APPROVED review submissions. Historical resolutions and current-head COMMENTED replies do not establish full changed-head review or Owner/CODEOWNER acceptance. This metadata audit performs no fresh runtime execution or full code review.
+
+Classification: 4 = standalone Test failure from Product dependencies; 5 = scoped Owner/schema decisions pending; 6 = bounded slice with exact-head technical CI evidence, acceptance pending; 7 = continuation dependency. Class6 does not complete the feature/Issue. No new unresolved inline finding or implementation-origin ordinary CI failure was identified.
+
+| PR | Kind / classification | Head branch / SHA / tree | Base branch / GitHub base SHA / remote tip | Ordinary PR CI | Supplemental / review | Next work |
+| --- | --- | --- | --- | --- | --- | --- |
+| [#1603](https://github.com/NYGsatoshi/Coglatas/pull/1603) | Product; 6,7 | feature/projectide-core-slice2-values-20261031 / 9ad2d5042895bb51605a0cfaff86fbf7d8e1ca49 / cc8d4f3f5b41e028f3f85d869b4f17ec6c93bba6 | projectide/integration-20261031 / 158ab153551184cede99c85ce6476dd6e87b6767 / 158ab153551184cede99c85ce6476dd6e87b6767 | SUCCESS [41204007028](https://github.com/NYGsatoshi/Coglatas/actions/runs/41204007028) | No current-head supplemental success observed; 2 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1604](https://github.com/NYGsatoshi/Coglatas/pull/1604) | Independent Test; 4,7 | test/projectide-core-slice2-values-20261031 / 51a057aa7a250953383c99e49dfcd97ab6e01145 / eb3898eb171f89214d20180cd520cdc5902c27d5 | SecurityTestImplimation / b18939f9104d52ae33e32a7f9b15a6e1b52892f1 / a4bb658903a7b11d564006949fc58b42b94da575 | FAILURE [41204055236](https://github.com/NYGsatoshi/Coglatas/actions/runs/41204055236) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1605](https://github.com/NYGsatoshi/Coglatas/pull/1605) | Product; 6,7 | feature/projectide-core-slice2-declarations-20261031 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 / 6cb59ae553d010ed23be006d8b37d51c463bffea | feature/projectide-core-slice2-values-20261031 / 9ad2d5042895bb51605a0cfaff86fbf7d8e1ca49 / 9ad2d5042895bb51605a0cfaff86fbf7d8e1ca49 | SUCCESS [41230059589](https://github.com/NYGsatoshi/Coglatas/actions/runs/41230059589) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1606](https://github.com/NYGsatoshi/Coglatas/pull/1606) | Product; 6,7 | feature/projectide-core-slice2-references-20261101 / 9a1439e6ebe6445a97120df1386acf289f1d9c9e / b7389f2c5e9adb585773c2b149fd24a232e8ffd6 | feature/projectide-core-slice2-declarations-20261031 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 | SUCCESS [41231734429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231734429) | No current-head supplemental success observed; 1 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1607](https://github.com/NYGsatoshi/Coglatas/pull/1607) | Product; 6,7 | feature/projectide-core-slice2-unit-conversions-20261101 / f240e34131b006ebd296844af84814c563f40365 / 4af80547b9b620c519610954e7b7e35be9104f59 | feature/projectide-core-slice2-declarations-20261031 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 | SUCCESS [41231786958](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231786958) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1608](https://github.com/NYGsatoshi/Coglatas/pull/1608) | Product; 6,7 | feature/projectide-core-slice2-calendar-20261101 / fd78f3261da6005098bbb47f1de32d26c42babc4 / 59f9d2dc8516ede55566456fb79a69cf7d72ff78 | feature/projectide-core-slice2-declarations-20261031 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 / 90820e10d33ab8630e6ee2a06aab63c94a2671a8 | SUCCESS [41231956550](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231956550) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1609](https://github.com/NYGsatoshi/Coglatas/pull/1609) | Independent Test; 4,7 | test/projectide-core-slice2-remainder-20261101 / 15ae613d8db1397eb105a6753798afb948ea7758 / fc8f18e69349a9edbf631e3790240e7ca2003d2e | test/projectide-core-slice2-values-20261031 / 51a057aa7a250953383c99e49dfcd97ab6e01145 / 51a057aa7a250953383c99e49dfcd97ab6e01145 | FAILURE [41231959088](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231959088) | 41231959075; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1611](https://github.com/NYGsatoshi/Coglatas/pull/1611) | Product; 6,7 | feature/projectide-core-slice3-relations-20261101 / e4026f358f275e1acbfc513f8ac9c62af04b63a9 / 210323a680214006a868e92da56c7bf7befe685e | candidate/projectide-slice2-fixed-20261101 / da112be55ea35794fe4416ba856ba35628a9fe53 / da112be55ea35794fe4416ba856ba35628a9fe53 | SUCCESS [41237933587](https://github.com/NYGsatoshi/Coglatas/actions/runs/41237933587) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1612](https://github.com/NYGsatoshi/Coglatas/pull/1612) | Independent Test; 4,7 | test/projectide-core-slice3-relations-20261101 / 3632e50742425ddfb07bd04101d431c79fce3b3a / c6fdcc06a69132af126d03c03a715f2dca1b6e56 | test/projectide-core-slice2-remainder-20261101 / 15ae613d8db1397eb105a6753798afb948ea7758 / 15ae613d8db1397eb105a6753798afb948ea7758 | FAILURE [41237949236](https://github.com/NYGsatoshi/Coglatas/actions/runs/41237949236) | 41237949239; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1614](https://github.com/NYGsatoshi/Coglatas/pull/1614) | Product; 6,7 | feature/projectide-core-slice4-envelopes-20261101 / 57318802712e4d98ab496c270f9047a7cb28c836 / f99f5dbafdac5050090d58950e637c622a646ba1 | feature/projectide-core-slice3-relations-20261101 / e4026f358f275e1acbfc513f8ac9c62af04b63a9 / e4026f358f275e1acbfc513f8ac9c62af04b63a9 | SUCCESS [41238298813](https://github.com/NYGsatoshi/Coglatas/actions/runs/41238298813) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1615](https://github.com/NYGsatoshi/Coglatas/pull/1615) | Independent Test; 4,7 | test/projectide-core-slice4-envelopes-20261101 / d5ae33642fb772ce7690c97bfc64ffaa0e87657a / 60b50a10f321687910456abbb018a410a9b11fdf | test/projectide-core-slice3-relations-20261101 / 3632e50742425ddfb07bd04101d431c79fce3b3a / 3632e50742425ddfb07bd04101d431c79fce3b3a | FAILURE [41238366832](https://github.com/NYGsatoshi/Coglatas/actions/runs/41238366832) | 41238366772; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1617](https://github.com/NYGsatoshi/Coglatas/pull/1617) | Product; 6,7 | feature/projectide-core-slice5-binding-20261101 / 3718fe0bf82455945d99a5a4f9d427a790a31b75 / aa900c65829989d593ba49751d34dd1a40e3db5a | feature/projectide-core-slice4-envelopes-20261101 / 57318802712e4d98ab496c270f9047a7cb28c836 / 57318802712e4d98ab496c270f9047a7cb28c836 | SUCCESS [41248789939](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248789939) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1618](https://github.com/NYGsatoshi/Coglatas/pull/1618) | Independent Test; 4,7 | test/projectide-core-slice5-binding-20261101 / 839965c0f068ccf1f7e34beab9061fe4a24c931c / e6fceef70813cc558c5575ccddf9ab45246f8204 | test/projectide-core-slice4-envelopes-20261101 / d5ae33642fb772ce7690c97bfc64ffaa0e87657a / d5ae33642fb772ce7690c97bfc64ffaa0e87657a | FAILURE [41248801309](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248801309) | 41248801356; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1620](https://github.com/NYGsatoshi/Coglatas/pull/1620) | Product; 6,7 | feature/projectide-core-slice6-ir-20261101 / 9a06f5be4fbc015a1c74a6cd76be392f0d0f73fe / 79cf188e1b3648db6d8a424b9a0fe05aba3d14cb | feature/projectide-core-slice5-binding-20261101 / d8d1363474230b10987b6afa305ff18b00ac7540 / 3718fe0bf82455945d99a5a4f9d427a790a31b75 | SUCCESS [41248791221](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248791221) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1621](https://github.com/NYGsatoshi/Coglatas/pull/1621) | Independent Test; 4,7 | test/projectide-core-slice6-ir-20261101 / cd1bb602c48c319bbef9aa70941595959a6531f1 / 138c4694caa0a20277a68317ea517090ca642773 | candidate/projectide-slice5-tests-fixed-20261101 / c5b6ffc8b92154423c41c28dab66a4bc2c4a50c2 / c5b6ffc8b92154423c41c28dab66a4bc2c4a50c2 | FAILURE [41248804290](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248804290) | 41248804278; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1624](https://github.com/NYGsatoshi/Coglatas/pull/1624) | Product; 6,7 | feature/projectide-core-slice7-analysis-20261101 / 5ef8b9caa4cbb0228a48b5c13b4f74bb07837547 / 25bfcdab80c4ac83378bfd13fc2774d27b769ef7 | feature/projectide-core-slice6-ir-20261101 / 016ead7943e111d7d09092bcae6f3b587a128968 / 9a06f5be4fbc015a1c74a6cd76be392f0d0f73fe | SUCCESS [41248793998](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248793998) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve existing slice; carry its contracts into current Core audit |
+| [#1625](https://github.com/NYGsatoshi/Coglatas/pull/1625) | Independent Test; 4,7 | test/projectide-core-slice7-analysis-20261101 / 24c8386b37267ac730363de1f943c606de0d35fe / 8aa9d5d053b066dfd62262e11078762af5022b2f | candidate/projectide-slice6-tests-fixed-20261101 / 939e8d51a4318b8cee79ae7fae533230123d6be8 / 939e8d51a4318b8cee79ae7fae533230123d6be8 | FAILURE [41248807654](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248807654) | 41248807538; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1628](https://github.com/NYGsatoshi/Coglatas/pull/1628) | Product; 6,7 | feature/projectide-core-slice8-hosts-20261101 / 610f9911f9ce31739188437972f7eeb018f611da / fd72d2457010d73a75612b17c95bf4b5684ecae1 | feature/projectide-core-slice7-analysis-20261101 / 5ef8b9caa4cbb0228a48b5c13b4f74bb07837547 / 5ef8b9caa4cbb0228a48b5c13b4f74bb07837547 | SUCCESS [41499610944](https://github.com/NYGsatoshi/Coglatas/actions/runs/41499610944) | No current-head supplemental success observed; 4 resolved, 0 unresolved, approval pending | Audit actual Compiler integration and cancellation/exhaustion propagation |
+| [#1629](https://github.com/NYGsatoshi/Coglatas/pull/1629) | Independent Test; 4,7 | test/projectide-core-slice8-hosts-20261101 / 9e969183f5b311789b0197d0b6aac12a88206e7c / f0d14aef89753e72fc05c964d2c553212243955b | candidate/projectide-slice7-tests-fixed-20261101 / 92b6b8fde6b872c73adab8861ed109920dd108d4 / 92b6b8fde6b872c73adab8861ed109920dd108d4 | FAILURE [41499618041](https://github.com/NYGsatoshi/Coglatas/actions/runs/41499618041) | 41499617923; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1637](https://github.com/NYGsatoshi/Coglatas/pull/1637) | Product; 6,7 | feature/projectide-web-workbench-20261101 / 0a79e05a6533a7e4468bb7b74f47aeceb04ae119 / 655d50c0a8e6d309f6b852cdecffe8a16589c3b9 | feature/projectide-core-slice8-hosts-20261101 / 610f9911f9ce31739188437972f7eeb018f611da / 610f9911f9ce31739188437972f7eeb018f611da | SUCCESS [41500203502](https://github.com/NYGsatoshi/Coglatas/actions/runs/41500203502) | No current-head supplemental success observed; 4 resolved, 0 unresolved, approval pending | Audit Source-backed diagnostics and stale/deferred lifecycle with paired consumer verification |
+| [#1638](https://github.com/NYGsatoshi/Coglatas/pull/1638) | Independent Test; 4,7 | test/projectide-web-workbench-20261101 / 5f2825e1d88f307efddc5edac16579ec220cbd4b / 6597a8adf5a355b9d00b9b8f722195588600aa82 | test/projectide-core-slice8-hosts-20261101 / 9e969183f5b311789b0197d0b6aac12a88206e7c / 9e969183f5b311789b0197d0b6aac12a88206e7c | FAILURE [41500323734](https://github.com/NYGsatoshi/Coglatas/actions/runs/41500323734) | 41500323945; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1653](https://github.com/NYGsatoshi/Coglatas/pull/1653) | Product; 6,7 | feature/projectide-workbench-inspection-20261103 / d77b9814f96ba593b98b8842cf1d1355cf310885 / 5d2308c95843feb2c34e413169c8b45782403285 | feature/projectide-web-workbench-20261101 / 0a79e05a6533a7e4468bb7b74f47aeceb04ae119 / 0a79e05a6533a7e4468bb7b74f47aeceb04ae119 | SUCCESS [41517683660](https://github.com/NYGsatoshi/Coglatas/actions/runs/41517683660) | No current-head supplemental success observed; 3 resolved, 0 unresolved, approval pending | Audit Source-backed diagnostics and stale/deferred lifecycle with paired consumer verification |
+| [#1654](https://github.com/NYGsatoshi/Coglatas/pull/1654) | Independent Test; 4,7 | test/projectide-web-windows-inspection-20261103 / 930bb8866cf2b8c3c08a414ffc2aa782072ba443 / 18aeb0072029e73f2fbb0e79454cd83f54dc9a7c | test/projectide-web-workbench-20261101 / 5f2825e1d88f307efddc5edac16579ec220cbd4b / 5f2825e1d88f307efddc5edac16579ec220cbd4b | FAILURE [41517821832](https://github.com/NYGsatoshi/Coglatas/actions/runs/41517821832) | 41517821241; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1657](https://github.com/NYGsatoshi/Coglatas/pull/1657) | Product; 6,7 | feature/projectide-core-value-binding-20261103 / 48ff196985ddbf90db82386c5413c8f659ea64a7 / 714124fb87a791ffedd3bdf26fb919093a68eb97 | feature/projectide-core-slice8-hosts-20261101 / 610f9911f9ce31739188437972f7eeb018f611da / 610f9911f9ce31739188437972f7eeb018f611da | SUCCESS [41514097329](https://github.com/NYGsatoshi/Coglatas/actions/runs/41514097329) | No current-head supplemental success observed; 1 resolved, 0 unresolved, approval pending | Audit actual Compiler integration and cancellation/exhaustion propagation |
+| [#1658](https://github.com/NYGsatoshi/Coglatas/pull/1658) | Independent Test; 4,7 | test/projectide-core-value-binding-20261103 / 8f701e8db3097c74c9a63c30669fbfe36be7bb48 / d342e8379d98a7a0b6253b1f726f52521f3951e8 | test/projectide-core-slice8-hosts-20261101 / 9e969183f5b311789b0197d0b6aac12a88206e7c / 9e969183f5b311789b0197d0b6aac12a88206e7c | FAILURE [41517973360](https://github.com/NYGsatoshi/Coglatas/actions/runs/41517973360) | 41517973310, 41517973455; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1666](https://github.com/NYGsatoshi/Coglatas/pull/1666) | Decision documentation; 5 | docs/projectide-manifest-option-b-20261103 / e14b85db11a0c4e39f6ee16e963553be862c2c18 / af6c2c17d5f3476429dc07545444a202c103c8e0 | feature/projectide-core-value-binding-20261103 / 48ff196985ddbf90db82386c5413c8f659ea64a7 / 48ff196985ddbf90db82386c5413c8f659ea64a7 | SUCCESS [41656109473](https://github.com/NYGsatoshi/Coglatas/actions/runs/41656109473) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Preserve Option B; obtain scoped concrete decisions; test-only proposals |
+| [#1667](https://github.com/NYGsatoshi/Coglatas/pull/1667) | Product; 6,7 | feature/projectide-evidence-foundation-20261103 / 585727a9b480e61d08cbeeb3d996904b5f1f4b5e / 6e8f2f908cdba5bc25d2d436af6316b75a19e925 | feature/projectide-core-value-binding-20261103 / 48ff196985ddbf90db82386c5413c8f659ea64a7 / 48ff196985ddbf90db82386c5413c8f659ea64a7 | SUCCESS [41562708845](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562708845) | No current-head supplemental success observed; 0 resolved, 0 unresolved, approval pending | Audit actual Compiler integration and cancellation/exhaustion propagation |
+| [#1668](https://github.com/NYGsatoshi/Coglatas/pull/1668) | Independent Test; 4,7 | test/projectide-evidence-foundation-20261103 / 6edddea75a8dfd0ecaca8559827ffb92ba06a365 / 93b9ec8aed73e6577dfcfb0be95b644bb2803e4d | test/projectide-core-value-binding-20261103 / 8f701e8db3097c74c9a63c30669fbfe36be7bb48 / 8f701e8db3097c74c9a63c30669fbfe36be7bb48 | FAILURE [41562716565](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716565) | 41562716515, 41562716656; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+| [#1681](https://github.com/NYGsatoshi/Coglatas/pull/1681) | Product; 6,7 | feature/projectide-materialization-binding-20261103 / 0601761abebf7bbf0ac7cb0384e5e9ddf6952358 / ba9cf3f2f550a13020bb9629acfcb59dfbf6b2b9 | feature/projectide-evidence-foundation-20261103 / 585727a9b480e61d08cbeeb3d996904b5f1f4b5e / 585727a9b480e61d08cbeeb3d996904b5f1f4b5e | SUCCESS [41651629653](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651629653) | No current-head supplemental success observed; 1 resolved, 0 unresolved, approval pending | Audit actual Compiler integration and cancellation/exhaustion propagation |
+| [#1682](https://github.com/NYGsatoshi/Coglatas/pull/1682) | Independent Test; 4,7 | test/projectide-evidence-materialization-20261103 / 1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6 / 51aeb6e876d55f6c7d2658b835e0c5f85347dafe | test/projectide-evidence-foundation-20261103 / 6edddea75a8dfd0ecaca8559827ffb92ba06a365 / 6edddea75a8dfd0ecaca8559827ffb92ba06a365 | FAILURE [41651634871](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651634871) | 41651634687, 41651634693; 0 resolved, 0 unresolved, approval pending | Retain independent lineage; add exact-pair negative controls; keep standalone failure visible |
+
+GitHub review base snapshots can differ from current remote branch tips (#1604 and some fixed Slice5/6 bases). Both values are retained; no PR base or historical SHA changed. #1604 reports mergeable=false; this does not authorize a stack rebase or Product/Test merge.
+
+The default-branch ruleset retains six strict named checks. Stacked contexts report isRequired=false; ordinary, supplemental, code review and Owner acceptance remain distinct. No Required Check or approval boundary is relaxed.
+
+Option B remains SELECTED. Current #1666/#905/#798 records contain no concrete Manifest/Receipt wire/hash/identity/mapping/migration, authenticated receipt trust, authorization-freshness, offline-bundle or Evidence Eligibility sign-off. #1144 remains pre-Avalonia SEC-ARCH BLOCKED; Pure ViewModel work does not qualify native UI/IME/accessibility/activation. #1128 remains SUSPENDED / NOT_EVALUATED. Existing Core/restart authority permits bounded contract-preserving propagation and independent tests; no normative IDs or public wire semantics allocated.
+
+Protected-ref read-only snapshot: main 5131d5539f336a78f0aed36ca351c6d93c62ff30; integration 158ab153551184cede99c85ce6476dd6e87b6767; SecurityTestImplimation a4bb658903a7b11d564006949fc58b42b94da575; exact ProjectIDEMain and Main absent. No refs modified by this audit.
+
+## Diagnostic, graph and paired-consumer continuation — 2026-11-04
+
+The Source audit confirmed that full Compile already calls snapshot admission
+and typed binding; existing admission findings pass through semantic validation
+to Result. RequirementEvidenceValidator and ResourceReferenceValidator are
+caller-invoked consistency helpers, not eligibility/satisfaction stages. Their
+missing production receipt/body/authority mapping is retained as incomplete;
+those contracts were not guessed into CompilerInput. Existing local scoped graph
+identity, missing/unsupported endpoints and kind-specific SCC classification are
+reused. Transitive external Input/Manifest closure is absent and remains HOLD.
+
+Three concrete corrections proceed as separate reviewable checkpoints:
+
+| Scope | Before-fail | Correction / independent cases |
+| --- | --- | --- |
+| #1686 / #1687 Compiler integration | 8 FAIL / 2 PASS / 0 SKIP on unchanged #1681 | Check cancellation during Unit/Calendar supply including terminal false; stop suppliers on inherited/shared exhaustion; preserve ResourceExhausted Stage axes. 10 new .NET cases; corrected focused 10 PASS. |
+| #1688 / #1689 Existing graph cancellation | 7 FAIL / 4 PASS / 0 SKIP on unchanged #1686 | Forward cancellation through existing App/Domain/Compiler graph work; bound/dispose supplier enumeration and check relation/cardinality/SCC/publication work. 11 new .NET cases; corrected focused 11 PASS. |
+| #1653 / #1654 Angular abort reentrancy | 3 FAIL / 15 PASS / 0 pending/todo on unchanged d77b9814 | Detach/reset lifecycle before synchronous abort callbacks and reserve the caller generation so newer load/denial wins. 3 new independent Vitest cases. Existing Windows Pure ViewModel lifecycle already guards reentrancy and is verified with the paired candidate. |
+
+| PR / role | Head branch | Exact HEAD / tree | Unchanged review base SHA |
+| --- | --- | --- | --- |
+| #1686 Product | feature/projectide-compiler-diagnostic-integration-20261104 | b73c0dc8d62e33a20af2cdd5414c1293b145c657 / 31e2abead1f2ceca7741baa44218ec28d4665516 | 0601761abebf7bbf0ac7cb0384e5e9ddf6952358 |
+| #1687 Independent Test | test/projectide-compiler-diagnostic-integration-20261104 | 35a788164a21dc46b23f1f16601aa9a21a6d1b50 / a0a90e1ce1fa250c10d0400936f0c985214b5f05 | 1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6 |
+| #1688 Product | feature/projectide-graph-cancellation-20261104 | 5f6475a0dbfb27470ab74454229cdeb0975d4f3d / b0afeb07966bbbe26d51200d650fc92484257f35 | b73c0dc8d62e33a20af2cdd5414c1293b145c657 |
+| #1689 Independent Test | test/projectide-graph-cancellation-20261104 | 07bf73a7c152e1fed69f1b3b258b342e9ce8cdf4 / 38efd07cbfe63dffe7892a912c5c422e4089bef2 | 35a788164a21dc46b23f1f16601aa9a21a6d1b50 |
+| #1653 Product | feature/projectide-workbench-inspection-20261103 | a32e0c8daa6429ee54178698153d87110b5c81f7 / 35f4e66ee10773990b20767e09255b3be4e8477a | 0a79e05a6533a7e4468bb7b74f47aeceb04ae119 |
+| #1654 Independent Test | test/projectide-web-windows-inspection-20261103 | ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2 / ad840ef4dc23fd61ba1f8b89e3437665d6ce984a | 5f2825e1d88f307efddc5edac16579ec220cbd4b |
+
+All six PRs remain Draft/open, without auto-merge. Each new Product branch starts
+at the exact preceding Product; each Test branch starts at the exact preceding
+independent Test. Runtime source is never copied to the Test line; combined
+candidates exist only in detached verification worktrees. No existing PR base is
+retargeted. The old #1681 Major remains resolved, not reimplemented or promoted
+to full changed-head approval.
+
+Before-final Core input: Product0601761a / Test9facb439, combined
+55fb9803c007179e4d8644e19c65fd8b6019c015, tree274056320c6c511ca5e1b4770863077e1b35a977;
+TRX SHA-256 a3654b78f86b3b500d75161350040d37a59c795f5260372ddd2157b2ab6d4ec9.
+Earlier 7-fail/1-pass eight-case authoring run included an incorrect assertion
+that known proven failure cannot have complete evidence. That assertion was
+corrected to respect independent axes, with its original raw evidence retained;
+it is not an extra Product defect. The corrected eight-case and final ten-case
+before receipts remain distinct.
+
+Graph before Productb73c0dc8 / Test75fe3765, combined
+9e72c3d304fe96d03c21ab5ed47256035fe8e60e, treeac39ee9a64c3985acf7412a936e3af53cc3c2302;
+TRX 15f605296891f3d7360b72f20856b54b28809b40c7743b914274162927185945.
+Graph corrected focused combinedd9f634d43ee6280ced5c099fbbb6c480b0a479d6
+has tree7858dad4ab61d8e6567396ca847376eabc4e213a;
+TRX2a5025c966c09fcbb74c8863e168b776641288ad3dc3f5a65a192a155d597e81.
+
+Windows and Ubuntu Core diagnostic candidate pass Release warnings-as-errors,
+**834 Core + 12 Architecture + 35 controls**, zero final selected fail/skip.
+Exact combinedf24db8f4bb7e9d42a174d3b4d9d11bc3bab57b18 /
+tree6fcbffea1fac9365b51e16103c86aec2489e22ba; Windows Core TRX
+5df2cd2c0891abde8b6dbcd06205f00e27284870762b82c76867a694d88e1cfb.
+[Ubuntu run41666487857/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41666487857),
+artifact13245568113 ZIP SHA-256
+d5d57698624dbe65f88d736c7813c3476ccb76461868b4e3c8c34c418606ae47
+equals GitHub. All eight producer-file hashes, all 54 runtime Git blobs/host
+bytes and complete parsed discovery/execution/control inventories were
+independently checked. Windows CRLF and Ubuntu LF bytes are each checked against
+their actual host/source identities; false raw byte equality is not claimed.
+
+Windows Graph Core passes **845 Core + 12 Architecture + 35 controls**, Release
+warnings-as-errors, zero final selected fail/skip, clean before/after. Exact
+combined69142b754215a03b752c091b2b8a149a1117804e /
+tree7858dad4ab61d8e6567396ca847376eabc4e213a; Core TRX
+02bb3799deb9f51073c7eb5d016ca62c27a00de984f6adbd29c612d2434bd636.
+Windows/Ubuntu combined consumers and Ubuntu Graph evidence are pending at this
+checkpoint and are appended below only after completed inspection.
+
+Standalone corrected Consumer Windows passes **763 .NET/Pure ViewModel + 12
+Architecture + 281 Vitest + 70 Node + 44 actual Desktop/Mobile browser + 31
+controls**, zero final selected fail/skip/pending/todo, clean exact combined
+bb47e55f3989bafb028021b763f1afa04d4e3604 / treea4ff5544bc8fba0b737e4f74a7ee2eac6f7dddbd.
+Golden exporter bytes are reproduced. These counts belong to its older Core
+dependency, not to the newly integrated diagnostic/graph candidates.
+
+Ubuntu D1 Consumer run41666487687 attempt1 failed before composition/runtime
+because ed2e0b40 was not yet reachable in the initial runner fetch. Its log and
+no-artifact failure remain retained; no runtime success is claimed. After exact
+remote a32e0c8d/ed2e0b40 reachability was verified, a normal failed-job retry was
+accepted. Windows consumer composition initially omitted optional current-review
+base arguments: before verification, the original receipt/hash was preserved and
+the exact0601761a/1e54da1d ancestry was independently verified and recorded; the
+combined commit/tree never changed. This is a disclosed metadata correction,
+not a new Source or unverified pass.
+
+New full-review requests use the ordinary included GitHub review workflow.
+#1686 received Full review triggered; #1688 returned Review rate limited / Action
+not completed, with 59 minutes until included capacity. No quota/billing/settings
+change or bypass. Triggered is not completed review or Owner/CODEOWNER approval.
+The Manifest packet now distinguishes existing-contract integration from pending
+schema/receipt decisions and adds interrupted-assembly negative requirements;
+Option B remains selected and every concrete approval remains pending.
+
+Raw audit, initial orchestration failures, source/ownership checks, complete
+inventories, both before/after proof families and downloaded artifacts are under
+C:/Temp/projectide-continuation-20261104/; standalone Consumer evidence is under
+C:/Temp/projectide-consumer-abort-20261104/. These are retained verification
+artifacts, not replacement management ledgers. #1144 native/activation HOLD and
+#1128 SUSPENDED / NOT_EVALUATED remain unchanged. No incomplete IR is executable,
+no actual Resource acquisition or requirement satisfaction is declared.
+
+### Completed cross-host checkpoints
+
+Graph Core Windows/Ubuntu now independently verified: **845 Core + 12 Architecture
++ 35 controls**, zero final fail/skip, exact combined69142b75/tree7858dad4 above.
+[Ubuntu41667420758/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41667420758),
+artifact13245463302 ZIP SHA-256
+0cea74dc0d05640d6ca7e4d8e9cd754c5e3c13f5950e8bae339b9803f1e58606
+equals provider. All eight per-host producer hashes, all 54 source identities,
+complete parsed inventories, all eleven new Graph cases and retained baseline
+were independently checked. Inspector record SHA-256
+8d9d0455a7b42ede0278578ef806b30bdf451bf469078cdc5183f143091a79ee.
+
+Diagnostic integrated consumers Windows/Ubuntu now independently verified:
+**872 .NET/Core/fixture/Pure ViewModel + 12 Architecture + 281 Vitest + 70 Node +
+44 actual Desktop/Mobile browser + 61 controls**, zero final fail/skip/pending/todo.
+Exact combined2de0258db477d6176ed495e5548d859b539eba14 /
+tree6d9add1a962b6ba63c707e117fb43d9e06bc62a4.
+[Ubuntu41666487687 attempt2](https://github.com/NYGsatoshi/Coglatas/actions/runs/41666487687),
+artifact13246309026 ZIP SHA-256
+945e98ee9727f8683a85854cc0b9190f5dc7780e2c48ede8680753c82910a1c5
+equals provider. Attempt1 remains a pre-runtime FAILURE, never relabelled.
+All 34 Windows and 32 Ubuntu producer-file hashes, four pinned helper blobs,
+full raw/parsed TRX/Vitest/Node/JUnit inventories and exact Test ownership were
+independently verified. Eighteen Core-Test changed files equal35a78816; nine
+Consumer-Test files equal ed2e0b40; exact Core differs only by the pinned Product
+inspection projection. Current combined checkouts are clean. Windows Core TRX
+e991f0a3c2e7015752d27cb306cd02735f9244472be2b98e171e5c9c9ca5ea02.
+Independent comparison record SHA-256
+d65dd8777d25ab87854eb9fce5ed250aca1d0b05a1485010b925238e38415021.
+
+Standalone Consumer Windows/Ubuntu likewise verified at its exact older-Core
+candidate above; [Ubuntu41666843626/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41666843626),
+artifact13246079160 ZIP SHA-256
+2d493f0f8523053680a6d49606b3ac861081e09a38c994582877ce2219738e2f
+equals provider, all 25 hosted and 26 local hashes and complete inventories match.
+#1653/#1654 preserve their prior evidence and add this exact checkpoint. Their
+new-head full review request returned Review rate limited / Action not completed
+with a 56-minute included-capacity interval; no retry/billing/settings change.
+
+All consumer golden bytes remain
+bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a.
+Windows Node is24.22.1; Ubuntu Node is24.22.2; both SDK10.0.403. This is exact
+source/inventory cross-host verification, not identical Node patch toolchains.
+Package/lock bytes and Git blobs match before reusing existing installed modules
+through absent-only local junctions; no modules/cache/artifact deletion. Existing
+Angular bundle/style-budget and Vite future-loader warnings remain in raw logs;
+no threshold or warning suppression was introduced. Actual browser servers bind
+their exact candidate static root/index hash and use zero retries/forbid-only;
+diagnostic integrated Windows port52083 serves index
+33be84a46483151f01165811b22c42526ccbdc2da8e08e0a9ba3433ce01d19d9.
+
+Latest ordinary snapshot: #1687 run41666487725 and #1689 run41667420432 are
+FAILURE (five failed/four skipped jobs) on absent unmerged Product namespaces/
+types, confirmed from producer logs. #1686 run41666434632 and #1688 run41667369853
+are still running the separate Security lane; their other jobs have succeeded.
+Neither is labelled final SUCCESS yet. Supplemental passes waive no ordinary
+failure or pending required responsibility. All four new PRs currently have zero
+unresolved inline threads and zero APPROVED reviews; #1686 triggered review is
+still processing without a review submission. Full current-head review and
+Owner/CODEOWNER acceptance remain incomplete.
+
+Graph integrated consumers Windows/Ubuntu are now independently verified:
+**883 .NET/Core/fixture/Pure ViewModel + 12 Architecture + 281 Vitest + 70 Node +
+44 actual Desktop/Mobile browser + 61 controls**, zero final selected fail/skip/
+pending/todo. Exact Product5f6475a0 / Test07bf73a7 with Inspectora32e0c8d / ed2e0b40;
+combined5669b4ca4fc3e6638c18831ee839eaee7b28d7c6 /
+tree0fb524563afef6645ffc443bd87342acb32e2075.
+[Ubuntu41667420872/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41667420872),
+artifact13247076457 ZIP SHA-256
+97ef0fc206c4a6498ee9d148cde5d431fe289c2db26d16643de74efe4d2273ed
+equals GitHub. All 33 Windows and 32 Ubuntu producer hashes, four pinned helper
+Git blobs, exact per-host verifier/baseline bytes, strict raw and parsed full
+test inventories and golden bytes were independently checked. The full inventory
+retains all prior cases and executes all ten Diagnostic plus eleven Graph cases.
+Fifty Core-owned Test blobs equal the exact independent Test; Consumer-owned files
+equal ed2e0b40, and runtime differs only by the exact pinned inspection projection.
+Checkouts are clean before/after. Windows browser port64321 binds the exact
+candidate root/index33be84a46483151f01165811b22c42526ccbdc2da8e08e0a9ba3433ce01d19d9,
+zero retries/forbid-only. Local receipt SHA-256
+a992c2e0be9af3f5648603d86e9b644c3f6d9c2c7ad35e57942d61890204b0b5;
+independent cross-host inspection record SHA-256
+42eb6c3ce77180f1d215ccd0d3d5654828bdb12279351a12bf0ee448ecc44731.
+
+The final bounded corrections add **21 independent .NET cases and three independent
+Vitest cases**. Actual Core, Angular and Windows Pure ViewModel contract verification
+is complete for these exact candidates. Native Avalonia Views/IME/accessibility,
+production transport/current authorization and all full ProjectIDE feature/Issue
+acceptance are not completed by these synthetic headless/browser results.
+
+### Changed-head review follow-up, not acceptance
+
+#1686 Full Review completed COMMENTED on exact b73c0dc8 with one Minor finding:
+[thread PRRT_kwDOSy0QwM6zNXfy](https://github.com/NYGsatoshi/Coglatas/pull/1686#discussion_r4457082260).
+WithinBudget can succeed with exactly zero operations left. ReadSupply then has
+no pre-open/pre-MoveNext budget guard, so a subsequent supplier can still be
+invoked. The finding is treated as untrusted input; current source supports the
+reported boundary case and four deterministic independent controls are being
+prepared. Reproduction/correction and new-head qualification remain pending at
+this checkpoint. No old success above is assigned to a future changed head.
+
+The planned dependency update is limited to exact inspected non-destructive
+Product-to-Product and independent-Test-to-Test merges. No stack rebase or
+Product/Test runtime mixing is authorized. Existing ordinary CI, full review and
+Owner/schema acceptance remain separate. The current full review is not an
+APPROVED submission; the new finding remains unresolved until corrected evidence
+is checked. #1688 and #1653 new-head full reviews remain rate-limited.
