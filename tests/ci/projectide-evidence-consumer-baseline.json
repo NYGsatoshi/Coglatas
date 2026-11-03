@@ -178,12 +178,14 @@
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.AuthorizationDenialHasTheSamePublicFindingsForDifferentPrivateBodies",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.CancellationDuringSupplyStopsBeforeRequestingTheNextBodyAndDisposesTheEnumerator",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ConflictingSupplyCannotChooseTheFirstBodyAndDiagnosticsAreOrderIndependent",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DeniedEntriesWithTheSameContextStillConsumeTheEntryCap",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DuplicateBodiesAreInvalidEvenWithoutAReference",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactBodyAdmitsSymbolsWithoutChangingInputIdentityOrProvingExternalClosure",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"revision\")",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"source\")",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"unknown\")",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"version\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExhaustionFindingsDoNotDependOnWhetherADeniedEntryArrivedFirst",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.SharedBudgetStopsSupplyBeforeReadingTheWholeBoundedBatch",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.UnauthorizedBodiesAreNotReturnedOrInspectedForPinIntegrity",
     "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.UnknownMaterializationMeaningIsPreservedButNeverAccepted(change: \"body\")",
@@ -2557,11 +2559,11 @@
     }
   ],
   "pins": {
-    "coreProduct": "38fba7d6c8875c22d19ce1142fa8e53548bf7c9b",
-    "coreTest": "cb3012a26574bcdd9bcc7a8fd07e3ccdc4b31639",
+    "coreProduct": "7f5bb1d1f4902bf3e5505276031056ec3f7276e9",
+    "coreTest": "4eb77ef367510730ca1fa357a01700ad740fc980",
     "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
     "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
-    "combinedCommit": "8a9bcc87bae789e3e1cc8c9e418d67e3673aa0e7",
-    "combinedTree": "a330d4a599a61720731bd9d3de378c22e078a8ac"
+    "combinedCommit": "f35408e77a87667b450b9e775e68156449df3d78",
+    "combinedTree": "291752d4cc3acb6f60c3aa4d84a86ee579c542e9"
   }
 }
