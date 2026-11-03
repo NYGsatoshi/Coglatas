@@ -59,7 +59,7 @@ INSERT INTO public.z_first_child VALUES(1,1);
 INSERT INTO public.a_later_child VALUES(1,1);
 INSERT INTO public.partition_parent VALUES(1);`;
 
-test('native PostgreSQL 18.6 logical RI identities preserve exact schema and reject semantic/order changes', async t => {
+await test('native PostgreSQL 18.6 logical RI identities preserve exact schema and reject semantic/order changes', async t => {
   const nonce = randomBytes(6).toString('hex'), name = 'coglatas-ri-native-' + nonce;
   const directory = join(root, 'artifacts', 'recovery-ri-native', nonce);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
