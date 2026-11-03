@@ -91,3 +91,32 @@ or merge from this work. Angular is retained; new Web UI is NOT_STARTED and
 Windows/Avalonia remains BLOCKED by #1144. No runtime/RLS/SEC-ARCH/Shadow/Enforce,
 dependency, production configuration or Student Council release decision changes.
 #1128 remains SUSPENDED / NOT_EVALUATED.
+
+## Cooperative graph cancellation continuation — 2026-11-04
+
+The structural validator accepts an optional cancellation token, propagated by
+`ProjectRelationValidation` and the existing Compiler semantic-validation call.
+Snapshot and unit suppliers retain their existing count bounds. Cancellation is
+checked before supplier access, after each successful or terminal `MoveNext`,
+after `Current`, and after disposal; interrupted enumeration still disposes its
+iterator. Relation resolution, cardinality checks and both iterative SCC passes
+check the same token. Cancellation propagates without publishing a completed
+structural receipt. This is cooperative cancellation between bounded operations;
+it cannot interrupt an uncooperative supplier callback or atomic decode operation.
+
+Existing scoped identities, endpoint coverage, diagnostics, budgets and cycle
+policies are unchanged. Dependency/dataflow SCC members remain distinct from
+downstream tails and logical relatedness. The validator analyzes known root-Source
+edges only: it fetches no external adjacency and supplies no transitive closure or
+Compiler Complete guarantee. `external-closure-not-lowered` remains applicable;
+Manifest/Receipt schema, producer trust and evidence eligibility remain separate
+Owner decisions. The older platform-status statements above are historical;
+maintained Angular and Windows Pure ViewModel work is recorded in the continuation
+ledger, while actual native UI/activation remains HOLD under #1144.
+
+The runtime checkpoint `569667bfeba366629d47c1ae4d9eae0d3f2d9239` builds Domain and
+Application in Release with warnings as errors: zero warnings and errors. Paired
+independent regression, complete Windows inventories and Ubuntu supplemental
+results for the final Product/Test pins remain pending. Historical successes and
+the Product-only build do not qualify that future pair or establish source review,
+Owner/CODEOWNER acceptance or ordinary Test CI success.
