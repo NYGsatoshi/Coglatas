@@ -204,12 +204,13 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
             validate(mutated)
 
     def test_false_green_commented_missing_policy_fails_closed(self):
-        marker = "          if-no-files-found: error\n          retention-days: 7"
-        mutated = self.source.replace(
-            marker,
-            "          if-no-files-found: ignore # if-no-files-found: error\n          retention-days: 7",
-            1,
+        canonical = security_uploads(self.source)["sec06-zap-evidence"][2]
+        weakened = canonical.replace(
+            "          if-no-files-found: error\n",
+            "          if-no-files-found: ignore # if-no-files-found: error\n", 1,
         )
+        self.assertNotEqual(weakened, canonical)
+        mutated = self.source.replace(canonical, weakened, 1)
         self.assertNotEqual(mutated, self.source)
         with self.assertRaisesRegex(ValueError, "fail closed"):
             validate(mutated)
