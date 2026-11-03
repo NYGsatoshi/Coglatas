@@ -113,7 +113,7 @@ async function withFetch(fetch, action) {
   finally { globalThis.fetch = original; }
 }
 
-test('actual probe phases check saved identities, both owners and foreign denials, revocation and fresh login/logout', async () => {
+await test('actual probe phases check saved identities, both owners and foreign denials, revocation and fresh login/logout', async () => {
   const server = fixture();
   await withFetch(server.fetch, async () => {
     for (const phase of ['checkpoint', 'verify', 'rollback']) await runProbe(phase, server.io);
@@ -134,7 +134,7 @@ test('actual probe phases check saved identities, both owners and foreign denial
     '/private/probe-verify.json', '/private/probe-rollback.json']);
 });
 
-test('a rejected login, wrong identity or accepted revoked cookie cannot publish a checkpoint PASS', async () => {
+await test('a rejected login, wrong identity or accepted revoked cookie cannot publish a checkpoint PASS', async () => {
   for (const fault of ['login-denied', 'logout-denied', 'wrong-identity', 'unrevoked-session']) {
     const server = fixture(fault);
     await withFetch(server.fetch, () => assert.rejects(() => runProbe('checkpoint', server.io)));
@@ -142,7 +142,7 @@ test('a rejected login, wrong identity or accepted revoked cookie cannot publish
   }
 });
 
-test('missing or altered owned bytes and private content in a denied response cannot publish PASS', async () => {
+await test('missing or altered owned bytes and private content in a denied response cannot publish PASS', async () => {
   for (const fault of ['wrong-file-status', 'wrong-file-size', 'wrong-file-hash', 'foreign-bytes', 'foreign-marker', 'foreign-success']) {
     const server = fixture(fault);
     await withFetch(server.fetch, () => assert.rejects(() => runProbe('checkpoint', server.io)));
@@ -150,14 +150,14 @@ test('missing or altered owned bytes and private content in a denied response ca
   }
 });
 
-test('a denied revoked-session response containing its protected identity cannot publish PASS', async () => {
+await test('a denied revoked-session response containing its protected identity cannot publish PASS', async () => {
   const server = fixture('revoked-identity-leak');
   await withFetch(server.fetch, () => assert.rejects(() => runProbe('checkpoint', server.io)));
   assert.ok(!server.files.has('/private/probe-checkpoint.json'));
 });
 
 for (const fault of otherIdentityLeaks.keys()) {
-  test('a denied session response containing another known ' + fault + ' cannot publish PASS', async () => {
+  await test('a denied session response containing another known ' + fault + ' cannot publish PASS', async () => {
     const server = fixture(fault);
     await withFetch(server.fetch, () => assert.rejects(() => runProbe('checkpoint', server.io)));
     assert.ok(!server.files.has('/private/probe-checkpoint.json'));
@@ -165,7 +165,7 @@ for (const fault of otherIdentityLeaks.keys()) {
 }
 
 for (const [phase, leakAt] of [['checkpoint', 2], ['verify', 4], ['rollback', 6]]) {
-  test('known-identity protection reaches the final revoked check or fresh logout in ' + phase, async () => {
+  await test('known-identity protection reaches the final revoked check or fresh logout in ' + phase, async () => {
     const server = fixture('beta-email', { leakAt });
     await withFetch(server.fetch, async () => {
       for (const prior of ['checkpoint', 'verify', 'rollback']) {
@@ -178,7 +178,7 @@ for (const [phase, leakAt] of [['checkpoint', 2], ['verify', 4], ['rollback', 6]
   });
 }
 
-test('a direct logout without additional identities retains protection for its own actor', async () => {
+await test('a direct logout without additional identities retains protection for its own actor', async () => {
   const server = fixture('revoked-identity-leak'), actor = new Actor(revoked);
   await withFetch(server.fetch, async () => {
     await actor.login(server.spec.password);
@@ -186,7 +186,7 @@ test('a direct logout without additional identities retains protection for its o
   });
 });
 
-test('denied identity checks retain safe empty, plain and JSON errors but reject raw, embedded, case-varied and JSON-escaped markers', async () => {
+await test('denied identity checks retain safe empty, plain and JSON errors but reject raw, embedded, case-varied and JSON-escaped markers', async () => {
   for (const body of ['', 'Unauthenticated', '{"error":"userId and email are unavailable"}'])
     await withFetch(async () => new Response(body, { status: 401 }), () => new Actor(alpha).me(401));
   const escapedId = alpha.userId.replaceAll('a', '\\u0061');
@@ -207,7 +207,7 @@ test('denied identity checks retain safe empty, plain and JSON errors but reject
     () => assert.rejects(() => new Actor(revoked).me(401, [])));
 });
 
-test('saved cookie identities must remain authenticated after restore rather than falling back to fresh login', async () => {
+await test('saved cookie identities must remain authenticated after restore rather than falling back to fresh login', async () => {
   const server = fixture();
   await withFetch(server.fetch, async () => {
     await runProbe('checkpoint', server.io);
@@ -221,7 +221,7 @@ test('saved cookie identities must remain authenticated after restore rather tha
   });
 });
 
-test('input phase, ordered tenant pair and synthetic actor identity are required before requests or receipt writes', async () => {
+await test('input phase, ordered tenant pair and synthetic actor identity are required before requests or receipt writes', async () => {
   for (const mutate of [value => { value.actors.pop(); }, value => { value.actors.reverse(); },
     value => { value.revoked.userId = 'invalid'; }, value => { value.actors[0].email = 'outside@invalid.example'; }]) {
     const server = fixture(), value = JSON.parse(server.files.get('/private/probe-input.json'));
@@ -234,7 +234,7 @@ test('input phase, ordered tenant pair and synthetic actor identity are required
   assert.equal(server.writes.length, 0);
 });
 
-test('request processing retains cookie values, removes expired cookies and applies tenant, CSRF and JSON headers', async () => {
+await test('request processing retains cookie values, removes expired cookies and applies tenant, CSRF and JSON headers', async () => {
   const actor = new Actor(alpha, { Retained: 'opaque=value', Removed: 'old' });
   await withFetch(async (url, options) => {
     assert.equal(url, 'http://127.0.0.1:8080/api/example');
@@ -255,7 +255,7 @@ test('request processing retains cookie values, removes expired cookies and appl
   assert.deepEqual(actor.cookies, { Retained: 'opaque=value', Added: 'opaque=new' });
 });
 
-test('non-API and absolute request paths are rejected before fetch', async () => {
+await test('non-API and absolute request paths are rejected before fetch', async () => {
   let calls = 0;
   await withFetch(async () => { calls++; throw new Error('Unexpected fetch'); }, async () => {
     for (const path of ['/outside', 'https://outside.invalid/api/example', '/api/http://outside.invalid'])
@@ -264,7 +264,7 @@ test('non-API and absolute request paths are rejected before fetch', async () =>
   assert.equal(calls, 0);
 });
 
-test('CSRF response status, header syntax, nonempty token and parseability must be valid', async () => {
+await test('CSRF response status, header syntax, nonempty token and parseability must be valid', async () => {
   for (const response of [new Response('{}', { status: 403 }), new Response('{'),
     Response.json({ headerName: 'bad header', token: 'token' }),
     Response.json({ headerName: 'X-Csrf', token: '' }), Response.json({ headerName: 'X-Csrf', token: 7 })]) {
@@ -272,7 +272,7 @@ test('CSRF response status, header syntax, nonempty token and parseability must 
   }
 });
 
-test('response byte limit, malformed cookies and original fetch failures cannot be converted to success', async () => {
+await test('response byte limit, malformed cookies and original fetch failures cannot be converted to success', async () => {
   await withFetch(async () => new Response(Buffer.alloc(1024 * 1024 + 1)),
     () => assert.rejects(() => new Actor(alpha).request('/api/example')));
   await withFetch(async () => new Response('closed', { headers: { 'Set-Cookie': 'not-a-cookie-pair' } }),
@@ -282,7 +282,7 @@ test('response byte limit, malformed cookies and original fetch failures cannot 
     () => assert.rejects(() => new Actor(alpha).request('/api/example'), caught => caught === error));
 });
 
-test('actual CLI rejects invalid phase or extra target arguments with only the original closed error', () => {
+await test('actual CLI rejects invalid phase or extra target arguments with only the original closed error', () => {
   const script = fileURLToPath(new URL('../../scripts/ci/synthetic-logical-recovery-probe.mjs', import.meta.url));
   for (const args of [[], ['unrecognized'], ['checkpoint', '--target=SYNTHETIC_PRIVATE_ARGUMENT']]) {
     const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
