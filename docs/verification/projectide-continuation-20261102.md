@@ -1107,3 +1107,212 @@ Product/Test runtime mixing is authorized. Existing ordinary CI, full review and
 Owner/schema acceptance remain separate. The current full review is not an
 APPROVED submission; the new finding remains unresolved until corrected evidence
 is checked. #1688 and #1653 new-head full reviews remain rate-limited.
+
+### Exact-zero correction and inspected dependency update
+
+The Minor is valid. Independent Test65dda7651b24cdaa8491e427d5a3f6c66698cc58 on
+unchanged Productb73c0dc8 reproduces **4 FAIL / 10 PASS / 0 SKIP** from deliberate
+unexpected GetEnumerator/second-MoveNext exceptions. The four cases calibrate
+exact supported Source/body work through public consumption observations, without
+copying Product source or mocking the compiler. Combined47131d59588303708d7694f6de4a1b78d1705703 /
+tree1b8aa289bb329aef125793a0bce410dfd90d0e54; before TRX SHA-256
+1a237d110488cce7f269a255c703f9a4e6742b75f6da6867cda3006a0f469acf.
+
+Producta84b2914 adds only two pre-call remaining<=0 guards plus seven doc lines.
+Cancellation precedence, disposal and existing diagnostics/result axes remain.
+Corrected focused **14 PASS / 0 FAIL / 0 SKIP**, combinedb40be02a1392377b08b994ece65537d2036d321d /
+tree87b8150f45d795a3aacb6ffb4a648aa21b40eb77; after TRX
+67d633981ee33d88b2de996adbcbde90ab3f1f16124e093c2569a32e96def8eb.
+Exact source/Test ownership and clean capture states verified. Reply4457197713
+records reproduction; reviewer4457202507 acknowledges the described correction
+while explicitly withholding independent new execution qualification. Finding
+resolution waits for the completed corrected Core/consumer evidence.
+
+| Corrected role | Exact HEAD / tree | Review base SHA |
+| --- | --- | --- |
+| #1686 Product | a84b2914853427f1c8d494e650bd7ce01edc7783 / 9cc51e4ef1b7c0cbc44e00704d6bb2649512300d | 0601761abebf7bbf0ac7cb0384e5e9ddf6952358 |
+| #1687 Independent Test | 3eee9a05892d987629e410a8c6c4d501f02acb70 / db5b3f5edaba98c5febb3424ea281dfc26fd9238 | 1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6 |
+| #1688 Product | 05c9fa5afc6c57eb81cfa1d321b555bb85ff8130 / 02414b04e35e594213efe61a686119c48432a709 | a84b2914853427f1c8d494e650bd7ce01edc7783 |
+| #1689 Independent Test | 7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0 / 4c025aeec6805a62aadfbc31ebf0ca638ed93a13 | 3eee9a05892d987629e410a8c6c4d501f02acb70 |
+
+Graph Product05c9 is a normal merge, ordered parents5f6475a0 / a84b2914;
+its exact tree equals independent git merge-tree. First-parent delta is only the
+two guards/seven doc lines. Independent Test mergec7f2732451b5dcd43e28ac530736894a38fc95af
+has ordered parents07bf73a7 / 3eee9a05, treef4655815e949201d4b6147333e1253aed0a4b88f.
+Four resolution paths contain only two supplemental SHA expressions, exact new
+Diagnostic tests and their prior qualified consumer baseline; no gate/permission/
+assertion changes. Test ancestry relative to original SecurityTest baseline has
+no src delta. Inspection record SHA-256
+6305373bfd6fb2cadba210a589baf8e7c9fe8c581a81f6c22349b64bdde60d99.
+
+Successor Test7241 adds a scoped exact merge planner, not a generic waiver.
+Product checks literal inspected SHA/ordered parents/tree/paths and clean
+merge-tree equality. Test additionally binds its two exact Test-only side commits,
+follows first-parent replay and applies the exact net merge once with mainline1;
+side commits never replay twice. Generic Slice2 single-parent refusal is unchanged.
+Eight real temporary-Git controls cover unlisted identity, swapped/third parents,
+tree/path substitution, concealed runtime, duplicate/unplanned replay and exact
+positive output bytes. All **43 controls PASS** (35 retained + 8 new), zero skip.
+Full old Graph845/883 inventories are strengthened historical baselines, not
+relabelled qualification of these changed candidates.
+
+Corrected D1 Windows/Ubuntu Core verified **838 Core + 12 Architecture + 35
+controls**, zero final fail/skip; combinedc257bc8cc503b04019837b90e6b3e0ce71aa357b /
+tree87b8150f45d795a3aacb6ffb4a648aa21b40eb77, clean before/after. Windows TRX
+ac6c94cad2771b2a1465b5ad0898edf75201ec73127eacbc25b4b76796124ee0.
+[Ubuntu41670993949/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41670993949),
+artifact13248027897 ZIP SHA-256
+d90a2809aa600bfdac25bcf8d772bbb2e88f907b7e03e521dada4ebcf9ea98df
+equals provider. All eight per-host producer hashes, 54 source identities, strict
+TRX/discovery/execution, retained baseline and all fourteen cases checked.
+Independent record SHA-256
+ae84c323e834607425a65af4aa739dfda06e0a60e31a4b324f65c9d3c83a8fb8.
+
+Corrected Graph Windows/Ubuntu Core verified **849 Core + 12 Architecture + 43
+controls**, zero final fail/skip; combined20ce7bc2509393ab32a59605747ad466b86952e6 /
+tree3507393d1abe09eb7cbcdd9cfa24ae8fc8549db8, clean before/after. Windows TRX
+4deec2b16150f2a7421dc538a7ca8e26a1d11cb892ebfa3536f55f24230abf0d.
+[Ubuntu41672744004/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41672744004),
+artifact13247729917 ZIP SHA-256
+c0d4924b3493925dff619091abc7118b0f9ea59c800408ab50507f462ac53856
+equals provider. Per-host eight hashes/54 source identities/full raw+parsed
+inventories checked, including literal dependency merge proofs and same once-only
+replay plan. Independent record SHA-256
+352df6673805ebf9d4281d1ab0e2caa5782c09977ed3eedc1e5957d9d0fe8c30.
+Windows Python3.12.14 / Ubuntu3.12.12 are recorded separately, alongside the
+disclosed Node patch difference; both SDK10.0.403.
+
+Corrected full consumer checks remain in progress at this checkpoint; append only
+after completed inspection. Sole registered Graph consumer producer writes
+C:/Temp/projectide-consumer-final-20261104/graph-consumers-r2/evidence/receipt.json;
+D1 uses sibling diagnostic-consumers-r2/evidence. An accidentally duplicated
+compose attempt was rejected by the fresh-worktree guard before another candidate
+or build/verifier could be created. Its separate orchestration failure remains at
+C:/Temp/projectide-continuation-20261104/graph-consumer-r2-compose.log, with no
+candidate/pass credit; nothing was deleted to evade the guard. All earlier
+successful-head receipts and failure attempts remain retained. No protected ref,
+PR base name, Draft state, threshold, concrete schema/trust/eligibility or
+activation policy changed.
+
+### Completed corrected consumer qualification and scoped resolution
+
+Corrected D1 Windows/Ubuntu consumers pass **876 .NET/Core/fixture/Pure ViewModel
++ 12 Architecture + 281 Vitest + 70 Node + 44 actual Desktop/Mobile browser + 61
+controls**, zero final selected fail/skip/pending/todo. Exact a84b2914 / 3eee9a05
+with unchanged Inspectora32e0c8d / ed2e0b40, combined
+02365f2705e4e3484d783ff296db3eac243873e6 / treee64e365efa95166689583f677c3606b7b2bf75ca.
+[Ubuntu41670993905/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41670993905),
+artifact13247509359 ZIP SHA-256
+b9999b16e942f4279c77dc1e2d5db14185bec33b3c1f363ac15d6156020c822a
+equals provider. All 33 Windows / 32 Ubuntu producer hashes and full file sets,
+pinned helper/Git bytes, per-host verifier/baseline bytes, strict raw/parsed
+inventories and golden bytes verified. Windows receipt SHA-256
+09a1e9297058eecaff1338fdc706e7cb6e6e201ddf4737fee22a89c373300a60;
+independent cross-host record SHA-256
+256224ea696614abfa921d0549bde20a4925bda5562786870b81ed2eb117b474.
+
+Corrected Graph Windows/Ubuntu consumers pass **887 .NET/Core/fixture/Pure
+ViewModel + 12 Architecture + 281 Vitest + 70 Node + 44 actual Desktop/Mobile
+browser + 69 controls**, zero final selected fail/skip/pending/todo. Exact
+05c9fa5a / 7241cd0c with same Inspector pins; combined
+cdf584238e4c34cd72427ff30b16095b71ae7e0a / treed0d9ebf4b8c6971a7bd7625bb44b7fbddc3cd022.
+[Ubuntu41672743959/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41672743959),
+artifact13250585046 ZIP SHA-256
+8e791adf2128276fbf8c2c89ca0787656b5fc10695e94dc7cfa3e818f4af98be
+equals provider. All 40 Windows / 32 Ubuntu producer-file hashes, six frozen exact
+Test-source helpers/baselines and four pinned Inspector helpers, full dependency
+merge proofs/once-only plans and strict raw/parsed complete inventories verified.
+Windows receipt SHA-256
+d54bf7b09757e5fbd06f1b3b475edb2923370f7a99649352942ebcbd5f467385;
+independent cross-host record SHA-256
+1f34a0981aa106a6f928e0de3c5b68510d3e2c3632e0bc5dc1528ba0f45f712d.
+
+Both current consumer candidates are clean before/after with exact Source/Test
+ownership/equality, all prior cases retained and all **25 new .NET cases + 3 new
+Vitest cases + 8 new Git continuation controls** executed. Exact fixture remains
+bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a.
+Both use SDK10.0.403; Windows Node24.22.1/Python3.12.14 and Ubuntu
+Node24.22.2/Python3.12.12 are separately recorded. Windows browser ports59377
+(D1) and49696 (Graph) each bind the exact candidate static root and served index
+33be84a46483151f01165811b22c42526ccbdc2da8e08e0a9ba3433ce01d19d9;
+zero retries/forbid-only. No native Avalonia, actual external acquisition,
+authorized production transport, Receipt Trust or Requirement satisfaction is
+qualified. All #1144/#1128 and concrete schema/eligibility holds remain.
+
+Fresh corrected evidence reply4457570156 was posted to #1686 after independently
+checking all four corrected Core/consumer Windows/Ubuntu receipts. Thread
+PRRT_kwDOSy0QwM6zNXfy is now **resolved**, confirmed by the connector state. This
+resolves the reproduced Minor only; no full a84b2914 review, Owner/CODEOWNER or
+integration/schema/native/release acceptance follows. Historical b73/5f passes
+and the b73 Full Review remain separately attributed. No repeated rate-limit
+request, billing/settings change or quality waiver was made.
+
+Standalone #1653 ordinary Product run41666795180 is terminal **SUCCESS** on a32;
+#1654 ordinary Test run41666843802 is terminal **FAILURE**, six failed/four skipped
+jobs. Both .NET and frontend producer logs establish missing unmerged Product
+Core/workbench modules; the frontend's 36 failed browser cases reflect the absent
+Workbench and retain the ordinary workflow's original retries. They are not
+supplemental passes and are not hidden or waived. Both existing PR histories and
+terminal checkpoint comments are preserved; corrected a32 full review remains
+rate-limited and Owner acceptance pending.
+
+### Protected-ref and ownership audit
+
+Remote main advanced externally during this task: initial
+5131d5539f336a78f0aed36ca351c6d93c62ff30 to observed
+a43440f0ec831029ab340d41c55c3204af7cff4a at 2026-11-03 16:32:11 UTC. Official
+commit/associated-PR records identify unrelated #1674, merged at16:23:44 UTC by
+web-flow, test/tenant-administration-current-authority-20261103 into main. This
+team issued no protected push/merge and did not incorporate or rebase on that
+external update. Integration158ab153551184cede99c85ce6476dd6e87b6767 and
+SecurityTestImplimationa4bb658903a7b11d564006949fc58b42b94da575 remained unchanged;
+exact Main/ProjectIDEMain remained absent. Remote audit record SHA-256
+e94f5ebd43410b82dac183d3b15d4c6a64f380c9ebfecea756ede096064a1352.
+
+Task writes remain limited to seven unprotected refs: the two existing Inspector
+Product/Test refs, the two Diagnostic Product/Test refs, the two Graph Product/Test
+refs and existing docs/projectide-manifest-option-b-20261103. All other original
+ProjectIDE heads remain untouched. No force push, existing PR close, Ready/auto-
+merge, required CI relaxation, production deploy/RLS/Enforce/native activation or
+protected cache/artifact deletion occurred. All 30 inherited plus four new PRs
+remain Draft/open; full changed-head reviews and Owner decisions remain distinct
+from technical exact-candidate qualification.
+
+Final live status at 2026-11-03 **16:33:52 UTC**: all 34 ProjectIDE PRs are
+Draft/open; zero unresolved threads (including confirmed #1686 resolution), zero
+APPROVED reviews. Exact updated ordinary states:
+
+| PR / current role | Ordinary workflow | Actual state / remaining distinction |
+| --- | --- | --- |
+| #1653 a32 Product | 41666795180 | SUCCESS; full current-head review/Owner acceptance still pending |
+| #1654 ed2 Independent Test | 41666843802 | FAILURE, six failed/four skipped, absent Product .NET/frontend dependencies |
+| #1666 docs00147cf6 | 41669825714 | SUCCESS at that exact documentation head only; a later ledger append requires fresh checks |
+| #1686 a84 Product | 41670978943 | SUCCESS; one old-head Full Review finding reproduced/fixed/resolved, full corrected-head review pending |
+| #1687 3eee Independent Test | 41670994211 | FAILURE, five failed/four skipped, missing unmerged Product types |
+| #1688 05c Product | 41671012922 | IN_PROGRESS, separate Security lane still running; not relabelled SUCCESS |
+| #1689 7241 Independent Test | 41672744304 | FAILURE, five failed/four skipped, missing unmerged Product types |
+
+Fresh independent-Test producer logs126039501644/126045543939 establish
+CS0234 Core namespace and CS0246 absent Product types for the two new Test PRs.
+No rerun, waiver, copied runtime, test deletion or skip was used to disguise them.
+All four corrected supplemental Core/consumer runs above are separately SUCCESS.
+Resolved-state full audit artifact SHA-256
+086dc4027e0e2b21a011f5d2e62df840c392601fe38afe506ba3f86c63afd98a.
+
+Remaining PRs/decisions: all inherited and new Drafts remain unmerged. The new
+reproduced findings are corrected; no known unresolved inline finding remains at
+the captured state. Full corrected-head CodeRabbit/Owner/CODEOWNER review and the
+ordinary Graph Security completion remain separate. Standalone Test CI remains
+blocked by unmerged Product dependencies. Concrete Manifest/Receipt schema,
+domains/identity/reference mapping/migration, Receipt Trust, authorization
+freshness/offline bundle and Evidence Eligibility require exact Owner decisions.
+Actual Requirement satisfaction, Resource acquisition, transitive executable IR
+closure and Native Avalonia remain incomplete/HOLD; #1144 and #1128 are unchanged.
+
+Next implementation work should continue within existing approved contracts:
+Source-backed Problems/navigation parity and independent deferred-result controls,
+then further bounded diagnostic/graph negative cases discovered by current-source
+audit. Do not recreate existing binding/SCC behavior or implement schema-dependent
+external closure. Any approved concrete schema slice must cite its exact decision
+packet revision and authority first. Technical candidate completion here is not
+full #905/#798, shared-product/native or release completion.
