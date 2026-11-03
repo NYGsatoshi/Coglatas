@@ -34,6 +34,12 @@ public sealed class CompilerSemanticValidation
             var diagnostic = new CompilerDiagnostic(input, CoreCompilerRules.Relations, 1, 2, code, location, evidence);
             if (ids.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
         }
+        // Do not invoke later caller-owned supplies after an exhausted binding.
+        if (model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)) ||
+            !ProjectSemanticBinder.WithinBudget(source.Data.Value, ref remaining, cancellationToken))
+        {
+            Add("coglatas.semantic.budget-exhausted", RelationFindingState.Unknown, root); return Result(null);
+        }
         var semanticIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "semantics"));
         var irIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "ir"));
         if (semanticIdentity.ArtifactId != "coglatas.semantic-model" || semanticIdentity.Version != "1" || irIdentity.ArtifactId != "coglatas.project-ir" || irIdentity.Version != "1")
@@ -42,22 +48,17 @@ public sealed class CompilerSemanticValidation
         foreach (var relation in model.Relations.Select(item => item.Relation).OfType<TypedRelation>())
             if (relation.Descriptor.RequiredCapabilities.Any(capability => !capabilities.Contains(capability)))
                 Add("coglatas.semantic.capability-unavailable", RelationFindingState.Unsupported, relation.Location);
-        var suppliedUnits = (units ?? []).Take(1025).ToArray(); var suppliedCalendars = (calendars ?? []).Take(129).ToArray();
-        if (suppliedUnits.Length > 1024 || suppliedCalendars.Length > 128 || suppliedUnits.Any(item => item is null) || suppliedCalendars.Any(item => item is null))
+        var supplyBudgetExhausted = false;
+        if (!ReadSupply(units, 1024, unit => unit.Data, out var unitList) ||
+            !ReadSupply(calendars, 128, calendar => calendar.Data, out var calendarList))
         {
-            Add("coglatas.semantic.materialization-budget", RelationFindingState.Unknown, root); return Result(null);
+            Add(supplyBudgetExhausted ? "coglatas.semantic.budget-exhausted" : "coglatas.semantic.materialization-budget",
+                RelationFindingState.Unknown, root); return Result(null);
         }
-        var unitList = suppliedUnits.Select(item => item!).ToArray(); var calendarList = suppliedCalendars.Select(item => item!).ToArray();
         if (unitList.Select(item => item.UnitId).Distinct(StringComparer.Ordinal).Count() != unitList.Length)
             Add("coglatas.semantic.unit-ambiguous", RelationFindingState.Invalid, root);
         if (calendarList.Select(item => item.Reference.CalendarId).Distinct(StringComparer.Ordinal).Count() != calendarList.Length)
             Add("coglatas.semantic.calendar-ambiguous", RelationFindingState.Invalid, root);
-        if (!ProjectSemanticBinder.WithinBudget(source.Data.Value, ref remaining) ||
-            unitList.Any(unit => !ProjectSemanticBinder.WithinBudget(unit.Data.Value, ref remaining)) ||
-            calendarList.Any(calendar => !ProjectSemanticBinder.WithinBudget(calendar.Data.Value, ref remaining)))
-        {
-            Add("coglatas.semantic.budget-exhausted", RelationFindingState.Unknown, root); return Result(null);
-        }
         var unitPins = SourceFields.Array(input.Settings.Value, "units").EnumerateArray().Select(item => new CompilerArtifactIdentity(SourceJson.FromElement(item))).ToArray();
         foreach (var unit in unitList)
             if (!unitPins.Any(pin => pin.ArtifactId == unit.UnitId && pin.Version == unit.Version.ToString(CultureInfo.InvariantCulture) && pin.Digest.Equals(unit.Digest)))
@@ -105,6 +106,25 @@ public sealed class CompilerSemanticValidation
         }
         return Result(ir);
         CompilerSemanticValidation Result(DerivedProjectIr? produced) => new(model, findings, deferred, produced, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining));
+
+        bool ReadSupply<T>(IEnumerable<T?>? supply, int maximum, Func<T, SourceJson> data, out T[] values) where T : class
+        {
+            var items = new List<T>(); values = [];
+            cancellationToken.ThrowIfCancellationRequested();
+            using var iterator = (supply ?? []).GetEnumerator();
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var hasNext = iterator.MoveNext();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!hasNext) break;
+                if (items.Count == maximum || iterator.Current is not { } item) return false;
+                if (!ProjectSemanticBinder.WithinBudget(data(item).Value, ref remaining, cancellationToken))
+                { supplyBudgetExhausted = true; return false; }
+                items.Add(item);
+            }
+            values = items.ToArray(); return true;
+        }
 
         void CheckQuantityType(TypeReference type, ProjectLocation location)
         {
