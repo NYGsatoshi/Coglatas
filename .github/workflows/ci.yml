@@ -126,6 +126,9 @@ jobs:
       - name: Test single-owner Security artifacts and negative controls
         run: python3 -B scripts/ci/test-security-artifact-single-owner.py
 
+      - name: Test offline source-bound PR CI job profiling
+        run: python3 -B scripts/ci/test-profile-pr-ci-jobs.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
