@@ -145,7 +145,7 @@ public sealed class TenantExportScalarProjectionPostgreSqlTests
     // Observes the real serialization boundary, then delegates unchanged to the production redactor.
     private sealed class ScalarProjectionObserver(AppDbContext db, Guid tenantId, IReadOnlyDictionary<Guid, Type> expectedRows) : IRedactionService
     {
-        public Guid ExpectedTenantId { get; } = tenantId;
+        private Guid ExpectedTenantId { get; } = tenantId;
         private readonly CanonicalFileMetadataRedactionService _inner = new(new CanonicalRedactionService());
         public HashSet<Guid> Observed { get; } = [];
         public RedactionResult Redact(AuthorizationContext context, object source, RedactionProfile profile)
