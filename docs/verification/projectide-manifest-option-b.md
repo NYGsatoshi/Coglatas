@@ -144,3 +144,68 @@ Pass is added. Pure graph preparation is limited to independent content-DAG
 prototype tests until those semantic inputs are approved and available.
 
 #1128 remains SUSPENDED / NOT_EVALUATED. #1144 native UI/IME/activation remains HOLD.
+
+## Concrete schema decision packet — 2026-11-03 continuation
+
+**Architecture: selected. All concrete rows below: PROPOSED / OWNER DECISION
+REQUIRED. No formal Wire V1 is allocated, implemented or approved by this packet.**
+No APPROVED review, CODEOWNER acceptance or concrete schema decision was found
+on the reacquired #1666/#905/#798 records. CODEOWNERS identifies `@NYGsatoshi`;
+the task's authorization to implement bounded Core is not a schema sign-off.
+
+Normative cross-check: Coglatas-Spec main
+`850a5d9376db11e75235cf55e03ebed4de9c0510`, effective-contracts blob
+`1f333c99d12fe84384fd350514ec9399b0c80673`, and the controlling A-R2 amendment;
+parallel-client decision `2026-10-31-projectide-web-windows/decision.json` at the
+same commit. References below name requirements without publishing private text.
+COMP-01/02/04/08/11/15, MODEL-03/10/17/18/20, ID-01/02/03/07/08/09,
+ANALYSIS-04/07, PTEST-09, PROV, JOB-04/07/10/12 and Q09-B govern the proposal.
+They do not allocate these concrete schemas/domains/interfaces. #905 and #798
+remain open with the previously published bounded candidate evidence.
+
+Each row records a concrete recommendation, its unresolved decision and impact,
+and an independent test obligation. Artifact names/domain tags below are proposed
+spellings only; no registry allocation or current-v1 reinterpretation follows.
+
+| Decision | Recommendation / proposed shape | Normative source | Unresolved / compatibility impact | Independent verification |
+| --- | --- | --- | --- | --- |
+| Artifact type / schema version | Separate `dependency-manifest`, `compiler-input-association`, `materialization-set`, `materialization-receipt` roles; each carries artifact type, schema version and canonical version | COMP-01/02, ID-07, MODEL-20 | Exact registered type names and version allocation; current `coglatas.compiler-input/1` stays unchanged | Reject wrong artifact type, old/unknown schema and mixed-role envelopes |
+| Canonical encoding | Reuse owned canonical JSON semantics for proposed v1 encoding: UTF-8 without BOM/newline, exact numeric forms, stable Unicode/member order; sort only explicitly unordered collections | COMP-08, MODEL-10/17 | Whether every role uses existing encoding v1 and which collections are sets; no Source golden changes | Cross-host golden vectors including Unicode, exact numbers, preserved unknown fields and permutation |
+| Hash domain | Domain includes owned artifact type and schema version, separated unambiguously from complete canonical payload; e.g. tentative `coglatas.dependency-manifest/1` | ID-07/08/09, JOB-04 | Domain allocation and framing bytes require approval; no digest alias across types | Same bytes in different roles/versions have different digests; malformed framing rejects |
+| Typed artifact identity | Artifact pin includes role, schema/canonical version, digest algorithm/value and complete semantic scope/context; derived ID is type-tagged and bound to full digest | ID-01/07, JOB-04 | Exact ID derivation/truncation/collision behavior; do not borrow EntityId or CompilerInputId semantics | Wrong type/domain/version, collision projection and truncated-ID substitution reject |
+| Source pin | Complete Source digest plus exact Tenant/Project/Branch/revision or candidate/Scenario identity and Source schema/canonical version | COMP-01, ID-01/02/03 | Whole Source remains immutable; same tree/content at another semantic revision is distinct | Source substitution and same-content/different-context rejection |
+| Dependency manifest pin | Digest of separate full declaration artifact with exact Source pin and typed dependency entries | COMP-01/04, MODEL-17 | Entry type vocabulary and identity ownership; existing embedded Source document manifest is a different role | Manifest substitution, missing/unknown kind, duplicate/conflicting pins |
+| Reference-to-entry mapping | New versioned local references use an opaque typed entry key plus target identity; their containing Source never embeds its own whole digest or the enclosing manifest digest | MODEL-10/20, ID-05, COMP-04 | Exact reference grammar, scope of entry keys and target-kind mapping are blocking decisions | Missing/ambiguous key, wrong kind/context and self-hash-cycle rejection |
+| Exact CompilerInput association | Association includes full Source pin and manifest pin plus existing compiler/ruleset/profile/semantic inputs; assemble atomically, no `latest` lookup | COMP-01/08/11/15 | New input version/adapter and old-reader rejection; not an extension silently added to existing V1 | Source/manifest/settings substitution changes identity; stale desired input rejects reuse |
+| Materialization identity | Actual set contains exact admitted body pins and explicit complete/partial/missing/unsupported outcomes; its own content identity is separate from declared Manifest | COMP-02/11, MODEL-17, ANALYSIS-07 | Body-kind representation, entry/status grammar and inclusion of absence observations | Declared versus actual mismatch, absent/partial body, duplicate/conflicting body |
+| Receipt/Input matching | Receipt claims exact full input association and actual-set identity; optional prior-receipt link is historical, never a freshness grant | COMP-11, JOB-04 | Receipt schema and capture policy; input/Source/Manifest hashes exclude every receipt digest | Old receipt/new desired input, substitution and independent content-DAG controls |
+| Producer responsibility | Producer supplies immutable bytes and acquisition provenance; protected authentication binds the complete receipt payload to a specific approved producer | PROV, JOB-10/12 | Trust root, signer/runner identity, key rotation, revocation and attestation are NOT APPROVED | Fabricated signer/boolean, tampered payload, revoked/unrecognized producer reject |
+| Verifier responsibility | Recompute hashes, check type/version/scope, exact input/actual sets and independent stage results; caller claim remains UNVERIFIED without authentication | COMP-11, ANALYSIS-04, JOB-04/12 | Verifier interface and supported proof formats; digest match alone proves no producer | Correct hash with untrusted producer remains UNVERIFIED / ineligible |
+| Authorization freshness | Host reauthorizes acquisition/view/export/apply separately against desired current context; verifier accepts a scoped explicit freshness response, never cached authority inferred from digest | COMP-11, JOB-07, Q09-B | Interface, atomicity/races, expiry/permit/revocation policy; no production resolver/cache is added | Denied current authority, replay after revocation and opaque unavailable responses |
+| Scope / Branch / revision | Every pin binds typed Tenant and owning resource scope; Project-local context includes full Branch/revision | ID-01/02, Q09-B | Tenant Resource identity versus Project binding must remain explicit | Cross-Tenant/Project/Branch and wrong-revision rejection without private diagnostic payload |
+| Candidate / Scenario | Bind immutable proposal version and Scenario base+overlay/assumptions, not display names or Git commit alone | ID-03, COMP-01/08 | Mapping to current contexts and Scenario input version | Different candidate/Scenario/base/overlay cannot replay an old claim |
+| Unknown fields | Preserve opaque bytes/meaning; include semantic unknowns in identity; supported reader returns Unsupported when unknown meaning affects verification/execution | MODEL-17/18 | Explicit nonsemantic field allocation and handling of unknown criticality; no ignored unknowns to gain PASS | Round-trip unknown data, tamper propagation and unsupported execution |
+| Migration / old readers | Introduce explicit new role/version; preserve original artifacts and origin mapping; old readers reject unsupported version and retain recoverable data | MODEL-20, ID-07, COMP-15 | Migration path, supported engine range and rollback behavior require approval | Old reader/unknown canonical version, migration reproducibility, Source golden parity |
+| Offline bundle | Bundle a root exact input pin, Source/Manifest bytes and an indexed set of exact bodies/receipts; resolve only indexed bytes with the same verifier, never fetch implicitly | COMP-01/08, DATA-17/20, JOB-10 | Container/index format, atomic import and offline permit rules; no ZIP/JSON format adopted | Missing/truncated/duplicate/substituted entries, offline denial and partial frontier |
+| Evidence eligibility | Keep declared/available/integrity/authenticated/current-authorized/eligible/satisfied as seven distinct stages; policy selects target-specific supported proof | MODEL-03, ANALYSIS-04/07, PTEST-09 | Policy owner, requirement/run relation and eligibility contract; synthetic receipt cannot discharge a Requirement | Exact synthetic Complete Pass still lacks eligible evidence; wrong target/kind/premise |
+| Redaction / retention | Immutable protected original; authorized redacted view is a separately identified projection linked to original, never rewritten original bytes | PROV, HIST-04/05, COMP-11 | Field classification, authorized export, retention/deletion/Pin periods and capacity remain pending | No hidden names/IDs/counts/digests in findings; redacted view cannot impersonate original proof |
+| Failure states | Distinguish Invalid, Missing/Partial, Unknown, Unsupported, Cancelled, Exhausted, Stale, UnverifiedTrust and Unauthorized/opaque unavailable; no default success | MODEL-17, ANALYSIS-07, COMP-11 | Exact wire tokens and aggregation table; retain current result axes until approved | Deterministic diagnosis/order, cancellation during enumeration and shared budgets; never executable partial IR |
+
+### Owner decision and implementation boundaries
+
+Approval should name the exact packet revision, selected row values, registry
+allocations and migration/reader compatibility before formal Schema V1 work.
+Receipt Trust and Evidence Eligibility require separate explicit decisions even
+if the data-only schema is accepted. A CODEOWNER source review alone is not a
+producer-trust or production-activation grant. No answer is inferred here.
+
+Runtime work proceeds independently through existing types on the new Product
+branch based on #1667, not on this Documentation branch. The bounded admission
+slice is documented in `projectide-materialization-binding.md` on that branch.
+The independent Test line based on #1668 owns the non-normative executable model
+and negative controls. Its tuple identities and ASCII hash vectors are examples,
+not the schema proposed for adoption or a production verifier. Graph cycle rules
+in that model are provisional, kind-specific examples; they do not authorize
+external IR lowering. Owner-dependent local reference mapping, actual receipt
+production/current authority, Resource/external acquisition, eligible evidence,
+transitive closure and native UI/activation remain HOLD.
