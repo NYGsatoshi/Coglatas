@@ -131,7 +131,7 @@ public sealed class ProjectCommentCurrentAuthorityTests
         });
 
     [Fact]
-    public Task DeletedMilestoneDeniesCommentCreationListingAndManagerMutation() =>
+    public Task DeletedMilestoneDeniesManagerMutationWhilePreservingLegacyListingAndCreation() =>
         ProjectServicePersistenceContext.WithAsync(async (fixture, _) =>
         {
             var parent = await fixture.Db.Projects.SingleAsync(fixture.Token);
@@ -146,12 +146,16 @@ public sealed class ProjectCommentCurrentAuthorityTests
             await fixture.Db.SaveChangesAsync(fixture.Token);
 
             Assert.True(await fixture.Authorization.CanManageProject(fixture.ActorId, fixture.ProjectId, fixture.Token));
-            Assert.False((await fixture.Service.AddCommentAsync(request, fixture.Token)).IsSuccess);
-            Assert.False((await fixture.Service.ListCommentsAsync(CommentTargetType.Milestone, milestone.Id,
-                new ProjectChildListQuery(), fixture.Token)).IsSuccess);
             await AssertDeniedWithoutMutationAsync(fixture, commentId);
             Assert.Single(await fixture.Db.Comments.AsNoTracking().ToListAsync(fixture.Token));
             Assert.Equal("CommentAdded", (await fixture.Db.AuditLogs.AsNoTracking().SingleAsync(fixture.Token)).Action);
+
+            var listed = await fixture.Service.ListCommentsAsync(CommentTargetType.Milestone, milestone.Id,
+                new ProjectChildListQuery(), fixture.Token);
+            Assert.True(listed.IsSuccess, listed.Error);
+            var added = await fixture.Service.AddCommentAsync(request, fixture.Token);
+            Assert.True(added.IsSuccess, added.Error);
+            Assert.NotEqual(commentId, added.Value!.Id);
         });
 
     [Theory]

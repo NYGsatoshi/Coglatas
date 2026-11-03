@@ -1654,7 +1654,8 @@ public sealed class ProjectService(
                 current.DeletedAt.HasValue != comment.DeletedAt.HasValue)
                 return false;
 
-            var target = await ResolveCommentTargetAsync(current.TargetType, current.TargetId, token);
+            var target = await ResolveCommentTargetAsync(current.TargetType, current.TargetId, token,
+                requireUndeletedTarget: true);
             if (target is null) return false;
 
             // Preserve independent management, including archived-Project
@@ -1664,28 +1665,29 @@ public sealed class ProjectService(
                     await commentAuthorization.CanCommentOnTarget(userId, current.TargetType, current.TargetId, token));
         }, cancellationToken);
 
-    private async Task<(Guid ProjectId, Guid WorkspaceId)?> ResolveCommentTargetAsync(CommentTargetType targetType, Guid targetId, CancellationToken cancellationToken)
+    private async Task<(Guid ProjectId, Guid WorkspaceId)?> ResolveCommentTargetAsync(CommentTargetType targetType, Guid targetId, CancellationToken cancellationToken,
+        bool requireUndeletedTarget = false)
     {
         if (targetType == CommentTargetType.Project)
         {
             var project = await projects.GetProjectAsync(targetId, cancellationToken);
-            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
+            return project is null || (requireUndeletedTarget && project.DeletedAt.HasValue) ? null : (project.Id, project.WorkspaceId);
         }
 
         if (targetType == CommentTargetType.TaskItem)
         {
             var task = await projects.GetTaskAsync(targetId, cancellationToken);
-            if (task is null || task.DeletedAt.HasValue) return null;
+            if (task is null || (requireUndeletedTarget && task.DeletedAt.HasValue)) return null;
             var project = await projects.GetProjectAsync(task.ProjectId, cancellationToken);
-            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
+            return project is null || (requireUndeletedTarget && project.DeletedAt.HasValue) ? null : (project.Id, project.WorkspaceId);
         }
 
         if (targetType == CommentTargetType.Milestone)
         {
             var milestone = await projects.GetMilestoneAsync(targetId, cancellationToken);
-            if (milestone is null || milestone.DeletedAt.HasValue) return null;
+            if (milestone is null || (requireUndeletedTarget && milestone.DeletedAt.HasValue)) return null;
             var project = await projects.GetProjectAsync(milestone.ProjectId, cancellationToken);
-            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
+            return project is null || (requireUndeletedTarget && project.DeletedAt.HasValue) ? null : (project.Id, project.WorkspaceId);
         }
 
         return null;

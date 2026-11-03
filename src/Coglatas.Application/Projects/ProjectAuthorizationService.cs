@@ -323,7 +323,6 @@ public sealed class ProjectAuthorizationService(
         {
             var milestone = await projects.GetMilestoneAsync(targetId, cancellationToken);
             return milestone is not null &&
-                   !milestone.DeletedAt.HasValue &&
                    await CanMutateProjectContentAsync(userId, milestone.ProjectId, cancellationToken);
         }
         return false;

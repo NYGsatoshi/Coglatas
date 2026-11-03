@@ -1,4 +1,3 @@
-using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Groups;
@@ -10,7 +9,6 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Coglatas.Tests.Projects;
 
@@ -28,10 +26,8 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
     public Guid TargetId { get; }
     public Guid WorkspaceId { get; }
     public Guid ProjectId { get; }
-    public Guid? GroupId { get; }
     public TestActor Actor { get; }
     public FixedClock Clock { get; } = new();
-    public SaveFault Fault { get; }
     public RecordingProjectInvalidations Invalidations { get; } = new();
     public RecordingAuthorizationChanges AuthorizationChanges { get; } = new();
     public ProjectAuthorizationService Authorization { get; }
@@ -39,19 +35,17 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
     public CancellationToken Token => _cancellation.Token;
 
     private ProjectServicePersistenceContext(DbContextOptions<AppDbContext> options, AppDbContext db,
-        CurrentTenantService tenant, SaveFault fault, Guid tenantId, Guid actorId, Guid targetId,
-        Guid workspaceId, Guid projectId, Guid? groupId)
+        CurrentTenantService tenant, Guid tenantId, Guid actorId, Guid targetId,
+        Guid workspaceId, Guid projectId)
     {
         _options = options;
         Db = db;
         Tenant = tenant;
-        Fault = fault;
         TenantId = tenantId;
         ActorId = actorId;
         TargetId = targetId;
         WorkspaceId = workspaceId;
         ProjectId = projectId;
-        GroupId = groupId;
         Actor = new TestActor(actorId);
         var projects = new ProjectRepository(db);
         var workspaces = new WorkspaceRepository(db);
@@ -69,11 +63,10 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
     public static async Task<ProjectServicePersistenceContext> CreateAsync(bool grouped = false, string? connectionString = null)
     {
         var tenant = new CurrentTenantService();
-        var fault = new SaveFault();
         var builder = new DbContextOptionsBuilder<AppDbContext>();
         if (connectionString is null) builder.UseInMemoryDatabase($"project-service-persistence-{Guid.NewGuid():N}");
         else builder.UseNpgsql(connectionString);
-        var options = builder.AddInterceptors(new ProjectGovernanceSaveChangesInterceptor(), fault).Options;
+        var options = builder.AddInterceptors(new ProjectGovernanceSaveChangesInterceptor()).Options;
         var db = new AppDbContext(options, tenant);
         var ownerTenant = new Tenant { Name = "Synthetic tenant", DisplayName = "Synthetic tenant", Slug = "project-service" };
         tenant.SetPlatformScope();
@@ -113,8 +106,8 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
         });
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
-        return new ProjectServicePersistenceContext(options, db, tenant, fault,
-            ownerTenant.Id, actor.Id, target.Id, workspace.Id, project.Id, group?.Id);
+        return new ProjectServicePersistenceContext(options, db, tenant,
+            ownerTenant.Id, actor.Id, target.Id, workspace.Id, project.Id);
     }
 
     public async Task AddTargetMemberAsync(ProjectRole role = ProjectRole.Contributor)
@@ -136,59 +129,6 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
         await scenario(fixture, fixture._cancellation);
     }
 
-    public async Task<Result> MutateMembershipAsync(string operation, Guid? projectId = null, Guid? userId = null)
-    {
-        var selectedProject = projectId ?? ProjectId;
-        var selectedUser = userId ?? TargetId;
-        switch (operation)
-        {
-            case "add":
-                var added = await Service.AddMemberAsync(selectedProject, new AddProjectMemberRequest(selectedUser, ProjectRole.Reviewer), Token);
-                return new Result(added.IsSuccess, added.Error, added.ErrorDetail);
-            case "update":
-                var updated = await Service.UpdateMemberAsync(selectedProject, selectedUser, new UpdateProjectMemberRequest(ProjectRole.Reviewer), Token);
-                return new Result(updated.IsSuccess, updated.Error, updated.ErrorDetail);
-            case "remove":
-                return await Service.RemoveMemberAsync(selectedProject, selectedUser, Token);
-            default: throw new ArgumentOutOfRangeException(nameof(operation), operation, "Unknown membership operation.");
-        }
-    }
-
-    public async Task<string> ReadPersistedMembershipsAsync()
-    {
-        var platform = new CurrentTenantService();
-        platform.SetPlatformScope();
-        await using var inspection = new AppDbContext(_options, platform);
-        var rows = await inspection.ProjectMembers.AsNoTracking()
-            .OrderBy(member => member.TenantId).ThenBy(member => member.ProjectId).ThenBy(member => member.UserId).ToListAsync();
-        return string.Join(';', rows.Select(member => $"{member.TenantId:D}/{member.ProjectId:D}/{member.UserId:D}/{member.Role}/{member.JoinedAt:O}"));
-    }
-
-    public async Task<Guid> SeedForeignProjectAsync()
-    {
-        Tenant.SetPlatformScope();
-        var foreign = new Tenant { Name = "Foreign tenant", DisplayName = "Foreign tenant", Slug = "foreign-project" };
-        var workspace = new Workspace { TenantId = foreign.Id, Name = "Foreign workspace", Slug = "foreign", CreatedByUserId = ActorId };
-        var project = new Project
-        {
-            TenantId = foreign.Id, WorkspaceId = workspace.Id, Name = "Foreign project", Slug = "foreign",
-            OwnerUserId = ActorId, CreatedByUserId = ActorId, Status = ProjectStatus.Active,
-            Visibility = ProjectVisibility.MembersOnly, ActivationState = ProjectActivationState.Activated,
-            ActivatedAtUtc = Clock.UtcNow, ActivationVersion = 1, VersionNo = 1
-        };
-        Db.AddRange(foreign, workspace, project);
-        foreach (var userId in new[] { ActorId, TargetId })
-        {
-            Db.TenantUsers.Add(new TenantUser { TenantId = foreign.Id, UserId = userId, Status = TenantUserStatus.Active });
-            Db.WorkspaceMembers.Add(new WorkspaceMember { TenantId = foreign.Id, WorkspaceId = workspace.Id, UserId = userId, Status = MembershipStatus.Active, Role = WorkspaceRole.Member });
-            Db.ProjectMembers.Add(new ProjectMember { TenantId = foreign.Id, ProjectId = project.Id, UserId = userId, Role = userId == ActorId ? ProjectRole.Owner : ProjectRole.Contributor, JoinedAt = Clock.UtcNow });
-        }
-        await Db.SaveChangesAsync();
-        Db.ChangeTracker.Clear();
-        Tenant.SetTenant(TenantId, "project-service");
-        return project.Id;
-    }
-
     public async ValueTask DisposeAsync()
     {
         _cancellation.Dispose();
@@ -207,20 +147,6 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
     internal sealed class FixedClock : IClock
     {
         public DateTimeOffset UtcNow => new(2026, 11, 3, 16, 0, 0, TimeSpan.Zero);
-    }
-
-    internal sealed class SaveFault : SaveChangesInterceptor
-    {
-        public bool FailNextSave { get; set; }
-        public List<CancellationToken> FailedTokens { get; } = [];
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
-            InterceptionResult<int> result, CancellationToken cancellationToken = default)
-        {
-            if (!FailNextSave) return base.SavingChangesAsync(eventData, result, cancellationToken);
-            FailNextSave = false;
-            FailedTokens.Add(cancellationToken);
-            throw new DbUpdateConcurrencyException("Synthetic Project membership concurrency failure.");
-        }
     }
 
     internal sealed class RecordingProjectInvalidations : IBusinessInvalidationPublisher
