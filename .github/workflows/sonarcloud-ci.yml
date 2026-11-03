@@ -224,6 +224,14 @@ jobs:
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
+            tests/ci/test_release_supply_chain.py \
+            tests/ci/test_release_main_security_evidence.py \
+            tests/ci/test_release_browser_evidence.py \
+            tests/ci/test_release_assurance_advisory.py \
+            tests/ci/test_performance_contract.py \
+            tests/ci/test_performance_comparator.py \
+            tests/ci/test_performance_comparator_hardening.py \
+            tests/ci/test_performance_db_campaign.py \
             scripts/ci/test-functional-diagnostics.py \
             scripts/ci/test-postgres-log-privacy.py \
             scripts/ci/test-functional-setup-failure-probe.py \
