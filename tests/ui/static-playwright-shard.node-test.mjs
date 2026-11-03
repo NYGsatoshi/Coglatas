@@ -15,7 +15,9 @@ const eligible = Object.freeze({
 });
 
 test('only exact two-shard identities can be emitted for prebuilt full static suite', () => {
-  assert.deepEqual(staticPlaywrightShardArgs(eligible), []);
+  assert.throws(() => staticPlaywrightShardArgs(eligible), /not permitted/);
+  assert.throws(() => staticPlaywrightShardArgs({ COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: 'true' }), /not permitted/);
+  assert.deepEqual(staticPlaywrightShardArgs({ COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: '0' }), []);
   for (const shard of ['1/2', '2/2']) {
     const env = { ...eligible, COGLATAS_STATIC_PLAYWRIGHT_SHARD: shard };
     assert.deepEqual(staticPlaywrightShardArgs(env), ['--shard=' + shard]);
