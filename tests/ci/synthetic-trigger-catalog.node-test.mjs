@@ -25,7 +25,7 @@ const project = rows => logicalTriggerCatalog(rows, raw(rows));
 const renamedPhysical = (row, oid) => ({ ...structuredClone(row), oid, name: 'RI_ConstraintTrigger_c_' + oid,
   definition: 'new physical trigger definition' });
 
-test('only proven generated RI names resolve across changed physical identities', () => {
+await test('only proven generated RI names resolve across changed physical identities', () => {
   const original = fixture(), restored = renamedPhysical(original, '20');
   assert.deepEqual(project([original]), project([restored]));
   assert.equal(project([original]).rowCount, 1);
@@ -33,7 +33,7 @@ test('only proven generated RI names resolve across changed physical identities'
   assert.equal(original.name, 'RI_ConstraintTrigger_c_10');
 });
 
-test('function float metadata remains exact decimal text and rejects malformed or numeric inputs', () => {
+await test('function float metadata remains exact decimal text and rejects malformed or numeric inputs', () => {
   for (const value of ['0', '100.5', '1e-07', '3.4028235e+38']) {
     const row = fixture(); row.function.cost = value;
     assert.equal(project([row]).rows[0].function.cost, value);
@@ -46,7 +46,7 @@ test('function float metadata remains exact decimal text and rejects malformed o
   }
 });
 
-test('unknown internal names, unknown functions and user-created RI-looking names remain exact', () => {
+await test('unknown internal names, unknown functions and user-created RI-looking names remain exact', () => {
   for (const mutate of [row => { row.internal = false; }, row => { row.name = 'custom_internal_name'; },
     row => { row.function.schema = 'public'; }, row => { row.function.builtin = false; },
     row => { row.function.language = 'plpgsql'; }, row => { row.function.source = 'custom'; },
@@ -60,7 +60,7 @@ test('unknown internal names, unknown functions and user-created RI-looking name
   }
 });
 
-test('every supported built-in action function requires the matching FK side and generated own-OID name', () => {
+await test('every supported built-in action function requires the matching FK side and generated own-OID name', () => {
   const functions = ['RI_FKey_noaction_del', 'RI_FKey_noaction_upd', 'RI_FKey_restrict_del', 'RI_FKey_restrict_upd',
     'RI_FKey_cascade_del', 'RI_FKey_cascade_upd', 'RI_FKey_setnull_del', 'RI_FKey_setnull_upd',
     'RI_FKey_setdefault_del', 'RI_FKey_setdefault_upd'];
@@ -77,7 +77,7 @@ test('every supported built-in action function requires the matching FK side and
   }
 });
 
-test('every logical trigger and function property remains compared', () => {
+await test('every logical trigger and function property remains compared', () => {
   const original = fixture(), expected = project([original]);
   const mutations = [row => { row.type = 17; }, row => { row.enabled = 'D'; }, row => { row.internal = false; },
     row => { row.deferrable = true; }, row => { row.initiallyDeferred = true; },
@@ -103,7 +103,7 @@ test('every logical trigger and function property remains compared', () => {
   }
 });
 
-test('full inventory rejects omitted, duplicated, malformed and inconsistent raw rows', () => {
+await test('full inventory rejects omitted, duplicated, malformed and inconsistent raw rows', () => {
   const row = fixture();
   for (const invoke of [() => logicalTriggerCatalog([row], []), () => logicalTriggerCatalog([], raw([row])),
     () => logicalTriggerCatalog([row, row], raw([row, row])),
@@ -118,7 +118,7 @@ test('full inventory rejects omitted, duplicated, malformed and inconsistent raw
   }
 });
 
-test('partition parent references resolve logical identities and reject missing or cyclic parents', () => {
+await test('partition parent references resolve logical identities and reject missing or cyclic parents', () => {
   const parent = fixture(), child = renamedPhysical(parent, '11'); child.relation = 'children_partition';
   child.constraint.relation = child.relation; child.constraint.parent = ['public', 'children', 'children_parent_fk'];
   child.parentOid = parent.oid;
@@ -131,7 +131,7 @@ test('partition parent references resolve logical identities and reject missing 
   assert.throws(() => project([cycle, child]), { code: 'TRIGGER_INVENTORY' });
 });
 
-test('co-firing RI order changes remain detected even when logical row fields match', () => {
+await test('co-firing RI order changes remain detected even when logical row fields match', () => {
   const a = fixture(), b = renamedPhysical(a, '20'); b.constraint.name = 'second_fk';
   const expected = project([a, b]);
   const changed = project([renamedPhysical(a, '40'), renamedPhysical(b, '30')]);
@@ -139,7 +139,7 @@ test('co-firing RI order changes remain detected even when logical row fields ma
   assert.notDeepEqual(changed.firingOrders, expected.firingOrders);
 });
 
-test('overlapping multi-event masks preserve RI/user order for each effective event and role', () => {
+await test('overlapping multi-event masks preserve RI/user order for each effective event and role', () => {
   const ri = fixture(), user = fixture(); user.oid = '15'; user.name = 'RI_ConstraintTrigger_c_15';
   user.internal = false; user.type = 21; user.definition = 'user INSERT OR UPDATE definition';
   const before = project([ri, user]), after = project([renamedPhysical(ri, '20'), user]);
@@ -152,7 +152,7 @@ test('overlapping multi-event masks preserve RI/user order for each effective ev
   assert.ok(project([ri, always]).firingOrders.some(([key]) => key[5] === 'replica'));
 });
 
-test('disjoint events do not invent a co-firing order dependency', () => {
+await test('disjoint events do not invent a co-firing order dependency', () => {
   const insert = fixture(), update = renamedPhysical(insert, '20');
   update.type = 17; update.function.name = 'RI_FKey_check_upd'; update.function.source = update.function.name;
   assert.deepEqual(project([insert, update]), project([renamedPhysical(insert, '40'), renamedPhysical(update, '30')]));

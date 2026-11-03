@@ -43,7 +43,7 @@ function fixture(records, { residual = {}, fail } = {}) {
 const owned = (service, project = names.source) => ({ id: service + '-container', service,
   project, listedProject: project });
 
-test('actual cleanup removes only the owned source helper before Compose and checks every resource kind', () => {
+await test('actual cleanup removes only the owned source helper before Compose and checks every resource kind', () => {
   const io = fixture(['postgres', 'app', 'migrate', 'mechanism-helper'].map(service => owned(service)));
   cleanupOwnedProjects(new Set([names.source]), names.source, io);
   assert.deepEqual(io.calls, [
@@ -57,7 +57,7 @@ test('actual cleanup removes only the owned source helper before Compose and che
   ]);
 });
 
-test('created target and fault projects use only their own inspected services and Compose cleanup', () => {
+await test('created target and fault projects use only their own inspected services and Compose cleanup', () => {
   const io = fixture([owned('app', names.target), owned('postgres', names.fault)]);
   cleanupOwnedProjects(new Set([names.target, names.fault]), names.source, io);
   assert.deepEqual(io.calls.filter(call => call[0] === 'compose'),
@@ -65,7 +65,7 @@ test('created target and fault projects use only their own inspected services an
   assert.ok(!io.calls.some(call => call[0] === 'docker' && call[1] === 'rm'));
 });
 
-test('foreign project, unrecognized service and helper outside source cannot authorize deletion', () => {
+await test('foreign project, unrecognized service and helper outside source cannot authorize deletion', () => {
   for (const record of [
     { ...owned('app'), project: 'foreign-project' },
     { ...owned('unexpected') },
@@ -77,7 +77,7 @@ test('foreign project, unrecognized service and helper outside source cannot aut
   }
 });
 
-test('a foreign container discovered after an owned helper still cannot reach Compose or foreign deletion', () => {
+await test('a foreign container discovered after an owned helper still cannot reach Compose or foreign deletion', () => {
   const foreign = { ...owned('app'), project: 'foreign-project' };
   const io = fixture([owned('mechanism-helper'), foreign]);
   assert.throws(() => cleanupOwnedProjects(new Set([names.source]), names.source, io), { code: 'CLEANUP_OWNER' });
@@ -85,7 +85,7 @@ test('a foreign container discovered after an owned helper still cannot reach Co
   assert.ok(!io.calls.some(call => call[0] === 'compose'));
 });
 
-test('any residual container, volume or network is a failed cleanup rather than success', () => {
+await test('any residual container, volume or network is a failed cleanup rather than success', () => {
   for (const kind of ['container', 'volume', 'network']) {
     const io = fixture([], { residual: { [kind]: 'owned-resource-remains\n' } });
     assert.throws(() => cleanupOwnedProjects(new Set([names.source]), names.source, io), { code: 'CLEANUP_REMAINS' });
@@ -93,7 +93,7 @@ test('any residual container, volume or network is a failed cleanup rather than 
   }
 });
 
-test('the first Docker, inspection or Compose error propagates without retry or later-project deletion', () => {
+await test('the first Docker, inspection or Compose error propagates without retry or later-project deletion', () => {
   for (const stage of ['list', 'inspect', 'remove-helper', 'compose', 'volume', 'network']) {
     const error = new Error('Synthetic cleanup I/O failure'); let failures = 0;
     const io = fixture([owned('mechanism-helper')], { fail(operation, args) {

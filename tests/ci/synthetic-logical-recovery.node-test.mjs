@@ -33,7 +33,7 @@ const configuration = () => ({
 });
 const options = { target: true, image, project };
 
-test('disabling the source fixture removes its active credential without a reusable replacement', () => {
+await test('disabling the source fixture removes its active credential without a reusable replacement', () => {
   const original = randomBytes(32).toString('base64url');
   const env = { COGLATAS_RECOVERY_SOURCE_SEED: 'true', COGLATAS_RECOVERY_FIXTURE_PASSWORD: original, other: 'unchanged' };
   disableSourceSeed(env);
@@ -46,7 +46,7 @@ test('disabling the source fixture removes its active credential without a reusa
   assert.notEqual(env.COGLATAS_RECOVERY_FIXTURE_PASSWORD, replacement);
 });
 
-test('the exact service allowlist is independent of insertion order', () => {
+await test('the exact service allowlist is independent of insertion order', () => {
   const config = configuration();
   config.services = Object.fromEntries(Object.entries(config.services).reverse());
   assert.equal(validateComposition(config, options), true);
@@ -54,7 +54,7 @@ test('the exact service allowlist is independent of insertion order', () => {
   assert.throws(() => validateComposition(config, options), { code: 'TARGET_SERVICES' });
 });
 
-test('checkpoint diagnostics expose only fixed component equality without weakening strict rejection', () => {
+await test('checkpoint diagnostics expose only fixed component equality without weakening strict rejection', () => {
   const privateValue = 'SYNTHETIC_PRIVATE_SNAPSHOT_VALUE';
   const source = { schema: privateValue, rows: [[privateValue]], sequences: [], uploads: [], keys: [],
     catalog: Object.fromEntries(['relations', 'constraints', 'indexes', 'triggers', 'functions', 'policies',
@@ -69,7 +69,7 @@ test('checkpoint diagnostics expose only fixed component equality without weaken
   assert.throws(() => assertSameSnapshot(source, target), { code: 'STRICT_SNAPSHOT' });
 });
 
-test('actual upload and key extraction forwards the original archive buffers without a TTY', () => {
+await test('actual upload and key extraction forwards the original archive buffers without a TTY', () => {
   const labels = ['--label', 'com.docker.compose.project=' + project,
     '--label', 'com.docker.compose.service=mechanism-helper'];
   const volumes = [project + '_uploads', project + '_protection_keys'];
@@ -89,7 +89,7 @@ test('actual upload and key extraction forwards the original archive buffers wit
   }
 });
 
-test('archive extraction preserves the first command failure without retry or replacement', () => {
+await test('archive extraction preserves the first command failure without retry or replacement', () => {
   const failure = new Error('Synthetic extraction failure'); let calls = 0;
   const docker = () => { calls++; throw failure; };
   assert.throws(() => restoreArchive(docker, [], project + '_uploads', tar('./upload.txt')),
@@ -97,7 +97,7 @@ test('archive extraction preserves the first command failure without retry or re
   assert.equal(calls, 1);
 });
 
-test('actual checkpoint archives restore original upload then key bytes with their closed stages', () => {
+await test('actual checkpoint archives restore original upload then key bytes with their closed stages', () => {
   const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
   const labels = ['--label', 'com.docker.compose.project=owned-source'];
   const volumes = ['owned-target-uploads', 'owned-target-keys'], stages = [], calls = [];
@@ -114,7 +114,7 @@ test('actual checkpoint archives restore original upload then key bytes with the
   });
 });
 
-test('an upload archive failure preserves the original error and never attempts the key archive', () => {
+await test('an upload archive failure preserves the original error and never attempts the key archive', () => {
   const failure = new Error('Original upload extraction failure'), calls = [], stages = [];
   const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
   const docker = (args, options) => { calls.push({ args, input: options.input }); throw failure; };
@@ -124,7 +124,7 @@ test('an upload archive failure preserves the original error and never attempts 
   assert.deepEqual(stages, ['restore-uploads']);
 });
 
-test('a key archive failure preserves both original commands and never retries either archive', () => {
+await test('a key archive failure preserves both original commands and never retries either archive', () => {
   const failure = new Error('Original key extraction failure'), calls = [], stages = [];
   const uploads = Buffer.from('Original synthetic uploads'), keys = Buffer.from('Original synthetic keys');
   const docker = (args, options) => {
@@ -154,7 +154,7 @@ const restoreContext = (result = { status: 0 }) => {
 const restoreList = Buffer.from('1; 2606 12 FK CONSTRAINT public child parent_fk postgres\n');
 const restoreDump = Buffer.concat([Buffer.from('PGDMP'), Buffer.alloc(1024, 7)]);
 
-test('actual database restore installs the original list before exactly one native target command', () => {
+await test('actual database restore installs the original list before exactly one native target command', () => {
   const context = restoreContext();
   restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList);
   assert.equal(context.calls.length, 2);
@@ -170,7 +170,7 @@ test('actual database restore installs the original list before exactly one nati
   assert.deepEqual(context.probes, []); assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
-test('actual fault restore requires native EOF rejection followed by a ready fault database', () => {
+await test('actual fault restore requires native EOF rejection followed by a ready fault database', () => {
   const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
   const corrupt = corruptCopy(restoreDump);
   restoreDatabaseOnce(context, context.names.fault, corrupt, true, restoreList);
@@ -182,7 +182,7 @@ test('actual fault restore requires native EOF rejection followed by a ready fau
   assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, true);
 });
 
-test('a repeated target or fault restore performs no helper, native command or counter increment', () => {
+await test('a repeated target or fault restore performs no helper, native command or counter increment', () => {
   for (const kind of ['target', 'fault']) {
     const context = restoreContext(); context.receipt.restoreCalls[kind] = 1;
     assert.throws(() => restoreDatabaseOnce(context, context.names[kind], restoreDump, kind === 'fault', restoreList), { code: 'RESTORE_RETRY' });
@@ -191,7 +191,7 @@ test('a repeated target or fault restore performs no helper, native command or c
   }
 });
 
-test('unrelated client failures cannot qualify the actual fault restore or trigger a readiness probe', () => {
+await test('unrelated client failures cannot qualify the actual fault restore or trigger a readiness probe', () => {
   for (const result of [{ status: 125, stderr: Buffer.from('Docker unavailable\n') },
     { status: 1, stderr: Buffer.from('pg_restore: error: connection to server failed\n') },
     { status: 0, stderr: Buffer.alloc(0) }]) {
@@ -203,7 +203,7 @@ test('unrelated client failures cannot qualify the actual fault restore or trigg
   }
 });
 
-test('a dead fault database keeps native archive rejection unqualified', () => {
+await test('a dead fault database keeps native archive rejection unqualified', () => {
   const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
   context.psql = (project, sql) => { context.probes.push({ project, sql }); return '0'; };
   assert.throws(() => restoreDatabaseOnce(context, context.names.fault, restoreDump, true, restoreList), { code: 'FAULT_DB_UNAVAILABLE' });
@@ -211,7 +211,7 @@ test('a dead fault database keeps native archive rejection unqualified', () => {
   assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
-test('the original fault readiness command error escapes unchanged without retry or success credit', () => {
+await test('the original fault readiness command error escapes unchanged without retry or success credit', () => {
   const context = restoreContext({ status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') });
   const failure = new Error('Original readiness command failure');
   context.psql = (project, sql) => { context.probes.push({ project, sql }); throw failure; };
@@ -221,7 +221,7 @@ test('the original fault readiness command error escapes unchanged without retry
   assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
-test('the original native command error escapes by identity once and cannot be retried', () => {
+await test('the original native command error escapes by identity once and cannot be retried', () => {
   const context = restoreContext(), original = context.compose, failure = new Error('Original native command failure');
   context.compose = (...args) => {
     const result = original(...args);
@@ -234,7 +234,7 @@ test('the original native command error escapes by identity once and cannot be r
   assert.equal(context.calls.length, 2); assert.deepEqual(context.probes, []);
 });
 
-test('installation failure leaves zero restore calls and preserves its original command error', () => {
+await test('installation failure leaves zero restore calls and preserves its original command error', () => {
   const context = restoreContext(), failure = new Error('Original list installation failure');
   let calls = 0;
   context.compose = () => { calls++; throw failure; };
@@ -243,14 +243,14 @@ test('installation failure leaves zero restore calls and preserves its original 
   assert.deepEqual(context.probes, []); assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
-test('a nonzero ordinary target outcome is rejected without qualifying the fault oracle', () => {
+await test('a nonzero ordinary target outcome is rejected without qualifying the fault oracle', () => {
   const context = restoreContext({ status: 1 });
   assert.throws(() => restoreDatabaseOnce(context, context.names.target, restoreDump, false, restoreList), { code: 'RESTORE_OUTCOME' });
   assert.equal(context.calls.length, 2); assert.deepEqual(context.probes, []);
   assert.equal(context.receipt.corruptArchiveRejectedByPgRestore, false);
 });
 
-test('only native pg_restore truncated-input rejection qualifies the fault injection', () => {
+await test('only native pg_restore truncated-input rejection qualifies the fault injection', () => {
   const native = { status: 1, stderr: Buffer.from('pg_restore: error: could not read from input file: end of file\n') };
   assert.doesNotThrow(() => assertTruncatedArchiveFailure(native));
   for (const result of [
@@ -262,7 +262,7 @@ test('only native pg_restore truncated-input rejection qualifies the fault injec
   ]) assert.throws(() => assertTruncatedArchiveFailure(result), { code: 'FAULT_NOT_ARCHIVE_REJECTION' });
 });
 
-test('strict snapshots preserve adjacent bigint sequence values and reject lossy numeric input', () => {
+await test('strict snapshots preserve adjacent bigint sequence values and reject lossy numeric input', () => {
   const source = JSON.parse('{"sequences":[["public","original",["bigint","1","1","9223372036854775807","1","1",false],"9007199254740992",true]]}');
   const changed = structuredClone(source);
   changed.sequences[0][3] = '9007199254740993';
@@ -272,7 +272,7 @@ test('strict snapshots preserve adjacent bigint sequence values and reject lossy
   assert.throws(() => assertSameSnapshot(lossy, lossy), { code: 'SNAPSHOT_NUMBER_PRECISION' });
 });
 
-test('only the exact first-attempt owner-dispatched Linux workflow is admitted', () => {
+await test('only the exact first-attempt owner-dispatched Linux workflow is admitted', () => {
   assert.deepEqual(hostedContract(validHost(), 'linux', []), { runId: '123', attempt: 1, sourceSha: 'b'.repeat(40) });
   for (const mutation of [{ GITHUB_ACTIONS: 'false' }, { GITHUB_REPOSITORY_ID: '0' }, { GITHUB_ACTOR: 'another-user' },
     { GITHUB_REPOSITORY: 'other/Coglatas' }, { GITHUB_ACTOR: 'another-user', GITHUB_REPOSITORY_OWNER: 'another-user' },
@@ -283,14 +283,14 @@ test('only the exact first-attempt owner-dispatched Linux workflow is admitted',
   assert.throws(() => hostedContract(validHost(), 'linux', ['--host=example.test']), { code: 'HOST_CONTRACT' });
 });
 
-test('remote Docker endpoints, contexts and TLS credentials are rejected before commands', () => {
+await test('remote Docker endpoints, contexts and TLS credentials are rejected before commands', () => {
   for (const mutation of [{ DOCKER_HOST: 'ssh://example.test' }, { DOCKER_HOST: 'tcp://127.0.0.1:2375' },
     { DOCKER_CONTEXT: 'production' }, { DOCKER_TLS_VERIFY: '1' }, { DOCKER_CERT_PATH: '/private/keys' }])
     assert.throws(() => hostedContract({ ...validHost(), ...mutation }, 'linux', []), { code: 'LOCAL_DOCKER' });
   hostedContract({ ...validHost(), DOCKER_HOST: 'unix:///var/run/docker.sock', DOCKER_CONTEXT: 'default' }, 'linux', []);
 });
 
-test('default-off CLI produces only a closed error without attempting recovery', () => {
+await test('default-off CLI produces only a closed error without attempting recovery', () => {
   const secret = 'SYNTHETIC_PRIVATE_VALUE_MUST_NOT_APPEAR';
   const result = spawnSync(process.execPath, [resolve(root, 'scripts/ci/run-synthetic-logical-recovery.mjs')], {
     encoding: 'utf8', env: { GITHUB_ACTIONS: 'false', SYNCFUSION_LICENSE: secret, DOCKER_HOST: 'ssh://' + secret },
@@ -300,7 +300,7 @@ test('default-off CLI produces only a closed error without attempting recovery',
   assert.ok(!result.stderr.includes(secret));
 });
 
-test('source, target and fault names are unique closed per-run identities', () => {
+await test('source, target and fault names are unique closed per-run identities', () => {
   const names = resourceNames('123', '0123456789ab');
   assert.equal(new Set(Object.values(names)).size, 3);
   assert.ok(Object.values(names).every(name => name.startsWith('coglatas-recovery-123-1-0123456789ab-')));
@@ -308,14 +308,14 @@ test('source, target and fault names are unique closed per-run identities', () =
   assert.throws(() => resourceNames('123', 'caller-selected-project'));
 });
 
-test('private output paths cannot escape their explicitly owned root', () => {
+await test('private output paths cannot escape their explicitly owned root', () => {
   const folder = resolve(root, 'artifacts', 'synthetic-example');
   assert.equal(beneath(folder, resolve(folder, 'database.dump')), resolve(folder, 'database.dump'));
   assert.throws(() => beneath(folder, folder), { code: 'PRIVATE_PATH' });
   assert.throws(() => beneath(folder, resolve(folder, '..', 'outside')), { code: 'PRIVATE_PATH' });
 });
 
-test('a restore target contains only the same-image app and PostgreSQL with volume mounts', () => {
+await test('a restore target contains only the same-image app and PostgreSQL with volume mounts', () => {
   assert.equal(validateComposition(configuration(), options), true);
   for (const mutate of [config => { config.services.migrate = {}; }, config => { config.services.app.build = {}; },
     config => { config.services.app.image = 'some-floating-tag'; },
@@ -324,7 +324,7 @@ test('a restore target contains only the same-image app and PostgreSQL with volu
   }
 });
 
-test('production mode and every restored seed/bootstrap path are rejected', () => {
+await test('production mode and every restored seed/bootstrap path are rejected', () => {
   for (const [key, value] of [['ASPNETCORE_ENVIRONMENT', 'Production'], ['Tenancy__AppMode', 'OnPremSingleTenant'],
     ['SecurityCiFixture__Enabled', 'true'], ['LocalAdmin__SeedOnStartup', 'true'], ['COGLATAS_SEED_ADMIN_ENABLED', 'true'],
     ['COGLATAS_BROWSER_SMOKE_SEED_ENABLED', 'true'], ['COGLATAS_DEMO_DATASET_ENABLED', 'true'],
@@ -334,7 +334,7 @@ test('production mode and every restored seed/bootstrap path are rejected', () =
   }
 });
 
-test('source configuration admits only its three executing services and the repository build', () => {
+await test('source configuration admits only its three executing services and the repository build', () => {
   const config = configuration();
   config.services.app.build = { context: resolve(root), dockerfile: 'Dockerfile' };
   config.services.migrate = { image };
@@ -349,7 +349,7 @@ test('source configuration admits only its three executing services and the repo
   }
 });
 
-test('public ports, host/shared namespaces, external volumes and routed networks are rejected', () => {
+await test('public ports, host/shared namespaces, external volumes and routed networks are rejected', () => {
   for (const mutate of [config => { config.services.app.ports = [{ target: 8080, published: '8080', host_ip: '0.0.0.0' }]; },
     config => { config.services.app.network_mode = 'host'; }, config => { config.services.app.pid = 'host'; },
     config => { config.services.postgres.privileged = true; }, config => { config.volumes.pgdata.external = true; },
@@ -360,13 +360,13 @@ test('public ports, host/shared namespaces, external volumes and routed networks
   }
 });
 
-test('source and target cannot alias a database, upload or key volume', () => {
+await test('source and target cannot alias a database, upload or key volume', () => {
   assertDisjoint(['source-files', 'source-keys', 'source-db'], ['target-files', 'target-keys', 'target-db']);
   for (const target of [['target-files', 'source-keys', 'target-db'], ['target-files', 'target-files', 'target-db'], []])
     assert.throws(() => assertDisjoint(['source-files', 'source-keys', 'source-db'], target), { code: 'VOLUME_ALIAS' });
 });
 
-test('Outbox drain is a bounded readiness observation and never changes its rows', async () => {
+await test('Outbox drain is a bounded readiness observation and never changes its rows', async () => {
   const samples = ['2', '1', '0']; let reads = 0, pauses = 0;
   await awaitOutboxIdle(() => { reads++; return samples.shift(); }, async () => { pauses++; });
   assert.equal(reads, 3); assert.equal(pauses, 2);
@@ -376,7 +376,7 @@ test('Outbox drain is a bounded readiness observation and never changes its rows
   await assert.rejects(awaitOutboxIdle(() => 'unknown', async () => {}), { code: 'OUTBOX_SCHEMA' });
 });
 
-test('row/schema/catalog/migration/key/file/sequence changes cannot pass equal counts', () => {
+await test('row/schema/catalog/migration/key/file/sequence changes cannot pass equal counts', () => {
   const checkpoint = { schema: 'raw-schema', rows: [['public', 'audit_logs', 1, 'original-row']],
     catalog: { constraints: ['original-check'], migrations: ['migration-1', 'migration-2'] },
     uploads: [['file', 3, 'original-file']], keys: [['key', 'original-key']], sequences: [['sequence', 1, false]] };
@@ -390,7 +390,7 @@ test('row/schema/catalog/migration/key/file/sequence changes cannot pass equal c
   }
 });
 
-test('failure injection creates a distinct truncated copy and leaves the original untouched', () => {
+await test('failure injection creates a distinct truncated copy and leaves the original untouched', () => {
   const original = Buffer.concat([Buffer.from('PGDMP'), Buffer.alloc(1024, 7)]), before = Buffer.from(original);
   const corrupt = corruptCopy(original);
   assert.equal(corrupt.length, 128); assert.deepEqual(original, before);
@@ -408,7 +408,7 @@ function tar(name, type = '0', content = Buffer.from('synthetic')) {
   return Buffer.concat([header, content, Buffer.alloc((512 - content.length % 512) % 512), Buffer.alloc(1024)]);
 }
 
-test('tar validation admits regular original bytes but rejects traversal, links, devices and corruption', () => {
+await test('tar validation admits regular original bytes but rejects traversal, links, devices and corruption', () => {
   assert.deepEqual(validateTar(tar('./file.txt')), { files: 1, expanded: 9 });
   for (const name of ['../outside', '/outside', './directory/../../outside', 'directory\\outside'])
     assert.throws(() => validateTar(tar(name)), { code: 'TAR_PATH' });
@@ -417,7 +417,7 @@ test('tar validation admits regular original bytes but rejects traversal, links,
   assert.throws(() => validateTar(tar('./file').subarray(0, 512)));
 });
 
-test('private raw material cannot enter the explicit workflow upload boundary', () => {
+await test('private raw material cannot enter the explicit workflow upload boundary', () => {
   const workflow = readFileSync(resolve(root, '.github/workflows/licensed-real-backend-acceptance.yml'), 'utf8');
   assert.ok(!workflow.includes('artifacts/synthetic-logical-recovery/*/receipt.json'));
   const upload = workflow.slice(workflow.indexOf('- name: Upload closed synthetic logical recovery receipt'),
@@ -485,7 +485,7 @@ function closedReceipt(fixture, status = 'ERROR') {
   return receipt;
 }
 
-test('selected unsupported workflow identities fail before admission output or receipt selection', t => {
+await test('selected unsupported workflow identities fail before admission output or receipt selection', t => {
   const fixture = receiptFixture(t);
   for (const change of [{ GITHUB_EVENT_NAME: 'schedule' }, { GITHUB_EVENT_NAME: 'workflow_call' },
     { GITHUB_ACTOR: 'another-user' }, { GITHUB_RUN_ATTEMPT: '2' }, { GITHUB_REPOSITORY_ID: '0' },
@@ -496,7 +496,7 @@ test('selected unsupported workflow identities fail before admission output or r
   }
 });
 
-test('actual clean source admission binds current SHA and tree before dependency or Docker setup', t => {
+await test('actual clean source admission binds current SHA and tree before dependency or Docker setup', t => {
   const fixture = receiptFixture(t);
   assert.equal(prepareRecoveryWorkflow(fixture.identity, fixture.env, fixture), fixture.env.COGLATAS_RECOVERY_SOURCE_TREE);
   assert.equal(fixture.outputText(), 'admitted=true\nsource_tree=' + fixture.env.COGLATAS_RECOVERY_SOURCE_TREE + '\n');
@@ -506,7 +506,7 @@ test('actual clean source admission binds current SHA and tree before dependency
   assert.equal(fixture.outputText(), '');
 });
 
-for (const status of ['PASS', 'ERROR']) test('only the fresh exact current ' + status + ' receipt is emitted and selected', t => {
+for (const status of ['PASS', 'ERROR']) await test('only the fresh exact current ' + status + ' receipt is emitted and selected', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture, status);
   const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
   const bytes = readFileSync(join(fixture.root, selected));
@@ -521,7 +521,7 @@ for (const status of ['PASS', 'ERROR']) test('only the fresh exact current ' + s
   assert.equal(receipt.technicalReleaseReady, false);
 });
 
-test('missing runner output and old run receipts cannot satisfy validation or overwrite the fresh writer', t => {
+await test('missing runner output and old run receipts cannot satisfy validation or overwrite the fresh writer', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
   const bytes = readFileSync(join(fixture.root, selected)); fixture.resetOutput();
@@ -535,7 +535,7 @@ test('missing runner output and old run receipts cannot satisfy validation or ov
   assert.equal(fixture.outputText(), '');
 });
 
-test('current path rejects stale or substituted run, attempt, source, tree, job and nonce headers', t => {
+await test('current path rejects stale or substituted run, attempt, source, tree, job and nonce headers', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
   fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected; fixture.resetOutput();
@@ -548,7 +548,7 @@ test('current path rejects stale or substituted run, attempt, source, tree, job 
   }
 });
 
-test('unknown private fields, malformed duplicate JSON and oversized bytes cannot cross the upload boundary', t => {
+await test('unknown private fields, malformed duplicate JSON and oversized bytes cannot cross the upload boundary', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
   fixture.env.COGLATAS_RECOVERY_RECEIPT_PATH = selected; fixture.resetOutput();
@@ -563,7 +563,7 @@ test('unknown private fields, malformed duplicate JSON and oversized bytes canno
   }
 });
 
-test('receipt selection rejects nonregular, redirected, hardlinked and readable-by-others files', t => {
+await test('receipt selection rejects nonregular, redirected, hardlinked and readable-by-others files', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const selected = writeRecoveryReceipt(receipt, fixture.identity, fixture.env, fixture);
   const path = join(fixture.root, selected), bytes = readFileSync(path);
@@ -576,7 +576,7 @@ test('receipt selection rejects nonregular, redirected, hardlinked and readable-
   assert.deepEqual(readFileSync(backup), bytes); assert.equal(fixture.outputText(), '');
 });
 
-test('a PASS label cannot replace original restore, startup, rollback, cleanup or comparison verdicts', t => {
+await test('a PASS label cannot replace original restore, startup, rollback, cleanup or comparison verdicts', t => {
   const fixture = receiptFixture(t);
   for (const change of [{ cleanup: false }, { originalSourceRollback: false }, { restoreCalls: { target: 0, fault: 1 } },
     { strictCheckpoint: 'NOT_EVALUATED' }, { startupDelta: { equalToCheckpoint: true, changedTables: 1, schemaUnchanged: true } },
@@ -586,7 +586,7 @@ test('a PASS label cannot replace original restore, startup, rollback, cleanup o
   assert.throws(() => validateRecoveryReceiptData(failed));
 });
 
-test('every original fixed failure stage remains representable without leaking arbitrary errors', t => {
+await test('every original fixed failure stage remains representable without leaking arbitrary errors', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const driver = readFileSync(resolve(root, 'scripts/ci/run-synthetic-logical-recovery.mjs'), 'utf8');
   const stages = new Set([...driver.matchAll(/stage = '([a-z-]+)'/g)].map(match => match[1]));
@@ -600,7 +600,7 @@ test('every original fixed failure stage remains representable without leaking a
   assert.throws(() => validateRecoveryReceiptData({ ...receipt, failedStage: 'PRIVATE_EXCEPTION_CANARY' }));
 });
 
-for (const failedArchive of [0, 1]) test(`actual ${failedArchive ? 'key' : 'upload'} extraction failure retains its ERROR receipt through upload selection`, t => {
+for (const failedArchive of [0, 1]) await test(`actual ${failedArchive ? 'key' : 'upload'} extraction failure retains its ERROR receipt through upload selection`, t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   const archives = [Buffer.from('Original synthetic uploads'), Buffer.from('Original synthetic keys')];
   const originals = archives.map(bytes => Buffer.from(bytes)), calls = [], stages = [];
@@ -637,7 +637,7 @@ for (const failedArchive of [0, 1]) test(`actual ${failedArchive ? 'key' : 'uplo
   assert.equal(originalBytes.includes(Buffer.from(failure.message)), false);
 });
 
-test('early native version errors retain the original JSON null encoding in their ERROR receipt', t => {
+await test('early native version errors retain the original JSON null encoding in their ERROR receipt', t => {
   const fixture = receiptFixture(t), receipt = closedReceipt(fixture);
   receipt.postgresVersionNum = Number('synthetic unavailable version');
   receipt.failedStage = 'source-seed'; receipt.failureCode = 'PG_VERSION';
@@ -649,7 +649,7 @@ test('early native version errors retain the original JSON null encoding in thei
   assert.equal(written.status, 'ERROR'); assert.equal(written.failureCode, 'PG_VERSION');
 });
 
-test('workflow rejects selected unsupported paths early and validates emitted failure receipts before upload', () => {
+await test('workflow rejects selected unsupported paths early and validates emitted failure receipts before upload', () => {
   const workflow = readFileSync(resolve(root, '.github/workflows/licensed-real-backend-acceptance.yml'), 'utf8');
   const admission = workflow.slice(workflow.indexOf('- name: Admit explicitly selected'), workflow.indexOf('- name: Download main build artifacts'));
   assert.ok(admission.includes("if: inputs.suite == 'logical-recovery'"));
@@ -661,7 +661,7 @@ test('workflow rejects selected unsupported paths early and validates emitted fa
   assert.ok(!validation.includes('continue-on-error'));
 });
 
-test('the actual API probe rejects foreign file bytes and canaries even with a denial status', async () => {
+await test('the actual API probe rejects foreign file bytes and canaries even with a denial status', async () => {
   const bytes = Buffer.from('ORIGINAL_SYNTHETIC_PRIVATE_FILE_CANARY\n');
   const foreign = { tenant: 'security-beta', fileId: '11111111-1111-1111-1111-111111111111',
     fileBytes: bytes.length, fileSha256: createHash('sha256').update(bytes).digest('hex'),
