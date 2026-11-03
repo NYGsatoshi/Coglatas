@@ -83,13 +83,24 @@ public static class RequirementEvidenceValidator
                 requirement.EntityId is null || requirement.RelationId is not null || requirement.PropertyPath.Length != 0 || requirement.TextSpan is not null)
             { Add("coglatas.evidence.requirement-identity-mismatch", RelationFindingState.Invalid); return Finish(); }
             location = requirement;
-            var matches = PlanDeclarationReader.Read(source).Where(item => item.DocumentId == requirement.DocumentId &&
+            var declarations = PlanDeclarationReader.Read(source);
+            var matches = declarations.Where(item => item.DocumentId == requirement.DocumentId &&
                 SourceFields.Identity<EntityId>(item.Data.Value, "entityId") == requirement.EntityId).ToArray();
             if (matches.Length != 1 || matches[0].Declaration is not RequirementPlanDeclaration declared)
             {
                 Add(matches.Length == 1 && matches[0].Status == ValueDecodeStatus.Unsupported ? "coglatas.evidence.requirement-unsupported" :
                     "coglatas.evidence.requirement-unavailable", matches.Length == 1 && matches[0].Status == ValueDecodeStatus.Unsupported ? RelationFindingState.Unsupported : RelationFindingState.Invalid);
                 return Finish();
+            }
+            if (!declared.Target.Context.Equals(source.Context))
+                Add("coglatas.evidence.target-materialization-unavailable", RelationFindingState.Unknown);
+            else
+            {
+                var targets = declarations.Where(item => SourceFields.Identity<EntityId>(item.Data.Value, "entityId") == declared.Target.EntityId).ToArray();
+                if (targets.Length != 1 || targets[0].Status != ValueDecodeStatus.Decoded)
+                    Add("coglatas.evidence.target-unavailable", RelationFindingState.Unknown);
+                else if (targets[0].Declaration is ResourceBindingDeclaration)
+                    Add("coglatas.evidence.resource-materialization-unavailable", RelationFindingState.Unsupported);
             }
             var identities = new HashSet<CompilerResultId>();
             var stale = false;
