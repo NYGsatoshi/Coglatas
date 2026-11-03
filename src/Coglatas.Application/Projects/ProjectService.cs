@@ -1640,39 +1640,52 @@ public sealed class ProjectService(
         return await projectAuthorization.CanManageProject(actorUserId, project.Id, cancellationToken);
     }
 
-    private async Task<bool> CanModifyCommentAsync(Guid userId, Comment comment, CancellationToken cancellationToken)
-    {
-        if (comment.AuthorUserId == userId)
+    private Task<bool> CanModifyCommentAsync(Guid userId, Comment comment, CancellationToken cancellationToken) =>
+        projects.ReadCurrentAuthorizationAsync(async token =>
         {
-            return true;
-        }
+            var actor = await users.GetByIdAsync(userId, token);
+            if (actor is not { Status: UserStatus.Active, DeletedAt: null })
+                return false;
 
-        var target = await ResolveCommentTargetAsync(comment.TargetType, comment.TargetId, cancellationToken);
-        return target is not null && await projectAuthorization.CanManageProject(userId, target.Value.ProjectId, cancellationToken);
-    }
+            var current = await projects.GetCommentAsync(comment.Id, token);
+            if (current is null || current.TenantId != comment.TenantId ||
+                current.WorkspaceId != comment.WorkspaceId || current.AuthorUserId != comment.AuthorUserId ||
+                current.TargetType != comment.TargetType || current.TargetId != comment.TargetId ||
+                current.DeletedAt != comment.DeletedAt)
+                return false;
+
+            var target = await ResolveCommentTargetAsync(current.TargetType, current.TargetId, token);
+            if (target is null) return false;
+
+            // Preserve independent management, including archived-Project
+            // corrections, before considering ordinary author contribution.
+            return await projectAuthorization.CanManageProject(userId, target.Value.ProjectId, token) ||
+                   (current.AuthorUserId == userId &&
+                    await commentAuthorization.CanCommentOnTarget(userId, current.TargetType, current.TargetId, token));
+        }, cancellationToken);
 
     private async Task<(Guid ProjectId, Guid WorkspaceId)?> ResolveCommentTargetAsync(CommentTargetType targetType, Guid targetId, CancellationToken cancellationToken)
     {
         if (targetType == CommentTargetType.Project)
         {
             var project = await projects.GetProjectAsync(targetId, cancellationToken);
-            return project is null ? null : (project.Id, project.WorkspaceId);
+            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
         }
 
         if (targetType == CommentTargetType.TaskItem)
         {
             var task = await projects.GetTaskAsync(targetId, cancellationToken);
-            if (task is null) return null;
+            if (task is null || task.DeletedAt.HasValue) return null;
             var project = await projects.GetProjectAsync(task.ProjectId, cancellationToken);
-            return project is null ? null : (project.Id, project.WorkspaceId);
+            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
         }
 
         if (targetType == CommentTargetType.Milestone)
         {
             var milestone = await projects.GetMilestoneAsync(targetId, cancellationToken);
-            if (milestone is null) return null;
+            if (milestone is null || milestone.DeletedAt.HasValue) return null;
             var project = await projects.GetProjectAsync(milestone.ProjectId, cancellationToken);
-            return project is null ? null : (project.Id, project.WorkspaceId);
+            return project is null || project.DeletedAt.HasValue ? null : (project.Id, project.WorkspaceId);
         }
 
         return null;
