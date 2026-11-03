@@ -37,6 +37,7 @@ class InstallerTransportTests(unittest.TestCase):
         ], check=True, capture_output=True, timeout=10)
         self.certificate = certificate
         tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.minimum_version = ssl.TLSVersion.TLSv1_2
         tls.load_cert_chain(certificate, key)
         self.requests = []
         servers = {}
