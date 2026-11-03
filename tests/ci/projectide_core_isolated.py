@@ -174,6 +174,8 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                 raise ValueError('Materialization tests did not run')
             if name == "projectIde" and (target / 'tests/Coglatas.Tests/ProjectIde/CompilerDiagnosticIntegrationTests.cs').exists() and not any('CompilerDiagnosticIntegrationTests' in item for item in names):
                 raise ValueError('Diagnostic integration tests did not run')
+            if name == "projectIde" and (target / 'tests/Coglatas.Tests/ProjectIde/RelationGraphCancellationTests.cs').exists() and not any('RelationGraphCancellationTests' in item for item in names):
+                raise ValueError('Graph cancellation tests did not run')
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
