@@ -505,3 +505,227 @@ Owner/CODEOWNER approval. #1653/#1667 full changed-head review remains rate-limi
 Ordinary current Product CI is SUCCESS; ordinary standalone Test CI is FAILURE;
 both exact supplemental runs and Windows parity remain verified without runtime
 head changes.
+
+## Immutable admission / receipt / closure continuation — 2026-11-03
+
+### Reacquired authority and Phase A audit
+
+All seven PR heads/bases/trees, ordinary checks, review requests/submissions,
+review threads and supplemental run states were reacquired. No accepted concrete
+Manifest/Receipt schema, authenticated producer, authorization-freshness interface
+or Evidence Eligibility decision was found in #1666/#905/#798. Formal specification
+cross-check uses Coglatas-Spec `850a5d9376db11e75235cf55e03ebed4de9c0510`:
+effective-contracts blob `1f333c99d12fe84384fd350514ec9399b0c80673`, controlling
+A-R2 amendment blob `ab45d7cf031656b4dfc2344b478f4f1bf1fe231f`, and the
+2026-10-31 parallel-client decision. Private specification text is not republished.
+
+| PR | Head / tree | Review base | Ordinary PR CI at initial audit |
+| --- | --- | --- | --- |
+| #1657 | `48ff196985ddbf90db82386c5413c8f659ea64a7` / `714124fb87a791ffedd3bdf26fb919093a68eb97` | `610f9911f9ce31739188437972f7eeb018f611da` | SUCCESS 41514097329 |
+| #1658 | `8f701e8db3097c74c9a63c30669fbfe36be7bb48` / `d342e8379d98a7a0b6253b1f726f52521f3951e8` | `9e969183f5b311789b0197d0b6aac12a88206e7c` | FAILURE 41517973360; 5 failed / 4 skipped PR-CI jobs |
+| #1666 | `d138d53690c95c3832b3a40b948a0a8e9fcfd492` / `17ca07fd1634350b03cf80c3ea13dc3ee1836cfa` | `48ff196985ddbf90db82386c5413c8f659ea64a7` | Documentation routing, 4 skipped PR-CI jobs; not a runtime qualification |
+| #1667 | `585727a9b480e61d08cbeeb3d996904b5f1f4b5e` / `6e8f2f908cdba5bc25d2d436af6316b75a19e925` | `48ff196985ddbf90db82386c5413c8f659ea64a7` | SUCCESS 41562708845 |
+| #1668 | `6edddea75a8dfd0ecaca8559827ffb92ba06a365` / `93b9ec8aed73e6577dfcfb0be95b644bb2803e4d` | `8f701e8db3097c74c9a63c30669fbfe36be7bb48` | FAILURE 41562716565; 5 failed / 4 skipped PR-CI jobs |
+| #1653 | `d77b9814f96ba593b98b8842cf1d1355cf310885` / `5d2308c95843feb2c34e413169c8b45782403285` | `0a79e05a6533a7e4468bb7b74f47aeceb04ae119` | SUCCESS 41517683660 |
+| #1654 | `930bb8866cf2b8c3c08a414ffc2aa782072ba443` / `18aeb0072029e73f2fbb0e79454cd83f54dc9a7c` | `5f2825e1d88f307efddc5edac16579ec220cbd4b` | FAILURE 41517821832; 6 failed / 4 skipped PR-CI jobs |
+
+Supplemental 41562716515 / 41562716656 remain SUCCESS on exact Test `6edddea7`;
+Inspector 41517821241 remains SUCCESS on `930bb886`; previous Core and consumer
+41517973310 / 41517973455 remain SUCCESS on `8f701e8d`. These are historical
+comparison receipts, not automatic acceptance of the new candidate.
+
+All inspected PRs remained Draft/open with auto-merge unset. No APPROVED review
+or unresolved thread was returned. #1653 has three resolved findings. #1657's
+completed exact-head COMMENTED review and withdrawn predicate finding remain
+unchanged; no duplicate runtime fix was applied. #1666/#1667/#1668/#1654 had no
+submitted reviews. CODEOWNERS names `@NYGsatoshi`; no Owner/schema acceptance is
+inferred. Normal included-capacity full-review requests on #1681/#1682/#1666/
+#1667/#1653 returned **rate limited / Action not completed** at 13:14 UTC, with
+46 minutes until the reported next included capacity. No CLI/alternate-identity,
+billing, configuration or limit workaround was attempted.
+
+The prompt's RiderProjects checkout was absent. Existing intact repository
+`C:/Users/Hirota Kaname/source/repos/NYGsatoshi/Coglatas` and its registered
+continuation worktrees were found and used; no deleted environment was recreated.
+Initial protected remote refs: `main` `f44faf582031812f84e07e8e291ec04725d52131`,
+formal integration `158ab153551184cede99c85ce6476dd6e87b6767`, and
+SecurityTestImplimation `a4bb658903a7b11d564006949fc58b42b94da575`.
+No exact Main/ProjectIDEMain ref was returned. External ref movement is separate
+from this task's explicitly named feature/test/docs pushes.
+
+### Implemented bounded slice and concrete decision packet
+
+Draft Product [#1681](https://github.com/NYGsatoshi/Coglatas/pull/1681) uses exact
+#1667 as its base; independent Draft Test
+[#1682](https://github.com/NYGsatoshi/Coglatas/pull/1682) uses exact #1668.
+Product Runtime Source remains owned by Product; Test contains no copied runtime.
+The new behavior is existing-type immutable materialization admission, duplicate/
+conflict/opaque detection, shared budgets and cooperative cancellation/disposal,
+safe denied-body projection and deterministic exhausted-prefix findings.
+Detailed implementation boundaries are on the Product branch in
+`projectide-materialization-binding.md`.
+
+The 22-row concrete packet in `projectide-manifest-option-b.md` records normative
+source IDs, proposed types/encoding/domain/identity/reference mapping/input
+association/actual sets/receipt responsibilities, unresolved choices, compatibility
+impacts and independent verification obligations. Packet commit `5142115c99d8f922d2439cd54f1e178178c0e427`.
+Option B architecture remains SELECTED; every concrete schema/trust/authority/
+offline/migration/eligibility row remains **PROPOSED / OWNER DECISION REQUIRED**.
+No formal Wire V1, trust root, production default or existing-v1 reinterpretation
+is adopted. Fifteen independent .NET cases and eighteen additional test-only
+Receipt/Graph proposal controls exercise the new bounded slice and future
+decision cases. These models are non-normative; their tuple shapes and ASCII
+hash examples never reach runtime or certify transitive closure.
+
+### Retained before-fail evidence
+
+Corrected original behavioral proof: unchanged Product `585727a9`, exact Test
+`cb3012a26574bcdd9bcc7a8fd07e3ccdc4b31639`, combined
+`7d9c573eb1c204d988879e6b680239a6c11efaf7`, tree
+`3f9ecafeac75bb3ff128a0fc25dc0f73b4f6a36a`: **7 FAIL / 6 PASS / 0 SKIP**.
+TRX SHA-256 `33aa58cde641bdd8299b6e0a77258947a7f96b491a091b6ffe9d5d4187bec3ad`.
+Clean checkout, Product source equality and relevant exact-Test equality hold.
+Initial raw 8 FAIL / 5 PASS with Test `8404e250` is separate: one unknown-pin
+fixture was already rejected by the input constructor and the fixed budget
+could exhaust local Source before reaching the supply. The first corrected-head
+full run's 815 PASS / 2 FAIL is retained, not relabelled as successful behavior.
+
+An additional self-audit caught supply-order-dependent exhaustion findings in
+intermediate Product `38fba7d6`. Test `5ea8f4ce58b434433afc3ac702d8780dc04e89ac`,
+combined `4c78ad59b9544dd431c3b80f6321893b4bb3dba0`, tree
+`0d00afdae97b2947162868bcc033640d702c774d`: **1 FAIL / 14 PASS / 0 SKIP**;
+TRX SHA-256 `188b1bed8d67d9707cf8da1baca7dc9d1602a6090108087fdb5700bbcbd1068c`.
+Product `7f5bb1d1` moves denial finding publication after successful bounded
+enumeration; exhausted prefixes retain no partial symbols/bodies. The repeated
+denied-context entry-cap control remains included.
+
+The intermediate `38fba7d6` / `cb3012a2` Core candidate passed Windows/Ubuntu
+817 Core + 12 Architecture + 35 controls in 41641823007. ZIP artifact 13232503128,
+SHA-256 `c729516972952120fab4dcbf04b813a171b64b5995cce9d86250abb86440a4d3`,
+matches GitHub; all eight producer-file hashes, 54 runtime Git-blob/host-byte
+identities and complete inventories were independently compared. Its consumer
+41641822930 also completed SUCCESS. Both remain superseded comparison evidence;
+the final two added controls and new Product head require their own receipts.
+
+### Final exact Product/Test and both-host qualification
+
+The consumer comparison baseline's duplicate old combined-key spellings were
+corrected in Test `4eb77ef3`: the baseline now names one exact earlier verified
+pair and combined commit/tree. Actual candidate pins/inventories had matched;
+the correction removes ambiguous provenance rather than changing an oracle.
+Intermediate `7474642b` receipts remain separate, not final-head evidence.
+
+| Role | Review base / base tree | Final HEAD / tree |
+| --- | --- | --- |
+| Product #1681 | `585727a9b480e61d08cbeeb3d996904b5f1f4b5e` / `6e8f2f908cdba5bc25d2d436af6316b75a19e925` | `7f5bb1d1f4902bf3e5505276031056ec3f7276e9` / `9b6b40398ec2ddabefd1d88fccf794edf6cd0492` |
+| Independent Test #1682 | `6edddea75a8dfd0ecaca8559827ffb92ba06a365` / `93b9ec8aed73e6577dfcfb0be95b644bb2803e4d` | `4eb77ef367510730ca1fa357a01700ad740fc980` / `b36592b014277a4886d4237e0a565f5fb3296399` |
+| Exact Core combined | Exact Product + Test ownership-checked composition | `66b2c9ecbebe13b4741d6a8159d8bd0b469be728` / `dc796f351e3cf6cd72386e86e0541829f242b4a4` |
+| Exact consumer combined | Same Core pair plus Inspector `d77b9814` / Test `930bb886` | `f35408e77a87667b450b9e775e68156449df3d78` / `291752d4cc3acb6f60c3aa4d84a86ee579c542e9` |
+
+Windows and fresh Ubuntu [Core 41645131682/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41645131682)
+pass **819 Core Unit/Contract + 12 Architecture + 35 controls**. Windows and
+fresh Ubuntu [consumer 41645131500/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41645131500)
+pass **857 Core/fixture/Pure ViewModel + 12 Architecture + 278 Vitest + 70 Node +
+44 Desktop/Mobile browser + 61 controls**. Release warnings-as-errors builds
+pass with zero warnings/errors. Zero final selected failures/skips/pending/todo;
+all fifteen new .NET cases execute. Complete inventories retain all original
+804/842 responsibilities, the intermediate thirteen admission cases, and both
+additional controls. No case was deleted or skipped to obtain success.
+
+Downloaded Core artifact **13234992054**, ZIP SHA-256
+`b57a11f8c9db1f429deed3a0483eacb9619ffb56baa5f597e080700ad8d4f915`, equals GitHub.
+All eight producer-file hashes, 54 Runtime Git-blob identities/host bytes,
+exact pins/trees/combined commit and complete discovery/execution/control
+inventories are independently verified. Consumer artifact **13234377664**, ZIP
+SHA-256 `69a11d80c3936bd451dd17607386eb0c297db52856e700cc7d484c9e9a126696`,
+also equals GitHub. Every declared file hash is checked: 32 hosted files and 33
+Windows files, the extra Windows file documenting dependency reuse. Parsed TRX,
+Vitest, Node, browser and all 61 control identities/outcomes match across hosts.
+Vitest absolute host prefixes are normalized only after binding each to its
+actual checkout; repository-relative test file/name/status remain exact.
+
+Fixture reproduction is byte-exact against its pinned Git blob on both hosts:
+SHA-256 `bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a`.
+Existing Source/input/result golden tests remain in the executed inventory.
+Windows browser port **58128** and Ubuntu port **43347** use owned servers,
+exact static roots, matching per-host served/expected index SHA-256, zero retries
+and forbid-only. Different host build hashes are not falsely described as equal.
+
+Toolchains: Windows 11 `10.0.26200`, Python **3.12.14**, Node **24.22.1**;
+Ubuntu/Linux `7.0.0-1017-azure` / glibc 2.39, Python **3.12.12**, Node **24.22.2**;
+both use exact repository SDK **10.0.403** and pinned npm **11.17.0**.
+Windows initially lacked an npm command; the repository-pinned npm package was
+downloaded and its registry SHA-512 integrity verified, without modifying a
+toolchain pin or user/global configuration. Package ZIP SHA-256
+`b290bbb35b9e72c3ef84edbe041f28c4479c4d9ee79f555817b8caafe7ce4bba`.
+
+Windows baseline/verifier raw hashes use CRLF; Ubuntu uses LF. Both are checked
+against the same exact Test Git blobs and their actual host representation,
+not assumed to have equal raw SHA-256. All semantic baseline pins and complete
+inventories match. The final metadata-only Test correction reused local build
+intermediates only after exact unchanged C#/project/frontend source checks;
+all build/discovery/controls/tests/fixture/browser commands reran at the new
+clean commit/tree. Ubuntu independently rebuilt fresh. Locked npm dependencies
+were installed once and reused sequentially through task-owned junctions after
+all four package/lock byte hashes matched. No Product Runtime Source was copied
+to Test. Producer/consumer ownership and reuse conditions are in the receipts.
+
+Exact candidate checkouts are clean before and after verification, including
+untracked files. Runtime equality and every Test-owned delta are checked. The
+consumer retains the three Inspector-owned test files rather than mistaking
+their presence for Core Test ownership. An initial over-broad local orchestration
+preflight rejected those expected extras before execution; its failure log is
+retained separately. No product assertion or quality gate was relaxed.
+
+Ordinary Product [PR CI 41643472906](https://github.com/NYGsatoshi/Coglatas/actions/runs/41643472906)
+completed **SUCCESS** at exact Product `7f5bb1d1`; Security, Functional, build,
+unit, frontend, ReSharper and Specification lanes succeeded. Ordinary standalone Test
+[41645154387](https://github.com/NYGsatoshi/Coglatas/actions/runs/41645154387)
+is **FAILURE**, with 5 failed / 4 skipped PR-CI jobs. The actual final Test
+producer **125948715934** reports CS0234/CS0246 missing unmerged Core namespaces/
+types; supplemental success does not waive that failure or copy Product Source
+to repair it. The superseded Product run 41641818467 had a functional aggregate
+failure on `RUNTIME_RESULT=cancelled` / `FUNCTIONAL_RESULT=skipped`; no runtime
+behavior defect is inferred. After normal obsolete-head cancellation did not
+finish, only that exact superseded `38fba7d6` run was force-cancelled through the
+Actions API at 13:34 UTC, releasing latest-head CI under the existing
+`cancel-in-progress: true` policy. This is not a Git force push, gate waiver or
+cancellation of current-head qualification. All old failure/cancellation records
+remain; current-head Product CI and Owner/review acceptance are separate gates.
+
+Remaining boundary: approved local reference-to-Manifest mapping and migration;
+actual authenticated receipt/materialization and current authority; Resource/
+external Snapshot acquisition; eligible target-specific Requirement Evidence;
+per-dependency complete graph and supported transitive External IR lowering;
+actual native UI/IME/accessibility/activation. The seven evidence stages remain
+separate. The current caller authorization boolean is a host claim, not verified
+producer trust or current authority. `requirement-evidence-unavailable`,
+`resource-snapshot-unavailable`, local `value-reference-unavailable` and
+`external-closure-not-lowered` remain. No incomplete IR becomes executable.
+#1144 remains HOLD; #1128 remains SUSPENDED / NOT_EVALUATED.
+
+Local raw artifacts, complete inventories, both before-fail receipts, orchestration
+failures, ZIP downloads, independent comparison outputs and npm provenance are
+retained under
+`C:/Users/Hirota Kaname/.codex/tmp/projectide-materialization-20261103/`.
+Final Windows receipts are `core-final/receipt.json` and
+`consumers-final/receipt.json`; independent comparisons are
+`hosted/core-final-comparison.json` and `hosted/consumer-final-comparison.json`.
+These are verification artifacts, not another management ledger.
+
+Protected-ref audit observed at 2026-11-03 13:58 UTC:
+
+| Remote ref | Start | End observed | Task attribution |
+| --- | --- | --- | --- |
+| `main` | `f44faf582031812f84e07e8e291ec04725d52131` | `8e51d84189a123d3b0d2617a2fd5671f736af9c7` | External advance; this task did not push/merge it |
+| `projectide/integration-20261031` | `158ab153551184cede99c85ce6476dd6e87b6767` | `158ab153551184cede99c85ce6476dd6e87b6767` | Unchanged |
+| `SecurityTestImplimation` | `a4bb658903a7b11d564006949fc58b42b94da575` | `a4bb658903a7b11d564006949fc58b42b94da575` | Unchanged |
+| Exact `ProjectIDEMain` / `Main` | Absent | Absent | No ref created |
+
+Only `feature/projectide-materialization-binding-20261103`,
+`test/projectide-evidence-materialization-20261103` and the existing
+`docs/projectide-manifest-option-b-20261103` are pushed by this task. No protected
+Git ref, Draft lifecycle, auto-merge, required check/threshold, production system,
+SEC-ARCH/RLS/Enforce or #1128 policy was changed. Full current-head CodeRabbit,
+Owner/CODEOWNER and all concrete schema/trust/eligibility acceptance remain
+separate/pending; rate-limit responses are not approval.

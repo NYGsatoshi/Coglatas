@@ -191,6 +191,69 @@ spellings only; no registry allocation or current-v1 reinterpretation follows.
 | Redaction / retention | Immutable protected original; authorized redacted view is a separately identified projection linked to original, never rewritten original bytes | PROV, HIST-04/05, COMP-11 | Field classification, authorized export, retention/deletion/Pin periods and capacity remain pending | No hidden names/IDs/counts/digests in findings; redacted view cannot impersonate original proof |
 | Failure states | Distinguish Invalid, Missing/Partial, Unknown, Unsupported, Cancelled, Exhausted, Stale, UnverifiedTrust and Unauthorized/opaque unavailable; no default success | MODEL-17, ANALYSIS-07, COMP-11 | Exact wire tokens and aggregation table; retain current result axes until approved | Deterministic diagnosis/order, cancellation during enumeration and shared budgets; never executable partial IR |
 
+### Proposed data shape for owner review
+
+The following is type notation, **not JSON Schema, a supported envelope or an
+allocated V1**. All role names/field names below are proposed. `ExactContext`
+means the complete existing committed/candidate/Scenario context, with explicit
+ownership for Tenant Resources instead of forcing them into a Project Entity.
+
+```text
+ArtifactPin = {
+  artifactType, schemaVersion, canonicalEncodingVersion,
+  scope: { kind, tenantId, projectId? }, context: ExactContext?,
+  digest: { algorithm, value }
+}
+DependencyManifestPayload = {
+  artifactType, schemaVersion, canonicalEncodingVersion,
+  source: ArtifactPin,
+  entries: [{ entryKey, dependencyKind, body: ArtifactPin, coverageClaim }]
+}
+CompilerInputAssociationPayload = {
+  artifactType, schemaVersion, canonicalEncodingVersion,
+  source: ArtifactPin, dependencyManifest: ArtifactPin,
+  compilerConfiguration: ExactExistingSemanticInput
+}
+ActualMaterializationSetPayload = {
+  artifactType, schemaVersion, canonicalEncodingVersion,
+  entries: [{ entryKey, expected: ArtifactPin,
+              state: Present | Missing | Partial | Unsupported,
+              actual: ArtifactPin? }]
+}
+MaterializationReceiptPayload = {
+  artifactType, schemaVersion, canonicalEncodingVersion,
+  compilerInput: ArtifactPin, actualSet: ArtifactPin,
+  producerClaim, captureContext, provenance, execution, coverage
+}
+AuthenticationEnvelope = { receipt: ArtifactPin, protectedProducerProof }
+```
+
+Recommended hash framing is the existing `ContentDigest.Compute` primitive:
+`SHA-256(UTF8(allocatedDomainTag) || 0x00 || canonicalPayloadBytes)`. The domain
+must exclude NUL and be owned/versioned. The full role/schema/canonical/scope
+information lives in the payload as well. Recommended identity is an injective
+typed tuple `(artifactType, schemaVersion, canonicalEncodingVersion, fullDigest)`
+with full scope checked independently; avoid truncation or reuse as a UUID entity
+identity. Its wire spelling and any collision/index strategy remain pending.
+
+Derived self identity/digest and the authentication envelope are outside the
+receipt's hashed payload. `producerClaim` and any semantic capture context stay
+inside that payload; a verifier checks the protected proof against the complete
+receipt pin. This avoids a receipt/signature self-cycle. The signature itself,
+key/proof formats, trust root and verification/rotation/revocation behavior are
+unapproved. A redacted receipt projection must have a different identity, with
+explicit authorized linkage; it cannot inherit the original proof automatically.
+
+An `entryKey` maps only within one exact Manifest and its bound Source. A new
+reference grammar must establish which Source locators consume which entry and
+target. No current `manifest.digest` reference field is repurposed. `actual`
+presence does not imply integrity, producer authenticity, current authorization
+or eligibility; those stages retain independent verifier/host outcomes.
+Missing/Partial/Unsupported entries and absent graph frontiers prevent a closure
+claim. Actual-set adjacency and per-kind cycle semantics need their own approved
+contract before lowering. Optional fields and unknown-field criticality in this
+notation are questions for schema review, not reader defaults.
+
 ### Owner decision and implementation boundaries
 
 Approval should name the exact packet revision, selected row values, registry
