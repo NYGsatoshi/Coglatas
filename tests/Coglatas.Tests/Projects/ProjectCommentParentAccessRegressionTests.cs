@@ -39,38 +39,38 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
             Assert.True(control.IsSuccess, control.Error);
             var legitimate = await fixture.Service.DeleteCommentAsync(control.Value!.Id, fixture.Token);
             Assert.True(legitimate.IsSuccess, legitimate.Error);
-            Assert.NotNull((await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == control.Value.Id)).DeletedAt);
+            Assert.NotNull((await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == control.Value.Id, fixture.Token)).DeletedAt);
         }
         if (revokedScope == "workspace")
         {
-            var membership = await fixture.Db.WorkspaceMembers.SingleAsync(member => member.UserId == fixture.TargetId);
+            var membership = await fixture.Db.WorkspaceMembers.SingleAsync(member => member.UserId == fixture.TargetId, fixture.Token);
             membership.Status = MembershipStatus.Suspended;
         }
         else
         {
-            fixture.Db.ProjectMembers.Remove(await fixture.Db.ProjectMembers.SingleAsync(member => member.UserId == fixture.TargetId));
+            fixture.Db.ProjectMembers.Remove(await fixture.Db.ProjectMembers.SingleAsync(member => member.UserId == fixture.TargetId, fixture.Token));
         }
-        await fixture.Db.SaveChangesAsync();
+        await fixture.Db.SaveChangesAsync(fixture.Token);
         fixture.Db.ChangeTracker.Clear();
         Assert.False(await fixture.Authorization.CanViewProject(fixture.TargetId, fixture.ProjectId, fixture.Token));
         Assert.False(await fixture.Authorization.CanManageProject(fixture.TargetId, fixture.ProjectId, fixture.Token));
         Assert.False(await fixture.Authorization.CanCommentOnTarget(fixture.TargetId, targetType, targetId, fixture.Token));
-        Assert.Equal(TenantUserStatus.Active, (await fixture.Db.TenantUsers.AsNoTracking().SingleAsync(member => member.UserId == fixture.TargetId)).Status);
-        var before = await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == commentId);
-        var auditCount = await fixture.Db.AuditLogs.AsNoTracking().CountAsync();
+        Assert.Equal(TenantUserStatus.Active, (await fixture.Db.TenantUsers.AsNoTracking().SingleAsync(member => member.UserId == fixture.TargetId, fixture.Token)).Status);
+        var before = await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == commentId, fixture.Token);
+        var auditCount = await fixture.Db.AuditLogs.AsNoTracking().CountAsync(fixture.Token);
         var projectStages = fixture.Invalidations.Calls.Count;
         var authorizationStages = fixture.AuthorizationChanges.Calls.Count;
 
         var result = await MutateCommentAsync(fixture, commentId, operation);
 
-        var after = await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == commentId);
+        var after = await fixture.Db.Comments.AsNoTracking().SingleAsync(comment => comment.Id == commentId, fixture.Token);
         output.WriteLine($"Target={targetType}; operation={operation}; lost={revokedScope}; " +
             $"success={result.Success}; body={after.Body}; deleted={after.DeletedAt.HasValue}; " +
-            $"audit delta={await fixture.Db.AuditLogs.AsNoTracking().CountAsync() - auditCount}");
+            $"audit delta={await fixture.Db.AuditLogs.AsNoTracking().CountAsync(fixture.Token) - auditCount}");
         Assert.False(result.Success, result.Error);
         Assert.Equal(before.Body, after.Body);
         Assert.Equal(before.DeletedAt, after.DeletedAt);
-        Assert.Equal(auditCount, await fixture.Db.AuditLogs.AsNoTracking().CountAsync());
+        Assert.Equal(auditCount, await fixture.Db.AuditLogs.AsNoTracking().CountAsync(fixture.Token));
         Assert.Equal(projectStages, fixture.Invalidations.Calls.Count);
         Assert.Equal(authorizationStages, fixture.AuthorizationChanges.Calls.Count);
     }
@@ -102,7 +102,7 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
         }
         else if (status != ProjectStatus.Active)
         {
-            var project = await fixture.Db.Projects.SingleAsync();
+            var project = await fixture.Db.Projects.SingleAsync(fixture.Token);
             project.Status = status;
         }
         // Historical generic Comments can remain present in non-operational
@@ -113,7 +113,7 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
             TargetType = CommentTargetType.Project, TargetId = projectId, Body = "Historical comment"
         };
         fixture.Db.Comments.Add(comment);
-        await fixture.Db.SaveChangesAsync();
+        await fixture.Db.SaveChangesAsync(fixture.Token);
         fixture.Db.ChangeTracker.Clear();
         Assert.True(await fixture.Authorization.CanManageProject(fixture.ActorId, projectId, fixture.Token));
         if (status != ProjectStatus.Active)
@@ -121,16 +121,17 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
 
         var updated = await fixture.Service.UpdateCommentAsync(comment.Id, new UpdateCommentRequest("Managed edit"), fixture.Token);
         Assert.True(updated.IsSuccess, updated.Error);
-        Assert.Equal("Managed edit", (await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id)).Body);
+        Assert.Equal("Managed edit", (await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id, fixture.Token)).Body);
         var deleted = await fixture.Service.DeleteCommentAsync(comment.Id, fixture.Token);
 
         Assert.True(deleted.IsSuccess, deleted.Error);
-        var persisted = await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id);
+        var persisted = await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id, fixture.Token);
         Assert.Equal(isAuthor ? fixture.ActorId : fixture.TargetId, persisted.AuthorUserId);
         Assert.Equal(fixture.Clock.UtcNow, persisted.DeletedAt);
-        Assert.Equal(status, (await fixture.Db.Projects.AsNoTracking().SingleAsync(item => item.Id == projectId)).Status);
-        var audits = await fixture.Db.AuditLogs.AsNoTracking().ToListAsync();
-        Assert.Equal(new[] { "CommentDeleted", "CommentEdited" }, audits.Select(audit => audit.Action).Order().ToArray());
+        Assert.Equal(status, (await fixture.Db.Projects.AsNoTracking().SingleAsync(item => item.Id == projectId, fixture.Token)).Status);
+        var audits = await fixture.Db.AuditLogs.AsNoTracking().ToListAsync(fixture.Token);
+        string[] expectedActions = ["CommentDeleted", "CommentEdited"];
+        Assert.Equal(expectedActions, audits.Select(audit => audit.Action).Order().ToArray());
         Assert.All(audits, audit =>
         {
             Assert.Equal(fixture.ActorId, audit.ActorUserId);
@@ -155,10 +156,10 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
             TargetType = targetType, TargetId = targetId, Body = "Group history"
         };
         fixture.Db.Comments.Add(comment);
-        fixture.Db.GroupMembers.Remove(await fixture.Db.GroupMembers.SingleAsync(member => member.UserId == fixture.ActorId));
-        await fixture.Db.SaveChangesAsync();
+        fixture.Db.GroupMembers.Remove(await fixture.Db.GroupMembers.SingleAsync(member => member.UserId == fixture.ActorId, fixture.Token));
+        await fixture.Db.SaveChangesAsync(fixture.Token);
         fixture.Db.ChangeTracker.Clear();
-        Assert.Empty(await fixture.Db.GroupMembers.AsNoTracking().ToListAsync());
+        Assert.Empty(await fixture.Db.GroupMembers.AsNoTracking().ToListAsync(fixture.Token));
         Assert.True(await fixture.Authorization.CanManageProject(fixture.ActorId, fixture.ProjectId, fixture.Token));
 
         var updated = await fixture.Service.UpdateCommentAsync(comment.Id, new UpdateCommentRequest("Managed after Group removal"), fixture.Token);
@@ -166,20 +167,20 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
 
         Assert.True(updated.IsSuccess, updated.Error);
         Assert.True(deleted.IsSuccess, deleted.Error);
-        var persisted = await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id);
+        var persisted = await fixture.Db.Comments.AsNoTracking().SingleAsync(item => item.Id == comment.Id, fixture.Token);
         Assert.Equal("Managed after Group removal", persisted.Body);
         Assert.Equal(fixture.Clock.UtcNow, persisted.DeletedAt);
-        Assert.Equal(ProjectRole.Owner, (await fixture.Db.ProjectMembers.AsNoTracking().SingleAsync()).Role);
-        Assert.Equal(2, await fixture.Db.AuditLogs.AsNoTracking().CountAsync());
+        Assert.Equal(ProjectRole.Owner, (await fixture.Db.ProjectMembers.AsNoTracking().SingleAsync(fixture.Token)).Role);
+        Assert.Equal(2, await fixture.Db.AuditLogs.AsNoTracking().CountAsync(fixture.Token));
     }
 
     private static async Task<Guid> SeedTargetAsync(ProjectServicePersistenceContext fixture, CommentTargetType targetType)
     {
         if (targetType == CommentTargetType.Project) return fixture.ProjectId;
-        await fixture.Db.Projects.SingleAsync(project => project.Id == fixture.ProjectId);
+        await fixture.Db.Projects.SingleAsync(project => project.Id == fixture.ProjectId, fixture.Token);
         var milestone = new Milestone { ProjectId = fixture.ProjectId, Name = "Milestone", DueDate = new DateOnly(2026, 11, 5) };
         fixture.Db.Milestones.Add(milestone);
-        await fixture.Db.SaveChangesAsync();
+        await fixture.Db.SaveChangesAsync(fixture.Token);
         fixture.Db.ChangeTracker.Clear();
         return milestone.Id;
     }

@@ -2,6 +2,12 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Legacy Project comment edits and deletes read the current persisted account,
+comment identity, and parent authority before changing a tracked comment.
+Existing manager grants and canonical TaskComment routing remain in place.
+See [legacy comment authority](verification/project-comment-current-authority.md)
+for the PATCH/DELETE boundary and evidence limits.
+
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
 validation times, reports granular inventory changes, and supports optional

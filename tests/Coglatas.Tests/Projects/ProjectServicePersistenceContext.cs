@@ -71,7 +71,7 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
         var ownerTenant = new Tenant { Name = "Synthetic tenant", DisplayName = "Synthetic tenant", Slug = "project-service" };
         tenant.SetPlatformScope();
         db.Tenants.Add(ownerTenant);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
         tenant.SetTenant(ownerTenant.Id, "project-service");
         var actor = new User { DisplayName = "Owner", Email = "owner@example.test", NormalizedEmail = "OWNER@EXAMPLE.TEST" };
         var target = new User { DisplayName = "Target", Email = "target@example.test", NormalizedEmail = "TARGET@EXAMPLE.TEST" };
@@ -104,7 +104,7 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
             TenantId = ownerTenant.Id, ProjectId = project.Id, UserId = actor.Id,
             Role = ProjectRole.Owner, JoinedAt = project.ActivatedAtUtc.Value
         });
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(CancellationToken.None);
         db.ChangeTracker.Clear();
         return new ProjectServicePersistenceContext(options, db, tenant,
             ownerTenant.Id, actor.Id, target.Id, workspace.Id, project.Id);
@@ -116,7 +116,7 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
         {
             ProjectId = ProjectId, UserId = TargetId, Role = role, JoinedAt = Clock.UtcNow
         });
-        await Db.SaveChangesAsync();
+        await Db.SaveChangesAsync(Token);
         Db.ChangeTracker.Clear();
     }
 
