@@ -313,7 +313,13 @@ public sealed class TenantAdministrationService(
         }
 
         var membership = await tenants.GetCurrentTenantUserAsync(currentTenant.TenantId, currentUser.UserId.Value, cancellationToken);
-        if (membership is not { Status: TenantUserStatus.Active, Role: TenantUserRole.Owner or TenantUserRole.Admin })
+        if (membership is not
+        {
+            Status: TenantUserStatus.Active,
+            Role: TenantUserRole.Owner or TenantUserRole.Admin,
+            User: { Status: UserStatus.Active, DeletedAt: null },
+            Tenant: { Status: TenantStatus.Active, DeletedAt: null }
+        })
         {
             const string message = "TenantAdmin access is required.";
             return Result.Failure(message, new ApplicationErrorDetail("Forbidden", message));

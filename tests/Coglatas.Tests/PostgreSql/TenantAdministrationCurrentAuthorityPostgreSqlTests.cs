@@ -73,7 +73,7 @@ public sealed class TenantAdministrationCurrentAuthorityPostgreSqlTests(ITestOut
     [Trait("Category", "PostgreSQLIntegration")]
     public async Task CookieWarmedManagerChangesDenyEveryProtectedReadAndWriteWithoutEffects()
     {
-        foreach (var change in new[] { "member", "guest", "membership" })
+        foreach (var change in new[] { "member", "guest", "membership", "actor-status", "actor-deleted", "tenant-status", "tenant-deleted" })
         {
             output.WriteLine("Synthetic persisted manager control: " + change);
             await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
@@ -83,9 +83,17 @@ public sealed class TenantAdministrationCurrentAuthorityPostgreSqlTests(ITestOut
                     await fixture.WarmAuthenticatedRequestAsync();
                     await using (var revoker = fixture.OpenContext())
                     {
-                        var membership = await revoker.TenantUsers.SingleAsync();
-                        if (change == "membership") membership.Status = TenantUserStatus.Suspended;
-                        else membership.Role = change == "member" ? TenantUserRole.Member : TenantUserRole.Guest;
+                        var membership = await revoker.TenantUsers.Include(item => item.User).Include(item => item.Tenant).SingleAsync();
+                        switch (change)
+                        {
+                            case "member": membership.Role = TenantUserRole.Member; break;
+                            case "guest": membership.Role = TenantUserRole.Guest; break;
+                            case "membership": membership.Status = TenantUserStatus.Suspended; break;
+                            case "actor-status": membership.User!.Status = UserStatus.Suspended; break;
+                            case "actor-deleted": membership.User!.MarkDeleted(fixture.Clock.UtcNow); break;
+                            case "tenant-status": membership.Tenant!.Status = TenantStatus.Suspended; break;
+                            case "tenant-deleted": membership.Tenant!.MarkDeleted(fixture.Clock.UtcNow); break;
+                        }
                         await revoker.SaveChangesAsync();
                     }
                     var service = fixture.Service;
