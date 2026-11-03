@@ -46,8 +46,8 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         Assert.Same(fixture.Workspace, fixture.Db.Entry(fixture.Workspace).Entity);
         Assert.Equal(EntityState.Modified, fixture.Db.Entry(fixture.Workspace).State);
         Assert.Equal("Caller-owned pending change", fixture.Workspace.Name);
-        Assert.Equal(originalName, await fixture.Db.Workspaces.AsNoTracking().Select(row => row.Name).SingleAsync());
-        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
+        Assert.Equal(originalName, await fixture.Db.Workspaces.AsNoTracking().Select(row => row.Name).SingleAsync(CancellationToken.None));
+        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync(CancellationToken.None));
     });
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
     {
         var repository = new FormRepository(fixture.Db);
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.ReadCurrentAuthorizationAsync(async token =>
         {
@@ -64,7 +64,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         }, cancellation.Token));
 
         Assert.Equal(QueryTrackingBehavior.TrackAll, fixture.Db.ChangeTracker.QueryTrackingBehavior);
-        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
+        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync(CancellationToken.None));
     });
 
     [PostgreSqlFact]
