@@ -55,6 +55,14 @@ def security_uploads(document: str) -> dict[str, tuple[str, tuple[str, ...], str
     return result
 
 
+def step_condition(block: str) -> str:
+    """Read the effective, exact step guard; absent/ambiguous guards fail closed."""
+    conditions = re.findall(r"(?m)^        if: ([^\\r\\n]+)$", block)
+    if len(conditions) != 1:
+        raise ValueError("Security artifact upload requires one explicit step condition")
+    return conditions[0].strip()
+
+
 def validate(document: str) -> None:
     """Require immutable canonical evidence and disjoint failure-only diagnostics."""
     published = security_uploads(document)
@@ -87,9 +95,15 @@ def validate(document: str) -> None:
         raise ValueError("Security failure reports must contain only scanner-independent diagnostics")
     if set(evidence).intersection(diagnostics):
         raise ValueError("Overlapping canonical evidence and failure report uploads")
-    if "if: always()" not in sec_step or "if-no-files-found: error" not in sec_step:
+    # An always() substring is insufficient: always() && false is not evidence.
+    # Preserve the existing PR scope route and non-PR behavior exactly.
+    canonical_condition = (
+        "always() && (github.event_name != 'pull_request' || "
+        "needs.dotnet-build.outputs.security_compose == 'true')"
+    )
+    if step_condition(sec_step) != canonical_condition or "if-no-files-found: error" not in sec_step:
         raise ValueError("Canonical Security evidence must remain mandatory and fail closed")
-    if "if: failure()" not in report_step or "continue-on-error: true" not in report_step:
+    if step_condition(report_step) != "failure()" or "continue-on-error: true" not in report_step:
         raise ValueError("Advisory diagnostics may not weaken mandatory Security evidence")
 
 
@@ -136,6 +150,45 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
         self.assertNotEqual(tampered, self.source)
         with self.assertRaisesRegex(ValueError, "fail closed"):
             validate(tampered)
+
+    def test_disabled_canonical_publication_fails_closed(self):
+        original = (
+            "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+            "        if: always() && (github.event_name != 'pull_request' || "
+            "needs.dotnet-build.outputs.security_compose == 'true')"
+        )
+        for invalid in ("always() && false", "always()", "success()"):
+            with self.subTest(condition=invalid):
+                mutated = self.source.replace(
+                    original, "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+                    + "        if: " + invalid, 1
+                )
+                self.assertNotEqual(mutated, self.source)
+                with self.assertRaisesRegex(ValueError, "fail closed"):
+                    validate(mutated)
+
+    def test_disabled_failure_diagnostic_publication_fails_closed(self):
+        original = "      - name: Upload security reports on failure\\n        if: failure()"
+        for invalid in ("failure() && false", "always() && false", "success()"):
+            with self.subTest(condition=invalid):
+                mutated = self.source.replace(
+                    original, "      - name: Upload security reports on failure\\n"
+                    + "        if: " + invalid, 1
+                )
+                self.assertNotEqual(mutated, self.source)
+                with self.assertRaisesRegex(ValueError, "Advisory diagnostics"):
+                    validate(mutated)
+
+    def test_canonical_missing_condition_fails_closed(self):
+        original = (
+            "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+            "        if: always() && (github.event_name != 'pull_request' || "
+            "needs.dotnet-build.outputs.security_compose == 'true')"
+        )
+        mutated = self.source.replace(original, "      - name: Upload SEC-06 sanitized ZAP evidence", 1)
+        self.assertNotEqual(mutated, self.source)
+        with self.assertRaisesRegex(ValueError, "explicit step condition"):
+            validate(mutated)
 
     def test_registered_required_check_contexts_are_unchanged(self):
         # publication-readiness and performance-fast live in other workflows;
