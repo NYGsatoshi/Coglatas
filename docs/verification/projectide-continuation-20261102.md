@@ -540,8 +540,8 @@ completed exact-head COMMENTED review and withdrawn predicate finding remain
 unchanged; no duplicate runtime fix was applied. #1666/#1667/#1668/#1654 had no
 submitted reviews. CODEOWNERS names `@NYGsatoshi`; no Owner/schema acceptance is
 inferred. Normal included-capacity full-review requests on #1681/#1682/#1666/
-#1667/#1653 returned **rate limited / Action not completed** at 13:14 UTC, with
-46 minutes until the reported next included capacity. No CLI/alternate-identity,
+#1667/#1653 returned **rate limited / Action not completed** at 13:11 UTC (first
+response 13:11:34), with 46 minutes until the reported next included capacity. No CLI/alternate-identity,
 billing, configuration or limit workaround was attempted.
 
 The prompt's RiderProjects checkout was absent. Existing intact repository
