@@ -119,7 +119,6 @@ public static class ProjectSemanticBinder
                     // Do not inspect or return a denied body's integrity, metadata
                     // or coverage. Remember only the context needed to deny binding.
                     deniedContexts.Add(item.Snapshot.Source.Context);
-                    Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-unavailable", RelationFindingState.Unknown, root);
                     continue;
                 }
                 remainingDeclarations -= item.Snapshot.Source.Declarations.Value.GetArrayLength() + item.Snapshot.Source.Documents.Count;
@@ -134,6 +133,10 @@ public static class ProjectSemanticBinder
             }
             cancellationToken.ThrowIfCancellationRequested();
         }
+        // Only publish supply-derived findings after bounded enumeration. An
+        // exhausted prefix must not reveal whether a denied entry arrived first.
+        if (deniedContexts.Count != 0)
+            Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-unavailable", RelationFindingState.Unknown, root);
         foreach (var group in supplied.GroupBy(item => item.SnapshotId).Where(group => group.Count() > 1))
         {
             var first = group.First();

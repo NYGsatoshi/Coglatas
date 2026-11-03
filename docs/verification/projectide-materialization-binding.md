@@ -27,6 +27,8 @@ same operation/declaration budget as local binding. Exhaustion before admission
 publishes no partial symbol/materialization set. The provisional 32-entry cap
 counts denied and null entries as well. Caller enumerators must be cooperative;
 Core cannot preempt a blocking `MoveNext` or arbitrary caller code.
+Supply-derived denial findings are published only after enumeration completes,
+so an exhausted prefix has the same findings regardless of denied-entry order.
 
 Denied bodies are not inspected for version/digest/pin integrity or decoded into
 symbols. `BoundSnapshots` contains admitted authorized bodies only. Contexts are
