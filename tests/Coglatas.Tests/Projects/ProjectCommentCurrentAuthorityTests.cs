@@ -103,7 +103,8 @@ public sealed class ProjectCommentCurrentAuthorityTests
                 {
                     case "author": current.AuthorUserId = fixture.TargetId; break;
                     case "target":
-                        var milestone = new Milestone { ProjectId = fixture.ProjectId, Name = "Current parent", DueDate = new DateOnly(2026, 11, 5) };
+                        var parent = await writer.Projects.SingleAsync(fixture.Token);
+                        var milestone = new Milestone { ProjectId = parent.Id, Name = "Current parent", DueDate = new DateOnly(2026, 11, 5) };
                         writer.Milestones.Add(milestone);
                         current.TargetType = CommentTargetType.Milestone;
                         current.TargetId = milestone.Id;
@@ -133,7 +134,8 @@ public sealed class ProjectCommentCurrentAuthorityTests
     public Task DeletedMilestoneDeniesCommentCreationListingAndManagerMutation() =>
         ProjectServicePersistenceContext.WithAsync(async (fixture, _) =>
         {
-            var milestone = new Milestone { ProjectId = fixture.ProjectId, Name = "Milestone", DueDate = new DateOnly(2026, 11, 5) };
+            var parent = await fixture.Db.Projects.SingleAsync(fixture.Token);
+            var milestone = new Milestone { ProjectId = parent.Id, Name = "Milestone", DueDate = new DateOnly(2026, 11, 5) };
             fixture.Db.Milestones.Add(milestone);
             await fixture.Db.SaveChangesAsync(fixture.Token);
             var request = new CreateCommentRequest(CommentTargetType.Milestone, milestone.Id, "Original");
@@ -172,7 +174,8 @@ public sealed class ProjectCommentCurrentAuthorityTests
     public Task DeletedLegacyTaskTargetDeniesManagerMutation() =>
         ProjectServicePersistenceContext.WithAsync(async (fixture, _) =>
         {
-            var task = new TaskItem { WorkspaceId = fixture.WorkspaceId, ProjectId = fixture.ProjectId,
+            var parent = await fixture.Db.Projects.SingleAsync(fixture.Token);
+            var task = new TaskItem { WorkspaceId = parent.WorkspaceId, ProjectId = parent.Id,
                 Title = "Legacy Task", CreatedByUserId = fixture.ActorId, Kind = WorkItemKind.Task };
             fixture.Db.TaskItems.Add(task);
             await fixture.Db.SaveChangesAsync(fixture.Token);
