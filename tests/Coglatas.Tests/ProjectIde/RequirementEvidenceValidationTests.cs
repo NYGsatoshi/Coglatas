@@ -227,12 +227,15 @@ public sealed class RequirementEvidenceValidationTests
     public void ExactClaimCannotHideMissingUnsupportedOrResourceTargetBodies(string kind, string code)
     {
         var original = Source();
-        var root = kind == "resource" ? Obj(new { entityId = Id(6), kind = "coglatas.resource-binding", schemaVersion = 1,
+        var target = kind == "resource" ? Obj(new { entityId = Id(7), documentId = Id(4), kind = "coglatas.resource-binding", schemaVersion = 1,
             payload = new { tenantId = Id(1), resourceId = Id(20), snapshotVersion = "1", snapshotDigest = original.Digest.Data.Value, resourceKind = "coglatas.material" } })
-            : Obj(new { entityId = Id(kind == "missing" ? 99 : 6), kind = kind == "unsupported" ? "example.future" : "coglatas.project", schemaVersion = 1, payload = new { } });
-        var source = ProjectSource.Create(original.Context, [SourceDocument.Create(DocumentId.Parse(Id(4)), "target", Json(root))]);
-        var input = EvidenceInput(original: source);
-        var result = RequirementEvidenceValidator.Assess(input, Location(input), [Claim(input)]);
+            : Obj(new { entityId = Id(7), documentId = Id(4), kind = "example.future", schemaVersion = 1, payload = new { } });
+        var requirement = RequirementDeclaration(original.Context); requirement["payload"]!["target"] = Reference(7, original.Context);
+        var declarations = new JsonArray(requirement);
+        if (kind != "missing") declarations.Add(target);
+        var input = Input(AllRulesSettings(), ProjectSource.Create(original.Context, original.Documents, Json(declarations)));
+        var claim = new RequirementEvidenceClaim(Location(input), Target(input, 7), Pass(input));
+        var result = RequirementEvidenceValidator.Assess(input, Location(input), [claim]);
         Has(result, code); Incomplete(result);
     }
 
