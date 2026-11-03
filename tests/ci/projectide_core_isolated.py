@@ -12,7 +12,8 @@ sys.dont_write_bytecode = True
 import xml.etree.ElementTree as ET
 import unittest
 
-from projectide_slice2_isolated import changes, git, run, sha
+from projectide_slice2_isolated import git, run, sha
+from projectide_dependency_continuations import PRODUCT_MERGES, apply_test_changes, product_merge, test_changes as continuation_test_changes
 
 
 def inventory(path: Path) -> list[str]:
@@ -51,6 +52,9 @@ def product_changes(repository: Path, base: str, head: str) -> list[str]:
     for commit in commits:
         parents = git(repository, "rev-list", "--parents", "-n", "1", commit).split()[1:]
         if len(parents) == 2:
+            if commit in PRODUCT_MERGES:
+                product_merge(repository, commit, allowed)
+                continue
             if (commit != "610f9911f9ce31739188437972f7eeb018f611da" or parents != [
                     "e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4", "5ef8b9caa4cbb0228a48b5c13b4f74bb07837547"] or
                     git(repository, "diff", parents[0], commit)):
@@ -76,14 +80,16 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     product_base = "da112be55ea35794fe4416ba856ba35628a9fe53"
     git(repository, "merge-base", "--is-ancestor", prior_test, test)
     selected_product_changes = product_changes(repository, product_base, product)
-    test_changes = changes(repository, test_base, test, ("tests/", ".github/workflows/projectide-slice2-isolated.yml",
+    test_changes, test_merges = continuation_test_changes(repository, test_base, test, ("tests/", ".github/workflows/projectide-slice2-isolated.yml",
                                                        ".github/workflows/projectide-core-isolated.yml", ".github/workflows/projectide-value-consumers.yml"))
     git(repository, "worktree", "add", "--detach", str(target), product)
-    for commit in test_changes:
-        git(target, "cherry-pick", commit)
+    apply_test_changes(target, test_changes, test_merges)
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, testTree=git(repository, "rev-parse", test + "^{tree}"),
+                 testDependencyMerges=test_merges,
+                 productContinuationMerges=[product_merge(repository, commit, ("src/Coglatas.Domain/ProjectIde/", "src/Coglatas.Application/ProjectIde/", "docs/verification/"))
+                                            for commit in selected_product_changes if commit in PRODUCT_MERGES],
                  reviewProductBase=review_product_base, reviewTestBase=review_test_base, combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):

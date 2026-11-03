@@ -9,7 +9,8 @@ import subprocess
 import sys
 sys.dont_write_bytecode = True
 from projectide_core_isolated import product_changes
-from projectide_slice2_isolated import changes, git, run, sha
+from projectide_slice2_isolated import git, run, sha
+from projectide_dependency_continuations import PRODUCT_MERGES, apply_test_changes, product_merge, test_changes as continuation_test_changes
 
 CORE_PRODUCT = '610f9911f9ce31739188437972f7eeb018f611da'
 CORE_TEST = '9e969183f5b311789b0197d0b6aac12a88206e7c'
@@ -26,8 +27,8 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     git(repository, 'merge-base', '--is-ancestor', review_test_base, test)
     if target.exists() or receipt.exists():
         raise ValueError('Fresh consumer worktree and receipt paths required')
-    product_changes(repository, CORE_PRODUCT, product)
-    test_changes = changes(repository, CORE_TEST, test, ('tests/', '.github/workflows/projectide-core-isolated.yml', '.github/workflows/projectide-value-consumers.yml'))
+    product_commits = product_changes(repository, CORE_PRODUCT, product)
+    test_changes, test_merges = continuation_test_changes(repository, CORE_TEST, test, ('tests/', '.github/workflows/projectide-core-isolated.yml', '.github/workflows/projectide-value-consumers.yml'))
     helpers = receipt.parent / 'composer-source'
     helpers.mkdir(parents=True)
     producer_hashes = {}
@@ -42,6 +43,9 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     value.update(inspectorProduct=INSPECTOR_PRODUCT, inspectorTest=INSPECTOR_TEST,
                  inspectorCombinedCommit=value['combinedCommit'], inspectorCombinedTree=value['combinedTree'],
                  coreProduct=product, coreProductBase=CORE_PRODUCT, coreTest=test, coreTestBase=CORE_TEST,
+                 coreContinuationTestChanges=test_changes, coreTestDependencyMerges=test_merges,
+                 coreProductContinuationMerges=[product_merge(repository, commit, ('src/Coglatas.Domain/ProjectIde/', 'src/Coglatas.Application/ProjectIde/', 'docs/verification/'))
+                                                for commit in product_commits if commit in PRODUCT_MERGES],
                  coreReviewProductBase=review_product_base, coreReviewTestBase=review_test_base,
                  coreProductTree=git(repository,'rev-parse',product+'^{tree}'), coreTestTree=git(repository,'rev-parse',test+'^{tree}'),
                  pinnedComposerSha256=producer_hashes)
@@ -49,8 +53,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     subprocess.run(['git','apply','--index','-'],input=patch,cwd=target,check=True)
     run(['git','-c','user.name=Coglatas isolated verification','-c','user.email=isolated-verification@example.invalid',
          'commit','--date=2026-11-01T00:00:00+00:00','-m','Compose exact Core value-binding runtime delta for Inspector verification'],target)
-    for commit in test_changes:
-        git(target,'cherry-pick',commit)
+    apply_test_changes(target, test_changes, test_merges)
     delta = git(target,'diff','--name-only',product,'HEAD','--','src').splitlines()
     if delta != ['src/Coglatas.Domain/ProjectIde/CompilerSemanticInspection.cs']:
         raise ValueError('Consumer Core runtime differs from exact Product plus pinned inspection projection')

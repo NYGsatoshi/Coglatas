@@ -515,6 +515,17 @@
     "Coglatas.Tests.ProjectIde.PurePredicateTests.NegationRetainsUnknown(value: null, expected: Unknown)",
     "Coglatas.Tests.ProjectIde.PurePredicateTests.ShortCircuitRetainsOnlyActuallyEvaluatedPremises",
     "Coglatas.Tests.ProjectIde.PurePredicateTests.UnsupportedOperatorsAndExhaustedLogicalBoundsNeverExecute",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.AnAlreadyCancelledApplicationRequestNeverOpensGraphSupplies",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"snapshots\", boundary: \"current\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"snapshots\", boundary: \"move\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"snapshots\", boundary: \"open\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"units\", boundary: \"current\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"units\", boundary: \"move\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.ApplicationCancellationStopsGraphSupplyAtTheObservedBoundary(family: \"units\", boundary: \"open\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.CancellationWhenSupplyEndsKeepsTheOriginalTokenAndSkipsLaterSuppliers(family: \"snapshots\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.CancellationWhenSupplyEndsKeepsTheOriginalTokenAndSkipsLaterSuppliers(family: \"units\")",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.UncancelledGraphRetainsDiamondClosureAndMarksOnlyActualCycleEdges(hasCycle: False)",
+    "Coglatas.Tests.ProjectIde.RelationGraphCancellationTests.UncancelledGraphRetainsDiamondClosureAndMarksOnlyActualCycleEdges(hasCycle: True)",
     "Coglatas.Tests.ProjectIde.RequirementEvidenceValidationTests.ApprovalAndHeuristicCannotBecomeTechnicalProof(kind: \"coglatas.heuristic\", basisKind: Heuristic)",
     "Coglatas.Tests.ProjectIde.RequirementEvidenceValidationTests.ApprovalAndHeuristicCannotBecomeTechnicalProof(kind: \"coglatas.human-approval\", basisKind: HumanApproval)",
     "Coglatas.Tests.ProjectIde.RequirementEvidenceValidationTests.CancellationAndLogicalExhaustionAreExplicit",
@@ -2589,11 +2600,11 @@
     }
   ],
   "pins": {
-    "coreProduct": "b73c0dc8d62e33a20af2cdd5414c1293b145c657",
-    "coreTest": "35a788164a21dc46b23f1f16601aa9a21a6d1b50",
+    "coreProduct": "5f6475a0dbfb27470ab74454229cdeb0975d4f3d",
+    "coreTest": "07bf73a7c152e1fed69f1b3b258b342e9ce8cdf4",
     "productHead": "a32e0c8daa6429ee54178698153d87110b5c81f7",
     "testHead": "ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2",
-    "combinedCommit": "2de0258db477d6176ed495e5548d859b539eba14",
-    "combinedTree": "6d9add1a962b6ba63c707e117fb43d9e06bc62a4"
+    "combinedCommit": "5669b4ca4fc3e6638c18831ee839eaee7b28d7c6",
+    "combinedTree": "0fb524563afef6645ffc443bd87342acb32e2075"
   }
 }
