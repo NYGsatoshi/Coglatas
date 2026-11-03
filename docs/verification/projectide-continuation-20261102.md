@@ -478,3 +478,17 @@ supplemental success does not waive it. After the included-capacity reset,
 CodeRabbit reported **Full review triggered** for #1657 at 02:24 UTC; no completed
 current-head review or approval is inferred while publication is pending. #1653
 and #1667 re-review requests remained rate-limited. No billing/limit change.
+
+
+#1657 full review subsequently published at exact `48ff1969` (review 5746497216,
+COMMENTED, 2026-11-03 02:30 UTC) with one Major predicate-reference finding. The
+reported bypass is not reproducible: the existing Boolean-only predicate parser
+rejects decoded typed references before Requirement construction/binding. Seven
+independent read-only Windows probes pass against unchanged Product, including
+all four reference kinds, a short-circuited operand, a spoofed Boolean and opaque
+Unknown provenance. Result SHA-256
+`51959c7351750eacd0f38a8352f5b6952b3ed0108f540f2499f9380f5d590732`.
+Reproduction/source and precise limitations: `projectide-core-predicate-review.md`.
+These probes do not change the qualified Product/Test heads or maintained unit
+inventories. Reviewer reconsideration/resolution is pending on the original
+thread; no runtime patch or approval is inferred.
