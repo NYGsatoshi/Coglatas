@@ -63,5 +63,9 @@ test('required gate cannot accidentally opt into half coverage or duplicate arti
   assert.match(workflow, /name: frontend-test[\s\S]*?run: bash scripts\/ci\/run-frontend-parallel\.sh/);
   assert.doesNotMatch(workflow, /COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:\s*['"]?1/);
   assert.doesNotMatch(workflow, /name: frontend-playwright-shard/);
-  assert.equal((workflow.match(/name: frontend-build-artifacts/g) ?? []).length, 1);
+  // Consumer download references are expected; only the immutable Producer may publish.
+  const producer = workflow.split('  frontend-build:', 2)[1]?.split('  frontend-test:', 1)[0];
+  assert.ok(producer, 'frontend-build must own the immutable Angular artifact');
+  assert.equal((producer.match(/name: frontend-build-artifacts/g) ?? []).length, 1);
+  assert.equal((producer.match(/name: Publish frontend build artifacts/g) ?? []).length, 1);
 });
