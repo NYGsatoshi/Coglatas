@@ -261,14 +261,20 @@ jobs:
       - name: Install pinned headless Chromium for existing Group entry controls
         run: node node_modules/@playwright/test/cli.js install --with-deps --only-shell chromium
 
+      - name: Prepare pinned isolated recovery PostgreSQL before analysis credentials
+        run: docker pull postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+
       - name: Measure existing Functional and roster Node controls before credentials
         env:
           NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-node/raw
+          COGLATAS_RI_NATIVE_TEST: '1'
         run: |
           mkdir -p artifacts/sonar-node
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
           node --enable-source-maps --test --experimental-test-coverage \
             --test-coverage-exclude='**/*.node-test.mjs' \
+            --test-coverage-exclude='**/tests/ci/synthetic-trigger-catalog.postgres-test.mjs' \
+            --test-coverage-exclude='**/scripts/security/zap-attribution.test.cjs' \
             --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
             --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \
@@ -295,6 +301,12 @@ jobs:
             tests/ui/group-keyboard-observation.node-test.mjs \
             tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
+            tests/ci/synthetic-logical-recovery.node-test.mjs \
+            tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs \
+            tests/ci/synthetic-logical-recovery-probe.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.postgres-test.mjs \
+            tests/ci/synthetic-restore-list.node-test.mjs \
             tests/ci/test_restore_data_dependency_advisor.mjs \
             tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
             scripts/security/zap-attribution.test.cjs \
