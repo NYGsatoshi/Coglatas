@@ -40,8 +40,7 @@ public sealed class HubSubscriptionAuthorizerTests
     [Fact]
     public async Task DisabledSignalRStopsBeforeSessionAccess()
     {
-        var fixture = new SubscriptionAuthorizationFixture();
-        fixture.Features.SignalREnabled = false;
+        var fixture = new SubscriptionAuthorizationFixture { Features = { SignalREnabled = false } };
         using var cancellation = new CancellationTokenSource();
 
         Assert.Null(await fixture.Authorizer.ValidateConnectionAsync(fixture.AuthenticatedPrincipal, cancellation.Token));
@@ -90,8 +89,7 @@ public sealed class HubSubscriptionAuthorizerTests
     [Fact]
     public async Task DisabledAuthorizedGroupsStopsBeforeSessionAndResourceQueries()
     {
-        var fixture = new SubscriptionAuthorizationFixture();
-        fixture.Features.GroupsEnabled = false;
+        var fixture = new SubscriptionAuthorizationFixture { Features = { GroupsEnabled = false } };
         using var cancellation = new CancellationTokenSource();
 
         Assert.False(await fixture.Authorizer.CanSubscribeAsync(fixture.Context, RealtimeSubscriptionType.Workspace, Guid.NewGuid(), cancellation.Token));
@@ -110,8 +108,7 @@ public sealed class HubSubscriptionAuthorizerTests
     [InlineData(RealtimeSubscriptionType.Project, false)]
     public async Task ResourceDecisionUsesOnlyTheCurrentReadAuthorizerWithExactArguments(RealtimeSubscriptionType type, bool allowed)
     {
-        var fixture = new SubscriptionAuthorizationFixture();
-        fixture.Resources.Allowed = allowed;
+        var fixture = new SubscriptionAuthorizationFixture { Resources = { Allowed = allowed } };
         var resource = Guid.NewGuid();
         using var cancellation = new CancellationTokenSource();
 
