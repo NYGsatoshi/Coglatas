@@ -10,14 +10,15 @@ using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
+using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Xunit.Abstractions;
 
 namespace Coglatas.Tests.Announcements;
 
 // Uses the production Audience, Workspace/Group authorizers and EF repositories.
-// Independent InMemory contexts establish committed state versus retained tracking;
-// these controls do not qualify PostgreSQL, RLS, transaction/lease concurrency,
+// Independent InMemory contexts and the explicit native control establish committed
+// state versus retained tracking; these controls do not qualify RLS or lease concurrency,
 // hosted workers, notification delivery or invalidation transport.
 public sealed class AnnouncementAudienceRoleDemotionRegressionTests(ITestOutputHelper output)
 {
@@ -103,8 +104,30 @@ public sealed class AnnouncementAudienceRoleDemotionRegressionTests(ITestOutputH
     [InlineData(SystemRole.PlatformAdmin, true)]
     public async Task PublicationRechecksRoleDemotedBetweenActualValidationAndDispatchAuthorization(
         SystemRole originalRole, bool groupScope)
+        => await VerifyDemotedPublicationAsync(originalRole, groupScope);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task NativeWorkerRejectsCommittedRoleDemotionAndPreservesCurrentElevatedPublication()
     {
-        await using var fixture = await Fixture.CreateAsync(originalRole, WorkspaceRole.Member);
+        foreach (var role in new[] { SystemRole.Teacher, SystemRole.Admin, SystemRole.PlatformAdmin })
+        {
+            foreach (var groupScope in new[] { false, true })
+            {
+                await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                    PostgreSqlTestEnvironment.RequireConnectionString(),
+                    database => VerifyDemotedPublicationAsync(role, groupScope, database));
+            }
+
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(),
+                database => VerifyUnchangedPublicationAsync(role, WorkspaceRole.Member, database));
+        }
+    }
+
+    private async Task VerifyDemotedPublicationAsync(SystemRole originalRole, bool groupScope, string? connectionString = null)
+    {
+        await using var fixture = await Fixture.CreateAsync(originalRole, WorkspaceRole.Member, connectionString);
         var claim = await fixture.SeedClaimAsync(groupScope);
         var observedAudience = new InterposingAudience(
             fixture.Authorization.Audience, fixture.CommitDemotionAsync);
@@ -154,8 +177,12 @@ public sealed class AnnouncementAudienceRoleDemotionRegressionTests(ITestOutputH
     [InlineData(SystemRole.PlatformAdmin, WorkspaceRole.Member)]
     public async Task UnchangedAuthorizedRolesStillPublishThroughBothActualAudienceChecks(
         SystemRole role, WorkspaceRole membershipRole)
+        => await VerifyUnchangedPublicationAsync(role, membershipRole);
+
+    private static async Task VerifyUnchangedPublicationAsync(SystemRole role, WorkspaceRole membershipRole,
+        string? connectionString = null)
     {
-        await using var fixture = await Fixture.CreateAsync(role, membershipRole);
+        await using var fixture = await Fixture.CreateAsync(role, membershipRole, connectionString);
         var claim = await fixture.SeedClaimAsync(false);
         var observedAudience = new InterposingAudience(fixture.Authorization.Audience);
 
@@ -237,11 +264,13 @@ public sealed class AnnouncementAudienceRoleDemotionRegressionTests(ITestOutputH
             Authorization = CreateAuthorization(db);
         }
 
-        public static async Task<Fixture> CreateAsync(SystemRole role, WorkspaceRole membershipRole)
+        public static async Task<Fixture> CreateAsync(SystemRole role, WorkspaceRole membershipRole, string? connectionString = null)
         {
             var tenant = new CurrentTenantService();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase($"announcement-role-demotion-{Guid.NewGuid():N}").Options;
+            var builder = new DbContextOptionsBuilder<AppDbContext>();
+            if (connectionString is null) builder.UseInMemoryDatabase($"announcement-role-demotion-{Guid.NewGuid():N}");
+            else builder.UseNpgsql(connectionString);
+            var options = builder.Options;
             var db = new AppDbContext(options, tenant);
             var tenantId = Guid.NewGuid();
             tenant.SetPlatformScope();
