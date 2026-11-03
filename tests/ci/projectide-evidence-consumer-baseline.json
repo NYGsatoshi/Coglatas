@@ -2561,9 +2561,7 @@
     "coreTest": "cb3012a26574bcdd9bcc7a8fd07e3ccdc4b31639",
     "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
     "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
-    "combinedCommit": "2b3e39ff5d6ef615f6d11bff0f37eaba52a6a4b0",
-    "combinedTree": "8a0d36c423ad34c779298d0adc658a692cfd6ace",
-    "combined": "8a9bcc87bae789e3e1cc8c9e418d67e3673aa0e7",
-    "tree": "a330d4a599a61720731bd9d3de378c22e078a8ac"
+    "combinedCommit": "8a9bcc87bae789e3e1cc8c9e418d67e3673aa0e7",
+    "combinedTree": "a330d4a599a61720731bd9d3de378c22e078a8ac"
   }
 }
