@@ -29,12 +29,7 @@ public sealed class FormAuthorizationService(
 
     public async Task<bool> CanViewForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
     {
-        if (form.DeletedAt.HasValue || form.Status == FormStatus.Archived)
-        {
-            return await CanManageForm(userId, form, cancellationToken);
-        }
-
-        if (form.Status == FormStatus.Draft)
+        if (form.DeletedAt.HasValue || form.Status == FormStatus.Archived || form.Status == FormStatus.Draft)
         {
             return await CanManageForm(userId, form, cancellationToken);
         }
@@ -97,11 +92,8 @@ public sealed class FormAuthorizationService(
             return workspaceId;
         }
 
-        if (groupId.HasValue)
-        {
-            return (await groupRepository.GetByIdAsync(groupId.Value, cancellationToken))?.WorkspaceId;
-        }
-
-        return (await projectRepository.GetProjectAsync(projectId!.Value, cancellationToken))?.WorkspaceId;
+        return groupId.HasValue
+            ? (await groupRepository.GetByIdAsync(groupId.Value, cancellationToken))?.WorkspaceId
+            : (await projectRepository.GetProjectAsync(projectId!.Value, cancellationToken))?.WorkspaceId;
     }
 }

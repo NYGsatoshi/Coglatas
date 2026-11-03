@@ -7,7 +7,6 @@ using Coglatas.Application.Projects;
 using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
-using Coglatas.Infrastructure.Persistence;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +17,9 @@ namespace Coglatas.Tests.PostgreSql;
 // Actual PostgreSQL, Kestrel, cookie sessions, CSRF and production DI; not a deployed-role/RLS qualification.
 public sealed class FormParentBoundaryHostedHttpTests
 {
+    private static readonly string[] ReportReadSuffixes = ["/responses", "/summary", "/unanswered-users"];
+    private static readonly string[] HistoricalReadSuffixes = ["", "/responses", "/summary", "/unanswered-users"];
+
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public Task CurrentReadOnlyCreatorCanReadDraftButCannotMutateThroughRetainedCookie() =>
@@ -68,7 +70,7 @@ public sealed class FormParentBoundaryHostedHttpTests
                     Assert.True(await projects.CanManageProject(host.Actor.Id, project.Id));
                 }
                 var before = await StateAsync(database, form.Id);
-                foreach (var suffix in new[] { "", "/responses", "/summary", "/unanswered-users" })
+                foreach (var suffix in HistoricalReadSuffixes)
                 {
                     using var allowed = await host.Client.GetAsync($"/api/forms/{form.Id:D}{suffix}");
                     Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
@@ -170,7 +172,7 @@ public sealed class FormParentBoundaryHostedHttpTests
                 {
                     using var readable = await host.Client.GetAsync(route);
                     Assert.Equal(HttpStatusCode.OK, readable.StatusCode);
-                    foreach (var suffix in new[] { "/responses", "/summary", "/unanswered-users" })
+                    foreach (var suffix in ReportReadSuffixes)
                     {
                         using var report = await host.Client.GetAsync(route + suffix);
                         Assert.Equal(HttpStatusCode.OK, report.StatusCode);
@@ -181,6 +183,11 @@ public sealed class FormParentBoundaryHostedHttpTests
                 Assert.True(denied.StatusCode == HttpStatusCode.BadRequest,
                     $"Parent boundary must deny mutation: actualHTTP={(int)denied.StatusCode}; persistedTitle={after.Title}; formAudits={after.FormAudits}.");
                 Assert.Equal(before, after);
+                Assert.Equal(before.Status, after.Status);
+                Assert.Equal(before.DeletedAt, after.DeletedAt);
+                Assert.Equal(before.Questions, after.Questions);
+                Assert.Equal(before.Notifications, after.Notifications);
+                Assert.Equal(before.OutboxEvents, after.OutboxEvents);
                 foreach (var (method, suffix, body) in new (HttpMethod, string, object?)[]
                 {
                     (HttpMethod.Delete, "", null),
@@ -199,7 +206,7 @@ public sealed class FormParentBoundaryHostedHttpTests
                 {
                     using var hidden = await host.Client.GetAsync(route);
                     Assert.Equal(HttpStatusCode.BadRequest, hidden.StatusCode);
-                    foreach (var suffix in new[] { "/responses", "/summary", "/unanswered-users" })
+                    foreach (var suffix in ReportReadSuffixes)
                     {
                         using var report = await host.Client.GetAsync(route + suffix);
                         Assert.Equal(HttpStatusCode.BadRequest, report.StatusCode);
@@ -210,17 +217,17 @@ public sealed class FormParentBoundaryHostedHttpTests
 
     private static async Task<HttpResponseMessage> PatchAsync(HttpClient client, string route, string title, bool includeCsrf = true)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Patch, route)
+        using var request = new HttpRequestMessage(HttpMethod.Patch, route);
+        request.Content = JsonContent.Create(new UpdateFormRequest(Title: title));
+        if (!includeCsrf)
         {
-            Content = JsonContent.Create(new UpdateFormRequest(Title: title))
-        };
-        if (includeCsrf)
-        {
-            using var tokenResponse = await client.GetAsync("/api/security/csrf-token");
-            tokenResponse.EnsureSuccessStatusCode();
-            var payload = await tokenResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>();
-            request.Headers.Add(SecurityOptions.CsrfHeaderName, payload!.Token);
+            return await client.SendAsync(request);
         }
+
+        using var tokenResponse = await client.GetAsync("/api/security/csrf-token");
+        tokenResponse.EnsureSuccessStatusCode();
+        var payload = await tokenResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>();
+        request.Headers.Add(SecurityOptions.CsrfHeaderName, payload!.Token);
         return await client.SendAsync(request);
     }
 
