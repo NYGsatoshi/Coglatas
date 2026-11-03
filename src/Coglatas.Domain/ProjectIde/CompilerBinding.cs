@@ -122,7 +122,7 @@ public static class ProjectSemanticBinder
                     continue;
                 }
                 remainingDeclarations -= item.Snapshot.Source.Declarations.Value.GetArrayLength() + item.Snapshot.Source.Documents.Count;
-                remainingOperations -= pins.Length + item.Version.Length;
+                remainingOperations -= pins.Length * 2 + item.Version.Length;
                 if (remainingDeclarations < 0 || remainingOperations < 0 ||
                     !WithinBudget(item.Snapshot.Source.Data.Value, ref remainingOperations, cancellationToken) ||
                     !WithinNumericProfile(item.Snapshot.Source.Data.Value, input.ExecutionProfile.Numbers))
