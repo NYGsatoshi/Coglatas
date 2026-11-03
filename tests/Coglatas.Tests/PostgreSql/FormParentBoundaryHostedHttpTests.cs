@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Forms;
 using Coglatas.Application.Groups;
+using Coglatas.Application.Projects;
 using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -27,6 +28,61 @@ public sealed class FormParentBoundaryHostedHttpTests
     public Task GroupManagerCannotRetainFormMutationAfterWorkspaceSuspension() =>
         AssertParentTransitionAsync(retainedGroupManager: true);
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task ArchivedProjectManagerRetainsCookieAuthenticatedHistoricalFormReports() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await using var host = await ConversationAdmissionHostedHttpTests.AdmissionHost.CreateAsync(database);
+                var project = new Project
+                {
+                    TenantId = host.Tenant.Id, WorkspaceId = host.Workspace.Id,
+                    Name = "Archived synthetic project", Slug = "archived-synthetic-project",
+                    OwnerUserId = host.Actor.Id, CreatedByUserId = host.Actor.Id,
+                    Status = ProjectStatus.Archived
+                };
+                var form = new InternalForm
+                {
+                    TenantId = host.Tenant.Id, ProjectId = project.Id,
+                    CreatedByUserId = host.Recipient.Id, Title = "Historical synthetic form"
+                };
+                var question = new FormQuestion { TenantId = host.Tenant.Id, FormId = form.Id, QuestionText = "Historical question" };
+                var response = new FormResponse { TenantId = host.Tenant.Id, FormId = form.Id, RespondentUserId = host.Recipient.Id, SubmittedAt = DateTimeOffset.UtcNow };
+                await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                {
+                    db.Projects.Add(project);
+                    db.ProjectMembers.Add(new ProjectMember { TenantId = host.Tenant.Id, ProjectId = project.Id, UserId = host.Actor.Id, Role = ProjectRole.Manager });
+                    db.InternalForms.Add(form);
+                    db.FormQuestions.Add(question);
+                    db.FormResponses.Add(response);
+                    db.FormAnswers.Add(new FormAnswer { TenantId = host.Tenant.Id, FormResponseId = response.Id, FormQuestionId = question.Id, AnswerText = "Synthetic historical private answer" });
+                    await db.SaveChangesAsync();
+                }
+                await host.LoginAsync();
+                await using (var scope = host.Services.CreateAsyncScope())
+                {
+                    scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(host.Tenant.Id, host.Tenant.Slug);
+                    var projects = scope.ServiceProvider.GetRequiredService<IProjectAuthorizationService>();
+                    Assert.False(await projects.CanViewProject(host.Actor.Id, project.Id));
+                    Assert.True(await projects.CanManageProject(host.Actor.Id, project.Id));
+                }
+                var before = await StateAsync(database, form.Id);
+                foreach (var suffix in new[] { "", "/responses", "/summary", "/unanswered-users" })
+                {
+                    using var allowed = await host.Client.GetAsync($"/api/forms/{form.Id:D}{suffix}");
+                    Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+                    if (suffix == "/responses")
+                        Assert.Contains("Synthetic historical private answer", await allowed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+                }
+                using (var rejectedByExistingValidator = await PatchAsync(host.Client, $"/api/forms/{form.Id:D}", "Archived mutation"))
+                {
+                    Assert.Equal(HttpStatusCode.BadRequest, rejectedByExistingValidator.StatusCode);
+                    Assert.Contains("Project not found.", await rejectedByExistingValidator.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+                }
+                Assert.Equal(before, await StateAsync(database, form.Id));
+            });
+
     private static Task AssertParentTransitionAsync(bool retainedGroupManager) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
@@ -41,6 +97,7 @@ public sealed class FormParentBoundaryHostedHttpTests
                     Title = "Original synthetic form", Status = FormStatus.Draft
                 };
                 Guid? groupId = null;
+                var question = new FormQuestion { TenantId = host.Tenant.Id, FormId = form.Id, QuestionText = "Synthetic existing question" };
                 await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
                     if (retainedGroupManager)
@@ -62,6 +119,7 @@ public sealed class FormParentBoundaryHostedHttpTests
                         form.GroupId = group.Id;
                     }
                     db.InternalForms.Add(form);
+                    db.FormQuestions.Add(question);
                     await db.SaveChangesAsync();
                 }
 
@@ -112,16 +170,41 @@ public sealed class FormParentBoundaryHostedHttpTests
                 {
                     using var readable = await host.Client.GetAsync(route);
                     Assert.Equal(HttpStatusCode.OK, readable.StatusCode);
+                    foreach (var suffix in new[] { "/responses", "/summary", "/unanswered-users" })
+                    {
+                        using var report = await host.Client.GetAsync(route + suffix);
+                        Assert.Equal(HttpStatusCode.OK, report.StatusCode);
+                    }
                 }
                 using var denied = await PatchAsync(host.Client, route, "Unauthorized synthetic mutation");
                 var after = await StateAsync(database, form.Id);
                 Assert.True(denied.StatusCode == HttpStatusCode.BadRequest,
                     $"Parent boundary must deny mutation: actualHTTP={(int)denied.StatusCode}; persistedTitle={after.Title}; formAudits={after.FormAudits}.");
                 Assert.Equal(before, after);
+                foreach (var (method, suffix, body) in new (HttpMethod, string, object?)[]
+                {
+                    (HttpMethod.Delete, "", null),
+                    (HttpMethod.Post, "/open", null),
+                    (HttpMethod.Post, "/close", null),
+                    (HttpMethod.Post, "/questions", new CreateFormQuestionRequest("Denied new question", FormQuestionType.ShortText)),
+                    (HttpMethod.Patch, $"/questions/{question.Id:D}", new UpdateFormQuestionRequest(QuestionText: "Denied question edit")),
+                    (HttpMethod.Delete, $"/questions/{question.Id:D}", null)
+                })
+                {
+                    using var forbidden = await SendWithCsrfAsync(host.Client, method, route + suffix, body);
+                    Assert.Equal(HttpStatusCode.BadRequest, forbidden.StatusCode);
+                    Assert.Equal(before, await StateAsync(database, form.Id));
+                }
                 if (retainedGroupManager)
                 {
                     using var hidden = await host.Client.GetAsync(route);
                     Assert.Equal(HttpStatusCode.BadRequest, hidden.StatusCode);
+                    foreach (var suffix in new[] { "/responses", "/summary", "/unanswered-users" })
+                    {
+                        using var report = await host.Client.GetAsync(route + suffix);
+                        Assert.Equal(HttpStatusCode.BadRequest, report.StatusCode);
+                        Assert.DoesNotContain(host.Actor.Email, await report.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+                    }
                 }
             });
 
@@ -149,6 +232,17 @@ public sealed class FormParentBoundaryHostedHttpTests
             await db.FormQuestions.CountAsync(row => row.FormId == formId),
             await db.AuditLogs.CountAsync(row => row.EntityId == formId && row.Action.StartsWith("Form")),
             await db.Notifications.CountAsync(), await db.OutboxEvents.CountAsync());
+    }
+
+    private static async Task<HttpResponseMessage> SendWithCsrfAsync(HttpClient client, HttpMethod method, string route, object? body)
+    {
+        using var request = new HttpRequestMessage(method, route);
+        if (body is not null) request.Content = JsonContent.Create(body);
+        using var tokenResponse = await client.GetAsync("/api/security/csrf-token");
+        tokenResponse.EnsureSuccessStatusCode();
+        var payload = await tokenResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>();
+        request.Headers.Add(SecurityOptions.CsrfHeaderName, payload!.Token);
+        return await client.SendAsync(request);
     }
 
     private sealed record ProtectedState(string Title, FormStatus Status, DateTimeOffset? DeletedAt,
