@@ -98,6 +98,29 @@ public sealed class CompilerMaterializationBindingTests
         Assert.Null(CompilerSemanticValidation.Validate(model).Ir);
     }
 
+    [Fact]
+    public void ExhaustionFindingsDoNotDependOnWhetherADeniedEntryArrivedFirst()
+    {
+        var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
+        settings["executionProfile"]!["maximumOperations"] = ProjectSemanticBinder.Bind(f.Input).LogicalOperationsConsumed + 100;
+        var input = Input(settings); var denied = new CompilerMaterializedSnapshot(f.Body.SnapshotId, "hidden", f.Body.Snapshot with { IsAuthorized = false });
+        var a = ProjectSemanticBinder.Bind(input, [denied, f.Body]); var b = ProjectSemanticBinder.Bind(input, [f.Body, denied]);
+        Assert.Contains(a.Findings, x => x.Diagnostic.Code == "coglatas.binding.snapshot-budget");
+        Assert.Equal(a.Findings.Select(x => x.Diagnostic.Data.CanonicalText), b.Findings.Select(x => x.Diagnostic.Data.CanonicalText));
+        Assert.Empty(a.BoundSnapshots); Assert.Empty(b.BoundSnapshots); Assert.Empty(a.Symbols); Assert.Empty(b.Symbols);
+    }
+
+    [Fact]
+    public void DeniedEntriesWithTheSameContextStillConsumeTheEntryCap()
+    {
+        var f = Fixture(); var denied = new CompilerMaterializedSnapshot(f.Body.SnapshotId, "hidden", f.Body.Snapshot with { IsAuthorized = false });
+        var supply = new ObservedSupply(() => { }, denied, 33);
+        var model = ProjectSemanticBinder.Bind(f.Input, supply);
+        Assert.Equal(33, supply.MoveNextCalls); Assert.True(supply.Disposed);
+        Assert.Contains(model.Findings, x => x.Diagnostic.Code == "coglatas.binding.snapshot-budget");
+        Assert.Empty(model.BoundSnapshots); Assert.Empty(model.Symbols); Assert.False(model.BindingComplete);
+    }
+
     [Theory]
     [InlineData("version")]
     [InlineData("source")]
