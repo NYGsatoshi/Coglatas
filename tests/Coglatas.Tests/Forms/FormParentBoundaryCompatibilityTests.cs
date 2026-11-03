@@ -200,7 +200,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
             WorkspaceAuthorization = new WorkspaceAuthorizationService(users, workspaces);
             GroupAuthorization = new GroupAuthorizationService(groups, workspaces, WorkspaceAuthorization);
             ProjectAuthorization = new ProjectAuthorizationService(projects, WorkspaceAuthorization, GroupAuthorization, groups);
-            Authorization = new FormAuthorizationService(users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization, groups, projects);
+            Authorization = new FormAuthorizationService(users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization, groups, projects, new FormRepository(db));
             var actor = new CurrentUser(Actor.Id);
             var clock = new Clock();
             Service = new FormService(new FormRepository(db), workspaces, groups, projects, Authorization, actor, clock,

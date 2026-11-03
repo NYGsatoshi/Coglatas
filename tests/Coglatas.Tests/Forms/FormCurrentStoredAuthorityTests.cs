@@ -15,6 +15,87 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         ["membership", "form-parent", "project-parent", "group-parent", "workspace", "account", "creator"];
 
     [Theory]
+    [InlineData(QueryTrackingBehavior.TrackAll, false)]
+    [InlineData(QueryTrackingBehavior.TrackAll, true)]
+    [InlineData(QueryTrackingBehavior.NoTracking, false)]
+    [InlineData(QueryTrackingBehavior.NoTracking, true)]
+    [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution, false)]
+    [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution, true)]
+    public async Task AuthorityReadRestoresTrackingAndRetainsPendingCallerChanges(QueryTrackingBehavior previous, bool fail)
+    {
+        await using var fixture = await Fixture.CreateAsync("workspace");
+        var originalName = fixture.Workspace.Name;
+        fixture.Workspace.Name = "Caller-owned pending change";
+        fixture.Db.Entry(fixture.Workspace).State = EntityState.Modified;
+        fixture.Db.ChangeTracker.QueryTrackingBehavior = previous;
+        var repository = new FormRepository(fixture.Db);
+        var failure = new IOException("Synthetic authorization dependency failure.");
+        using var cancellation = new CancellationTokenSource();
+        Task<bool> Read() => repository.ReadCurrentAuthorizationAsync(token =>
+        {
+            Assert.Equal(cancellation.Token, token);
+            Assert.Equal(QueryTrackingBehavior.NoTracking, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+            return fail ? Task.FromException<bool>(failure) : Task.FromResult(true);
+        }, cancellation.Token);
+
+        if (fail) Assert.Same(failure, await Assert.ThrowsAsync<IOException>(Read));
+        else Assert.True(await Read());
+
+        Assert.Equal(previous, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+        Assert.Same(fixture.Workspace, fixture.Db.Entry(fixture.Workspace).Entity);
+        Assert.Equal(EntityState.Modified, fixture.Db.Entry(fixture.Workspace).State);
+        Assert.Equal("Caller-owned pending change", fixture.Workspace.Name);
+        Assert.Equal(originalName, await fixture.Db.Workspaces.AsNoTracking().Select(row => row.Name).SingleAsync());
+        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
+    }
+
+    [Fact]
+    public async Task CancelledAuthorityQueryRestoresTrackingWithoutSaving()
+    {
+        await using var fixture = await Fixture.CreateAsync("workspace");
+        var repository = new FormRepository(fixture.Db);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.ReadCurrentAuthorizationAsync(async token =>
+        {
+            await repository.GetCurrentAuthorizationAsync(fixture.Form.Id, token);
+            return true;
+        }, cancellation.Token));
+
+        Assert.Equal(QueryTrackingBehavior.TrackAll, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+        Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task NativeAuthorizedFormMutationPreservesCallerTransactionAndPendingWrites() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await using var fixture = await Fixture.CreateAsync("workspace", connectionString: database);
+                var originalTitle = fixture.Form.Title;
+                var originalWorkspaceName = fixture.Workspace.Name;
+                await using var caller = await fixture.Db.Database.BeginTransactionAsync();
+                fixture.Workspace.Name = "Caller-owned pending name";
+
+                var updated = await fixture.Service.UpdateAsync(fixture.Form.Id, new UpdateFormRequest(Title: "Authorized update"));
+
+                Assert.True(updated.IsSuccess, updated.Error);
+                Assert.Same(caller, fixture.Db.Database.CurrentTransaction);
+                Assert.Equal("Authorized update", updated.Value!.Title);
+                Assert.Equal("Caller-owned pending name", await fixture.Db.Workspaces.AsNoTracking().Select(row => row.Name).SingleAsync());
+                Assert.Single(await fixture.Db.AuditLogs.Where(row => row.Action == "FormUpdated").ToListAsync());
+                Assert.Same(fixture.Workspace, fixture.Db.Workspaces.Local.Single());
+                await caller.RollbackAsync();
+
+                await using var verification = new AppDbContext(fixture.Options, new CurrentTenant(fixture.TenantId));
+                Assert.Equal(originalTitle, await verification.InternalForms.Select(row => row.Title).SingleAsync());
+                Assert.Equal(originalWorkspaceName, await verification.Workspaces.Select(row => row.Name).SingleAsync());
+                Assert.Empty(await verification.AuditLogs.ToListAsync());
+            });
+
+    [Theory]
     [InlineData("membership")]
     [InlineData("form-parent")]
     [InlineData("project-parent")]
