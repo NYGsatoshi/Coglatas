@@ -148,6 +148,20 @@ that is directly reachable from untrusted clients.
 
 Controllers provide coarse `[Authorize]` checks. Resource authorization is generally implemented in application services.
 
+Form authorization reads the active, undeleted actor and the complete parent
+authority graph through a scoped untracked query boundary. Existing Forms also
+require a current persisted Form snapshot whose Tenant, parent scope, creator,
+status and deletion state match the caller's loaded entity. A mismatched snapshot
+uses the existing denial contract; it cannot authorize or modify a Form moved
+elsewhere. Ordinary mutation reads remain tracked, and the original tracking mode
+is restored on success, denial, cancellation and dependency failure.
+
+ReadOnly creators retain authorized draft/report reads; independent scope
+management grants and explicit archived-Project reports retain their existing
+rules. Source and destination authority are checked separately for moves. These
+queries do not make authorization atomic through commit or replace cookie/session,
+Tenant isolation, application-role RLS or deployed HTTP qualification.
+
 Role layers:
 
 - `SystemRole.PlatformAdmin` is the platform role.
