@@ -175,6 +175,19 @@
     "Coglatas.Tests.ProjectIde.CompilerIrTests.ResultArtifactsRequireMatchingInputAndAnActualProducingStage",
     "Coglatas.Tests.ProjectIde.CompilerIrTests.SemanticBudgetIncludesWorkAlreadyConsumedByBinding",
     "Coglatas.Tests.ProjectIde.CompilerIrTests.UnitMaterializationRequiresExactPinsAndCompatibleDimensions",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.AuthorizationDenialHasTheSamePublicFindingsForDifferentPrivateBodies",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.CancellationDuringSupplyStopsBeforeRequestingTheNextBodyAndDisposesTheEnumerator",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ConflictingSupplyCannotChooseTheFirstBodyAndDiagnosticsAreOrderIndependent",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.DuplicateBodiesAreInvalidEvenWithoutAReference",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactBodyAdmitsSymbolsWithoutChangingInputIdentityOrProvingExternalClosure",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"revision\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"source\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"unknown\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.ExactDeclaredPinsRejectSubstitutedMaterializations(change: \"version\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.SharedBudgetStopsSupplyBeforeReadingTheWholeBoundedBatch",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.UnauthorizedBodiesAreNotReturnedOrInspectedForPinIntegrity",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.UnknownMaterializationMeaningIsPreservedButNeverAccepted(change: \"body\")",
+    "Coglatas.Tests.ProjectIde.CompilerMaterializationBindingTests.UnknownMaterializationMeaningIsPreservedButNeverAccepted(change: \"pin\")",
     "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.CancellationAfterEntryBeforeMaterializationCompletesDoesNotSubmitTransport",
     "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.DocumentReferenceToEntityCannotProduceIrEvenWithoutAnyDefault(nested: False)",
     "Coglatas.Tests.ProjectIde.CompilerReviewRegressionTests.DocumentReferenceToEntityCannotProduceIrEvenWithoutAnyDefault(nested: True)",
@@ -2544,13 +2557,13 @@
     }
   ],
   "pins": {
-    "coreProduct": "585727a9b480e61d08cbeeb3d996904b5f1f4b5e",
-    "coreTest": "6edddea75a8dfd0ecaca8559827ffb92ba06a365",
+    "coreProduct": "38fba7d6c8875c22d19ce1142fa8e53548bf7c9b",
+    "coreTest": "cb3012a26574bcdd9bcc7a8fd07e3ccdc4b31639",
     "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
     "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
     "combinedCommit": "2b3e39ff5d6ef615f6d11bff0f37eaba52a6a4b0",
     "combinedTree": "8a0d36c423ad34c779298d0adc658a692cfd6ace",
-    "combined": "19b5a8f99ce8c1432389c94af3c29fa428b296da",
-    "tree": "db02e99f6965cacac303f0a5f2449d9f85322a8b"
+    "combined": "8a9bcc87bae789e3e1cc8c9e418d67e3673aa0e7",
+    "tree": "a330d4a599a61720731bd9d3de378c22e078a8ac"
   }
 }
