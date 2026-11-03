@@ -191,7 +191,7 @@ public sealed class AnnouncementAudienceRoleDemotionRegressionTests(ITestOutputH
 
         Assert.Equal(0, fixture.DemotionCommits);
         Assert.Equal(2, observedAudience.Calls.Count);
-        Assert.All(observedAudience.Calls, call => Assert.True(call.Success && call.Allowed));
+        Assert.All(observedAudience.Calls, call => Assert.True(call is { Success: true, Allowed: true }));
         var announcement = await fixture.Db.Announcements.AsNoTracking().SingleAsync();
         Assert.Equal(fixture.ActorId, announcement.AuthorUserId);
         var draft = await fixture.Db.AnnouncementDrafts.AsNoTracking().SingleAsync();
