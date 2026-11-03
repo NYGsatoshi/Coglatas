@@ -123,6 +123,9 @@ jobs:
       - name: Verify PR Security prebuilt-image source and negative controls
         run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
 
+      - name: Verify proposed Playwright shard union, provenance and negative controls
+        run: python3 -B scripts/ci/test-playwright-shard-reconcile.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
