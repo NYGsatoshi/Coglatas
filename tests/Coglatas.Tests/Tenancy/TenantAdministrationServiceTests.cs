@@ -185,6 +185,8 @@ public sealed class TenantAdministrationServiceTests
         fixture.Membership.Role = TenantUserRole.Member;
         await fixture.Db.SaveChangesAsync();
         fixture.CurrentUser.SystemRole = SystemRole.PlatformAdmin;
+        fixture.Actor.SystemRole = SystemRole.PlatformAdmin;
+        await fixture.Db.SaveChangesAsync();
         var result = await fixture.Service.UpdateCurrentTenantSettingsAsync(AdministrationFixture.SettingsRequest);
         Assert.True(result.IsSuccess, result.Error);
         Assert.True((await fixture.Service.GetCurrentTenantOverviewAsync()).IsSuccess);
@@ -228,6 +230,8 @@ public sealed class TenantAdministrationServiceTests
     {
         await using var fixture = await AdministrationFixture.CreateAsync();
         fixture.CurrentUser.SystemRole = SystemRole.PlatformAdmin;
+        fixture.Actor.SystemRole = SystemRole.PlatformAdmin;
+        await fixture.Db.SaveChangesAsync();
         fixture.CurrentTenant.SetPlatformScope();
         var created = await fixture.Service.CreatePlanAsync(PlanRequest);
         Assert.True(created.IsSuccess, created.Error);
@@ -255,6 +259,8 @@ public sealed class TenantAdministrationServiceTests
     {
         await using var fixture = await AdministrationFixture.CreateAsync();
         fixture.CurrentUser.SystemRole = SystemRole.PlatformAdmin;
+        fixture.Actor.SystemRole = SystemRole.PlatformAdmin;
+        await fixture.Db.SaveChangesAsync();
         fixture.CurrentTenant.SetPlatformScope();
         var service = fixture.Service;
         var created = await service.CreatePlanAsync(PlanRequest);
