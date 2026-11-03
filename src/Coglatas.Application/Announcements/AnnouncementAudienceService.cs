@@ -29,7 +29,13 @@ public sealed class AnnouncementAudienceService(
             return Result<IReadOnlyList<AnnouncementAudienceOptionResponse>>.Failure(contextError!);
         }
 
-        var isSystemAdmin = await IsSystemAdminAsync(userId, cancellationToken);
+        var actor = await tenants.GetCurrentUserAsync(userId, cancellationToken);
+        if (actor is not { Status: UserStatus.Active, DeletedAt: null })
+        {
+            return Result<IReadOnlyList<AnnouncementAudienceOptionResponse>>.Success([]);
+        }
+
+        var isSystemAdmin = actor.SystemRole == SystemRole.SystemAdmin;
         if (!isSystemAdmin && !await HasActiveTenantMembershipAsync(userId, cancellationToken))
         {
             return Result<IReadOnlyList<AnnouncementAudienceOptionResponse>>.Success([]);
@@ -152,7 +158,13 @@ public sealed class AnnouncementAudienceService(
             return Result<bool>.Failure("A tenant context is required to resolve announcement audiences.");
         }
 
-        var isSystemAdmin = await IsSystemAdminAsync(actorUserId, cancellationToken);
+        var actor = await tenants.GetCurrentUserAsync(actorUserId, cancellationToken);
+        if (actor is not { Status: UserStatus.Active, DeletedAt: null })
+        {
+            return Result<bool>.Success(false);
+        }
+
+        var isSystemAdmin = actor.SystemRole == SystemRole.SystemAdmin;
         if (!isSystemAdmin && !await HasActiveTenantMembershipAsync(actorUserId, cancellationToken))
         {
             return Result<bool>.Success(false);
@@ -304,12 +316,6 @@ public sealed class AnnouncementAudienceService(
                 currentTenant.TenantId,
                 workspaceId,
                 cancellationToken)).Id);
-    }
-
-    private async Task<bool> IsSystemAdminAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var user = await users.GetByIdAsync(userId, cancellationToken);
-        return user is { Status: UserStatus.Active, DeletedAt: null, SystemRole: SystemRole.SystemAdmin };
     }
 
     private async Task<bool> IsTeacherAsync(Guid userId, CancellationToken cancellationToken)

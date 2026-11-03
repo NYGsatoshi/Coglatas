@@ -180,11 +180,7 @@ public sealed class AnnouncementAudienceServiceContractTests
     {
         using var fixture = new Fixture();
         fixture.Actor.SystemRole = SystemRole.PlatformAdmin;
-        fixture.Expect("users.GetByIdAsync", Task.FromResult<User?>(null), fixture.ActorId);
-        fixture.Expect("tenants.GetTenantUserAsync", Task.FromResult<TenantUser?>(new TenantUser
-        {
-            TenantId = fixture.TenantId, UserId = fixture.ActorId, Status = TenantUserStatus.Active
-        }), fixture.TenantId, fixture.ActorId);
+        fixture.Expect("tenants.GetCurrentUserAsync", Task.FromResult<User?>(null), fixture.ActorId);
 
         var result = await fixture.AuthorizeAsync("global");
 
@@ -483,7 +479,7 @@ public sealed class AnnouncementAudienceServiceContractTests
     {
         using var fixture = new Fixture();
         var failure = new InvalidOperationException("Synthetic user lookup failure");
-        fixture.Expect("users.GetByIdAsync", Task.FromException<User?>(failure), fixture.ActorId);
+        fixture.Expect("tenants.GetCurrentUserAsync", Task.FromException<User?>(failure), fixture.ActorId);
 
         Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.ListAsync(fixture.Token)));
 
@@ -497,7 +493,7 @@ public sealed class AnnouncementAudienceServiceContractTests
         using var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        fixture.Dependencies.Expect("users.GetByIdAsync", Task.FromCanceled<User?>(cancellation.Token), [fixture.ActorId, cancellation.Token]);
+        fixture.Dependencies.Expect("tenants.GetCurrentUserAsync", Task.FromCanceled<User?>(cancellation.Token), [fixture.ActorId, cancellation.Token]);
 
         var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Service.ListAsync(cancellation.Token));
 
@@ -563,8 +559,9 @@ public sealed class AnnouncementAudienceServiceContractTests
 
         public void ExpectActor(TenantUserStatus? status = TenantUserStatus.Active, Guid? actorId = null)
         {
-            ExpectUser(actorId);
-            if (StoredUser is { SystemRole: SystemRole.PlatformAdmin, Status: UserStatus.Active, DeletedAt: null }) return;
+            Expect("tenants.GetCurrentUserAsync", Task.FromResult<User?>(StoredUser), actorId ?? ActorId);
+            if (StoredUser is not { Status: UserStatus.Active, DeletedAt: null } ||
+                StoredUser.SystemRole == SystemRole.PlatformAdmin) return;
             Expect("tenants.GetTenantUserAsync", Task.FromResult(status.HasValue
                 ? new TenantUser { TenantId = TenantId, UserId = actorId ?? ActorId, Status = status.Value } : null),
                 TenantId, actorId ?? ActorId);
