@@ -29,6 +29,13 @@ public sealed class AnnouncementAudienceService(
             return Result<IReadOnlyList<AnnouncementAudienceOptionResponse>>.Failure(contextError!);
         }
 
+        return await announcements.ReadCurrentAuthorizationAsync(
+            token => ListForActorAsync(userId, token), cancellationToken);
+    }
+
+    private async Task<Result<IReadOnlyList<AnnouncementAudienceOptionResponse>>> ListForActorAsync(
+        Guid userId, CancellationToken cancellationToken)
+    {
         var actor = await tenants.GetCurrentUserAsync(userId, cancellationToken);
         if (actor is not { Status: UserStatus.Active, DeletedAt: null })
         {
@@ -158,6 +165,14 @@ public sealed class AnnouncementAudienceService(
             return Result<bool>.Failure("A tenant context is required to resolve announcement audiences.");
         }
 
+        return await announcements.ReadCurrentAuthorizationAsync(
+            token => IsAuthorizedForCurrentActorAsync(actorUserId, workspaceId, groupId, channelId, token),
+            cancellationToken);
+    }
+
+    private async Task<Result<bool>> IsAuthorizedForCurrentActorAsync(
+        Guid actorUserId, Guid? workspaceId, Guid? groupId, Guid? channelId, CancellationToken cancellationToken)
+    {
         var actor = await tenants.GetCurrentUserAsync(actorUserId, cancellationToken);
         if (actor is not { Status: UserStatus.Active, DeletedAt: null })
         {
