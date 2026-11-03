@@ -57,7 +57,7 @@ public sealed class TenantExportScalarProjectionPostgreSqlTests
                 Assert.Equal(ArchiveEntries.Order(), archive.Entries.Select(entry => entry.FullName).Order());
                 foreach (var entry in archive.Entries)
                 {
-                    await using var content = entry.Open();
+                    await using var content = await entry.OpenAsync();
                     using var json = await JsonDocument.ParseAsync(content);
                     var serialized = json.RootElement.GetRawText();
                     Assert.DoesNotContain("foreign-export-boundary-canary", serialized, StringComparison.Ordinal);
@@ -103,7 +103,7 @@ public sealed class TenantExportScalarProjectionPostgreSqlTests
                         FieldAccessPolicySnapshot.StandardAuthorized));
                 using var narrowStream = new MemoryStream(narrowBytes);
                 await using var narrowArchive = new ZipArchive(narrowStream, ZipArchiveMode.Read);
-                await using var narrowComment = narrowArchive.GetEntry("comments.json")!.Open();
+                await using var narrowComment = await narrowArchive.GetEntry("comments.json")!.OpenAsync();
                 using var narrowJson = await JsonDocument.ParseAsync(narrowComment);
                 Assert.Equal("[redacted:restricted]", Assert.Single(narrowJson.RootElement.EnumerateArray()).GetProperty("body").GetString());
             });
@@ -145,12 +145,13 @@ public sealed class TenantExportScalarProjectionPostgreSqlTests
     // Observes the real serialization boundary, then delegates unchanged to the production redactor.
     private sealed class ScalarProjectionObserver(AppDbContext db, Guid tenantId, IReadOnlyDictionary<Guid, Type> expectedRows) : IRedactionService
     {
-        private readonly IRedactionService _inner = new CanonicalFileMetadataRedactionService(new CanonicalRedactionService());
+        private readonly Guid _tenantId = tenantId;
+        private readonly CanonicalFileMetadataRedactionService _inner = new(new CanonicalRedactionService());
         public HashSet<Guid> Observed { get; } = [];
         public RedactionResult Redact(AuthorizationContext context, object source, RedactionProfile profile)
         {
             Assert.Equal(RedactionProfile.ExportRow, profile);
-            Assert.Equal(tenantId, context.TenantId);
+            Assert.Equal(_tenantId, context.TenantId);
             var properties = source.GetType().GetProperties();
             if (source.GetType().GetProperty("Id")?.GetValue(source) is Guid id && expectedRows.TryGetValue(id, out var type))
             {
