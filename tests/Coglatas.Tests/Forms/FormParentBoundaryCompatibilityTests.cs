@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Coglatas.Tests.Forms;
 
 // Real repositories and authorizers with EF InMemory; PostgreSQL/HTTP evidence is separate.
-public sealed class FormParentBoundaryCompatibilityTests
+public sealed partial class FormParentBoundaryCompatibilityTests
 {
     [Theory]
     [InlineData("workspace")]
@@ -188,9 +188,10 @@ public sealed class FormParentBoundaryCompatibilityTests
 
     private sealed class Fixture : IAsyncDisposable
     {
-        private Fixture(AppDbContext db, Guid tenantId)
+        private Fixture(AppDbContext db, Guid tenantId, DbContextOptions<AppDbContext> options)
         {
             Db = db;
+            Options = options;
             TenantId = tenantId;
             var users = new UserRepository(db);
             var workspaces = new WorkspaceRepository(db);
@@ -207,6 +208,7 @@ public sealed class FormParentBoundaryCompatibilityTests
         }
 
         public AppDbContext Db { get; }
+        public DbContextOptions<AppDbContext> Options { get; }
         public Guid TenantId { get; }
         public User Actor { get; } = new() { DisplayName = "Synthetic actor", Email = "actor@example.invalid", NormalizedEmail = "ACTOR@EXAMPLE.INVALID", Status = UserStatus.Active };
         private User Other { get; } = new() { DisplayName = "Synthetic respondent", Email = "respondent@example.invalid", NormalizedEmail = "RESPONDENT@EXAMPLE.INVALID", Status = UserStatus.Active };
@@ -222,10 +224,14 @@ public sealed class FormParentBoundaryCompatibilityTests
         public FormAuthorizationService Authorization { get; }
         public FormService Service { get; }
 
-        public static async Task<Fixture> CreateAsync(string scope, bool creator = true, ProjectRole projectRole = ProjectRole.Contributor)
+        public static async Task<Fixture> CreateAsync(string scope, bool creator = true, ProjectRole projectRole = ProjectRole.Contributor,
+            string? connectionString = null)
         {
             var tenantId = Guid.NewGuid();
-            var fixture = new Fixture(new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, new CurrentTenant(tenantId)), tenantId);
+            var builder = new DbContextOptionsBuilder<AppDbContext>();
+            if (connectionString is null) builder.UseInMemoryDatabase(Guid.NewGuid().ToString("N"));
+            else builder.UseNpgsql(connectionString);
+            var fixture = new Fixture(new AppDbContext(builder.Options, new CurrentTenant(tenantId)), tenantId, builder.Options);
             var db = fixture.Db;
             db.Tenants.Add(new Tenant(tenantId) { Name = "Synthetic", Slug = "synthetic", Status = TenantStatus.Active });
             await db.SaveChangesAsync();
