@@ -91,6 +91,17 @@ def validate(document: str) -> None:
     }
     if set(evidence) != required_evidence:
         raise ValueError("Canonical SEC-04/05/06 evidence must remain complete")
+    canonical_paths = {value.rstrip("/") for value in required_evidence}
+    # A different upload name cannot republish any canonical path or ancestor
+    # directory. This covers duplicate metadata under a new artifact name.
+    for artifact, (_, paths, _) in published.items():
+        if artifact == "sec06-zap-evidence":
+            continue
+        for item in paths:
+            candidate = item.removeprefix("./").rstrip("/")
+            if any(candidate == target or candidate.startswith(target + "/")
+                   or target.startswith(candidate + "/") for target in canonical_paths):
+                raise ValueError("Canonical Security evidence has multiple artifact owners")
     if set(diagnostics) != required_diagnostics:
         raise ValueError("Security failure reports must contain only scanner-independent diagnostics")
     if set(evidence).intersection(diagnostics):
@@ -101,9 +112,11 @@ def validate(document: str) -> None:
         "always() && (github.event_name != 'pull_request' || "
         "needs.dotnet-build.outputs.security_compose == 'true')"
     )
-    if step_condition(sec_step) != canonical_condition or "if-no-files-found: error" not in sec_step:
+    missing_policy = re.findall(r"(?m)^          if-no-files-found: ([^\r\n]+)$", sec_step)
+    if step_condition(sec_step) != canonical_condition or missing_policy != ["error"]:
         raise ValueError("Canonical Security evidence must remain mandatory and fail closed")
-    if step_condition(report_step) != "failure()" or "continue-on-error: true" not in report_step:
+    advisory_continue = re.findall(r"(?m)^        continue-on-error: ([^\r\n]+)$", report_step)
+    if step_condition(report_step) != "failure()" or advisory_continue != ["true"]:
         raise ValueError("Advisory diagnostics may not weaken mandatory Security evidence")
 
 
@@ -189,6 +202,47 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
         self.assertNotEqual(mutated, self.source)
         with self.assertRaisesRegex(ValueError, "explicit step condition"):
             validate(mutated)
+
+    def test_false_green_commented_missing_policy_fails_closed(self):
+        marker = "          if-no-files-found: error\n          retention-days: 7"
+        mutated = self.source.replace(
+            marker,
+            "          if-no-files-found: ignore # if-no-files-found: error\n          retention-days: 7",
+            1,
+        )
+        self.assertNotEqual(mutated, self.source)
+        with self.assertRaisesRegex(ValueError, "fail closed"):
+            validate(mutated)
+
+    def test_second_named_or_parent_directory_owner_fails(self):
+        marker = "      - name: Upload security reports on failure\n"
+        for path in ("artifacts/security/schemathesis/", "artifacts/security/zap/",
+                     "artifacts/security/"):
+            with self.subTest(path=path):
+                injected = (
+                    "      - name: Duplicate scanner evidence\n"
+                    "        if: failure()\n"
+                    "        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n"
+                    "        with:\n"
+                    "          name: secondary-security-evidence\n"
+                    f"          path: {path}\n"
+                    "          if-no-files-found: warn\n"
+                )
+                mutated = self.source.replace(marker, injected + marker, 1)
+                self.assertNotEqual(mutated, self.source)
+                with self.assertRaisesRegex(ValueError, "multiple artifact owners"):
+                    validate(mutated)
+
+    def test_failure_diagnostics_continue_on_error_must_be_effective(self):
+        marker = ("      - name: Upload security reports on failure\n"
+                  "        if: failure()\n"
+                  "        continue-on-error: true")
+        mutation = marker.replace("continue-on-error: true",
+                                  "continue-on-error: false # continue-on-error: true")
+        modified = self.source.replace(marker, mutation, 1)
+        self.assertNotEqual(modified, self.source)
+        with self.assertRaisesRegex(ValueError, "Advisory diagnostics"):
+            validate(modified)
 
     def test_registered_required_check_contexts_are_unchanged(self):
         # publication-readiness and performance-fast live in other workflows;
