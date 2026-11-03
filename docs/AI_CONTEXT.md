@@ -54,6 +54,13 @@ pre-save denials; successful caller-owned saves retain their outer rollback hold
 See `docs/verification/file-upload-commit-outcomes.md` for the cleanup proof and
 remaining reconciliation boundary.
 
+Form authorization independently reads current persisted Form identity and
+parent/actor authority without reusing tracked snapshots. Scoped untracked reads
+restore the caller's tracking mode and retain pending writes and transaction
+ownership. Native committed-change controls cover the initial-load authorization
+interval; they do not establish atomic authorization through commit or deployed
+RLS. See the Form authorization boundary in `docs/SECURITY_MODEL.md`.
+
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
 NOT_EVALUATED with no numerical or baseline qualification credit, under #1128.

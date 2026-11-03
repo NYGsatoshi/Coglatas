@@ -133,7 +133,7 @@ public sealed class FormService(
             return Result<FormDetailResponse>.Failure("Form not found.");
         }
 
-        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanManageForm(userId, form, cancellationToken))
+        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanModifyForm(userId, form, cancellationToken))
         {
             return Result<FormDetailResponse>.Failure("You are not allowed to update this form.");
         }
@@ -218,7 +218,7 @@ public sealed class FormService(
             return Result.Failure("Form not found.");
         }
 
-        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanManageForm(userId, form, cancellationToken))
+        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanModifyForm(userId, form, cancellationToken))
         {
             return Result.Failure("You are not allowed to archive this form.");
         }
@@ -268,7 +268,7 @@ public sealed class FormService(
             return Result<FormQuestionResponse>.Failure("Form not found.");
         }
 
-        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanManageForm(userId, form, cancellationToken))
+        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanModifyForm(userId, form, cancellationToken))
         {
             return Result<FormQuestionResponse>.Failure("You are not allowed to update questions for this form.");
         }
@@ -304,7 +304,7 @@ public sealed class FormService(
             return Result<FormQuestionResponse>.Failure("Form not found.");
         }
 
-        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanManageForm(userId, form, cancellationToken))
+        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanModifyForm(userId, form, cancellationToken))
         {
             return Result<FormQuestionResponse>.Failure("You are not allowed to update questions for this form.");
         }
@@ -349,7 +349,7 @@ public sealed class FormService(
             return Result.Failure("Form not found.");
         }
 
-        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanManageForm(userId, form, cancellationToken))
+        if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await authorization.CanModifyForm(userId, form, cancellationToken))
         {
             return Result.Failure("You are not allowed to update questions for this form.");
         }
