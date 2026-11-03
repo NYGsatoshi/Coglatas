@@ -1,7 +1,12 @@
 {
   "include": [
     "frontend/scripts/check-av-mig-source.mjs",
-    "scripts/ci/check-npm-audit-baseline.mjs"
+    "scripts/ci/check-npm-audit-baseline.mjs",
+    "scripts/ci/os-portability-contract.mjs",
+    "scripts/ci/verify-os-portability-results.mjs",
+    "scripts/ci/compat-critical-contract.mjs",
+    "tests/ui/fixed-sha-evidence.mjs",
+    "tests/ui/real-backend-authorization-frame.mjs"
   ],
   "exclude": ["**/node_modules/**"],
   "exclude-after-remap": false,

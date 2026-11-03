@@ -369,7 +369,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Measure existing source inventory and npm audit controls before credentials
+      - name: Measure existing operational contract controls before credentials
         env:
           NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-operational/raw
         run: |
@@ -378,10 +378,19 @@ jobs:
           node --enable-source-maps --test --experimental-test-coverage --test-concurrency=1 \
             --test-coverage-include='frontend/scripts/check-av-mig-source.mjs' \
             --test-coverage-include='scripts/ci/check-npm-audit-baseline.mjs' \
+            --test-coverage-include='scripts/ci/os-portability-contract.mjs' \
+            --test-coverage-include='scripts/ci/verify-os-portability-results.mjs' \
+            --test-coverage-include='scripts/ci/compat-critical-contract.mjs' \
+            --test-coverage-include='tests/ui/fixed-sha-evidence.mjs' \
+            --test-coverage-include='tests/ui/real-backend-authorization-frame.mjs' \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-operational/lcov.info \
             frontend/scripts/av-mig-source.node-test.mjs \
-            scripts/ci/check-npm-audit-baseline.node-test.mjs
+            scripts/ci/check-npm-audit-baseline.node-test.mjs \
+            tests/ci/os-portability-contract.node-test.mjs \
+            tests/ui/compat-critical-contract.node-test.mjs \
+            tests/ui/fixed-sha-evidence.node-test.mjs \
+            tests/ui/real-backend-authorization-frame.node-test.mjs
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { realpathSync } from 'node:fs';
@@ -393,8 +402,11 @@ jobs:
           assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
           const checked = validateNodeCoverage(text);
           const sources = new Set(text.split(/\r?\n/).filter(row => row.startsWith('SF:')).map(row => identity(row.slice(3))));
-          assert.equal(checked.sourceFiles, 2); assert.equal(sources.size, 2);
-          for (const source of ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs']) assert.ok(sources.has(source));
+          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs',
+            'scripts/ci/os-portability-contract.mjs', 'scripts/ci/verify-os-portability-results.mjs',
+            'scripts/ci/compat-critical-contract.mjs', 'tests/ui/fixed-sha-evidence.mjs',
+            'tests/ui/real-backend-authorization-frame.mjs'];
+          assert.equal(checked.sourceFiles, paths.length); assert.deepEqual([...sources].sort(), [...paths].sort());
           for (const report of ['artifacts/sonar-node/lcov.info', 'artifacts/sonar-pilot-helper/lcov.info']) {
             const existing = readOwnedRepositoryText(root, report);
             validateNodeCoverage(existing);
@@ -423,12 +435,15 @@ jobs:
           import { pathToFileURL } from 'node:url';
           import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
           const root = realpathSync(process.cwd());
-          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs'];
+          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs',
+            'scripts/ci/os-portability-contract.mjs', 'scripts/ci/verify-os-portability-results.mjs',
+            'scripts/ci/compat-critical-contract.mjs', 'tests/ui/fixed-sha-evidence.mjs',
+            'tests/ui/real-backend-authorization-frame.mjs'];
           const report = readOwnedRepositoryText(root, 'artifacts/sonar-operational/c8/lcov.info');
           const checked = validateNodeCoverage(report);
           const sources = report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
             .map(row => relative(root, resolve(root, row.slice(3))).replaceAll('\\', '/'));
-          assert.equal(checked.sourceFiles, 2); assert.deepEqual(sources.sort(), [...paths].sort());
+          assert.equal(checked.sourceFiles, paths.length); assert.deepEqual(sources.sort(), [...paths].sort());
           const originals = new Map(paths.map(path => [pathToFileURL(resolve(root, path)).href,
             { path, source: readFileSync(resolve(root, path), 'utf8'), scripts: [] }]));
           const rawFiles = readdirSync('artifacts/sonar-operational/raw').filter(name => /^coverage-.*\.json$/.test(name));
