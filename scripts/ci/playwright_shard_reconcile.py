@@ -112,6 +112,8 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
     require(roster["schema"] == ROSTER_SCHEMA and roster["suite"] == SUITE, "ROSTER_TYPE")
     require(roster["sourceSha"] == source_sha and
             roster["frontendProducerSha"] == source_sha, "ROSTER_SOURCE_OR_PRODUCER")
+    integer(roster["runId"], "ROSTER_RUN_ID")
+    integer(roster["runAttempt"], "ROSTER_RUN_ATTEMPT")
     require(roster["runId"] == run_id and roster["runAttempt"] == attempt,
             "ROSTER_RUN_OR_ATTEMPT")
     integer(roster["frontendArtifactId"], "FRONTEND_ARTIFACT_ID")
@@ -128,6 +130,9 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
                 "SHARD_TYPE")
         require(receipt["sourceSha"] == source_sha and
                 receipt["frontendProducerSha"] == source_sha, "SHARD_SOURCE_OR_PRODUCER")
+        integer(receipt["runId"], "SHARD_RUN_ID")
+        integer(receipt["runAttempt"], "SHARD_RUN_ATTEMPT")
+        integer(receipt["frontendArtifactId"], "SHARD_FRONTEND_ARTIFACT_ID")
         require(receipt["runId"] == run_id and receipt["runAttempt"] == attempt,
                 "SHARD_RUN_OR_ATTEMPT")
         require(receipt["frontendArtifactId"] == roster["frontendArtifactId"],
@@ -160,6 +165,7 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
         "skipped": sum(x == "skipped" for x in combined.values()),
         "outcome": "PASS",
         "artifactTrust": "EXTERNAL_VERIFICATION_REQUIRED",
+        "requiredCheckQualified": False,
     }
 
 

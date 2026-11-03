@@ -58,6 +58,7 @@ class ShardEvidenceTests(unittest.TestCase):
                          {k: output[k] for k in ("shards", "tests", "passed", "skipped")})
         self.assertEqual("PASS", output["outcome"])
         self.assertEqual("EXTERNAL_VERIFICATION_REQUIRED", output["artifactTrust"])
+        self.assertIs(output["requiredCheckQualified"], False)
         self.assertTrue(all(x not in json.dumps(output) for x in IDS))
 
     def test_missing_duplicate_and_unknown_cases_fail(self):
@@ -168,6 +169,26 @@ class ShardEvidenceTests(unittest.TestCase):
                 self.assertEqual(4, report["tests"])
             finally:
                 os.chdir(old_cwd)
+
+    def test_boolean_and_noninteger_provenance_cannot_masquerade_as_one(self):
+        # Python True == 1; a plain equality silently accepts forged JSON booleans.
+        # The source/run/attempt/artifact identity is security-relevant metadata.
+        for owner in ("roster", "one", "two"):
+            for key in ("runId", "runAttempt", "frontendArtifactId"):
+                for invalid in (True, 1.0, "1"):
+                    with self.subTest(owner=owner, key=key, invalid=invalid):
+                        roster, shards = fixtures()
+                        roster["runId"] = 1
+                        roster["frontendArtifactId"] = 1
+                        for receipt in shards:
+                            receipt["runId"] = 1
+                            receipt["frontendArtifactId"] = 1
+                        selected = {"roster": roster, "one": shards[0], "two": shards[1]}[owner]
+                        selected[key] = invalid
+                        with self.assertRaises(reconcile.InvalidEvidence):
+                            reconcile.reconcile(
+                                roster, shards, source_sha=SHA, run_id=1, attempt=1
+                            )
 
     def test_sha_is_exact_and_cli_is_not_trusted_artifact_attestation(self):
         roster, shards = fixtures()
