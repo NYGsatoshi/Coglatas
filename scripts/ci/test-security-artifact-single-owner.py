@@ -57,7 +57,7 @@ def security_uploads(document: str) -> dict[str, tuple[str, tuple[str, ...], str
 
 def step_condition(block: str) -> str:
     """Read the effective, exact step guard; absent/ambiguous guards fail closed."""
-    conditions = re.findall(r"(?m)^        if: ([^\\r\\n]+)$", block)
+    conditions = re.findall(r"(?m)^        if: ([^\r\n]+)$", block)
     if len(conditions) != 1:
         raise ValueError("Security artifact upload requires one explicit step condition")
     return conditions[0].strip()
@@ -153,14 +153,14 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
 
     def test_disabled_canonical_publication_fails_closed(self):
         original = (
-            "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+            "      - name: Upload SEC-06 sanitized ZAP evidence\n"
             "        if: always() && (github.event_name != 'pull_request' || "
             "needs.dotnet-build.outputs.security_compose == 'true')"
         )
         for invalid in ("always() && false", "always()", "success()"):
             with self.subTest(condition=invalid):
                 mutated = self.source.replace(
-                    original, "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+                    original, "      - name: Upload SEC-06 sanitized ZAP evidence\n"
                     + "        if: " + invalid, 1
                 )
                 self.assertNotEqual(mutated, self.source)
@@ -168,11 +168,11 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
                     validate(mutated)
 
     def test_disabled_failure_diagnostic_publication_fails_closed(self):
-        original = "      - name: Upload security reports on failure\\n        if: failure()"
+        original = "      - name: Upload security reports on failure\n        if: failure()"
         for invalid in ("failure() && false", "always() && false", "success()"):
             with self.subTest(condition=invalid):
                 mutated = self.source.replace(
-                    original, "      - name: Upload security reports on failure\\n"
+                    original, "      - name: Upload security reports on failure\n"
                     + "        if: " + invalid, 1
                 )
                 self.assertNotEqual(mutated, self.source)
@@ -181,7 +181,7 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
 
     def test_canonical_missing_condition_fails_closed(self):
         original = (
-            "      - name: Upload SEC-06 sanitized ZAP evidence\\n"
+            "      - name: Upload SEC-06 sanitized ZAP evidence\n"
             "        if: always() && (github.event_name != 'pull_request' || "
             "needs.dotnet-build.outputs.security_compose == 'true')"
         )
