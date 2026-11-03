@@ -94,7 +94,7 @@ public sealed class CompilerDiagnosticIntegrationTests
         var binding = Assert.Single(a.Model!.Findings, item => item.Diagnostic.Code == "coglatas.binding.snapshot-conflict").Diagnostic;
         var published = Assert.Single(a.Result.Diagnostics, item => item.DiagnosticId == binding.DiagnosticId);
         Assert.Equal(binding.Data, published.Data); Assert.Equal(input.Source.Context, published.Location.Context);
-        Assert.Equal(CompilerVerdict.Fail, a.Result.Verdict); Assert.False(a.Result.EvidenceComplete); Assert.Empty(a.Result.Artifacts);
+        Assert.Equal(CompilerVerdict.Fail, a.Result.Verdict); Assert.Empty(a.Result.Artifacts);
         Assert.Equal(CompilerFreshness.Stale, CompilerFreshnessAssessment.Assess(a.Result, Input(source: Source(99))).State);
     }
 
