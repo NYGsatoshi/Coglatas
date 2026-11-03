@@ -30,6 +30,17 @@ await test('tracked test bodies remain outside the operational coverage scope', 
     assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', path), { ...options, tracked: new Set([path]) }));
   }
 });
+await test('native LCOV source separators preserve operational counters and reject test bodies, traversal and duplicates', () => {
+  const source = 'scripts/security/zap-attribution.cjs';
+  const nativeRecord = record.replace('subject.mjs', join(...source.split('/')));
+  const settings = { ...options, tracked: new Set([source]) };
+  assert.deepEqual(validateNodeCoverage(nativeRecord, settings), { sourceFiles: 1, branches: 2, uncoveredBranches: 1 });
+  assert.throws(() => validateNodeCoverage(nativeRecord + nativeRecord, settings));
+  assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', join('..', 'outside.mjs')), settings));
+  for (const source of ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs']) {
+    assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', join(...source.split('/'))), { ...options, tracked: new Set([source]) }));
+  }
+});
 await test('actual ZAP tests execute while native LCOV excludes only their body and raw V8 retains it', t => {
   const directory = ownedDirectory(t, 'coglatas-zap-coverage-body-');
   const output = join(directory, 'lcov.info'), raw = join(directory, 'raw'); mkdirSync(raw);
