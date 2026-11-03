@@ -46,8 +46,10 @@ The linked independent fixture is blob
 
 A new raw payload scan would not fix a reproducible bypass and could incorrectly
 interpret Unknown provenance as an execution dependency. No runtime patch is
-justified by this finding. Reviewer reconsideration/resolution is tracked on the
-original thread; neither this conclusion nor a resolved finding grants approval.
+justified by this finding. CodeRabbit subsequently withdrew the finding and resolved the original thread
+in comment 4450375540 after inspecting exact Source `48ff1969`. The reviewer
+explicitly did not rerun the seven probes. No runtime patch/raw scan is needed;
+this withdrawal is not PR approval or Owner/CODEOWNER acceptance.
 
 ## Reproduction
 

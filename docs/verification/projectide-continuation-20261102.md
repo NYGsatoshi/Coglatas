@@ -492,3 +492,16 @@ Reproduction/source and precise limitations: `projectide-core-predicate-review.m
 These probes do not change the qualified Product/Test heads or maintained unit
 inventories. Reviewer reconsideration/resolution is pending on the original
 thread; no runtime patch or approval is inferred.
+
+
+#1657 review validation outcome: CodeRabbit inspected the exact `48ff1969` source,
+withdrew its sole predicate-reference finding and resolved thread
+`PRRT_kwDOSy0QwM6y9NKW` (reply 4450375540). The provider acknowledged the existing
+Boolean-only guard and eager operand validation, confirmed no demonstrated binding
+bypass and required no runtime/raw-scan patch. The reviewer did not rerun the seven
+probes; those are separately retained Windows evidence. Full review 5746497216 is
+now a completed current-head COMMENTED review with no unresolved finding, not
+Owner/CODEOWNER approval. #1653/#1667 full changed-head review remains rate-limited.
+Ordinary current Product CI is SUCCESS; ordinary standalone Test CI is FAILURE;
+both exact supplemental runs and Windows parity remain verified without runtime
+head changes.
