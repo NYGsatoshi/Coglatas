@@ -111,10 +111,12 @@ public sealed class CompilerSemanticValidation
         {
             var items = new List<T>(); values = [];
             cancellationToken.ThrowIfCancellationRequested();
+            if (remaining <= 0) { supplyBudgetExhausted = true; return false; }
             using var iterator = (supply ?? []).GetEnumerator();
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (remaining <= 0) { supplyBudgetExhausted = true; return false; }
                 var hasNext = iterator.MoveNext();
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!hasNext) break;
