@@ -27,6 +27,13 @@ the next supplier and let its exception replace the cancellation result. A faile
 binding's processing budget also did not prevent later supplier invocation.
 Body processing was charged only after collecting the full supply prefix.
 
+A subsequent exact-head review identified the zero boundary separately: a body
+can consume its final allowed operation without overspending. A following
+GetEnumerator or MoveNext must still be rejected before invoking caller code.
+Four additional independent controls reproduce that gap on the first corrected
+candidate. ReadSupply now checks for zero remaining operations before both calls,
+preserving cancellation precedence and the existing exhaustion diagnostic.
+
 The semantic stage now checks cancellation before opening and around every
 MoveNext, including its false return, and disposes each acquired enumerator.
 Source work and each supplied body consume the inherited logical budget before
