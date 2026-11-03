@@ -2,7 +2,6 @@ using System.Reflection;
 using Coglatas.Application.Artifacts;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
-using Coglatas.Application.Files;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -388,6 +387,7 @@ public sealed class ArtifactLifecycleContractTests
         public List<AuditLogEntry> Audits { get; } = [];
         public List<(Guid Recipient, string Title, string? Body, string Type, Guid Id)> Notifications { get; } = [];
         public List<ProjectMember> Members { get; } = [];
+        private List<(string Dependency, string Method, object?[] Arguments)> Calls { get; } = [];
         public int SaveCalls { get; private set; }
         public ArtifactService Service { get; }
 
@@ -409,6 +409,7 @@ public sealed class ArtifactLifecycleContractTests
                 Members.Add(new ProjectMember { ProjectId = ProjectId, UserId = Guid.NewGuid(), Role = role });
             var projectAuthorization = Strict<IProjectAuthorizationService>((method, args) =>
             {
+                Calls.Add(("authority", method, args));
                 Assert.Contains(method, new[] { "CanViewProject", "CanManageProject" });
                 Assert.Equal(Actor.Id, args[0]);
                 Assert.Equal(ProjectId, args[1]);
@@ -418,6 +419,7 @@ public sealed class ArtifactLifecycleContractTests
             });
             var projects = Strict<IProjectRepository>((method, args) =>
             {
+                Calls.Add(("projects", method, args));
                 Assert.Equal("ListMembersAsync", method);
                 Assert.Equal(ProjectId, args[0]);
                 Assert.Equal(Token, args[1]);
@@ -425,6 +427,7 @@ public sealed class ArtifactLifecycleContractTests
             });
             var audit = Strict<IAuditLogger>((method, args) =>
             {
+                Calls.Add(("audit", method, args));
                 Assert.Equal("LogAsync", method);
                 Assert.Equal(Token, args[1]);
                 Audits.Add(Assert.IsType<AuditLogEntry>(args[0]));
@@ -432,6 +435,7 @@ public sealed class ArtifactLifecycleContractTests
             });
             var notification = Strict<INotificationService>((method, args) =>
             {
+                Calls.Add(("notification", method, args));
                 Assert.Equal("NotifyAsync", method);
                 Assert.Equal(Token, args[5]);
                 Notifications.Add(((Guid)args[0]!, (string)args[1]!, (string?)args[2], (string)args[3]!, (Guid)args[4]!));
@@ -439,6 +443,7 @@ public sealed class ArtifactLifecycleContractTests
             });
             var persistence = Strict<IUnitOfWork>((method, args) =>
             {
+                Calls.Add(("persistence", method, args));
                 Assert.Equal("SaveChangesAsync", method);
                 Assert.Equal(Token, args[0]);
                 SaveCalls++;
@@ -501,25 +506,21 @@ public sealed class ArtifactLifecycleContractTests
         {
             Assert.Equal("CanManageProject", Assert.Single(ProjectChecks));
             var entry = Assert.Single(Audits);
-            Assert.Equal(Actor.Id, entry.ActorUserId);
-            Assert.Equal(action, entry.Action);
-            Assert.Equal(type, entry.EntityType);
-            Assert.Equal(id, entry.EntityId);
+            Assert.Equal(new AuditLogEntry(Actor.Id, action, type, id), entry);
             Assert.Equal(1, SaveCalls);
+            var effects = Calls.Where(call => call.Dependency is "audit" or "notification" or "persistence").ToArray();
+            Assert.Equal("audit", effects[0].Dependency);
+            Assert.Equal("persistence", effects[^1].Dependency);
+            Assert.Equal("SaveChangesAsync", effects[^1].Method);
+            Assert.Equal(Token, Assert.Single(effects[^1].Arguments));
         }
 
         public void AssertNotifications(string title, Guid id, string body)
         {
             var expected = Members.Where(member => member.Role is ProjectRole.Owner or ProjectRole.Manager or ProjectRole.Reviewer)
-                .Select(member => member.UserId).Order().ToArray();
-            Assert.Equal(expected, Notifications.Select(item => item.Recipient).Order().ToArray());
-            Assert.All(Notifications, item =>
-            {
-                Assert.Equal(title, item.Title);
-                Assert.Equal(body, item.Body);
-                Assert.Equal("Artifact", item.Type);
-                Assert.Equal(id, item.Id);
-            });
+                .Select(member => (Recipient: member.UserId, Title: title, Body: (string?)body, Type: "Artifact", Id: id))
+                .OrderBy(item => item.Recipient).ToArray();
+            Assert.Equal(expected, Notifications.OrderBy(item => item.Recipient).ToArray());
         }
 
         public void Dispose() => _cancellation.Dispose();
@@ -552,7 +553,7 @@ public sealed class ArtifactLifecycleContractTests
         public Task<Artifact?> GetArtifactAsync(Guid id, CancellationToken token = default)
         {
             Assert.Equal(expectedToken, token);
-            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id)).WaitAsync(expectedToken);
         }
         public Task<ArtifactVersion?> GetVersionAsync(Guid id, CancellationToken token = default)
         {
