@@ -7,6 +7,34 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 const fixture = () => JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8'));
 
 describe('Source-backed semantic inspection', () => {
+  it('preserves a newer load started synchronously by an aborted reader', async () => {
+    const bundle = readPreviewBundle(fixture()); const store = new ProjectIdeWorkbenchStore();
+    let finishFirst!: (value: typeof bundle) => void;
+    let finishNested!: (value: typeof bundle) => void;
+    let nested!: Promise<void>; let nestedSignal!: AbortSignal; let outerReads = 0;
+    const first = store.load((signal) => new Promise((resolve) => {
+      finishFirst = resolve;
+      signal.addEventListener('abort', () => {
+        nested = store.load((next) => new Promise((resolveNext) => { nestedSignal = next; finishNested = resolveNext; }));
+      }, { once: true });
+    }));
+    await store.load(async () => { outerReads++; return bundle; });
+    expect(outerReads).toBe(0); expect(store.state()).toBe('loading');
+    finishFirst(bundle); await first; expect(store.bundle()).toBeNull();
+    finishNested(bundle); await nested; expect(store.bundle()).toBe(bundle);
+    store.clear(); expect(nestedSignal.aborted).toBe(true);
+  });
+  it.each(['denied', 'cancelled'] as const)('preserves a synchronous %s boundary raised by an aborted reader', async (state) => {
+    const bundle = readPreviewBundle(fixture()); const store = new ProjectIdeWorkbenchStore();
+    let finish!: (value: typeof bundle) => void; let reads = 0;
+    const first = store.load((signal) => new Promise((resolve) => {
+      finish = resolve; signal.addEventListener('abort', () => store.clear(state), { once: true });
+    }));
+    await store.load(async () => { reads++; return bundle; });
+    finish(bundle); await first;
+    expect(reads).toBe(0); expect(store.state()).toBe(state);
+    expect(store.bundle()).toBeNull(); expect(store.context()).toBeNull(); expect(store.result()).toBeNull();
+  });
   it('shows only selected Source symbols and resolved incoming references, then clears on context change', async () => {
     const bundle = readPreviewBundle(fixture()); const store = new ProjectIdeWorkbenchStore();
     await store.load(async () => bundle); store.choose('pass'); store.loadResult();
