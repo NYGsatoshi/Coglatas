@@ -149,6 +149,40 @@ public sealed class CompilerMaterializationBindingTests
         Assert.Equal(a.Findings.Select(x => x.Diagnostic.Data.CanonicalText), b.Findings.Select(x => x.Diagnostic.Data.CanonicalText));
     }
 
+    [Theory]
+    [InlineData("version")]
+    [InlineData("declarations")]
+    [InlineData("relations")]
+    [InlineData("declared-coverage")]
+    public void DifferentAliasesCannotAssertConflictingClaimsForTheSameExactContext(string change)
+    {
+        var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
+        var aliasPin = settings["authorizedExternalSnapshots"]![0]!.DeepClone(); aliasPin["snapshotId"] = Id(31);
+        if (change == "version") aliasPin["version"] = "2";
+        if (change == "declared-coverage") aliasPin["coverage"] = "coglatas.partial";
+        settings["authorizedExternalSnapshots"]!.AsArray().Add(aliasPin);
+        var alias = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(31)), change == "version" ? "2" : "1",
+            f.Body.Snapshot with { DeclarationsComplete = change != "declarations", RelationsComplete = change != "relations" });
+        var input = Input(settings); var a = ProjectSemanticBinder.Bind(input, [f.Body, alias]); var b = ProjectSemanticBinder.Bind(input, [alias, f.Body]);
+        Assert.False(a.BindingComplete); Assert.False(b.BindingComplete);
+        Assert.Contains(a.Findings, x => x.State == RelationFindingState.Invalid && x.Diagnostic.Code == "coglatas.binding.snapshot-conflict");
+        Assert.Equal(a.Findings.Select(x => x.Diagnostic.Data.CanonicalText), b.Findings.Select(x => x.Diagnostic.Data.CanonicalText));
+        Assert.All(a.Findings, x => Assert.Equal(input.Source.Context, x.Diagnostic.Location.Context));
+        Assert.Null(CompilerSemanticValidation.Validate(a).Ir); Assert.Null(CompilerSemanticValidation.Validate(b).Ir);
+    }
+
+    [Fact]
+    public void DifferentAliasesWithMatchingClaimsRetainTheirExistingAdmissionBehavior()
+    {
+        var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
+        var aliasPin = settings["authorizedExternalSnapshots"]![0]!.DeepClone(); aliasPin["snapshotId"] = Id(31);
+        settings["authorizedExternalSnapshots"]!.AsArray().Add(aliasPin);
+        var alias = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(31)), "1", f.Body.Snapshot);
+        var input = Input(settings); var model = ProjectSemanticBinder.Bind(input, [f.Body, alias]);
+        Assert.True(model.BindingComplete); Assert.Empty(model.Findings); Assert.Equal(2, model.BoundSnapshots.Count);
+        Assert.Empty(model.References); // No transitive lowering or evidence eligibility is certified.
+    }
+
     [Fact]
     public void ExactBodyAdmitsSymbolsWithoutChangingInputIdentityOrProvingExternalClosure()
     {
