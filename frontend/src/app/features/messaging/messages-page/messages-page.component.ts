@@ -285,7 +285,8 @@ export class MessagesPageComponent {
   readonly excludedCreator = computed(() => this.facade.actorUserId() ? [this.facade.actorUserId()!] : []);
   private readonly createErrorKey = signal<MessagingTextKey | null>(null);
   readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
-  readonly canSubmitCreate = computed(() => this.canCreateConversation() && !this.creating() &&
+  readonly canSubmitCreate = computed(() => this.createDialogOpen() &&
+    this.activeCreateIdentity(this.createIdentity, this.createGeneration) && !this.creating() &&
     (this.createMode() === 'group'
       ? !!this.facade.activeWorkspaceId() && this.selectedRecipients().length >= 2 && this.groupTitle().length <= 200
       : this.selectedRecipients().length === 1));

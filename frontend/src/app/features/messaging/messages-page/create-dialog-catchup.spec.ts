@@ -183,6 +183,11 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
   for (const reason of ['authorization', 'session', 'tenant', 'workspace'] as const) {
     it(`fully closes a ${reason} boundary even when fresh recovery coalesces before rendering`, async () => {
       const context = await setup(); const component = context.fixture.componentInstance;
+      component.onRecipientQueryChange('Selected');
+      context.http.expectOne('/api/conversations/recipients?query=Selected').flush([
+        { userId: 'old', displayName: 'Old selected name' },
+      ]);
+      component.selectRecipient('old'); expect(component.canSubmitCreate()).toBe(true);
       component.onRecipientQueryChange('Old local intent');
       const oldSearch = context.http.expectOne('/api/conversations/recipients?query=Old%20local%20intent');
       const binding = context.facade.listPresentationBinding();
@@ -190,6 +195,8 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
       context.facade.loadConversationListPage();
       context.http.expectOne('/api/conversations').flush({ items: [] });
       expect(context.facade.listPresentationBinding()).not.toBe(binding);
+      expect(component.canSubmitCreate()).toBe(false);
+      component.createConversation(); context.http.expectNone((request) => request.method === 'POST');
       context.fixture.detectChanges();
       expect(oldSearch.cancelled).toBe(true);
       expect(context.dialog()).toBe(false); expect(component.recipientQuery()).toBe('');
