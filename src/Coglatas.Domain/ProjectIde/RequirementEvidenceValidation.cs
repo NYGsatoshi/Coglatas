@@ -111,12 +111,13 @@ public static class RequirementEvidenceValidator
                 if (--remaining < 0 || ++examined > 1024)
                 { execution = CompilerExecutionState.ResourceExhausted; Add("coglatas.evidence.budget-exhausted", RelationFindingState.Unknown); return Finish(); }
                 if (claim is null) { Add("coglatas.evidence.claim-invalid", RelationFindingState.Invalid); continue; }
+                if (!Spend(claim.Requirement.Data) || !Spend(claim.Target.Data) || !Spend(claim.Result.Data)) return Finish();
                 observed.Add(claim);
             }
             foreach (var claim in observed.OrderBy(item => item.Result.ResultDigest.Value, StringComparer.Ordinal)
                 .ThenBy(item => item.Requirement.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Target.Data.CanonicalText, StringComparer.Ordinal))
             {
-                if (!Spend(claim.Result.Data)) break;
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!identities.Add(claim.Result.ResultId)) Add("coglatas.evidence.duplicate", RelationFindingState.Invalid);
                 if (!claim.Requirement.Equals(requirement)) Add("coglatas.evidence.requirement-identity-mismatch", RelationFindingState.Invalid);
                 if (!claim.Target.Data.Equals(declared.Target.Data)) Add("coglatas.evidence.target-mismatch", RelationFindingState.Invalid);
