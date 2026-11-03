@@ -27,4 +27,8 @@ public interface ITenantRepository
     Task AddTenantUserAsync(TenantUser tenantUser, CancellationToken cancellationToken = default);
 
     Task<User?> GetUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Reads current persisted user state for authorization.</summary>
+    Task<User?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        GetUserAsync(userId, cancellationToken);
 }
