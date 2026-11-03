@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Realtime;
 using Coglatas.Application.Tenancy;
+using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
@@ -37,7 +39,7 @@ public sealed class CapabilityGrantServicePostgreSqlTests(ITestOutputHelper outp
                 {
                     var membership = await persisted.TenantUsers.SingleAsync(item =>
                         item.TenantId == fixture.Tenant.Id && item.UserId == fixture.Actor.Id);
-                    output.WriteLine("Synthetic current-authority state: " + System.Text.Json.JsonSerializer.Serialize(new
+                    output.WriteLine("Synthetic current-authority state: " + JsonSerializer.Serialize(new
                     {
                         persistedMembership = membership.Status.ToString(),
                         trackedMembership = fixture.ActorMembership.Status.ToString(),
@@ -56,14 +58,100 @@ public sealed class CapabilityGrantServicePostgreSqlTests(ITestOutputHelper outp
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
-    public async Task NativeGrantRevokeRegrantKeepsOneSlotAndScopedAuditAndInvalidation()
+    public async Task CookieValidatedActorLifecycleChangesDenyEveryCapabilityManagementOperation()
+    {
+        foreach (var change in new[] { "member", "guest", "membership", "actor-status", "actor-deleted", "tenant-status", "tenant-deleted" })
+        {
+            output.WriteLine("Synthetic actor lifecycle control: " + change);
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+                {
+                    await using var fixture = await CapabilityGrantFixture.CreateAsync(Options(database));
+                    await fixture.WarmAuthenticatedRequestAsync();
+                    await using (var revoker = fixture.OpenReadContext())
+                    {
+                        var membership = await revoker.TenantUsers.Include(item => item.User).Include(item => item.Tenant)
+                            .SingleAsync(item => item.TenantId == fixture.Tenant.Id && item.UserId == fixture.Actor.Id);
+                        switch (change)
+                        {
+                            case "member": membership.Role = TenantUserRole.Member; break;
+                            case "guest": membership.Role = TenantUserRole.Guest; break;
+                            case "membership": membership.Status = TenantUserStatus.Suspended; break;
+                            case "actor-status": membership.User!.Status = UserStatus.Suspended; break;
+                            case "actor-deleted": membership.User!.MarkDeleted(fixture.Clock.UtcNow); break;
+                            case "tenant-status": membership.Tenant!.Status = TenantStatus.Suspended; break;
+                            case "tenant-deleted": membership.Tenant!.MarkDeleted(fixture.Clock.UtcNow); break;
+                        }
+                        await revoker.SaveChangesAsync();
+                    }
+
+                    var service = fixture.CreateService();
+                    var list = await service.ListAsync();
+                    var grant = await service.GrantAsync(fixture.Request);
+                    var revoke = await service.RevokeAsync(fixture.ForeignGrant.Id);
+                    Assert.False(list.IsSuccess);
+                    Assert.False(grant.IsSuccess);
+                    Assert.False(revoke.IsSuccess);
+                    Assert.Equal("CapabilityDenied", list.ErrorDetail!.Code);
+                    Assert.Equal(list.ErrorDetail, grant.ErrorDetail);
+                    Assert.Equal(list.ErrorDetail, revoke.ErrorDetail);
+                    Assert.Equal(0, fixture.Saves.Calls);
+                    await fixture.AssertNoMutationsAsync();
+                });
+        }
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task ActiveDelegatedWorkspaceCreateRemainsAvailableAfterOwnerDemotion()
     {
         await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
                 await using var fixture = await CapabilityGrantFixture.CreateAsync(Options(database));
-                await CapabilityGrantServiceTests.VerifyLifecycleAsync(fixture);
+                fixture.Db.Set<CapabilityGrant>().Add(new CapabilityGrant
+                {
+                    TenantId = fixture.Tenant.Id, SubjectUserId = fixture.Actor.Id, GrantedByUserId = fixture.Actor.Id,
+                    CapabilityKey = CapabilityKeys.WorkspaceCreate, ScopeType = CapabilityScopeType.Tenant,
+                    ScopeId = fixture.Tenant.Id, GrantedAt = fixture.Clock.UtcNow, ExpiresAt = fixture.Clock.UtcNow.AddHours(1)
+                });
+                await fixture.Db.SaveChangesAsync();
+                await fixture.WarmAuthenticatedRequestAsync();
+                await using (var revoker = fixture.OpenReadContext())
+                {
+                    var membership = await revoker.TenantUsers.SingleAsync(item =>
+                        item.TenantId == fixture.Tenant.Id && item.UserId == fixture.Actor.Id);
+                    membership.Role = TenantUserRole.Member;
+                    await revoker.SaveChangesAsync();
+                }
+
+                var managers = new TenantAuthorizationService(new TenantRepository(fixture.Db));
+                Assert.False(await managers.CanManageTenantAsync(fixture.Actor.Id, fixture.Tenant.Id));
+                var workspaces = new WorkspaceAuthorizationService(new UserRepository(fixture.Db),
+                    new WorkspaceRepository(fixture.Db), managers, fixture.CreateEvaluator());
+                Assert.True(await workspaces.CanCreateWorkspace(fixture.Actor.Id, fixture.Tenant.Id));
+                Assert.False((await fixture.CreateService().GrantAsync(fixture.Request)).IsSuccess);
+                await fixture.AssertMutationCountsAsync(1, 0);
+                await fixture.AssertForeignGrantUnchangedAsync();
             });
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task NativeGrantRevokeRegrantKeepsOneSlotAndScopedAuditAndInvalidation()
+    {
+        foreach (var role in new[] { TenantUserRole.Owner, TenantUserRole.Admin })
+        {
+            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+                PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+                {
+                    await using var fixture = await CapabilityGrantFixture.CreateAsync(Options(database));
+                    fixture.ActorMembership.Role = role;
+                    await fixture.Db.SaveChangesAsync();
+                    fixture.Db.ChangeTracker.Clear();
+                    await CapabilityGrantServiceTests.VerifyLifecycleAsync(fixture);
+                });
+        }
     }
 
     [PostgreSqlFact]

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Coglatas.Application.Auth;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
@@ -116,6 +117,7 @@ public sealed class CapabilityGrantServiceTests
     [InlineData("inactive-tenant", "CapabilityDenied")]
     [InlineData("deleted-tenant", "CapabilityDenied")]
     [InlineData("foreign-manager", "CapabilityDenied")]
+    [InlineData("system-admin-member", "CapabilityDenied")]
     public async Task EveryOperationRequiresCurrentTenantManagerAuthority(string denied, string code)
     {
         await using var fixture = await CapabilityGrantFixture.CreateAsync();
@@ -130,6 +132,10 @@ public sealed class CapabilityGrantServiceTests
             case "deleted-actor": fixture.Actor.MarkDeleted(fixture.Clock.UtcNow); break;
             case "inactive-tenant": fixture.Tenant.Status = TenantStatus.Suspended; break;
             case "deleted-tenant": fixture.Tenant.MarkDeleted(fixture.Clock.UtcNow); break;
+            case "system-admin-member":
+                fixture.Actor.SystemRole = SystemRole.PlatformAdmin;
+                fixture.ActorMembership.Role = TenantUserRole.Member;
+                break;
         }
         await fixture.Db.SaveChangesAsync();
         fixture.Db.ChangeTracker.Clear();
@@ -323,6 +329,24 @@ public sealed class CapabilityGrantServiceTests
         await fixture.AssertNoMutationsAsync();
     }
 
+    [Fact]
+    public async Task CurrentManagerSnapshotPreservesTrackedMembershipEditsForTheExistingWriter()
+    {
+        await using var fixture = await CapabilityGrantFixture.CreateAsync();
+        var repository = new TenantRepository(fixture.Db);
+        var tracked = await repository.GetTenantUserAsync(fixture.Tenant.Id, fixture.Actor.Id);
+        Assert.NotNull(tracked);
+        tracked.Role = TenantUserRole.Admin;
+        Assert.True(await new TenantAuthorizationService(repository).CanManageTenantAsync(fixture.Actor.Id, fixture.Tenant.Id));
+        Assert.Same(tracked, Assert.Single(fixture.Db.ChangeTracker.Entries<TenantUser>(),
+            entry => entry.Entity.UserId == fixture.Actor.Id).Entity);
+        Assert.Equal(TenantUserRole.Admin, tracked.Role);
+        await fixture.Db.SaveChangesAsync();
+        await using var read = fixture.OpenReadContext();
+        Assert.Equal(TenantUserRole.Admin, (await read.TenantUsers.SingleAsync(item =>
+            item.TenantId == fixture.Tenant.Id && item.UserId == fixture.Actor.Id)).Role);
+    }
+
     private static void AssertDenied<T>(Result<T> result, string code)
     {
         Assert.False(result.IsSuccess);
@@ -433,6 +457,24 @@ internal sealed class CapabilityGrantFixture : IAsyncDisposable
         Db.Set<CapabilityGrant>().Add(grant);
         await Db.SaveChangesAsync();
         return grant.Id;
+    }
+
+    public async Task WarmAuthenticatedRequestAsync()
+    {
+        var session = new Session
+        {
+            UserId = Actor.Id, SessionKeyHash = Guid.NewGuid().ToString("N"),
+            ExpiresAt = Clock.UtcNow.AddHours(1), LastSeenAt = Clock.UtcNow.AddHours(-1)
+        };
+        Db.Sessions.Add(session);
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        var sessions = new UserSessionService(new SessionRepository(Db), new TenantRepository(Db),
+            new DbAuditLogger(Db, Clock, CurrentUser, CurrentTenant), Clock, new EfUnitOfWork(Db));
+        var validated = await sessions.ValidateSessionAsync(Actor.Id, session.Id, Tenant.Id, true);
+        Assert.True(validated.IsValid);
+        await using var read = OpenReadContext();
+        Assert.Equal(Clock.UtcNow, (await read.Sessions.SingleAsync(item => item.Id == session.Id)).LastSeenAt);
     }
 
     public async Task AssertEvidenceAsync(Guid grantId, string action, string change, int count, int? version = null)
