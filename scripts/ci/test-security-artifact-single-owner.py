@@ -141,7 +141,7 @@ class SecurityArtifactOwnershipTests(unittest.TestCase):
             "          if-no-files-found: warn", 1,
         )
         self.assertNotEqual(tampered, self.source)
-        with self.assertRaisesRegex(ValueError, "only scanner-independent"):
+        with self.assertRaisesRegex(ValueError, "multiple artifact owners"):
             validate(tampered)
 
     def test_missing_canonical_zap_or_schemathesis_fails(self):
