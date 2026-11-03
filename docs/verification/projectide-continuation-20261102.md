@@ -607,7 +607,10 @@ identities and complete inventories were independently compared. Its consumer
 41641822930 also completed SUCCESS. Both remain superseded comparison evidence;
 the final two added controls and new Product head require their own receipts.
 
-### Final exact Product/Test and both-host qualification
+### Pre-review 819/857 qualification — superseded comparison pair
+
+This successful pair was superseded by the CodeRabbit alias-claim correction
+below. Its receipts do not qualify the latest Product/Test heads.
 
 The consumer comparison baseline's duplicate old combined-key spellings were
 corrected in Test `4eb77ef3`: the baseline now names one exact earlier verified
@@ -729,3 +732,113 @@ Git ref, Draft lifecycle, auto-merge, required check/threshold, production syste
 SEC-ARCH/RLS/Enforce or #1128 policy was changed. Full current-head CodeRabbit,
 Owner/CODEOWNER and all concrete schema/trust/eligibility acceptance remain
 separate/pending; rate-limit responses are not approval.
+
+### Valid CodeRabbit finding and current corrected candidate
+
+After the reported reset interval, a normal request actually triggered and
+completed Full Review at exact Product `7f5bb1d1`: review **5753551347**,
+COMMENTED, submitted 2026-11-03 14:07:15 UTC. Its one Major finding, thread
+`PRRT_kwDOSy0QwM6zKOgF` / comment **4455756845**, was valid: distinct snapshot-ID
+aliases sharing a full context and Source digest could assert different
+versions/body completeness/pin coverage without a supply conflict when unused.
+This is separate from #1657's withdrawn predicate finding; no raw predicate scan
+was introduced. No Owner/CODEOWNER/schema approval follows from that review.
+
+Independent Test `cd0d938975fdcd9a888d95eaa159c1618559e159` against unchanged
+Product `7f5bb1d1` reproduces **4 FAIL / 16 PASS / 0 SKIP** (20 cases), combined
+`ef738cc4b5ea2db05cd5477a3529cc2bfc82ab0c`, tree
+`855f4add6eb94ea6de3464b066d6d76536f51d36`; TRX SHA-256
+`101976e04ff2f291e0c760b9c7b5d156b6c52a8c2d8778d0f887aa2f78971a9b`.
+The four negative permutations cover version, declaration completeness, relation
+completeness and declared pin coverage. A matching-alias positive case preserves
+the existing behavior. An initial invocation from the original checkout selected
+its unavailable SDK 10.0.401 before execution; it is retained as a separate
+orchestration failure. Actual reproduction runs inside the exact candidate with
+its installed/pinned SDK 10.0.403; no pin or tool policy was changed.
+
+The fix compares those claims within each exact context group even when Source
+digests match; it excludes denied bodies and charges both pin lookups to the
+shared budget. Matching aliases are retained rather than rejected solely for
+different snapshot IDs. CodeRabbit inspected the supplied corrected code and
+confirmed this scoped repair in reply **4455852938** at 14:14:40 UTC, explicitly
+separating it from full changed-head review/Owner acceptance. Completed corrected
+Windows/Ubuntu evidence was posted in reply **4455998730**. The finding was
+resolved after checking that evidence; the connector resolution returned HTTP
+520, so state was checked and the same authorized GitHub GraphQL mutation was
+completed using CLI. No review/authority/rate policy was bypassed.
+
+| Current role | Commit | Tree |
+| --- | --- | --- |
+| Product #1681; unchanged review base `585727a9` | `0601761abebf7bbf0ac7cb0384e5e9ddf6952358` | `ba9cf3f2f550a13020bb9629acfcb59dfbf6b2b9` |
+| Independent Test #1682; unchanged review base `6edddea7` | `1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6` | `51aeb6e876d55f6c7d2658b835e0c5f85347dafe` |
+| Exact Core combined | `c40a946a6d85938c45ecc8e935e86615261c63c8` | `c49827fac6fa05f3330462985d16925a195294a3` |
+| Exact Inspector combined, same `d77b9814` / `930bb886` pins | `43f6181737b33741b73184a1cf5c6ae60e61c318` | `9b833121f995e4e01f5b6b926548d887d4f65ce1` |
+
+Fresh Windows and [Ubuntu Core 41651634687/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651634687)
+pass **824 Core + 12 Architecture + 35 controls**. Windows and
+[Ubuntu consumers 41651634693/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651634693)
+pass **862 Core/fixture/Pure ViewModel + 12 Architecture + 278 Vitest + 70 Node +
+44 actual Desktop/Mobile browser + 61 controls**. Release warnings-as-errors,
+zero final selected failures/skips/pending/todo. All twenty new .NET cases and
+eighteen test-only Receipt/Graph controls execute; all earlier responsibilities
+and test identities remain. No Product Runtime Source is copied to Test.
+
+Core artifact **13236904406**, ZIP SHA-256
+`91478ecdffeb5ce965c36bef6e72290d950c1238a30fc5169259033dc1362222`;
+consumer **13237073752**, ZIP SHA-256
+`c06a37dd85676f602ffe13a244b2948aeae9d130a0dc927073ad71f670868972`.
+Both downloaded ZIPs equal GitHub digests. Every producer-file hash, all exact
+pins/trees/combined commits, 54 Core runtime Git-blob/host-byte identities, full
+TRX/Vitest/Node/browser/control inventories and clean checkouts are independently
+compared with Windows. Hosted producer files: Core 8, consumer 32; Windows
+consumer has the additional dependency-reuse receipt (33 files). Raw CRLF/LF and
+host-root differences are checked against exact Git blobs and actual roots;
+only repository-relative Vitest paths are normalized. No false raw equality.
+
+The exact fixture remains `bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a`.
+Owned browser servers use Windows port **50473** and Ubuntu **33181**, exact
+static roots/served-index hashes, zero retries and forbid-only. SDK/node/Python
+pins and source/dependency reuse conditions remain as recorded above. Current
+local receipts are `core-reviewed/receipt.json` and
+`consumers-reviewed/receipt.json`; independent cross-host comparisons are
+`hosted/core-reviewed-comparison.json` and
+`hosted/consumer-reviewed-comparison.json` under the same artifact root.
+
+Current ordinary [Product CI 41651629653](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651629653)
+completed **SUCCESS** on exact `0601761a`, including Security and all required
+runtime/functional/build/frontend/ReSharper/specification responsibilities. Current standalone Test
+CI **41651634871** is FAILURE with five failed / four skipped jobs on absent
+unmerged Product dependencies, not waived. Corrected-head Full Review request
+at 14:26 UTC returned **rate limited / Action not completed**, with 35 minutes
+reported until included capacity; scoped finding resolution is not full new-head
+review or Owner/CODEOWNER acceptance. #1666/#1667/#1668/#1653/#1654 and new Test
+full reviews likewise remain incomplete after normal included-capacity requests.
+No billing/settings/limits, protected refs, native activation or quality gates
+were changed. Concrete Schema, Receipt Trust and Evidence Eligibility remain
+PENDING; Option B remains selected, all incomplete gates and #1128/#1144 holds
+remain. Remote main was observed externally advancing further to
+`5131d5539f336a78f0aed36ca351c6d93c62ff30` at 14:27 UTC; none was pushed or
+incorporated by this task.
+
+Final audit, 2026-11-03 **14:39:08 UTC**: Product/Test/qualified Core/qualified
+consumer task checkouts remain clean; the source ownership checks hold and no
+unresolved review thread remains on #1681. Its one valid finding is fixed and
+resolved; full new-head/Owner/CODEOWNER acceptance remains pending, not inferred.
+Final standalone Test producer **125971370601** logs confirm the absent unmerged
+`Coglatas.Application.ProjectIde.Core` namespace and other Core types. Its five
+failed/four skipped jobs remain FAILURE; no ordinary check was waived.
+
+| Protected remote ref | Task-start SHA | Final SHA | Attribution |
+| --- | --- | --- | --- |
+| `main` | `f44faf582031812f84e07e8e291ec04725d52131` | `5131d5539f336a78f0aed36ca351c6d93c62ff30` | External updates; no task push/merge or incorporation |
+| `projectide/integration-20261031` | `158ab153551184cede99c85ce6476dd6e87b6767` | `158ab153551184cede99c85ce6476dd6e87b6767` | Unchanged |
+| `SecurityTestImplimation` | `a4bb658903a7b11d564006949fc58b42b94da575` | `a4bb658903a7b11d564006949fc58b42b94da575` | Unchanged |
+| Exact `ProjectIDEMain` / `Main` | Absent | Absent | No task creation |
+
+All task pushes remain limited to the named Product/Test/Documentation refs;
+Draft/open/no auto-merge is retained. The approved independent Pure Core slice,
+current exact receipts and concrete pending decision packet are reviewable.
+Remaining integration/owner decisions are not presented as implemented or
+accepted production capabilities. No formal schema, authenticated receipt,
+current-authorization provider, eligible Requirement Evidence, transitive
+external lowering or native activation is enabled by these results.
