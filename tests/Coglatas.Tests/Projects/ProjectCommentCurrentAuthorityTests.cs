@@ -294,4 +294,29 @@ public sealed class ProjectCommentCurrentAuthorityTests
         Assert.Empty(fixture.Invalidations.Calls);
         Assert.Empty(fixture.AuthorizationChanges.Calls);
     }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task NativeRepeatDeleteDoesNotTreatTimestampPrecisionAsIdentityDrift() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(),
+            database => ProjectServicePersistenceContext.WithAsync(async (fixture, _) =>
+            {
+                var created = await fixture.Service.AddCommentAsync(
+                    new CreateCommentRequest(CommentTargetType.Project, fixture.ProjectId, "Original"), fixture.Token);
+                Assert.True(created.IsSuccess, created.Error);
+                var comment = fixture.Db.Comments.Local.Single();
+                var unrounded = fixture.Clock.UtcNow.AddTicks(7);
+                comment.MarkDeleted(unrounded);
+                await fixture.Db.SaveChangesAsync(fixture.Token);
+                var persisted = await fixture.Db.Comments.AsNoTracking().SingleAsync(fixture.Token);
+                Assert.Equal(unrounded, comment.DeletedAt);
+                Assert.NotEqual(comment.DeletedAt, persisted.DeletedAt);
+                Assert.NotNull(persisted.DeletedAt);
+
+                var repeated = await fixture.Service.DeleteCommentAsync(comment.Id, fixture.Token);
+
+                Assert.True(repeated.IsSuccess, repeated.Error);
+                Assert.Equal(fixture.Clock.UtcNow, (await fixture.Db.Comments.AsNoTracking().SingleAsync(fixture.Token)).DeletedAt);
+                Assert.Equal(1, await fixture.Db.AuditLogs.CountAsync(row => row.Action == "CommentDeleted", fixture.Token));
+            }, connectionString: database));
 }

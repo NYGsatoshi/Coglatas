@@ -1651,7 +1651,7 @@ public sealed class ProjectService(
             if (current is null || current.TenantId != comment.TenantId ||
                 current.WorkspaceId != comment.WorkspaceId || current.AuthorUserId != comment.AuthorUserId ||
                 current.TargetType != comment.TargetType || current.TargetId != comment.TargetId ||
-                current.DeletedAt != comment.DeletedAt)
+                current.DeletedAt.HasValue != comment.DeletedAt.HasValue)
                 return false;
 
             var target = await ResolveCommentTargetAsync(current.TargetType, current.TargetId, token);
