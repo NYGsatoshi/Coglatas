@@ -196,7 +196,10 @@ public sealed class AnnouncementAudienceAccountStatusRegressionTests(ITestOutput
                 Id = Guid.NewGuid(), Email = "recipient@example.test", NormalizedEmail = "RECIPIENT@EXAMPLE.TEST",
                 DisplayName = "Synthetic recipient", Status = UserStatus.Active, SystemRole = SystemRole.NormalUser
             };
-            var workspace = new Workspace { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Workspace", Slug = "workspace" };
+            var workspace = new Workspace
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId, Name = "Workspace", Slug = "workspace", CreatedByUserId = owner.Id
+            };
             db.Users.AddRange(owner, recipient);
             db.Workspaces.Add(workspace);
             foreach (var user in new[] { owner, recipient })
