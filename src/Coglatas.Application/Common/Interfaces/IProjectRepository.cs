@@ -14,6 +14,9 @@ public sealed record TaskActivityLogReadModel(
 
 public interface IProjectRepository
 {
+    Task<bool> ReadCurrentAuthorizationAsync(Func<CancellationToken, Task<bool>> authorization,
+        CancellationToken cancellationToken = default) => authorization(cancellationToken);
+
     Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default) =>
         Task.FromResult<TaskDetailSummaryReadRow?>(null);
     Task<PagedResponse<Project>?> ListVisiblePageAsync(Guid userId, ProjectListQuery query, CancellationToken cancellationToken = default) =>
