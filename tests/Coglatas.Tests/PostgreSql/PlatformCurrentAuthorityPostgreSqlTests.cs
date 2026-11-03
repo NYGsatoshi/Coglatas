@@ -274,7 +274,7 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
             (await service.GetPlatformTenantUsageAsync(fixture.Tenant.Id)).Error,
             (await service.ListPlansAsync()).Error,
             (await service.CreatePlanAsync(request)).Error,
-            (await service.UpdatePlanAsync(plan.Id, request)).Error,
+            (await service.UpdatePlanAsync(plan.Id, request with { Name = "Unpermitted update" })).Error,
             (await service.ArchivePlanAsync(plan.Id)).Error,
             (await service.GetTenantSubscriptionAsync(fixture.Tenant.Id)).Error,
             (await service.UpdateTenantSubscriptionAsync(fixture.Tenant.Id,
