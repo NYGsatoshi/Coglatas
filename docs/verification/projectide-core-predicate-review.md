@@ -58,7 +58,7 @@ substitute their absolute roots and the probe/output paths:
 
 ```text
 dotnet build <probe>/PredicateReviewProbe.csproj -c Release -warnaserror -p:ProductRoot=<product-checkout> -p:IndependentTestRoot=<test-checkout>
-dotnet run --project <probe>/PredicateReviewProbe.csproj -c Release --no-build -p:ProductRoot=<product-checkout> -p:IndependentTestRoot=<test-checkout> -- <probe>/results.json
+dotnet <probe>/bin/Release/net10.0/PredicateReviewProbe.dll <probe>/results.json
 ```
 
 Quote any property/path containing spaces. The project links the independent
