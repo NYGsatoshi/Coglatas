@@ -120,7 +120,7 @@ public sealed class FormParentBoundaryCompatibilityTests
     }
 
     [Fact]
-    public async Task RetainedGroupAdministratorNeedsCurrentDestinationContributionForMoveAndCreation()
+    public async Task GroupAdministratorRetainsReadOnlyDestinationGrantButLosesItWithParentRead()
     {
         await using var fixture = await Fixture.CreateAsync("workspace");
         var destination = new Workspace { TenantId = fixture.TenantId, Name = "Destination", Slug = "destination", CreatedByUserId = fixture.Actor.Id };
@@ -133,18 +133,24 @@ public sealed class FormParentBoundaryCompatibilityTests
         await fixture.Db.SaveChangesAsync();
         fixture.Db.ChangeTracker.Clear();
         Assert.True(await fixture.GroupAuthorization.CanManageGroup(fixture.Actor.Id, group.Id));
-        var before = await fixture.StateAsync();
-        Assert.False((await fixture.Service.UpdateAsync(fixture.Form.Id, new UpdateFormRequest(GroupId: group.Id))).IsSuccess);
-        Assert.False((await fixture.Service.CreateAsync(new CreateFormRequest(null, group.Id, null, "Denied destination form", null))).IsSuccess);
-        Assert.Equal(before, await fixture.StateAsync());
-        Assert.Equal(1, await fixture.Db.InternalForms.CountAsync());
-        var stored = await fixture.Db.WorkspaceMembers.SingleAsync(row => row.Id == member.Id);
-        stored.Role = WorkspaceRole.Member;
-        await fixture.Db.SaveChangesAsync();
-        fixture.Db.ChangeTracker.Clear();
+        Assert.False(await fixture.WorkspaceAuthorization.CanContributeWorkspace(fixture.Actor.Id, destination.Id));
+        // Baseline native controls establish this independent management grant;
+        // ReadOnly ownership alone remains denied by the separate controls.
         Assert.True((await fixture.Service.UpdateAsync(fixture.Form.Id, new UpdateFormRequest(GroupId: group.Id))).IsSuccess);
         Assert.True((await fixture.Service.CreateAsync(new CreateFormRequest(null, group.Id, null, "Allowed destination form", null))).IsSuccess);
+        Assert.Equal(2, await fixture.Db.InternalForms.CountAsync());
         Assert.Equal(group.Id, (await fixture.Db.InternalForms.AsNoTracking().SingleAsync(row => row.Id == fixture.Form.Id)).GroupId);
+        var stored = await fixture.Db.WorkspaceMembers.SingleAsync(row => row.Id == member.Id);
+        stored.Status = MembershipStatus.Suspended;
+        await fixture.Db.SaveChangesAsync();
+        fixture.Db.ChangeTracker.Clear();
+        Assert.True(await fixture.GroupAuthorization.CanManageGroup(fixture.Actor.Id, group.Id));
+        Assert.False(await fixture.WorkspaceAuthorization.CanViewWorkspace(fixture.Actor.Id, destination.Id));
+        var before = await fixture.StateAsync();
+        Assert.False((await fixture.Service.UpdateAsync(fixture.Form.Id, new UpdateFormRequest(Title: "Denied after suspension"))).IsSuccess);
+        Assert.False((await fixture.Service.CreateAsync(new CreateFormRequest(null, group.Id, null, "Denied destination form", null))).IsSuccess);
+        Assert.Equal(before, await fixture.StateAsync());
+        Assert.Equal(2, await fixture.Db.InternalForms.CountAsync());
     }
 
     [Fact]

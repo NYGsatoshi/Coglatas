@@ -23,7 +23,7 @@ public sealed class FormAuthorizationService(
     {
         var parentWorkspaceId = await ResolveWorkspaceIdAsync(workspaceId, groupId, projectId, cancellationToken);
         return parentWorkspaceId.HasValue &&
-            await workspaces.CanContributeWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
+            await workspaces.CanViewWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
             await _scopeAuthorization.CanManageScopeAsync(userId, workspaceId, groupId, projectId, cancellationToken);
     }
 
@@ -65,9 +65,19 @@ public sealed class FormAuthorizationService(
     public async Task<bool> CanModifyForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
     {
         var parentWorkspaceId = await ResolveWorkspaceIdAsync(form.WorkspaceId, form.GroupId, form.ProjectId, cancellationToken);
-        return parentWorkspaceId.HasValue &&
-            await workspaces.CanContributeWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
-            await CanManageForm(userId, form, cancellationToken);
+        if (!parentWorkspaceId.HasValue ||
+            !await workspaces.CanViewWorkspace(userId, parentWorkspaceId.Value, cancellationToken))
+        {
+            return false;
+        }
+
+        // Preserve independent scope-management grants; contribution is required
+        // when ownership alone supplies the mutation authority.
+        return await _scopeAuthorization.CanManageScopeAsync(
+                userId, form.WorkspaceId, form.GroupId, form.ProjectId, cancellationToken) ||
+            (form.CreatedByUserId == userId &&
+             await workspaces.CanContributeWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
+             await CanAccessScope(userId, form, cancellationToken));
     }
 
     public Task<bool> CanAccessScope(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
