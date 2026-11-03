@@ -28,13 +28,13 @@ public sealed class ProjectGovernanceConfiguration : IEntityTypeConfiguration<Pr
         {
             table.HasCheckConstraint(
                 "CK_projects_visibility",
-                "\"Visibility\" IS NULL OR \"Visibility\" IN ('WorkspaceVisible', 'MembersOnly', 'Restricted')");
+                "\"Visibility\" IS NULL OR \"Visibility\"::text IN ('WorkspaceVisible', 'MembersOnly', 'Restricted')");
             table.HasCheckConstraint(
                 "CK_projects_activation_state",
-                "\"ActivationState\" IN ('LegacyUnknown', 'NeverActivated', 'Activated')");
+                "\"ActivationState\"::text IN ('LegacyUnknown', 'NeverActivated', 'Activated')");
             table.HasCheckConstraint(
                 "CK_projects_activation_provenance",
-                "(\"ActivationState\" = 'Activated' AND \"ActivatedAtUtc\" IS NOT NULL AND \"ActivationVersion\" IS NOT NULL AND \"ActivationVersion\" > 0) OR (\"ActivationState\" IN ('LegacyUnknown', 'NeverActivated') AND \"ActivatedAtUtc\" IS NULL AND \"ActivationVersion\" IS NULL)");
+                "(\"ActivationState\" = 'Activated' AND \"ActivatedAtUtc\" IS NOT NULL AND \"ActivationVersion\" IS NOT NULL AND \"ActivationVersion\" > 0) OR (\"ActivationState\"::text IN ('LegacyUnknown', 'NeverActivated') AND \"ActivatedAtUtc\" IS NULL AND \"ActivationVersion\" IS NULL)");
         });
     }
 }

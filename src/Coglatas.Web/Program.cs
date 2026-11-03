@@ -109,7 +109,8 @@ var bootstrapAdminEmail =
     builder.Configuration["COGLATAS_BOOTSTRAP_ADMIN_EMAIL"] ??
     builder.Configuration["BootstrapAdmin:Email"];
 if (tenancyOptions.SeedOnStartup ||
-    tenancyOptions.AppMode == AppMode.OnPremSingleTenant ||
+    (app.Environment.IsDevelopment() && tenancyOptions.AppMode == AppMode.OnPremSingleTenant &&
+        builder.Configuration.GetValue<bool>("LocalAdmin:SeedOnStartup")) ||
     builder.Configuration.GetValue<bool>("UiShell:SeedOnStartup") ||
     browserSmokeSeedEnabled ||
     demoDatasetSeedEnabled ||
