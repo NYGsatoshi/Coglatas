@@ -254,6 +254,7 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
     [Trait("Category", "PostgreSQLIntegration")]
     public Task PersistedRoleRevocationDeniesEveryPlatformAdministrationEntryPoint() => WithFixtureAsync(async fixture =>
     {
+        fixture.CurrentTenant.SetTenant(fixture.Tenant.Id, fixture.Tenant.Slug);
         var plan = new Plan { Name = "Existing synthetic plan", Status = PlanStatus.Active };
         fixture.Db.Plans.Add(plan);
         await fixture.Db.SaveChangesAsync();
@@ -319,6 +320,7 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
     [Trait("Category", "PostgreSQLIntegration")]
     public Task PersistedPlatformAdministratorRetainsPlanSubscriptionAndTenantOverride() => WithFixtureAsync(async fixture =>
     {
+        fixture.CurrentTenant.SetTenant(fixture.Tenant.Id, fixture.Tenant.Slug);
         await fixture.WarmSessionAsync();
         var service = fixture.Administration;
         Assert.True((await service.GetPlatformOverviewAsync()).IsSuccess);
