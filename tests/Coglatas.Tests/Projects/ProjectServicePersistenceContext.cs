@@ -15,8 +15,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Coglatas.Tests.Projects;
 
 // Real Application authorization, repositories, audit and UnitOfWork over
-// InMemory. Publisher records represent staging calls, never delivery. These
-// tests do not establish PostgreSQL constraints, locks or Outbox atomicity.
+// InMemory or the explicitly selected native database. Publisher records
+// represent staging calls, never delivery; these do not qualify deployed RLS.
 internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
 {
     private readonly DbContextOptions<AppDbContext> _options;
@@ -66,13 +66,14 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
             new DbAuditLogger(db, Clock, Actor, tenant), Invalidations, AuthorizationChanges, unitOfWork, unitOfWork);
     }
 
-    public static async Task<ProjectServicePersistenceContext> CreateAsync(bool grouped = false)
+    public static async Task<ProjectServicePersistenceContext> CreateAsync(bool grouped = false, string? connectionString = null)
     {
         var tenant = new CurrentTenantService();
         var fault = new SaveFault();
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase($"project-service-persistence-{Guid.NewGuid():N}")
-            .AddInterceptors(new ProjectGovernanceSaveChangesInterceptor(), fault).Options;
+        var builder = new DbContextOptionsBuilder<AppDbContext>();
+        if (connectionString is null) builder.UseInMemoryDatabase($"project-service-persistence-{Guid.NewGuid():N}");
+        else builder.UseNpgsql(connectionString);
+        var options = builder.AddInterceptors(new ProjectGovernanceSaveChangesInterceptor(), fault).Options;
         var db = new AppDbContext(options, tenant);
         var ownerTenant = new Tenant { Name = "Synthetic tenant", DisplayName = "Synthetic tenant", Slug = "project-service" };
         tenant.SetPlatformScope();
@@ -124,6 +125,15 @@ internal sealed class ProjectServicePersistenceContext : IAsyncDisposable
         });
         await Db.SaveChangesAsync();
         Db.ChangeTracker.Clear();
+    }
+
+    public AppDbContext NewContext() => new(_options, Tenant);
+
+    public static async Task WithAsync(Func<ProjectServicePersistenceContext, CancellationTokenSource, Task> scenario,
+        bool grouped = false, string? connectionString = null)
+    {
+        await using var fixture = await CreateAsync(grouped, connectionString);
+        await scenario(fixture, fixture._cancellation);
     }
 
     public async Task<Result> MutateMembershipAsync(string operation, Guid? projectId = null, Guid? userId = null)
