@@ -530,7 +530,7 @@ public sealed class AnnouncementAudienceServiceContractTests
     {
         using var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         fixture.Dependencies.Expect("tenants.GetCurrentUserAsync", Task.FromCanceled<User?>(cancellation.Token), [fixture.ActorId, cancellation.Token]);
 
         var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Service.ListAsync(cancellation.Token));

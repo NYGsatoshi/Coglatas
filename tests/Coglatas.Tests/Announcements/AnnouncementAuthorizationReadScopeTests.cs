@@ -23,14 +23,14 @@ public sealed class AnnouncementAuthorizationReadScopeTests
     {
         var actor = new User { DisplayName = "Persisted", SystemRole = SystemRole.Teacher };
         db.Users.Add(actor);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellation.Token);
         actor.DisplayName = "Caller pending";
         db.ChangeTracker.DetectChanges();
         await using (var writer = new AppDbContext(options, new CurrentTenantService()))
         {
-            var current = await writer.Users.SingleAsync();
+            var current = await writer.Users.SingleAsync(cancellation.Token);
             current.SystemRole = SystemRole.NormalUser;
-            await writer.SaveChangesAsync();
+            await writer.SaveChangesAsync(cancellation.Token);
         }
 
         db.ChangeTracker.QueryTrackingBehavior = previousTracking;
@@ -57,7 +57,7 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         Assert.Equal("Caller pending", actor.DisplayName);
         Assert.Equal(SystemRole.Teacher, actor.SystemRole);
         Assert.Same(actor, Assert.Single(db.ChangeTracker.Entries<User>()).Entity);
-        Assert.Equal("Persisted", (await db.Users.AsNoTracking().SingleAsync()).DisplayName);
+        Assert.Equal("Persisted", (await db.Users.AsNoTracking().SingleAsync(cancellation.Token)).DisplayName);
     });
 
     [Theory]
@@ -75,7 +75,7 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         {
             Assert.Equal(QueryTrackingBehavior.NoTracking, db.ChangeTracker.QueryTrackingBehavior);
             Assert.Equal(cancellation.Token, token);
-            cancellation.Cancel();
+            await cancellation.CancelAsync();
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return true;
         }, cancellation.Token);
@@ -86,7 +86,7 @@ public sealed class AnnouncementAuthorizationReadScopeTests
         Assert.Equal(previousTracking, db.ChangeTracker.QueryTrackingBehavior);
         Assert.Equal(EntityState.Added, db.Entry(pending).State);
         Assert.Same(pending, Assert.Single(db.ChangeTracker.Entries<User>()).Entity);
-        Assert.Empty(await db.Users.AsNoTracking().ToListAsync());
+        Assert.Empty(await db.Users.AsNoTracking().ToListAsync(CancellationToken.None));
     });
 
     [PostgreSqlFact]
