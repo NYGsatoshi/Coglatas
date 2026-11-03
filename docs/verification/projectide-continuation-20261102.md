@@ -349,3 +349,112 @@ force push, Ready/Close, auto-merge, production/API/DB/resource acquisition,
 SEC-ARCH/RLS/Enforce activation or gate relaxation is authorized or performed.
 #1128 stays SUSPENDED / NOT_EVALUATED. Windows remains Pure ViewModel preparation;
 actual Avalonia/native keyboard/IME/activation is HOLD under #1144.
+
+
+## Final Evidence / Resource foundation qualification — 2026-11-03
+
+Separate Drafts: Manifest decision #1666; Product #1667; independent Test #1668.
+The task selected Option B architecture. Concrete Manifest/Receipt schemas,
+reference-to-entry mapping, canonical domains/migration and authenticated receipt/
+eligibility/current-authority semantics remain unapproved. The proposal is
+`projectide-manifest-option-b.md`; applicable A-R2 authority remains unchanged.
+
+Implemented: caller-invoked in-memory Requirement evidence consistency and
+Source-backed typed Tenant Resource reference boundary validation. Reuses existing
+identities, target/input/result/provenance and independent outcome axes. No new wire
+schema, actual acquisition, satisfaction, authorization, allocation or reservation.
+Invalid/missing/partial/unsupported/ambiguous/budget/cancellation claims remain
+explicit. Missing, unsupported and Resource target bodies remain unavailable;
+absent entity/relation Source origins are rejected. Existing evidence/Resource/
+local self-manifest/external IR incomplete gates are unchanged.
+
+| Candidate | Exact HEAD | Tree | Review base / direct parent |
+| --- | --- | --- | --- |
+| Product #1667 | `585727a9b480e61d08cbeeb3d996904b5f1f4b5e` | `6e8f2f908cdba5bc25d2d436af6316b75a19e925` | base `48ff196985ddbf90db82386c5413c8f659ea64a7`; parent `d0327c9b0cd1e2ac9d8c703ecf1c2a761ed4f22f` |
+| Test #1668 | `6edddea75a8dfd0ecaca8559827ffb92ba06a365` | `93b9ec8aed73e6577dfcfb0be95b644bb2803e4d` | base `8f701e8db3097c74c9a63c30669fbfe36be7bb48`; parent `1b46ba6426e695956ff2406d5b0116a2c7f3cdf7` |
+| Core combined | `f038d8216346557b0b9d4d6abbfdce082ddfc333` | `ed9cefbbba01495c31dda44637169e39cfaa2c3f` | canonical isolated composition |
+| All-pair consumers | `19b5a8f99ce8c1432389c94af3c29fa428b296da` | `db02e99f6965cacac303f0a5f2449d9f85322a8b` | exact Inspector #1653 `d77b9814f96ba593b98b8842cf1d1355cf310885` / #1654 `930bb8866cf2b8c3c08a414ffc2aa782072ba443` |
+
+Windows local and Ubuntu Core supplemental [41562716515/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716515):
+**804 Core + 12 Architecture + 17 composition/content-DAG controls**, zero failures/
+skips; Release warnings-as-errors build has zero warnings/errors. All previous
+753 Core responsibilities remain; all 51 new evidence/Resource cases execute.
+Discovery, TRX definitions/entries/results and complete identities/outcomes agree.
+
+Windows local and Ubuntu consumer supplemental [41562716656/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716656):
+**842 Core/fixture/Pure ViewModel + 12 Architecture + 278 Vitest + 70 Node + 44
+actual desktop/mobile browser cases + 43 controls**, zero failures/skips/pending/
+todo. TypeScript, Angular production build, architecture/route controls and all
+existing regression responsibilities pass. Each browser producer owns an unused
+port/server, binds an explicit static root and verifies the served index hash;
+zero retries and forbid-only. No default-port reuse or duplicate browser producer.
+
+Exact fixture bytes reproduce SHA-256
+`bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a` on both hosts and match the pinned Git blob.
+All input/base/parent/combined identities, Source ownership and Test-owned equality
+are checked; exact candidate checkout is clean before/after, including untracked
+files. Test Runtime Source is not copied from Product. The independent lineage
+retains the fixed SecurityTestImplimation ancestor. Windows reused dependencies
+only after exact lock-byte equality with its successful npm-ci install; local and
+hosted dependency provenance remain separate. SDK 10.0.403 on both; Node 24.22.1
+Windows / 24.22.2 Ubuntu. Raw verifier/baseline source hashes differ by CRLF/LF;
+each matches its host bytes and the identical exact Git blob after newline
+normalization. No raw cross-host hash equality is invented.
+
+Downloaded producer archives match GitHub digests; every declared file hash is
+independently checked, separately per host:
+
+- Core artifact **13198605632**, ZIP SHA-256
+  `0f30e46c9fc90806d9bddda59573a25976fcf8a457fb4984b55f4410250e14ff`.
+- Consumer artifact **13198182364**, ZIP SHA-256
+  `bbe39140527c3970e3fafffe183019f2e645c9fcae2f19adae5702630b955268`.
+
+Before evidence: initial new-API tests against unchanged `48ff1969` fail at build,
+not behavioral execution. First implementation test run retained 41 PASS / 2
+fixture-assumption FAIL; unknown receipt fields are correctly rejected by the
+existing parser. An intermediate target fixture also attempted invalid non-Project
+roots; those failures remain retained and the fixtures now use declarations.
+Actual target-body regression: Product `137cd1586df431f849bf772c4a89e2bc5b148545`
+with Test `1b46ba64`, combined `45a6e5839d472b15032aab5ef44c66d2217e2af4`,
+tree `e346a2ae70d5d726d76cc1963f2b3fe4af0e08f5`: **3 FAIL / 47 PASS / 0 skip**;
+TRX SHA-256 `4ce682b5f7d0c591c37aa2961ef05ed4c2075d16df31a3671f438873f7ca6093`.
+Relation-origin regression: Product `d0327c9b` with Test `6edddea7`, combined
+`9db2ccdee06e7f70271352aed4d4e82fae02eeb2`, tree
+`ace05f749dcae09472771e3d85a039bed7f4be0b`: **1 FAIL / 17 PASS / 0 skip**;
+TRX SHA-256 `9cef1ab8b4283bc82806b95312707ecd231ccba39612ea53428f2a04bf11a25a`.
+Those four behavioral regressions pass in the final full inventory. Earlier
+successful/cancelled/failed candidates certify only their own pins.
+
+Ordinary PR CI remains independent: Product [41562708845](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562708845)
+was **IN_PROGRESS / PENDING** when this checkpoint was written;
+Test [41562716565](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716565)
+is **COMPLETED / FAILURE**. Test producer logs report
+absent unmerged Product namespaces/types with dependent failures/skips; they are
+not waived or replaced by supplemental success. Current exact-HEAD normal CI must
+be reread for later review/acceptance. No Required Check changes.
+
+Phase A inherited heads/bases remain the task pins. #1657/#1653 ordinary Product
+CI succeeded; #1658/#1654 ordinary Test CI failed on absent Product dependencies,
+including Inspector frontend TS2307 modules. Reacquired inherited ZIP digests match
+their historical receipts. No unresolved inline thread or APPROVED review was
+returned. Exact Product re-review retries returned CodeRabbit **rate limited /
+Action not completed**, not full review or approval. CLI browser login was stopped
+without authentication; no billing/limit change. New-head source/CODEOWNER/Owner
+acceptance remains pending. Observed inherited Inspector Test bytecode caches are
+retained; acceptance uses separate verified clean candidate worktrees.
+
+Remaining: concrete Manifest/Receipt schema and migration decision; local
+self-manifest reference binding; authenticated actual evidence/Resource/external
+snapshot materialization, target-specific eligibility/current authorization,
+coverage/freshness and offline bundle mapping; per-dependency input/manifest and
+supported transitive IR lowering. Content-DAG prototypes are not a semantic closure
+implementation. `external-closure-not-lowered` remains; no incomplete executable
+IR or Complete Pass. Consumer results are bounded synthetic regression parity,
+not new external navigation or actual Avalonia/native UI/IME/a11y/activation
+acceptance. #1144 HOLD; #1128 SUSPENDED / NOT_EVALUATED.
+
+Only this task's feature/test/docs refs are pushed. No Main/ProjectIDEMain/formal
+ProjectIDE integration/SecurityTestImplimation push/merge, force push, Ready/Close,
+auto-merge, production/API/DB/Job/Resource action, RLS/SEC-ARCH activation, release
+approval or gate relaxation. External Main advances are recorded as external,
+never attributed to these changes. Final ref/PR audit is linked from the PR receipts.
