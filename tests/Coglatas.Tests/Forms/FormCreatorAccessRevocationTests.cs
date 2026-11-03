@@ -44,7 +44,7 @@ public sealed class FormCreatorAccessRevocationTests
         var workspaceAuthorization = new WorkspaceAuthorizationService(users, workspaces);
         var groupAuthorization = new GroupAuthorizationService(groups, workspaces, workspaceAuthorization);
         var projectAuthorization = new ProjectAuthorizationService(projects, workspaceAuthorization, groupAuthorization, groups);
-        var authorization = new FormAuthorizationService(users, workspaceAuthorization, groupAuthorization, projectAuthorization);
+        var authorization = new FormAuthorizationService(users, workspaceAuthorization, groupAuthorization, projectAuthorization, groups, projects);
         var service = new FormService(new FormRepository(db), workspaces, groups, projects, authorization,
             actor, clock, new DbAuditLogger(db, clock, actor, tenant), new NoNotifications(), new EfUnitOfWork(db));
 

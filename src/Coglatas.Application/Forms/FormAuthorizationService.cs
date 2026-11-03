@@ -12,14 +12,19 @@ public sealed class FormAuthorizationService(
     IUserRepository users,
     IWorkspaceAuthorizationService workspaces,
     IGroupAuthorizationService groups,
-    IProjectAuthorizationService projects) : IFormAuthorizationService
+    IProjectAuthorizationService projects,
+    IGroupRepository groupRepository,
+    IProjectRepository projectRepository) : IFormAuthorizationService
 {
     private readonly ScopeAuthorizationEvaluator _scopeAuthorization =
         new(users, workspaces, groups, projects);
 
-    public Task<bool> CanCreateForm(Guid userId, Guid? workspaceId, Guid? groupId, Guid? projectId, CancellationToken cancellationToken = default)
+    public async Task<bool> CanCreateForm(Guid userId, Guid? workspaceId, Guid? groupId, Guid? projectId, CancellationToken cancellationToken = default)
     {
-        return _scopeAuthorization.CanManageScopeAsync(userId, workspaceId, groupId, projectId, cancellationToken);
+        var parentWorkspaceId = await ResolveWorkspaceIdAsync(workspaceId, groupId, projectId, cancellationToken);
+        return parentWorkspaceId.HasValue &&
+            await workspaces.CanContributeWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
+            await _scopeAuthorization.CanManageScopeAsync(userId, workspaceId, groupId, projectId, cancellationToken);
     }
 
     public async Task<bool> CanViewForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
@@ -31,13 +36,7 @@ public sealed class FormAuthorizationService(
 
         if (form.Status == FormStatus.Draft)
         {
-            return form.CreatedByUserId == userId ||
-                await _scopeAuthorization.CanManageScopeAsync(
-                    userId,
-                    form.WorkspaceId,
-                    form.GroupId,
-                    form.ProjectId,
-                    cancellationToken);
+            return await CanManageForm(userId, form, cancellationToken);
         }
 
         return await _scopeAuthorization.CanViewScopeAsync(
@@ -48,16 +47,32 @@ public sealed class FormAuthorizationService(
             cancellationToken);
     }
 
-    public Task<bool> CanManageForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
+    public async Task<bool> CanManageForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
     {
-        return form.CreatedByUserId == userId
-            ? Task.FromResult(true)
-            : _scopeAuthorization.CanManageScopeAsync(
-                userId,
-                form.WorkspaceId,
-                form.GroupId,
-                form.ProjectId,
-                cancellationToken);
+        var parentWorkspaceId = await ResolveWorkspaceIdAsync(form.WorkspaceId, form.GroupId, form.ProjectId, cancellationToken);
+        if (!parentWorkspaceId.HasValue ||
+            !await workspaces.CanViewWorkspace(userId, parentWorkspaceId.Value, cancellationToken))
+        {
+            return false;
+        }
+
+        if (form.CreatedByUserId == userId && await CanAccessScope(userId, form, cancellationToken))
+        {
+            return true;
+        }
+
+        // Scope management intentionally retains explicit archived-Project manager
+        // report access even when ordinary Project visibility is unavailable.
+        return await _scopeAuthorization.CanManageScopeAsync(
+            userId, form.WorkspaceId, form.GroupId, form.ProjectId, cancellationToken);
+    }
+
+    public async Task<bool> CanModifyForm(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
+    {
+        var parentWorkspaceId = await ResolveWorkspaceIdAsync(form.WorkspaceId, form.GroupId, form.ProjectId, cancellationToken);
+        return parentWorkspaceId.HasValue &&
+            await workspaces.CanContributeWorkspace(userId, parentWorkspaceId.Value, cancellationToken) &&
+            await CanManageForm(userId, form, cancellationToken);
     }
 
     public Task<bool> CanAccessScope(Guid userId, InternalForm form, CancellationToken cancellationToken = default)
@@ -68,5 +83,25 @@ public sealed class FormAuthorizationService(
             form.GroupId,
             form.ProjectId,
             cancellationToken);
+    }
+
+    private async Task<Guid?> ResolveWorkspaceIdAsync(Guid? workspaceId, Guid? groupId, Guid? projectId, CancellationToken cancellationToken)
+    {
+        if (!ScopedResourceValidation.HasExactlyOneScope(workspaceId, groupId, projectId))
+        {
+            return null;
+        }
+
+        if (workspaceId.HasValue)
+        {
+            return workspaceId;
+        }
+
+        if (groupId.HasValue)
+        {
+            return (await groupRepository.GetByIdAsync(groupId.Value, cancellationToken))?.WorkspaceId;
+        }
+
+        return (await projectRepository.GetProjectAsync(projectId!.Value, cancellationToken))?.WorkspaceId;
     }
 }

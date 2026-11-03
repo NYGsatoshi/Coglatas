@@ -174,7 +174,7 @@ public sealed class FormServiceTests
             WorkspaceAuthorization = new WorkspaceAuthorizationService(Users, Workspaces);
             GroupAuthorization = new GroupAuthorizationService(Groups, Workspaces, WorkspaceAuthorization);
             ProjectAuthorization = new ProjectAuthorizationService(Projects, WorkspaceAuthorization, GroupAuthorization, Groups);
-            FormAuthorization = new FormAuthorizationService(Users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization);
+            FormAuthorization = new FormAuthorizationService(Users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization, Groups, Projects);
             Service = new FormService(
                 Forms,
                 Workspaces,
