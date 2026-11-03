@@ -132,13 +132,13 @@ public sealed class ProjectCommentParentAccessRegressionTests(ITestOutputHelper 
         var audits = await fixture.Db.AuditLogs.AsNoTracking().ToListAsync(fixture.Token);
         string[] expectedActions = ["CommentDeleted", "CommentEdited"];
         Assert.Equal(expectedActions, audits.Select(audit => audit.Action).Order().ToArray());
-        Assert.All(audits, audit =>
+        foreach (var audit in audits)
         {
             Assert.Equal(fixture.ActorId, audit.ActorUserId);
             Assert.Equal(fixture.TenantId, audit.TenantId);
             Assert.Equal("Comment", audit.EntityType);
             Assert.Equal(comment.Id, audit.EntityId);
-        });
+        }
         Assert.Empty(fixture.Invalidations.Calls);
         Assert.Empty(fixture.AuthorizationChanges.Calls);
     }
