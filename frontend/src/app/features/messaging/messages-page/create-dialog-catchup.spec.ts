@@ -210,6 +210,10 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
   for (const scope of ['actor', 'tenant', 'workspace'] as const) {
     it(`closes on actual ${scope} replacement without retaining the old query`, async () => {
       const context = await setup();
+      const component = context.fixture.componentInstance;
+      component.onRecipientQueryChange('Old scope query');
+      const oldSearch = context.http.expectOne('/api/conversations/recipients?query=Old%20scope%20query');
+      expect(component.recipientQuery()).toBe('Old scope query');
       if (scope === 'workspace') {
         TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'replacement', label: 'Replacement' });
       } else if (scope === 'actor') {
@@ -221,7 +225,10 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
       }
       context.facade.loadConversationListPage();
       context.http.expectOne('/api/conversations').flush({ items: [] }); context.fixture.detectChanges();
-      expect(context.dialog()).toBe(false); expect(context.search()).toBe(false); context.finish();
+      expect(context.dialog()).toBe(false); expect(context.search()).toBe(false);
+      expect(oldSearch.cancelled).toBe(true);
+      expect(component.recipientQuery()).toBe('');
+      context.finish();
     });
   }
 
@@ -239,6 +246,25 @@ describe('Direct-dialog lifecycle during current-scope inbox catch-up', () => {
     expect(context.dialog()).toBe(false); expect(context.fixture.componentInstance.canCreateConversation()).toBe(false);
     context.http.expectNone((request) => request.method === 'POST'); context.finish();
   });
+
+  for (const renderWhilePending of [true, false]) {
+    it('closes after a settled wrong-view projection (render while pending: ' + renderWhilePending + ')', async () => {
+      const context = await setup();
+      const pending = context.catchUp();
+      if (renderWhilePending) {
+        context.fixture.detectChanges();
+        expect(context.dialog()).toBe(true);
+      }
+      context.http.expectOne('/api/conversations').flush({
+        view: 'Later', counts: { all: 0, unread: 0, mentions: 0, later: 0 }, items: [],
+      });
+      await pending;
+      context.fixture.detectChanges();
+      const settled = { inboxStatus: context.facade.inbox().status, dialog: context.dialog() };
+      context.finish();
+      expect(settled).toEqual({ inboxStatus: 'error', dialog: false });
+    });
+  }
 
   it('retains local Group title but remounts protected member choices only after fresh success', async () => {
     const context = await setup('workspace-a'); const component = context.fixture.componentInstance;
