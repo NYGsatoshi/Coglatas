@@ -132,15 +132,18 @@ public sealed class CompilerMaterializationBindingTests
 
     private sealed class ObservedSupply(Action beforeFirst, CompilerMaterializedSnapshot body, int count = 2) : IEnumerable<CompilerMaterializedSnapshot?>
     {
+        private readonly Action _beforeFirst = beforeFirst;
+        private readonly CompilerMaterializedSnapshot _body = body;
+        private readonly int _count = count;
         public int MoveNextCalls { get; private set; }
         public bool Disposed { get; private set; }
         public IEnumerator<CompilerMaterializedSnapshot?> GetEnumerator() => new Enumerator(this);
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         private sealed class Enumerator(ObservedSupply owner) : IEnumerator<CompilerMaterializedSnapshot?>
         {
-            public CompilerMaterializedSnapshot Current => body;
+            public CompilerMaterializedSnapshot Current => owner._body;
             object IEnumerator.Current => Current;
-            public bool MoveNext() { owner.MoveNextCalls++; if (owner.MoveNextCalls == 1) beforeFirst(); return owner.MoveNextCalls <= count; }
+            public bool MoveNext() { owner.MoveNextCalls++; if (owner.MoveNextCalls == 1) owner._beforeFirst(); return owner.MoveNextCalls <= owner._count; }
             public void Reset() => throw new NotSupportedException();
             public void Dispose() => owner.Disposed = true;
         }
