@@ -4,11 +4,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 from pathlib import Path
 import subprocess
 import sys
 sys.dont_write_bytecode = True
 import xml.etree.ElementTree as ET
+import unittest
 
 from projectide_slice2_isolated import changes, git, run, sha
 
@@ -77,7 +79,7 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=selected_product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, testTree=git(repository, "rev-parse", test + "^{tree}"),
-                 reviewProductBase="48ff196985ddbf90db82386c5413c8f659ea64a7", reviewTestBase="8f701e8db3097c74c9a63c30669fbfe36be7bb48", combinedCommit=git(target, "rev-parse", "HEAD"),
+                 reviewProductBase="585727a9b480e61d08cbeeb3d996904b5f1f4b5e", reviewTestBase="6edddea75a8dfd0ecaca8559827ffb92ba06a365", combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
@@ -99,6 +101,22 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
     output = receipt.parent
     try:
         assert_candidate(target, value)
+        value.update(host=platform.platform(), python=sys.version, cleanBefore=True,
+                     productParents=git(target, "show", "-s", "--format=%P", value['productHead']).split(),
+                     testParents=git(target, "show", "-s", "--format=%P", value['testHead']).split())
+        source_files = git(target, "ls-tree", "-r", "--name-only", value['productHead'], "src/Coglatas.Domain/ProjectIde", "src/Coglatas.Application/ProjectIde").splitlines()
+        value['runtimeSource'] = {name: dict(blob=git(target, "rev-parse", value['productHead'] + ':' + name),
+                                           sha256=hashlib.sha256((target / name).read_bytes()).hexdigest()) for name in source_files}
+        suite = unittest.defaultTestLoader.discover(str(target / 'tests/ci'), pattern='test_projectide*isolated.py')
+        def identities(tests):
+            return sorted(name for test in tests for name in (identities(test) if isinstance(test, unittest.TestSuite) else [test.id()]))
+        control_names = identities(suite)
+        with (output / 'controls.log').open('w', encoding='utf-8') as stream:
+            controls = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+        if not control_names or len(set(control_names)) != len(control_names) or controls.testsRun != len(control_names) or not controls.wasSuccessful() or controls.skipped:
+            raise ValueError('Empty, failed or skipped independent controls')
+        (output / 'controls-inventory.json').write_text(json.dumps(control_names, indent=2) + '\n', encoding='utf-8')
+        value['controls'] = dict(total=controls.testsRun, failed=0, skipped=0)
         value["sdk"] = run(["dotnet", "--version"], target)
         expected_sdk = json.loads((target / "global.json").read_text())["sdk"]["version"]
         if value["sdk"] != expected_sdk:
@@ -147,11 +165,14 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
                 for family in ("RequirementEvidenceValidationTests", "ResourceReferenceValidationTests"):
                     if not any(family in item for item in names):
                         raise ValueError("Evidence/Resource tests did not run: " + family)
+            if name == "projectIde" and (target / 'tests/Coglatas.Tests/ProjectIde/CompilerMaterializationBindingTests.cs').exists() and not any('CompilerMaterializationBindingTests' in item for item in names):
+                raise ValueError('Materialization tests did not run')
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
                                    for path in sorted(output.iterdir()) if path.is_file() and path != receipt}
         assert_candidate(target, value)
+        value['cleanAfter'] = True
     finally:
         receipt.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 

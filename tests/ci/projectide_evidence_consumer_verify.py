@@ -37,7 +37,7 @@ def verify(root: Path, receipt: Path):
     producer = evidence / 'composer-source' / 'projectide_web_verify.py'
     spec = importlib.util.spec_from_file_location('pinned_consumer_inventory', producer)
     parser = importlib.util.module_from_spec(spec); spec.loader.exec_module(parser)
-    value.update(os=platform.platform(), commands=[], status='VERIFYING', baselinePins=baseline['pins'],
+    value.update(os=platform.platform(), python=sys.version, commands=[], status='VERIFYING', baselinePins=baseline['pins'],
                  verifierSha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                  baselineSha256=hashlib.sha256(baseline_path.read_bytes()).hexdigest())
     environment = os.environ.copy()
@@ -72,7 +72,7 @@ def verify(root: Path, receipt: Path):
                 raise ValueError('Discovery/execution inventory mismatch: ' + name)
             value[name + 'Tests'] = actual
             if name == 'projectide':
-                for family in ['RequirementEvidenceValidationTests', 'ResourceReferenceValidationTests', 'CompilerValueReferenceTests', 'SyntheticWorkbench']:
+                for family in ['RequirementEvidenceValidationTests', 'ResourceReferenceValidationTests', 'CompilerValueReferenceTests', 'CompilerMaterializationBindingTests', 'SyntheticWorkbench']:
                     if not any(family in test for test in actual):
                         raise ValueError('Missing required test family: ' + family)
         frontend = root / 'frontend'
