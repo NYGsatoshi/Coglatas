@@ -250,6 +250,101 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
         Assert.Equal(auditCount, await after.AuditLogs.CountAsync());
     });
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task PersistedRoleRevocationDeniesEveryPlatformAdministrationEntryPoint() => WithFixtureAsync(async fixture =>
+    {
+        var plan = new Plan { Name = "Existing synthetic plan", Status = PlanStatus.Active };
+        fixture.Db.Plans.Add(plan);
+        await fixture.Db.SaveChangesAsync();
+        await fixture.WarmSessionAsync();
+        await using (var demoter = fixture.OpenContext())
+        {
+            (await demoter.Users.SingleAsync(item => item.Id == fixture.User.Id)).SystemRole = SystemRole.User;
+            await demoter.SaveChangesAsync();
+        }
+
+        var service = fixture.Administration;
+        var request = new UpsertPlanRequest("Unpermitted plan", null, null, null, null, null, null, null, null, null);
+        var errors = new[]
+        {
+            (await service.GetPlatformOverviewAsync()).Error,
+            (await service.GetPlatformUsageAsync()).Error,
+            (await service.GetPlatformTenantUsageAsync(fixture.Tenant.Id)).Error,
+            (await service.ListPlansAsync()).Error,
+            (await service.CreatePlanAsync(request)).Error,
+            (await service.UpdatePlanAsync(plan.Id, request)).Error,
+            (await service.ArchivePlanAsync(plan.Id)).Error,
+            (await service.GetTenantSubscriptionAsync(fixture.Tenant.Id)).Error,
+            (await service.UpdateTenantSubscriptionAsync(fixture.Tenant.Id,
+                new UpdateSubscriptionRequest(plan.Id, SubscriptionStatus.Active, null, null, null))).Error
+        };
+
+        Assert.All(errors, error => Assert.Equal("PlatformAdmin access is required.", error));
+        Assert.Equal(SystemRole.PlatformAdmin, fixture.CurrentUser.SystemRole);
+        Assert.Equal(SystemRole.PlatformAdmin, fixture.TrackedUser.SystemRole);
+        Assert.Equal(0, fixture.Audit.Calls);
+        await using var read = fixture.OpenContext();
+        var persistedPlan = Assert.Single(await read.Plans.AsNoTracking().ToListAsync());
+        Assert.Equal("Existing synthetic plan", persistedPlan.Name);
+        Assert.Equal(PlanStatus.Active, persistedPlan.Status);
+        Assert.Empty(await read.Subscriptions.ToListAsync());
+        Assert.Empty(await read.AuditLogs.ToListAsync());
+    });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task DemotedPlatformPrincipalCannotReplaceCurrentTenantManagerAuthority() => WithFixtureAsync(async fixture =>
+    {
+        fixture.CurrentTenant.SetTenant(fixture.Tenant.Id, fixture.Tenant.Slug);
+        await fixture.WarmSessionAsync();
+        await using (var demoter = fixture.OpenContext())
+        {
+            (await demoter.Users.SingleAsync(item => item.Id == fixture.User.Id)).SystemRole = SystemRole.User;
+            await demoter.SaveChangesAsync();
+        }
+
+        var service = fixture.Administration;
+        Assert.False((await service.GetCurrentTenantOverviewAsync()).IsSuccess);
+        Assert.False((await service.GetCurrentTenantSettingsAsync()).IsSuccess);
+        Assert.False((await service.GetCurrentTenantUsageAsync()).IsSuccess);
+        Assert.Equal(SystemRole.PlatformAdmin, fixture.CurrentUser.SystemRole);
+        await using var read = fixture.OpenContext();
+        Assert.Empty(await read.TenantSettings.ToListAsync());
+        Assert.Empty(await read.AuditLogs.ToListAsync());
+        Assert.Equal(0, fixture.Audit.Calls);
+    });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task PersistedPlatformAdministratorRetainsPlanSubscriptionAndTenantOverride() => WithFixtureAsync(async fixture =>
+    {
+        await fixture.WarmSessionAsync();
+        var service = fixture.Administration;
+        Assert.True((await service.GetPlatformOverviewAsync()).IsSuccess);
+        Assert.True((await service.GetPlatformUsageAsync()).IsSuccess);
+        Assert.True((await service.GetPlatformTenantUsageAsync(fixture.Tenant.Id)).IsSuccess);
+        var created = await service.CreatePlanAsync(new UpsertPlanRequest(
+            "Synthetic platform plan", null, null, null, null, null, null, null, null, PlanStatus.Active));
+        Assert.True(created.IsSuccess, created.Error);
+        Assert.Contains((await service.ListPlansAsync()).Value!, plan => plan.Id == created.Value!.Id);
+        Assert.True((await service.UpdatePlanAsync(created.Value!.Id, new UpsertPlanRequest(
+            "Updated platform plan", null, null, null, null, null, null, null, null, null))).IsSuccess);
+        Assert.True((await service.UpdateTenantSubscriptionAsync(fixture.Tenant.Id,
+            new UpdateSubscriptionRequest(created.Value.Id, SubscriptionStatus.Active, null, null, null))).IsSuccess);
+        Assert.True((await service.GetTenantSubscriptionAsync(fixture.Tenant.Id)).IsSuccess);
+        Assert.True((await service.ArchivePlanAsync(created.Value.Id)).IsSuccess);
+
+        fixture.CurrentTenant.SetTenant(fixture.Tenant.Id, fixture.Tenant.Slug);
+        Assert.True((await service.GetCurrentTenantOverviewAsync()).IsSuccess);
+        Assert.True((await service.GetCurrentTenantSettingsAsync()).IsSuccess);
+        Assert.True((await service.GetCurrentTenantUsageAsync()).IsSuccess);
+        await using var read = fixture.OpenContext();
+        Assert.Empty(await read.TenantUsers.ToListAsync());
+        Assert.Single(await read.TenantSettings.ToListAsync());
+        Assert.Equal(4, await read.AuditLogs.CountAsync());
+    });
+
     private static void AssertDenied(Result result)
     {
         Assert.False(result.IsSuccess);
@@ -286,6 +381,16 @@ public sealed class PlatformCurrentAuthorityPostgreSqlTests(ITestOutputHelper ou
         public TenantAuthorizationService Authorization => new(new TenantRepository(Db));
         public TenantService Service => new(new TenantRepository(Db), Authorization, CurrentTenant,
             CurrentUser, Audit, new EfUnitOfWork(Db), Sessions, new TenancyOptions());
+        public TenantAdministrationService Administration
+        {
+            get
+            {
+                var plans = new TenantPlanRepository(Db);
+                return new TenantAdministrationService(plans, new TenantRepository(Db),
+                    new FeatureFlagService(plans, CurrentTenant), new QuotaService(plans),
+                    CurrentTenant, CurrentUser, Clock, Audit, new EfUnitOfWork(Db), null!);
+            }
+        }
         private UserSessionService Sessions => new(new SessionRepository(Db), new TenantRepository(Db),
             Audit, Clock, new EfUnitOfWork(Db));
 
