@@ -31,7 +31,7 @@ public sealed class TenantAuthorizationService(ITenantRepository tenantRepositor
 
     public async Task<bool> IsPlatformAdminAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await tenantRepository.GetUserAsync(userId, cancellationToken);
+        var user = await tenantRepository.GetCurrentUserAsync(userId, cancellationToken);
         return user is
         {
             Status: UserStatus.Active,
