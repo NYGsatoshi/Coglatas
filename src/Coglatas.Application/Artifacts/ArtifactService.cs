@@ -206,6 +206,7 @@ public sealed class ArtifactService(
         }
 
         ArtifactVersion version;
+        var saveOutcome = unitOfWork.BeginUploadSave();
         try
         {
             version = new ArtifactVersion
@@ -247,11 +248,12 @@ public sealed class ArtifactService(
             artifact.CurrentVersionId = version.Id;
             await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionUploaded", "ArtifactVersion", version.Id), cancellationToken);
             await NotifyProjectManagersAsync(artifact.ProjectId, "New artifact version uploaded", artifact.Name, artifact.Id, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            saveOutcome.Disposition = UploadCommitDisposition.Unknown;
+            await unitOfWork.SaveUploadChangesAsync(saveOutcome, cancellationToken);
         }
         catch
         {
-            await StoredFileCompensation.TryDeleteAsync(storage, fileObject.StorageKey, logger);
+            await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
             throw;
         }
         return Result<ArtifactVersionResponse>.Success(ToVersion(version));
