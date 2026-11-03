@@ -211,7 +211,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         public DbContextOptions<AppDbContext> Options { get; }
         public Guid TenantId { get; }
         public User Actor { get; } = new() { DisplayName = "Synthetic actor", Email = "actor@example.invalid", NormalizedEmail = "ACTOR@EXAMPLE.INVALID", Status = UserStatus.Active };
-        private User Other { get; } = new() { DisplayName = "Synthetic respondent", Email = "respondent@example.invalid", NormalizedEmail = "RESPONDENT@EXAMPLE.INVALID", Status = UserStatus.Active };
+        public User Other { get; } = new() { DisplayName = "Synthetic respondent", Email = "respondent@example.invalid", NormalizedEmail = "RESPONDENT@EXAMPLE.INVALID", Status = UserStatus.Active };
         public Workspace Workspace { get; private set; } = null!;
         public WorkspaceMember Membership { get; private set; } = null!;
         public Group Group { get; private set; } = null!;
