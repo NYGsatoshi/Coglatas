@@ -40,3 +40,17 @@ test inventories and artifacts separately. Compare multiple matched A/B samples;
 do not claim speedups from a changed Hypothesis seed or runner load. This is a
 diagnostic supporting issue #1691, and may only be integrated into
 \`SecurityTestImplimation\`. Main must not be changed or merged.
+
+## Fixed native regression samples
+
+`tests/ci/pr-ci-profile-public-fixtures.json` contains **selected nonsecret
+public Actions REST job metadata** for completed runs
+[41690765308](https://github.com/NYGsatoshi/Coglatas/actions/runs/41690765308),
+[41697464219](https://github.com/NYGsatoshi/Coglatas/actions/runs/41697464219),
+and [41697643513](https://github.com/NYGsatoshi/Coglatas/actions/runs/41697643513).
+The offline test replays 17 original jobs each and asserts total Runner seconds
+of **4070, 3994, 4374**, plus the respective Security path sums
+**1115, 996, 1592** and Frontend sums **1105, 1224, 1157**.
+These samples are regression fixtures, **not independent API attestation** or
+proof of native test/scan-count parity. They deliberately exclude logs,
+runner names, auth values, HTTP requests and browser content.

@@ -191,6 +191,34 @@ class NativeProfileTests(unittest.TestCase):
             with self.assertRaises((OSError, profile.IncompleteProfile)):
                 profile.read_json(link, 100)
 
+    def test_public_native_run_metadata_samples_replay_exact_duration_sums(self):
+        # Selected original REST job metadata; no test logs, runner names or secrets.
+        fixture = ROOT / "tests/ci/pr-ci-profile-public-fixtures.json"
+        history = json.loads(fixture.read_text(encoding="utf-8"))
+        self.assertEqual("coglatas.pr-ci-public-job-metadata-regression.v1",
+                         history["schema"])
+        self.assertEqual(3, len(history["captures"]))
+        for sample in history["captures"]:
+            with self.subTest(run=sample["run"]["id"]):
+                actual = self.verify(
+                    sample["run"], sample["jobs"],
+                    sha=sample["run"]["head_sha"])
+                expected = sample["expected"]
+                self.assertEqual(expected["totalRunnerSeconds"],
+                                 actual["totalRunnerSeconds"])
+                self.assertEqual(expected["securityPathSeconds"],
+                                 actual["pathDurationSumsSeconds"]["security"])
+                self.assertEqual(expected["frontendPathSeconds"],
+                                 actual["pathDurationSumsSeconds"]["frontend"])
+                self.assertEqual(len(sample["jobs"]["jobs"]), actual["jobCount"])
+                self.assertEqual("JOB_TIMING_ONLY", actual["status"])
+                self.assertEqual("NOT_ESTABLISHED", actual["speedupAttribution"])
+                changed = copy.deepcopy(sample["jobs"])
+                changed["jobs"][0]["head_sha"] = "b" * 40
+                with self.assertRaises(profile.IncompleteProfile):
+                    self.verify(sample["run"], changed,
+                                sha=sample["run"]["head_sha"])
+
     def test_cli_reports_only_closed_metrics(self):
         run, jobs = fixture()
         with tempfile.TemporaryDirectory() as directory:
