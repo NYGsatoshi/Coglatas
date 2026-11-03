@@ -58,6 +58,9 @@ public static class ResourceReferenceValidator
                 if (reference.Origin.EntityId is { } origin && !declarations.Any(item => item.DocumentId == reference.Origin.DocumentId &&
                     SourceFields.Identity<EntityId>(item.Data.Value, "entityId") == origin))
                     Add("coglatas.resource.origin-mismatch", RelationFindingState.Invalid);
+                if (reference.Origin.RelationId is { } relation && !source.Relations.Value.EnumerateArray().Any(item =>
+                    SourceFields.Identity<DocumentId>(item, "documentId") == reference.Origin.DocumentId && SourceFields.Identity<RelationId>(item, "relationId") == relation))
+                    Add("coglatas.resource.origin-mismatch", RelationFindingState.Invalid);
                 if (reference.TenantId != source.TenantId || binding.TenantId != source.TenantId || reference.ResourceId != binding.ResourceId)
                     Add("coglatas.resource.identity-mismatch", RelationFindingState.Invalid);
                 if (reference.ValidateTargetContext(source.Context) != ReferenceContextStatus.MatchesPinnedContext)
