@@ -1316,3 +1316,11 @@ audit. Do not recreate existing binding/SCC behavior or implement schema-depende
 external closure. Any approved concrete schema slice must cite its exact decision
 packet revision and authority first. Technical candidate completion here is not
 full #905/#798, shared-product/native or release completion.
+
+Terminal ordinary-CI follow-up at **2026-11-03 16:36:05 UTC**: Graph Product
+#1688 run41671012922 is now **SUCCESS** on exact05c9fa5afc6c57eb81cfa1d321b555bb85ff8130,
+without rerun. The preceding 16:33 Security-IN_PROGRESS observation remains
+historical. Thus both corrected new Product ordinary CIs and the existing a32
+Consumer Product CI are SUCCESS; each standalone independent Test failure remains
+separate and unwaived. A later documentation-only ledger commit is not assigned
+the old docs00147cf6 CI result; its fresh checks remain separately observable.
