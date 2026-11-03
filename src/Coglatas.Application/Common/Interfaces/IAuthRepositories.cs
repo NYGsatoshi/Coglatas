@@ -47,6 +47,9 @@ public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Captures operation-local tracking before any upload writes are staged.</summary>
+    UploadSaveOutcome BeginUploadSave() => new();
+
     /// <summary>Opaque saves establish no upload durability or rollback evidence.</summary>
     async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
     {
@@ -56,6 +59,9 @@ public interface IUnitOfWork
 
     /// <summary>True only after failed upload writes can no longer escape through a later save.</summary>
     bool TryDiscardFailedUploadChanges() => false;
+
+    /// <summary>Discards only the captured upload's writes when the implementation can prove safety.</summary>
+    bool TryDiscardFailedUploadChanges(UploadSaveOutcome outcome) => TryDiscardFailedUploadChanges();
 
     /// <summary>
     /// Executes a complete application operation in one database transaction.

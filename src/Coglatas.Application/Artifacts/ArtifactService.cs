@@ -206,7 +206,7 @@ public sealed class ArtifactService(
         }
 
         ArtifactVersion version;
-        var saveOutcome = new UploadSaveOutcome();
+        var saveOutcome = unitOfWork.BeginUploadSave();
         try
         {
             version = new ArtifactVersion

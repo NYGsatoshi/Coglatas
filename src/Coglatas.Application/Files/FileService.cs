@@ -116,7 +116,7 @@ public sealed class FileService(
             ScanStatus = FileScanStatus.Skipped
         };
 
-        var saveOutcome = new UploadSaveOutcome();
+        var saveOutcome = unitOfWork.BeginUploadSave();
         try
         {
             // Storage can await external I/O. Re-evaluate the existing admission

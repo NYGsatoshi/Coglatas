@@ -15,7 +15,7 @@ internal static class StoredFileCompensation
         {
             try
             {
-                if (unitOfWork.TryDiscardFailedUploadChanges())
+                if (unitOfWork.TryDiscardFailedUploadChanges(outcome))
                 {
                     await TryDeleteAsync(storage, storageKey, logger);
                     return;
