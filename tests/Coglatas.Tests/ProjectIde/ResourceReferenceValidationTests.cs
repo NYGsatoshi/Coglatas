@@ -53,6 +53,7 @@ public sealed class ResourceReferenceValidationTests
     [InlineData("kind", "coglatas.resource.kind-mismatch")]
     [InlineData("origin", "coglatas.resource.origin-mismatch")]
     [InlineData("origin-entity", "coglatas.resource.origin-mismatch")]
+    [InlineData("origin-relation", "coglatas.resource.origin-mismatch")]
     [InlineData("revision", "coglatas.resource.context-unavailable")]
     [InlineData("project", "coglatas.resource.context-unavailable")]
     [InlineData("tenant", "coglatas.resource.identity-mismatch")]
@@ -66,6 +67,7 @@ public sealed class ResourceReferenceValidationTests
             if (change == "digest") data["manifest"]!["digest"]!["value"] = new string('b', 64);
             if (change == "origin") data["origin"] = Obj(ProjectLocation.Create(DocumentId.Parse(Id(99)), input.Source.Context).Data.Value);
             if (change == "origin-entity") data["origin"] = Obj(ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context, entityId: EntityId.Parse(Id(99))).Data.Value);
+            if (change == "origin-relation") data["origin"] = Obj(ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context, relationId: RelationId.Parse(Id(99))).Data.Value);
             if (change == "revision") data["context"] = Obj(Source(9).Context.Data.Value);
             if (change is "project" or "tenant")
             {

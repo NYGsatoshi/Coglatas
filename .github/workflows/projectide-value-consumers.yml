@@ -39,7 +39,7 @@ jobs:
           node-version: '24.22.2'
       - name: Compose exact consumer and Core candidates
         env:
-          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-evidence-') && 'd0327c9b0cd1e2ac9d8c703ecf1c2a761ed4f22f' || '48ff196985ddbf90db82386c5413c8f659ea64a7' }}
+          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-evidence-') && '585727a9b480e61d08cbeeb3d996904b5f1f4b5e' || '48ff196985ddbf90db82386c5413c8f659ea64a7' }}
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
         run: >-
           python3 tests/ci/projectide_value_consumers.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD"
