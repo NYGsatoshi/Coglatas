@@ -21,9 +21,9 @@ public sealed partial class FormParentBoundaryCompatibilityTests
     [InlineData(QueryTrackingBehavior.NoTracking, true)]
     [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution, false)]
     [InlineData(QueryTrackingBehavior.NoTrackingWithIdentityResolution, true)]
-    public async Task AuthorityReadRestoresTrackingAndRetainsPendingCallerChanges(QueryTrackingBehavior previous, bool fail)
+    public Task AuthorityReadRestoresTrackingAndRetainsPendingCallerChanges(QueryTrackingBehavior previous, bool fail) =>
+        WithAuthorityFixtureAsync("workspace", async fixture =>
     {
-        await using var fixture = await Fixture.CreateAsync("workspace");
         var originalName = fixture.Workspace.Name;
         fixture.Workspace.Name = "Caller-owned pending change";
         fixture.Db.Entry(fixture.Workspace).State = EntityState.Modified;
@@ -31,12 +31,13 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         var repository = new FormRepository(fixture.Db);
         var failure = new IOException("Synthetic authorization dependency failure.");
         using var cancellation = new CancellationTokenSource();
+        var expectedToken = cancellation.Token;
         Task<bool> Read() => repository.ReadCurrentAuthorizationAsync(token =>
         {
-            Assert.Equal(cancellation.Token, token);
+            Assert.Equal(expectedToken, token);
             Assert.Equal(QueryTrackingBehavior.NoTracking, fixture.Db.ChangeTracker.QueryTrackingBehavior);
-            return fail ? Task.FromException<bool>(failure) : Task.FromResult(true);
-        }, cancellation.Token);
+            return fail ? Task.FromException<bool>(failure) : Task.FromResult(true).WaitAsync(token);
+        }, expectedToken);
 
         if (fail) Assert.Same(failure, await Assert.ThrowsAsync<IOException>(Read));
         else Assert.True(await Read());
@@ -47,12 +48,11 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         Assert.Equal("Caller-owned pending change", fixture.Workspace.Name);
         Assert.Equal(originalName, await fixture.Db.Workspaces.AsNoTracking().Select(row => row.Name).SingleAsync());
         Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
-    }
+    });
 
     [Fact]
-    public async Task CancelledAuthorityQueryRestoresTrackingWithoutSaving()
+    public Task CancelledAuthorityQueryRestoresTrackingWithoutSaving() => WithAuthorityFixtureAsync("workspace", async fixture =>
     {
-        await using var fixture = await Fixture.CreateAsync("workspace");
         var repository = new FormRepository(fixture.Db);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -65,15 +65,15 @@ public sealed partial class FormParentBoundaryCompatibilityTests
 
         Assert.Equal(QueryTrackingBehavior.TrackAll, fixture.Db.ChangeTracker.QueryTrackingBehavior);
         Assert.Empty(await fixture.Db.AuditLogs.ToListAsync());
-    }
+    });
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public Task NativeAuthorizedFormMutationPreservesCallerTransactionAndPendingWrites() =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
-            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            PostgreSqlTestEnvironment.RequireConnectionString(), database =>
+                WithAuthorityFixtureAsync("workspace", async fixture =>
             {
-                await using var fixture = await Fixture.CreateAsync("workspace", connectionString: database);
                 var originalTitle = fixture.Form.Title;
                 var originalWorkspaceName = fixture.Workspace.Name;
                 await using var caller = await fixture.Db.Database.BeginTransactionAsync();
@@ -93,7 +93,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
                 Assert.Equal(originalTitle, await verification.InternalForms.Select(row => row.Title).SingleAsync());
                 Assert.Equal(originalWorkspaceName, await verification.Workspaces.Select(row => row.Name).SingleAsync());
                 Assert.Empty(await verification.AuditLogs.ToListAsync());
-            });
+            }, database));
 
     [Theory]
     [InlineData("membership")]
@@ -115,10 +115,9 @@ public sealed partial class FormParentBoundaryCompatibilityTests
                 PostgreSqlTestEnvironment.RequireConnectionString(), database => VerifyStoredAuthorityChangeAsync(change, database));
     }
 
-    private static async Task VerifyStoredAuthorityChangeAsync(string change, string? connectionString = null)
+    private static Task VerifyStoredAuthorityChangeAsync(string change, string? connectionString = null) =>
+        WithAuthorityFixtureAsync(change == "project-parent" ? "project" : change == "group-parent" ? "group" : "workspace", async fixture =>
     {
-        var scope = change == "project-parent" ? "project" : change == "group-parent" ? "group" : "workspace";
-        await using var fixture = await Fixture.CreateAsync(scope, connectionString: connectionString);
         Assert.True((await fixture.Service.GetAsync(fixture.Form.Id)).IsSuccess);
         fixture.Db.ChangeTracker.Clear();
         string? expectedState = null;
@@ -172,6 +171,12 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         Assert.Equal("You are not allowed to update this form.", denied.Error);
         Assert.Equal(expectedState, await fixture.StateAsync());
         Assert.Equal(QueryTrackingBehavior.TrackAll, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+    }, connectionString);
+
+    private static async Task WithAuthorityFixtureAsync(string scope, Func<Fixture, Task> scenario, string? connectionString = null)
+    {
+        await using var fixture = await Fixture.CreateAsync(scope, connectionString: connectionString);
+        await scenario(fixture);
     }
 
     private sealed class AfterFormLoad(IFormRepository inner, Func<Task> afterLoad) : IFormRepository
