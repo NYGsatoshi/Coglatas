@@ -85,6 +85,63 @@ public sealed class CompilerDiagnosticIntegrationTests
         Assert.InRange(result.LogicalOperationsConsumed, model.LogicalOperationsConsumed, input.ExecutionProfile.MaximumOperations);
     }
 
+    [Theory]
+    [InlineData("units")]
+    [InlineData("calendars")]
+    public void AnExactlyConsumedSourceBudgetNeverOpensTheNextCallerOwnedSupply(string family)
+    {
+        var input = ExactSupplyBudgetInput();
+        var units = new ExactBoundarySupply<UnitDefinition>(Unit(), throwOnOpen: true);
+        var calendars = new ExactBoundarySupply<CalendarSnapshot>(Calendar(), throwOnOpen: true);
+        var result = PureCoreCompiler.Compile(input, input.Compiler, units: family == "units" ? units : null,
+            calendars: family == "calendars" ? calendars : null);
+        AssertSemanticExhaustion(result);
+        Assert.Equal(0, units.OpenCalls); Assert.Equal(0, calendars.OpenCalls);
+    }
+
+    [Theory]
+    [InlineData("units")]
+    [InlineData("calendars")]
+    public void ABodyConsumingTheFinalOperationNeverAdvancesItsSupplierAgain(string family)
+    {
+        var unit = Unit(); var calendar = Calendar(); var baselineModel = ProjectSemanticBinder.Bind(Input());
+        var baseline = CompilerSemanticValidation.Validate(baselineModel);
+        var withBody = CompilerSemanticValidation.Validate(baselineModel, family == "units" ? [unit] : null,
+            family == "calendars" ? [calendar] : null);
+        var bodyCost = withBody.LogicalOperationsConsumed - baseline.LogicalOperationsConsumed;
+        Assert.True(bodyCost > 0);
+        var input = ExactSupplyBudgetInput(bodyCost);
+        var units = new ExactBoundarySupply<UnitDefinition>(unit);
+        var calendars = new ExactBoundarySupply<CalendarSnapshot>(calendar);
+        var result = PureCoreCompiler.Compile(input, input.Compiler, units: family == "units" ? units : null,
+            calendars: family == "calendars" ? calendars : null);
+        AssertSemanticExhaustion(result);
+        Assert.Equal(1, family == "units" ? units.MoveNextCalls : calendars.MoveNextCalls);
+        Assert.True(family == "units" ? units.Disposed : calendars.Disposed);
+    }
+
+    private static CompilerInputManifest ExactSupplyBudgetInput(int bodyCost = 0)
+    {
+        var baselineModel = ProjectSemanticBinder.Bind(Input());
+        var baseline = CompilerSemanticValidation.Validate(baselineModel);
+        // The fixture has one local Project and no relations. Remove its later
+        // graph charge from a completed observation to isolate the supply boundary.
+        Assert.Single(baselineModel.Declarations); Assert.Empty(baselineModel.Relations);
+        var settings = Settings(); settings["executionProfile"]!["maximumOperations"] = baseline.LogicalOperationsConsumed - 1 + bodyCost;
+        var input = Input(settings);
+        Assert.True(ProjectSemanticBinder.Bind(input).BindingComplete);
+        return input;
+    }
+
+    private static void AssertSemanticExhaustion(CoreCompilation result)
+    {
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, result.Result.Execution);
+        Assert.Equal(CompilerCoverage.Partial, result.Result.Coverage); Assert.False(result.Result.EvidenceComplete);
+        Assert.Contains(result.Result.Diagnostics, item => item.Code == "coglatas.semantic.budget-exhausted");
+        Assert.Equal(result.Input.ExecutionProfile.MaximumOperations, result.Validation!.LogicalOperationsConsumed);
+        Assert.Empty(result.Result.Artifacts); Assert.Null(result.Validation.Ir);
+    }
+
     [Fact]
     public void KnownConstraintFailureIsCompletedAndDistinctFromResourceExhaustion()
     {
@@ -155,6 +212,34 @@ public sealed class CompilerDiagnosticIntegrationTests
             public T Current => owner._item;
             object IEnumerator.Current => Current;
             public bool MoveNext() { owner.MoveNextCalls++; if (owner.MoveNextCalls == 1) owner._beforeFirst(); return owner.MoveNextCalls <= owner._count; }
+            public void Reset() => throw new NotSupportedException();
+            public void Dispose() => owner.Disposed = true;
+        }
+    }
+
+    private sealed class ExactBoundarySupply<T>(T item, bool throwOnOpen = false) : IEnumerable<T?> where T : class
+    {
+        private readonly T _item = item;
+        public int OpenCalls { get; private set; }
+        public int MoveNextCalls { get; private set; }
+        public bool Disposed { get; private set; }
+        public IEnumerator<T?> GetEnumerator()
+        {
+            OpenCalls++;
+            if (throwOnOpen) throw new InvalidOperationException("An exhausted semantic budget must not open a caller-owned supply.");
+            return new Enumerator(this);
+        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        private sealed class Enumerator(ExactBoundarySupply<T> owner) : IEnumerator<T?>
+        {
+            public T Current => owner._item;
+            object IEnumerator.Current => Current;
+            public bool MoveNext()
+            {
+                owner.MoveNextCalls++;
+                if (owner.MoveNextCalls > 1) throw new InvalidOperationException("The final operation was already consumed by the first body.");
+                return true;
+            }
             public void Reset() => throw new NotSupportedException();
             public void Dispose() => owner.Disposed = true;
         }

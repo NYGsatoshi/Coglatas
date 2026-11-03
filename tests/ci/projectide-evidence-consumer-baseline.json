@@ -78,6 +78,16 @@
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnknownSchemaAndMissingPlatformBaselineCannotBecomeCompleteBinding",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: False, expected: Unknown)",
     "Coglatas.Tests.ProjectIde.CompilerBindingTests.UnmappedReferenceOriginDoesNotGuessAnAvailableDocument(complete: True, expected: Invalid)",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.AdmissionDiagnosticsKeepTheirExactIdentityLocationAndOrderingThroughCompilation",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.CancellationAtTheEndOfOneSupplyPreventsOpeningTheNextSupply",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.CancellationDuringSemanticSupplyStopsBeforeTheNextItemAndDisposes(family: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.CancellationDuringSemanticSupplyStopsBeforeTheNextItemAndDisposes(family: \"units\")",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.ExhaustedBindingDoesNotOpenLaterMaterializationSupplies",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.KnownConstraintFailureIsCompletedAndDistinctFromResourceExhaustion",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.MaterializationLimitsRemainExhaustionInTheSemanticStageAndFinalResult(family: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.MaterializationLimitsRemainExhaustionInTheSemanticStageAndFinalResult(family: \"units\")",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.SemanticSupplyConsumesTheRemainingSharedBudgetBeforeRequestingAnotherItem(family: \"calendars\")",
+    "Coglatas.Tests.ProjectIde.CompilerDiagnosticIntegrationTests.SemanticSupplyConsumesTheRemainingSharedBudgetBeforeRequestingAnotherItem(family: \"units\")",
     "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.CompletePassCanBeStaleWithoutMutatingHistoricalResult",
     "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.DiagnosticsBindInputAndStableTargetsWithDeterministicOrdering",
     "Coglatas.Tests.ProjectIde.CompilerEnvelopeTests.EveryApplicableManifestDimensionMustBeExplicit(field: \"allocationSnapshots\")",
@@ -2267,6 +2277,21 @@
       "file": "src/app/shared/ui/adapters/syncfusion/syncfusion-gantt.component.spec.ts",
       "name": "SyncfusionGanttComponent adapter boundary cancels pointer schedule edits for a partially scheduled task",
       "status": "passed"
+    },
+    {
+      "file": "C:/Users/Hirota Kaname/.codex/worktrees/projectide-diagnostic-consumers-20261104/frontend/src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection preserves a newer load started synchronously by an aborted reader",
+      "status": "passed"
+    },
+    {
+      "file": "C:/Users/Hirota Kaname/.codex/worktrees/projectide-diagnostic-consumers-20261104/frontend/src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection preserves a synchronous denied boundary raised by an aborted reader",
+      "status": "passed"
+    },
+    {
+      "file": "C:/Users/Hirota Kaname/.codex/worktrees/projectide-diagnostic-consumers-20261104/frontend/src/app/features/projectide/projectide-inspection.spec.ts",
+      "name": "Source-backed semantic inspection preserves a synchronous cancelled boundary raised by an aborted reader",
+      "status": "passed"
     }
   ],
   "frontendNodeTests": [
@@ -2564,11 +2589,11 @@
     }
   ],
   "pins": {
-    "coreProduct": "0601761abebf7bbf0ac7cb0384e5e9ddf6952358",
-    "coreTest": "1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6",
-    "productHead": "d77b9814f96ba593b98b8842cf1d1355cf310885",
-    "testHead": "930bb8866cf2b8c3c08a414ffc2aa782072ba443",
-    "combinedCommit": "43f6181737b33741b73184a1cf5c6ae60e61c318",
-    "combinedTree": "9b833121f995e4e01f5b6b926548d887d4f65ce1"
+    "coreProduct": "b73c0dc8d62e33a20af2cdd5414c1293b145c657",
+    "coreTest": "35a788164a21dc46b23f1f16601aa9a21a6d1b50",
+    "productHead": "a32e0c8daa6429ee54178698153d87110b5c81f7",
+    "testHead": "ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2",
+    "combinedCommit": "2de0258db477d6176ed495e5548d859b539eba14",
+    "combinedTree": "6d9add1a962b6ba63c707e117fb43d9e06bc62a4"
   }
 }

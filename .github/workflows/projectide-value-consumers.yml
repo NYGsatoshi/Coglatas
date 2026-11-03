@@ -39,10 +39,10 @@ jobs:
           node-version: '24.22.2'
       - name: Compose exact consumer and Core candidates
         env:
-          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && '5f6475a0dbfb27470ab74454229cdeb0975d4f3d' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && 'b73c0dc8d62e33a20af2cdd5414c1293b145c657' || startsWith(github.head_ref, 'test/projectide-evidence-materialization-') && '0601761abebf7bbf0ac7cb0384e5e9ddf6952358' || startsWith(github.head_ref, 'test/projectide-evidence-') && '585727a9b480e61d08cbeeb3d996904b5f1f4b5e' || '48ff196985ddbf90db82386c5413c8f659ea64a7' }}
+          PRODUCT_HEAD: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && '05c9fa5afc6c57eb81cfa1d321b555bb85ff8130' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && 'a84b2914853427f1c8d494e650bd7ce01edc7783' || startsWith(github.head_ref, 'test/projectide-evidence-materialization-') && '0601761abebf7bbf0ac7cb0384e5e9ddf6952358' || startsWith(github.head_ref, 'test/projectide-evidence-') && '585727a9b480e61d08cbeeb3d996904b5f1f4b5e' || '48ff196985ddbf90db82386c5413c8f659ea64a7' }}
           TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-          REVIEW_PRODUCT_BASE: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && 'b73c0dc8d62e33a20af2cdd5414c1293b145c657' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && '0601761abebf7bbf0ac7cb0384e5e9ddf6952358' || '585727a9b480e61d08cbeeb3d996904b5f1f4b5e' }}
-          REVIEW_TEST_BASE: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && '35a788164a21dc46b23f1f16601aa9a21a6d1b50' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && '1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6' || '6edddea75a8dfd0ecaca8559827ffb92ba06a365' }}
+          REVIEW_PRODUCT_BASE: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && 'a84b2914853427f1c8d494e650bd7ce01edc7783' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && '0601761abebf7bbf0ac7cb0384e5e9ddf6952358' || '585727a9b480e61d08cbeeb3d996904b5f1f4b5e' }}
+          REVIEW_TEST_BASE: ${{ startsWith(github.head_ref, 'test/projectide-graph-cancellation-') && '3eee9a05892d987629e410a8c6c4d501f02acb70' || startsWith(github.head_ref, 'test/projectide-compiler-diagnostic-') && '1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6' || '6edddea75a8dfd0ecaca8559827ffb92ba06a365' }}
         run: >-
           python3 tests/ci/projectide_value_consumers.py --product-head "$PRODUCT_HEAD" --test-head "$TEST_HEAD"
           --review-product-base "$REVIEW_PRODUCT_BASE" --review-test-base "$REVIEW_TEST_BASE"
