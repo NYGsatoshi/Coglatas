@@ -8,6 +8,26 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class FormRepository(AppDbContext dbContext) : IFormRepository
 {
+    public Task<InternalForm?> GetCurrentAuthorizationAsync(Guid formId, CancellationToken cancellationToken = default) =>
+        dbContext.InternalForms.AsNoTracking().FirstOrDefaultAsync(form => form.Id == formId, cancellationToken);
+
+    public async Task<bool> ReadCurrentAuthorizationAsync(Func<CancellationToken, Task<bool>> authorization,
+        CancellationToken cancellationToken = default)
+    {
+        // Read the complete authority graph freshly without detaching caller-owned
+        // mutations or changing the ordinary tracked repository operations.
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await authorization(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
     public async Task<IReadOnlyList<InternalForm>> ListAsync(FormListQuery query, CancellationToken cancellationToken = default)
     {
         return await ApplyFilters(BaseFormQuery(includeArchived: query.Status == FormStatus.Archived), query)
