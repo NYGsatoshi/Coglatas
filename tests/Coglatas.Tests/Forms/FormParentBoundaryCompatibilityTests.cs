@@ -221,7 +221,7 @@ public sealed partial class FormParentBoundaryCompatibilityTests
         public WorkspaceAuthorizationService WorkspaceAuthorization { get; }
         public GroupAuthorizationService GroupAuthorization { get; }
         public ProjectAuthorizationService ProjectAuthorization { get; }
-        public FormAuthorizationService Authorization { get; }
+        public IFormAuthorizationService Authorization { get; }
         public FormService Service { get; }
 
         public static async Task<Fixture> CreateAsync(string scope, bool creator = true, ProjectRole projectRole = ProjectRole.Contributor,

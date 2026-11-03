@@ -2,6 +2,15 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Announcement audience enumeration and authorization require a current active,
+undeleted persisted account. Their read-only authority scope uses untracked
+queries across the scoped repositories so previously tracked roles, memberships
+or parents cannot mask committed changes. It restores the caller's tracking mode
+without saving or detaching pending changes. Scheduled publication uses the
+persisted author, independently of browser authentication, and retains existing
+deferral paths. This does not make multi-query admission atomic through commit.
+See [the current-authority boundary](verification/announcement-current-authority.md).
+
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
 validation times, reports granular inventory changes, and supports optional
