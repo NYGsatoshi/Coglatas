@@ -108,7 +108,7 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-frontend-parallel.sh
-          node --test tests/ui/penpot-phase-profile.node-test.mjs scripts/ci/test-penpot-phase-evidence.mjs tests/ui/static-playwright-shard.node-test.mjs
+          node --test tests/ui/penpot-phase-profile.node-test.mjs scripts/ci/test-penpot-phase-evidence.mjs tests/ui/static-playwright-shard.node-test.mjs tests/ui/static-playwright-protected-launcher.node-test.mjs
           node --check tests/ui/settled-scroll-position.ts
           node --check tests/ui/settled-scroll-position.node-test.mjs
           python3 -c 'import ast; from pathlib import Path; ast.parse(Path("scripts/ci/test_av_mig_runtime_cli.py").read_text())'

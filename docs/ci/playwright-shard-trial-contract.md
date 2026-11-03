@@ -14,3 +14,7 @@ build, screenshot archive or canonical report. The required frontend-test must b
 
 Playwright has fullyParallel true and already runs two hosted workers. Measure queue-excluded Critical Path and runner
 seconds before enabling additional hosts; otherwise close the trial. All changes must target SecurityTestImplimation, never Main.
+
+The native Playwright runner executes only portable Node policy tests; the
+Bash launcher refusal regressions are executed separately by Linux CI
+Preflight. Windows native UI runs never need Bash for these helpers.

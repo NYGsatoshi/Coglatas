@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { staticPlaywrightShardArgs } from './static-playwright-shard.mjs';
 
@@ -83,34 +80,3 @@ test('required gate cannot accidentally opt into half coverage or duplicate arti
   assert.equal((producer.match(/name: Publish frontend build artifacts/g) ?? []).length, 1);
 });
 
-test('protected full frontend launcher rejects partial sharding before any worker starts', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'coglatas-shard-guard-'));
-  try {
-    for (const changes of [
-      { COGLATAS_STATIC_PLAYWRIGHT_SHARD: '1/2' },
-      { COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: '1' },
-    ]) {
-      const logDir = join(directory, 'no-worker-logs');
-      const result = spawnSync('bash', ['scripts/ci/run-frontend-parallel.sh'], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        timeout: 10000,
-        env: {
-          ...process.env,
-          FRONTEND_BUILD: 'false', FRONTEND_UNIT: 'false',
-          FRONTEND_ARCHITECTURE: 'false', FRONTEND_PLAYWRIGHT: 'false',
-          FRONTEND_STORYBOOK: 'false', FRONTEND_LICENSE_GUARD: 'false',
-          COGLATAS_STATIC_PLAYWRIGHT_SHARD: '',
-          COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: '0',
-          CI_PARALLEL_LOG_DIR: logDir,
-          ...changes,
-        },
-      });
-      assert.equal(result.status, 1, 'partial shard request must fail before frontend work');
-      assert.match(result.stderr, /Protected frontend-test must never execute a partial Playwright shard/);
-      assert.equal(existsSync(logDir), false, 'refusal must happen before any lane starts');
-    }
-  } finally {
-    rmSync(directory, { force: true, recursive: true });
-  }
-});
