@@ -19,6 +19,8 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerSemanticInspection? Inspection { get; private set; }
     public CompilerInspectedSymbol? Selected { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
+    public CompilerBoundReference? SelectedReference { get; private set; }
+    public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
     public string NavigationState { get; private set; } = "";
     public ProjectLocation? SourceTarget { get; private set; }
     public CompilerInspectedSymbol? DiagnosticSymbol =>
@@ -92,16 +94,44 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         Changed(); return !_disposed && generation == _selectionGeneration && SelectedDiagnostic is not null;
     }
 
+    public bool SelectReference(CompilerBoundReference reference)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(reference);
+        var generation = ClearSelection();
+        if (Inspection is { } inspection && reference.State == ReferenceResolutionState.Resolved &&
+            reference.SymbolKey is { } key && inspection.References.Any(item => ReferenceEquals(item, reference)))
+        {
+            var matches = inspection.Symbols.Where(item => StringComparer.Ordinal.Equals(item.Symbol.Key, key)).Take(2).ToArray();
+            if (matches.Length == 1 && matches[0].Symbol.Status == ValueDecodeStatus.Decoded)
+            {
+                NavigationState = Resolve(reference.Origin, requireSourceMap: true);
+                if (NavigationState == "ready") NavigationState = Resolve(matches[0].Symbol.Location, requireSourceMap: true);
+                if (NavigationState == "ready")
+                {
+                    SelectedReference = reference;
+                    ReferenceSymbol = matches[0];
+                }
+            }
+        }
+        if (NavigationState.Length == 0) NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedReference, reference);
+    }
+
+    public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
+
+    public bool NavigateReferenceDefinition() => NavigateTo(ReferenceSymbol?.Symbol.Location, requireSourceMap: true);
+
     public bool Navigate() => NavigateTo(SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
 
     public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
 
-    private bool NavigateTo(ProjectLocation? location)
+    private bool NavigateTo(ProjectLocation? location, bool requireSourceMap = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var generation = ++_selectionGeneration;
         SourceTarget = null;
-        NavigationState = location is null ? "unavailable" : Resolve(location);
+        NavigationState = location is null ? "unavailable" : Resolve(location, requireSourceMap);
         if (NavigationState == "ready") SourceTarget = location;
         Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
     }
@@ -113,11 +143,13 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private void ClearContext() { _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
-        Selected = null; SelectedDiagnostic = null; SourceTarget = null; NavigationState = "";
+        Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
+        SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
     private void ClearResult() { _compilation = null; Result = null; Inspection = null; ClearSelection(); }
-    private string Resolve(ProjectLocation location) => SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location);
+    private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
+        SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     public void Dispose()
     {

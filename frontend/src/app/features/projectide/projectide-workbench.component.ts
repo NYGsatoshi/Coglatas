@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { Diagnostic, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
+import { BoundReference, Diagnostic, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -173,6 +173,14 @@ export class ProjectIdeWorkbenchComponent {
     if (navigated) {
       this.open('source', true);
     }
+  }
+  inspectReference(reference: BoundReference): void {
+    this.focusGeneration++;
+    if (this.canRead()) this.store.selectReference(reference);
+  }
+  navigateReference(destination: 'origin' | 'definition'): void {
+    this.focusGeneration++;
+    if (this.canRead() && this.store.navigateReference(destination)) this.open('source', true);
   }
   cancel(): void {
     this.focusGeneration++;
