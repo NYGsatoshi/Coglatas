@@ -66,7 +66,10 @@ export function validateNodeCoverage(text, options = {}) {
     const sources = rows.filter(row => row.startsWith('SF:'));
     if (sources.length !== 1) reject('SOURCE');
     const source = sources[0].slice(3), file = resolve(root, source), path = relative(root, file);
-    if (path.endsWith('.node-test.mjs') || !path || path === '..' || path.startsWith('..' + sep) || isAbsolute(path) || !tracked.has(path.replaceAll('\\', '/')) || paths.has(path)) reject('SOURCE');
+    const normalized = path.replaceAll('\\', '/');
+    const testBody = path.endsWith('.node-test.mjs') ||
+      ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs'].includes(normalized);
+    if (testBody || !path || path === '..' || path.startsWith('..' + sep) || isAbsolute(path) || !tracked.has(normalized) || paths.has(path)) reject('SOURCE');
     paths.add(path);
     const code = read(file), lineCount = code.split('\n').length - Number(code.endsWith('\n'));
     const result = validateRecordRows(rows, lineCount);

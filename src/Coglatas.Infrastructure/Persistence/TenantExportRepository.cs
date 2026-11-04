@@ -263,21 +263,51 @@ public sealed class TenantExportRepository(
             await AddRedactedJsonAsync(archive, "events.json", await dbContext.ActivityEvents
                 .IgnoreQueryFilters()
                 .Where(item => item.TenantId == tenantId)
+                .Select(item => new
+                {
+                    item.Id, item.TenantId, item.WorkspaceId, item.GroupId, item.ProjectId,
+                    item.CreatedByUserId, item.Title, item.Description, item.Location,
+                    item.StartsAt, item.EndsAt, item.AttendanceDeadline, item.Capacity,
+                    item.BringItemsText, item.Status, item.CreatedAt, item.UpdatedAt,
+                    item.DeletedAt, item.DeletedByUserId, item.DeleteReason,
+                    IsDeleted = item.DeletedAt.HasValue
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "attendance.json", await dbContext.EventAttendances
                 .IgnoreQueryFilters()
                 .Where(item => item.TenantId == tenantId)
+                .Select(item => new
+                {
+                    item.Id, item.TenantId, item.EventId, item.UserId, item.Status,
+                    item.Comment, item.RespondedAt, item.CreatedAt, item.UpdatedAt
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "comments.json", await dbContext.Comments
                 .IgnoreQueryFilters()
                 .Where(comment => comment.TenantId == tenantId)
+                .Select(comment => new
+                {
+                    comment.Id, comment.TenantId, comment.WorkspaceId, comment.AuthorUserId,
+                    comment.TargetType, comment.TargetId, comment.Body,
+                    comment.CreatedAt, comment.UpdatedAt, comment.DeletedAt,
+                    comment.DeletedByUserId, comment.DeleteReason,
+                    IsDeleted = comment.DeletedAt.HasValue
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "artifacts.json", await dbContext.Artifacts
                 .IgnoreQueryFilters()
                 .Where(artifact => artifact.TenantId == tenantId)
+                .Select(artifact => new
+                {
+                    artifact.Id, artifact.TenantId, artifact.ProjectId, artifact.TaskItemId,
+                    artifact.Name, artifact.Description, artifact.ArtifactType, artifact.Status,
+                    artifact.CurrentVersionId, artifact.CreatedByUserId, artifact.CreatedAt,
+                    artifact.UpdatedAt, artifact.DeletedAt, artifact.DeletedByUserId,
+                    artifact.DeleteReason, IsDeleted = artifact.DeletedAt.HasValue
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "file_objects.json", await dbContext.FileObjects
@@ -308,21 +338,51 @@ public sealed class TenantExportRepository(
             await AddRedactedJsonAsync(archive, "notifications.json", await dbContext.Notifications
                 .IgnoreQueryFilters()
                 .Where(notification => notification.TenantId == tenantId)
+                .Select(notification => new
+                {
+                    notification.Id, notification.TenantId, notification.UserId,
+                    notification.LogicalKey, notification.NotificationType, notification.Title,
+                    notification.Body, notification.RelatedEntityType, notification.RelatedEntityId,
+                    notification.IsRead, notification.ReadAt, notification.CreatedAt,
+                    notification.DeletedAt, notification.StateVersion
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "audit_logs.json", await dbContext.AuditLogs
                 .IgnoreQueryFilters()
                 .Where(log => log.TenantId == tenantId)
+                .Select(log => new
+                {
+                    log.Id, log.TenantId, log.ActorUserId, log.Action, log.EntityType,
+                    log.EntityId, log.WorkspaceId, log.GroupId, log.ProjectId,
+                    log.IpAddress, log.UserAgent, log.Summary, log.MetadataJson,
+                    log.CorrelationId, log.CreatedAt
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "tenant_settings.json", await dbContext.TenantSettings
                 .IgnoreQueryFilters()
                 .Where(settings => settings.TenantId == tenantId)
+                .Select(settings => new
+                {
+                    settings.Id, settings.TenantId, settings.DisplayName, settings.LogoFileId,
+                    settings.ThemeColor, settings.DefaultLocale, settings.TimeZone,
+                    settings.InvitationMode, settings.StorageQuotaBytes, settings.UserLimit,
+                    settings.ProjectLimit, settings.FileUploadLimitBytes, settings.FeatureFlagsJson,
+                    settings.NotificationSettingsJson, settings.CreatedAt, settings.UpdatedAt
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
 
             await AddRedactedJsonAsync(archive, "usage_records.json", await dbContext.UsageRecords
                 .IgnoreQueryFilters()
                 .Where(record => record.TenantId == tenantId)
+                .Select(record => new
+                {
+                    record.Id, record.TenantId, record.Date, record.ActiveUserCount,
+                    record.TotalUserCount, record.ProjectCount, record.TaskCount,
+                    record.FileCount, record.StorageUsedBytes, record.ApiRequestCount,
+                    record.CreatedAt
+                })
                 .ToListAsync(cancellationToken), cancellationToken);
         }
 
