@@ -116,15 +116,8 @@ public sealed class CompilerSemanticValidation
         void CheckType(TypeReference type, ProjectLocation location)
         {
             if (type.Kind == "coglatas.quantity") CheckQuantityType(type, location);
-            if (type.ExpectedKind is { } expected)
-            {
-                var supported = type.Kind == "coglatas.resource-reference"
-                    ? expected is "coglatas.human" or "coglatas.equipment" or "coglatas.facility" or "coglatas.material"
-                    : type.Kind != "coglatas.external-snapshot-reference" &&
-                      (expected is "coglatas.project" or "coglatas.task" or "coglatas.milestone" or "coglatas.requirement" or "coglatas.resource-binding" or "coglatas.constraint" or "coglatas.workflow" ||
-                       type.Kind == "coglatas.document-reference" && expected == SourceDocument.SchemaId);
-                if (!supported) Add("coglatas.semantic.reference-type-unavailable", RelationFindingState.Unsupported, location);
-            }
+            if (!type.ReferenceKindSupported)
+                Add("coglatas.semantic.reference-type-unavailable", RelationFindingState.Unsupported, location);
             if (type.ElementType is { } element) CheckType(element, location);
             if (type.KeyType is { } key) CheckType(key, location);
             if (type.ValueType is { } value) CheckType(value, location);
@@ -139,19 +132,23 @@ public sealed class CompilerSemanticValidation
                 cancellationToken.ThrowIfCancellationRequested();
                 if (value.ValueKind == JsonValueKind.Object)
                 {
-                    if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _))
+                    TypedProjectValue? typed = null;
+                    if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object)
                     {
-                        var decoded = TypedProjectValueCodec.Decode(SourceJson.FromElement(value), input.ExecutionProfile.Numbers);
-                        if (decoded.Value is { Type.Kind: "coglatas.quantity" } quantity)
-                        {
-                            CheckQuantityType(quantity.Type, location);
-                        }
-                        if (decoded.Value?.KnownValue is WorkingDuration duration && !calendarList.Any(calendar => calendar.Reference.Data.Equals(duration.Calendar.Data)))
+                        // Defaultless ports still declare types. Unsupported declarations
+                        // retain their raw data, so validate the descriptor independently.
+                        try { CheckType(new TypeReference(SourceJson.FromElement(type, data.Limits)), location); }
+                        catch (Exception error) when (error is FormatException or ArgumentException)
+                        { Add("coglatas.semantic.type-invalid", RelationFindingState.Invalid, location); }
+                        if (value.TryGetProperty("state", out _))
+                            typed = TypedProjectValueCodec.Decode(SourceJson.FromElement(value, data.Limits), input.ExecutionProfile.Numbers).Value;
+                        if (typed?.KnownValue is WorkingDuration duration && !calendarList.Any(calendar => calendar.Reference.Data.Equals(duration.Calendar.Data)))
                             Add("coglatas.semantic.calendar-unavailable", RelationFindingState.Unknown, location);
-                        if (decoded.Value?.KnownValue is ZonedCivilTime)
+                        if (typed?.KnownValue is ZonedCivilTime)
                             Add("coglatas.semantic.zoned-time-not-lowered", RelationFindingState.Unsupported, location);
                     }
-                    foreach (var member in value.EnumerateObject()) pending.Push(member.Value);
+                    foreach (var member in value.EnumerateObject())
+                        if (member.Name != "basis" || typed?.State != ValueState.Unknown) pending.Push(member.Value);
                 }
                 else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
             }
