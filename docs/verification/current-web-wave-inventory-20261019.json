@@ -60,6 +60,19 @@
         "WorkspaceSelectionFacade",
         "AppShellFacade"
       ]
+    },
+    {
+      "path": "/projectide/preview",
+      "kind": "screen",
+      "component": "ProjectIdeWorkbenchComponent",
+      "ownerPath": "frontend/src/app/features/projectide/projectide-workbench.component.ts",
+      "stateOwners": [
+        "ProjectIdeWorkbenchComponent",
+        "ProjectIdeWorkbenchStore",
+        "AuthSessionFacade",
+        "ActiveWorkspaceFacade",
+        "RealtimeFacade"
+      ]
     }
   ],
   "stateOwners": [
@@ -92,6 +105,16 @@
       "name": "WorkspaceChannelsPageComponent",
       "sourcePath": "frontend/src/app/features/messaging/workspace-channels/workspace-channels-page.component.ts",
       "kind": "component-local"
+    },
+    {
+      "name": "ProjectIdeWorkbenchComponent",
+      "sourcePath": "frontend/src/app/features/projectide/projectide-workbench.component.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "ProjectIdeWorkbenchStore",
+      "sourcePath": "frontend/src/app/features/projectide/projectide-workbench.store.ts",
+      "kind": "signals-service"
     }
   ],
   "routeOwnerExtensions": [
