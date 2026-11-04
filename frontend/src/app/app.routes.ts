@@ -40,6 +40,11 @@ export const routes: Routes = [
     data: { inlineThemeControl: true },
     children: [
       {
+        path: 'projectide/preview',
+        canActivate: [authSessionGuard],
+        loadComponent: () => import('./features/projectide/projectide-workbench.component').then(m => m.ProjectIdeWorkbenchComponent)
+      },
+      {
         path: '',
         pathMatch: 'full',
         redirectTo: 'workspaces'
