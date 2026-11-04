@@ -1,5 +1,84 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+## Manifest / Evidence / Resource continuation — 2026-11-03
+
+Phase A reacquired #1657/#1658/#1653/#1654 through GitHub PR metadata, review
+submissions/threads, exact-head workflow runs, actual failed producer/frontend
+logs and artifact metadata. All four heads/bases remain the inherited pins:
+
+| PR | HEAD | Review base | Ordinary PR CI |
+| --- | --- | --- | --- |
+| #1657 | `48ff196985ddbf90db82386c5413c8f659ea64a7` | `610f9911f9ce31739188437972f7eeb018f611da` | 41514097329 SUCCESS |
+| #1658 | `8f701e8db3097c74c9a63c30669fbfe36be7bb48` | `9e969183f5b311789b0197d0b6aac12a88206e7c` | 41517973360 FAILURE |
+| #1653 | `d77b9814f96ba593b98b8842cf1d1355cf310885` | `0a79e05a6533a7e4468bb7b74f47aeceb04ae119` | 41517683660 SUCCESS |
+| #1654 | `930bb8866cf2b8c3c08a414ffc2aa782072ba443` | `5f2825e1d88f307efddc5edac16579ec220cbd4b` | 41517821832 FAILURE |
+
+All remain Draft/open with auto-merge unset. No unresolved inline thread or
+APPROVED review was returned; the Inspector's three addressed threads remain
+resolved. Historical CodeRabbit full reviews are not corrected-head approval.
+One normal exact-head re-review retry was posted to each Product after the
+previous included-capacity reset interval; requests are not completed reviews.
+No billing/limit change. CLI 0.9.1 is unauthenticated; its attempted browser login
+was stopped without obtaining credentials. GitHub service review is separate.
+
+Actual #1658 .NET producer job 125526718585 and #1654 producer 125539242830 report
+missing unmerged Product namespaces/types. #1654 frontend job 125539971770 also
+reports TS2307 for missing Product Inspector/workbench modules. Downstream failed
+and skipped gates remain failures/skips. No Runtime Source is copied to Test.
+Supplemental success does not replace either ordinary failure.
+
+Reacquired artifact digests match retained ZIP bytes: Core run 41517973310,
+artifact 13175658120 SHA-256 `1354d2e4910f553fd1463f6df2cb341cd1bfa0d3bfab8ec19b7611d4833ca609`;
+combined consumers 41517973455, artifact 13176441828
+`1bf8248caa60dcf4052338f360454d362bf03cc7f9c0f20fe00d41fc491e1c8c`;
+Inspector 41517821241, artifact 13177535386
+`75457ebfe616a59a3a2fd0a8326fe4e9fcadaa46ff3659541a690acc917d9d08`.
+Those receipts certify their own inherited candidates only. New-head acceptance
+requires fresh exact composition, full inventories, clean checkout and ownership.
+
+The task explicitly selected **Option B** architecture. Separate Draft #1666
+at `3fb77900f8168d1de84653fe8e0baa48fd1ed791`, parent/base `48ff1969`, contains
+the A/B comparison, selected non-circular artifact graph, proposed canonical hash
+boundaries, migration/security/verification matrix and remaining schema decisions.
+See `projectide-manifest-option-b.md` on that branch. Concrete Manifest/Receipt
+wire schemas, new authority semantics and activation remain HOLD. No such approval
+was found in the inspected #905/#798/#888 decision records. Existing typed external
+reference pins retain materialized Source-digest meaning.
+
+Independent Product/Test branches `feature/projectide-evidence-foundation-20261103`
+and `test/projectide-evidence-foundation-20261103` start at #1657/#1658 exactly.
+The bounded implementation adds caller-invoked in-memory evidence consistency
+assessment and Source-backed Resource reference validation. It reuses existing
+identities/targets/results/provenance/axes, checks substitution/duplicates/missing/
+unsupported/partial/cancellation/budgets and retains all incomplete gates. It adds
+no Manifest/Receipt wire schema, actual acquisition or eligibility policy. Scope,
+contracts and limitations: `projectide-evidence-resource-foundation.md`.
+
+Baseline Product with new independent tests fails to compile on absent new APIs;
+this is build-time before evidence, not an executed behavioral failure. The first
+implementation candidate runs 43 new cases: 41 PASS / 2 FAIL / 0 skipped. Both
+failures expose test-fixture assumptions: existing snapshot contracts correctly
+reject unknown receipt metadata. Tests now assert that rejection explicitly and
+separately verify that an ordinary pin does not establish actual materialization.
+Original failed TRX/logs are retained. Fresh final-head results belong on the
+paired Draft PRs; earlier counts are not the acceptance criterion.
+
+External transitive graph/lowering still lacks each dependency's approved
+CompilerInput/Manifest and actual body/receipt closure. Independent content-DAG
+prototype tests demonstrate the proposed hash graph, cycle rejection and pin
+substitution propagation without defining a production graph schema.
+`external-closure-not-lowered`, `requirement-evidence-unavailable` and
+`resource-snapshot-unavailable` remain. Consumer verification uses exact current
+Inspector pins and distinct Windows Pure ViewModel evidence, never native acceptance.
+
+Start protected-ref observation: remote Main `1542923a203191dbe7f37032ef655728ead54533`,
+formal ProjectIDE integration `158ab153551184cede99c85ce6476dd6e87b6767`,
+SecurityTestImplimation `a4bb658903a7b11d564006949fc58b42b94da575`.
+No exact remote ProjectIDEMain ref was returned. External advances are not task
+mutations. This task pushes only its named feature/test/docs refs; no protected
+push/merge, force push, Ready/Close, auto-merge, gate relaxation or operational
+activation. #1128 SUSPENDED / NOT_EVALUATED; #1144 native/IME/activation HOLD.
+
 ## Authority and retained boundaries
 
 Remote state was fetched before implementation. All 21 open ProjectIDE PRs below
