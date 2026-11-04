@@ -355,3 +355,31 @@ closure, Production and #1128 decisions still apply.
 The first independent Angular before-run against the inherited Inspector with
 Graph composition yielded 7 passed and 5 failed. Exact follow-up pins, inventories
 and ordinary/supplemental results are tracked on the stacked Navigation Drafts.
+
+#### Reviewed Navigation heads and next Language Service slice
+
+The live continuation retained these 34 inherited Drafts. Ordinary Product and
+documentation CI succeeded on #1603, #1605–#1608, #1611, #1614, #1617, #1620,
+#1624, #1628, #1637, #1653, #1657, #1666, #1667, #1681, #1686 and #1688.
+Ordinary Independent Test CI failed on #1604, #1609, #1612, #1615, #1618,
+#1621, #1625, #1629, #1638, #1654, #1658, #1668, #1682, #1687 and #1689.
+Their supplemental receipts remain separate and scoped to their original
+heads. Current parent relationships and owner acceptance are tracked on the
+existing PRs. No change to their Draft states or branch dependencies was needed.
+
+Navigation Product #1697 and Independent Test #1698 add the paired consumer
+candidate. The first full Windows run recorded 293 Vitest passes and three
+fixture consistency failures. The Test follow-up removes the stale map artifact
+from the intentionally mapless load controls, preserves their assertions and
+adds a negative control for the stripped map. Independent focused verification
+on the corrected candidate covers 33 Vitest and four desktop/mobile cases.
+See [Navigation Product](https://github.com/NYGsatoshi/Coglatas/pull/1697) and
+[Navigation Test](https://github.com/NYGsatoshi/Coglatas/pull/1698) for current
+pins and the complete cross-host evidence.
+
+The next Product/Test pair adds a bounded Diagnostic-to-Symbol action. It
+requires one Core-emitted local symbol at the exact Diagnostic location and a
+matching produced SourceMap. The Workbench uses the established source resolver
+and the platform's existing navigation state. Mapless partial diagnostics remain
+inspectable through the preceding slice. No reference lowering, external
+snapshot acquisition or new public contract is introduced.

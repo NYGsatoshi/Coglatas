@@ -21,6 +21,11 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
     public string NavigationState { get; private set; } = "";
     public ProjectLocation? SourceTarget { get; private set; }
+    public CompilerInspectedSymbol? DiagnosticSymbol =>
+        _compilation?.Validation?.Ir is not null &&
+        SelectedDiagnostic is { } diagnostic &&
+        Inspection?.Inspect(diagnostic.Location) is { } symbol &&
+        Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
     public IReadOnlyList<CompilerDiagnostic> Problems => Result?.Diagnostics ?? Array.Empty<CompilerDiagnostic>();
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -87,12 +92,15 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         Changed(); return !_disposed && generation == _selectionGeneration && SelectedDiagnostic is not null;
     }
 
-    public bool Navigate()
+    public bool Navigate() => NavigateTo(SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
+
+    public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
+
+    private bool NavigateTo(ProjectLocation? location)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var generation = ++_selectionGeneration;
         SourceTarget = null;
-        var location = SelectedDiagnostic?.Location ?? Selected?.Symbol.Location;
         NavigationState = location is null ? "unavailable" : Resolve(location);
         if (NavigationState == "ready") SourceTarget = location;
         Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;

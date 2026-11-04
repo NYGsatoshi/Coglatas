@@ -167,9 +167,10 @@ export class ProjectIdeWorkbenchComponent {
     );
     this.open('inspector', true);
   }
-  navigate(): void {
+  navigate(toDiagnosticSymbol = false): void {
     this.focusGeneration++;
-    if (this.store.navigate()) {
+    const navigated = toDiagnosticSymbol ? this.store.navigateDiagnosticSymbol() : this.store.navigate();
+    if (navigated) {
       this.open('source', true);
     }
   }

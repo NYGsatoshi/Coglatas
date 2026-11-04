@@ -3,6 +3,7 @@ import {
   Diagnostic,
   PreviewBundle,
   PreviewCase,
+  ProjectLocation,
   ReadState,
   Selection,
   SourceRecord,
@@ -45,6 +46,17 @@ export class ProjectIdeWorkbenchStore {
     const record = this.inspectedRecord();
     return record?.recordType === 'entity' && this.result() === this.context() && this.result()?.freshness === 'Current' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
       symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
+  });
+  readonly diagnosticSymbol = computed(() => {
+    const diagnostic = this.diagnostic();
+    if (!diagnostic || !this.result()?.sourceMap) return null;
+    const location = diagnostic.primaryLocation;
+    const matches = this.inspectedSymbols().filter(({ location: symbol }) =>
+      symbol.propertyPath === location.propertyPath &&
+      symbol.textSpan?.start === location.textSpan?.start &&
+      symbol.textSpan?.length === location.textSpan?.length,
+    );
+    return matches.length === 1 ? matches[0] : null;
   });
   readonly inspectedReferences = computed(() => {
     const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
@@ -110,14 +122,20 @@ export class ProjectIdeWorkbenchStore {
     this.resetSelection();
   }
   navigate(): boolean {
-    this.sourceTarget.set(null);
     const context = this.context();
     if (this.selection()?.kind === 'diagnostic' && this.result() !== context) {
       this.resetSelection();
       this.navigationState.set('stale');
       return false;
     }
-    const location = this.diagnostic()?.primaryLocation ?? this.inspectedRecord()?.location;
+    return this.navigateLocation(this.diagnostic()?.primaryLocation ?? this.inspectedRecord()?.location);
+  }
+  navigateDiagnosticSymbol(): boolean {
+    return this.navigateLocation(this.diagnosticSymbol()?.location);
+  }
+  private navigateLocation(location: ProjectLocation | undefined): boolean {
+    this.sourceTarget.set(null);
+    const context = this.context();
     if (!context || !location) {
       this.navigationState.set('unavailable');
       return false;
