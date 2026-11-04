@@ -41,6 +41,12 @@ EF/persistence and renderer code. It is a plan representation foundation; no
 Compiler, executable IR, proposal/history service or UI integration is implemented.
 See [the Slice 1 contract and verification record](verification/project-ide-core-slice-1.md).
 
+The isolated ProjectIDE Slice 2 candidate adds exact values/units/time and
+read-only typed declaration/port/predicate views over that same Source AST.
+It adds no independent operational model, API, persistence or UI integration.
+See [value contract evidence](verification/projectide-core-slice2-values.md) and
+[declaration scope and remaining work](verification/projectide-core-slice2-declarations.md).
+
 ### `Coglatas.Application`
 
 Contains:
