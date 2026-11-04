@@ -326,3 +326,32 @@ Windows/Ubuntu candidate and artifact 13170308202 are historical exact-pin evide
 not a PASS for the subsequent review correction. New-head receipts, CI and thread
 responses remain on the same Draft #1653/#1654 pair. No new feature or gate change
 is mixed into these corrections.
+
+### Diagnostic navigation continuation
+
+The 34 inherited PRs were audited at their live Draft heads. The Product and
+Test dependency chains stay separate. The inherited ordinary Product checks
+succeeded and the 14 standalone Independent Test checks failed with unmerged
+Product dependencies. No current unresolved inline thread or approval was
+present in the audit. Full review and Owner/CODEOWNER acceptance are pending.
+
+Navigation builds on #1653 and #1654. A current Diagnostic selection is distinct
+from a Source or Symbol selection. The Angular Inspector resolves its Diagnostic
+record through the same locator as Source navigation. The Windows ViewModel
+keeps the selected Core Diagnostic and its primary location separate from the
+selected symbol. Both reject ambiguous records and SourceMap entries and clear
+the previous target before an attempt. Location checks cover the accepted input,
+scope/revision, Document and record membership, property paths and UTF-16
+boundaries. A partial result may omit a SourceMap. Its canonical record can still
+support a semantic location, while a document-only location is unsupported by
+the record navigators. Neither client invents a span.
+
+Angular guards deferred DOM focus across reload, cancellation and context
+changes. The pure ViewModel guards success reporting against synchronous
+notifications that reset, dispose or replace the selection. Native Avalonia
+remains on HOLD under #1144. The existing Option B, Receipt, Evidence, external
+closure, Production and #1128 decisions still apply.
+
+The first independent Angular before-run against the inherited Inspector with
+Graph composition yielded 7 passed and 5 failed. Exact follow-up pins, inventories
+and ordinary/supplemental results are tracked on the stacked Navigation Drafts.

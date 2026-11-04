@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import {
+  Diagnostic,
   PreviewBundle,
   PreviewCase,
   ReadState,
@@ -22,36 +23,27 @@ export class ProjectIdeWorkbenchStore {
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {
     const selected = this.selection();
-    return selected?.kind === 'diagnostic'
-      ? (this.result()?.result.diagnostics.find((d) => d.diagnosticId === selected.id) ?? null)
-      : null;
+    if (selected?.kind !== 'diagnostic' || this.result() !== this.context()) return null;
+    const matches = this.result()?.result.diagnostics.filter((item) => item.diagnosticId === selected.id);
+    return matches?.length === 1 ? matches[0] : null;
   });
   readonly inspectedRecord = computed(() => {
     const context = this.context();
     const selected = this.selection();
-    const diagnostic = this.diagnostic();
-    if (!context || !selected) {
-      return null;
+    if (!context || !selected) return null;
+    if (selected.kind === 'diagnostic') {
+      const diagnostic = this.diagnostic();
+      if (!diagnostic) return null;
+      const target = resolveLocation(context, diagnostic.primaryLocation);
+      return typeof target === 'string' ? null : target;
     }
-    const kind =
-      selected.kind === 'diagnostic'
-        ? diagnostic?.primaryLocation.entityId
-          ? 'entity'
-          : 'relation'
-        : selected.kind;
-    const id =
-      selected.kind !== 'diagnostic'
-        ? selected.id
-        : (diagnostic?.primaryLocation.entityId ?? diagnostic?.primaryLocation.relationId);
-    return (
-      [...context.declarations, ...context.relations].find(
-        (r) => r.recordType === kind && r.identity === id,
-      ) ?? null
-    );
+    return [...context.declarations, ...context.relations].find(
+      (record) => record.recordType === selected.kind && record.identity === selected.id,
+    ) ?? null;
   });
   readonly inspectedSymbols = computed(() => {
     const record = this.inspectedRecord();
-    return record?.recordType === 'entity' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
+    return record?.recordType === 'entity' && this.result() === this.context() && this.result()?.freshness === 'Current' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
       symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
   });
   readonly inspectedReferences = computed(() => {
@@ -90,16 +82,41 @@ export class ProjectIdeWorkbenchStore {
     this.resetSelection();
     this.result.set(this.context());
   }
-  select(selection: Selection): void {
+  selectDiagnostic(diagnostic: Diagnostic): boolean {
+    if (this.result()?.result.diagnostics.includes(diagnostic)) {
+      return this.select({ kind: 'diagnostic', id: diagnostic.diagnosticId });
+    }
+    this.resetSelection();
+    this.navigationState.set('unavailable');
+    return false;
+  }
+  select(selection: Selection): boolean {
+    this.resetSelection();
+    const context = this.context();
+    const diagnostics = this.result() === context ? context?.result.diagnostics ?? [] : [];
+    const matches = selection.kind === 'diagnostic'
+      ? diagnostics.filter((item) => item.diagnosticId === selection.id)
+      : [...(context?.declarations ?? []), ...(context?.relations ?? [])].filter(
+        (item) => item.recordType === selection.kind && item.identity === selection.id,
+      );
+    if (matches.length !== 1) {
+      this.navigationState.set('unavailable');
+      return false;
+    }
     this.selection.set(selection);
-    this.sourceTarget.set(null);
-    this.navigationState.set('');
+    return true;
   }
   clearSelection(): void {
     this.resetSelection();
   }
   navigate(): boolean {
+    this.sourceTarget.set(null);
     const context = this.context();
+    if (this.selection()?.kind === 'diagnostic' && this.result() !== context) {
+      this.resetSelection();
+      this.navigationState.set('stale');
+      return false;
+    }
     const location = this.diagnostic()?.primaryLocation ?? this.inspectedRecord()?.location;
     if (!context || !location) {
       this.navigationState.set('unavailable');
@@ -108,7 +125,6 @@ export class ProjectIdeWorkbenchStore {
     const target = resolveLocation(context, location);
     if (typeof target === 'string') {
       this.navigationState.set(target);
-      this.sourceTarget.set(null);
       return false;
     }
     this.sourceTarget.set(target);

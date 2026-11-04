@@ -45,7 +45,8 @@ export function isProjectLocationShape(value: unknown): value is ProjectLocation
   }
   if (
     (value['entityId'] !== undefined && !token(value['entityId'])) ||
-    (value['relationId'] !== undefined && !token(value['relationId']))
+    (value['relationId'] !== undefined && !token(value['relationId'])) ||
+    (value['entityId'] !== undefined && value['relationId'] !== undefined)
   ) {
     return false;
   }

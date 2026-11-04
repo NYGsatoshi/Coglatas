@@ -16,7 +16,7 @@
       {{ t('ide.transport') }}: {{ store.state() === 'ready' ? t('ide.ready') : stateMessage() }}
     </p>
     @if (store.state() === 'loading') {
-      <button type="button" (click)="store.clear('cancelled')">{{ t('ide.cancel') }}</button>
+      <button type="button" (click)="cancel()">{{ t('ide.cancel') }}</button>
     } @else if (store.state() !== 'ready') {
       <p role="alert">{{ stateMessage() }}</p>
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
@@ -87,7 +87,7 @@
               <dd>{{ ctx.inputDigest.value }}</dd>
             </div>
           </dl>
-          <button type="button" (click)="store.loadResult()">{{ t('ide.load') }}</button>
+          <button type="button" (click)="loadResult()">{{ t('ide.load') }}</button>
         </section>
         <section class="analysis" aria-live="polite" data-testid="ide-analysis-status">
           @if (store.result(); as loaded) {
@@ -311,7 +311,12 @@
               }
               @if (store.navigationState() && store.navigationState() !== 'ready') {
                 <p role="alert">
-                  {{ store.navigationState() === 'stale' ? t('ide.stale') : t('ide.unavailable') }}
+                  @switch (store.navigationState()) {
+                    @case ('stale') { {{ t('ide.stale') }} }
+                    @case ('wrong-scope') { {{ t('ide.wrong-scope') }} }
+                    @case ('unsupported') { {{ t('ide.unsupportedState') }} }
+                    @default { {{ t('ide.unavailable') }} }
+                  }
                 </p>
               }
             }
