@@ -72,7 +72,7 @@ public sealed class PlanEntityReference
         RequireKnownContext(Context);
     }
 
-    private static void RequireKnownContext(SourceRevisionContext context)
+    internal static void RequireKnownContext(SourceRevisionContext context)
     {
         var data = context.Data.Value;
         if (ValueFields.HasUnknown(data.GetProperty("branch"), "tenantId", "projectId", "branchId"))
