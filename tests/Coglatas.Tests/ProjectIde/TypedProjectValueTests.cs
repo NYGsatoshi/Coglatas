@@ -58,7 +58,7 @@ public sealed class TypedProjectValueTests
     [InlineData("coglatas.instant", "\"2026-10-31T00:00:00.0000000Z\"", ValueDecodeStatus.Decoded)]
     [InlineData("coglatas.instant", "\"2026-10-31T00:00:00Z\"", ValueDecodeStatus.Invalid)]
     [InlineData("future.numeric", "{\"amount\":123456789012345678901234567890}", ValueDecodeStatus.Unsupported)]
-    [InlineData("coglatas.zoned-local-date-time", "{\"local\":\"2026-10-31T00:00:00\"}", ValueDecodeStatus.Unsupported)]
+    [InlineData("coglatas.zoned-local-date-time", "{\"local\":\"2026-10-31T00:00:00\"}", ValueDecodeStatus.Invalid)]
     public void BuiltInValuesValidateWithoutCoercion(string kind, string json, ValueDecodeStatus expected)
     {
         var data = Value(kind, "coglatas.known", JsonSerializer.Deserialize<JsonElement>(json));
