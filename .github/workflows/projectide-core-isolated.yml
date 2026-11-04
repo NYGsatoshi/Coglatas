@@ -57,3 +57,21 @@ jobs:
           name: projectide-core-isolated-${{ github.run_attempt }}
           path: ${{ runner.temp }}/projectide-core-${{ github.run_id }}-${{ github.run_attempt }}/evidence
           if-no-files-found: error
+
+  integration-inventory-controls:
+    name: Integration Core TRX integrity negative controls
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-integration-slice3-relations-20261104'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact integrated Test candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up evidence interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
+      - name: Reject incomplete or tampered TRX and ownership
+        run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
