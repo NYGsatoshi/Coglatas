@@ -84,6 +84,7 @@ describe('Source-backed semantic inspection', () => {
       return entry;
     });
     item.relations = []; item.result.diagnostics = []; item.sourceMap = null; item.sourceMapDigest = null;
+    item.result.artifacts = item.result.artifacts.filter((artifact: { role: string }) => artifact.role !== 'coglatas.source-map');
     item.semanticInspection.symbols = item.declarations.map((entry: typeof declaration) => ({
       key: JSON.stringify({ context: item.context, entityId: entry.identity, portId: null }),
       kind: entry.kind, status: entry.status, location: structuredClone(entry.location), declaredType: null,

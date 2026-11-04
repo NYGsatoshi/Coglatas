@@ -47,6 +47,12 @@ describe('Problems to Source navigation integrity', () => {
     if (mode === 'revision') location = { ...location, context: bundle().cases.find(item => item.key === 'branch-pass')!.context };
     expect(typeof resolveLocation(value, location)).toBe('string');
   });
+  it('rejects a missing SourceMap when the Result still declares its artifact', async () => {
+    const store = await ready();
+    const value = { ...store.context()!, sourceMap: null, sourceMapDigest: null };
+    expect(resolveLocation(value, value.result.diagnostics[0].primaryLocation)).toBe('wrong-scope');
+  });
+
   it('rejects a Diagnostic object from an earlier bundle even when its stable ID is reused', async () => {
     const store = await ready();
     const previous = store.result()!.result.diagnostics[0];
