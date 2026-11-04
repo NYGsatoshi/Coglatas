@@ -171,6 +171,18 @@ const sourceMap = (value: unknown): boolean =>
       100000,
     ));
 
+const inspection = (value: unknown): boolean => value === undefined || value === null || (
+  record(value) && value['format'] === 'coglatas.semantic-inspection/1' &&
+  token(value['compilerInputId']) && digest(value['inputDigest']) && digest(value['sourceDigest']) &&
+  context(value['context']) && typeof value['bindingComplete'] === 'boolean' &&
+  list(value['symbols'], (item) => record(item) && token(item['key']) && token(item['kind']) &&
+    oneOf(item['status'], ['Decoded', 'Unsupported', 'Invalid']) && isProjectLocationShape(item['location']) &&
+    (item['declaredType'] === null || record(item['declaredType'])), 100000) &&
+  list(value['references'], (item) => record(item) && isProjectLocationShape(item['origin']) &&
+    oneOf(item['state'], ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope']) &&
+    (item['symbolKey'] === null || token(item['symbolKey'])), 100000)
+);
+
 /** Structural profile only. Core owns meaning, identities and canonical digest derivation. */
 export function isPreviewCaseShape(value: unknown): value is PreviewCase {
   return (
@@ -195,6 +207,7 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     list(value['changedDimensions'], text, 1024) &&
     list(value['declarations'], sourceRecord, 100000) &&
     list(value['relations'], sourceRecord, 100000) &&
+    inspection(value['semanticInspection']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );

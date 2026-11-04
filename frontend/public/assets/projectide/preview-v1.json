@@ -1320,6 +1320,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "3cb99e3b-b60c-8b48-966b-f47f193b3ff0",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "00000064-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "50d3da7fe99e59fc114045140eaa74a1250b5d6744b4f635eb4f39681241f657"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "d726e436ea7139794486ec926b9c6f99704810ac01a2228fe5fe55ada91cb4bc"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000064-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000064-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "3cb99e3b-b60c-8b48-966b-f47f193b3ff0",
         "format": "coglatas.semantic-source-map/1",
@@ -2688,6 +2878,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "7c30ca7f-2e1d-8952-b005-937375e3a96e",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "00000065-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "1423e79671eac6e043ce1d3b88b85cef7224e10959b73780e017121c4e050b17"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "527f4a110289034e3e33c0c51da61bec0e098ce9dd370fb8e4275c53f094f7b0"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000065-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000065-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "7c30ca7f-2e1d-8952-b005-937375e3a96e",
         "format": "coglatas.semantic-source-map/1",
@@ -4098,6 +4478,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "c007cab2-9a03-8b37-95cb-d9ee902e2bf1",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "00000066-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "43557d5270729a0ecdc072e0254d79835984ab06296dd89a71d1729714dc2d2a"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "92fb28b8c53a3a5449bfc031809a8381456c9c1bcdf926fc5b540efe3d982a4c"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000066-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000066-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "c007cab2-9a03-8b37-95cb-d9ee902e2bf1",
         "format": "coglatas.semantic-source-map/1",
@@ -5769,6 +6339,290 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": false,
+        "compilerInputId": "9cf394c2-7ac9-85c5-9440-0a1fdcf968f3",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "00000067-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "ffd7cc9b6061c044fa4a1dc5ceea3eb3fc03c704f4d8cf5f23dde1c317c7104b"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000b-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/payload/target",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "7c9393b98801c80ba0cebfd051c975d8bcca92b8abca0f06094a389d0276d47f"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000b-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.requirement",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000b-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000c-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.resource-binding",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000c-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u002200000067-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000d-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "example.future",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "00000067-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000d-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Unsupported"
+          }
+        ]
+      },
       "sourceMap": null,
       "sourceMapDigest": null
     },
@@ -6642,6 +7496,7 @@
           }
         }
       ],
+      "semanticInspection": null,
       "sourceMap": null,
       "sourceMapDigest": null
     },
@@ -7515,6 +8370,7 @@
           }
         }
       ],
+      "semanticInspection": null,
       "sourceMap": null,
       "sourceMapDigest": null
     },
@@ -8388,6 +9244,7 @@
           }
         }
       ],
+      "semanticInspection": null,
       "sourceMap": null,
       "sourceMapDigest": null
     },
@@ -9623,6 +10480,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "53423f12-40ac-8c08-a4d1-81e894170606",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "0000006b-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "8a789d00dbb650450f469bde4cedab58a4008ea913c14ea3df2899ba88860c03"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "29d82fae8519abd89423bbc566d0e250347d34f4acccce895f1a41bdb86d849c"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006b-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006b-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "53423f12-40ac-8c08-a4d1-81e894170606",
         "format": "coglatas.semantic-source-map/1",
@@ -10991,6 +12038,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "5e04b52d-2a81-8054-9543-c3f348b4636a",
+        "context": {
+          "branch": {
+            "branchId": "0000001f-0000-4000-8000-000000000001",
+            "projectId": "00000002-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "0000006c-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "5692e43842c090ef6443b7a1e8f09dfda471661bb5c418e8983a0b68801940e2"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "261fbaa0225dc2046747a76112dd2b45e20726eba00338ded348d9b21ebd6a17"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u00220000001f-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000002-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006c-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "0000001f-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "5e04b52d-2a81-8054-9543-c3f348b4636a",
         "format": "coglatas.semantic-source-map/1",
@@ -12359,6 +13596,196 @@
           }
         }
       ],
+      "semanticInspection": {
+        "bindingComplete": true,
+        "compilerInputId": "354a2c62-2f2f-8b28-96ec-50d023635908",
+        "context": {
+          "branch": {
+            "branchId": "00000003-0000-4000-8000-000000000001",
+            "projectId": "00000016-0000-4000-8000-000000000001",
+            "tenantId": "00000001-0000-4000-8000-000000000001"
+          },
+          "kind": "coglatas.committed",
+          "revisionId": "0000006d-0000-4000-8000-000000000001"
+        },
+        "format": "coglatas.semantic-inspection/1",
+        "inputDigest": {
+          "algorithm": "sha-256",
+          "value": "6f7180312464530373c61ef0547d44d8df99d1d1e7a6e5a04abd329612bfdb0b"
+        },
+        "references": [
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/source",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          },
+          {
+            "origin": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "/target",
+              "relationId": "00000014-0000-4000-8000-000000000001",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "state": "Resolved",
+            "symbolKey": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}"
+          }
+        ],
+        "sourceDigest": {
+          "algorithm": "sha-256",
+          "value": "db4b754099cee02e8ea55aa2899b564e13b5665e9afbc7803584cacc2fe0a1d3"
+        },
+        "symbols": [
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000006-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.project",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000006-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000007-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.constraint",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000007-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000008-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.task",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000008-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u002200000009-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.milestone",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "00000009-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          },
+          {
+            "declaredType": null,
+            "key": "{\u0022context\u0022:{\u0022branch\u0022:{\u0022branchId\u0022:\u002200000003-0000-4000-8000-000000000001\u0022,\u0022projectId\u0022:\u002200000016-0000-4000-8000-000000000001\u0022,\u0022tenantId\u0022:\u002200000001-0000-4000-8000-000000000001\u0022},\u0022kind\u0022:\u0022coglatas.committed\u0022,\u0022revisionId\u0022:\u00220000006d-0000-4000-8000-000000000001\u0022},\u0022entityId\u0022:\u00220000000a-0000-4000-8000-000000000001\u0022,\u0022portId\u0022:null}",
+            "kind": "coglatas.workflow",
+            "location": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000016-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000006d-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "entityId": "0000000a-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "status": "Decoded"
+          }
+        ]
+      },
       "sourceMap": {
         "compilerInputId": "354a2c62-2f2f-8b28-96ec-50d023635908",
         "format": "coglatas.semantic-source-map/1",

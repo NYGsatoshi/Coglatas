@@ -49,9 +49,22 @@ export class ProjectIdeWorkbenchStore {
       ) ?? null
     );
   });
+  readonly inspectedSymbols = computed(() => {
+    const record = this.inspectedRecord();
+    return record?.recordType === 'entity' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
+      symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
+  });
+  readonly inspectedReferences = computed(() => {
+    const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
+    return (this.result()?.semanticInspection?.references ?? []).filter((reference) => reference.symbolKey !== null && keys.has(reference.symbolKey));
+  });
   async load(read: (signal: AbortSignal) => Promise<PreviewBundle>): Promise<void> {
+    const generation = this.generation + 1;
     this.clear('loading');
-    const generation = this.generation;
+    // Abort subscribers may synchronously clear this context or begin a newer read.
+    if (generation !== this.generation) {
+      return;
+    }
     const controller = new AbortController();
     this.controller = controller;
     try {
@@ -104,13 +117,15 @@ export class ProjectIdeWorkbenchStore {
   }
   clear(state: ReadState = 'idle'): void {
     this.generation++;
-    this.controller?.abort();
+    const controller = this.controller;
     this.controller = null;
     this.bundle.set(null);
     this.context.set(null);
     this.result.set(null);
     this.resetSelection();
     this.state.set(state);
+    // Publish the cleared lifecycle before invoking synchronous abort subscribers.
+    controller?.abort();
   }
   private resetSelection(): void {
     this.selection.set(null);

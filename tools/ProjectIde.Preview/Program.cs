@@ -45,6 +45,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         result = result.Data.Value, resultId = result.ResultId.ToString(), resultDigest = result.ResultDigest.Data.Value,
         freshness = freshness.State.ToString(), changedDimensions = freshness.ChangedDimensions,
         declarations, relations,
+        semanticInspection = result.Execution == CompilerExecutionState.Completed && compilation.Model is { } model ? new CompilerSemanticInspection(model).Data.Value : (JsonElement?)null,
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });

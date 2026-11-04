@@ -1,5 +1,7 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
   'ide.title': 'ProjectIDE Workbench',
+  'ide.symbols': 'Semantic symbols and declared types',
+  'ide.references': 'Resolved references in loaded scope',
   'ide.preview': 'Synthetic fixture preview',
   'ide.notice':
     'Read-only synthetic data exported by .NET Core. Loading a fixture does not run the Compiler. No production Project data is connected.',
@@ -84,6 +86,8 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
   string
 > = {
+  'ide.symbols': '意味モデルのシンボルと宣言型',
+  'ide.references': '取得済みスコープ内の解決済み参照',
   'ide.title': 'ProjectIDE ワークベンチ',
   'ide.preview': '合成Fixtureプレビュー',
   'ide.notice':

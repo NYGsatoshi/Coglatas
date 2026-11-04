@@ -41,6 +41,8 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
   if (!hasUniquePreviewIdentities(item)) {
     throw new PreviewReadError('unsupported');
   }
+  const documentIds = new Set(item.source.documents.map((document) => document.documentId));
+  const declarations = new Map(item.declarations.map((declaration) => [declaration.identity, declaration]));
   const r = item.result;
   if (
     !sameContext(item.context, r.boundInputStamp.sourceContext) ||
@@ -73,7 +75,7 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
   ]) {
     if (
       !sameContext(item.context, location.context) ||
-      !item.source.documents.some((document) => document.documentId === location.documentId)
+      !documentIds.has(location.documentId)
     ) {
       throw new PreviewReadError('wrong-scope');
     }
@@ -89,14 +91,76 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
       throw new PreviewReadError('wrong-scope');
     }
   }
+  const inspection = item.semanticInspection;
+  if (inspection) {
+    if (inspection.compilerInputId !== item.inputId || !sameContext(inspection.context, item.context) ||
+        !sameDigest(inspection.inputDigest, item.inputDigest) || !sameDigest(inspection.sourceDigest, item.sourceDigest) ||
+        r.execution !== 'coglatas.completed') throw new PreviewReadError('wrong-scope');
+    if (new Set(inspection.symbols.map((symbol) => symbol.key)).size !== inspection.symbols.length ||
+        new Set(inspection.symbols.map((symbol) => [symbol.location.documentId, symbol.location.entityId, symbol.location.propertyPath].join(':'))).size !== inspection.symbols.length)
+      throw new PreviewReadError('unsupported');
+    const portIndexes = new Map<SourceRecord, Map<string, Record<string, unknown>>>();
+    for (const symbol of inspection.symbols) {
+      const location = symbol.location;
+      let key: Record<string, unknown>;
+      try {
+        const parsed: unknown = JSON.parse(symbol.key);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('Invalid symbol key');
+        key = parsed as Record<string, unknown>;
+      } catch { throw new PreviewReadError('unsupported'); }
+      if (Object.keys(key).length !== 3 || !Object.hasOwn(key, 'portId') ||
+          !sameJson(key['context'], item.context) || key['entityId'] !== location.entityId ||
+          (location.propertyPath === '' ? key['portId'] !== null : location.propertyPath !== '/payload/ports/' + key['portId']))
+        throw new PreviewReadError('wrong-scope');
+      const declaration = location.entityId ? declarations.get(location.entityId) : undefined;
+      if (!sameContext(location.context, item.context) || !declaration ||
+          declaration.location.documentId !== location.documentId || location.relationId)
+        throw new PreviewReadError('wrong-scope');
+      if (location.propertyPath === '') {
+        if (symbol.kind !== declaration.kind || symbol.status !== declaration.status || symbol.declaredType !== null)
+          throw new PreviewReadError('unsupported');
+      } else {
+        let ports = portIndexes.get(declaration);
+        if (!ports) {
+          ports = new Map();
+          const payload = declaration.data['payload'] as Record<string, unknown> | undefined;
+          const entries = payload?.['ports'];
+          if (Array.isArray(entries)) for (const entry of entries) {
+            if (typeof entry !== 'object' || entry === null) continue;
+            const candidate = entry as Record<string, unknown>;
+            const path = '/payload/ports/' + candidate['portId'];
+            if (!ports.has(path)) ports.set(path, candidate);
+          }
+          portIndexes.set(declaration, ports);
+        }
+        const port = ports.get(location.propertyPath);
+        if (!port || symbol.status !== 'Decoded' || !symbol.declaredType ||
+            symbol.kind !== symbol.declaredType['kind'] || !sameJson(symbol.declaredType, port['type']))
+          throw new PreviewReadError('unsupported');
+      }
+    }
+    for (const reference of inspection.references) {
+      if (!sameContext(reference.origin.context, item.context) ||
+          !documentIds.has(reference.origin.documentId) ||
+          (reference.state === 'Resolved') !== (reference.symbolKey !== null)) throw new PreviewReadError('wrong-scope');
+    }
+  }
   for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
     if (
       !sameContext(item.context, entry.location.context) ||
-      !item.source.documents.some((document) => document.documentId === entry.location.documentId)
+      !documentIds.has(entry.location.documentId)
     ) {
       throw new PreviewReadError('wrong-scope');
     }
   }
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => sameJson(item, b[index]));
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null || Array.isArray(a) || Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>; const right = b as Record<string, unknown>;
+  return Object.keys(left).length === Object.keys(right).length && Object.keys(left).every((key) => Object.hasOwn(right, key) && sameJson(left[key], right[key]));
 }
 
 @Injectable()

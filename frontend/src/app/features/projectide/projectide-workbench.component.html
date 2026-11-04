@@ -277,6 +277,19 @@
                     <dd>{{ record.location.context.revisionId }}</dd>
                   </div>
                 </dl>
+                @if (store.inspectedSymbols().length) {
+                  <section data-testid="ide-semantic-inspection">
+                    <h3>{{ t('ide.symbols') }}</h3>
+                    @for (symbol of store.inspectedSymbols(); track symbol.key) {
+                      <p>{{ symbol.kind }} · {{ symbol.status }} · {{ symbol.location.propertyPath }}</p>
+                      @if (symbol.declaredType) { <pre tabindex="0">{{ symbol.declaredType | json }}</pre> }
+                    }
+                    <p>{{ t('ide.references') }}: {{ store.inspectedReferences().length }}</p>
+                    @for (reference of store.inspectedReferences(); track $index) {
+                      <p>{{ reference.state }} · {{ reference.origin.propertyPath }}</p>
+                    }
+                  </section>
+                }
                 <p>{{ t('ide.unsupported') }}</p>
                 <h3>{{ t('ide.properties') }}</h3>
                 <pre tabindex="0">{{ record.data | json }}</pre>
