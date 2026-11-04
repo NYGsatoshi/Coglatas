@@ -76,14 +76,24 @@ def compose(repository: Path, target: Path, receipt_path: Path, candidates: Path
     return receipt
 
 
-def counters(path: Path) -> dict[str, int]:
+# Exact original #1609 composed candidates: 532 ProjectIDE cases + 12 Architecture.
+# The dedicated integration #1707 has 533 ProjectIDE cases after the corrected
+# Document Reference negative control; that ordinary PR CI has a separate receipt.
+ISOLATED_PROJECTIDE_EXPECTED = 532
+ISOLATED_ARCHITECTURE_EXPECTED = 12
+
+
+def counters(path: Path, *, expected_total: int) -> dict[str, int]:
+    if expected_total <= 0:
+        raise ValueError("An exact positive test inventory count is required")
     root = ET.parse(path).getroot()
     element = root.find("{*}ResultSummary/{*}Counters")
     if element is None:
         raise ValueError("Missing TRX counters")
     result = {key: int(element.get(key, "0")) for key in ("total", "executed", "passed", "failed", "notExecuted")}
-    if result["total"] == 0 or result["total"] != result["passed"] or result["failed"] or result["notExecuted"] or result["executed"] != result["total"]:
-        raise ValueError(f"Empty, failed, skipped or incomplete verification: {result}")
+    if (result["total"] != expected_total or result["passed"] != expected_total or
+            result["executed"] != expected_total or result["failed"] or result["notExecuted"]):
+        raise ValueError(f"Failed, skipped or incomplete {expected_total}-case inventory: {result}")
     return result
 
 
@@ -93,9 +103,11 @@ def verify(target: Path, receipt_path: Path, receipt: dict) -> None:
         receipt["verification"]["build"] = "Failed"
         run(["dotnet", "build", "Coglatas.slnx", "-c", "Release", "--nologo", "-warnaserror"], target, capture=False)
         receipt["verification"]["build"] = "Passed"
-        for name, project, filter_value in (
-            ("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", "FullyQualifiedName~ProjectIde"),
-            ("architecture", "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj", None),
+        for name, project, filter_value, expected_total in (
+            ("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", "FullyQualifiedName~ProjectIde",
+             ISOLATED_PROJECTIDE_EXPECTED),
+            ("architecture", "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj", None,
+             ISOLATED_ARCHITECTURE_EXPECTED),
         ):
             command = ["dotnet", "test", project, "-c", "Release", "--no-build", "--nologo",
                        "--logger", f"trx;LogFileName={name}.trx", "--results-directory", str(artifacts)]
@@ -103,7 +115,7 @@ def verify(target: Path, receipt_path: Path, receipt: dict) -> None:
                 command += ["--filter", filter_value]
             receipt["verification"][name] = "Failed"
             run(command, target, capture=False)
-            receipt["verification"][name] = counters(artifacts / f"{name}.trx")
+            receipt["verification"][name] = counters(artifacts / f"{name}.trx", expected_total=expected_total)
     finally:
         receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
 
