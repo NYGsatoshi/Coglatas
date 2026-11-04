@@ -95,10 +95,12 @@ describe('Source-backed Diagnostic symbol navigation', () => {
     const diagnostic = store.result()!.result.diagnostics[0];
     expect(store.selectDiagnostic(diagnostic)).toBe(true);
     expect(store.diagnosticSymbol()?.location).toEqual(diagnostic.primaryLocation);
+    expect(store.inspectedSymbols()).toEqual([store.diagnosticSymbol()]);
     expect(store.navigateDiagnosticSymbol()).toBe(true);
     expect(store.sourceTarget()).toBe(store.inspectedRecord());
     store.loadResult();
     expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.inspectedSymbols()).toEqual([]);
     expect(store.navigateDiagnosticSymbol()).toBe(false);
     expect(store.sourceTarget()).toBeNull();
   });
@@ -116,6 +118,7 @@ describe('Source-backed Diagnostic symbol navigation', () => {
     expect(store.selectDiagnostic(result.diagnostics[0])).toBe(true);
     expect(store.navigate()).toBe(true);
     expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.inspectedSymbols()).toEqual([]);
     expect(store.navigateDiagnosticSymbol()).toBe(false);
     expect(store.sourceTarget()).toBeNull();
   });
@@ -128,6 +131,7 @@ describe('Source-backed Diagnostic symbol navigation', () => {
     expect(store.selectDiagnostic(diagnostic)).toBe(true);
     expect(store.diagnostic()).toBe(diagnostic);
     expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.inspectedSymbols()).toEqual([]);
     expect(store.navigateDiagnosticSymbol()).toBe(false);
   });
 });
