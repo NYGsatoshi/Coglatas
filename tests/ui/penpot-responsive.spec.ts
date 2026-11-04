@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import AxeBuilder from '@axe-core/playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
@@ -61,6 +62,76 @@ function createPhaseProfile(project: string, viewport: string) {
 
 type PhaseProfile = ReturnType<typeof createPhaseProfile>;
 
+
+type AxeResults = Awaited<ReturnType<AxeBuilder['analyze']>>;
+const axeSingleFrameShadow = process.env['COGLATAS_AXE_SINGLE_FRAME_SHADOW'] === '1';
+
+// Normalize full axe rule categories, including incomplete and inapplicable
+// rules. Do not log node selectors or any DOM/content from these projections.
+function comparableAxeResults(results: AxeResults) {
+  const categories = ['violations', 'incomplete', 'passes', 'inapplicable'] as const;
+  return Object.fromEntries(categories.map(category => [
+    category,
+    results[category].map(rule => ({
+      id: rule.id,
+      impact: rule.impact ?? null,
+      nodes: rule.nodes.map(node => ({
+        target: node.target,
+        checks: [...node.any, ...node.all, ...node.none]
+          .map(check => check.id + '=' + String(check.result))
+          .sort()
+      })).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+    })).sort((left, right) => left.id.localeCompare(right.id))
+  ]));
+}
+
+function createAxeSingleFrameProbe(project: string, viewport: string) {
+  let scans = 0;
+  let standardMs = 0;
+  let legacyMs = 0;
+  return {
+    async analyze(page: Page, selector?: string) {
+      // Normal/local CI runs only the original full analyzer and assertion.
+      if (!axeSingleFrameShadow) {
+        await expectNoAccessibilityViolations(page, selector);
+        return;
+      }
+      const standardStart = performance.now();
+      const standard = await expectNoAccessibilityViolations(page, selector);
+      standardMs += performance.now() - standardStart;
+
+      // Legacy-mode does not include cross-origin frames. A single frame is a
+      // mandatory precondition. Never silently reduce scanning coverage.
+      expect(page.frames()).toHaveLength(1);
+      expect(await page.locator('iframe, frame').count()).toBe(0);
+
+      const builder = new AxeBuilder({ page }).setLegacyMode();
+      if (selector) builder.include(selector);
+      const legacyStart = performance.now();
+      const legacy = await builder.analyze();
+      legacyMs += performance.now() - legacyStart;
+      expect(comparableAxeResults(legacy)).toEqual(comparableAxeResults(standard));
+      scans++;
+    },
+    report(retry: number, completed: boolean) {
+      if (!axeSingleFrameShadow) return;
+      console.log([
+        'CI Axe single-frame shadow:',
+        'spec=penpot-responsive',
+        'project=' + project,
+        'viewport=' + viewport,
+        'retry=' + retry,
+        'completed=' + (completed ? '1' : '0'),
+        'scans=' + scans,
+        'standard_ms=' + Math.round(standardMs),
+        'legacy_ms=' + Math.round(legacyMs),
+        'frame_count=1',
+        'parity=' + (completed && scans === 6 ? 'PASS' : 'INCOMPLETE')
+      ].join(' '));
+    }
+  };
+}
+
 const viewports = [
   { width: 1536, height: 1024 },
   { width: 1366, height: 768 },
@@ -73,6 +144,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
   for (const viewport of viewports) {
     test(`contains supported workflows in both themes at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       const profile = createPhaseProfile(testInfo.project.name, `${viewport.width}x${viewport.height}`);
+      const axeProbe = createAxeSingleFrameProbe(testInfo.project.name, `${viewport.width}x${viewport.height}`);
       let completed = false;
       try {
       await page.setViewportSize(viewport);
@@ -99,7 +171,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
         await expect(themeToggle).toHaveAttribute('aria-description',
           theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え');
         await capture(page, testInfo, `${theme}-login`, profile);
-        await profile.measure('accessibility', () => expectNoAccessibilityViolations(page));
+        await profile.measure('accessibility', () => axeProbe.analyze(page));
 
         await profile.measure('navigation', () => page.goto('/app/workspaces'));
         await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
@@ -138,7 +210,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
         await profile.measure('navigation', () => page.goto('/app/files'));
         await expect(page.getByText(fileName, { exact: true }).filter({ visible: true }).first()).toBeVisible();
         await capture(page, testInfo, `${theme}-files`, profile);
-        await profile.measure('accessibility', () => expectNoAccessibilityViolations(page, 'main'));
+        await profile.measure('accessibility', () => axeProbe.analyze(page, 'main'));
         await page.getByText(fileName, { exact: true }).filter({ visible: true }).first().click();
         await expect(page.getByTestId('files-preview-pane')).toContainText(fileName);
         await capture(page, testInfo, `${theme}-file-inspector`, profile);
@@ -159,7 +231,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
         await expect(evidence).toContainText('Supplied evidence passage 原文');
         await expect(evidence.locator('.claim-refine')).toBeHidden();
         await capture(page, testInfo, `${theme}-report-evidence`, profile);
-        await profile.measure('accessibility', () => expectNoAccessibilityViolations(page, 'main'));
+        await profile.measure('accessibility', () => axeProbe.analyze(page, 'main'));
         await evidence.locator('.close').click();
         await expect(evidence).toBeHidden();
         await expect(reader.getByRole('button', { name: /Supplied citation/ })).toBeFocused();
@@ -173,6 +245,7 @@ test.describe('Penpot revision 339 supported Web projections', () => {
         // Include retry index so a failed attempt is not mistaken for a 9th
         // unique viewport case during evidence reconciliation.
         profile.report(testInfo.retry, completed);
+        axeProbe.report(testInfo.retry, completed);
       }
     });
   }
