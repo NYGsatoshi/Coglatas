@@ -163,4 +163,95 @@ public sealed class SyntheticDiagnosticNavigationTests
         Assert.Throws<ObjectDisposedException>(() => view.SelectDiagnostic(diagnostic));
         Assert.Throws<ObjectDisposedException>(() => view.Navigate());
     }
+
+    [Fact]
+    public async Task LocalReferenceNavigatesOriginAndExactDefinitionSeparately()
+    {
+        using var view = await Ready();
+        var inspection = view.Inspection!;
+        var references = inspection.References.Where(item => item.Origin.RelationId is not null).ToArray();
+        Assert.Equal(new[] { "/source", "/target" }, references.Select(item => item.Origin.PropertyPath));
+        Assert.Equal(2, references.Select(item => item.SymbolKey).Distinct().Count());
+        foreach (var reference in references)
+        {
+            Assert.True(view.SelectDiagnostic(Assert.Single(view.Problems)));
+            Assert.True(view.Navigate());
+            Assert.True(view.SelectReference(reference));
+            Assert.Same(reference, view.SelectedReference);
+            Assert.Null(view.SelectedDiagnostic); Assert.Null(view.Selected); Assert.Null(view.SourceTarget);
+            var symbol = Assert.Single(inspection.Symbols, item => item.Symbol.Key == reference.SymbolKey);
+            Assert.Same(symbol, view.ReferenceSymbol);
+            Assert.True(view.NavigateReferenceOrigin());
+            Assert.Equal(reference.Origin, view.SourceTarget);
+            Assert.True(view.NavigateReferenceDefinition());
+            Assert.Equal(symbol.Symbol.Location, view.SourceTarget);
+            Assert.NotEqual(reference.Origin, view.SourceTarget);
+        }
+    }
+
+    [Theory]
+    [InlineData(ReferenceResolutionState.MissingWithinCompleteScope)]
+    [InlineData(ReferenceResolutionState.UnknownDueToCoverage)]
+    [InlineData(ReferenceResolutionState.Ambiguous)]
+    [InlineData(ReferenceResolutionState.Unsupported)]
+    [InlineData(ReferenceResolutionState.OutOfScope)]
+    [InlineData(ReferenceResolutionState.Resolved)]
+    public async Task UnacceptedReferenceCannotRetainASelectedDefinition(ReferenceResolutionState state)
+    {
+        using var view = await Ready();
+        var reference = view.Inspection!.References[0];
+        Assert.True(view.SelectReference(reference)); Assert.True(view.NavigateReferenceDefinition());
+        Assert.False(view.SelectReference(reference with { State = state, SymbolKey = null }));
+        Assert.Null(view.SelectedReference); Assert.Null(view.ReferenceSymbol); Assert.Null(view.SourceTarget);
+        Assert.False(view.NavigateReferenceDefinition());
+        Assert.False(view.SelectReference(reference with { }));
+    }
+
+    [Theory]
+    [InlineData(false, "reset")]
+    [InlineData(false, "dispose")]
+    [InlineData(false, "select")]
+    [InlineData(false, "begin")]
+    [InlineData(true, "reset")]
+    [InlineData(true, "dispose")]
+    [InlineData(true, "select")]
+    [InlineData(true, "begin")]
+    public async Task ReferenceOperationsRejectSynchronousSelectionAndLifecycleReplacement(bool navigate, string interruption)
+    {
+        using var view = await Ready();
+        var input = view.Result!.Input;
+        var reference = view.Inspection!.References[0];
+        if (navigate) Assert.True(view.SelectReference(reference));
+        var entered = false;
+        view.PropertyChanged += (_, _) =>
+        {
+            if (entered) return;
+            entered = true;
+            if (interruption == "dispose") { view.Dispose(); view.Dispose(); }
+            else if (interruption == "select") Assert.True(view.Select(view.Inspection!.Symbols[0].Symbol.Location));
+            else if (interruption == "begin") view.BeginSynthetic(new(new(input), 2));
+            else view.Reset();
+        };
+        Assert.False(navigate ? view.NavigateReferenceDefinition() : view.SelectReference(reference));
+        Assert.True(entered); Assert.Null(view.SelectedReference); Assert.Null(view.ReferenceSymbol); Assert.Null(view.SourceTarget);
+    }
+
+    [Fact]
+    public async Task ReferenceCannotSurviveCancellationOrAnOldResponse()
+    {
+        var input = CompilerAnalysisFixtures.Constraint(false);
+        using var view = await Ready(input);
+        var reference = view.Inspection!.References[0];
+        Assert.True(view.SelectReference(reference)); Assert.True(view.NavigateReferenceDefinition());
+        var previous = new CompilerHostRequest(new(input), 1);
+        var newer = new CompilerHostRequest(new(input), 2);
+        view.BeginSynthetic(newer);
+        Assert.Null(view.SourceTarget);
+        Assert.False(view.TryAccept(await Host(input).CompileAsync(previous)));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Assert.False(view.TryAccept(await Host(input).CompileAsync(newer, cancelled.Token)));
+        Assert.False(view.SelectReference(reference));
+        Assert.False(view.NavigateReferenceOrigin());
+    }
 }

@@ -450,3 +450,52 @@ test('ProjectIDE synthetic Diagnostic navigates to an exact Source-backed symbol
   await expect(page.getByRole('button', { name: 'Go to related symbol source', exact: true })).toHaveCount(0);
   await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
 });
+
+test('ProjectIDE synthetic local reference origin and definition have separate keyboard targets', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  const reference = page.getByRole('button', { name: /^Reference origin.*\/target$/u });
+  for (let i = 0; i < 12 && !(await reference.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(reference).toBeFocused();
+  await page.keyboard.press('Enter');
+  const origin = page.getByRole('button', { name: 'Go to reference origin', exact: true });
+  for (let i = 0; i < 5 && !(await origin.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(origin).toBeFocused();
+  await page.keyboard.press('Enter');
+  const target = page.getByTestId('ide-source-target');
+  await expect(target).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Go to definition', exact: true }).click();
+  await expect(target).toBeFocused();
+  await expect(target).toContainText('00000006-0000-4000-8000-000000000001');
+  await expect(page.getByTestId('ide-source-location')).toHaveText('/');
+  await choose(page, 'stale-pass');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(target).toHaveCount(0);
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('button', { name: 'Go to definition', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic local reference definition is available in Japanese', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coglatas.locale', 'ja');
+    window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+  });
+  await page.goto('/app/projectide/preview');
+  await page.getByTestId('ide-context').selectOption('pass');
+  await page.getByRole('button', { name: '結果Fixtureを読み込む', exact: true }).click();
+  await page.getByRole('button', { name: 'ソース', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await page.getByRole('button', { name: /^参照元.*\/source$/u }).click();
+  await page.getByRole('button', { name: '定義へ移動', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+});
