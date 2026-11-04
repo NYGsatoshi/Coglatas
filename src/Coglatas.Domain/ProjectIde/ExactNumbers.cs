@@ -107,6 +107,8 @@ public sealed record ExactRational
 
     public ExactRational Add(ExactRational other, ExactNumberLimits? limits = null) =>
         Operate(other, limits, (a, b, c, d) => (a * d + c * b, b * d));
+    public ExactRational Subtract(ExactRational other, ExactNumberLimits? limits = null) =>
+        Operate(other, limits, (a, b, c, d) => (a * d - c * b, b * d));
     public ExactRational Multiply(ExactRational other, ExactNumberLimits? limits = null) =>
         Operate(other, limits, (a, b, c, d) => (a * c, b * d));
     public ExactRational Divide(ExactRational other, ExactNumberLimits? limits = null) =>
