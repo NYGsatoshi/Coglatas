@@ -6,6 +6,7 @@ using Coglatas.Application.Realtime;
 using Coglatas.Application.Workspaces;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Coglatas.Application.Files;
 
@@ -25,7 +26,8 @@ public sealed class FileService(
     IBusinessInvalidationPublisher invalidations,
     IUnitOfWork unitOfWork,
     IFileSharingService? sharing = null,
-    IWorkspaceAuthorizationService? workspaceAuthorization = null) : IFileService
+    IWorkspaceAuthorizationService? workspaceAuthorization = null,
+    ILogger<FileService>? logger = null) : IFileService
     , IFileObjectService
 {
     private static readonly TimeSpan FileDownloadGrantLifetime = TimeSpan.FromMinutes(10);
@@ -114,6 +116,7 @@ public sealed class FileService(
             ScanStatus = FileScanStatus.Skipped
         };
 
+        var saveOutcome = unitOfWork.BeginUploadSave();
         try
         {
             // Storage can await external I/O. Re-evaluate the existing admission
@@ -123,7 +126,7 @@ public sealed class FileService(
                 owner == await files.ResolveOwnerAsync(input.OwnerType, input.OwnerId, token), cancellationToken);
             if (!stillAllowed)
             {
-                await TryDeleteStoredFileAsync(fileObject.StorageKey, CancellationToken.None);
+                await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
                 return Result<AttachmentResponse>.Failure("You are not allowed to upload an attachment for this resource.");
             }
 
@@ -138,11 +141,12 @@ public sealed class FileService(
                 WorkspaceId: owner.WorkspaceId,
                 ProjectId: owner.ProjectId), cancellationToken);
             await invalidations.FileChangedAsync(fileObject, attachment, userId, "uploaded", cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            saveOutcome.Disposition = UploadCommitDisposition.Unknown;
+            await unitOfWork.SaveUploadChangesAsync(saveOutcome, cancellationToken);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(fileObject.StorageKey, CancellationToken.None);
+            await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
             throw;
         }
 
@@ -345,29 +349,37 @@ public sealed class FileService(
 
         var fileObject = attachment.FileObject ?? throw new InvalidOperationException("Validated attachment must include a file object.");
         var content = await storage.OpenReadAsync(fileObject.StorageKey, cancellationToken);
-        grant.DownloadedAt = clock.UtcNow;
-        await auditLogger.LogAsync(new AuditLogEntry(
-            userId,
-            "file_download.reauthorization_passed",
-            "FileDownloadGrant",
-            grant.Id,
-            "File download grant use reauthorized.",
-            WorkspaceId: attachment.WorkspaceId,
-            ProjectId: fileObject.ProjectId,
-            Metadata: FileGrantAuditMetadata(grant, "allow", "reauthorization_passed", "download"),
-            TenantId: grant.TenantId), cancellationToken);
-        await auditLogger.LogAsync(new AuditLogEntry(
-            userId,
-            "file_download.grant_used",
-            "FileDownloadGrant",
-            grant.Id,
-            "File download grant used.",
-            WorkspaceId: attachment.WorkspaceId,
-            ProjectId: fileObject.ProjectId,
-            Metadata: FileGrantAuditMetadata(grant, "allow", "grant_used", "download"),
-            TenantId: grant.TenantId), cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, fileObject.OriginalFileName, fileObject.ContentType, fileObject.SizeBytes));
+        try
+        {
+            grant.DownloadedAt = clock.UtcNow;
+            await auditLogger.LogAsync(new AuditLogEntry(
+                userId,
+                "file_download.reauthorization_passed",
+                "FileDownloadGrant",
+                grant.Id,
+                "File download grant use reauthorized.",
+                WorkspaceId: attachment.WorkspaceId,
+                ProjectId: fileObject.ProjectId,
+                Metadata: FileGrantAuditMetadata(grant, "allow", "reauthorization_passed", "download"),
+                TenantId: grant.TenantId), cancellationToken);
+            await auditLogger.LogAsync(new AuditLogEntry(
+                userId,
+                "file_download.grant_used",
+                "FileDownloadGrant",
+                grant.Id,
+                "File download grant used.",
+                WorkspaceId: attachment.WorkspaceId,
+                ProjectId: fileObject.ProjectId,
+                Metadata: FileGrantAuditMetadata(grant, "allow", "grant_used", "download"),
+                TenantId: grant.TenantId), cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, fileObject.OriginalFileName, fileObject.ContentType, fileObject.SizeBytes));
+        }
+        catch
+        {
+            await DownloadResponseStreamCleanup.TryDisposeAsync(content, logger);
+            throw;
+        }
     }
 
     public async Task<Result> DeleteAsync(Guid attachmentId, CancellationToken cancellationToken = default)
@@ -563,18 +575,6 @@ public sealed class FileService(
             Metadata: metadata,
             TenantId: currentTenant.IsAvailable ? currentTenant.TenantId : attachment.TenantId), cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task TryDeleteStoredFileAsync(string storageKey, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await storage.DeleteAsync(storageKey, cancellationToken);
-        }
-        catch
-        {
-            // The original persistence/audit failure is the one callers need to see.
-        }
     }
 
     private async Task<FileGrantDecision> ValidateAttachmentForGrantAsync(

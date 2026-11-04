@@ -31,6 +31,13 @@ This tool checks structure and consistency. It does not authenticate an approval
 
 The versioned SPEC registry and traceability commands implement deterministic identity history, immutable source/anchor, contract/verifier and execution-link validation under #835/#836. See [registry governance and commands](../../docs/verification/specification-contract-registry.md). Canonical allocation and owner-approved interpretation/mapping remain pending; syntax, structural validity and self-declared execution links do not establish normative authority. The initial formal mapping remains private and Draft under SA-02/SA-03. Tests use clearly synthetic IDs and policies, without publishing private specification content.
 
+C# declaration linkage has a one-second budget for each regular-expression match,
+including complete method enumeration. Unavailable matching retains
+`SPEC_VERIFIER_IDENTITY` and grants no passing execution-link credit. The same
+behavior applies to CLI commands and direct validation callbacks. Exact marker
+cardinality and existing declaration syntax remain unchanged; this budget does
+not bound source callbacks, pattern construction or the entire validation run.
+
 Schema version 1 and all seven original command forms are retained; history-aware inventory comparison adds an optional form. Enum names preserve existing case-insensitive spelling, while composite enum strings and numeric values are rejected. Stable identities, paths and digests must consume the complete input. The bounded SPEC families include `MSG` and `SEARCH` alongside the existing families; accepting a family does not allocate or approve an identity. Existing contract/registry canonical serialization is unchanged. The optional evidence digest is omitted when absent. Any future breaking schema change requires a new supported version and a separately reviewed migration; validation never migrates files automatically.
 
 This change does not enable product RLS, Kafka, services, Enforce evaluation, new Required Check names or ruleset changes. Product activation and concrete RLS migration/privilege changes retain their separate owner gates.
