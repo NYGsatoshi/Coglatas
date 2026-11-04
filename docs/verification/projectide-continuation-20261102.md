@@ -523,3 +523,26 @@ integration remain open. The existing Manifest, Receipt, Evidence, external
 acquisition, executable IR, production enforcement and Native Avalonia holds
 retain their recorded status. #1144 remains on HOLD and #1128 is
 SUSPENDED/NOT_EVALUATED.
+
+## Independent Find References post-receipt tests — 2026-11-04
+
+The independent Test-only follow-up on [#1703](https://github.com/NYGsatoshi/Coglatas/pull/1703)
+advanced from the qualified `1f4078b3b6625ec1396e41879d90c21481a03e0d` to
+`5ec19c43d4d4d64390b8f938286131b7d941af56` without changing Product
+[#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) or the Test base.
+It adds three Vitest regression cases for overlapping query supersession,
+selection of a reference while a query is pending, and a match just beyond the
+4,096-reference scan ceiling. The before/after source ownership remains
+separate: the Product runtime is not copied into the Test delta.
+
+The preceding Windows/Ubuntu counts, combined tree, producer digests and ZIP
+hashes **remain evidence only for their exact previous Test head**. They do
+not automatically qualify this later Test-only commit. New
+[supplemental compatibility run 41844487429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+and [ordinary PR CI 41844487439](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439)
+were initiated. Their final results and any new exact checkout/artifact receipts
+must be appended separately once available; no pass is inferred from a queued
+or running check. Prior ordinary Test CI failures caused by unintegrated Core
+inputs are retained. All Draft/NO_MERGE, reviewer and Owner/CODEOWNER gates,
+protected refs, and Native/Manifest/Receipt/Evidence/production HOLD decisions
+remain unchanged.
