@@ -89,7 +89,7 @@ public sealed class CompilerSemanticValidation
             remaining -= model.Declarations.Count + model.Relations.Count * 4;
             if (remaining < 0) { Add("coglatas.semantic.budget-exhausted", RelationFindingState.Unknown, root); return Result(null); }
             var graph = RelationGraphValidator.Validate(new(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete), model.BoundSnapshots, unitList,
-                new(input.ExecutionProfile.MaximumDeclarations, input.ExecutionProfile.MaximumRelations));
+                new(input.ExecutionProfile.MaximumDeclarations, input.ExecutionProfile.MaximumRelations), cancellationToken);
             foreach (var finding in graph.Findings)
             {
                 if (finding.Code is "coglatas.relation.evidence-not-evaluated" or "coglatas.relation.constraint-not-evaluated" or "coglatas.relation.resource-snapshot-not-evaluated") deferred.Add(finding);
