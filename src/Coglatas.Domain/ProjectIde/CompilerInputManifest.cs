@@ -13,6 +13,7 @@ public sealed record CompilerArtifactIdentity
         ArgumentNullException.ThrowIfNull(data);
         RelationFields.Require(data, "artifactId", "version", "digest");
         Data = data; ArtifactId = SourceFields.Token(data.Value, "artifactId"); Version = RelationFields.Version(data, "version");
+        if (ArtifactId.Length > 256 || Version.Length > 128) throw new FormatException("Artifact identity exceeds its processing bound.");
         Digest = RelationFields.Digest(data, "digest");
     }
 }
@@ -28,6 +29,7 @@ public sealed class CompilerRuleContract
     {
         RelationFields.Require(data, "ruleId", "version", "required", "configuration");
         Data = data; RuleId = SourceFields.Token(data.Value, "ruleId"); Version = SourceFields.PositiveInteger(data.Value, "version");
+        if (RuleId.Length > 256) throw new FormatException("Rule identity exceeds its processing bound.");
         Required = ValueFields.Boolean(data.Value, "required"); Configuration = RelationFields.Child(data, "configuration");
     }
 }
@@ -125,7 +127,9 @@ public sealed class CompilerInputManifest
             var values = SourceFields.Array(settings.Value, field).EnumerateArray().Select(item => new CompilerArtifactIdentity(SourceJson.FromElement(item, settings.Limits))).ToArray();
             fields[field] = OrderUnique(values.Select(item => item.Data).ToArray(), "artifactId");
         }
-        var rules = SourceFields.Array(settings.Value, "rules").EnumerateArray().Select(item => new CompilerRuleContract(SourceJson.FromElement(item, settings.Limits))).ToArray();
+        var ruleElements = SourceFields.Array(settings.Value, "rules");
+        if (ruleElements.GetArrayLength() > 1024) throw new FormatException("Ruleset exceeds its processing bound.");
+        var rules = ruleElements.EnumerateArray().Select(item => new CompilerRuleContract(SourceJson.FromElement(item, settings.Limits))).ToArray();
         fields["rules"] = OrderUnique(rules.Select(item => item.Data).ToArray(), "ruleId");
         Rules = Array.AsReadOnly(rules.OrderBy(item => item.RuleId, StringComparer.Ordinal).ToArray());
         foreach (var field in new[] { "featureSet", "targets", "analysisScope" })
