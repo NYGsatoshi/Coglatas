@@ -401,3 +401,37 @@ test('ProjectIDE synthetic semantic inspection shows Source-bound symbols and cl
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   await expect(inspection).toHaveCount(0);
 });
+
+test('ProjectIDE synthetic Diagnostic reload clears the previous Inspector and Source selection', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  const reload = page.getByRole('button', { name: 'Load result fixture', exact: true });
+  await reload.focus();
+  await page.keyboard.press('Enter');
+  await expect(reload).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to source location', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic Diagnostic Inspector refuses an invalid property location', async ({ page }) => {
+  await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.cases[0].result.diagnostics[0].primaryLocation.propertyPath = '/payload/missing';
+    await route.fulfill({ json: body });
+  });
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Declared properties', exact: true })).toHaveCount(0);
+});
