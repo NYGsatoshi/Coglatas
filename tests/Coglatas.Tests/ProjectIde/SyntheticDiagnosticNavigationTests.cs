@@ -114,6 +114,18 @@ public sealed class SyntheticDiagnosticNavigationTests
         foreach (var diagnostic in view.Problems)
         {
             Assert.True(view.SelectDiagnostic(diagnostic));
+            if (key == "fail")
+            {
+                Assert.Equal(diagnostic.Location, view.DiagnosticSymbol?.Symbol.Location);
+                Assert.True(view.NavigateDiagnosticSymbol());
+                Assert.Equal(diagnostic.Location, view.SourceTarget);
+            }
+            else
+            {
+                Assert.Null(view.DiagnosticSymbol);
+                Assert.False(view.NavigateDiagnosticSymbol());
+                Assert.Null(view.SourceTarget);
+            }
             var location = diagnostic.Location;
             if (location.EntityId is null && location.RelationId is null)
             {
@@ -127,6 +139,19 @@ public sealed class SyntheticDiagnosticNavigationTests
                 Assert.Equal(location, view.SourceTarget);
             }
         }
+    }
+
+    [Fact]
+    public async Task ResetInvalidatesTheExactDiagnosticSymbolAndItsTarget()
+    {
+        using var view = await Ready();
+        var diagnostic = Assert.Single(view.Problems);
+        Assert.True(view.SelectDiagnostic(diagnostic));
+        Assert.True(view.NavigateDiagnosticSymbol());
+        view.Reset();
+        Assert.Null(view.DiagnosticSymbol);
+        Assert.False(view.NavigateDiagnosticSymbol());
+        Assert.Null(view.SourceTarget);
     }
 
     [Fact]

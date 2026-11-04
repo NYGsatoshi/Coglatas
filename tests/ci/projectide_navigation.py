@@ -16,7 +16,8 @@ GRAPH_TEST = '7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0'
 
 def allowed(path, product):
     if product:
-        return (path.startswith(('frontend/src/app/features/projectide/', 'tools/ProjectIde.Workbench.Synthetic/', 'docs/verification/'))
+        return (path == 'frontend/src/app/core/i18n/messages/projectide.messages.ts' or
+                path.startswith(('frontend/src/app/features/projectide/', 'tools/ProjectIde.Workbench.Synthetic/', 'docs/verification/'))
                 and not path.endswith('.spec.ts'))
     return (path.startswith(('tests/Coglatas.Tests/ProjectIde/', 'tests/ci/')) or
             path == 'tests/ui/projectide-workbench.spec.ts' or

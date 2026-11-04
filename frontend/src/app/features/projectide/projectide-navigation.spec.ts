@@ -88,3 +88,46 @@ describe('Problems to Source navigation integrity', () => {
     expect(store.state()).toBe('ready'); expect(store.selection()).toBeNull(); expect(store.sourceTarget()).toBeNull();
   });
 });
+
+describe('Source-backed Diagnostic symbol navigation', () => {
+  it('uses the exact emitted symbol location and clears it when the result reloads', async () => {
+    const store = await ready();
+    const diagnostic = store.result()!.result.diagnostics[0];
+    expect(store.selectDiagnostic(diagnostic)).toBe(true);
+    expect(store.diagnosticSymbol()?.location).toEqual(diagnostic.primaryLocation);
+    expect(store.navigateDiagnosticSymbol()).toBe(true);
+    expect(store.sourceTarget()).toBe(store.inspectedRecord());
+    store.loadResult();
+    expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.navigateDiagnosticSymbol()).toBe(false);
+    expect(store.sourceTarget()).toBeNull();
+  });
+
+  it('does not substitute the declaration symbol for a diagnostic at a different property', async () => {
+    const fixture = bundle();
+    const current = fixture.cases.find((item) => item.key === 'fail')!;
+    const diagnostic = current.result.diagnostics[0];
+    const location = { ...diagnostic.primaryLocation, propertyPath: '/payload/predicate' };
+    const result = { ...current.result, diagnostics: [{ ...diagnostic, primaryLocation: location }] };
+    const store = new ProjectIdeWorkbenchStore();
+    await store.load(async () => ({ ...fixture, cases: [{ ...current, result }] }));
+    store.choose('fail');
+    store.loadResult();
+    expect(store.selectDiagnostic(result.diagnostics[0])).toBe(true);
+    expect(store.navigate()).toBe(true);
+    expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.navigateDiagnosticSymbol()).toBe(false);
+    expect(store.sourceTarget()).toBeNull();
+  });
+
+  it('keeps mapless partial Diagnostics inspectable without offering symbol navigation', async () => {
+    const store = await ready();
+    store.choose('unsupported');
+    store.loadResult();
+    const diagnostic = store.result()!.result.diagnostics.find((item) => item.primaryLocation.entityId)!;
+    expect(store.selectDiagnostic(diagnostic)).toBe(true);
+    expect(store.diagnostic()).toBe(diagnostic);
+    expect(store.diagnosticSymbol()).toBeNull();
+    expect(store.navigateDiagnosticSymbol()).toBe(false);
+  });
+});

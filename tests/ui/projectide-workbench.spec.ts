@@ -435,3 +435,18 @@ test('ProjectIDE synthetic Diagnostic Inspector refuses an invalid property loca
   await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Declared properties', exact: true })).toHaveCount(0);
 });
+
+test('ProjectIDE synthetic Diagnostic navigates to an exact Source-backed symbol', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to related symbol source', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+  await choose(page, 'unsupported');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspect diagnostic: coglatas.binding.unsupported-declaration', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to related symbol source', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
