@@ -68,6 +68,34 @@ public sealed record ProjectInstant : IComparable<ProjectInstant>
     }
 
     public int CompareTo(ProjectInstant? other) => other is null ? 1 : UtcTicks.CompareTo(other.UtcTicks);
+
+    public ElapsedDuration Since(ProjectInstant earlier)
+    {
+        ArgumentNullException.ThrowIfNull(earlier);
+        return new(checked(UtcTicks - earlier.UtcTicks));
+    }
+
+    internal static ProjectInstant FromTicks(long ticks) => Parse(new DateTimeOffset(ticks, TimeSpan.Zero)
+        .ToString(Pattern, CultureInfo.InvariantCulture));
+}
+
+/// <summary>Gregorian civil fields with 100 ns precision, without an implicit offset or timezone.</summary>
+public sealed record ProjectLocalDateTime
+{
+    private const string Pattern = "yyyy-MM-dd'T'HH:mm:ss.fffffff";
+    public string CanonicalText { get; }
+    public long CivilTicks { get; }
+
+    public ProjectLocalDateTime(string text)
+    {
+        if (!DateTime.TryParseExact(text, Pattern, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ||
+            value.ToString(Pattern, CultureInfo.InvariantCulture) != text)
+            throw new FormatException("LocalDateTime requires Gregorian fields with exactly seven fractional digits and no offset.");
+        CanonicalText = text; CivilTicks = value.Ticks;
+    }
+
+    internal static ProjectLocalDateTime FromTicks(long ticks) => new(new DateTime(ticks, DateTimeKind.Unspecified)
+        .ToString(Pattern, CultureInfo.InvariantCulture));
 }
 
 public sealed record ProjectLocalDate
@@ -104,6 +132,26 @@ public sealed record InstantInterval
         ArgumentNullException.ThrowIfNull(other);
         return Start.CompareTo(End) < 0 && other.Start.CompareTo(other.End) < 0 &&
                Start.CompareTo(other.End) < 0 && other.Start.CompareTo(End) < 0;
+    }
+
+    public bool IsEmpty => Start == End;
+
+    public bool Contains(ProjectInstant instant)
+    {
+        ArgumentNullException.ThrowIfNull(instant);
+        return Start.CompareTo(instant) <= 0 && instant.CompareTo(End) < 0;
+    }
+
+    public bool Contains(InstantInterval other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return Start.CompareTo(other.Start) <= 0 && other.End.CompareTo(End) <= 0;
+    }
+
+    public bool IsAdjacentTo(InstantInterval other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return !IsEmpty && !other.IsEmpty && (End == other.Start || other.End == Start);
     }
 }
 
