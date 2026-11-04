@@ -42,7 +42,7 @@ export class ProjectIdeWorkbenchStore {
       (record) => record.recordType === selected.kind && record.identity === selected.id,
     ) ?? null;
   });
-  readonly inspectedSymbols = computed(() => {
+  private readonly recordSymbols = computed(() => {
     const record = this.inspectedRecord();
     return record?.recordType === 'entity' && this.result() === this.context() && this.result()?.freshness === 'Current' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
       symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
@@ -51,12 +51,17 @@ export class ProjectIdeWorkbenchStore {
     const diagnostic = this.diagnostic();
     if (!diagnostic || !this.result()?.sourceMap) return null;
     const location = diagnostic.primaryLocation;
-    const matches = this.inspectedSymbols().filter(({ location: symbol }) =>
+    const matches = this.recordSymbols().filter(({ location: symbol }) =>
       symbol.propertyPath === location.propertyPath &&
       symbol.textSpan?.start === location.textSpan?.start &&
       symbol.textSpan?.length === location.textSpan?.length,
     );
     return matches.length === 1 ? matches[0] : null;
+  });
+  readonly inspectedSymbols = computed(() => {
+    if (this.selection()?.kind !== 'diagnostic') return this.recordSymbols();
+    const symbol = this.diagnosticSymbol();
+    return symbol ? [symbol] : [];
   });
   readonly inspectedReferences = computed(() => {
     const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));

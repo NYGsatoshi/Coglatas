@@ -383,3 +383,17 @@ matching produced SourceMap. The Workbench uses the established source resolver
 and the platform's existing navigation state. Mapless partial diagnostics remain
 inspectable through the preceding slice. No reference lowering, external
 snapshot acquisition or new public contract is introduced.
+
+Navigation qualified on Windows and [Ubuntu run 41748117076](https://github.com/NYGsatoshi/Coglatas/actions/runs/41748117076)
+at combined 6c3ac678891492a988bdad69b098bc1788de822f, tree
+158bad296ae7c138ea91b5c32f69baae71bb75cb. The exact candidate passed 907
+ProjectIDE .NET, 12 Architecture, 297 Vitest, 70 Node, 48 browser and 71
+composition controls. Hosted artifact 13284368200 has ZIP SHA-256
+52f6a2657d0c0280ff2316bd938fc2011c54552de9dc10e607e2e403a653d51d.
+The cross-host comparison verified the full inventories and producer hashes.
+
+The Navigation review identified record-wide symbols appearing in the Diagnostic
+Inspector. The stacked Symbol slice displays the unique exact-location symbol
+and its references for a Diagnostic selection. Source-record inspection still
+shows the record's symbols. The independent control checks a Diagnostic with a
+valid property location and no exact symbol at that location.

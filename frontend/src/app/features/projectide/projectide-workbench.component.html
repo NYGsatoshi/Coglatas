@@ -308,8 +308,7 @@
                   store.diagnostic()?.primaryLocation ?? store.inspectedRecord()?.location | json
                 }}</pre>
                 <button type="button" (click)="navigate()">{{ t('ide.go') }}</button>
-                @if (store.diagnosticSymbol(); as symbol) {
-                  <p>{{ symbol.kind }} · {{ symbol.status }}</p>
+                @if (store.diagnosticSymbol()) {
                   <button type="button" (click)="navigate(true)">{{ t('ide.goSymbol') }}</button>
                 }
               }
