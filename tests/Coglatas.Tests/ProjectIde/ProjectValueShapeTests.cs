@@ -46,7 +46,8 @@ public sealed class ProjectValueShapeTests
             ["origin"] = JsonNode.Parse(ProjectLocation.Create(DocumentId.Parse(Document), Context(), "/ports/0/defaultValue").Data.CanonicalText),
             ["manifest"] = new JsonObject { ["version"] = "1", ["digest"] = new JsonObject { ["algorithm"] = "sha-256", ["value"] = new string('a', 64) } }
         };
-        var type = Type(kind); type["expectedKind"] = "coglatas.task";
+        var type = Type(kind);
+        type["expectedKind"] = kind == "coglatas.document-reference" ? SourceDocument.SchemaId : "coglatas.task";
         return Known(type, payload);
     }
 
@@ -69,6 +70,18 @@ public sealed class ProjectValueShapeTests
         Assert.Throws<FormatException>(() => reference.RequireManifest("1", ContentDigest.Compute("different", [])));
         Assert.Equal(result.Data.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
         Assert.Equal(ValueDecodeStatus.Decoded, TypedProjectValueCodec.Decode(SourceJson.Parse(TypedProjectValueCodec.Encode(result))).Status);
+    }
+
+    [Fact]
+    public void DocumentReferenceRejectsAnEntityExpectedKindWithoutLosingSource()
+    {
+        var input = Reference("coglatas.document-reference");
+        input["type"]!["expectedKind"] = "coglatas.task";
+        var original = SourceJson.Parse(input.ToJsonString());
+        var result = Decode(input);
+        Assert.Equal(ValueDecodeStatus.Unsupported, result.Status);
+        Assert.Null(result.Value);
+        Assert.Equal(original.ToCanonicalBytes(), TypedProjectValueCodec.Encode(result));
     }
 
     [Theory]
