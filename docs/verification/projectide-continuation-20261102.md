@@ -435,3 +435,91 @@ The Web query yields during scanning and discards cancelled results.
 The pure ViewModel observes cancellation and returns an immutable
 query result whose entries must still pass current selection checks
 before navigation. No protocol or persistent index is introduced.
+
+## Local language service exact cross-host evidence
+
+The starting audit covered 38 open ProjectIDE PRs. All were Draft, with 21
+ordinary CI successes and 17 Independent Test failures. CodeRabbit showed two
+completed reviews, 13 rate-limited reviews and 23 skipped reviews. Owner/CODEOWNER
+approval was absent. The original 38 PRs kept their exact bases, heads and Draft
+state during the continuation.
+
+The single unresolved inline finding was on #1697. The stacked fix in
+#1699/#1700 passed a fresh 18-test focused Vitest run on combined commit
+360c381de3727a081977516f6374ee90f915237a, tree
+2ecfbf2d9711f1b82684b06a315fc7e700cb33ac. The report SHA-256 is
+646e4e16fcb9fcc46b0ca4a405a1aa51d253e86fce04234f5355e7fd5ed8b110.
+The [parent thread](https://github.com/NYGsatoshi/Coglatas/pull/1697#discussion_r4468135066)
+remains open at its original review boundary.
+
+| Input | Commit | Tree |
+| --- | --- | --- |
+| Go Product base #1699 | 19a3ad044d078b256121f88d109abf77743b7d86 | f4b9f13f4c5fd7d401d7ca0800d0261647ab6c85 |
+| Go Product #1702 and Find Product base | 73528ac668067707392521099301e57b5c6d3c1d | d66e9510e496d2cdf4a4c3642edb1de42ee96745 |
+| Go Test base #1700 | 42bdd8777ffce045e076886f2f741bd995e8de93 | e2db613f380c2320e90c86a896b6390eeb0ff768 |
+| Go Test #1701 and Find Test base | 617381fb651054a86128820d9cee46c04609de71 | 9add919abe52494a124791c9365fb22561f3eee2 |
+| Go combined | 4ff98d0881d74fe5e8d24436d484c2a9ca8dcd7f | 1c5585ef293bd319b0160883a36bd67fca2aa5fa |
+| Find Product #1704 | 8fa6d1827a19175b75a8446d55b3a18b086a9618 | 2c2d1fe671313c54d3a9ee7cae7271dc37a40aa4 |
+| Find Test #1703 | 1f4078b3b6625ec1396e41879d90c21481a03e0d | b33bf36b5862c6690e2b4ff490e60ac293596b00 |
+| Find combined | eaad2f8cb0827aecec7f3ab83c9e55b0088b2b8f | 53422355cfc302c3ceb38d98518e0d3365e13f8b |
+
+Both slices used Graph Product #1688 at 05c9fa5afc6c57eb81cfa1d321b555bb85ff8130
+and Graph Test #1689 at 7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0. The
+independent ownership checks, exact parent ancestry and branch merge trees
+matched the pins.
+
+| Candidate | ProjectIDE .NET and pure ViewModel | Navigation ViewModel class subset | Architecture | Vitest | Node | Playwright | Controls | FAIL | SKIP | NOT_RUN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Go to Definition | 925 | 38 | 12 | 324 | 70 | 54 | 72 | 0 | 0 | 0 |
+| Find References | 927 | 40 | 12 | 332 | 70 | 58 | 72 | 0 | 0 | 0 |
+
+Both hosts passed Release build with warnings as errors, TypeScript, frontend
+architecture, route inventory and Angular production build. The existing
+stylesheet-budget warnings remain in the logs. Windows used .NET 10.0.403,
+Node 24.22.1 and Python 3.12.14. Ubuntu used .NET 10.0.403, Node 24.22.2 and
+Python 3.12.12. The first Windows Go build exhausted disk space and passed on
+retry at the exact same candidate.
+
+| Candidate | Ubuntu artifact | Ubuntu ZIP SHA-256 | Windows ZIP SHA-256 |
+| --- | --- | --- | --- |
+| Go to Definition | [41838544006](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544006/artifacts/13326718884) | d11519c51c681b301b5003c16fbd13843a40a5652004cd69d483932f221b9a98 | edcec025657a20539d7dd0f2d8aba778d5e8eddd4685a52fc2da224ad5ec882a |
+| Find References | [41841167565](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841167565/artifacts/13329582116) | 1b699402c8c8ab01bcb1c7f9ae529f7d069c39a56fade3756855eb2b804fb9fa | 33d4b587ac7f56a406fa6ec8eef97b9156f8faa2bb04e2e4d9f0c244337f0a21 |
+
+Both golden exports matched SHA-256
+bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a.
+The verifier SHA-256 is
+65acbc622c56592877ad10c87f3c298491152fc21f62d9c12b31426c17f267b8.
+The ZIPs retain the producer hashes, every recorded artifact-file digest,
+full test inventories and the exact checkout checks before and after verification.
+
+The prior Go browser candidate lacked the reference-origin action. Its failed
+JUnit report has SHA-256 e07d6ec642c361dac074cb5c81a1ae4ad8205e23040ea8045ab480ed893b7a5f.
+The prior Find candidate lacked the query action. Its failed JUnit report has
+SHA-256 9e897b33a97ef2f4326b80bfe941d42a31a3279827da810ce5524b833d8eec50.
+The [first Find References supplemental run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41839719829)
+retains two browser failures for a literal count placeholder. The repaired
+locale messages use the existing interpolation format and the independent
+browser suite checks both languages.
+
+| Slice | Ordinary Product CI | Ordinary Independent Test CI |
+| --- | --- | --- |
+| Go to Definition | [41838495161](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838495161) build-test success, workflow in progress at capture | [41838544187](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544187) build-test failure, workflow in progress at capture |
+| Find References | [41841161162](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841161162) queued at capture | [41841167800](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841167800) queued at capture |
+
+The Go Test producer and the first Find Test producer both failed on the unintegrated Core types. The
+supplemental evidence has a separate role. All four feature and test PRs
+remain Draft, with Owner/CODEOWNER approval pending. CodeRabbit reported
+zero actionable issues and a docstring advisory on #1702. The other full
+reviews remain pending following rate limits.
+
+The protected refs audit matched main at fe44c73a161b663b4f8fffe491a7fdae0be034e3,
+the formal integration ref projectide/integration-20261031 at
+158ab153551184cede99c85ce6476dd6e87b6767 and SecurityTestImplimation at
+ce57148d8fc233e4134d720d9804e212f73c66bb. ProjectIDEMain was absent at both checks.
+
+Typed context-aware completion is the next bounded read-only candidate under
+#1030. Rename Preview, incremental invalidation and production authorization
+integration remain open. The existing Manifest, Receipt, Evidence, external
+acquisition, executable IR, production enforcement and Native Avalonia holds
+retain their recorded status. #1144 remains on HOLD and #1128 is
+SUSPENDED/NOT_EVALUATED.
