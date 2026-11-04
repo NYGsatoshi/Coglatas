@@ -44,6 +44,8 @@ public static class PureCoreCompiler
                 if (finding.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)) facts.Execution = CompilerExecutionState.ResourceExhausted;
             }
             var remaining = input.ExecutionProfile.MaximumOperations - validation.LogicalOperationsConsumed;
+            var bindingExhausted = model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
+            var semanticExhausted = validation.Findings.Any(item => item.Diagnostic.StageOrdinal == 2 && item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var exhausted = validation.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             void Finding(CompilerRuleContract rule, string code, RelationFindingState state, ProjectLocation location,
                 CompilerEvidenceBasis? basis = null, bool affectsRequiredTruth = true, string discriminator = "")
@@ -145,9 +147,9 @@ public static class PureCoreCompiler
             var stages = new[]
             {
                 new CompilerStageOutcome("coglatas.parse-normalize", 1, CompilerExecutionState.Completed, CompilerCoverage.Complete, input.InputDigest, [input.Source.Digest]),
-                new CompilerStageOutcome("coglatas.binding", 1, CompilerExecutionState.Completed, model.BindingComplete ? CompilerCoverage.Complete : CompilerCoverage.Partial,
+                new CompilerStageOutcome("coglatas.binding", 1, bindingExhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed, model.BindingComplete ? CompilerCoverage.Complete : CompilerCoverage.Partial,
                     input.InputDigest, [], model.BindingComplete ? null : "coglatas.binding.partial"),
-                new CompilerStageOutcome("coglatas.semantic-validation-ir", 1, CompilerExecutionState.Completed,
+                new CompilerStageOutcome("coglatas.semantic-validation-ir", 1, semanticExhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
                     validation.Findings.Any(item => item.State != RelationFindingState.Invalid) ? CompilerCoverage.Partial : CompilerCoverage.Complete,
                     input.InputDigest, outputs, validation.Ir is null ? "coglatas.ir.not-produced" : null),
                 new CompilerStageOutcome("coglatas.analysis", 1, exhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
