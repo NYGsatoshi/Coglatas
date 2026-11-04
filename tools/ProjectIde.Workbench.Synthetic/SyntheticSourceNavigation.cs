@@ -12,6 +12,7 @@ internal static class SyntheticSourceNavigation
         ProjectLocation location, bool requireSourceMap = false)
     {
         if (desired is null || source is null || compilation?.Model is not { } model) return "unavailable";
+        if (requireSourceMap && compilation.Result.Execution != CompilerExecutionState.Completed) return "unavailable";
         var input = compilation.Input;
         if (!input.InputDigest.Equals(desired.Input.ExpectedInputDigest) || !input.Source.Data.Equals(source.Data) ||
             !compilation.Result.Input.Data.Equals(input.Data) || !model.Input.Data.Equals(input.Data)) return "stale";
