@@ -20,7 +20,7 @@ async function ready(key = 'fail', change?: (result: PreviewCase) => void) {
 describe('Source-backed local reference navigation', () => {
   it.each(['fail', 'unknown'])('navigates distinct relation origins and definitions under %s coverage', async (key) => {
     const { store, result } = await ready(key);
-    const relation = result.relations[0];
+    const relation = result.relations.find((item) => item.recordType === 'relation')!;
     expect(store.select({ kind: 'relation', id: relation.identity })).toBe(true);
     const references = store.referenceRows();
     expect(references.map((item) => item.origin.propertyPath)).toEqual(['/source', '/target']);
