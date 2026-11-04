@@ -540,9 +540,61 @@ hashes **remain evidence only for their exact previous Test head**. They do
 not automatically qualify this later Test-only commit. New
 [supplemental compatibility run 41844487429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
 and [ordinary PR CI 41844487439](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439)
-were initiated. Their final results and any new exact checkout/artifact receipts
-must be appended separately once available; no pass is inferred from a queued
-or running check. Prior ordinary Test CI failures caused by unintegrated Core
+were initiated. Their subsequent exact Ubuntu evidence and the independently
+failed ordinary .NET producer are recorded in the next section. Prior ordinary Test CI failures caused by unintegrated Core
 inputs are retained. All Draft/NO_MERGE, reviewer and Owner/CODEOWNER gates,
 protected refs, and Native/Manifest/Receipt/Evidence/production HOLD decisions
 remain unchanged.
+
+
+### Fresh Ubuntu continuation receipt for Test 5ec19c43
+
+The [supplemental Navigation run 41844487429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+completed **SUCCESS** against the updated Test-only head. The exact
+candidate and clean composition recorded in `receipt.json` are:
+
+| Role | Commit | Tree |
+| --- | --- | --- |
+| Product #1704 (unchanged) | `8fa6d1827a19175b75a8446d55b3a18b086a9618` | `2c2d1fe671313c54d3a9ee7cae7271dc37a40aa4` |
+| Independent Test #1703 (new) | `5ec19c43d4d4d64390b8f938286131b7d941af56` | `93930dbf3156c0367307480dd758dfd2a0bfc314` |
+| Exact combined candidate | `fe849ae7af65ce4544bbd390a9ef77b6d2857b23` | `eb0de162970b5880d66391edc1f53bc70dbd3361` |
+
+The [retained artifact 13330702632](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429/artifacts/13330702632)
+was downloaded, independently opened and compared to the embedded receipt.
+ZIP SHA-256: `4849e60e6c48fa046ae412cf32b28f3e661eb8e3c9df1514a9421b2a80150a38`.
+The ZIP has 44 entries including `receipt.json`, and all 43
+receipt-declared file SHA-256 hashes match the bytes in the ZIP.
+The receipt SHA-256 is `a667bd55a74da25f7deaa3f4a3a503587102a425211e253e415badc883cdcc7c`.
+
+| Executed inventory | Passed | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| ProjectIDE .NET and pure ViewModel (TRX) | 927 | 0 | 0 |
+| Architecture (TRX) | 12 | 0 | 0 |
+| Vitest (JSON) | 335 | 0 | 0 |
+| Frontend Node (TAP) | 70 | 0 | 0 |
+| Desktop/mobile Playwright (JUnit) | 58 | 0 | 0 |
+| Composition controls (unittest) | 72 | 0 | 0 |
+| **Total** | **1,474** | **0** | **0** |
+
+The three new tests were each present and marked `passed` in the
+Vitest JSON: overlapping search supersession, reference selection
+while a search is pending, and a match beyond the 4,096-entry scan limit.
+All 15 recorded command exit codes were zero. The receipt's browser
+serving and expected-index hashes match and Playwright retry count is
+zero. Release `dotnet build -warnaserror`, TypeScript and Angular
+production builds passed; the pre-existing Angular bundle/stylesheet
+budget warnings remain.
+
+This is **fresh Ubuntu evidence only** for the new Test head.
+The prior Windows ZIP and its inventory apply to the earlier Test head;
+they must not be relabeled as new cross-host qualification.
+
+[Ordinary Independent Test CI 41844487439](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439)
+remains a distinct validation boundary. Its .NET producer failed with
+197 C# errors (including CS0234 and CS0246 for missing unmerged
+ProjectIDE Core/host types on the Test-only base), not with a failure
+of the three new Vitest cases. The full ordinary workflow conclusion
+must be inspected separately; supplementary CI does not satisfy it.
+No unverified Main integration, owner approval, review, release, or
+native/Avalonia eligibility is inferred. The Draft/NO_MERGE and all
+prior HOLD decisions stay in effect.
