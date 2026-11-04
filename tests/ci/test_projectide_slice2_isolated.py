@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from projectide_slice2_isolated import changes, counters, git, sha
+from projectide_slice2_isolated import (ISOLATED_ARCHITECTURE_EXPECTED, ISOLATED_PROJECTIDE_EXPECTED, changes, counters, git, sha)
 
 
 class IsolatedEvidenceTests(unittest.TestCase):
@@ -19,10 +19,29 @@ class IsolatedEvidenceTests(unittest.TestCase):
                                     f'executed="{executed}" passed="{passed}" failed="{failed}" '
                                     f'notExecuted="{skipped}"/></ResultSummary></TestRun>', encoding="utf-8")
                     with self.assertRaises(ValueError):
-                        counters(path)
+                        counters(path, expected_total=3)
             path.write_text('<TestRun xmlns="fixture"><ResultSummary><Counters total="3" executed="3" '
                             'passed="3" failed="0" notExecuted="0"/></ResultSummary></TestRun>', encoding="utf-8")
-            self.assertEqual(3, counters(path)["passed"])
+            self.assertEqual(3, counters(path, expected_total=3)["passed"])
+
+    def test_passing_subset_does_not_qualify_exact_isolated_inventories(self):
+        # #1609's original isolated composition has 532 ProjectIDE + 12 Architecture
+        # cases. Integration-only #1707 has an additional separate ordinary-CI case.
+        self.assertEqual(532, ISOLATED_PROJECTIDE_EXPECTED)
+        self.assertEqual(12, ISOLATED_ARCHITECTURE_EXPECTED)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "results.trx"
+            for required, discovered in ((ISOLATED_PROJECTIDE_EXPECTED, 1),
+                                         (ISOLATED_PROJECTIDE_EXPECTED, 531),
+                                         (ISOLATED_ARCHITECTURE_EXPECTED, 11)):
+                with self.subTest(required=required, discovered=discovered):
+                    path.write_text('<TestRun xmlns="fixture"><ResultSummary><Counters '
+                                    f'total="{discovered}" executed="{discovered}" passed="{discovered}" '
+                                    'failed="0" notExecuted="0"/></ResultSummary></TestRun>', encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "incomplete"):
+                        counters(path, expected_total=required)
+            with self.assertRaisesRegex(ValueError, "positive"):
+                counters(path, expected_total=0)
 
     def test_test_changes_cannot_copy_product_source(self):
         with tempfile.TemporaryDirectory() as directory:
