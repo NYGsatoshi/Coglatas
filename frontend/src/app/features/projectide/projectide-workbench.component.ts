@@ -144,10 +144,12 @@ export class ProjectIdeWorkbenchComponent {
   }
   open(panel: (typeof this.tabs)[number], focus = false): void {
     const generation = ++this.focusGeneration;
+    const target = this.store.sourceLocation();
     this.panel.set(panel);
     if (focus) {
       setTimeout(() => {
-        if (generation === this.focusGeneration && this.panel() === panel) {
+        if (generation === this.focusGeneration && this.panel() === panel && this.canRead() &&
+            (panel !== 'source' || this.store.sourceLocation() === target)) {
           (panel === 'source' && this.store.sourceTarget()
             ? this.sourceTarget()
             : this.heading()
@@ -157,6 +159,7 @@ export class ProjectIdeWorkbenchComponent {
     }
   }
   inspectDiagnostic(diagnostic: Diagnostic): void {
+    this.focusGeneration++;
     if (this.store.selectDiagnostic(diagnostic)) this.open('inspector', true);
   }
   inspectRecord(record: SourceRecord): void {
@@ -177,10 +180,12 @@ export class ProjectIdeWorkbenchComponent {
   inspectReference(reference: BoundReference): void {
     this.focusGeneration++;
     if (this.canRead()) this.store.selectReference(reference);
+    else this.store.clear('denied');
   }
   navigateReference(destination: 'origin' | 'definition'): void {
     this.focusGeneration++;
-    if (this.canRead() && this.store.navigateReference(destination)) this.open('source', true);
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateReference(destination)) this.open('source', true);
   }
   cancel(): void {
     this.focusGeneration++;
