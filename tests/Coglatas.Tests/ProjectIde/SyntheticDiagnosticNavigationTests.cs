@@ -139,6 +139,14 @@ public sealed class SyntheticDiagnosticNavigationTests
                 Assert.Equal(location, view.SourceTarget);
             }
         }
+
+        if (key == "unsupported")
+        {
+            var reference = view.Inspection!.References.First(item => item.State == ReferenceResolutionState.Resolved);
+            Assert.False(view.SelectReference(reference));
+            Assert.False(view.NavigateReferenceDefinition());
+            Assert.Null(view.SourceTarget);
+        }
     }
 
     [Fact]
@@ -253,5 +261,25 @@ public sealed class SyntheticDiagnosticNavigationTests
         Assert.False(view.TryAccept(await Host(input).CompileAsync(newer, cancelled.Token)));
         Assert.False(view.SelectReference(reference));
         Assert.False(view.NavigateReferenceOrigin());
+    }
+
+    [Fact]
+    public async Task ExhaustedCompilationCannotNavigateAnEarlierReference()
+    {
+        var input = CompilerAnalysisFixtures.Constraint(false);
+        using var view = await Ready(input);
+        var reference = view.Inspection!.References[0];
+        Assert.True(view.SelectReference(reference));
+        var settings = System.Text.Json.Nodes.JsonNode.Parse(input.Settings.CanonicalText)!.AsObject();
+        settings["executionProfile"]!["maximumOperations"] = 1;
+        var limited = Input(settings, input.Source);
+        var request = new CompilerHostRequest(new(limited), 2);
+        view.BeginSynthetic(request);
+        var response = await Host(limited).CompileAsync(request);
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, response.Compilation!.Result.Execution);
+        view.TryAccept(response);
+        Assert.False(view.SelectReference(reference));
+        Assert.False(view.NavigateReferenceDefinition());
+        Assert.Null(view.SourceTarget);
     }
 }
