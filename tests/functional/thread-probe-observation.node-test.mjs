@@ -422,7 +422,7 @@ void test('actual Playwright reporter does not attribute a caught restoration ti
         reporter: [[join(root, 'tests/functional/mobile/reporter.mjs')]],
         projects: [{ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) }, retries: 0 }],
       })}};`);
-    const run = spawnSync(process.execPath, [join(root, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs')], {
+    const run = spawnSync(process.execPath, [join(root, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs'), '--output', join(directory, 'runner-output')], {
       cwd: directory, encoding: 'utf8', env: { ...process.env, TARGET_SHA: 'a'.repeat(40), COGLATAS_REAL_BACKEND_MOBILE: '1' },
     });
     assert.equal(run.status, 1); assert.equal((run.stdout + run.stderr).includes('private-'), false);

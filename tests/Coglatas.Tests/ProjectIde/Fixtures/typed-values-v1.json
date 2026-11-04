@@ -1,0 +1,41 @@
+[
+  {
+    "expected": "Decoded",
+    "input": {
+      "type": {"kind":"coglatas.decimal","schemaVersion":1,"nullable":false,"acceptsUnknown":true},
+      "state":"coglatas.known",
+      "value":"123456789012345678901234567890.12345678901234567890123456789"
+    }
+  },
+  {
+    "expected": "Decoded",
+    "input": {
+      "type": {"kind":"coglatas.working-duration","schemaVersion":1,"nullable":false,"acceptsUnknown":true},
+      "state":"coglatas.known",
+      "value": {"ticks":"36000000000","calendar":{"calendarId":"calendar.school","version":"2026-01","timeZoneId":"Asia/Tokyo","rulesDigest":{"algorithm":"sha-256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
+    }
+  },
+  {
+    "expected": "Decoded",
+    "input": {
+      "type": {"kind":"coglatas.local-date","schemaVersion":1,"nullable":false,"acceptsUnknown":false},
+      "state":"coglatas.known",
+      "value": {"date":"2024-02-29","calendar":{"calendarId":"calendar.school","version":"2026-01","timeZoneId":"Asia/Tokyo","rulesDigest":{"algorithm":"sha-256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
+    }
+  },
+  {
+    "expected": "Unsupported",
+    "input": {
+      "type": {"kind":"future.numeric","schemaVersion":7,"nullable":true,"acceptsUnknown":true,"futureType":{"token":"future.enum"}},
+      "state":"coglatas.known",
+      "value": {"exact":123456789012345678901234567890.123456789,"sequence":["z","a"],"name":"é / é / 日本語","nil":null}
+    }
+  },
+  {
+    "expected": "Invalid",
+    "input": {
+      "type": {"kind":"coglatas.decimal","schemaVersion":1,"nullable":false,"acceptsUnknown":false},
+      "state":"coglatas.unknown","reason":"coglatas.missing-input","basis":{"coverage":"coglatas.partial"}
+    }
+  }
+]
