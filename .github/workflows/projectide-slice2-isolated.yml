@@ -52,3 +52,17 @@ jobs:
           name: projectide-slice2-isolated-${{ github.run_attempt }}
           path: ${{ runner.temp }}/projectide-slice2-${{ github.run_id }}-${{ github.run_attempt }}/evidence
           if-no-files-found: error
+
+  integration-inventory-controls:
+    name: Integration TRX inventory negative controls
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-integration-slice2-remainder-20261104'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact integration Test candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Reject incomplete and wrong-inventory TRX receipts
+        run: python3 -m unittest discover -s tests/ci -p test_projectide_slice2_isolated.py -v
