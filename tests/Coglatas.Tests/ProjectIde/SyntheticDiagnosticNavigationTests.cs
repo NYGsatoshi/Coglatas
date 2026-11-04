@@ -282,4 +282,35 @@ public sealed class SyntheticDiagnosticNavigationTests
         Assert.False(view.NavigateReferenceDefinition());
         Assert.Null(view.SourceTarget);
     }
+
+    [Fact]
+    public async Task FindReferencesUsesTheSelectedExactSymbolAndReturnsNavigableOrigins()
+    {
+        using var view = await Ready();
+        var inspection = view.Inspection!;
+        var reference = inspection.References.Single(item => item.Origin.PropertyPath == "/target");
+        var symbol = inspection.Symbols.Single(item => item.Symbol.Key == reference.SymbolKey);
+        Assert.True(view.Select(symbol.Symbol.Location));
+        var result = Assert.IsType<SyntheticWorkbenchViewModel.ReferenceSearchResult>(view.FindReferences());
+        Assert.False(result.Truncated);
+        Assert.Same(reference, Assert.Single(result.References));
+        Assert.True(view.SelectReference(reference));
+        Assert.True(view.NavigateReferenceOrigin());
+        Assert.Equal(reference.Origin, view.SourceTarget);
+        view.Reset();
+        Assert.Null(view.FindReferences());
+        Assert.False(view.SelectReference(reference));
+    }
+
+    [Fact]
+    public async Task FindReferencesObservesCancellationBeforeReturningCoverage()
+    {
+        using var view = await Ready();
+        var location = view.Inspection!.Symbols[0].Symbol.Location;
+        Assert.True(view.Select(location));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Assert.Throws<OperationCanceledException>(() => view.FindReferences(cancelled.Token));
+        Assert.Null(view.SourceTarget);
+    }
 }

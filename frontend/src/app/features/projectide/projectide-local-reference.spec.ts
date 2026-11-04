@@ -126,3 +126,63 @@ describe('Source-backed local reference navigation', () => {
     expect(store.selectReference(previous)).toBe(false);
   });
 });
+
+describe('Bounded current-snapshot reference search', () => {
+  it('finds only exact-key origins and navigates the chosen result', async () => {
+    const { store, result } = await ready('pass');
+    const symbol = result.semanticInspection!.symbols.find((item) => item.kind === 'coglatas.project')!;
+    expect(store.select({ kind: 'entity', id: symbol.location.entityId! })).toBe(true);
+    expect(await store.findReferences(symbol)).toBe(true);
+    const search = store.referenceSearch()!;
+    expect(search.coverageComplete).toBe(true);
+    expect(search.truncated).toBe(false);
+    expect(search.references).toEqual(result.semanticInspection!.references.filter((item) => item.symbolKey === symbol.key));
+    expect(search.references).toHaveLength(1);
+    expect(store.selectReference(search.references[0])).toBe(true);
+    expect(store.navigateReference('origin')).toBe(true);
+    expect(store.sourceLocation()?.propertyPath).toBe('/target');
+  });
+
+  it('qualifies an empty result when matching origins cannot be backed by the current map', async () => {
+    const { store, result } = await ready('pass', (item) => {
+      const reference = item.semanticInspection!.references.find((entry) => entry.origin.propertyPath === '/target')!;
+      Object.assign(reference.origin, { propertyPath: '/missing' });
+    });
+    const symbol = result.semanticInspection!.symbols.find((item) => item.kind === 'coglatas.project')!;
+    expect(store.select({ kind: 'entity', id: symbol.location.entityId! })).toBe(true);
+    expect(await store.findReferences(symbol)).toBe(true);
+    expect(store.referenceSearch()).toMatchObject({ status: 'ready', references: [], coverageComplete: false, truncated: false });
+  });
+
+  it('bounds the result in Core order and marks the coverage as truncated', async () => {
+    const { store, result } = await ready('pass', (item) => {
+      const inspection = item.semanticInspection!;
+      const reference = inspection.references.find((entry) => entry.origin.propertyPath === '/target')!;
+      Object.assign(inspection, { references: Array.from({ length: 35 }, (_, start) => ({
+        ...reference,
+        origin: { ...reference.origin, textSpan: { start, length: 0 } },
+      })) });
+    });
+    const symbol = result.semanticInspection!.symbols.find((item) => item.kind === 'coglatas.project')!;
+    expect(store.select({ kind: 'entity', id: symbol.location.entityId! })).toBe(true);
+    expect(await store.findReferences(symbol)).toBe(true);
+    expect(store.referenceSearch()).toMatchObject({ status: 'ready', coverageComplete: false, truncated: true });
+    expect(store.referenceSearch()!.references).toEqual(result.semanticInspection!.references.slice(0, 32));
+  });
+
+  it.each(['cancel', 'context', 'reload', 'selection', 'replacement'])('discards search after %s', async (mode) => {
+    const { store, result } = await ready('pass');
+    const symbol = result.semanticInspection!.symbols.find((item) => item.kind === 'coglatas.project')!;
+    expect(store.select({ kind: 'entity', id: symbol.location.entityId! })).toBe(true);
+    const search = store.findReferences(symbol);
+    expect(store.referenceSearch()?.status).toBe('searching');
+    if (mode === 'cancel') store.cancelReferenceSearch();
+    if (mode === 'context') store.choose('branch-pass');
+    if (mode === 'reload') store.loadResult();
+    if (mode === 'selection') store.clearSelection();
+    if (mode === 'replacement') store.result.set({ ...result });
+    expect(await search).toBe(false);
+    expect(store.referenceSearch()).toBeNull();
+    expect(store.sourceTarget()).toBeNull();
+  });
+});

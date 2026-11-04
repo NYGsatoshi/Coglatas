@@ -499,3 +499,20 @@ test('ProjectIDE synthetic local reference definition is available in Japanese',
   await page.getByRole('button', { name: '定義へ移動', exact: true }).click();
   await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
 });
+
+test('ProjectIDE synthetic Find References navigates from an exact symbol to its origin', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  await page.getByRole('button', { name: /^Find references · coglatas.project ·/u }).click();
+  const search = page.getByTestId('ide-reference-search');
+  await expect(search).toContainText('Matching navigable local references: 1');
+  await page.getByRole('button', { name: /^Reference origin.*\/target$/u }).click();
+  await page.getByRole('button', { name: 'Go to reference origin', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await choose(page, 'branch-pass');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(search).toHaveCount(0);
+});
