@@ -3,6 +3,12 @@ branch = True
 parallel = True
 include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-sonar-dotnet-coverage.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/required_check_contract.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/check-publication-readiness.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/github_action_pins.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_sbom_vulnerability_gate.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_sbom.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_grype_sbom_source.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/finding_policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/schemathesis_policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-sec04-deep-ci.py
@@ -11,6 +17,19 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/runtime_image_identity.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-acceptance-image-reuse.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/release_image_graph.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/release_supply_chain.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/release_assurance_advisory.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec14_main_security_evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec14_browser_evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional_evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_github_provenance.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_reconcile.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_assembly_binding.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db_campaign.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/compare.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-performance-baseline-updates.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-performance-contract.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-performance-db-campaign-baselines.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/deploy/sakura/validate-pilot-intake-policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/mbj02-trx-receipt.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional_diagnostics.py

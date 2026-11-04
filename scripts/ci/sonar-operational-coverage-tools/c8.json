@@ -1,0 +1,9 @@
+{
+  "include": [
+    "frontend/scripts/check-av-mig-source.mjs",
+    "scripts/ci/check-npm-audit-baseline.mjs"
+  ],
+  "exclude": ["**/node_modules/**"],
+  "exclude-after-remap": false,
+  "reporter": ["lcovonly"]
+}
