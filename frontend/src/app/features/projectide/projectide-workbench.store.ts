@@ -15,6 +15,9 @@ import { PreviewReadError, resolveLocation } from './projectide-preview.adapter'
 /** Semantic selection/input generation; DOM panels, focus and filters stay in the component. */
 @Injectable()
 export class ProjectIdeWorkbenchStore {
+  private static readonly referenceScanLimit = 4096;
+  private static readonly referenceResultLimit = 32;
+  private static readonly referenceOriginCheckLimit = 64;
   readonly state = signal<ReadState>('idle');
   readonly bundle = signal<PreviewBundle | null>(null);
   readonly context = signal<PreviewCase | null>(null);
@@ -30,6 +33,20 @@ export class ProjectIdeWorkbenchStore {
     const selected = this.referenceSelection();
     return selected && selected.result === this.context() && selected.result === this.result() &&
       selected.sourceMap === selected.result.sourceMap ? selected : null;
+  });
+  private referenceQuery: AbortController | null = null;
+  private readonly search = signal<{
+    result: PreviewCase;
+    sourceMap: PreviewCase['sourceMap'];
+    status: 'searching' | 'ready';
+    references: readonly BoundReference[];
+    coverageComplete: boolean;
+    truncated: boolean;
+  } | null>(null);
+  readonly referenceSearch = computed(() => {
+    const search = this.search();
+    return search && search.result === this.context() && search.result === this.result() &&
+      search.result.sourceMap === search.sourceMap ? search : null;
   });
   readonly selectedReference = computed(() => this.currentReferenceSelection()?.reference ?? null);
   readonly referenceSymbol = computed(() => this.currentReferenceSelection()?.symbol ?? null);
@@ -154,7 +171,68 @@ export class ProjectIdeWorkbenchStore {
     this.selection.set(selection);
     return true;
   }
+  async findReferences(symbol: InspectedSymbol): Promise<boolean> {
+    this.cancelReferenceSearch();
+    this.referenceSelection.set(null);
+    this.target.set(null);
+    this.navigationState.set('');
+    const result = this.result();
+    const inspection = result?.semanticInspection;
+    if (!result || result !== this.context() || !inspection || !this.inspectedSymbols().includes(symbol) ||
+        symbol.status !== 'Decoded' || inspection.symbols.filter((item) => item.key === symbol.key).length !== 1) {
+      this.navigationState.set('unavailable');
+      return false;
+    }
+    const definition = resolveLocation(result, symbol.location, true);
+    if (typeof definition === 'string') {
+      this.navigationState.set(definition);
+      return false;
+    }
+
+    const controller = new AbortController();
+    this.referenceQuery = controller;
+    const sourceMap = result.sourceMap;
+    this.search.set({ result, sourceMap, status: 'searching', references: [], coverageComplete: false, truncated: false });
+    const references: BoundReference[] = [];
+    let coverageComplete = inspection.bindingComplete && result.result.coverage === 'coglatas.complete';
+    const scanLimit = ProjectIdeWorkbenchStore.referenceScanLimit;
+    let truncated = inspection.references.length > scanLimit;
+    let originChecks = 0;
+    for (let i = 0; i < Math.min(inspection.references.length, scanLimit); i++) {
+      // Yield to context changes and cancellation even when no references match.
+      if (i % 32 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (controller.signal.aborted) return false;
+        if (!this.referenceSearch()) {
+          this.cancelReferenceSearch();
+          return false;
+        }
+      }
+      const reference = inspection.references[i];
+      if (reference.state !== 'Resolved' || reference.symbolKey !== symbol.key) continue;
+      if (references.length === ProjectIdeWorkbenchStore.referenceResultLimit ||
+          originChecks === ProjectIdeWorkbenchStore.referenceOriginCheckLimit) {
+        truncated = true;
+        break;
+      }
+      originChecks++;
+      if (typeof resolveLocation(result, reference.origin, true) === 'string') {
+        coverageComplete = false;
+        continue;
+      }
+      references.push(reference);
+    }
+    this.referenceQuery = null;
+    this.search.set({ result, sourceMap, status: 'ready', references, coverageComplete: coverageComplete && !truncated, truncated });
+    return true;
+  }
+  cancelReferenceSearch(): void {
+    this.referenceQuery?.abort();
+    this.referenceQuery = null;
+    this.search.set(null);
+  }
   selectReference(reference: BoundReference): boolean {
+    if (this.search()?.status === 'searching') this.cancelReferenceSearch();
     // Keep the inspector anchor when changing the reference detail.
     this.referenceSelection.set(null);
     this.target.set(null);
@@ -236,6 +314,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.cancelReferenceSearch();
     this.selection.set(null);
     this.referenceSelection.set(null);
     this.target.set(null);
