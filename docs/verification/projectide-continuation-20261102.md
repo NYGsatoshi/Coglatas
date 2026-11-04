@@ -1,0 +1,351 @@
+# ProjectIDE continuation audit — 2026-11-02
+
+## Authority and retained boundaries
+
+Remote state was fetched before implementation. All 21 open ProjectIDE PRs below
+are Draft with auto-merge unset and no unresolved inline review threads. Review
+submission/comments, current check rollups, changed files and recent run history
+were inspected; resolved threads do not establish new-head approval. No branch
+was merged, rebased, reset or force-pushed during the initial audit. Existing working trees were retained.
+The original checkout is on an older clean Main and is not the development base.
+
+Observed remote Main: `0c11a1e973740c6829ca263d6fa764d9c1bc62e1`;
+integration: `158ab153551184cede99c85ce6476dd6e87b6767`;
+SecurityTestImplimation: `847e1c7599ef3d15ee8f5ef2c79a9d7ca8c2e6e4`.
+None is incorporated by this continuation. The existing independent Test series
+retains its immutable `b18939f9104d52ae33e32a7f9b15a6e1b52892f1` ancestor.
+
+This is an initial audit snapshot, not a claim that subsequent HEADs retain old
+verification. Base SHAs below are fetched remote branch tips. GitHub cached
+baseRefOid values sometimes describe earlier review snapshots; the audit retained
+both values without changing any PR base/head relationship. Frozen candidate bases
+are review boundaries, not accepted integration branches.
+
+## Open PR register
+
+| PR | Head branch / SHA | Current base branch / SHA | Scope | Dependency | Implementation | Review | CI | Blocker | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| [#1603](https://github.com/NYGsatoshi/Coglatas/pull/1603) | `feature/projectide-core-slice2-values-20261031` / `9ad2d5042895bb51605a0cfaff86fbf7d8e1ca49` | `projectide/integration-20261031` / `158ab153551184cede99c85ce6476dd6e87b6767` | add Slice 2a exact values and unit/time contracts (5 files) | projectide/integration-20261031 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1604](https://github.com/NYGsatoshi/Coglatas/pull/1604) | `test/projectide-core-slice2-values-20261031` / `51a057aa7a250953383c99e49dfcd97ab6e01145` | `SecurityTestImplimation` / `847e1c7599ef3d15ee8f5ef2c79a9d7ca8c2e6e4` | add isolated Slice 2 value and declaration fixtures (6 files) | SecurityTestImplimation | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1605](https://github.com/NYGsatoshi/Coglatas/pull/1605) | `feature/projectide-core-slice2-declarations-20261031` / `90820e10d33ab8630e6ee2a06aab63c94a2671a8` | `feature/projectide-core-slice2-values-20261031` / `9ad2d5042895bb51605a0cfaff86fbf7d8e1ca49` | add Slice 2b Source-backed declarations and bounded predicates (7 files) | 1603 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1606](https://github.com/NYGsatoshi/Coglatas/pull/1606) | `feature/projectide-core-slice2-references-20261101` / `9a1439e6ebe6445a97120df1386acf289f1d9c9e` | `feature/projectide-core-slice2-declarations-20261031` / `90820e10d33ab8630e6ee2a06aab63c94a2671a8` | add Slice 2c pinned references and bounded value shapes (5 files) | 1605 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1607](https://github.com/NYGsatoshi/Coglatas/pull/1607) | `feature/projectide-core-slice2-unit-conversions-20261101` / `f240e34131b006ebd296844af84814c563f40365` | `feature/projectide-core-slice2-declarations-20261031` / `90820e10d33ab8630e6ee2a06aab63c94a2671a8` | add Slice 2d exact pinned unit conversions and arithmetic (4 files) | 1605 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1608](https://github.com/NYGsatoshi/Coglatas/pull/1608) | `feature/projectide-core-slice2-calendar-20261101` / `fd78f3261da6005098bbb47f1de32d26c42babc4` | `feature/projectide-core-slice2-declarations-20261031` / `90820e10d33ab8630e6ee2a06aab63c94a2671a8` | add Slice 2e pinned calendar and timezone evaluation (6 files) | 1605 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1609](https://github.com/NYGsatoshi/Coglatas/pull/1609) | `test/projectide-core-slice2-remainder-20261101` / `15ae613d8db1397eb105a6753798afb948ea7758` | `test/projectide-core-slice2-values-20261031` / `51a057aa7a250953383c99e49dfcd97ab6e01145` | verify Slice 2c 2d 2e contracts and fixed isolated candidates (10 files) | 1604 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1611](https://github.com/NYGsatoshi/Coglatas/pull/1611) | `feature/projectide-core-slice3-relations-20261101` / `e4026f358f275e1acbfc513f8ac9c62af04b63a9` | `candidate/projectide-slice2-fixed-20261101` / `da112be55ea35794fe4416ba856ba35628a9fe53` | add typed relation descriptors and bounded graph validation (5 files) | candidate/projectide-slice2-fixed-20261101 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1612](https://github.com/NYGsatoshi/Coglatas/pull/1612) | `test/projectide-core-slice3-relations-20261101` / `3632e50742425ddfb07bd04101d431c79fce3b3a` | `test/projectide-core-slice2-remainder-20261101` / `15ae613d8db1397eb105a6753798afb948ea7758` | verify typed relation invariants and exact candidate inventories (6 files) | 1609 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1614](https://github.com/NYGsatoshi/Coglatas/pull/1614) | `feature/projectide-core-slice4-envelopes-20261101` / `57318802712e4d98ab496c270f9047a7cb28c836` | `feature/projectide-core-slice3-relations-20261101` / `e4026f358f275e1acbfc513f8ac9c62af04b63a9` | bind immutable compiler manifests diagnostics and result axes (4 files) | 1611 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1615](https://github.com/NYGsatoshi/Coglatas/pull/1615) | `test/projectide-core-slice4-envelopes-20261101` / `d5ae33642fb772ce7690c97bfc64ffaa0e87657a` | `test/projectide-core-slice3-relations-20261101` / `3632e50742425ddfb07bd04101d431c79fce3b3a` | verify compiler identities coverage verdicts and freshness (6 files) | 1612 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1617](https://github.com/NYGsatoshi/Coglatas/pull/1617) | `feature/projectide-core-slice5-binding-20261101` / `3718fe0bf82455945d99a5a4f9d427a790a31b75` | `feature/projectide-core-slice4-envelopes-20261101` / `57318802712e4d98ab496c270f9047a7cb28c836` | parse canonical buffers and bind partial semantic models (3 files) | 1614 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1618](https://github.com/NYGsatoshi/Coglatas/pull/1618) | `test/projectide-core-slice5-binding-20261101` / `839965c0f068ccf1f7e34beab9061fe4a24c931c` | `test/projectide-core-slice4-envelopes-20261101` / `d5ae33642fb772ce7690c97bfc64ffaa0e87657a` | verify partial binding scope snapshots and raw Draft recovery (4 files) | 1615 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1620](https://github.com/NYGsatoshi/Coglatas/pull/1620) | `feature/projectide-core-slice6-ir-20261101` / `9a06f5be4fbc015a1c74a6cd76be392f0d0f73fe` | `feature/projectide-core-slice5-binding-20261101` / `3718fe0bf82455945d99a5a4f9d427a790a31b75` | validate semantic closure and derive mapped immutable IR (8 files) | 1617 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1621](https://github.com/NYGsatoshi/Coglatas/pull/1621) | `test/projectide-core-slice6-ir-20261101` / `cd1bb602c48c319bbef9aa70941595959a6531f1` | `candidate/projectide-slice5-tests-fixed-20261101` / `c5b6ffc8b92154423c41c28dab66a4bc2c4a50c2` | verify IR maps identities graph closure units and provenance (7 files) | candidate/projectide-slice5-tests-fixed-20261101 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1624](https://github.com/NYGsatoshi/Coglatas/pull/1624) | `feature/projectide-core-slice7-analysis-20261101` / `5ef8b9caa4cbb0228a48b5c13b4f74bb07837547` | `feature/projectide-core-slice6-ir-20261101` / `9a06f5be4fbc015a1c74a6cd76be392f0d0f73fe` | execute bounded initial analysis with full compile evidence (9 files) | 1620 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1625](https://github.com/NYGsatoshi/Coglatas/pull/1625) | `test/projectide-core-slice7-analysis-20261101` / `24c8386b37267ac730363de1f943c606de0d35fe` | `candidate/projectide-slice6-tests-fixed-20261101` / `939e8d51a4318b8cee79ae7fae533230123d6be8` | verify rule truth evidence NotRun and exhaustion boundaries (7 files) | candidate/projectide-slice6-tests-fixed-20261101 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1628](https://github.com/NYGsatoshi/Coglatas/pull/1628) | `feature/projectide-core-slice8-hosts-20261101` / `ddb456dbf2eca1b005a8aac5ffb1ca8861b73b5d` | `feature/projectide-core-slice7-analysis-20261101` / `5ef8b9caa4cbb0228a48b5c13b4f74bb07837547` | add Slice 8 compiler host contracts and exact parity binding (6 files) | 1624 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | No failing ordinary checks observed; skips/neutral remain | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1629](https://github.com/NYGsatoshi/Coglatas/pull/1629) | `test/projectide-core-slice8-hosts-20261101` / `5bd53a614b9cfe27de53cfa2b7901a18b95aa36d` | `candidate/projectide-slice7-tests-fixed-20261101` / `92b6b8fde6b872c73adab8861ed109920dd108d4` | verify Slice 8 host parity and immutable manifest binding (8 files) | candidate/projectide-slice7-tests-fixed-20261101 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+| [#1637](https://github.com/NYGsatoshi/Coglatas/pull/1637) | `feature/projectide-web-workbench-20261101` / `9482b474d752d0ee72eafffd2a4deb59fb922432` | `feature/projectide-core-slice8-hosts-20261101` / `ddb456dbf2eca1b005a8aac5ffb1ca8861b73b5d` | add Angular read-only Workbench preview with Problems and source navigation (21 files) | 1628 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | frontend-test | Review/acceptance pending | Validate contracts; retain explicit unsupported scope |
+| [#1638](https://github.com/NYGsatoshi/Coglatas/pull/1638) | `test/projectide-web-workbench-20261101` / `cdd0dfa9c21de15edc95f281a85026ea568c97f1` | `test/projectide-core-slice8-hosts-20261101` / `5bd53a614b9cfe27de53cfa2b7901a18b95aa36d` | verify Angular Workbench contracts components and browser journey (12 files) | 1629 | Bounded candidate; full Issue incomplete | No unresolved threads; approval pending | .NET build producer, build-test, security-scan, frontend-test, specification-contract, functional-fast | Unmerged Product dependency; no check waiver | Preserve independent tests and exact pair evidence |
+
+## Dependencies, status and specification alignment
+
+Products progress from #1603/#1605, through the bounded reference/unit/calendar
+siblings #1606/#1607/#1608 and fixed Slice 2 candidate, then #1611 → #1614 → #1617
+→ #1620 → #1624 → #1628 → #1637. Tests retain their separate chain #1604 → #1609
+→ #1612 → #1615 → #1618 → #1621 → #1625 → #1629 → #1638, including existing fixed
+candidate review bases. No Test implementation is absorbed into Product.
+
+Merged Core Slice 1 #1063 and Security Foundation #1134/#1137/#1140/#1142/#1153
+are historical foundations, not work to recreate. Closed unrelated performance
+proposals returned by full-text search are not ProjectIDE implementation slices.
+Earlier wording calling specification PR Coglatas-Spec#300 Draft is historical;
+its already-merged status is recorded in the Workbench audit. Preserve #888's
+IDE-START addendum over older broad implementation holds. Pure Core and maintained
+Angular synthetic work may proceed; #1144 native/operational gates and #1128
+SUSPENDED / NOT_EVALUATED remain unchanged.
+
+Current Issue bodies and relevant handoffs were obtained for #888/#798/#905,
+#782/#793/#794/#795, #766/#814/#1030/#908 and gate trackers. Remaining full Core
+semantics include value-reference binding, Requirement evidence and shared Resource
+materialization. Keep Unknown, Unsupported, NotRun and exhausted processing explicit.
+Runtime API authorization, durable Compiler jobs and native UI acceptance remain
+separate unimplemented/gated work; no synthetic fixture supplies that authority.
+
+## Selected work
+
+1. Strengthen the existing Web preview's view-level contract checks, direct
+   Source Navigation binding and reload focus lifecycle. Independent Test additions
+   reproduce 17 failures against Product `9482b474d752d0ee72eafffd2a4deb59fb922432`
+   with Test `f623389bd9aa91933857d6436be34d0194a76e2e`: 90 retained PASS, 17 FAIL,
+   zero pending tests. Retain the failing JSON separately from new-head evidence.
+2. Continue Core host freshness with an additive exact-request assessment that
+   includes the materializations actually executed. The existing manifest-only
+   assessment remains explicitly limited to its supplied manifest and generation.
+3. Run fresh isolated composition for each pair, with exact SHAs, trees, command
+   exit codes, inventories and artifact hashes. Ordinary PR checks remain separate.
+
+The Web fix rejects duplicate tracking/semantic identities, Source-external
+locations and structurally impossible Core evidence. Both bundle reads and direct
+resolver calls check exact result/input/SourceMap/context binding. Reload clears
+panel/filter state and invalidates deferred focus. These are bounded synthetic
+view checks, not remote binary attestation or a production authorization adapter.
+
+## Holds and next executable work
+
+The initial audit treated the ordinary Web Product's five-route static assertion
+as independent-Test-only maintenance. A fresh Product-only run reproduced its real
+failure (11 PASS / 1 FAIL) despite the correct route registration. The continuation
+instruction explicitly permits necessary minimal Product internal verification,
+so this existing test now retains every assertion with the six-route addendum and
+44-route current total. Its fixed 38-route snapshots remain unchanged. Only these
+three exact inventory lines are permitted by the composer; independent component/owner
+negative controls stay on Test. No Test commit is blindly absorbed. Standalone
+Test backend CI still lacks the unmerged Product types; composition does not turn
+that failure into PASS.
+
+The Product-only full Node inventory then exposed an existing Windows file-symlink
+privilege limitation (67 PASS / 1 FAIL, EPERM). Its existing realpath-denial test
+now uses a directory junction/Unix directory symlink with the same lexical and
+realpath denial assertions, without elevation or skips. This exact bounded
+portability delta is also checked against the pinned baseline; the two independent
+ProjectIDE component/owner controls remain Test-only. Both failed initial logs are
+retained separately from the new Product-only run.
+
+CodeRabbit CLI 0.9.1 is installed but initially unauthenticated. Browser login was
+initiated; a completed independent new-head review is not claimed until an actual
+review succeeds. Existing CodeRabbit threads are resolved, and full review/owner
+acceptance remains pending. Source changes and tests continue within the owner's
+explicit authorization while that separate external review prerequisite is pending.
+
+Owner decisions remain HOLD for native/operational gate activation, an approved
+real read-only artifact endpoint/current authority contract, trusted-producer
+acceptance, integration and release. No Main/integration merge, Ready/Close,
+auto-merge, production action or security/check relaxation is authorized here.
+Full shared-client completion is not claimed.
+
+## Exact dependency continuation
+
+Core Product `1218495bdd4e1280c968b0e6d2067c921c64ab31` and independent Core Test
+`8348083cc04e9bd85147b32bb1805e94aa14fd3a` add exact-request freshness and seven
+independent checks. Their local pair passes 714 Core and 12 architecture tests,
+with zero warnings/errors/failed/skipped. These are separate from the old 707-case
+receipts. Current local Python is 3.12.14; hosted Python remains pinned at 3.12.12.
+
+Only these pinned Product-to-Product and Test-to-Test dependencies are merged into
+the existing Web development heads. No Main/integration/other-purpose branch or
+PR is merged. Web fixture producer metadata is regenerated from the new Core pin;
+its semantic cases retain their actual Core-produced values.
+
+The Web composer records both dependency merge commits, accepts only their exact
+pinned second parent and checks each merge tree against Git's automatic merge.
+Additional resolution edits, unknown parents and later ownership violations are
+rejected. It composes independent Core Test commits followed by Web Test commits,
+then requires exact ProjectIDE-owned Test file equality and unchanged Product
+runtime source. Product and Test retain different pre-existing non-ProjectIDE
+baselines; those differences are inventoried rather than absorbed into Product.
+Shared runner/inventory maintenance uses the validated independent commit patches.
+The first dependency composition correctly stopped before verification when an
+overbroad whole-tests-directory equality check encountered these inherited
+differences. Its failure log is retained. The corrected comparison retains all
+ProjectIDE-owned files and adds a negative control for their exact equality;
+it neither imports unrelated tests nor removes a required check.
+The Web verifier checks both the recorded commit and tree plus a clean tracked
+checkout before and after execution. Real temporary-Git controls cover dirty and
+staged checkouts, same-tree commit substitution, receipt tampering and dependency
+merge substitution. These improve candidate evidence; Test-head-controlled scripts
+still do not establish trusted-producer or independent acceptance authority.
+
+The first Web fix pair completed its selected full local inventory before this
+dependency/script continuation. Its receipt is retained as historical evidence;
+the final updated heads must run fresh verification. Skip/exclusion policies are
+unchanged. The original ordinary Product route-assertion failure remains historical
+and the corrected Product must pass its own new ordinary CI. Standalone Test
+dependency failures remain visible and separate from supplemental evidence.
+
+## Continuation checkpoint — 2026-11-03
+
+The inherited register above remains historical. A fresh GitHub REST/GraphQL audit
+found the same 21 open ProjectIDE PRs, all Draft and auto-merge unset. Their initial
+HEADs match the supplied 2026-11-02 snapshot. Both review-thread pagination and
+per-thread comment pagination were exhausted. Only #1628 has new unresolved
+inline threads (Cancellation, Expected Kind); its latest CodeRabbit review also
+contains the Unknown-basis observation outside the diff. Spec #300 is MERGED
+(`16066f182beef0cd7ce57aa23849922f634d82c7`), overriding stale Draft text in Issues.
+The current #888/#798/#905/#782/#793-#795/#906/#1144/#1128 bodies and normative
+2026-10-31 owner decision were fetched. No earlier Core chain is recreated.
+
+The supplied RiderProjects checkout is absent on this host. Existing clean Product
+and independent Test worktrees under `.codex/worktrees` are reused. A historical
+Slice 3 reproduction has a pre-existing modified TypedRelationTests file; it is
+preserved. Existing Python caches are not source changes. Main and integration
+worktrees/refs are not development targets. The current SecurityTestImplimation
+remote tip differs from the historical register; the fixed Test ancestor and all
+existing review bases remain unchanged.
+
+Core Product `e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4` and independent Test
+`f057f5e86fd28c6ca00875f20f8e30a49fb82f8b` correct all three observations.
+Before-fix combined `00a86e1d993d723f42bf4e0ce49d0c50315e324c`, tree
+`2329ebb7db13cb62ea05c93583a1d1ff9a80ddd1`: 8 FAIL / 3 PASS / 0 skipped.
+After-fix combined `bbcb59b7825722a52b1f250126e3a709af4d55c4`, tree
+`a85b3a67eb902ceb269d5a7e1e5a8f3b49718397`: Windows SDK 10.0.403 Release solution
+build with warnings as errors, 0 warnings/errors; Core 725/725, Architecture 12/12,
+0 failed/skipped. Four isolated composition controls pass. Existing inventories,
+late-response cancellation controls and all assertion responsibilities are retained.
+Core TRX SHA-256: `458916dc78c1bb39b7746a012856be7a245637b7969743f075156d03479596c1`.
+Actual new-head hosted conclusions are recorded separately in PRs; these local
+results do not imply hosted, reviewer, security or client acceptance.
+
+Web dependencies advance through automatic merge trees with exact Core parents,
+Product-to-Product and Test-to-Test only. The composer explicitly enumerates both
+historical and current Core dependency parents and rejects all others, preserving
+existing history and fixed review bases. Fixture producer metadata is regenerated
+from corrected Core; synthetic cases retain their actual Core-produced values.
+All 28 composition/verification negative controls pass. New full Web evidence is
+required; the earlier 724/263/70/42 result set is not reused for the changed heads.
+
+Ordinary CI classification at inherited heads:
+
+| PR / run | Producer or consumer | Observed failure classification |
+| --- | --- | --- |
+| #1629 / 41371615115 | .NET build producer | CS0234/CS0246 for absent unmerged Product Core/types |
+| #1629 / same run | build-test, security-scan, Functional, specification-contract | Producer-dependent failed/skipped execution and missing evidence, not PASS |
+| #1638 / 41379288123 | .NET build producer | Same independent Test/Product dependency boundary |
+| #1638 / same run | frontend-test | 34 browser failures: Preview Product route absent from standalone Test build; retries also fail |
+| #1638 / same run | dependent gates | Missing producer/runtime/Advisory evidence; retained as failures |
+
+The repository uses rulesets rather than legacy branch protection (that endpoint
+returns 404). Active owner-only Main ruleset 24643016 requires build-test,
+frontend-test, security-scan, publication-readiness, functional-fast and
+performance-fast, strict status checking, thread resolution, no deletion and no
+non-fast-forward update. No ruleset, workflow gate, exclusion or threshold is
+relaxed. Supplemental evidence is a separate candidate evaluation axis.
+
+Next bounded implementation candidate: Source-backed semantic inspection, with
+immutable input/Source identity, deterministic symbols/types/reference status,
+Angular Inspector consumption and a pure .NET synthetic Workbench adapter for the
+Windows lane. Actual Avalonia startup, native E2E and real API/authorization remain
+HOLD under #1144. This is independent of complete Requirement evidence/resource
+materialization, which remain unimplemented. Shared-client completion is not claimed.
+#1128 remains SUSPENDED / NOT_EVALUATED.
+
+### Exact parent reconciliation and new verification
+
+GitHub marked #1628 CONFLICTING after the first correction; ordinary pull_request
+CI did not start. Its existing Slice 7 branch has additional approved Product
+ancestors, rather than the earlier single-parent review snapshot. Exact parent
+`5ef8b9caa4cbb0228a48b5c13b4f74bb07837547` is now incorporated in Core merge
+`610f9911f9ce31739188437972f7eeb018f611da`, whose first parent is
+`e7a0b7b9da9a9f761b9c018c62b72e0fe7e901a4`. The only conflicting file was
+CompilerSemanticValidation.cs; its verified correction was retained verbatim.
+The merge tree equals its first-parent tree. This reconciles real dependency
+ancestry; no earlier same-tree receipt is substituted for the new Commit.
+
+Independent Test `9e969183f5b311789b0197d0b6aac12a88206e7c` pins that exact merge
+Commit, both parents and its unchanged resolution tree; unknown merges, parents
+and resolution edits are rejected. Five composition controls pass. A new exact
+Windows combined candidate was built and tested: Release warnings-as-errors,
+Core 725/725, Architecture 12/12, zero warnings/errors/failures/skips.
+
+The preceding Web candidate Product `1b0d6e4d8db36d7b5a8196515aa72e94bec5b829`,
+Test `7efcc42117ca99110ba28aa0b06848af4c060841`, combined
+`65a9dc38d2892cb880b2527a7a18026b9f34e556`, tree
+`9754333d95323725ab33f68e9eb08aef7c074798`, passed Windows full verification:
+Core plus fixture 735/735, Architecture 12/12, Vitest 263/263, Node 70/70,
+Playwright Desktop/Mobile 42/42, controls 28/28, no failures/skips. Local Node is
+24.22.1 (hosted remains 24.22.2), Python 3.12.14 (hosted 3.12.12), SDK 10.0.403.
+Installed dependency directories were reused only after both exact lockfile hashes
+matched; no lockfile/dependency changes were made. This evidence is retained for
+those exact pins; subsequent metadata/ancestry updates require their own receipt.
+
+## Source-backed inspection continuation — 2026-11-03
+
+One bounded Draft pair follows the existing Web lanes; the inherited register is
+not replaced. [Product #1653](https://github.com/NYGsatoshi/Coglatas/pull/1653),
+`feature/projectide-workbench-inspection-20261103`, bases on #1637 at
+`0a79e05a6533a7e4468bb7b74f47aeceb04ae119`. [Independent Test #1654](https://github.com/NYGsatoshi/Coglatas/pull/1654),
+`test/projectide-web-windows-inspection-20261103`, bases on #1638 at
+`5f2825e1d88f307efddc5edac16579ec220cbd4b`. Both remain Draft/open with no
+integration authority. Exact new-head receipts and check state are appended to PRs.
+
+The new pure Core projection exposes input-bound local symbols, actual port types
+and distinct reference resolution states, including partial models before IR.
+Angular Inspector consumes the optional exported projection and validates exact
+Source/type/identity binding. A separate pure .NET synthetic Windows ViewModel
+prepares Source/Problems/Inspector/navigation with monotonic generations, exact
+materializations and boundary cleanup. It contains no Avalonia package/window or
+real API/data loader. See [implementation/limits](projectide-source-inspection.md).
+Windows Native UI, keyboard/IME and actual Avalonia acceptance remain NOT_RUN/HOLD;
+Angular success is not Windows E2E. Complete value-reference/evidence materialization
+and production API/current authority remain incomplete.
+
+The additional composer permits only the exact existing Web Product/Test parents
+and the one new Core inspection file. An initial composition failed because a
+stacked Test parent had advanced on its own line. The correction validates and
+replays its missing independent deltas exactly once, with an ownership-negative
+control; no duplicate patch or Product source substitution is permitted. Test-owned
+project-reference files are also compared exactly. The failed candidate is retained.
+The initial full build then failed on two xUnit2031 checks; the next run passed all
+754 .NET ProjectIDE/fixture/ViewModel tests but exposed two strongly typed Entity vs
+Relation ID errors in the new UI Test. Both Test issues are fixed without rule,
+assertion or type relaxation; failed receipts remain historical.
+
+Reconciled Core Product `610f9911` / Test `9e969183` now qualifies on Windows and
+Ubuntu at 725 Core + 12 Architecture cases; all input/combined pins, trees, inventory
+names/outcomes and producer hashes match. Hosted run **41499617923**, attempt 1,
+artifact **13167922631**, ZIP SHA-256
+`be661c775e038b3e6bc7b9e14a552ce1fdf3c2ffbabbe30ba060f3659621e7e9`.
+Both 2026-11-02 inline review threads have reproduction/code/evidence replies and
+are resolved. The outside-diff Unknown-basis observation is recorded separately;
+manual new-head review was requested and remains independent of approval.
+
+Reconciled Web Product `0a79e05a` / Test `5f2825e1`, combined
+`7c396789e9cf37bfed8cfbaa339025b3d7126e36`, tree
+`e49ae5a2d83a7d20e78873a8ee774d4e2ac4cdf4`, passed full local verification:
+735 Core/fixture, 12 Architecture, 263 Vitest, 70 Node, 42 Desktop/Mobile browser,
+29 composition controls, zero failures/skips. Hosted run **41500323945**, attempt 1,
+artifact **13168084539**, ZIP SHA-256
+`c9b2dc93c16ed35addb6b98b8a9e7aebef153321dd10aa67b2a91ce1dad38cf2`.
+Downloaded pins/trees, all producer hashes and parsed complete inventories match.
+Its job queued 2 seconds (created 18:24:49Z, started 18:24:51Z), then executed
+456 seconds (completed 18:32:27Z). These are workflow timings, not #1128 assurance.
+Ordinary Product PR CI is still separately running/queued; standalone Test CI
+remains failed on unmerged Product dependencies. No required check is waived.
+
+No Main/ProjectIDEMain/integration/SecurityTestImplimation push/merge, force push,
+Ready/Close, auto-merge, production/DB/RLS/Enforce activation or gate relaxation.
+#1128 stays SUSPENDED / NOT_EVALUATED. Remaining work is recorded in the focused
+feature document and the live Draft PRs; no shared-client or release GO is claimed.
+
+### New-slice review continuation
+
+CodeRabbit reviewed Product `ba054507` and reported two synchronous ViewModel
+reentrancy defects. The independent Test chain adds five bounded reproductions;
+the corrected publication/disposal logic is documented in
+[the feature record](projectide-source-inspection.md). The earlier 758/274/70/44
+Windows/Ubuntu candidate and artifact 13170308202 are historical exact-pin evidence,
+not a PASS for the subsequent review correction. New-head receipts, CI and thread
+responses remain on the same Draft #1653/#1654 pair. No new feature or gate change
+is mixed into these corrections.
+
+## Core value-reference continuation — 2026-11-03
+
+New bounded Product/Test stacks depend respectively on #1628 at
+`610f9911f9ce31739188437972f7eeb018f611da` and #1629 at
+`9e969183f5b311789b0197d0b6aac12a88206e7c`. This inherited register is
+continued without a second management ledger. Exact final commits, trees,
+Windows/Ubuntu receipts, inventories and ordinary CI are recorded on the Draft
+pair after execution; earlier successful receipts certify only their original pins.
+See [scope and contract decisions](projectide-core-value-binding.md).
+
+Phase A refreshed #1653/#1654: heads remain `f9894e51` / `80b71222`, Draft/open;
+both lifecycle threads are resolved, full changed-head review and owner acceptance
+remain pending. Product ordinary CI 41507043327 was in progress at audit. Test
+41507123368 has 184 missing-unmerged-Product compile errors in producer
+125505749247 and dependent failures/skips; frontend was still running. These
+failures stay visible. No duplicate lifecycle fix, source copying or CI waiver.
+
+No Main/ProjectIDEMain/formal integration/SecurityTestImplimation push or merge,
+force push, Ready/Close, auto-merge, production/API/DB/resource acquisition,
+SEC-ARCH/RLS/Enforce activation or gate relaxation is authorized or performed.
+#1128 stays SUSPENDED / NOT_EVALUATED. Windows remains Pure ViewModel preparation;
+actual Avalonia/native keyboard/IME/activation is HOLD under #1144.

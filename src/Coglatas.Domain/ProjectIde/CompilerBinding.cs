@@ -148,11 +148,18 @@ public static class ProjectSemanticBinder
                     result.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location);
             if (!WithinBudget(result.Data.Value, ref remainingOperations))
             { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
-            if (HasUnboundValueReference(result.Data))
-            {
-                references.Add(new(location, ReferenceResolutionState.Unsupported, null));
-                Add(CoreCompilerRules.Declarations, "coglatas.binding.value-reference-unavailable", RelationFindingState.Unsupported, location);
-            }
+            if (result.Declaration is TaskPlanDeclaration valueTask)
+                foreach (var port in valueTask.Ports.OrderBy(item => item.PortId.ToString(), StringComparer.Ordinal))
+                    if (port.DefaultValue is { } value)
+                        foreach (var item in CompilerValueReferenceTraversal.Values(value, "/payload/ports/" + port.PortId + "/defaultValue"))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            remainingOperations -= snapshots.Count + pins.Length + 1;
+                            if (remainingOperations < 0)
+                            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+                            if (item.Value.KnownValue is TypedProjectReference reference)
+                                ResolveValue(reference, ProjectLocation.Create(result.DocumentId, source.Context, item.Path, entityId: entity));
+                        }
             if (result.Declaration is RequirementPlanDeclaration requirement)
                 Resolve(requirement.Target, ProjectLocation.Create(result.DocumentId, source.Context, "/payload/target", entityId: entity), CoreCompilerRules.Declarations);
             if (result.Declaration is ProjectPlanDeclaration project)
@@ -192,6 +199,63 @@ public static class ProjectSemanticBinder
         cancellationToken.ThrowIfCancellationRequested();
         return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations));
 
+        void ResolveValue(TypedProjectReference reference, ProjectLocation origin)
+        {
+            var state = ReferenceResolutionState.Unsupported;
+            string? key = null;
+            string? code = null;
+            var invalid = false;
+            var matches = snapshots.Where(item => item.Source.Context.Equals(reference.Context)).ToArray();
+            if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
+            else if (!reference.Origin.Context.Equals(origin.Context) || reference.Origin.DocumentId != origin.DocumentId ||
+                reference.Origin.EntityId != origin.EntityId || reference.Origin.RelationId != origin.RelationId ||
+                (reference.Origin.PropertyPath.Length != 0 && reference.Origin.PropertyPath != origin.PropertyPath))
+            { code = "coglatas.binding.value-reference-origin-mismatch"; invalid = true; }
+            else if (reference.Kind is not ("coglatas.entity-reference" or "coglatas.document-reference") || reference.Context.Equals(source.Context))
+                code = "coglatas.binding.value-reference-unavailable";
+            else if (matches.Length == 0)
+                state = reference.ProjectId == source.ProjectId ? ReferenceResolutionState.OutOfScope : ReferenceResolutionState.UnknownDueToCoverage;
+            else if (matches.Any(item => !item.IsAuthorized)) state = ReferenceResolutionState.OutOfScope;
+            else if (matches.Length != 1) state = ReferenceResolutionState.Ambiguous;
+            else if (!pins.Any(pin => SourceRevisionContext.Parse(SourceJson.FromElement(pin.GetProperty("context"))).Equals(reference.Context) &&
+                SourceFields.String(pin, "version") == reference.ManifestVersion &&
+                ContentDigest.Parse(SourceJson.FromElement(pin.GetProperty("digest"))).Equals(reference.ManifestDigest) &&
+                reference.ManifestDigest.Equals(matches[0].Source.Digest)))
+            { code = "coglatas.binding.value-reference-manifest-mismatch"; invalid = true; }
+            else if (reference.EntityId is { } target)
+            {
+                var candidates = symbolIndex.GetValueOrDefault(Key(reference.Context, target)) ?? [];
+                if (candidates.Length == 0) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                else if (candidates.Length != 1) state = ReferenceResolutionState.Ambiguous;
+                else if (candidates[0].Status != ValueDecodeStatus.Decoded) state = ReferenceResolutionState.Unsupported;
+                else if (candidates[0].Kind != reference.ExpectedKind)
+                { code = "coglatas.binding.value-reference-kind-mismatch"; invalid = true; }
+                else { state = ReferenceResolutionState.Resolved; key = candidates[0].Key; }
+            }
+            else if (reference.DocumentId is { } documentId)
+            {
+                var document = matches[0].Source.Documents.SingleOrDefault(item => item.DocumentId == documentId);
+                if (document is null) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                else if (ValueFields.HasUnknown(document.Data.Value, "documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest") ||
+                    ValueFields.HasUnknown(document.Digest.Data.Value, "algorithm", "value")) state = ReferenceResolutionState.Unsupported;
+                else
+                {
+                    state = ReferenceResolutionState.Resolved;
+                    key = SourceJson.FromObject(new { context = reference.Context.Data.Value, documentId = documentId.ToString() }).CanonicalText;
+                    if (!symbols.Any(symbol => symbol.Key == key))
+                        symbols.Add(new(key, SourceDocument.SchemaId, document.Root.EntityId, null, reference.Context,
+                            ProjectLocation.Create(documentId, reference.Context), ValueDecodeStatus.Decoded));
+                }
+            }
+            references.Add(new(origin, state, key));
+            if (state != ReferenceResolutionState.Resolved)
+                Add(CoreCompilerRules.Declarations, code ?? "coglatas.binding.reference-" + ResolutionToken(state), invalid ? RelationFindingState.Invalid : state switch
+                {
+                    ReferenceResolutionState.UnknownDueToCoverage => RelationFindingState.Unknown,
+                    ReferenceResolutionState.Unsupported => RelationFindingState.Unsupported, _ => RelationFindingState.Invalid
+                }, origin);
+        }
+
         void Resolve(PlanEntityReference reference, ProjectLocation origin, string rule, PortId? port = null)
         {
             ReferenceResolutionState state;
@@ -219,23 +283,6 @@ public static class ProjectSemanticBinder
         }
     }
 
-    private static bool HasUnboundValueReference(SourceJson data)
-    {
-        var pending = new Stack<JsonElement>(); pending.Push(data.Value);
-        while (pending.TryPop(out var value))
-        {
-            if (value.ValueKind == JsonValueKind.Object)
-            {
-                var typed = value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _)
-                    ? TypedProjectValueCodec.Decode(SourceJson.FromElement(value, data.Limits)).Value : null;
-                if (typed?.KnownValue is TypedProjectReference) return true;
-                foreach (var member in value.EnumerateObject())
-                    if (member.Name != "basis" || typed?.State != ValueState.Unknown) pending.Push(member.Value);
-            }
-            else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
-        }
-        return false;
-    }
     private static string Key(SourceRevisionContext context, EntityId entity, PortId? port = null) =>
         SourceJson.FromObject(new { context = context.Data.Value, entityId = entity.ToString(), portId = port?.ToString() }).CanonicalText;
     private static string ResolutionToken(ReferenceResolutionState state) => state switch
