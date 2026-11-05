@@ -1403,3 +1403,79 @@ historical. Thus both corrected new Product ordinary CIs and the existing a32
 Consumer Product CI are SUCCESS; each standalone independent Test failure remains
 separate and unwaived. A later documentation-only ledger commit is not assigned
 the old docs00147cf6 CI result; its fresh checks remain separately observable.
+
+
+## Historical synthetic navigation Product audit (pre-integration candidate, 2026-11-04)
+
+The following standalone Product #1697/#1699 checkpoint is preserved as historical evidence from original Product head `19a3ad044d078b256121f88d109abf77743b7d86`. Counts, Draft statuses, reviewer approvals and "current" language in this imported section refer exclusively to the original pre-integration audit, not the present branch status. This integration reconciliation retains the full prior ledger verbatim and does not revise production/native/Manifest/Receipt/Evidence acceptance.
+
+### Diagnostic navigation continuation
+
+The 34 inherited PRs were audited at their live Draft heads. The Product and
+Test dependency chains stay separate. The inherited ordinary Product checks
+succeeded and the 15 standalone Independent Test checks failed with unmerged
+Product dependencies. No current unresolved inline thread or approval was
+present in the audit. Full review and Owner/CODEOWNER acceptance are pending.
+
+Navigation builds on #1653 and #1654. A current Diagnostic selection is distinct
+from a Source or Symbol selection. The Angular Inspector resolves its Diagnostic
+record through the same locator as Source navigation. The Windows ViewModel
+keeps the selected Core Diagnostic and its primary location separate from the
+selected symbol. Both reject ambiguous records and SourceMap entries and clear
+the previous target before an attempt. Location checks cover the accepted input,
+scope/revision, Document and record membership, property paths and UTF-16
+boundaries. A partial result may omit a SourceMap. Its canonical record can still
+support a semantic location, while a document-only location is unsupported by
+the record navigators. Neither client invents a span.
+
+Angular guards deferred DOM focus across reload, cancellation and context
+changes. The pure ViewModel guards success reporting against synchronous
+notifications that reset, dispose or replace the selection. Native Avalonia
+remains on HOLD under #1144. The existing Option B, Receipt, Evidence, external
+closure, Production and #1128 decisions still apply.
+
+The first independent Angular before-run against the inherited Inspector with
+Graph composition yielded 7 passed and 5 failed. Exact follow-up pins, inventories
+and ordinary/supplemental results are tracked on the stacked Navigation Drafts.
+
+#### Reviewed Navigation heads and next Language Service slice
+
+The live continuation retained these 34 inherited Drafts. Ordinary Product and
+documentation CI succeeded on #1603, #1605–#1608, #1611, #1614, #1617, #1620,
+#1624, #1628, #1637, #1653, #1657, #1666, #1667, #1681, #1686 and #1688.
+Ordinary Independent Test CI failed on #1604, #1609, #1612, #1615, #1618,
+#1621, #1625, #1629, #1638, #1654, #1658, #1668, #1682, #1687 and #1689.
+Their supplemental receipts remain separate and scoped to their original
+heads. Current parent relationships and owner acceptance are tracked on the
+existing PRs. No change to their Draft states or branch dependencies was needed.
+
+Navigation Product #1697 and Independent Test #1698 add the paired consumer
+candidate. The first full Windows run recorded 293 Vitest passes and three
+fixture consistency failures. The Test follow-up removes the stale map artifact
+from the intentionally mapless load controls, preserves their assertions and
+adds a negative control for the stripped map. Independent focused verification
+on the corrected candidate covers 33 Vitest and four desktop/mobile cases.
+See [Navigation Product](https://github.com/NYGsatoshi/Coglatas/pull/1697) and
+[Navigation Test](https://github.com/NYGsatoshi/Coglatas/pull/1698) for current
+pins and the complete cross-host evidence.
+
+The next Product/Test pair adds a bounded Diagnostic-to-Symbol action. It
+requires one Core-emitted local symbol at the exact Diagnostic location and a
+matching produced SourceMap. The Workbench uses the established source resolver
+and the platform's existing navigation state. Mapless partial diagnostics remain
+inspectable through the preceding slice. No reference lowering, external
+snapshot acquisition or new public contract is introduced.
+
+Navigation qualified on Windows and [Ubuntu run 41748117076](https://github.com/NYGsatoshi/Coglatas/actions/runs/41748117076)
+at combined 6c3ac678891492a988bdad69b098bc1788de822f, tree
+158bad296ae7c138ea91b5c32f69baae71bb75cb. The exact candidate passed 907
+ProjectIDE .NET, 12 Architecture, 297 Vitest, 70 Node, 48 browser and 71
+composition controls. Hosted artifact 13284368200 has ZIP SHA-256
+52f6a2657d0c0280ff2316bd938fc2011c54552de9dc10e607e2e403a653d51d.
+The cross-host comparison verified the full inventories and producer hashes.
+
+The Navigation review identified record-wide symbols appearing in the Diagnostic
+Inspector. The stacked Symbol slice displays the unique exact-location symbol
+and its references for a Diagnostic selection. Source-record inspection still
+shows the record's symbols. The independent control checks a Diagnostic with a
+valid property location and no exact symbol at that location.

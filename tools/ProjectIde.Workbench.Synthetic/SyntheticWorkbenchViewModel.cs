@@ -11,12 +11,21 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private bool _disposed;
     private long _lastGeneration = -1;
     private long _lifecycle;
+    private long _selectionGeneration;
+    private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
     public ProjectSource? Source { get; private set; }
     public CompilerResult? Result { get; private set; }
     public CompilerSemanticInspection? Inspection { get; private set; }
     public CompilerInspectedSymbol? Selected { get; private set; }
+    public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
+    public string NavigationState { get; private set; } = "";
     public ProjectLocation? SourceTarget { get; private set; }
+    public CompilerInspectedSymbol? DiagnosticSymbol =>
+        _compilation?.Validation?.Ir is not null &&
+        SelectedDiagnostic is { } diagnostic &&
+        Inspection?.Inspect(diagnostic.Location) is { } symbol &&
+        Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
     public IReadOnlyList<CompilerDiagnostic> Problems => Result?.Diagnostics ?? Array.Empty<CompilerDiagnostic>();
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -44,7 +53,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
             if (!Enum.IsDefined(response.Status)) return false;
             ClearResult(); State = response.Status.ToString(); Changed(); return false;
         }
-        if (response.Status != CompilerHostStatus.Completed || response.Compilation is not { Model: { } model } compilation ||
+        if (response.Compilation is not { Model: { } model } compilation ||
             response.Execution is not { } execution ||
             CompilerHostFreshnessAssessment.Assess(response, _desired).State != CompilerFreshness.Current ||
             !execution.InputBindingDigest.Equals(_desired.ExecutionInputDigest) ||
@@ -53,19 +62,48 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
             return false;
         }
         var inspection = new CompilerSemanticInspection(model);
-        ClearResult(); Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed(); return true;
+        var lifecycle = _lifecycle;
+        ClearResult(); _compilation = compilation; Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed();
+        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(Result, compilation.Result);
     }
 
     public bool Select(ProjectLocation location)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Selected = Inspection?.Inspect(location); SourceTarget = null; Changed(); return Selected is not null;
+        ArgumentNullException.ThrowIfNull(location);
+        var generation = ClearSelection();
+        NavigationState = Resolve(location);
+        if (NavigationState == "ready") Selected = Inspection?.Inspect(location);
+        if (Selected is null && NavigationState == "ready") NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && Selected is not null;
     }
 
-    public bool Navigate()
+    public bool SelectDiagnostic(CompilerDiagnostic diagnostic)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(diagnostic);
+        var generation = ClearSelection();
+        var matches = Problems.Where(item => item.DiagnosticId == diagnostic.DiagnosticId).Take(2).ToArray();
+        if (matches.Length == 1 && ReferenceEquals(matches[0], diagnostic))
+        {
+            SelectedDiagnostic = matches[0];
+            NavigationState = Resolve(matches[0].Location);
+        }
+        else NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && SelectedDiagnostic is not null;
+    }
+
+    public bool Navigate() => NavigateTo(SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
+
+    public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
+
+    private bool NavigateTo(ProjectLocation? location)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        SourceTarget = Selected?.Symbol.Location; Changed(); return SourceTarget is not null;
+        var generation = ++_selectionGeneration;
+        SourceTarget = null;
+        NavigationState = location is null ? "unavailable" : Resolve(location);
+        if (NavigationState == "ready") SourceTarget = location;
+        Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
     }
 
     public void Reset()
@@ -73,7 +111,13 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         _lifecycle++; ClearContext(); Changed();
     }
     private void ClearContext() { _desired = null; Source = null; ClearResult(); State = "Empty"; }
-    private void ClearResult() { Result = null; Inspection = null; Selected = null; SourceTarget = null; }
+    private long ClearSelection()
+    {
+        Selected = null; SelectedDiagnostic = null; SourceTarget = null; NavigationState = "";
+        return ++_selectionGeneration;
+    }
+    private void ClearResult() { _compilation = null; Result = null; Inspection = null; ClearSelection(); }
+    private string Resolve(ProjectLocation location) => SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     public void Dispose()
     {
