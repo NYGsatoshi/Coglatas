@@ -441,9 +441,9 @@ public sealed class AnnouncementAudienceServiceContractTests
         Assert.True(result.IsSuccess, result.Error);
         AnnouncementAudienceOptionResponse[] expected =
         [
-            new AnnouncementAudienceOptionResponse($"workspace:{fixture.Workspace.Id:D}", "workspace", fixture.Workspace.Id, null, null, "Workspace", 2, "UTC"),
-            new AnnouncementAudienceOptionResponse($"group:{fixture.Group.Id:D}", "group", fixture.Workspace.Id, fixture.Group.Id, null, "Workspace / Group", 1, "UTC"),
-            new AnnouncementAudienceOptionResponse($"channel:{fixture.Channel.Id:D}", "channel", fixture.Workspace.Id, fixture.Group.Id, fixture.Channel.Id, "Workspace / Group / #news", 3, "UTC")
+            new($"workspace:{fixture.Workspace.Id:D}", "workspace", fixture.Workspace.Id, null, null, "Workspace", 2, "UTC"),
+            new($"group:{fixture.Group.Id:D}", "group", fixture.Workspace.Id, fixture.Group.Id, null, "Workspace / Group", 1, "UTC"),
+            new($"channel:{fixture.Channel.Id:D}", "channel", fixture.Workspace.Id, fixture.Group.Id, fixture.Channel.Id, "Workspace / Group / #news", 3, "UTC")
         ];
         Assert.Equal(expected, result.Value);
         var targets = fixture.Dependencies.Calls.Where(call => call.Method == "announcements.ListTargetUsersAsync")
