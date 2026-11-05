@@ -77,11 +77,19 @@ public sealed class PrototypeArtifactStore
 {
     private readonly object _sync = new();
     private Dictionary<ArtifactIdentity, PrototypeArtifact> _artifacts = [];
+    private Dictionary<string, ProjectSource> _sources = new(StringComparer.Ordinal);
     public int Count { get { lock (_sync) return _artifacts.Count; } }
+    public int SourceCount { get { lock (_sync) return _sources.Count; } }
 
     public PrototypeArtifact? Find(ArtifactIdentity identity)
     {
         lock (_sync) return _artifacts.GetValueOrDefault(identity);
+    }
+
+    public ProjectSource? FindSource(ArtifactSourcePin pin)
+    {
+        ArgumentNullException.ThrowIfNull(pin);
+        lock (_sync) return _sources.GetValueOrDefault(pin.Data.CanonicalText);
     }
 
     public ArtifactImportState Import(ArtifactIdentity root, IEnumerable<ReadOnlyMemory<byte>> buffers,
@@ -134,6 +142,13 @@ public sealed class PrototypeArtifactStore
         lock (_sync)
         {
             var candidate = new Dictionary<ArtifactIdentity, PrototypeArtifact>(_artifacts);
+            var candidateSources = new Dictionary<string, ProjectSource>(_sources, StringComparer.Ordinal);
+            foreach (var (pin, source) in sourcePins)
+            {
+                if (candidateSources.TryGetValue(pin, out var existing) && !existing.Data.Equals(source.Data))
+                    throw new FormatException("One Source pin cannot name different canonical bytes.");
+                candidateSources[pin] = source;
+            }
             foreach (var (identity, artifact) in staged)
             {
                 if (candidate.TryGetValue(identity, out var existing) && !existing.Data.Equals(artifact.Data))
@@ -150,7 +165,7 @@ public sealed class PrototypeArtifactStore
                 if (!visited.Add(identity)) continue;
                 if (visited.Count > maximumArtifacts) return ArtifactImportState.Exhausted;
                 if (!candidate.TryGetValue(identity, out var artifact)) return ArtifactImportState.Incomplete;
-                if (!sourcePins.TryGetValue(artifact.Source!.Data.CanonicalText, out var source)) return ArtifactImportState.Incomplete;
+                if (!candidateSources.TryGetValue(artifact.Source!.Data.CanonicalText, out var source)) return ArtifactImportState.Incomplete;
                 foreach (var dependency in artifact.Dependencies) frontier.Push(dependency);
                 if (identity.ArtifactType == PrototypeArtifactRegistry.CompilerInputAssociation)
                 {
@@ -193,6 +208,7 @@ public sealed class PrototypeArtifactStore
             }
             if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
             _artifacts = candidate;
+            _sources = candidateSources;
             return ArtifactImportState.Imported;
         }
 
