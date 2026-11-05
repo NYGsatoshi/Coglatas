@@ -1833,3 +1833,25 @@ operation was suspended while the GitHub commit, parent and effective files
 were reconciled. The external merge is the Playwright shard preparation
 change. The dedicated ProjectIDE branches do not incorporate that change.
 Main remained at `fe44c73a161b663b4f8fffe491a7fdae0be034e3`.
+
+
+### Navigation Product integration results
+
+| PR | Exact Product head | Product and merged tree | Dedicated merge | Ordinary CI |
+| --- | --- | --- | --- | --- |
+| [#1702](https://github.com/NYGsatoshi/Coglatas/pull/1702) | `7422813de3574fb6519f979fbfb0ac94c1ca71c9` | `a5fd9d8f9ba8a8f00506cbb8b4800530c5867184` | `fdecc8caae02225fc0b21d1a20476f420224a1ce` | [17/17 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949701643) |
+| [#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) | `f6c5f0be2fb84e28d5199545d839b5002a25fea6` | `a93a9dd19134b6de108f3cc36fb9525beb5b5e4c` | `168b53d352b1952ace21129e8fe3c53934afd16c` | [17/17 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41953044709) |
+
+Each merge tree matches the exact Product head. Each Product reconciliation
+retained the earlier reviewed file content and acquired a new ordinary run on
+the dedicated base. The PR records separate independent Windows, Angular, and
+Desktop/Mobile checks from ordinary CI. The #1704 source-backed search evidence
+covers the 4,096 scan, 64 origin-check, and 32 result ceilings, partial coverage,
+cancellation, and stale request invalidation.
+
+The latest historical [Navigation Test evidence](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+remains bound to its original Product/Test revisions. [Core #1709](https://github.com/NYGsatoshi/Coglatas/pull/1709)
+is Ready and an independent CodeRabbit full review started. [Resource #1711 ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41952228915)
+passed at `8611c62585911d022aa770d85024eac0d0205eec` on its temporary
+Test base. The Web and Navigation Test ports still need their dedicated-base
+qualification.
