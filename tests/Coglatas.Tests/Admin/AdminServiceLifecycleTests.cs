@@ -167,8 +167,9 @@ public sealed partial class AdminServiceTests
     {
         var fixture = AdminFixture.Create(SystemRole.SystemAdmin);
         var subject = AddOrdinaryAdministrativeSubject(fixture);
+        using var cancellation = new CancellationTokenSource();
 
-        var result = await fixture.Service.UpdateUserAsync(subject.Id, new UpdateAdminUserRequest(" Updated ", " Updated@example.test ", status));
+        var result = await fixture.Service.UpdateUserAsync(subject.Id, new UpdateAdminUserRequest(" Updated ", " Updated@example.test ", status), cancellation.Token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(("Updated", "Updated@example.test", "UPDATED@EXAMPLE.TEST", status, SystemRole.User),
@@ -178,6 +179,27 @@ public sealed partial class AdminServiceTests
         var audit = Assert.Single(fixture.Audit.Entries);
         Assert.Equal(("AdminUserUpdated", "User", (Guid?)subject.Id), (audit.Action, audit.EntityType, audit.EntityId));
         Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        if (status == UserStatus.Active) Assert.Empty(fixture.Sessions.Revocations);
+        else Assert.Equal((subject.Id, (Guid?)fixture.ActorUser.Id, "AdminUserStatusChanged", (Guid?)null, cancellation.Token),
+            Assert.Single(fixture.Sessions.Revocations));
+    }
+
+    /// <summary>Uses the existing default setting fields when optional creation values are absent.</summary>
+    [Fact]
+    [Trait("Scope", "AdminLifecycleCoverage")]
+    public async Task SettingCreationWithAbsentFieldsKeepsExistingDefaults()
+    {
+        var fixture = AdminFixture.Create(SystemRole.SystemAdmin);
+
+        var result = await fixture.Service.UpdateSettingAsync("PilotOption", new UpdateSystemSettingRequest(null, null, null, null));
+
+        Assert.True(result.IsSuccess);
+        var setting = Assert.Single(fixture.Repository.Settings);
+        Assert.Equal((string.Empty, "String", (string?)null, false),
+            (setting.Value, setting.ValueType, setting.Description, setting.IsSensitive));
+        Assert.Equal(string.Empty, result.Value!.Value);
+        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Single(fixture.Audit.Entries);
     }
 
     /// <summary>Creates an ordinary synthetic subject using the existing administrative repository double.</summary>
@@ -197,6 +219,7 @@ public sealed partial class AdminServiceTests
     {
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.AuthorizationChanges.Items);
+        Assert.Empty(fixture.Sessions.Revocations);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
     }
 }
