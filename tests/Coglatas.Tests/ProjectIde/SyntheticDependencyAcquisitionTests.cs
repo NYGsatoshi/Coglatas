@@ -35,15 +35,17 @@ public sealed class SyntheticDependencyAcquisitionTests(ITestOutputHelper output
     public async Task Authorized_exact_synthetic_Unit_is_present_but_never_formal_evidence()
     {
         var body = Body(); var manifest = Manifest(body); var reads = 0;
+        (string Source, ArtifactIdentity Expected, int MaximumBytes)? request = null;
         var resolver = new SyntheticDependencyResolver(new Contexts(_ => { reads++; return ValueTask.FromResult<SyntheticAcquisitionContext?>(Context()); }),
             new Bodies((source, expected, maximumBytes, _) =>
             {
-                Assert.Equal(SyntheticDependencyResolver.AllowedSource, source); Assert.Equal(body.Identity, expected); Assert.Equal(1_048_576, maximumBytes);
+                request = (source, expected, maximumBytes);
                 return ValueTask.FromResult<SyntheticUnitBody?>(body);
             }));
         var result = await resolver.AcquireAsync(manifest, "unit-1", SyntheticDependencyResolver.AllowedSource);
         Assert.Equal(SyntheticAcquisitionState.Present, result.State); Assert.Same(body, result.Body);
         Assert.False(result.FormalEvidenceEligible); Assert.Equal(2, reads);
+        Assert.Equal((SyntheticDependencyResolver.AllowedSource, body.Identity, 1_048_576), request);
     }
 
     [Theory]
@@ -199,7 +201,7 @@ public sealed class SyntheticDependencyAcquisitionTests(ITestOutputHelper output
         {
             "unsupported" => new UnsupportedSourceException("synthetic unsupported body"),
             "invalid" => new FormatException("synthetic invalid body"),
-            _ => (Exception)new UnauthorizedAccessException("synthetic denied body")
+            _ => new UnauthorizedAccessException("synthetic denied body")
         }));
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
         Assert.Equal(expected, result.State); Assert.Null(result.Body);
@@ -222,7 +224,7 @@ public sealed class SyntheticDependencyAcquisitionTests(ITestOutputHelper output
             "unsupported" => new UnsupportedSourceException("synthetic unsupported body"),
             "timeout" => new OperationCanceledException("synthetic provider timeout"),
             "limit" => new SyntheticBodyLimitException(),
-            _ => (Exception)new ArgumentException("synthetic unexpected provider fault")
+            _ => new ArgumentException("synthetic unexpected provider fault")
         }));
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
         Assert.Equal(SyntheticAcquisitionState.Denied, result.State); Assert.Null(result.Body); Assert.Equal(2, reads);
@@ -232,10 +234,12 @@ public sealed class SyntheticDependencyAcquisitionTests(ITestOutputHelper output
     public async Task Provider_receives_the_byte_budget_before_body_construction_and_reports_explicit_exhaustion()
     {
         var reads = 0;
+        int? receivedLimit = null;
         var resolver = new SyntheticDependencyResolver(new Contexts(_ => { reads++; return ValueTask.FromResult<SyntheticAcquisitionContext?>(Context()); }),
-            new Bodies((_, _, limit, _) => { Assert.Equal(37, limit); throw new SyntheticBodyLimitException(); }));
+            new Bodies((_, _, limit, _) => { receivedLimit = limit; throw new SyntheticBodyLimitException(); }));
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource, maximumBodyBytes: 37);
         Assert.Equal(SyntheticAcquisitionState.Exhausted, result.State); Assert.Null(result.Body); Assert.Equal(2, reads);
+        Assert.Equal(37, receivedLimit);
     }
 
     [Fact]
