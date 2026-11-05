@@ -138,13 +138,13 @@ public sealed class AnnouncementLegacyLifecycleContractTests
             Assert.False(result.Value.IsRead);
             var audits = fixture.Dependencies.Calls.Where(call => call.Method == "audit.LogUserActionAsync").ToArray();
             Assert.Equal(["AnnouncementCreated", "AnnouncementPinned"], audits.Select(call => call.Arguments[1]));
-            Assert.All(audits, call =>
+            foreach (var call in audits)
             {
                 Assert.Equal(fixture.ActorId, call.Arguments[0]);
                 Assert.Equal("Announcement", call.Arguments[2]);
                 Assert.Equal(added.Id, call.Arguments[3]);
                 Assert.Equal(fixture.Token, call.Arguments[^1]);
-            });
+            }
             var invalidation = Assert.Single(fixture.Dependencies.Calls, call => call.Method == "invalidations.AnnouncementChangedAsync");
             Assert.Same(added, invalidation.Arguments[0]);
             Assert.Equal(fixture.ActorId, invalidation.Arguments[1]);
