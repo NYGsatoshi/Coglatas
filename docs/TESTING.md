@@ -60,6 +60,12 @@ Covered areas include:
 
 Most service fixtures use fakes or EF Core InMemory.
 
+The [legacy Announcement lifecycle suite](verification/announcement-legacy-lifecycle.md)
+executes the existing controller-facing Application service with strict dependency
+contracts. Its read/reminder, validation and ordered-effect controls complement
+the separate Analytics/Attachment and persisted-authority suites; they do not
+establish database, HTTP, delivery or pilot acceptance.
+
 ### HTTP tests
 
 `AuthSecurityHttpTests`:
