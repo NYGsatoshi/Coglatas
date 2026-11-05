@@ -87,7 +87,7 @@ test('source order does not affect digest, but changed tests do', () => {
 
 test('invalid source inputs and unexpected reporter execution cannot qualify', () => {
   for (const cases of [
-    [], null, undefined,
+    [], null, false,
     [...fixture().slice(0, 455), fixture()[0]],
     [{ id: 'private/one', expectedStatus: 'failed' }],
     [{ id: '../bad\ncase', expectedStatus: 'passed' }],
@@ -96,6 +96,13 @@ test('invalid source inputs and unexpected reporter execution cannot qualify', (
     assert.deepEqual(reporter.onEnd({ status: 'passed' }), { status: 'failed' });
     assert.equal(stdout.length, 0);
   }
+  // JavaScript default parameters replace undefined at call-sites, so feed
+  // an actual undefined discovery result through the Reporter API instead.
+  const absent = new SourceListReporter({
+    sourceSha: SHA, listOnly: '1', write: () => assert.fail('untrusted data'),
+  });
+  absent.onBegin({}, { allTests: () => undefined });
+  assert.deepEqual(absent.onEnd({ status: 'passed' }), { status: 'failed' });
   const forbidden = report(fixture(), { listOnly: '0' });
   assert.deepEqual(forbidden.reporter.onEnd({ status: 'passed' }), { status: 'failed' });
   const other = report(fixture());
