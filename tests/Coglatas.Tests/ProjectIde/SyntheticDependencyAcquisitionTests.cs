@@ -174,4 +174,33 @@ public sealed class SyntheticDependencyAcquisitionTests
         var result = await Resolver(() => authority).AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
         Assert.Equal(SyntheticAcquisitionState.Denied, result.State); Assert.Null(result.Body);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Matching_digest_does_not_override_declared_target_or_source_context(bool wrongContext)
+    {
+        var body = wrongContext ? Body(7) : Body(target: 10);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(Manifest(Body()).Data.CanonicalText)!;
+        root["payload"]!["entries"]![0]!["expected"] = System.Text.Json.Nodes.JsonNode.Parse(body.Identity.Data.CanonicalText);
+        var manifest = PrototypeArtifact.Parse(SourceJson.Parse(root.ToJsonString()));
+        var result = await Resolver(body: () => body).AcquireAsync(manifest, "unit-1", SyntheticDependencyResolver.AllowedSource);
+        Assert.Equal(SyntheticAcquisitionState.Invalid, result.State); Assert.Null(result.Body);
+    }
+
+    [Theory]
+    [InlineData("unsupported", SyntheticAcquisitionState.Unsupported)]
+    [InlineData("invalid", SyntheticAcquisitionState.Invalid)]
+    [InlineData("denied", SyntheticAcquisitionState.Denied)]
+    public async Task Provider_rejection_retains_its_explicit_failure_state(string failure, SyntheticAcquisitionState expected)
+    {
+        var resolver = Resolver(body: () => throw (failure switch
+        {
+            "unsupported" => new UnsupportedSourceException("synthetic unsupported body"),
+            "invalid" => new FormatException("synthetic invalid body"),
+            _ => (Exception)new UnauthorizedAccessException("synthetic denied body")
+        }));
+        var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
+        Assert.Equal(expected, result.State); Assert.Null(result.Body);
+    }
 }
