@@ -120,6 +120,15 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Verify offline Playwright shard identity and retry evidence contracts
+        run: node --test tests/ui/playwright-shard-evidence.node-test.mjs
+
+      - name: Cross-check Node SHA256 receipt schema against Python canonical digest
+        run: python3 -B scripts/ci/test-playwright-shard-interop.py
+
+      - name: Test nonpublishing Playwright Reporter hook fail-closed lifecycle
+        run: node --test tests/ui/playwright-shard-capture.node-test.mjs
+
       - name: Verify PR Security prebuilt-image source and negative controls
         run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
 
