@@ -67,6 +67,9 @@ def validate(document):
             "    needs: frontend-build\n" in protected and
             "        run: bash scripts/ci/run-frontend-parallel.sh\n" in protected,
             "ORIGINAL_FULL_FRONTEND")
+    require("COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:" not in protected and
+            "COGLATAS_STATIC_PLAYWRIGHT_SHARD:" not in protected,
+            "SHARD_LEAKED_INTO_PROTECTED_FRONTEND")
     require("        name: frontend-build-artifacts\n" in producer
             and producer.count("actions/upload-artifact@") == 1,
             "FRONTEND_ARTIFACT_OWNER")
@@ -99,6 +102,15 @@ class ShadowPolicyTests(unittest.TestCase):
                 self.assertNotEqual(change, self.source)
                 with self.assertRaises(ValueError):
                     validate(change)
+
+    def test_injecting_shard_authorization_into_required_gate_fails(self):
+        injection = ("  frontend-test:\n"
+                     "    env:\n"
+                     "      COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: '1'\n")
+        candidate = self.source.replace("  frontend-test:\n", injection, 1)
+        self.assertNotEqual(candidate, self.source)
+        with self.assertRaises(ValueError):
+            validate(candidate)
 
     def test_missing_shards_or_worker_overprovisioning_fail(self):
         for old, new in (

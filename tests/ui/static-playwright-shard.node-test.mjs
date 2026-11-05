@@ -71,7 +71,9 @@ test('required gate cannot accidentally opt into half coverage or duplicate arti
   );
   assert.match(frontendJob, /^    name: frontend-test$/m);
   assert.match(frontendJob, /run: bash scripts\/ci\/run-frontend-parallel\.sh/);
-  assert.doesNotMatch(workflow, /COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:\s*['"]?1/);
+  // Only the protected required job must forbid shard authorization. The
+  // separately guarded, non-required A/B shadow is admitted by CI policy.
+  assert.doesNotMatch(frontendJob, /COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:\s*['"]?1/);
   assert.doesNotMatch(workflow, /name: frontend-playwright-shard/);
   // Consumer download references are expected; only the immutable Producer may publish.
   const producer = workflow.split('  frontend-build:', 2)[1]?.split('  frontend-test:', 1)[0];
