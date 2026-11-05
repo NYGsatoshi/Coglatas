@@ -172,7 +172,8 @@ public sealed class SyntheticReceiptAuthenticationTests
             fixture.Expected.EnvironmentIdentity, "v2", true, fixture.Key.ExportSubjectPublicKeyInfo());
         Assert.Equal(SyntheticProofStatus.Revoked, fixture.Verify(registry: new Registry(_ => revoked)).Status);
         var reads = 0;
-        Assert.Equal(SyntheticProofStatus.Revoked, fixture.Verify(registry: new Registry(_ => ++reads == 1 ? fixture.Registration : revoked)).Status);
+        var initial = fixture.Registration;
+        Assert.Equal(SyntheticProofStatus.Revoked, fixture.Verify(registry: new Registry(_ => ++reads == 1 ? initial : revoked)).Status);
         Assert.Equal(2, reads);
         Assert.Equal(SyntheticProofStatus.DiagnosticAuthenticated, fixture.Verify().Status);
     }
@@ -184,7 +185,8 @@ public sealed class SyntheticReceiptAuthenticationTests
         var changed = new SyntheticProducerRegistration("synthetic-ci", fixture.Expected.WorkflowIdentity,
             fixture.Expected.EnvironmentIdentity, "v2", false, fixture.Key.ExportSubjectPublicKeyInfo());
         var reads = 0;
-        Assert.Equal(SyntheticProofStatus.Stale, fixture.Verify(registry: new Registry(_ => ++reads == 1 ? fixture.Registration : changed)).Status);
+        var initial = fixture.Registration;
+        Assert.Equal(SyntheticProofStatus.Stale, fixture.Verify(registry: new Registry(_ => ++reads == 1 ? initial : changed)).Status);
         var wrongEnvironment = new SyntheticProducerRegistration("synthetic-ci", fixture.Expected.WorkflowIdentity,
             "other-runner", "v1", false, fixture.Key.ExportSubjectPublicKeyInfo());
         Assert.Equal(SyntheticProofStatus.Untrusted, fixture.Verify(registry: new Registry(_ => wrongEnvironment)).Status);
@@ -233,7 +235,8 @@ public sealed class SyntheticReceiptAuthenticationTests
     [Fact]
     public void Missing_oversized_and_invalid_UTF8_proofs_do_not_authenticate()
     {
-        using var fixture = new Fixture(); var verifier = new SyntheticReceiptAuthenticator(new Registry(_ => fixture.Registration));
+        using var fixture = new Fixture(); var registration = fixture.Registration;
+        var verifier = new SyntheticReceiptAuthenticator(new Registry(_ => registration));
         Assert.Equal(SyntheticProofStatus.Invalid, verifier.Verify([], fixture.Receipt, fixture.Expected).Status);
         Assert.Equal(SyntheticProofStatus.Invalid, verifier.Verify(new byte[262145], fixture.Receipt, fixture.Expected).Status);
         Assert.Equal(SyntheticProofStatus.Invalid, verifier.Verify([0xff], fixture.Receipt, fixture.Expected).Status);
