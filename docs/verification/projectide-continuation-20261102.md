@@ -1900,3 +1900,56 @@ and [ordinary verification](https://github.com/NYGsatoshi/Coglatas/actions/runs/
 are tracked separately. The [Navigation Test port #1712](https://github.com/NYGsatoshi/Coglatas/pull/1712)
 covers #1698, #1700, #1701 and #1703 and has a temporary dependency on
 Workbench Test fixtures. These PRs retain their own CI and disposition.
+
+
+### Completed Workbench and Navigation Test integration
+
+| Test port | Dedicated base | Verified head and tree | Dedicated merge | Ordinary and independent verification |
+| --- | --- | --- | --- | --- |
+| [#1710 Workbench](https://github.com/NYGsatoshi/Coglatas/pull/1710) | `4e839fe2a5919cd892f7daf321de7493cc5351f4` | `7b223b9280a81ce535c54509c58ceb54d62136c4` / `39c9a4401c66a0c6173fd3c788435af3c4b0c946` | `29c58b2e79338205e4229ea7d1b783563bd704d5` | [Ordinary 17/17](https://github.com/NYGsatoshi/Coglatas/actions/runs/41962916296), [888 ProjectIDE + 12 Architecture](https://github.com/NYGsatoshi/Coglatas/actions/runs/41962916258) |
+| [#1712 Navigation](https://github.com/NYGsatoshi/Coglatas/pull/1712) | `29c58b2e79338205e4229ea7d1b783563bd704d5` | `9358f623a8e6b1405b12c407a95623f15e190ad1` / `f20f2de10a58cfa44862849355c506bee43567f9` | `73eabf0e76e8366be076baa7dcc21002b018f656` | [Ordinary 17/17](https://github.com/NYGsatoshi/Coglatas/actions/runs/41969079626), [928 ProjectIDE + 12 Architecture](https://github.com/NYGsatoshi/Coglatas/actions/runs/41969079542) |
+
+Each merge tree matches the verified Test head. The
+[Workbench artifact 13386291909](https://github.com/NYGsatoshi/Coglatas/actions/runs/41962916258/artifacts/13386291909)
+ZIP SHA-256 is `a48a5169d9c9346f626f872fe1053b8d9b08bd2e5df18fcb732b0792c05f1c1a`.
+The [Navigation artifact 13389410934](https://github.com/NYGsatoshi/Coglatas/actions/runs/41969079542/artifacts/13389410934)
+ZIP SHA-256 is `42afea882742b8aeb8d85d445710d82ea5dd6c2a51d4856ad42c1610ab62903f`.
+Both downloaded ZIPs match GitHub, every receipt-declared file digest matches,
+and the full discovery and TRX identities were reconciled. The 928-case
+Navigation artifact retains all 927 historical Navigation cases and every
+earlier integrated Test identity. All selected counters report zero failures,
+skips or incomplete executions.
+
+CodeRabbit's [Workbench review](https://github.com/NYGsatoshi/Coglatas/pull/1710#discussion_r4476325247)
+led to the specific PreviewReadError assertion, the workflow path fix, and a
+regression that reproduced the missing Test-only trigger before the fix. All
+six isolation controls pass. The Navigation review's count nitpick was fixed
+with a full-number boundary and an exact result-row count. Its
+[earlier ordinary pass](https://github.com/NYGsatoshi/Coglatas/actions/runs/41965966494)
+is retained separately from the new-head pass above. The latest PR records
+include the local 2,210 Angular, 70 Node and 58 Desktop/Mobile browser passes
+with the original timeout attempts separately attributed.
+
+The standalone Test originals #1638 and #1654 are closed as superseded by
+#1710. The Navigation originals #1698, #1700, #1701 and #1703 are superseded
+by #1712. The earlier Core and Resource closure records above remain valid.
+Thus all 24 starting PRs have a merged or superseded disposition. #1697 is
+GitHub's ancestry-merged historical parent of the corrected #1699 merge.
+The current Test integration source tree is
+`f20f2de10a58cfa44862849355c506bee43567f9`.
+
+### Final scope and retained decisions
+
+The only integration target throughout this work is
+`projectide/integration-20261031`. Main is observed at
+`fe44c73a161b663b4f8fffe491a7fdae0be034e3`, matching the starting ref.
+SecurityTestImplimation is observed at
+`35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1`; its external #1665 merge
+and the temporary stop for investigation are recorded above. None of that
+branch's new CI preparation was incorporated into the ProjectIDE ports.
+
+Native Avalonia, formal Manifest/Receipt schemas, Evidence trust and
+eligibility, external acquisition, production data, Security Enforce, and
+release authority retain their Owner decision gates. #1144 remains HOLD and
+#1128 remains SUSPENDED / NOT_EVALUATED. The qualified Windows component is
+the synthetic Pure ViewModel.
