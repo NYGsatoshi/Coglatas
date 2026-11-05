@@ -60,7 +60,8 @@ test('valid list reporter emits one source-only, privacy-safe discovery record',
   assert.equal(stdout.length, 1);
   const record = JSON.parse(stdout[0]);
   assert.deepEqual(verifySourceDiscovery(record, SHA), {
-    cases: 456, expectedPass: 443, declaredSkip: 13,
+    cases: 456, declaredPass: 443, declaredSkip: 13,
+    runtimeSkipAttestation: 'NOT_PERFORMED',
     digest: record.rosterSha256,
   });
   assert.equal(record.qualification, 'SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF');
@@ -69,6 +70,30 @@ test('valid list reporter emits one source-only, privacy-safe discovery record',
   for (const item of fixture()) {
     assert.ok(!stdout[0].includes(item.id));
   }
+});
+
+test('declaration-time skip count is not mistaken for runtime skip evidence', () => {
+  const staticOnly = fixture().map(testCase => ({
+    ...testCase, expectedStatus: 'passed',
+  }));
+  const { reporter, stdout } = report(staticOnly);
+  assert.equal(reporter.onEnd({ status: 'passed' }), undefined);
+  const source = JSON.parse(stdout[0]);
+  assert.deepEqual(verifySourceDiscovery(source, SHA), {
+    cases: 456, declaredPass: 456, declaredSkip: 0,
+    runtimeSkipAttestation: 'NOT_PERFORMED',
+    digest: source.rosterSha256,
+  });
+  assert.equal(source.requiredCheckQualified, false);
+  // More than 13 declared skips is not an acceptable source drift.
+  const drift = fixture();
+  drift[13].expectedStatus = 'skipped';
+  const candidate = report(drift);
+  assert.equal(candidate.reporter.onEnd({ status: 'passed' }), undefined);
+  assert.throws(
+    () => verifySourceDiscovery(JSON.parse(candidate.stdout[0]), SHA),
+    /DISCOVERY_REFUSED:DECLARED_SKIP_EXCEEDS_BASELINE/,
+  );
 });
 
 test('source order does not affect digest, but changed tests do', () => {

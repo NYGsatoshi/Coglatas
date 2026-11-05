@@ -34,7 +34,8 @@ suppressing Playwright's regular title-printing list reporter.
 
 The trusted wrapper captures the Reporter stdout, requires **exactly one
 JSON object** with the accepted schema, original **456 test cases**
-(443 expected pass + 13 static skips in the current baseline), canonical
+(strictly source-discovered expected statuses; the **13 actual runtime
+skips are not necessarily declared in `--list`**), canonical
 sorted SHA-256 identities, and an independently recomputed SHA-256 roster
 digest. Invalid stdout, unexpected counts, SHA drift or digest mismatch
 fails without disclosing the raw stdout/stderr. It writes **one local,
@@ -70,3 +71,13 @@ The separate additive two-runner trial #1715 was closed without merge after
 
 No integration into Main. Use only `SecurityTestImplimation` once full
 exact-head CI and independent reviews are satisfied.
+
+The source-only verifier requires exactly 456 test IDs and permits at most
+13 **declaration-time** skipped expectations. Playwright can call `test.skip`
+during execution, so a declaration-time count of 0 (or another number no
+larger than 13) is **not** evidence that the original 13 runtime skips were
+executed or observed. It emits `runtimeSkipAttestation=NOT_PERFORMED`.
+The original, independently executed full Playwright suite must still
+pass 443 and skip 13; the aggregate/shard receipts must eventually
+attest precise individual IDs and skip justifications, never rely on
+the declaration-only count as a shortcut.

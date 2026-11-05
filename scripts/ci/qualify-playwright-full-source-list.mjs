@@ -67,11 +67,16 @@ export function verifySourceDiscovery(data, expectedSha, expectedCount = ALLOWED
   })).digest('hex');
   if (data.rosterSha256 !== expected) deny('SOURCE_DIGEST');
   const declaredSkip = data.tests.filter(x => x.status === 'skipped').length;
-  if (expectedCount === ALLOWED_COUNT && declaredSkip !== 13) deny('SKIP_BASELINE_DRIFT');
+  // --list observes declaration-time expectedStatus, not runtime test.skip().
+  // A source-discovery receipt does not attest the 13 skips observed in the
+  // original full Playwright execution. Never accept >13 declared skips here.
+  if (expectedCount === ALLOWED_COUNT && declaredSkip > 13)
+    deny('DECLARED_SKIP_EXCEEDS_BASELINE');
   return {
     cases: data.tests.length,
-    expectedPass: data.tests.length - declaredSkip,
+    declaredPass: data.tests.length - declaredSkip,
     declaredSkip,
+    runtimeSkipAttestation: 'NOT_PERFORMED',
     digest: expected,
   };
 }
@@ -163,7 +168,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const result = runSourceDiscovery();
     process.stdout.write('Playwright full-source discovery: cases=' + result.cases +
-      ' expectedPass=' + result.expectedPass + ' declaredSkip=' + result.declaredSkip +
+      ' declaredPass=' + result.declaredPass + ' declaredSkip=' + result.declaredSkip +
+      ' runtimeSkipAttestation=' + result.runtimeSkipAttestation +
       ' rosterSha256=' + result.digest +
       ' qualification=SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF\n');
   } catch (error) {
@@ -176,7 +182,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       'BAD_SOURCE_FILE', 'STATIC_SELECTION_NOT_UNIQUE', 'STATIC_SELECTION_SIZE',
       'INVALID_STATIC_SELECTION', 'SCHEMA', 'UNTRUSTED_DISCOVERY',
       'UNEXPECTED_TEST_COUNT', 'NONCANONICAL_SOURCE_TESTS', 'SOURCE_DIGEST',
-      'SKIP_BASELINE_DRIFT', 'UNAUTHORIZED_TRIAL_CONTEXT',
+      'SKIP_BASELINE_DRIFT', 'DECLARED_SKIP_EXCEEDS_BASELINE',
+      'UNAUTHORIZED_TRIAL_CONTEXT',
       'SOURCE_CHECKOUT_MISMATCH', 'CHILD_START_FAILED', 'CHILD_INTERRUPTED',
       'CHILD_EXIT_NONZERO', 'INVALID_REPORTER_BUFFER',
       'UNSANITIZED_REPORTER_STDOUT', 'REPORTER_UNQUALIFIED_LIST',
