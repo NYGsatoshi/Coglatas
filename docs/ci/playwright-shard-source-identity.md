@@ -49,3 +49,22 @@ recomputes domain-separated test IDs and the canonical JSON SHA-256 digest
 with Python's hashlib/json, checks exact candidate roster/shard field sets,
 zero retries, synthetic union, and trust flags. It never reads actual
 Playwright reporter events or grants a Required Check PASS.
+
+## Pure, nonpublishing Reporter-hook capture adapter
+
+The additional `playwright-shard-capture.mjs` is a **disconnected**,
+reporter-shaped in-memory adapter. It consumes Playwright's documented
+`onBegin(config, suite)`, `suite.allTests()`, `onTestEnd(test, result)`,
+`test.outcome()`, `result.retry`, `onError` and `onEnd` APIs. It
+accepts only complete selected-test event inventories and zero-retry
+expected PASS/SKIP outcomes. On a missing, duplicated, foreign,
+interrupted, unexpectedly skipped, flaky or failed event, its
+`onEnd` returns `{ status: 'failed' }` rather than silently trusting
+reporter callback exceptions (which Playwright can swallow). The
+`snapshot` method still requires a separately supplied full-test
+discovery inventory and returns **unverified** evidence only.
+
+Eight new pure Node lifecycle tests validate these negative cases,
+privacy and that the real Playwright runner/Compose/workflow do not
+import or enable this adapter. No uploads, extra runners, reporter
+configuration or protected Required Check changes are introduced.
