@@ -401,3 +401,135 @@ test('ProjectIDE synthetic semantic inspection shows Source-bound symbols and cl
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   await expect(inspection).toHaveCount(0);
 });
+
+test('ProjectIDE synthetic Diagnostic reload clears the previous Inspector and Source selection', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  const reload = page.getByRole('button', { name: 'Load result fixture', exact: true });
+  await reload.focus();
+  await page.keyboard.press('Enter');
+  await expect(reload).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to source location', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic Diagnostic Inspector refuses an invalid property location', async ({ page }) => {
+  await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.cases[0].result.diagnostics[0].primaryLocation.propertyPath = '/payload/missing';
+    await route.fulfill({ json: body });
+  });
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Declared properties', exact: true })).toHaveCount(0);
+});
+
+test('ProjectIDE synthetic Diagnostic navigates to an exact Source-backed symbol', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to related symbol source', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+  await choose(page, 'unsupported');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspect diagnostic: coglatas.binding.unsupported-declaration', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to related symbol source', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic local reference origin and definition have separate keyboard targets', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  const reference = page.getByRole('button', { name: /^Reference origin.*\/target$/u });
+  for (let i = 0; i < 12 && !(await reference.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(reference).toBeFocused();
+  await page.keyboard.press('Enter');
+  const origin = page.getByRole('button', { name: 'Go to reference origin', exact: true });
+  for (let i = 0; i < 5 && !(await origin.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(origin).toBeFocused();
+  await page.keyboard.press('Enter');
+  const target = page.getByTestId('ide-source-target');
+  await expect(target).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Go to definition', exact: true }).click();
+  await expect(target).toBeFocused();
+  await expect(target).toContainText('00000006-0000-4000-8000-000000000001');
+  await expect(page.getByTestId('ide-source-location')).toHaveText('/');
+  await choose(page, 'stale-pass');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(target).toHaveCount(0);
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('button', { name: 'Go to definition', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic local reference definition is available in Japanese', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coglatas.locale', 'ja');
+    window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+  });
+  await page.goto('/app/projectide/preview');
+  await page.getByTestId('ide-context').selectOption('pass');
+  await page.getByRole('button', { name: '結果Fixtureを読み込む', exact: true }).click();
+  await page.getByRole('button', { name: 'ソース', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await page.getByRole('button', { name: /^参照元.*\/source$/u }).click();
+  await page.getByRole('button', { name: '定義へ移動', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+});
+
+test('ProjectIDE synthetic Find References navigates from an exact symbol to its origin', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  await page.getByRole('button', { name: /^Find references · coglatas.project ·/u }).click();
+  const search = page.getByTestId('ide-reference-search');
+  await expect(search).toContainText('Matching navigable local references: 1');
+  await expect(search).toContainText('Coverage is incomplete.');
+  await page.getByRole('button', { name: /^Reference origin.*\/target$/u }).click();
+  await page.getByRole('button', { name: 'Go to reference origin', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await choose(page, 'branch-pass');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(search).toHaveCount(0);
+});
+
+test('ProjectIDE synthetic Find References interpolates the count in Japanese', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coglatas.locale', 'ja');
+    window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+  });
+  await page.goto('/app/projectide/preview');
+  await page.getByTestId('ide-context').selectOption('unknown');
+  await page.getByRole('button', { name: '結果Fixtureを読み込む', exact: true }).click();
+  await page.getByRole('button', { name: 'ソース', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  await page.getByRole('button', { name: /^参照を検索 · coglatas.project ·/u }).click();
+  const search = page.getByTestId('ide-reference-search');
+  await expect(search).toContainText('移動可能なローカル参照: 1 件');
+  await expect(search).toContainText('参照の取得範囲は不完全です。');
+});
