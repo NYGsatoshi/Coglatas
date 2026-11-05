@@ -28,6 +28,14 @@ successful refreshes, denial, stale callbacks before cancellation renders, actua
 scope replacement, protected-state invalidation, unmount and Group picker renewal.
 The test-only comparator is commit `e4110a68a28e1fede8e0baf8b3b5d80167986a14`.
 
+The Group DM Playwright suite also contains real-browser Direct and Group dialog
+controls using mocked HTTP and SignalR. They hold the inbox response after a
+transport reconnect, assert disabled commands and discarded old selections, then
+require a successful current projection and fresh recipient lookup or Group roster.
+A denied projection closes the old dialog. These controls preserve local query or
+title intent only; they do not establish server transaction outcomes, physical
+device behavior, a real user's IME, or deployed authorization acceptance.
+
 This is separate from the historical `FUNC-MSG-001 / MSG-01` timeout in CI
 `41577374340/1`. That execution did not retain the dialog transition or error payload
 needed to prove its cause. One isolated execution of the original source and runtime

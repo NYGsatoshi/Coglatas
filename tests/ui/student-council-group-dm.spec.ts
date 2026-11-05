@@ -6,6 +6,114 @@ const workspaceId = 'static-workspace-1';
 const groupId = '77777777-7777-4777-8777-777777777777';
 const actor = 'mock-user-a';
 
+test.describe('Conversation-create intent across real browser catch-up (mock HTTP and SignalR)', () => {
+  for (const result of ['direct-current', 'group-current', 'direct-denied'] as const) {
+    test(`revalidates recipients while retaining only same-scope local intent: ${result}`, async ({ page }) => {
+      const control = await installGroupApi(page);
+      control.existingGroup = false;
+      await page.route('**/api/ui/runtime-config.js', route => route.fulfill({
+        contentType: 'application/javascript', body: 'window.__COGLATAS_FEATURE_FLAGS__={"realtime.signalR":true};'
+      }));
+      await page.route('**/hubs/app/negotiate?*', route => route.fulfill({ json: {
+        negotiateVersion: 1, connectionId: 'synthetic-dialog', connectionToken: 'synthetic-dialog',
+        availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
+      } }));
+      let reconnect: (() => Promise<void>) | undefined;
+      await page.routeWebSocket('**/hubs/app?*', socket => {
+        reconnect = () => socket.close({ code: 1012, reason: 'Synthetic same-scope catch-up' });
+        socket.onMessage(raw => {
+          for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
+            const message = JSON.parse(frame);
+            if (message.protocol) { socket.send('{}\u001e'); continue; }
+            if (message.type === 1) socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
+              result: { allowed: true, code: 'Allowed' } }) + '\u001e');
+          }
+        });
+      });
+      let holdRefresh = false;
+      let refreshReads = 0;
+      let releaseRefresh = () => {};
+      const refreshGate = new Promise<void>(resolve => { releaseRefresh = resolve; });
+      await page.route(url => url.pathname === '/api/conversations', async route => {
+        if (route.request().method() === 'GET' && holdRefresh) {
+          refreshReads++;
+          await refreshGate;
+          if (result === 'direct-denied') {
+            await route.fulfill({ status: 403, json: { error: 'Unavailable' } });
+            return;
+          }
+        }
+        await route.fallback();
+      });
+      let freshRecipients = false;
+      await page.route('**/api/conversations/recipients?*', route => route.fulfill({ json: [
+        { userId: freshRecipients ? 'fresh' : 'old', displayName: freshRecipients ? 'Fresh current recipient' : 'Old protected recipient' }
+      ] }));
+      let memberReads = 0;
+      await page.route(`**/api/workspaces/${workspaceId}/members`, async route => {
+        memberReads++;
+        if (freshRecipients) {
+          await route.fulfill({ json: [
+            { userId: actor, displayName: 'Current participant', status: 1 },
+            { userId: 'new-peer', displayName: 'New participant', status: 1 }
+          ] });
+        } else await route.fallback();
+      });
+
+      await page.goto('/app/dm');
+      await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+      await page.getByTestId('new-message-button').click();
+      const dialog = page.getByTestId('new-message-dialog');
+      const submit = page.getByTestId('create-conversation-submit');
+      const group = result === 'group-current';
+      if (group) {
+        await page.getByTestId('group-create-mode').check();
+        await page.getByTestId('group-title').fill('Local council intent');
+        await page.getByTestId('group-recipient-option').filter({ hasText: 'Council peer' }).click();
+        await page.getByTestId('group-recipient-option').filter({ hasText: 'New participant' }).click();
+      } else {
+        await page.getByTestId('recipient-search').fill('Local council intent');
+        await page.getByTestId('recipient-option').filter({ hasText: 'Old protected recipient' }).click();
+      }
+      await expect(submit).toBeEnabled();
+      const previousMemberReads = memberReads;
+      freshRecipients = true;
+      holdRefresh = true;
+      await reconnect!();
+      await expect.poll(() => refreshReads).toBeGreaterThan(0);
+      await expect(dialog).toBeVisible();
+      await expect(submit).toBeDisabled();
+      await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
+      await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeDisabled();
+      await expect(page.getByTestId('remove-recipient')).toHaveCount(0);
+      await expect(page.getByTestId(group ? 'group-recipient-option' : 'recipient-option')).toHaveCount(0);
+      releaseRefresh();
+      if (result === 'direct-denied') {
+        await expect(dialog).toHaveCount(0);
+      } else {
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeEnabled();
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
+        await expect(submit).toBeDisabled();
+        if (group) {
+          await expect.poll(() => memberReads).toBeGreaterThan(previousMemberReads);
+          await expect(page.getByTestId('group-recipient-option')).toHaveCount(1);
+          await expect(dialog).not.toContainText('Council peer');
+          await expect(page.getByTestId('group-recipient-option')).toHaveAttribute('aria-pressed', 'false');
+        } else {
+          await expect(page.getByTestId('recipient-option')).toHaveCount(0);
+          await page.getByTestId('recipient-search').fill('Fresh council intent');
+          await expect(page.getByTestId('recipient-option')).toHaveText('Fresh current recipient');
+          await expect(dialog).not.toContainText('Old protected recipient');
+          await page.getByTestId('recipient-option').click();
+          await expect(submit).toBeEnabled();
+        }
+      }
+      expect(control.creates).toEqual([]);
+      expect(control.sends).toEqual([]);
+    });
+  }
+});
+
 test.describe('Group native viewport across later realtime catch-up (mock HTTP)', () => {
   for (const result of ['initial-synchronization', 'terminal-degradation', 'offline-degradation', 'authorized-before-check', 'authorized-during-check', 'outside-focus', 'denied'] as const) {
     test(`keeps only current authority and viewport intent: ${result}`, async ({ page }) => {
