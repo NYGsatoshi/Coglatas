@@ -83,19 +83,28 @@ public sealed class SyntheticDiagnosticNavigationTests
     [InlineData("navigate-select")]
     public async Task NotificationReentryCannotReportInterruptedNavigationAsSuccessful(string mode)
     {
-        using var view = await Ready(); var diagnostic = Assert.Single(view.Problems);
-        if (mode.StartsWith("navigate", StringComparison.Ordinal)) Assert.True(view.SelectDiagnostic(diagnostic));
-        var entered = false;
-        view.PropertyChanged += (_, _) =>
+        var view = await Ready();
+        try
         {
-            if (entered) return; entered = true;
-            if (mode.EndsWith("dispose", StringComparison.Ordinal)) view.Dispose();
-            else if (mode.EndsWith("begin", StringComparison.Ordinal)) view.BeginSynthetic(new(new(view.Result!.Input), 2));
-            else if (mode.EndsWith("select", StringComparison.Ordinal)) view.Select(view.Inspection!.Symbols[0].Symbol.Location);
-            else view.Reset();
-        };
-        Assert.False(mode.StartsWith("select", StringComparison.Ordinal) ? view.SelectDiagnostic(diagnostic) : view.Navigate());
-        Assert.True(entered); Assert.Null(view.SourceTarget); Assert.Null(view.SelectedDiagnostic);
+            var diagnostic = Assert.Single(view.Problems);
+            if (mode.StartsWith("navigate", StringComparison.Ordinal)) Assert.True(view.SelectDiagnostic(diagnostic));
+            var entered = false;
+            view.PropertyChanged += (sender, _) =>
+            {
+                if (entered) return; entered = true;
+                var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+                if (mode.EndsWith("dispose", StringComparison.Ordinal)) current.Dispose();
+                else if (mode.EndsWith("begin", StringComparison.Ordinal)) current.BeginSynthetic(new(new(current.Result!.Input), 2));
+                else if (mode.EndsWith("select", StringComparison.Ordinal)) current.Select(current.Inspection!.Symbols[0].Symbol.Location);
+                else current.Reset();
+            };
+            Assert.False(mode.StartsWith("select", StringComparison.Ordinal) ? view.SelectDiagnostic(diagnostic) : view.Navigate());
+            Assert.True(entered); Assert.Null(view.SourceTarget); Assert.Null(view.SelectedDiagnostic);
+        }
+        finally
+        {
+            view.Dispose();
+        }
     }
 
     [Theory]
@@ -226,22 +235,30 @@ public sealed class SyntheticDiagnosticNavigationTests
     [InlineData(true, "begin")]
     public async Task ReferenceOperationsRejectSynchronousSelectionAndLifecycleReplacement(bool navigate, string interruption)
     {
-        using var view = await Ready();
-        var input = view.Result!.Input;
-        var reference = view.Inspection!.References[0];
-        if (navigate) Assert.True(view.SelectReference(reference));
-        var entered = false;
-        view.PropertyChanged += (_, _) =>
+        var view = await Ready();
+        try
         {
-            if (entered) return;
-            entered = true;
-            if (interruption == "dispose") { view.Dispose(); view.Dispose(); }
-            else if (interruption == "select") Assert.True(view.Select(view.Inspection!.Symbols[0].Symbol.Location));
-            else if (interruption == "begin") view.BeginSynthetic(new(new(input), 2));
-            else view.Reset();
-        };
-        Assert.False(navigate ? view.NavigateReferenceDefinition() : view.SelectReference(reference));
-        Assert.True(entered); Assert.Null(view.SelectedReference); Assert.Null(view.ReferenceSymbol); Assert.Null(view.SourceTarget);
+            var input = view.Result!.Input;
+            var reference = view.Inspection!.References[0];
+            if (navigate) Assert.True(view.SelectReference(reference));
+            var entered = false;
+            view.PropertyChanged += (sender, _) =>
+            {
+                if (entered) return;
+                entered = true;
+                var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+                if (interruption == "dispose") { current.Dispose(); current.Dispose(); }
+                else if (interruption == "select") Assert.True(current.Select(current.Inspection!.Symbols[0].Symbol.Location));
+                else if (interruption == "begin") current.BeginSynthetic(new(new(input), 2));
+                else current.Reset();
+            };
+            Assert.False(navigate ? view.NavigateReferenceDefinition() : view.SelectReference(reference));
+            Assert.True(entered); Assert.Null(view.SelectedReference); Assert.Null(view.ReferenceSymbol); Assert.Null(view.SourceTarget);
+        }
+        finally
+        {
+            view.Dispose();
+        }
     }
 
     [Fact]
