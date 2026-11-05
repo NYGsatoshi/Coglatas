@@ -1,5 +1,54 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Current component verification and retained suspension — 2026-11-06
+
+Acquisition Test `2f1fc335281191ea69bd817a3f76b2a219df7fc9` now passes the
+current ordinary checks, including ReSharper. Its
+[hosted run 42087174522](https://github.com/NYGsatoshi/Coglatas/actions/runs/42087174522)
+passes Windows and Ubuntu with 1,003 ProjectIDE and 12 architecture cases per
+host. Downloaded artifacts 13443188542 (Windows) and 13444061086 (Ubuntu) have
+verified ZIP SHA-256 `d9888ad03c3461b35eeea34acc79b83968a08f35799fa2ef857a027d115ba317`
+and `c444b1155b0912bab3711da007de319e8178270a1ab4124fa5bac1fb74240093`.
+Both exact candidate stamps, TRX digests, complete inventories and all retained
+928/12 identities reconcile. No final independent approval is inferred.
+
+At verification-only composition `6f0ceaeb7baf8b738234fc931883fca6db295af2`,
+the existing pinned isolated Kafka fixture passes all 16 actual broker controls,
+including authenticated positives, real read/write/group/cluster denials, ACL
+mutations/restoration and replay/tenant-payload controls. The report verifies the
+clean candidate and owned cleanup; SHA-256 is
+`bf35586dd7dbea6e02167c23a245e8b4f2bab91a7530b15866aa91b618a51e44`.
+Its first run passed the individual controls but correctly returned UNVERIFIED
+after the reconciliation script created an untracked Python cache. That report
+is retained; the clean rerun is a separate observation. No product broker,
+consumer/Outbox equivalence, production network/TLS or trusted CI attestation is
+established by this local synthetic fixture.
+
+The same composition passes 71/71 existing PostgreSQL/API/SignalR/service cases
+with zero skips using the existing migrated-template option and two xUnit
+workers. Raw TRX SHA-256 is
+`c2a67e49fd0e45c1157a2dcb5bd0cb6660ae905324c1f5b04fe30c19ecc2646f`.
+The earlier default-parallel failures remain unresolved. Fresh model inventory
+and actual migrated PostgreSQL inventory tests pass one case each. A private
+candidate reconciles all 114 observed database objects, the 101 model tables,
+and the unchanged existing design categories; five missing/new/duplicate/
+identity-scope/tenant-column mutations are rejected. Detailed identities remain
+private. Identity agreement does not approve SQL/GRANTs, operations, bootstrap
+roles, production RLS or #1144 exit. Broader configured isolated runtime execution
+is tracked separately and cannot inherit these component successes.
+
+The committed-byte baseline audit retains 27 baseline files and two historical
+enrollments. Original campaign decisions remain two BASELINE_UNAVAILABLE and one
+BASELINE_CANDIDATE; the enrolled workflow's recorded failure stays a failure.
+No baseline was enrolled, resampled, promoted or rewritten. Local audit SHA-256:
+`34e9f4802cf26e50c4f5eb54d88c4c59539edae133061d4c60d2e56d5b6385f9`.
+API 13 scenarios x 6 metrics retain the 78-evaluation requirement; DB structural
+28 and Small/Medium nine each remain unchanged. Nine suspension tests, four
+approval-history tests and nine environment-class tests pass. Both exact-source
+assurance receipts remain SUSPENDED / NOT_EVALUATED with all acceptance and
+baseline qualification credit false and automatic reactivation false. This is
+inventory/governance verification, not a numerical campaign or SLA evidence.
+
 ### Composed foundations and reviewed acquisition correction — 2026-11-06
 
 The verification-only branch `verify/projectide-foundations-20261106` composes
@@ -249,7 +298,7 @@ HOLD identifies only the explicit concrete approval/activation boundary.
 | 26 | Supported IR | Existing local graph semantics preserved | External executable lowering HOLD |
 | 27 | TMT/SPEC mapping | Existing private draft reused; exact packet OPEN | Personal Owner approval HOLD |
 | 28 | Canonical traceability | Existing tools reused; complete reconciliation OPEN | Material security-contract changes HOLD |
-| 29 | All-table classification | Existing inventory reused; qualification OPEN | Approved semantic classification HOLD |
+| 29 | All-table classification | PARTIAL: current 114-object/101-model private identity reconciliation and five scope-loss controls | Exact semantics/operations qualification OPEN; approval HOLD |
 | 30 | RLS roles/policies | Existing isolated fixtures reused; coverage OPEN | Product RLS activation HOLD |
 | 31 | Isolated adapter environments | Existing API/PG/SignalR/Kafka/TLS fixtures reused | Same-candidate complete execution OPEN |
 | 32 | Migration/runtime | Existing recovery/pool/context tests reused; failures retained | Product migration/activation HOLD |
@@ -267,7 +316,7 @@ HOLD identifies only the explicit concrete approval/activation boundary.
 | 44 | Release GO | Exact release/security/recovery/operations packet OPEN | RELEASE_NO_GO |
 | 45 | Measurement environment | Existing baseline/runner inventory audit OPEN | Numerical campaigns remain suspended |
 | 46 | Reproducibility/statistics | Preparation OPEN, no qualification credit | Approved method required before resumption |
-| 47 | Baseline inventory | Existing inventories/evaluation requirements retained; full audit OPEN | No automatic enrollment or failed-to-PASS conversion |
+| 47 | Baseline inventory | PARTIAL: 27 committed baseline files and historical campaign states audited; artifact/source replay remains OPEN | No automatic enrollment or failed-to-PASS conversion |
 | 48 | Suspension/resumption | Suspension policy validator returns `suspended` | Explicit reviewed exact-Main resumption HOLD |
 
 `#1128` remains `assuranceMode=SUSPENDED`,
