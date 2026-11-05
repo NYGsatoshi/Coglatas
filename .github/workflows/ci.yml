@@ -126,6 +126,11 @@ jobs:
       - name: Test single-owner Security artifacts and negative controls
         run: python3 -B scripts/ci/test-security-artifact-single-owner.py
 
+      - name: Enforce two-shard A/B shadow isolation and JUnit negative controls
+        run: |
+          python3 -B scripts/ci/test-playwright-shadow-policy.py
+          python3 -B scripts/ci/test-shadow-junit.py
+
       - name: Test security scanner per-role timing and fail-closed controls
         run: bash scripts/ci/test-security-scanner-role-timing.sh
 
@@ -959,6 +964,91 @@ jobs:
           path: artifacts/search-drawer-observation-validated/*.json
           if-no-files-found: ignore
           retention-days: 7
+
+  # A/B SHADOW ONLY. The protected full frontend-test remains unchanged.
+  playwright-shard-shadow:
+    name: Playwright isolated A/B shadow (${{ matrix.shard }})
+    needs: frontend-build
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'SecurityTestImplimation' &&
+      github.head_ref == 'ci-opt/playwright-shard-ab-20261105' &&
+      needs.frontend-build.result == 'success' &&
+      needs.frontend-build.outputs.frontend_playwright == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    steps:
+      - name: Checkout exact trial revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert bounded isolated trial context
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          REVIEWED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]
+          [[ "$GITHUB_BASE_REF" == "SecurityTestImplimation" ]]
+          [[ "$GITHUB_HEAD_REF" == "ci-opt/playwright-shard-ab-20261105" ]]
+          [[ "$SHARD" == "1/2" || "$SHARD" == "2/2" ]]
+          [[ "$REVIEWED_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+
+      - name: Download immutable same-run frontend producer
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-build-artifacts
+          path: ${{ runner.temp }}/playwright-shadow
+
+      - name: Verify redistributed Angular build SHA without compiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/playwright-shadow/frontend-build-artifacts.tar"
+          [[ -f "$archive" && ! -L "$archive" ]]
+          tar -xf "$archive" -C "$GITHUB_WORKSPACE"
+          [[ -f artifacts/ci/frontend-build-sha && ! -L artifacts/ci/frontend-build-sha ]]
+          [[ "$(tr -d '\r\n' < artifacts/ci/frontend-build-sha)" == "$(git rev-parse HEAD)" ]]
+          [[ -f frontend/dist/coglatas-web/index.html ]]
+          [[ -f frontend/dist/coglatas-web/angular-app.marker ]]
+
+      - name: Set up pinned Node for the original Compose runner
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Use repository npm version without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Execute original static Playwright suite as one non-required shard
+        shell: bash
+        env:
+          COGLATAS_STATIC_PLAYWRIGHT_SHARD: ${{ matrix.shard }}
+          COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: "1"
+          COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "2"
+          COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+        run: |
+          set -euo pipefail
+          npm run test:ui:angular:docker
+
+      - name: Verify only local JUnit counts (not full union attestation)
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/check-shadow-junit.py --shard "$SHARD" --file test-results/playwright-results.xml
 
   security-scan:
     name: security-scan
