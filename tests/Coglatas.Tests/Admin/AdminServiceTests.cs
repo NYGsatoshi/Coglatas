@@ -10,7 +10,7 @@ using Coglatas.Infrastructure.Security;
 
 namespace Coglatas.Tests.Admin;
 
-public sealed class AdminServiceTests
+public sealed partial class AdminServiceTests
 {
     [Fact]
     public async Task NormalUserCannotAccessAdminUsers()
