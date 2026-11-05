@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {"name":"valid-dag","category":"Valid Relation Fixtures","kind":"coglatas.depends-on","edges":[[1,2],[2,3]],"code":null},
+    {"name":"self-dependency","category":"Invalid Relation Fixtures","kind":"coglatas.depends-on","edges":[[1,1]],"code":"self-dependency"},
+    {"name":"two-node-cycle","category":"Cycle Fixtures","kind":"coglatas.depends-on","edges":[[1,2],[2,1]],"code":"dependency-cycle"},
+    {"name":"multi-node-cycle","category":"Cycle Fixtures","kind":"coglatas.depends-on","edges":[[1,2],[2,3],[3,1]],"code":"dependency-cycle"},
+    {"name":"duplicate-dependency","category":"Cardinality Fixtures","kind":"coglatas.depends-on","edges":[[1,2],[1,2]],"code":"duplicate"},
+    {"name":"related-cycle","category":"Valid Relation Fixtures","kind":"coglatas.related-to","edges":[[1,2],[2,3],[3,1]],"code":null},
+    {"name":"duplicate-association","category":"Cardinality Fixtures","kind":"coglatas.related-to","edges":[[1,2],[1,2]],"code":"duplicate"},
+    {"name":"invalid-dataflow-cycle","category":"Port Binding Fixtures","kind":"coglatas.flows-to","edges":[[1,2],[2,1]],"code":"dataflow-cycle"},
+    {"name":"scalar-multiple-binding","category":"Port Binding Fixtures","kind":"coglatas.flows-to","edges":[[1,3],[2,3]],"code":"port-cardinality"},
+    {"name":"valid-port-binding","category":"Port Binding Fixtures","kind":"coglatas.flows-to","edges":[[1,2]],"code":null},
+    {"name":"unsupported-extension","category":"Extension Descriptor Fixtures","kind":"example.custom-relation","edges":[[1,2]],"code":"unsupported-descriptor"}
+  ],
+  "additionalCategories": ["Unsupported Relation Fixtures","Cross-Scope Fixtures","Requirement Reference Fixtures","Resource Binding Fixtures","Regression Fixtures"]
+}
