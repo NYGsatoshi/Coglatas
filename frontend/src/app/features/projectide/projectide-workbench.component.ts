@@ -157,8 +157,7 @@ export class ProjectIdeWorkbenchComponent {
     }
   }
   inspectDiagnostic(diagnostic: Diagnostic): void {
-    this.store.select({ kind: 'diagnostic', id: diagnostic.diagnosticId });
-    this.open('inspector', true);
+    if (this.store.selectDiagnostic(diagnostic)) this.open('inspector', true);
   }
   inspectRecord(record: SourceRecord): void {
     this.store.select(
@@ -168,10 +167,20 @@ export class ProjectIdeWorkbenchComponent {
     );
     this.open('inspector', true);
   }
-  navigate(): void {
-    if (this.store.navigate()) {
+  navigate(toDiagnosticSymbol = false): void {
+    this.focusGeneration++;
+    const navigated = toDiagnosticSymbol ? this.store.navigateDiagnosticSymbol() : this.store.navigate();
+    if (navigated) {
       this.open('source', true);
     }
+  }
+  cancel(): void {
+    this.focusGeneration++;
+    this.store.clear('cancelled');
+  }
+  loadResult(): void {
+    this.focusGeneration++;
+    this.store.loadResult();
   }
   closeInspector(): void {
     this.store.clearSelection();

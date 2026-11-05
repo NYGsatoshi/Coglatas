@@ -54,17 +54,16 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
   ) {
     throw new PreviewReadError('wrong-scope');
   }
+  const mapArtifact = r.artifacts.find((artifact) => artifact.role === 'coglatas.source-map');
   if (
-    item.sourceMap &&
-    (item.sourceMap.format !== 'coglatas.semantic-source-map/1' ||
-      item.sourceMap.compilerInputId !== item.inputId ||
-      !item.sourceMapDigest ||
-      !r.artifacts.some(
-        (a) =>
-          a.role === 'coglatas.source-map' &&
-          sameDigest(a.digest, item.sourceMapDigest!) &&
-          sameDigest(a.inputDigest, item.inputDigest),
-      ))
+    item.sourceMap
+      ? item.sourceMap.format !== 'coglatas.semantic-source-map/1' ||
+        item.sourceMap.compilerInputId !== item.inputId ||
+        !item.sourceMapDigest ||
+        !mapArtifact ||
+        !sameDigest(mapArtifact.digest, item.sourceMapDigest) ||
+        !sameDigest(mapArtifact.inputDigest, item.inputDigest)
+      : !!mapArtifact || !!item.sourceMapDigest
   ) {
     throw new PreviewReadError('wrong-scope');
   }
@@ -184,11 +183,8 @@ export class ProjectIdePreviewAdapter {
 export function resolveLocation(
   value: PreviewCase,
   location: ProjectLocation,
-): SourceRecord | 'unavailable' | 'stale' | 'wrong-scope' {
+): SourceRecord | 'unavailable' | 'stale' | 'wrong-scope' | 'unsupported' | 'invalid-location' {
   if (!isPreviewCaseShape(value) || !isProjectLocationShape(location)) {
-    return 'unavailable';
-  }
-  if (location.format !== 'coglatas.project-location/1' || location.schemaVersion !== 1) {
     return 'unavailable';
   }
   if (!sameContext(value.context, location.context)) {
@@ -210,7 +206,8 @@ export function resolveLocation(
   ) {
     return 'unavailable';
   }
-  const record = [...value.declarations, ...value.relations].find(
+  if (!location.entityId && !location.relationId) return 'unsupported';
+  const records = [...value.declarations, ...value.relations].filter(
     (r) =>
       r.location.documentId === location.documentId &&
       (location.entityId
@@ -219,18 +216,19 @@ export function resolveLocation(
           ? r.recordType === 'relation' && r.location.relationId === location.relationId
           : false),
   );
-  if (!record) {
+  if (records.length !== 1) {
     return 'unavailable';
   }
+  const record = records[0];
   if (
     value.sourceMap &&
-    ![...value.sourceMap.nodes, ...value.sourceMap.relations].some(
+    [...value.sourceMap.nodes, ...value.sourceMap.relations].filter(
       (entry) =>
         entry.location.documentId === location.documentId &&
         (location.entityId
           ? entry.location.entityId === location.entityId
           : entry.location.relationId === location.relationId),
-    )
+    ).length !== 1
   ) {
     return 'unavailable';
   }
@@ -241,10 +239,21 @@ export function resolveLocation(
   ) {
     return 'unavailable';
   }
-  for (const part of location.propertyPath ? location.propertyPath.slice(1).split('/') : []) {
+  const segments = location.propertyPath ? location.propertyPath.slice(1).split('/') : [];
+  for (const [index, part] of segments.entries()) {
     const key = part.replaceAll('~1', '/').replaceAll('~0', '~');
+    if (Array.isArray(target) && !/^(0|[1-9][0-9]*)$/u.test(key)) {
+      if (index !== 2 || segments[0] !== 'payload' || segments[1] !== 'ports') return 'invalid-location';
+      const ports = target.filter(
+        (item: unknown) => typeof item === 'object' && item !== null &&
+          (item as Record<string, unknown>)['portId'] === key,
+      );
+      if (ports.length !== 1) return 'invalid-location';
+      target = ports[0];
+      continue;
+    }
     if (!target || typeof target !== 'object' || !Object.hasOwn(target, key)) {
-      return 'unavailable';
+      return 'invalid-location';
     }
     target = (target as Record<string, unknown>)[key];
   }
@@ -266,7 +275,7 @@ export function resolveLocation(
       !boundary(start) ||
       !boundary(start + length)
     ) {
-      return 'unavailable';
+      return 'invalid-location';
     }
   }
   return record;
