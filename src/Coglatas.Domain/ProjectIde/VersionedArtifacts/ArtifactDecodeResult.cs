@@ -1,4 +1,4 @@
-namespace Coglatas.Domain.ProjectIde.Artifacts;
+namespace Coglatas.Domain.ProjectIde.VersionedArtifacts;
 
 public enum ArtifactDecodeStatus { Decoded, Unsupported, Invalid }
 

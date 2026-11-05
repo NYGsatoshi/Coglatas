@@ -1,4 +1,4 @@
-namespace Coglatas.Domain.ProjectIde.Artifacts;
+namespace Coglatas.Domain.ProjectIde.VersionedArtifacts;
 
 /// <summary>Explicit assembly from frozen values; does not resolve a branch head or perform I/O.</summary>
 public static class ArtifactAssembly
