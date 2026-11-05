@@ -9,6 +9,23 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class VersionedArtifactTests
 {
+    [Fact]
+    public void Canonical_golden_vectors_match_Node_hashes_without_rounding_or_array_sorting()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "artifact-hash-vectors-v1.json");
+        using var fixture = JsonDocument.Parse(File.ReadAllBytes(path));
+        var vectors = fixture.RootElement.GetProperty("vectors").EnumerateArray().ToArray();
+        Assert.Equal(4, vectors.Length);
+        foreach (var vector in vectors)
+        {
+            var canonical = vector.GetProperty("canonical").GetString()!;
+            var data = SourceJson.Parse(canonical);
+            Assert.Equal(canonical, data.CanonicalText);
+            Assert.Equal(vector.GetProperty("sha256").GetString(),
+                ContentDigest.Compute(vector.GetProperty("domain").GetString()!, data.ToCanonicalBytes()).Value);
+        }
+    }
+
     private static SourceJson Json(object value) => SourceJson.Parse(JsonSerializer.Serialize(value));
     private static ArtifactSourcePin Pin(ProjectSource? source = null) => ArtifactSourcePin.FromSource(source ?? CompilerContractFixtures.Source());
     private static PrototypeArtifact Manifest(ProjectSource? source = null, params object[] entries) =>
@@ -286,4 +303,3 @@ public sealed class VersionedArtifactTests
         Assert.Equal(0, store.Count);
     }
 }
-
