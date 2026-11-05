@@ -133,6 +133,10 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/sec_arch_http_theory_cases.py',
             ROOT.as_posix() + '/scripts/ci/sec_arch_evidence.py',
             ROOT.as_posix() + '/scripts/ci/sec_arch_manual_replay.py',
+            ROOT.as_posix() + '/scripts/quality/reconcile_qodana.py',
+            ROOT.as_posix() + '/scripts/quality/reviewed_qodana_correspondence.py',
+            ROOT.as_posix() + '/scripts/ci/qodana-packets/verify.py',
+            ROOT.as_posix() + '/scripts/ci/qodana-packets/r2_verify.py',
         })
 
 

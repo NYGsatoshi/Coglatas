@@ -3,6 +3,8 @@
 The canonical Sonar Python producer also executes the existing Qodana
 reconciliation and packet-verification unit suites. Their four operational
 subjects join the existing include list; test bodies remain outside collection.
+The existing exact-scope assertion retains all prior subjects and the same
+equality operator, with the four authorized subjects added to its expected set.
 The branch-enabled pytrace collector, process bootstrap, pinned coverage wheel,
 single combine and single XML import remain unchanged.
 
