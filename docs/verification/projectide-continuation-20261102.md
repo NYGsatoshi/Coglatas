@@ -48,6 +48,17 @@ Concrete registry/migration/trust/policy/mapping/activation approvals remain HOL
 `#1144` stays BLOCKED; `#1128` stays SUSPENDED / NOT_EVALUATED with no numerical
 or baseline qualification credit and no automatic reactivation.
 
+Final ref observation at 19:42:34 UTC: dedicated integration is still
+`634ab304af404a6eabe83b2a5111c773872d55ca`; SecurityTestImplimation is still
+`35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1`; private Spec Main is still
+`850a5d9376db11e75235cf55e03ebed4de9c0510`. Public Main is now
+`3a8b2d7fc54963991bca82156eccd8a4beb3f344` through the external 19:10:21 UTC
+merge of #1672 (parents `481b5577`, `7892d745`). That operational Node coverage
+merge was not performed by this task and is not incorporated into these
+ProjectIDE candidates. The original checkout remains clean on its unrelated
+`40a1d180` Test branch. This is a timestamped observation, not a promise about
+subsequent external ref movement.
+
 ### Full runtime failures and environment-identity correction — 2026-11-06
 
 The configured broader isolated runtime runner at `6f0ceaeb` completed **336
