@@ -385,8 +385,7 @@ public sealed class SecurityArchitectureSignalREventTests
                     ? resourceEvents.Where(item => item.EventType.StartsWith("Messaging.", StringComparison.Ordinal)).ToArray()
                     : resourceEvents;
                 Assert.Equal(boundary == RealtimeSubscriptionType.Conversation ? 5 : 15, events.Length);
-                foreach (var route in events)
-                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+                await AssertRecipientsPositiveAsync(database, app, scope, member, owner, events);
 
                 await ChangeResourceReadAsync(database, scope, boundary, authorized: false);
                 var deniedEvents = new List<(EventRoute Route, Guid Event)>();
@@ -416,8 +415,7 @@ public sealed class SecurityArchitectureSignalREventTests
 
                 await ChangeResourceReadAsync(database, scope, boundary, authorized: true);
                 await SubscribeAllAsync(member, scope);
-                foreach (var route in events)
-                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+                await AssertRecipientsPositiveAsync(database, app, scope, member, owner, events);
                 foreach (var (route, denied) in deniedEvents)
                 {
                     await ReplayAsync(database, app, denied);
@@ -430,13 +428,21 @@ public sealed class SecurityArchitectureSignalREventTests
         });
     }
 
-    private static async Task AssertRecipientPositiveAsync(string database, SecurityArchitectureSignalRFixture app,
-        Scope scope, RealtimeSocket member, RealtimeSocket owner, EventRoute route)
+    private static async Task AssertRecipientsPositiveAsync(string database, SecurityArchitectureSignalRFixture app,
+        Scope scope, RealtimeSocket member, RealtimeSocket owner, EventRoute[] routes)
     {
-        var positive = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
-        await member.WaitEventAsync(positive);
-        await app.WaitDeliveredAsync(positive);
-        if (route.Target != RealtimeSubscriptionType.User) await owner.WaitEventAsync(positive);
+        // Queue the same positive controls within one stable authority phase. Every
+        // event still crosses the real dispatcher before the next authority change.
+        var enqueued = new List<(EventRoute Route, Guid Event)>();
+        foreach (var route in routes)
+            enqueued.Add((route, await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId,
+                route.EventType, targetOverride: route.Override)));
+        foreach (var (route, positive) in enqueued)
+        {
+            await member.WaitEventAsync(positive);
+            await app.WaitDeliveredAsync(positive);
+            if (route.Target != RealtimeSubscriptionType.User) await owner.WaitEventAsync(positive);
+        }
     }
 
     private static async Task ReplayAsync(string database, SecurityArchitectureSignalRFixture app, Guid eventId)

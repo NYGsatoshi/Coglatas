@@ -85,9 +85,23 @@ jobs:
           path: ${{ runner.temp }}/main-build-artifacts
           run-id: ${{ inputs.artifact_run_id || github.run_id }}
           github-token: ${{ github.token }}
+      - name: Download exact-run PR .NET producer without repackaging
+        if: ${{ inputs.artifact_name == 'pr-functional-runtime' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dotnet-release-build
+          path: ${{ runner.temp }}/pr-dotnet-build
+          run-id: ${{ inputs.artifact_run_id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Verify and restore candidate build
+        env:
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
         run: |
-          bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/main-build-artifacts" "$TARGET_SHA" "$GITHUB_WORKSPACE"
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' && "$ARTIFACT_NAME" == 'pr-functional-runtime' ]]; then
+            bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/main-build-artifacts" "$TARGET_SHA" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-dotnet-build"
+          else
+            bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/main-build-artifacts" "$TARGET_SHA" "$GITHUB_WORKSPACE"
+          fi
           echo 'SYNCFUSION_LICENSE=artifact-reuse-no-build' >> "$GITHUB_ENV"
       - name: Execute isolated canonical domain owners
         env:

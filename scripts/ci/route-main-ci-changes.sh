@@ -96,11 +96,19 @@ frontend_features=()
 functional=false
 functional_reason="validated-documentation-only"
 
-# Only positively identified documentation is exempt from real-stack coverage.
-# Unknown paths and shared build/CI inputs run all fast domains conservatively.
+# Only explicitly reviewed documentation and static CI security tooling are
+# exempt from real-stack coverage. Unknown paths and shared build/CI inputs
+# still run all fast domains conservatively.
 while IFS= read -r functional_path; do
   [[ -n "$functional_path" ]] || continue
   case "$functional_path" in
+    # Exact allowlist: independently checked by CI preflight, static-analysis
+    # and/or the Qodana negative-control suites. These do not change the
+    # compiled application or Functional domain fixtures. Unrecognized tools
+    # and other workflow files must continue to require real-stack validation.
+    .github/renovate.json|.github/workflows/workflow-static-analysis.yml|.github/workflows/qodana-signed-shadow.yml|governance/github-actions-allowlist.json|governance/workflow-trust-policy.json|scripts/quality/qodana_sarif_parity.py|scripts/quality/verify_qodana_artifact_provenance.py|scripts/quality/verify_qodana_signed_subject.py|scripts/quality/qodana_cloud_send_preflight.py|scripts/quality/verify_qodana_shadow_signature.py|tests/ci/test_qodana_sarif_parity.py|tests/ci/test_qodana_artifact_provenance.py|tests/ci/test_qodana_signed_subject.py|tests/ci/test_qodana_cloud_send_preflight.py|tests/ci/test_qodana_shadow_signature.py|tests/ci/test_qodana_shadow_workflow.py|docs/verification/qodana-*.md)
+      functional_reason="validated-ci-tooling-only"
+      ;;
     docs/verification/functional-ci/*|docs/ci/functional-compose-harness.md)
       functional=true
       ;;
@@ -611,7 +619,7 @@ while IFS= read -r path; do
   # Runtime/API/harness changes require both deterministic contracts and the
   # live authenticated Core/Schemathesis/ZAP stacks before PR merge.
   case "$path" in
-    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|.dockerignore|.config/*)
+    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.dockerignore|.config/*)
       security=true
       security_compose=true
       ;;
@@ -640,7 +648,7 @@ while IFS= read -r path; do
   esac
 
   case "$path" in
-    .dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|*/syncfusion-license.txt|syncfusion-license.txt)
+    .dockerignore|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|*/syncfusion-license.txt|syncfusion-license.txt)
       security=true
       security_image=true
       ;;

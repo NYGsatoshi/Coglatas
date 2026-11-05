@@ -26,5 +26,11 @@ printf '%s\n' "$expected" > "$output/source-sha"
 printf '%s\n' "${PR_HEAD_SHA:?PR head provenance is required}" > "$output/pr-head-sha"
 printf '%s\n' "$image" > "$output/runtime-image-name"
 docker image inspect --format '{{.Id}}' "$image" > "$output/runtime-image-id"
-cp "$inputs/dotnet-release-build.tar" "$output/dotnet-release-build.tar"
+# The authoritative .NET producer already owns and publishes this archive.
+# Do not upload it a second time inside the Functional runtime artifact.
+test -s "$inputs/dotnet-release-build.tar"
+if [[ -e "$output/dotnet-release-build.tar" || -L "$output/dotnet-release-build.tar" ]]; then
+  echo "Duplicate .NET archive in Functional runtime output." >&2
+  exit 1
+fi
 docker save "$image" | gzip -1 > "$output/runtime-image.tar.gz"

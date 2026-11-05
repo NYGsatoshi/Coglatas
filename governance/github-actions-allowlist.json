@@ -79,6 +79,12 @@
       "version": "v6",
       "purpose": "Approved Python bootstrap for explicitly opted-in Main-only Socket SCA",
       "privilegedAllowed": true
+    },
+    "actions/attest": {
+      "sha": "1e69f48acb82d1966a394da916b4c1698aa569d6",
+      "version": "v4.2.2",
+      "purpose": "Short-lived GitHub/Sigstore shadow subject signature in the isolated SecurityTestImplimation push-only attestor; no storage record or Cloud publication",
+      "privilegedAllowed": true
     }
   }
 }
