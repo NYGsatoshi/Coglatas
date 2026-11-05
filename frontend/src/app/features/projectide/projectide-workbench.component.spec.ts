@@ -305,3 +305,18 @@ describe('ProjectIDE Workbench components', () => {
     expect(c.store.context()).toBeNull();
   });
 });
+
+it('does not apply deferred Source focus after the current result is reloaded', async () => {
+  const { c, fixture, root } = await render();
+  c.choose('fail');
+  c.loadResult();
+  c.inspectDiagnostic(c.diagnostics()[0]);
+  c.navigate();
+  c.loadResult();
+  fixture.detectChanges();
+  const picker = root.querySelector<HTMLSelectElement>('[data-testid="ide-context"]')!;
+  picker.focus();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(picker);
+  expect(c.store.sourceTarget()).toBeNull();
+});
