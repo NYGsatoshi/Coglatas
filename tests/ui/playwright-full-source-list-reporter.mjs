@@ -12,6 +12,7 @@ export default class SourceListReporter {
     this.write = options.write ?? (value => process.stdout.write(value));
     this.phase = 'new';
     this.failed = false;
+    this.reason = 'UNQUALIFIED_LIST';
     this.record = null;
   }
 
@@ -21,6 +22,7 @@ export default class SourceListReporter {
   onBegin(_config, suite) {
     if (this.phase !== 'new') {
       this.failed = true;
+      this.reason = 'DUPLICATE_ONBEGIN';
       return;
     }
     this.phase = 'listed';
@@ -35,19 +37,25 @@ export default class SourceListReporter {
       });
     } catch {
       this.failed = true;
+      this.reason = 'ONBEGIN_INVALID_CASES';
       this.record = null;
     }
   }
 
-  onTestBegin() { this.failed = true; }
-  onTestEnd() { this.failed = true; }
-  onError() { this.failed = true; }
+  onTestBegin() { this.failed = true; this.reason = 'UNEXPECTED_TEST_EXECUTION'; }
+  onTestEnd() { this.failed = true; this.reason = 'UNEXPECTED_TEST_EXECUTION'; }
+  onError() { this.failed = true; this.reason = 'PLAYWRIGHT_GLOBAL_ERROR'; }
 
   onEnd(full) {
+    if (full?.status !== 'passed' && !this.failed) {
+      this.reason = 'PLAYWRIGHT_LIST_STATUS_FAILED';
+    }
     if (this.phase !== 'listed' || this.failed ||
         full?.status !== 'passed' || !this.record) {
       this.failed = true;
       this.phase = 'finished';
+      // The parent captures stderr and only prints this predefined code.
+      process.stderr.write('COGLATAS_SOURCE_ROSTER_STATUS=' + this.reason + '\n');
       return { status: 'failed' };
     }
     this.phase = 'finished';
@@ -57,6 +65,8 @@ export default class SourceListReporter {
       this.write(encoded + '\n');
     } catch {
       this.failed = true;
+      this.reason = 'REPORTER_OUTPUT_FAILED';
+      process.stderr.write('COGLATAS_SOURCE_ROSTER_STATUS=' + this.reason + '\n');
       return { status: 'failed' };
     }
     return undefined;

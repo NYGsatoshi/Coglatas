@@ -134,7 +134,18 @@ export function runSourceDiscovery(env = process.env) {
   });
   if (child.error) deny('CHILD_START_FAILED');
   if (child.signal) deny('CHILD_INTERRUPTED');
-  if (child.status !== 0) deny('CHILD_EXIT_NONZERO');
+  if (child.status !== 0) {
+    const allowed = new Set([
+      'UNQUALIFIED_LIST', 'DUPLICATE_ONBEGIN', 'ONBEGIN_INVALID_CASES',
+      'UNEXPECTED_TEST_EXECUTION', 'PLAYWRIGHT_GLOBAL_ERROR',
+      'PLAYWRIGHT_LIST_STATUS_FAILED', 'REPORTER_OUTPUT_FAILED',
+    ]);
+    const marker = typeof child.stderr === 'string'
+      ? /^COGLATAS_SOURCE_ROSTER_STATUS=([A-Z_]+)$/m.exec(child.stderr)?.[1]
+      : undefined;
+    deny(marker && allowed.has(marker)
+      ? 'REPORTER_' + marker : 'CHILD_EXIT_NONZERO');
+  }
   if (typeof child.stdout !== 'string' || child.stdout.length > 512 * 1024)
     deny('INVALID_REPORTER_BUFFER');
   let data;
@@ -168,7 +179,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       'SKIP_BASELINE_DRIFT', 'UNAUTHORIZED_TRIAL_CONTEXT',
       'SOURCE_CHECKOUT_MISMATCH', 'CHILD_START_FAILED', 'CHILD_INTERRUPTED',
       'CHILD_EXIT_NONZERO', 'INVALID_REPORTER_BUFFER',
-      'UNSANITIZED_REPORTER_STDOUT',
+      'UNSANITIZED_REPORTER_STDOUT', 'REPORTER_UNQUALIFIED_LIST',
+      'REPORTER_DUPLICATE_ONBEGIN', 'REPORTER_ONBEGIN_INVALID_CASES',
+      'REPORTER_UNEXPECTED_TEST_EXECUTION', 'REPORTER_PLAYWRIGHT_GLOBAL_ERROR',
+      'REPORTER_PLAYWRIGHT_LIST_STATUS_FAILED', 'REPORTER_REPORTER_OUTPUT_FAILED',
     ]);
     process.stderr.write('Playwright full-source discovery refused: ' +
       (approved.has(code) ? code : 'UNQUALIFIED_SOURCE_OR_OUTPUT') + '\n');
