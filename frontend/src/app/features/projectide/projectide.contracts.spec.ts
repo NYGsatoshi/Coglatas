@@ -242,7 +242,9 @@ describe('ProjectIDE semantic source navigation', () => {
       { ...location(), entityId: 'absent' },
       { ...location(), propertyPath: '/missing' },
     ]) {
-      expect(resolveLocation(fixture(), loc as ProjectLocation)).toBe('unavailable');
+      expect(resolveLocation(fixture(), loc as ProjectLocation)).toBe(
+        loc.propertyPath === '/missing' ? 'invalid-location' : 'unavailable',
+      );
     }
   });
   it('does not use a logical filename as identity', () => {
@@ -274,11 +276,11 @@ describe('ProjectIDE semantic source navigation', () => {
       typeof resolveLocation(c, { ...location(), textSpan: { start: index, length: 2 } }),
     ).toBe('object');
     expect(resolveLocation(c, { ...location(), textSpan: { start: index + 1, length: 1 } })).toBe(
-      'unavailable',
+      'invalid-location',
     );
     expect(
       resolveLocation(c, { ...location(), textSpan: { start: c.sourceText.length, length: 1 } }),
-    ).toBe('unavailable');
+    ).toBe('invalid-location');
   });
 });
 
