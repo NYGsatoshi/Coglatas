@@ -507,7 +507,8 @@ test('ProjectIDE synthetic Find References navigates from an exact symbol to its
   await page.getByRole('button', { name: /coglatas.project ·/u }).click();
   await page.getByRole('button', { name: /^Find references · coglatas.project ·/u }).click();
   const search = page.getByTestId('ide-reference-search');
-  await expect(search).toContainText('Matching navigable local references: 1');
+  await expect(search).toContainText(/Matching navigable local references: 1(?!\d)/u);
+  await expect(page.getByRole('button', { name: /^Reference origin ·/u })).toHaveCount(1);
   await expect(search).toContainText('Coverage is incomplete.');
   await page.getByRole('button', { name: /^Reference origin.*\/target$/u }).click();
   await page.getByRole('button', { name: 'Go to reference origin', exact: true }).click();
