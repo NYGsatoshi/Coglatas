@@ -52,7 +52,7 @@ def _open_evidence_leaf(path: Path) -> int:
     """Walk each parent directory with no-follow semantics, then open leaf."""
     require(hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY"),
             "UNSUPPORTED_EVIDENCE_PLATFORM")
-    require(type(path) is Path and bool(path.name) and
+    require(isinstance(path, Path) and bool(path.name) and
             all(part not in ("..", "") for part in path.parts),
             "INVALID_EVIDENCE_PATH")
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
