@@ -14,6 +14,7 @@ namespace Coglatas.Tests.Announcements;
 // Strict dependency contracts do not establish PostgreSQL, transport or current persisted authority.
 public sealed class AnnouncementLegacyLifecycleContractTests
 {
+    /// <summary>Requires both identity and authentication before any dependency can execute.</summary>
     [Theory]
     [InlineData("list", true, false)]
     [InlineData("list", false, true)]
@@ -35,6 +36,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         Assert.Empty(fixture.Dependencies.Calls);
     }
 
+    /// <summary>Preserves requested scope and reader-specific projection while keeping pagination representable.</summary>
     [Theory]
     [InlineData(-4, -1, 1, 1)]
     [InlineData(0, 0, 1, 1)]
@@ -70,6 +72,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Retains the same denial for invisible, missing and deleted Announcements without engagement effects.</summary>
     [Theory]
     [InlineData("get", "invisible")]
     [InlineData("get", "missing")]
@@ -92,6 +95,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Requires the persisted active administrator for global creation and verifies staged content and effects.</summary>
     [Theory]
     [InlineData(true, true)]
     [InlineData(true, false)]
@@ -156,6 +160,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Stages a read once and restricts its refresh audience to the current reader.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -190,6 +195,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Rejects invalid public record copies at the service boundary without modifying the existing Announcement.</summary>
     [Theory]
     [InlineData("create", "title")]
     [InlineData("create", "body")]
@@ -226,6 +232,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Preserves omitted fields and audits actual pin transitions before the final save.</summary>
     [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -256,6 +263,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Projects the authorized resource identity and the current reader state without mutation.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -284,6 +292,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Keeps constructor body validation distinct from service validation of later record copies.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -298,6 +307,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         Assert.Equal("Announcement body is required.", error.Message);
     }
 
+    /// <summary>Restricts reminders to unread recipients and preserves the body length boundary.</summary>
     [Theory]
     [InlineData(0, 0, 501)]
     [InlineData(1, 0, 499)]
@@ -342,6 +352,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Soft deletes metadata while preserving the audience-specific refresh before save.</summary>
     [Fact]
     public async Task DeleteSoftArchivesAnnouncementAndPreservesRecipientInvalidationBeforeSave()
     {
@@ -362,6 +373,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Stops unavailable-resource reminders before notifications and persistence effects.</summary>
     [Theory]
     [InlineData("missing")]
     [InlineData("deleted")]
@@ -383,6 +395,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
+    /// <summary>Propagates the original dependency error and rejects every later effect or save.</summary>
     [Theory]
     [InlineData("notification")]
     [InlineData("audit")]
@@ -416,6 +429,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         public AnnouncementContractDependencies Dependencies { get; } = new();
         public IAnnouncementService Service { get; }
 
+        /// <summary>Constructs a synthetic author, cancellable call scope and strict Application dependencies.</summary>
         public Fixture(ICurrentUser? actor = null)
         {
             actor ??= new Actor(Guid.NewGuid(), true);
@@ -435,17 +449,21 @@ public sealed class AnnouncementLegacyLifecycleContractTests
                 Dependencies.Create<IBusinessInvalidationPublisher>("invalidations"), Dependencies.Create<IUnitOfWork>("persistence"));
         }
 
+        /// <summary>Requires the actor lookup and forwards its configured persisted account result.</summary>
         public void ExpectUser(User? user = null) => Dependencies.Expect("users.GetByIdAsync", Task.FromResult(user), [ActorId, Token]);
 
+        /// <summary>Requires the selected resource read and supplies its configured lifecycle state.</summary>
         public void ExpectAnnouncement(string state = "live")
         {
             if (state == "deleted") Announcement.MarkDeleted(Now.AddDays(-1));
             Dependencies.Expect("announcements.GetAsync", Task.FromResult(state == "missing" ? null : Announcement), [Announcement.Id, Token]);
         }
 
+        /// <summary>Requires the original resource and cancellation token for the audience read.</summary>
         public void ExpectAudience(IReadOnlyList<AnnouncementTargetUser> targets) =>
             Dependencies.Expect("announcements.ListTargetUsersAsync", Task.FromResult(targets), [Announcement, Token]);
 
+        /// <summary>Requires the action, actor, resource, summary and cancellation token at the audit boundary.</summary>
         public void ExpectAudit(string action, Exception? failure = null) => Dependencies.Expect("audit.LogUserActionAsync",
             failure is null ? Task.CompletedTask : Task.FromException(failure),
             [ActorId, action, "Announcement", Announcement.Id, action switch
@@ -457,11 +475,14 @@ public sealed class AnnouncementLegacyLifecycleContractTests
                 _ => null
             }, null, Token]);
 
+        /// <summary>Configures publisher completion or failure; payload identity is asserted separately.</summary>
         public void ExpectInvalidation(Exception? failure = null) => Dependencies.Expect("invalidations.AnnouncementChangedAsync",
             failure is null ? Task.CompletedTask : Task.FromException(failure));
 
+        /// <summary>Requires the final save to use the original cancellation token.</summary>
         public void ExpectSave() => Dependencies.Expect("persistence.SaveChangesAsync", Task.FromResult(1), [Token]);
 
+        /// <summary>Checks resource, actor, change, recipient set and token on the single refresh signal.</summary>
         public void AssertInvalidationAudience(IEnumerable<Guid> expected, string change)
         {
             var call = Assert.Single(Dependencies.Calls, call => call.Method == "invalidations.AnnouncementChangedAsync");
@@ -472,6 +493,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
             Assert.Equal(Token, call.Arguments[4]);
         }
 
+        /// <summary>Executes the selected real Application operation with the original call token.</summary>
         public async Task<Result> InvokeAsync(string operation)
         {
             return operation switch
@@ -484,12 +506,14 @@ public sealed class AnnouncementLegacyLifecycleContractTests
             };
         }
 
+        /// <summary>Preserves the service error while requiring failed operations to return no DTO.</summary>
         private static Result Status<T>(Result<T> result)
         {
             if (!result.IsSuccess) Assert.Null(result.Value);
             return new Result(result.IsSuccess, result.Error);
         }
 
+        /// <summary>Releases the fixture-owned cancellation source after each test.</summary>
         public void Dispose() => _cancellation.Dispose();
     }
 
