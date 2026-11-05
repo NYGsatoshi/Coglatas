@@ -1,5 +1,159 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+## Owner recommendation adoption execution — 2026-11-06
+
+This section records the new instruction and actual work separately from the
+historical continuation below. The owner adopts the recommended design directions
+for work numbers 1..48, including explicit HOLD/suspension directions. These are
+work numbers, not new formal Decision IDs. Reuse A-R2, IDE-START-01..08,
+SA-01..08 and existing canonical requirements; no registry is reallocated here.
+Formal schema/migration, trust/eligibility, mapping, disclosure and environment
+activation approvals remain specific gates. Incomplete engineering work stays
+OPEN; it is not relabelled HOLD merely because its eventual activation needs
+approval.
+
+### Starting observation and ownership
+
+Fresh GitHub observation and `git ls-remote` agreed:
+
+| Ref | Starting SHA |
+| --- | --- |
+| ProjectIDE dedicated integration | `634ab304af404a6eabe83b2a5111c773872d55ca` |
+| Main (observation only) | `0af698eeb16f40f929ce3ac94875dc437d3d7fd1` |
+| SecurityTestImplimation (observation only) | `35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1` |
+
+All 45 open PRs were enumerated in the complete first page (page size 100);
+none was an outstanding ProjectIDE PR. Reacquired required issues:
+#905/#798/#888, #1029/#1030/#1031/#1034/#1035/#1036,
+#1144/#1145–#1152/#1156–#1158, #842/#614/#1128, and #906.
+Current comments on #888/#798/#905/#1034/#1144 were read. The private Spec
+main/approved decision records and prototype allocation conflicts were audited
+in their authorized location. Private content is not reproduced here.
+The starting issue timestamps, all open PR head/base tuples and ref observations
+are retained locally outside the repository in `github-start.json`.
+
+The original checkout was clean on an unrelated Test branch and remains intact.
+New Product, Test and Docs worktrees start from the dedicated integration.
+The new instruction supersedes older ProjectIDE test-base wording: no ProjectIDE
+change targets Main or SecurityTestImplimation. Final Product/Test integration
+requires reviewed ordinary merge commits into the dedicated branch.
+
+### Executed first implementation batch
+
+[Product #1721](https://github.com/NYGsatoshi/Coglatas/pull/1721) adds four
+data-only prototype artifact roles, complete typed SHA-256 identities, exact
+Source pins, declared/actual/input/receipt bindings, original-buffer recovery
+and bounded atomic offline indexing. Source bodies and artifact entries publish
+together. Existing canonical v1 JSON/digest/context/input primitives are reused;
+existing Source/Input/Result golden bytes are unchanged.
+
+Prototype names use `coglatas.prototype.*` and independently versioned domains.
+They are neither formal registry allocations nor newly enabled compiler/host
+paths. Unknown semantic members remain hashed/preserved and Unsupported.
+Nonempty external bundles remain Incomplete without supported body contracts.
+Successful index publication is not acquisition, trust, eligible evidence,
+Requirement satisfaction or executable transitive closure.
+
+[Test/CI #1722](https://github.com/NYGsatoshi/Coglatas/pull/1722) owns only
+Test/CI changes relative to its Product base. It includes substitution,
+unknown/version recovery, exact-context/settings, missing/partial/denied states,
+receipt binding, atomic failure, cancellation/disposal, concurrent import and
+bounded-work controls, plus fixed .NET/Node hash vectors. Its supplemental CI
+uses the existing trusted hosted-runner labels and verifies retained test
+identities. Required Checks, runner trust registry and CODEOWNERS are unchanged.
+Retarget the Test PR to the dedicated branch only after Product integration.
+
+Local Windows candidate `e7824ad3de450784d7022b98ba5aa0ab6f983e79` passed
+Release solution build with warnings as errors (0 warnings/errors), 964 full
+ProjectIDE cases, 12 architecture cases, six inventory/ownership negative
+controls and five independent Node hash controls. Strict TRX reconciliation
+retains all 928 preexisting ProjectIDE and all 12 architecture identities.
+Later namespace/workflow-only corrections need their own exact-head checks.
+
+Retained unsuccessful attempts: initial new cases 32 PASS / 2 fixture FAIL
+(existing canonical UTC requires seven fractional digits); initial no-restore
+solution build lacked two fresh-worktree tool assets; new Windows CI requested
+an unavailable Python binary; initial supplemental runner routing failed the
+existing registry; Product ReSharper found namespace/path disagreement. Fixtures,
+restore, available interpreter selection, approved static runner labels and
+namespace ownership were corrected without weakening checks.
+
+CodeRabbit skipped automatic review on nondefault bases. Explicit review
+requests for both PRs returned rate limiting. CLI 0.9.2 was available in WSL but
+unauthenticated; its initiated browser flow timed out. These are review
+prerequisite failures, not completed independent review. No merge is qualified.
+
+An additional isolated PostgreSQL 18.6 run reuses existing RLS/SignalR/TLS
+fixtures on the pinned CI image. Its first run has real failures, including
+SQLSTATE `2BP01` during fixture cleanup; final totals/cause remain under
+investigation. Do not promote it to RLS or SEC-ARCH PASS. Existing hosted
+representative results do not waive a failed local candidate run or the full
+coverage/approval gates.
+
+### Work-number disposition (not completion claims)
+
+PARTIAL means implementation/candidate work exists but the row's complete
+acceptance criteria do not yet hold. OPEN work remains authorized to continue.
+HOLD identifies only the explicit concrete approval/activation boundary.
+
+| No. | Work | Implementation / next executable step | Explicit gate |
+| --- | --- | --- | --- |
+| 1 | Independent artifact schemas | PARTIAL: four prototype roles and private syntax candidate | Formal registry allocation HOLD |
+| 2 | Canonical encoding | PARTIAL: existing v1 reused; new fixed vectors and host CI | Final cross-host evidence OPEN |
+| 3 | Hash domains | PARTIAL: full type/schema/encoding domains and framing controls | Formal domain assignment HOLD |
+| 4 | Typed identity | PARTIAL: full tuple/index comparison and substitution controls | Formal identity wire allocation HOLD |
+| 5 | Source pin | PARTIAL: existing tagged context plus exact Source schema/digest | Complete new-context matrix OPEN |
+| 6 | Manifest entries | PARTIAL: keys/kinds/targets/scope/reference-binding checks | Final entry/body vocabulary HOLD |
+| 7 | Versioned reference mapping | OPEN: candidate mapping stays separate from v1 AST | Formal mapping/migration HOLD |
+| 8 | Input association | PARTIAL: frozen existing settings and atomic validation | Production compiler adapter OPEN/HOLD |
+| 9 | Actual materialization | PARTIAL: distinct observation states and declared binding | Typed acquired bodies OPEN |
+| 10 | Receipt payload | PARTIAL: acyclic exact input/set/source capture | Formal receipt format HOLD |
+| 11 | Tagged contexts | Existing v1 reused; new pin integration PARTIAL | Full Proposal/Scenario matrix OPEN |
+| 12 | Preserve unknown | PARTIAL: retained semantic bytes, Unsupported and digest propagation | All body boundaries OPEN |
+| 13 | Compatibility/migration | PARTIAL: old-reader rejection and original recovery | Full migration/origin/rollback OPEN; scope approval HOLD |
+| 14 | Offline bundles | PARTIAL: atomic in-memory content index and Source bodies | Durable container and complete body closure OPEN |
+| 15 | Independent result axes | Existing execution/coverage/verdict/freshness preserved | New trust/authorization axes and verifier OPEN |
+| 16 | Producer allowlist | OPEN: exact workflow/service proposal required | Formal allowlist HOLD |
+| 17 | Attestation | OPEN: compare and implement protected proof candidate | Root/keys/rotation/revocation HOLD |
+| 18 | Independent verifier | OPEN beyond pure schema/hash/binding stages | Authentication/run/eligibility stages OPEN |
+| 19 | Current authorization | OPEN: Acquire/View/Export/Apply host adapters and negatives | Important authorization changes HOLD |
+| 20 | Eligibility policy | OPEN: exact Requirement/target/run policy candidate | Policy Owner approval HOLD |
+| 21 | Redacted projection | OPEN: separate identity and leakage matrix | Disclosure review HOLD |
+| 22 | Retention/Pin | OPEN: synthetic bounded retention/Pin candidate | Production values/deletion activation HOLD |
+| 23 | Explicit acquisition | OPEN: scoped synthetic capability/allowlist resolver | Real destinations/identities/transmission HOLD |
+| 24 | Typed external bodies | OPEN: Unit/Calendar/Document/Tenant Resource schemas | Formal body contracts HOLD |
+| 25 | Verified closure | OPEN: complete frontier/version/body/trust matrix | Unverified closure cannot execute |
+| 26 | Supported IR | Existing local graph semantics preserved | External executable lowering HOLD |
+| 27 | TMT/SPEC mapping | Existing private draft reused; exact packet OPEN | Personal Owner approval HOLD |
+| 28 | Canonical traceability | Existing tools reused; complete reconciliation OPEN | Material security-contract changes HOLD |
+| 29 | All-table classification | Existing inventory reused; qualification OPEN | Approved semantic classification HOLD |
+| 30 | RLS roles/policies | Existing isolated fixtures reused; coverage OPEN | Product RLS activation HOLD |
+| 31 | Isolated adapter environments | Existing API/PG/SignalR/Kafka/TLS fixtures reused | Same-candidate complete execution OPEN |
+| 32 | Migration/runtime | Existing recovery/pool/context tests reused; failures retained | Product migration/activation HOLD |
+| 33 | Security disclosure | Protected originals and private work retained | Public projection review HOLD |
+| 34 | Security exceptions | No new exception requested or granted | Exact scoped Owner approval HOLD |
+| 35 | Advisory to Blocking | Existing #842/#614 gates retained | Qualification/review OPEN; promotion HOLD |
+| 36 | Security Enforce | Disabled/explicit Shadow boundary retained | Enforce activation HOLD |
+| 37 | SEC-ARCH reconciliation | OPEN: full exact-source/build/environment/run/artifact coverage | #1144 remains BLOCKED |
+| 38 | Parallel clients | Existing Angular and synthetic Windows ViewModel retained | Native UI/IME activation HOLD |
+| 39 | Project data stages | Synthetic only; full staged qualification OPEN | Pilot/Production data connection HOLD |
+| 40 | Infrastructure | Modular monolith and Compose retained; measured trigger packets OPEN | Production infrastructure HOLD |
+| 41 | Measured limits | Existing Find References 4096/64/32 preserved | New measurements OPEN; guarantees HOLD |
+| 42 | Solver/library | No extra dependency introduced; necessity review OPEN | Unneeded adoption not justified |
+| 43 | Distribution | Candidate audience/environment/update packet OPEN | Actual distribution approval HOLD |
+| 44 | Release GO | Exact release/security/recovery/operations packet OPEN | RELEASE_NO_GO |
+| 45 | Measurement environment | Existing baseline/runner inventory audit OPEN | Numerical campaigns remain suspended |
+| 46 | Reproducibility/statistics | Preparation OPEN, no qualification credit | Approved method required before resumption |
+| 47 | Baseline inventory | Existing inventories/evaluation requirements retained; full audit OPEN | No automatic enrollment or failed-to-PASS conversion |
+| 48 | Suspension/resumption | Suspension policy validator returns `suspended` | Explicit reviewed exact-Main resumption HOLD |
+
+`#1128` remains `assuranceMode=SUSPENDED`,
+`numericalDecision=NOT_EVALUATED`, `numericalAcceptanceCredit=false`,
+`baselineQualificationCredit=false`, `automaticReactivation=false`.
+Preserve API 78, DB structural 28, Small 9 and Medium 9 requirements.
+This first batch does not complete the 48-item mission. Remaining OPEN rows
+must not be closed on the strength of a decision document or synthetic PASS.
+
 ## Manifest / Evidence / Resource continuation — 2026-11-03
 
 Phase A reacquired #1657/#1658/#1653/#1654 through GitHub PR metadata, review
