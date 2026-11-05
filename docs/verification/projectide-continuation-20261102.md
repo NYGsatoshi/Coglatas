@@ -40,8 +40,10 @@ reconciled hosted component candidates retain their own exact SHA scope.
 
 All eight public PRs currently have passing ordinary checks, including fixture
 Test #1728. The latter's 19:34 UTC explicit review request also returned rate
-limiting. The private Draft has passing mechanical checks; those are not Owner
-approval. No Product/Test/Docs PR from this batch is merged. Remaining migration,
+limiting. Private Draft mechanical statuses are tracked by exact Spec head;
+at 19:49 UTC, some checks on `69099f62` remain queued/running. Earlier mechanical
+passes are neither current-head qualification nor Owner approval.
+No Product/Test/Docs PR from this batch is merged. Remaining migration,
 durable offline closure, complete trust/authorization/eligibility, redaction/
 retention, external-body/IR and environment/release engineering remains OPEN.
 Concrete registry/migration/trust/policy/mapping/activation approvals remain HOLD.
