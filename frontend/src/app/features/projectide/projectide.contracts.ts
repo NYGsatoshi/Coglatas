@@ -95,6 +95,9 @@ export type SourceRecord = SourceRecordFields &
     | { readonly recordType: 'entity'; readonly identity: Identity<'Entity'> }
     | { readonly recordType: 'relation'; readonly identity: Identity<'Relation'> }
   );
+export type InspectedSymbol = SemanticInspection['symbols'][number];
+export type BoundReference = SemanticInspection['references'][number];
+
 export interface SemanticInspection {
   readonly format: 'coglatas.semantic-inspection/1';
   readonly compilerInputId: Identity<'CompilerInput'>;
