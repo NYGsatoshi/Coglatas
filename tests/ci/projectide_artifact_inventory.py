@@ -21,7 +21,7 @@ def main() -> None:
             raise ValueError(f"Retained {lane} identities are missing")
         if lane == "projectIde" and sum(".VersionedArtifactTests." in identity for identity in actual) < 36:
             raise ValueError("Prototype artifact regression inventory is incomplete")
-        if lane == "projectIde" and args.require_acquisition and sum(".SyntheticDependencyAcquisitionTests." in identity for identity in actual) < 36:
+        if lane == "projectIde" and args.require_acquisition and sum(".SyntheticDependencyAcquisitionTests." in identity for identity in actual) < 39:
             raise ValueError("Synthetic acquisition inventory is incomplete")
         (args.results / f"{name}-inventory.json").write_text(json.dumps(actual, indent=2) + "\n", encoding="utf-8")
         print(f"{lane}: {len(actual)} complete passing identities; retained baseline present")

@@ -2,10 +2,11 @@ using System.Text.Json;
 using Coglatas.Application.ProjectIde.DependencyAcquisition;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.Domain.ProjectIde.VersionedArtifacts;
+using Xunit.Abstractions;
 
 namespace Coglatas.Tests.ProjectIde;
 
-public sealed class SyntheticDependencyAcquisitionTests
+public sealed class SyntheticDependencyAcquisitionTests(ITestOutputHelper output)
 {
     private static SourceJson Json(object value) => SourceJson.Parse(JsonSerializer.Serialize(value));
     private static ArtifactSourcePin Pin(int revision = 5) => ArtifactSourcePin.FromSource(CompilerContractFixtures.Source(revision));
@@ -244,5 +245,22 @@ public sealed class SyntheticDependencyAcquisitionTests
         var resolver = Resolver(body: () => { cancel(); throw new IOException("synthetic cancelled read"); });
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource, cancellation.Token);
         Assert.Equal(SyntheticAcquisitionState.Cancelled, result.State); Assert.Null(result.Body);
+    }
+
+    [Theory]
+    [InlineData(0, SyntheticAcquisitionState.Present)]
+    [InlineData(512, SyntheticAcquisitionState.Present)]
+    [InlineData(50000, SyntheticAcquisitionState.Exhausted)]
+    public async Task Synthetic_small_medium_large_Unit_bodies_exercise_the_provisional_byte_limit(int dimensions, SyntheticAcquisitionState expected)
+    {
+        var vector = Enumerable.Range(0, dimensions).ToDictionary(index => "synthetic.dimension." + index.ToString("D5", System.Globalization.CultureInfo.InvariantCulture), _ => 1);
+        var body = new SyntheticUnitBody(Pin(), Guid.Parse(CompilerContractFixtures.Id(9)), Json(new { unitId = "synthetic.unit", version = 1, dimension = vector }));
+        output.WriteLine("SYNTHETIC_ONLY dimensions={0} canonicalBytes={1} processingBound={2} numericalAcceptanceCredit=false",
+            dimensions, body.CanonicalByteCount, 1_048_576);
+        Assert.Equal(expected == SyntheticAcquisitionState.Present, body.CanonicalByteCount <= 1_048_576);
+        var result = await Resolver(body: () => body).AcquireAsync(Manifest(body), "unit-1", SyntheticDependencyResolver.AllowedSource);
+        Assert.Equal(expected, result.State);
+        if (expected == SyntheticAcquisitionState.Present) Assert.Same(body, result.Body);
+        else Assert.Null(result.Body);
     }
 }
