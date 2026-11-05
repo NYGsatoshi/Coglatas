@@ -22,22 +22,22 @@ public sealed class SyntheticDependencyAcquisitionTests
     {
         public ValueTask<SyntheticAcquisitionContext?> ReadCurrentAsync(CancellationToken cancellationToken) => read(cancellationToken);
     }
-    private sealed class Bodies(Func<string, ArtifactIdentity, CancellationToken, ValueTask<SyntheticUnitBody?>> read) : ISyntheticUnitBodyProvider
+    private sealed class Bodies(Func<string, ArtifactIdentity, int, CancellationToken, ValueTask<SyntheticUnitBody?>> read) : ISyntheticUnitBodyProvider
     {
-        public ValueTask<SyntheticUnitBody?> ReadAsync(string sourceId, ArtifactIdentity expectedIdentity, CancellationToken cancellationToken) => read(sourceId, expectedIdentity, cancellationToken);
+        public ValueTask<SyntheticUnitBody?> ReadAsync(string sourceId, ArtifactIdentity expectedIdentity, int maximumBodyBytes, CancellationToken cancellationToken) => read(sourceId, expectedIdentity, maximumBodyBytes, cancellationToken);
     }
     private static SyntheticDependencyResolver Resolver(Func<SyntheticAcquisitionContext?>? context = null, Func<SyntheticUnitBody?>? body = null) =>
         new(new Contexts(_ => ValueTask.FromResult(context is null ? Context() : context())),
-            new Bodies((_, _, _) => ValueTask.FromResult(body is null ? Body() : body())));
+            new Bodies((_, _, _, _) => ValueTask.FromResult(body is null ? Body() : body())));
 
     [Fact]
     public async Task Authorized_exact_synthetic_Unit_is_present_but_never_formal_evidence()
     {
         var body = Body(); var manifest = Manifest(body); var reads = 0;
         var resolver = new SyntheticDependencyResolver(new Contexts(_ => { reads++; return ValueTask.FromResult<SyntheticAcquisitionContext?>(Context()); }),
-            new Bodies((source, expected, _) =>
+            new Bodies((source, expected, maximumBytes, _) =>
             {
-                Assert.Equal(SyntheticDependencyResolver.AllowedSource, source); Assert.Equal(body.Identity, expected);
+                Assert.Equal(SyntheticDependencyResolver.AllowedSource, source); Assert.Equal(body.Identity, expected); Assert.Equal(1_048_576, maximumBytes);
                 return ValueTask.FromResult<SyntheticUnitBody?>(body);
             }));
         var result = await resolver.AcquireAsync(manifest, "unit-1", SyntheticDependencyResolver.AllowedSource);
@@ -52,7 +52,7 @@ public sealed class SyntheticDependencyAcquisitionTests
     public async Task Arbitrary_URL_or_unlisted_source_is_denied_before_any_provider_is_opened(string source)
     {
         var resolver = new SyntheticDependencyResolver(new Contexts(_ => throw new InvalidOperationException("must not open authority")),
-            new Bodies((_, _, _) => throw new InvalidOperationException("must not open body")));
+            new Bodies((_, _, _, _) => throw new InvalidOperationException("must not open body")));
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", source);
         Assert.Equal(SyntheticAcquisitionState.Denied, result.State); Assert.Null(result.Body);
     }
@@ -202,5 +202,47 @@ public sealed class SyntheticDependencyAcquisitionTests
         }));
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
         Assert.Equal(expected, result.State); Assert.Null(result.Body);
+    }
+
+    [Theory]
+    [InlineData("io")]
+    [InlineData("invalid")]
+    [InlineData("unsupported")]
+    [InlineData("timeout")]
+    [InlineData("limit")]
+    [InlineData("unexpected")]
+    public async Task Revocation_during_failed_read_hides_every_provider_outcome(string failure)
+    {
+        var reads = 0;
+        var resolver = Resolver(() => ++reads == 1 ? Context() : null, () => throw (failure switch
+        {
+            "io" => new IOException("synthetic source failure"),
+            "invalid" => new FormatException("synthetic invalid body"),
+            "unsupported" => new UnsupportedSourceException("synthetic unsupported body"),
+            "timeout" => new OperationCanceledException("synthetic provider timeout"),
+            "limit" => new SyntheticBodyLimitException(),
+            _ => (Exception)new ArgumentException("synthetic unexpected provider fault")
+        }));
+        var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource);
+        Assert.Equal(SyntheticAcquisitionState.Denied, result.State); Assert.Null(result.Body); Assert.Equal(2, reads);
+    }
+
+    [Fact]
+    public async Task Provider_receives_the_byte_budget_before_body_construction_and_reports_explicit_exhaustion()
+    {
+        var reads = 0;
+        var resolver = new SyntheticDependencyResolver(new Contexts(_ => { reads++; return ValueTask.FromResult<SyntheticAcquisitionContext?>(Context()); }),
+            new Bodies((_, _, limit, _) => { Assert.Equal(37, limit); throw new SyntheticBodyLimitException(); }));
+        var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource, maximumBodyBytes: 37);
+        Assert.Equal(SyntheticAcquisitionState.Exhausted, result.State); Assert.Null(result.Body); Assert.Equal(2, reads);
+    }
+
+    [Fact]
+    public async Task Genuine_request_cancellation_takes_precedence_over_a_provider_fault()
+    {
+        using var cancellation = new CancellationTokenSource(); Action cancel = cancellation.Cancel;
+        var resolver = Resolver(body: () => { cancel(); throw new IOException("synthetic cancelled read"); });
+        var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource, cancellation.Token);
+        Assert.Equal(SyntheticAcquisitionState.Cancelled, result.State); Assert.Null(result.Body);
     }
 }
