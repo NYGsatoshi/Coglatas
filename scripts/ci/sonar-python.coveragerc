@@ -49,3 +49,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_http_theory_cases.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_evidence.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_manual_replay.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/quality/reconcile_qodana.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/quality/reviewed_qodana_correspondence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/verify.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/r2_verify.py
