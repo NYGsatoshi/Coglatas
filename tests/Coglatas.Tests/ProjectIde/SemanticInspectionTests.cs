@@ -79,17 +79,26 @@ public sealed class SemanticInspectionTests
     {
         var input = CompilerAnalysisFixtures.Constraint(false); var host = new LocalNetCompilerHost(Profile(input));
         var request = new CompilerHostRequest(new(input), 7); var response = await host.CompileAsync(request);
-        using var view = new SyntheticWorkbenchViewModel(); var notifications = 0;
-        view.PropertyChanged += (_, _) => notifications++;
-        view.BeginSynthetic(request); Assert.True(view.TryAccept(response));
-        Assert.Equal("Ready", view.State); Assert.Equal(input.Source.Data, view.Source!.Data); Assert.NotEmpty(view.Problems);
-        var symbol = view.Inspection!.Symbols[0]; Assert.True(view.Select(symbol.Symbol.Location)); Assert.True(view.Navigate());
-        Assert.Equal(symbol.Symbol.Location, view.SourceTarget); Assert.True(notifications > 0);
-        view.Reset(); Assert.Null(view.Source); Assert.Null(view.Result); Assert.Null(view.Inspection); Assert.Null(view.Selected);
-        Assert.Null(view.SourceTarget); Assert.Empty(view.Problems); Assert.False(view.TryAccept(response));
-        Assert.Throws<ArgumentException>(() => view.BeginSynthetic(request));
-        view.BeginSynthetic(new(new(input), 8)); Assert.False(view.TryAccept(response)); Assert.Null(view.Result);
-        view.Dispose(); Assert.False(view.TryAccept(response));
+        var view = new SyntheticWorkbenchViewModel();
+        var notifications = 0;
+        try
+        {
+            view.PropertyChanged += (_, _) => notifications++;
+            view.BeginSynthetic(request); Assert.True(view.TryAccept(response));
+            Assert.Equal("Ready", view.State); Assert.Equal(input.Source.Data, view.Source!.Data); Assert.NotEmpty(view.Problems);
+            var symbol = view.Inspection!.Symbols[0]; Assert.True(view.Select(symbol.Symbol.Location)); Assert.True(view.Navigate());
+            Assert.Equal(symbol.Symbol.Location, view.SourceTarget); Assert.True(notifications > 0);
+            view.Reset(); Assert.Null(view.Source); Assert.Null(view.Result); Assert.Null(view.Inspection); Assert.Null(view.Selected);
+            Assert.Null(view.SourceTarget); Assert.Empty(view.Problems); Assert.False(view.TryAccept(response));
+            Assert.Throws<ArgumentException>(() => view.BeginSynthetic(request));
+            view.BeginSynthetic(new(new(input), 8)); Assert.False(view.TryAccept(response)); Assert.Null(view.Result);
+        }
+        finally
+        {
+            view.Dispose();
+        }
+
+        Assert.False(view.TryAccept(response));
         Assert.Throws<ObjectDisposedException>(() => view.BeginSynthetic(new(new(input), 9)));
     }
 
