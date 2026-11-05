@@ -1,5 +1,58 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Composed foundations and reviewed acquisition correction — 2026-11-06
+
+The verification-only branch `verify/projectide-foundations-20261106` composes
+the three separate Product/Test batches with ordinary merge commits at
+`6f0ceaeb7baf8b738234fc931883fca6db295af2`. It is not the dedicated integration
+branch, an activation, or a combined Product/Test ownership PR. Local Windows
+Release solution build passes with warnings as errors and zero warnings/errors;
+1,026 ProjectIDE cases and 12 architecture cases pass with zero failures/skips.
+Five Node hash controls and six inventory/ownership controls pass. Strict TRX
+reconciliation retains every 928/12 baseline identity. Local composed receipt
+SHA-256 is `408e29e51b3bfee2db19deffe6cd717369c7cdd5538fa50aae1b706cffcca127`.
+This composed SHA has no hosted cross-platform or all-adapter SEC-ARCH attestation.
+
+Downloaded hosted ZIPs, exact candidate stamps, both TRX digests, complete test
+inventories and retained baseline identities independently reconcile:
+
+| Test candidate | Hosted run | Windows / Ubuntu artifacts | Cases per host (ProjectIDE / architecture) |
+| --- | --- | --- | --- |
+| `4f5c2bcaa1db928469d92ec979f22017a1ca4cb8` | [42080367384](https://github.com/NYGsatoshi/Coglatas/actions/runs/42080367384) | 13441585122 / 13441070175 | 964 / 12 |
+| `b0e7d39556504acd4b1b3e233432337e442f4ea6` | [42083137656](https://github.com/NYGsatoshi/Coglatas/actions/runs/42083137656) | 13440499365 / 13441822374 | 987 / 12 |
+| `14ee3775e4f24e0cf436d0eb1aaf123e738f52b0` | [42084517646](https://github.com/NYGsatoshi/Coglatas/actions/runs/42084517646) | 13441723746 / 13441348758 | 1,003 / 12 |
+
+The corresponding ZIP SHA-256 pairs (Windows, Ubuntu) are:
+
+- Artifact: `da0982b917d0d79c89678509f7a2bd94e3081934b1bf8efb9e364c77a9e88478`, `069992c1714e7e20ecbd231b576a9abd9e2309f3f5c1e3622b807fd465c23050`.
+- Proof: `6bcacf639a45dc32378377c14c29d289410e9596a439af84065fe4661758d22f`, `7edd1437e07ad671964575a8da43d6e342a4092fb9912ad049b49443a42315e4`.
+- Acquisition: `6bc72d4089de0e0f635ced517a3e0272f2c3859a2adba3abc2f82516a830c8e6`, `29de7d27411adf4bab82406c7607a321198c53ed551680cf1529b914687156c2`.
+
+[CodeRabbit's acquisition review](https://github.com/NYGsatoshi/Coglatas/pull/1726#discussion_r4484197793)
+found a privacy issue: provider exceptions bypassed the post-read current-authority
+check. Product `25f978516fb17a11f0024ae63456fcdb12b16ea6` now rechecks authority
+before disclosing failed-read outcomes, passes the byte budget to the provider
+before construction, and caches the immutable canonical byte count. An independent
+regression added to the pre-fix `7308940b` composition fails as expected (Denied
+versus Failed); that original failure and patch SHA-256
+`792e9f0f379adcfd54e9ec3d6362d1468c4bcc3d4427c34293863b71c1a1cd02`
+are retained. Corrected acquisition tests pass 39/39, including six failed-read
+revocation controls. Resolving the review thread is not corrected-head approval.
+
+The three synthetic Unit fixtures measure 668, 16,027 and 1,500,667 canonical
+bytes for 0, 512 and 50,000 dimensions. The first two are Present and the last is
+Exhausted at the provisional 1,048,576-byte bound. These are fixture byte counts,
+not throughput, device qualification, production limits or numerical acceptance.
+The acquisition run above retains its six ReSharper warnings. Forward Test
+`2f1fc335281191ea69bd817a3f76b2a219df7fc9` preserves the assertions by recording
+provider arguments before asserting them and removing redundant casts; 39/39 pass
+locally and fresh full CI is pending. Earlier SHA results are not transferred.
+
+CodeRabbit's included allowance is one review per hour; other Product/Test review
+requests were rate-limited and the CLI remains unauthenticated. No protection,
+billing, review requirement or required check has changed. None of these seven
+PRs is merged. All engineering and formal approval gaps below remain open.
+
 ### Subsequent executable batches and reconciliation — 2026-11-06
 
 The artifact Test candidate `c79880f45fb02b8b42823cac8929db1528de3764`
@@ -183,15 +236,15 @@ HOLD identifies only the explicit concrete approval/activation boundary.
 | 13 | Compatibility/migration | PARTIAL: old-reader rejection and original recovery | Full migration/origin/rollback OPEN; scope approval HOLD |
 | 14 | Offline bundles | PARTIAL: atomic in-memory content index and Source bodies | Durable container and complete body closure OPEN |
 | 15 | Independent result axes | Existing execution/coverage/verdict/freshness preserved | New trust/authorization axes and verifier OPEN |
-| 16 | Producer allowlist | OPEN: exact workflow/service proposal required | Formal allowlist HOLD |
-| 17 | Attestation | OPEN: compare and implement protected proof candidate | Root/keys/rotation/revocation HOLD |
-| 18 | Independent verifier | OPEN beyond pure schema/hash/binding stages | Authentication/run/eligibility stages OPEN |
+| 16 | Producer allowlist | PARTIAL: synthetic registration/revocation only; exact workflow/service proposal OPEN | Formal allowlist HOLD |
+| 17 | Attestation | PARTIAL: synthetic DSSE/in-toto/RSA-PSS and candidate comparison | Root/keys/rotation/revocation HOLD |
+| 18 | Independent verifier | PARTIAL: synthetic protected proof and exact run/input checks | Host authorization/eligibility and production proof stages OPEN |
 | 19 | Current authorization | OPEN: Acquire/View/Export/Apply host adapters and negatives | Important authorization changes HOLD |
 | 20 | Eligibility policy | OPEN: exact Requirement/target/run policy candidate | Policy Owner approval HOLD |
 | 21 | Redacted projection | OPEN: separate identity and leakage matrix | Disclosure review HOLD |
 | 22 | Retention/Pin | OPEN: synthetic bounded retention/Pin candidate | Production values/deletion activation HOLD |
-| 23 | Explicit acquisition | OPEN: scoped synthetic capability/allowlist resolver | Real destinations/identities/transmission HOLD |
-| 24 | Typed external bodies | OPEN: Unit/Calendar/Document/Tenant Resource schemas | Formal body contracts HOLD |
+| 23 | Explicit acquisition | PARTIAL: Unit-only current capability/allowlist and failure privacy controls | Real destinations/identities/transmission HOLD |
+| 24 | Typed external bodies | PARTIAL: immutable synthetic Unit; other body contracts OPEN | Formal body contracts HOLD |
 | 25 | Verified closure | OPEN: complete frontier/version/body/trust matrix | Unverified closure cannot execute |
 | 26 | Supported IR | Existing local graph semantics preserved | External executable lowering HOLD |
 | 27 | TMT/SPEC mapping | Existing private draft reused; exact packet OPEN | Personal Owner approval HOLD |
@@ -208,7 +261,7 @@ HOLD identifies only the explicit concrete approval/activation boundary.
 | 38 | Parallel clients | Existing Angular and synthetic Windows ViewModel retained | Native UI/IME activation HOLD |
 | 39 | Project data stages | Synthetic only; full staged qualification OPEN | Pilot/Production data connection HOLD |
 | 40 | Infrastructure | Modular monolith and Compose retained; measured trigger packets OPEN | Production infrastructure HOLD |
-| 41 | Measured limits | Existing Find References 4096/64/32 preserved | New measurements OPEN; guarantees HOLD |
+| 41 | Measured limits | PARTIAL: three Unit byte fixtures; existing Find References 4096/64/32 preserved | Full limit/device matrix OPEN; guarantees HOLD |
 | 42 | Solver/library | No extra dependency introduced; necessity review OPEN | Unneeded adoption not justified |
 | 43 | Distribution | Candidate audience/environment/update packet OPEN | Actual distribution approval HOLD |
 | 44 | Release GO | Exact release/security/recovery/operations packet OPEN | RELEASE_NO_GO |
