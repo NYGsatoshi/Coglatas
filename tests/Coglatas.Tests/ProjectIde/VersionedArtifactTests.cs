@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
-using Coglatas.Domain.ProjectIde.Artifacts;
+using Coglatas.Domain.ProjectIde.VersionedArtifacts;
 
 namespace Coglatas.Tests.ProjectIde;
 

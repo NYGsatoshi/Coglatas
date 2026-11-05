@@ -19,12 +19,12 @@ concurrency:
 
 jobs:
   ubuntu:
-    name: Prototype artifact parity (ubuntu-24.04)
+    name: Prototype artifact parity (ubuntu-latest)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
        startsWith(github.base_ref, 'projectide/artifact-foundation-'))
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
@@ -90,17 +90,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: projectide-prototype-ubuntu-24.04-${{ github.run_attempt }}
+          name: projectide-prototype-ubuntu-latest-${{ github.run_attempt }}
           path: candidate-evidence
           if-no-files-found: error
 
   windows:
-    name: Prototype artifact parity (windows-2025)
+    name: Prototype artifact parity (windows-latest)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
        startsWith(github.base_ref, 'projectide/artifact-foundation-'))
-    runs-on: windows-2025
+    runs-on: windows-latest
     timeout-minutes: 25
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
@@ -166,6 +166,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: projectide-prototype-windows-2025-${{ github.run_attempt }}
+          name: projectide-prototype-windows-latest-${{ github.run_attempt }}
           path: candidate-evidence
           if-no-files-found: error
