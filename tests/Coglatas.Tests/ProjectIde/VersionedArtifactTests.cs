@@ -173,6 +173,40 @@ public sealed class VersionedArtifactTests
         Assert.Throws<FormatException>(() => PrototypeArtifact.ReadCanonical([0xef, 0xbb, 0xbf, .. Manifest().Data.ToCanonicalBytes()]));
     }
 
+    [Theory]
+    [InlineData("truncated")]
+    [InlineData("not-json")]
+    [InlineData("invalid-utf8")]
+    [InlineData("missing-payload")]
+    [InlineData("missing-context")]
+    [InlineData("missing-actual")]
+    public void Malformed_artifact_buffers_are_invalid_and_recover_the_exact_original_bytes(string input)
+    {
+        byte[] bytes;
+        if (input == "truncated") bytes = "{\"artifactType\":"u8.ToArray();
+        else if (input == "not-json") bytes = "not-json"u8.ToArray();
+        else if (input == "invalid-utf8") bytes = [0xff, 0xfe];
+        else
+        {
+            var manifest = Manifest(null, Entry());
+            var data = input == "missing-actual"
+                ? Actual(manifest, "completed", new { entryKey = "a", expected = new ArtifactIdentity("coglatas.prototype.unit", 1, 1, new string('a', 64)).Data.Value,
+                    state = "missing", actual = (object?)null }).Data
+                : manifest.Data;
+            var node = JsonNode.Parse(data.CanonicalText)!.AsObject();
+            if (input == "missing-payload") node.Remove("payload");
+            else if (input == "missing-context") node["source"]!.AsObject().Remove("context");
+            else node["payload"]!["entries"]![0]!.AsObject().Remove("actual");
+            bytes = SourceJson.Parse(node.ToJsonString()).ToCanonicalBytes();
+        }
+        var result = ArtifactDecodeResult.Decode(bytes);
+        Assert.Equal(ArtifactDecodeStatus.Invalid, result.Status);
+        Assert.Null(result.Artifact);
+        Assert.Equal(bytes, result.RecoverOriginalBytes());
+        var recovered = result.RecoverOriginalBytes(); recovered[0] ^= 1;
+        Assert.Equal(bytes, result.RecoverOriginalBytes());
+    }
+
     [Fact]
     public void Entry_keys_and_reference_bindings_are_unique_and_project_scope_is_exact()
     {

@@ -69,7 +69,7 @@ jobs:
                 @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
               throw "Incomplete or unsuccessful $name inventory"
             }
-            if (($name -eq 'projectide' -and [int]$counters.total -lt 964) -or
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
             }
@@ -145,7 +145,7 @@ jobs:
                 @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
               throw "Incomplete or unsuccessful $name inventory"
             }
-            if (($name -eq 'projectide' -and [int]$counters.total -lt 964) -or
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
             }
