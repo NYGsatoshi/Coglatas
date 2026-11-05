@@ -240,10 +240,13 @@ public sealed class VersionedArtifactTests
         var actual = Actual(manifest); var receipt = Receipt(association, actual); var store = new PrototypeArtifactStore();
         Assert.Equal(ArtifactImportState.Incomplete, store.Import(receipt.Identity, Buffers(receipt, association, actual), [source]));
         Assert.Equal(0, store.Count);
+        Assert.Equal(0, store.SourceCount);
         Assert.Equal(ArtifactImportState.Incomplete, store.Import(receipt.Identity, Buffers(receipt, association, actual, manifest), []));
         Assert.Equal(0, store.Count);
         Assert.Equal(ArtifactImportState.Imported, store.Import(receipt.Identity, Buffers(receipt, association, actual, manifest), [source]));
         Assert.Equal(4, store.Count);
+        Assert.Equal(source.Data.CanonicalText, store.FindSource(Pin(source))!.Data.CanonicalText);
+        Assert.Equal(1, store.SourceCount);
         Assert.Equal(receipt.Identity, store.Find(receipt.Identity)!.Identity);
         Assert.Null(store.Find(new(receipt.Identity.ArtifactType, 1, 1, new string('f', 64))));
     }
@@ -301,5 +304,19 @@ public sealed class VersionedArtifactTests
         var store = new PrototypeArtifactStore();
         Assert.Throws<FormatException>(() => store.Import(tampered.Identity, Buffers(manifest, tampered), [CompilerContractFixtures.Source()]));
         Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
+    public async Task Concurrent_offline_imports_preserve_both_immutable_source_contexts()
+    {
+        var firstSource = CompilerContractFixtures.Source(); var secondSource = CompilerContractFixtures.Source(7);
+        var first = Manifest(firstSource); var second = Manifest(secondSource); var store = new PrototypeArtifactStore();
+        var outcomes = await Task.WhenAll(
+            Task.Run(() => store.Import(first.Identity, Buffers(first), [firstSource])),
+            Task.Run(() => store.Import(second.Identity, Buffers(second), [secondSource])));
+        Assert.All(outcomes, outcome => Assert.Equal(ArtifactImportState.Imported, outcome));
+        Assert.Equal(2, store.Count); Assert.Equal(2, store.SourceCount);
+        Assert.Equal(firstSource.Data.CanonicalText, store.FindSource(Pin(firstSource))!.Data.CanonicalText);
+        Assert.Equal(secondSource.Data.CanonicalText, store.FindSource(Pin(secondSource))!.Data.CanonicalText);
     }
 }

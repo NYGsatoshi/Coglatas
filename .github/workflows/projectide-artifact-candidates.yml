@@ -7,6 +7,7 @@ on:
       - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
+      - tests/ci/projectide_artifact_inventory.py
       - .github/workflows/projectide-artifact-candidates.yml
 
 permissions:
@@ -39,6 +40,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up repository SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -48,6 +50,10 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
+      - name: Set up inventory verifier
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
       - name: Build with warnings as errors
         run: dotnet build Coglatas.slnx -c Release -warnaserror
       - name: Run complete ProjectIDE inventory
@@ -67,7 +73,7 @@ jobs:
                 @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
               throw "Incomplete or unsuccessful $name inventory"
             }
-            if (($name -eq 'projectide' -and [int]$counters.total -lt 963) -or
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 964) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
             }
@@ -76,6 +82,14 @@ jobs:
           Get-FileHash candidate-evidence/*.trx -Algorithm SHA256 | ForEach-Object {
             @{ file = Split-Path $_.Path -Leaf; sha256 = $_.Hash.ToLowerInvariant() }
           } | ConvertTo-Json | Set-Content candidate-evidence/trx-digests.json
+      - name: Reconcile retained exact test identities
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
