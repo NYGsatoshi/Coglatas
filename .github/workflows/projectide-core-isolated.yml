@@ -75,3 +75,47 @@ jobs:
           python-version: '3.12.12'
       - name: Reject incomplete or tampered TRX and ownership
         run: python3 -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
+
+  integrated-core:
+    name: Dedicated Core Test port and complete inventory
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.base_ref == 'projectide/integration-20261031' &&
+      startsWith(github.head_ref, 'test/projectide-integration-compiler-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact integration Test candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Set up evidence interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12.12'
+      - name: Verify TRX and ownership negative controls
+        run: python3 -B -m unittest discover -s tests/ci -p 'test_projectide*isolated.py' -v
+      - name: Verify the integrated Product and Test sources
+        env:
+          PRODUCT_BASE: ${{ github.event.pull_request.base.sha }}
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVIDENCE_ROOT: ${{ runner.temp }}/projectide-integration-${{ github.run_id }}-${{ github.run_attempt }}
+          DOTNET_CLI_UI_LANGUAGE: en-US
+        run: >-
+          python3 -B tests/ci/projectide_integration_verify.py
+          --base "$PRODUCT_BASE"
+          --head "$TEST_HEAD"
+          --receipt "$EVIDENCE_ROOT/receipt.json"
+      - name: Upload complete TRX, discovery and evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-integration-core-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/projectide-integration-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
