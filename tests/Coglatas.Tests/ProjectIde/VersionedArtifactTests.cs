@@ -177,9 +177,9 @@ public sealed class VersionedArtifactTests
     public void Entry_keys_and_reference_bindings_are_unique_and_project_scope_is_exact()
     {
         Assert.Throws<FormatException>(() => Manifest(null, Entry(), Entry()));
-        Assert.Throws<FormatException>(() => Manifest(null, Entry("b"), Entry("a")));
+        Assert.Throws<FormatException>(() => Manifest(null, Entry("b"), Entry()));
         Assert.Throws<FormatException>(() => Manifest(null, Entry(source: CompilerContractFixtures.Source(7))));
-        var manifest = Manifest(null, Entry("a"), Entry("b"));
+        var manifest = Manifest(null, Entry(), Entry("b"));
         Assert.Throws<FormatException>(() => Change(manifest, root => root["payload"]!["entries"]![1]!["sourceBinding"]!["referenceKey"] = "a"));
         Assert.Throws<FormatException>(() => Change(manifest, root => root["payload"]!["entries"]![0]!["target"]!["kind"] = "calendar"));
     }
@@ -272,17 +272,17 @@ public sealed class VersionedArtifactTests
     public void Cancellation_during_successful_or_terminal_MoveNext_disposes_without_publication(bool yieldItem)
     {
         var manifest = Manifest(); using var cancellation = new CancellationTokenSource(); var disposed = false;
-        IEnumerable<ReadOnlyMemory<byte>> Interrupted()
+        IEnumerable<ReadOnlyMemory<byte>> Interrupted(Action cancel)
         {
             try
             {
-                cancellation.Cancel();
+                cancel();
                 if (yieldItem) yield return manifest.Data.ToCanonicalBytes();
             }
             finally { disposed = true; }
         }
         var store = new PrototypeArtifactStore();
-        Assert.Equal(ArtifactImportState.Cancelled, store.Import(manifest.Identity, Interrupted(), [], cancellation.Token));
+        Assert.Equal(ArtifactImportState.Cancelled, store.Import(manifest.Identity, Interrupted(cancellation.Cancel), [], cancellation.Token));
         Assert.True(disposed); Assert.Equal(0, store.Count);
     }
 
