@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - src/Coglatas.Domain/ProjectIde/VersionedArtifacts/**
+      - src/Coglatas.Application/ProjectIde/ReceiptVerification/**
       - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
+      - tests/Coglatas.Tests/ProjectIde/SyntheticReceiptAuthenticationTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
@@ -23,7 +25,8 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
-       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+       startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -99,7 +102,8 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
-       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+       startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: windows-latest
     timeout-minutes: 25
     env:
