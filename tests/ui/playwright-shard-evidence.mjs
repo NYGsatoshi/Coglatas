@@ -103,3 +103,23 @@ export function constructUnverifiedShardEvidence({
     requiredCheckQualified: false,
   };
 }
+
+/**
+ * Source-only discovery inventory (NOT proof of result coverage or artifact origin).
+ * The Playwright --list reporter can call this without running a browser.
+ * Only hashed TestCase.id values leave this module.
+ */
+export function constructSourceOnlyDiscovery({ sourceSha, discoveredTests }) {
+  if (typeof sourceSha !== 'string' || !SHA.test(sourceSha)) deny('SOURCE_SHA');
+  const tests = testsOf(discoveredTests, 'SOURCE');
+  return {
+    schema: 'coglatas.playwright-source-discovery.v1',
+    suite: 'angular-static',
+    sourceSha,
+    tests,
+    rosterSha256: rosterDigest(sourceSha, tests),
+    artifactTrust: 'EXTERNAL_VERIFICATION_REQUIRED',
+    requiredCheckQualified: false,
+    qualification: 'SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF',
+  };
+}

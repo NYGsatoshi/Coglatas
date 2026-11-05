@@ -129,6 +129,9 @@ jobs:
       - name: Test nonpublishing Playwright Reporter hook fail-closed lifecycle
         run: node --test tests/ui/playwright-shard-capture.node-test.mjs
 
+      - name: Test privacy-safe full Playwright source-list discovery
+        run: node --test tests/ui/playwright-full-source-list.node-test.mjs
+
       - name: Verify PR Security prebuilt-image source and negative controls
         run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
 
@@ -913,6 +916,17 @@ jobs:
       - name: Install Angular dependencies with reviewed lifecycle policy
         if: needs.frontend-build.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: List original static Playwright test IDs on isolated trial branch only
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        env:
+          COGLATAS_SOURCE_DISCOVERY_TRIAL: "1"
+        run: node scripts/ci/qualify-playwright-full-source-list.mjs
 
       - name: Run frontend checks in parallel
         if: needs.frontend-build.outputs.frontend == 'true'
