@@ -101,7 +101,8 @@ public sealed class SyntheticReceiptAuthenticationTests
     [Fact]
     public void Wrong_trust_root_and_fabricated_signature_are_rejected_even_with_the_same_key_hint()
     {
-        using var fixture = new Fixture(); using var other = RSA.Create(2048);
+        using var fixture = new Fixture();
+        using var other = RSA.Create(2048);
         Assert.Equal(SyntheticProofStatus.Invalid, fixture.Verify(fixture.Envelope(key: other)).Status);
         var wrongRoot = new SyntheticProducerRegistration("synthetic-ci", fixture.Expected.WorkflowIdentity,
             fixture.Expected.EnvironmentIdentity, "v1", false, other.ExportSubjectPublicKeyInfo());
@@ -245,7 +246,8 @@ public sealed class SyntheticReceiptAuthenticationTests
     [Fact]
     public void Weak_or_trailing_public_key_bytes_are_rejected_and_registration_defensively_copies_key_material()
     {
-        using var fixture = new Fixture(); using var weak = RSA.Create(1024);
+        using var fixture = new Fixture();
+        using var weak = RSA.Create(1024);
         Assert.Throws<ArgumentException>(() => new SyntheticProducerRegistration("synthetic-ci", "workflow", "runner", "v1", false, weak.ExportSubjectPublicKeyInfo()));
         Assert.Throws<ArgumentException>(() => new SyntheticProducerRegistration("synthetic-ci", "workflow", "runner", "v1", false, [.. fixture.Key.ExportSubjectPublicKeyInfo(), 0]));
         var key = fixture.Key.ExportSubjectPublicKeyInfo();
