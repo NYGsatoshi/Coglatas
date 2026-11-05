@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import os
+import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import unittest
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMON_PATH = ROOT / "scripts" / "performance" / "common.py"
@@ -419,6 +425,234 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
                     return_value=subprocess.CompletedProcess(["docker"], code, stdout, "")):
                 with self.assertRaises(SystemExit):
                     self.verifier.render_source_compose(Path("/tmp/base.yml"), Path("/tmp/overlay.yml"))
+
+
+class PerformanceHttpRedirectTests(unittest.TestCase):
+    """Real owned-loopback transport controls; no benchmark or backend acceptance."""
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / 'scripts/performance'))
+        self.addCleanup(sys.path.remove, str(ROOT / 'scripts/performance'))
+        import preflight
+        import warmup
+        self.preflight = preflight
+        self.warmup = warmup
+        self.canary = secrets.token_hex(16)
+        self.enterContext(patch.dict(os.environ, {
+            'NO_PROXY': '*', 'no_proxy': '*',
+            'COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED': 'false',
+            'COGLATAS_PERFORMANCE_PASSWORD': self.canary,
+        }))
+        self.enterContext(patch.object(preflight.urllib.request, '_opener', None))
+
+    @contextmanager
+    def server(self, responder, host='127.0.0.1'):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                responder(self)
+
+            def do_POST(self):
+                responder(self)
+
+            def log_message(self, *_):
+                pass
+
+        server = ThreadingHTTPServer((host, 0), Handler)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever,
+                                  kwargs={'poll_interval': 0.01}, daemon=True)
+        thread.start()
+        try:
+            yield f'http://{host}:{server.server_port}'
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+            self.assertFalse(thread.is_alive(), 'Owned HTTP listener must stop.')
+
+    @staticmethod
+    def reply(request, status=200, document=None, headers=()):
+        body = json.dumps(document or {}).encode()
+        request.send_response(status)
+        request.send_header('Content-Type', 'application/json')
+        request.send_header('Content-Length', str(len(body)))
+        for name, value in headers:
+            request.send_header(name, value)
+        request.end_headers()
+        try:
+            request.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # Rejected responses may be closed before the owned server writes its body.
+
+    def invoke_warmup(self, base):
+        _, profile = common.load_profile('small')
+        evidence = {
+            'schemaVersion': 1, 'fixtureVersion': common.FIXTURE_VERSION,
+            'seedManifestVersion': 1, 'profile': 'small', 'seed': profile['seed'],
+            'fixtureHash': common.fixture_hash('small'), 'migrationStatus': 'current',
+            'complete': True, 'cardinalities': profile['counts'], 'focus': profile['focus'],
+            'identities': {key: 'owned-performance-control' for key in (
+                'tenantSlug', 'operatorEmail', 'workspaceId', 'taskListProjectId',
+                'ganttProjectId', 'kanbanProjectId')},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture = root / 'fixture.json'
+            fixture.write_text(json.dumps(evidence), encoding='utf-8')
+            output = root / 'warmup.json'
+            arguments = ['warmup.py', '--base-url', base, '--profile', 'small',
+                         '--fixture-evidence', str(fixture), '--output', str(output)]
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with patch.object(sys, 'argv', arguments), redirect_stdout(stdout), redirect_stderr(stderr):
+                status = self.warmup.main()
+            document = json.loads(output.read_text()) if output.exists() else None
+            return status, document, stdout.getvalue(), stderr.getvalue()
+
+    def responder(self, records, redirect_stage=None, location=None, code=302):
+        def respond(request):
+            stage = ('csrf' if request.path == '/api/security/csrf-token' else
+                     'login' if request.path == '/api/auth/login' else 'read')
+            records.append({'stage': stage,
+                            'csrf': request.headers.get('X-Owned-CSRF') == self.canary,
+                            'cookie': f'owned-session={self.canary}' in request.headers.get('Cookie', '')})
+            if stage == redirect_stage:
+                headers = [('Location', location)] if location is not None else []
+                self.reply(request, code, {'private': self.canary}, headers)
+            elif stage == 'csrf':
+                self.reply(request, document={'headerName': 'X-Owned-CSRF', 'token': self.canary})
+            elif stage == 'login':
+                self.reply(request, headers=[('Set-Cookie', f'owned-session={self.canary}; Path=/; HttpOnly')])
+            else:
+                self.reply(request)
+        return respond
+
+    def test_direct_readiness_and_http_failure_keep_their_status_and_body(self):
+        for status in (200, 403):
+            with self.subTest(status=status):
+                with self.server(lambda request: self.reply(request, status, {'status': status})) as base:
+                    result, body = self.preflight.request_ok(common.validate_target(base) + '/health/ready',
+                                                             'owned-control', 10)
+                self.assertEqual(status, result)
+                self.assertEqual({'status': status}, json.loads(body))
+
+    def test_direct_warmup_keeps_csrf_cookie_authentication_and_output(self):
+        records = []
+        with self.server(self.responder(records)) as base:
+            status, document, stdout, stderr = self.invoke_warmup(common.validate_target(base))
+        self.assertEqual(0, status)
+        self.assertEqual('', stderr)
+        self.assertFalse(document['measured'])
+        self.assertTrue(any(row['stage'] == 'login' and row['csrf'] for row in records))
+        self.assertTrue(any(row['stage'] == 'read' for row in records))
+        self.assertTrue(all(row['cookie'] for row in records if row['stage'] == 'read'))
+        self.assertNotIn(self.canary, stdout + stderr + json.dumps(document))
+
+    def test_readiness_rejects_redirect_before_forbidden_owned_loopback_target(self):
+        hits = []
+        with self.server(lambda request: (hits.append(True), self.reply(request)), '127.0.0.2') as target:
+            with self.assertRaises(common.PerformanceContractError):
+                common.validate_target(target)
+            with self.server(lambda request: self.reply(request, 302, headers=[('Location', target)])) as base:
+                try:
+                    self.preflight.request_ok(common.validate_target(base) + '/health/ready', self.canary, 10)
+                except self.preflight.PerformanceContractError:
+                    pass
+        self.assertEqual(0, len(hits), 'A forbidden owned redirect listener must never be contacted.')
+
+    def assert_warmup_redirect_rejected(self, stage):
+        hits = []
+        with self.server(lambda request: (hits.append(True), self.reply(request,
+                         document={'headerName': 'X-Owned-CSRF', 'token': self.canary})), '127.0.0.2') as target:
+            with self.server(self.responder([], stage, target + '/' + self.canary)) as base:
+                status, document, stdout, stderr = self.invoke_warmup(common.validate_target(base))
+        self.assertEqual(0, len(hits), 'A forbidden owned redirect listener must never be contacted.')
+        self.assertEqual(2, status)
+        self.assertIsNone(document, 'A redirected warm-up must not publish successful output.')
+        self.assertNotIn(self.canary, stdout + stderr)
+
+    def test_csrf_bootstrap_rejects_forbidden_redirect(self):
+        self.assert_warmup_redirect_rejected('csrf')
+
+    def test_login_rejects_forbidden_redirect(self):
+        self.assert_warmup_redirect_rejected('login')
+
+    def test_authenticated_reads_reject_forbidden_redirect(self):
+        self.assert_warmup_redirect_rejected('read')
+
+    def test_all_redirect_statuses_and_location_forms_stop_before_followup(self):
+        hits = []
+        with self.server(lambda request: (hits.append(True), self.reply(request))) as target:
+            for code in (300, 301, 302, 303, 304, 305, 306, 307, 308, 399):
+                for location in (target, target.replace('http:', '', 1), '/relative', None):
+                    with self.subTest(code=code, location_kind='absent' if location is None else 'present'):
+                        requests = []
+
+                        def redirect(request):
+                            requests.append(True)
+                            headers = [] if location is None else [('Location', location)]
+                            self.reply(request, code, {'private': self.canary}, headers)
+
+                        with self.server(redirect) as base:
+                            with self.assertRaisesRegex(self.preflight.PerformanceContractError,
+                                                        '^performance HTTP redirects are not permitted$'):
+                                self.preflight.request_ok(common.validate_target(base) + '/health/ready',
+                                                         'owned-control', 10)
+                        self.assertEqual(1, len(requests))
+                        self.assertEqual(0, len(hits))
+
+    def test_warmup_does_not_accept_a_3xx_status_without_location(self):
+        with self.server(self.responder([], 'read', code=304)) as base:
+            status, document, stdout, stderr = self.invoke_warmup(common.validate_target(base))
+        self.assertEqual(2, status)
+        self.assertIsNone(document)
+        self.assertNotIn(self.canary, stdout + stderr)
+
+    def test_rejected_response_is_closed_even_when_close_raises(self):
+        opener = self.warmup.performance_opener()
+        processor = next(handler for handler in opener.handlers
+                         if isinstance(handler, self.preflight.urllib.request.HTTPErrorProcessor))
+        for transport in (processor.http_response, processor.https_response):
+            for failure in (None, OSError(self.canary), ValueError(self.canary), RuntimeError(self.canary)):
+                with self.subTest(close_failure=type(failure).__name__):
+                    response = Mock(code=302)
+                    response.close.side_effect = failure
+                    with self.assertRaises(self.preflight.PerformanceContractError) as caught:
+                        transport(Mock(), response)
+                    response.close.assert_called_once_with()
+                    self.assertEqual('performance HTTP redirects are not permitted', str(caught.exception))
+                    self.assertTrue(caught.exception.__suppress_context__)
+                    self.assertNotIn(self.canary, str(caught.exception))
+
+    def test_explicit_opener_preserves_the_global_opener(self):
+        sentinel = object()
+        with patch.object(self.preflight.urllib.request, '_opener', sentinel):
+            with self.server(lambda request: self.reply(request)) as base:
+                status, _ = self.preflight.request_ok(common.validate_target(base) + '/health/ready',
+                                                     'owned-control', 10)
+            self.assertEqual(200, status)
+            self.assertIs(sentinel, self.preflight.urllib.request._opener)
+
+    def test_shared_authenticated_probe_keeps_direct_cookies_and_denies_redirects(self):
+        from db_probe_import import login, request
+        import http.cookiejar
+
+        records = []
+        with self.server(self.responder(records)) as base:
+            opener = self.warmup.performance_opener(http.cookiejar.CookieJar())
+            headers = login(opener, common.validate_target(base), {'identities': {
+                'tenantSlug': 'owned-control', 'operatorEmail': 'owned-control@example.test'}})
+            status, _ = request(opener, base, '/api/announcements', headers)
+        self.assertEqual(200, status)
+        self.assertTrue(any(row['stage'] == 'login' and row['csrf'] for row in records))
+        self.assertTrue(any(row['stage'] == 'read' and row['cookie'] for row in records))
+
+        hits = []
+        with self.server(lambda response: (hits.append(True), self.reply(response))) as target:
+            with self.server(self.responder([], 'read', target)) as base:
+                opener = self.warmup.performance_opener(http.cookiejar.CookieJar())
+                with self.assertRaises(self.preflight.PerformanceContractError):
+                    request(opener, common.validate_target(base), '/api/announcements', {})
+        self.assertEqual(0, len(hits))
 
 
 if __name__ == "__main__":

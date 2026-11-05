@@ -13,11 +13,10 @@ import secrets
 import subprocess
 import sys
 import tempfile
-import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
-from common import PerformanceContractError, load_json, repository_root, validate_fixture_evidence, validate_target, write_json_atomic
+from common import PerformanceContractError, load_json, performance_opener, repository_root, validate_fixture_evidence, validate_target, write_json_atomic
 from compare import api_metric_budget, compare_api_documents, environment_compatibility_key
 from environment_class import environment_class, hardware_fingerprint, enrich_live_legacy_fingerprint
 from api_diagnostics import collect_sidecar, read_client_events
@@ -224,7 +223,7 @@ def collect(output: Path) -> None:
             else:
                 measurements = normalize(raw, contract)
     with collection_stage('post-collection-health'):
-        with urllib.request.urlopen(f'{base}/health/ready', timeout=10) as response:
+        with performance_opener().open(f'{base}/health/ready', timeout=10) as response:
             if response.status != 200:
                 raise PerformanceContractError('application unhealthy after k6')
     fingerprint['k6Version'] = contract['k6Version']

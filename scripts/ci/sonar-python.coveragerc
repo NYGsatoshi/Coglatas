@@ -37,5 +37,13 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional-setup-failure-probe.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/process-zap-report.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-ci.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/common.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/preflight.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/warmup.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-probe.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-runtime-preflight.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/api_k6.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/announcement-diagnostic.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-announcement-diagnostic.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py

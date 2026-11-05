@@ -6,9 +6,8 @@ import re
 import time
 import http.cookiejar
 import subprocess
-import urllib.request
 from pathlib import Path
-from common import write_json_atomic
+from common import performance_opener, write_json_atomic
 from local_support import ROOT, invoke, load_json, now, failure
 from local_evidence import require
 
@@ -34,7 +33,7 @@ def main():
     ids = {s: invoke(["docker", "ps", "-q", "--filter", "label=com.docker.compose.project=" + project,
                      "--filter", "label=com.docker.compose.service=" + s]) for s in ("app", "postgres")}
     pids = {s: int(invoke(["docker", "inspect", "--format", "{{.State.Pid}}", cid])) for s, cid in ids.items()}
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    opener = performance_opener(http.cookiejar.CookieJar())
     base = os.environ["COGLATAS_PERFORMANCE_BASE_URL"]
     headers = observer.login(opener, base, fixture)
     route = "/api/announcements?pageSize=5&page=1"

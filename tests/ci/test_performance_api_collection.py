@@ -77,7 +77,11 @@ class ApiCollectionFailureTests(unittest.TestCase):
             patches.enter_context(patch.object(api_k6.subprocess, 'run', side_effect=docker))
             response = MagicMock()
             response.__enter__.return_value.status = 503 if failure == 'health' else 200
-            patches.enter_context(patch.object(api_k6.urllib.request, 'urlopen', return_value=response))
+            opener = MagicMock()
+            opener.open.return_value = response
+            if failure == 'health-redirect':
+                opener.open.side_effect = api_k6.PerformanceContractError('performance HTTP redirects are not permitted')
+            patches.enter_context(patch.object(api_k6, 'performance_opener', return_value=opener))
             patches.enter_context(patch.object(sys, 'argv', ['api_k6.py', 'collect', '--output', str(output)]))
             stdout, stderr = io.StringIO(), io.StringIO()
             with redirect_stdout(stdout), redirect_stderr(stderr):
@@ -90,6 +94,7 @@ class ApiCollectionFailureTests(unittest.TestCase):
             'version': 'k6-version', 'version-timeout': 'k6-version', 'process-timeout': 'k6-process',
             'missing-summary': 'k6-summary', 'failed-missing-summary': 'k6-summary', 'invalid-summary': 'k6-summary',
             'process-exit': 'k6-exit', 'authentication': 'measurement-contract', 'health': 'post-collection-health',
+            'health-redirect': 'post-collection-health',
         }
         for failure, stage in cases.items():
             with self.subTest(failure=failure):

@@ -16,7 +16,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-from common import PerformanceContractError, load_json, validate_fixture_evidence, validate_target, write_json_atomic, repository_root
+from common import PerformanceContractError, load_json, performance_opener, validate_fixture_evidence, validate_target, write_json_atomic, repository_root
 from db_gate import capture_failures, fingerprint_counts, index_kinds, plan_invariant, validate_capture, validate_contract
 
 
@@ -95,7 +95,7 @@ def collect(args, contract):
     if not __import__("re").fullmatch(r"[0-9a-f]{40}", fingerprint.get("commitSha", "")):
         raise PerformanceContractError("missing head identity")
     capture_dir = Path(os.environ["COGLATAS_PERFORMANCE_DB_EVIDENCE_PATH"])
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    opener = performance_opener(http.cookiejar.CookieJar())
     headers = login(opener, base, fixture)
     policy = contract["policy"]
     output = {"schemaVersion": 1, "headSha": fingerprint["commitSha"], "profile": args.profile, "fixtureHash": fixture["fixtureHash"], "fixtureVersion": fixture["fixtureVersion"], "warmupSamplesExcluded": True, "collectionComplete": False, "scenarios": [], "plans": [], "measurements": []}
