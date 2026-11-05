@@ -22,6 +22,12 @@ This document describes what the repository currently supports. It is not a prod
 - Builds and publishes `Coglatas.Web`.
 - Builds the Angular frontend in a Node.js stage and copies the browser artifacts into `src/Coglatas.Web/wwwroot` before publishing `Coglatas.Web`.
 - Installs `curl` for health checks.
+- Both final-runtime Dockerfiles upgrade the inherited APT client and library
+  before installing runtime packages, disable download retries during that
+  upgrade, and reject versions below Noble's `2.8.4ubuntu0.1` security fix for
+  [CVE-2026-109518](https://ubuntu.com/security/CVE-2026-109518). Fresh image
+  builds and digest-bound scanner evidence remain required; existing deployed
+  images are not updated by a source change.
 - Listens on HTTP port 8080.
 - Does not apply migrations.
 
