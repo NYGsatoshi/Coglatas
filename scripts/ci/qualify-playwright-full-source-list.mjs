@@ -132,10 +132,11 @@ export function runSourceDiscovery(env = process.env) {
       CI: 'true',
     },
   });
-  if (child.error || child.signal || child.status !== 0 ||
-      typeof child.stdout !== 'string' || child.stdout.length > 512 * 1024) {
-    deny('PLAYWRIGHT_SOURCE_LIST_FAILED');
-  }
+  if (child.error) deny('CHILD_START_FAILED');
+  if (child.signal) deny('CHILD_INTERRUPTED');
+  if (child.status !== 0) deny('CHILD_EXIT_NONZERO');
+  if (typeof child.stdout !== 'string' || child.stdout.length > 512 * 1024)
+    deny('INVALID_REPORTER_BUFFER');
   let data;
   try {
     data = JSON.parse(child.stdout);
@@ -154,9 +155,23 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       ' expectedPass=' + result.expectedPass + ' declaredSkip=' + result.declaredSkip +
       ' rosterSha256=' + result.digest +
       ' qualification=SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF\n');
-  } catch {
-    // Suppress test names, Playwright diagnostics, filesystem paths and secrets.
-    process.stderr.write('Playwright full-source discovery refused: UNQUALIFIED_SOURCE_OR_OUTPUT\n');
+  } catch (error) {
+    // Only our fixed nonsecret error codes are printed, never raw test names,
+    // Playwright stderr/stdout, filesystem paths, arguments or exception data.
+    const code = typeof error?.message === 'string'
+      ? /^DISCOVERY_REFUSED:([A-Z_]+)$/.exec(error.message)?.[1]
+      : undefined;
+    const approved = new Set([
+      'BAD_SOURCE_FILE', 'STATIC_SELECTION_NOT_UNIQUE', 'STATIC_SELECTION_SIZE',
+      'INVALID_STATIC_SELECTION', 'SCHEMA', 'UNTRUSTED_DISCOVERY',
+      'UNEXPECTED_TEST_COUNT', 'NONCANONICAL_SOURCE_TESTS', 'SOURCE_DIGEST',
+      'SKIP_BASELINE_DRIFT', 'UNAUTHORIZED_TRIAL_CONTEXT',
+      'SOURCE_CHECKOUT_MISMATCH', 'CHILD_START_FAILED', 'CHILD_INTERRUPTED',
+      'CHILD_EXIT_NONZERO', 'INVALID_REPORTER_BUFFER',
+      'UNSANITIZED_REPORTER_STDOUT',
+    ]);
+    process.stderr.write('Playwright full-source discovery refused: ' +
+      (approved.has(code) ? code : 'UNQUALIFIED_SOURCE_OR_OUTPUT') + '\n');
     process.exitCode = 1;
   }
 }
