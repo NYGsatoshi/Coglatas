@@ -11,6 +11,12 @@ import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.
 import { MessagingFacade } from '../messaging.facade';
 import { MessagesPageComponent } from './messages-page.component';
 
+/**
+ * Opens an authenticated Angular dialog with controlled HTTP and realtime callbacks.
+ * The caller owns finish(), which destroys the view and verifies pending requests.
+ * @param workspaceId Optional workspace selected before the dialog opens.
+ * @returns The fixture, current identity, transport controls and cleanup callback.
+ */
 async function setup(workspaceId?: string) {
   let catchUp: (() => Promise<void> | void) | undefined;
   const clearers = new Map<string, (reason: ProtectedStateClearReason) => void>();
