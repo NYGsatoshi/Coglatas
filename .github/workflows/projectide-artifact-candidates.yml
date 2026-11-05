@@ -87,7 +87,7 @@ jobs:
         run: |
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
@@ -164,7 +164,7 @@ jobs:
         run: |
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
