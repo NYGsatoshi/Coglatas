@@ -42,3 +42,10 @@ two-shard shadow trial #1715 was closed unmerged after +766 runner-seconds
 without an end-to-end improvement; the required full suite remains.
 
 Only merge validated changes into `SecurityTestImplimation`; never Main.
+
+The independent Python interoperability test also invokes the Node helper
+through a bounded subprocess using four synthetic private-label inputs. It
+recomputes domain-separated test IDs and the canonical JSON SHA-256 digest
+with Python's hashlib/json, checks exact candidate roster/shard field sets,
+zero retries, synthetic union, and trust flags. It never reads actual
+Playwright reporter events or grants a Required Check PASS.
