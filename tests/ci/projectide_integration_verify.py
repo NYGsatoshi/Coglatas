@@ -28,12 +28,25 @@ def main() -> None:
         "tests/Coglatas.Tests/ProjectIde/",
         "tests/ci/projectide_",
     )
-    workflow = ".github/workflows/projectide-core-isolated.yml"
+    allowed_files = {
+        ".github/workflows/projectide-core-isolated.yml",
+        "frontend/scripts/av-mig-source.node-test.mjs",
+        "tests/Coglatas.Tests/Coglatas.Tests.csproj",
+        "tests/ci/test_projectide_integration_isolated.py",
+        "tests/ui/projectide-workbench.spec.ts",
+        "tests/ui/run-angular-playwright.mjs",
+    }
+    angular_test_dir = Path("frontend/src/app/features/projectide")
     paths = subprocess.check_output(
         ["git", "diff", "--no-renames", "--name-only", "-z", base, head],
         cwd=root,
     ).decode("utf-8").split("\0")[:-1]
-    if not paths or any(path != workflow and not path.startswith(allowed) for path in paths):
+    if not paths or any(
+        path not in allowed_files
+        and not path.startswith(allowed)
+        and not (Path(path).parent == angular_test_dir and path.endswith(".spec.ts"))
+        for path in paths
+    ):
         raise ValueError("Effective diff must contain only integration Test and verifier files")
     value = {
         "schemaVersion": 1,
