@@ -1,5 +1,53 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Exact composed verification checkpoint — 2026-11-06
+
+Verification-only candidate `8ee1980e2921b24eb04da04b07ec52db8927d302` passes
+the configured local Windows checks below. It is not dedicated integration,
+production activation, formal Requirement Evidence or completion of all 48 rows.
+
+| Check | Executed result and scope |
+| --- | --- |
+| Release solution build, warnings as errors | Zero warnings / errors |
+| Complete ProjectIDE inventory | 1,026 PASS / zero FAIL / zero skipped; all 928 baseline identities retained |
+| Separate architecture project | 12 PASS / zero FAIL / zero skipped; all 12 baseline identities retained |
+| Configured isolated runtime | 353 PASS / zero FAIL / zero skipped; no missing required method identities; requested processor override four |
+| Pinned isolated Kafka | 16/16 actual broker controls PASS; clean exact candidate verified |
+| Node controls | 17 fixture controls and five independent artifact hash controls PASS |
+| Private current object reconciliation | All 114 objects and 101 model tables correspond; five scope-loss mutations rejected |
+
+The warnings-as-errors solution build retains exactly the same six .NET assembly
+bytes as the runtime receipt. Core executes with no processor override; runtime
+uses the explicitly recorded requested override four. These are separate local
+execution profiles, not measured CPU quota or a hardware/performance guarantee.
+All owned disposable PostgreSQL/Kafka containers are cleaned up. An earlier
+architecture command selected 11 backend-project checks; those pass separately
+and are not substituted for the intended 12-case architecture project.
+
+| Local retained artifact | SHA-256 |
+| --- | --- |
+| Runtime report | `a79f97c2e097acb5107b4d6e3e4b203d4b2984df6615fb2b5c402c0e22784b02` |
+| Runtime TRX | `4d4aa5cc9a0a8d1005ca98be4c2b269afec6dd6f7c59a8901ff05ebe2d09c162` |
+| Kafka report | `fb06be9fd9d96dc903ebe57aea6c6b2fb2a92d2e90aa39481c9238c788f00357` |
+| Composed diagnostic receipt | `333d214c5f82d02e64ca65be37c5630e6298bcdfc85eeb21daa5ede4a9d7cf74` |
+
+The full default-profile 17 failures and two-processor timeout below remain
+unchanged. One successful requested profile does not resolve their reliability
+gap, qualify trusted CI attestation, establish all-table/operation/bootstrap
+coverage or approve formal TMT/SPEC mapping, SQL/GRANTs or production RLS.
+The composed SHA has no hosted Ubuntu/Windows joint attestation; the separately
+reconciled hosted component candidates retain their own exact SHA scope.
+
+All eight public PRs currently have passing ordinary checks, including fixture
+Test #1728. The latter's 19:34 UTC explicit review request also returned rate
+limiting. The private Draft has passing mechanical checks; those are not Owner
+approval. No Product/Test/Docs PR from this batch is merged. Remaining migration,
+durable offline closure, complete trust/authorization/eligibility, redaction/
+retention, external-body/IR and environment/release engineering remains OPEN.
+Concrete registry/migration/trust/policy/mapping/activation approvals remain HOLD.
+`#1144` stays BLOCKED; `#1128` stays SUSPENDED / NOT_EVALUATED with no numerical
+or baseline qualification credit and no automatic reactivation.
+
 ### Full runtime failures and environment-identity correction — 2026-11-06
 
 The configured broader isolated runtime runner at `6f0ceaeb` completed **336
