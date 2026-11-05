@@ -1,0 +1,56 @@
+name: SEC-15 RESTler compile foundation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sec15-restler-compile.yml"
+      - "scripts/ci/run-sec15-restler-compile.py"
+      - "scripts/security/restler/**"
+      - "infra/docker/sec15-restler-compiler.Dockerfile"
+      - "tests/ci/test_sec15_restler_compile.py"
+      - "docs/verification/sec15-restler-compile.md"
+  # Fixed read-only qualification of the new source; no scheduled/deep activation.
+  push:
+    branches: [test/sec15-restler-compile-20261027]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sec15-compile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compile:
+    name: SEC-15 actual current-contract compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout immutable source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up existing Product SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Verify fail-closed compiler contracts
+        run: python3 -B -m unittest discover -s tests/ci -p test_sec15_restler_compile.py -v
+      - name: Restore current Product contract generator
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+      - name: Run the real isolated RESTler compiler once
+        id: compile
+        env:
+          COGLATAS_SEC15_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/sec15-pycache
+        run: python3 -B scripts/ci/run-sec15-restler-compile.py
+      - name: Preserve the closed first outcome
+        if: always() && steps.compile.outputs.published == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sec15-restler-compile-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/sec15-restler-compile/result.json
+          if-no-files-found: error
+          retention-days: 7
