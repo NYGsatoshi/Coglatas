@@ -1,5 +1,75 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Subsequent executable batches and reconciliation — 2026-11-06
+
+The artifact Test candidate `c79880f45fb02b8b42823cac8929db1528de3764`
+passed [hosted Windows and Ubuntu parity](https://github.com/NYGsatoshi/Coglatas/actions/runs/42076326289):
+each has 964 ProjectIDE and 12 architecture cases, zero failed/skipped. Downloaded
+ZIPs independently match GitHub SHA-256:
+Windows `d2f199cfbd505b54342e024c381b29b939e9dbb4e5bea454b1c1a492eddbb9b2`,
+Ubuntu `2f649eb6dc6c42a3f0d0a464c923a3c5f46bb5fdbec0751d8d3cf523139cb0d5`.
+Decoded candidate stamps, full TRX/declared inventories and every retained
+928/12 baseline identity reconcile. Its later ReSharper failure identified a
+captured disposable callback and two redundant default arguments in new tests.
+The correction is a new forward Test commit and retains all assertions; fresh
+exact-head CI is required. Earlier host success is not final-head approval.
+
+[Proof Product #1724](https://github.com/NYGsatoshi/Coglatas/pull/1724) and
+[Proof Test #1725](https://github.com/NYGsatoshi/Coglatas/pull/1725) implement a
+synthetic DSSE/in-toto/RSA-PSS authentication experiment. It checks original
+signed bytes, full typed subject/input binding, expected Producer/workflow/run/
+source revision/environment and current registration/revocation twice. Key
+hints cannot establish authority. Successful proof remains diagnostic with
+`FormalEvidenceEligible=false`; no production OIDC/Sigstore root, registration,
+signing service or eligibility policy is activated. New proof cases pass 23/23;
+the combined 987-case inventory passed locally and in
+[both hosted environments](https://github.com/NYGsatoshi/Coglatas/actions/runs/42078881378)
+at Test `0a331cbb2e3f73ddc31211b40c953dd31f48f63b`. Subsequent callback-lifetime
+corrections have fresh CI pending. Work 16/17/18 is PARTIAL, with formal
+allowlist/roots and the remaining verifier/authorization/eligibility stages OPEN/HOLD.
+
+[Acquisition Product #1726](https://github.com/NYGsatoshi/Coglatas/pull/1726) and
+[Acquisition Test #1727](https://github.com/NYGsatoshi/Coglatas/pull/1727) add one
+named synthetic Unit source and an immutable separately hashed Unit body,
+reusing existing UnitDefinition semantics. It requires explicit capability,
+source allowlist, exact current actor/Source/Tenant/Project/Branch/revision and
+post-read current-authority recheck before disclosing body or absence. No URL
+or production provider is enabled. Scope/body/target substitution, revocation,
+cancellation, unsupported kind, source failure and byte exhaustion carry no
+successful body. New cases pass 23/23 and combined local inventory 987/987 at
+Test `9ed8768b9d69fe0323176e83089a957a3bbda4db`; final hosted/review checks remain
+pending after callback cleanup. Work 23/24 is PARTIAL for this Unit-only seam;
+Calendar/Document/Tenant Resource bodies, durable external-body import, complete
+transitive closure and external executable IR remain OPEN/HOLD.
+
+The existing security subset executes 71 cases on actual pinned PostgreSQL 18.6.
+Default-parallel Windows runs yielded 68 PASS / 3 FAIL and 60 PASS / 11 FAIL,
+with read/drop cleanup failures retained. A focused recheck passed 3/3. The same
+71-case subset passed 71/71 with existing migrated-template mode and
+`xUnit.MaxParallelThreads=2`, zero skips, without assertion/timeout changes.
+Docker reported 22 CPUs and 7,004,659,712 memory bytes. This bounded experiment
+does not resolve the default-parallel reliability gap or establish all-adapter
+coverage, product roles/policies/activation, SEC-ARCH exit or numerical assurance.
+The six inventory/ownership controls and suspension validator also pass.
+
+The private specification candidate includes the adopted directions, independently
+reviewable artifact syntax and synthetic proof/acquisition/environment packets.
+Schema draft 2020-12 self-validation and one positive/three rejection controls pass
+with isolated jsonschema 4.26.0. Formal allocation, trust/eligibility, mapping and
+activation approvals remain held. No private specification content is copied here.
+
+Normal review remains unavailable: explicit CodeRabbit requests on #1721/#1722
+and #1724/#1725 returned rate limiting, and the separate CLI login timed out.
+No independent approval or merge is claimed. Product/Test branches retain their
+explicit dependencies and will target only the dedicated integration after
+upstream qualification; no Required Check or protection is relaxed.
+
+External ref movement was observed: Main advanced from starting `0af698ee` to
+`8319300f11e5aca5216f31ca7a3dc1eb91bd9d99` through the already-existing
+Announcement Test PR #1694. This task did not merge or push it and did not
+incorporate it. Dedicated integration remains `634ab304`; SecurityTestImplimation
+remains `35fa0b8b`. The original checkout and its unrelated work are preserved.
+
 ## Owner recommendation adoption execution — 2026-11-06
 
 This section records the new instruction and actual work separately from the
