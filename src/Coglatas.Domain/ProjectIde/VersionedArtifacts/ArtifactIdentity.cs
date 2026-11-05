@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Coglatas.Domain.ProjectIde.Artifacts;
+namespace Coglatas.Domain.ProjectIde.VersionedArtifacts;
 
 /// <summary>Full content identity. It is never an EntityId, authorization grant or producer proof.</summary>
 public sealed record ArtifactIdentity

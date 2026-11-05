@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Coglatas.Domain.ProjectIde.Artifacts;
+namespace Coglatas.Domain.ProjectIde.VersionedArtifacts;
 
 /// <summary>Data-only candidate. Supported syntax establishes neither acquisition nor trust nor evidence eligibility.</summary>
 public sealed class PrototypeArtifact
