@@ -102,6 +102,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires a live persisted administrator for the analytics scope bypass.</summary>
+    /// <param name="inactive">Whether the persisted account is suspended.</param>
+    /// <param name="deleted">Whether the persisted account has been soft deleted.</param>
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
@@ -138,6 +141,8 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Limits legacy global analytics to the persisted administrator role.</summary>
+    /// <param name="administrator">Whether the persisted actor has that role.</param>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -252,6 +257,8 @@ public sealed class AnnouncementAnalyticsServiceTests
             Assert.Single(fixture.Events));
     }
 
+    /// <summary>Rejects unsupported acknowledgement or CTA engagement without persistence effects.</summary>
+    /// <param name="operation">The engagement operation whose content prerequisite is absent.</param>
     [Theory]
     [InlineData("acknowledge")]
     [InlineData("cta")]
@@ -270,6 +277,8 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Preserves read-before-sidecar ordering and avoids staging a duplicate read.</summary>
+    /// <param name="alreadyRead">Whether the recipient already has a committed read.</param>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
