@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { BoundReference, Diagnostic, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
+import { BoundReference, Diagnostic, InspectedSymbol, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -176,6 +176,11 @@ export class ProjectIdeWorkbenchComponent {
     if (navigated) {
       this.open('source', true);
     }
+  }
+  findReferences(symbol: InspectedSymbol): void {
+    this.focusGeneration++;
+    if (this.canRead()) void this.store.findReferences(symbol);
+    else this.store.clear('denied');
   }
   inspectReference(reference: BoundReference): void {
     this.focusGeneration++;

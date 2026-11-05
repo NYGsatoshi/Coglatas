@@ -283,9 +283,27 @@
                     @for (symbol of store.inspectedSymbols(); track symbol.key) {
                       <p>{{ symbol.kind }} · {{ symbol.status }} · {{ symbol.location.propertyPath }}</p>
                       @if (symbol.declaredType) { <pre tabindex="0">{{ symbol.declaredType | json }}</pre> }
+                      <button type="button" (click)="findReferences(symbol)"
+                        [attr.aria-label]="t('ide.findReferences') + ' · ' + symbol.kind + ' · ' + (symbol.location.propertyPath || '/')">
+                        {{ t('ide.findReferences') }}
+                      </button>
                     }
                     <p>{{ t('ide.references') }}: {{ store.inspectedReferences().length }}</p>
-                    @for (reference of store.referenceRows(); track reference) {
+                    @if (store.referenceSearch(); as search) {
+                      <div role="status" data-testid="ide-reference-search">
+                        @if (search.status === 'searching') {
+                          {{ t('ide.referenceSearching') }}
+                        } @else {
+                          {{ t('ide.referenceMatches', { count: search.references.length }) }}
+                          @if (!search.coverageComplete) { {{ t('ide.referencePartial') }} }
+                          @if (search.truncated) { {{ t('ide.referenceLimit') }} }
+                        }
+                      </div>
+                      <button type="button" (click)="store.cancelReferenceSearch()">
+                        {{ t('ide.clearReferenceSearch') }}
+                      </button>
+                    }
+                    @for (reference of store.referenceSearch()?.references ?? store.referenceRows(); track $index) {
                       <p>
                         <button type="button" (click)="inspectReference(reference)"
                           [attr.aria-pressed]="store.selectedReference() === reference">

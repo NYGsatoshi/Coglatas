@@ -7,6 +7,11 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 /// <summary>Pure .NET synthetic ViewModel preparation for Windows. No Avalonia activation, real data or access grant.</summary>
 public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDisposable
 {
+    private const int ReferenceScanLimit = 4096;
+    private const int ReferenceResultLimit = 32;
+    private const int ReferenceOriginCheckLimit = 64;
+    public sealed record ReferenceSearchResult(IReadOnlyList<CompilerBoundReference> References, bool CoverageComplete, bool Truncated);
+
     private CompilerHostRequest? _desired;
     private bool _disposed;
     private long _lastGeneration = -1;
@@ -116,6 +121,43 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         }
         if (NavigationState.Length == 0) NavigationState = "unavailable";
         Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedReference, reference);
+    }
+
+    public ReferenceSearchResult? FindReferences(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Inspection is not { } inspection || (Selected ?? ReferenceSymbol ?? DiagnosticSymbol) is not { } selected ||
+            selected.Symbol.Status != ValueDecodeStatus.Decoded ||
+            inspection.Symbols.Where(item => StringComparer.Ordinal.Equals(item.Symbol.Key, selected.Symbol.Key)).Take(2).Count() != 1 ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+
+        // Core orders References by canonical origin. Stream that projection to bound the scan
+        // and check cancellation, while applying the same exact-key predicate as FindReferences.
+        var references = new List<CompilerBoundReference>();
+        var coverageComplete = inspection.BindingComplete && Result!.Coverage == CompilerCoverage.Complete;
+        var truncated = inspection.References.Count > ReferenceScanLimit;
+        var originChecks = 0;
+        foreach (var reference in inspection.References.Take(ReferenceScanLimit))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reference.State != ReferenceResolutionState.Resolved ||
+                !StringComparer.Ordinal.Equals(reference.SymbolKey, selected.Symbol.Key)) continue;
+            if (references.Count == ReferenceResultLimit || originChecks == ReferenceOriginCheckLimit)
+            {
+                truncated = true;
+                break;
+            }
+            originChecks++;
+            if (Resolve(reference.Origin, requireSourceMap: true) != "ready")
+            {
+                coverageComplete = false;
+                continue;
+            }
+            references.Add(reference);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(references.AsReadOnly(), coverageComplete && !truncated, truncated);
     }
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);

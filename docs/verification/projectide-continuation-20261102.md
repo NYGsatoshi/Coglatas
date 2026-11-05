@@ -1503,3 +1503,17 @@ HEAD. The exact Diagnostic-to-Symbol fix and independent regressions
 are in #1699/#1700. Find References and its coverage/budget contract
 are tracked as a separate slice under #1030. The prior HOLD decisions
 remain in force, including #1144 and #1128.
+
+## Bounded local Find References scope
+
+The read-only preview query returns the current inspection's resolved
+origins for one exact SymbolKey in Core order. It checks each returned
+origin with the same SourceMap requirement used for navigation, with
+a ceiling of 4,096 examined references, 64 origin checks and 32 results
+per query. It
+reports incomplete coverage for truncated searches and when an exact
+matching origin is outside the supported Source navigation contract.
+The Web query yields during scanning and discards cancelled results.
+The pure ViewModel observes cancellation and returns an immutable
+query result whose entries must still pass current selection checks
+before navigation. No protocol or persistent index is introduced.
