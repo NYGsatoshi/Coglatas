@@ -112,6 +112,64 @@ jobs:
           --base "$PRODUCT_BASE"
           --head "$TEST_HEAD"
           --receipt "$EVIDENCE_ROOT/receipt.json"
+      - name: Reconcile TRX with the retained inventory outside the Test checkout
+        env:
+          PRODUCT_BASE: ${{ github.event.pull_request.base.sha }}
+          TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVIDENCE_ROOT: ${{ runner.temp }}/projectide-integration-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          trusted_dir="$(mktemp -d)"
+          bootstrap=7ab5ff1a0773c39b7c76fad6c8ef92da542c9649
+          inventory_revision="$bootstrap"
+          if git merge-base --is-ancestor "$bootstrap" "$PRODUCT_BASE"; then
+            inventory_revision="$PRODUCT_BASE"
+          fi
+          git show "$inventory_revision:tests/ci/projectide_integration_inventory.json" > "$trusted_dir/baseline.json"
+          git show "$PRODUCT_BASE:tests/ci/projectide_core_isolated.py" > "$trusted_dir/projectide_core_isolated.py"
+          git show "$PRODUCT_BASE:tests/ci/projectide_slice2_isolated.py" > "$trusted_dir/projectide_slice2_isolated.py"
+          python3 -I -B - "$trusted_dir" "$EVIDENCE_ROOT" <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import sys
+
+          trusted = Path(sys.argv[1])
+          evidence = Path(sys.argv[2])
+          sys.path.insert(0, str(trusted))
+          from projectide_core_isolated import inventory
+
+          def require_retained(previous, actual):
+              if not previous or set(previous) - set(actual):
+                  raise ValueError("Retained test inventory is missing cases")
+
+          receipt = json.loads((evidence / "receipt.json").read_text(encoding="utf-8"))
+          if receipt["productHead"] != os.environ["PRODUCT_BASE"] or receipt["testHead"] != os.environ["TEST_HEAD"]:
+              raise ValueError("Receipt does not match the Product and Test inputs")
+          for name in ("projectIde", "architecture"):
+              for filename in (f"{name}.trx", f"{name}-discovery.json"):
+                  digest = hashlib.sha256((evidence / filename).read_bytes()).hexdigest()
+                  if receipt["artifactSha256"][filename] != digest:
+                      raise ValueError(f"Receipt digest mismatch for {filename}")
+
+          baseline = json.loads((trusted / "baseline.json").read_text(encoding="utf-8"))
+          for name in ("projectIde", "architecture"):
+              previous = baseline[name]
+              try:
+                  require_retained(previous, previous[:-1])
+              except ValueError:
+                  pass
+              else:
+                  raise RuntimeError("A passing subset was accepted")
+
+              actual = inventory(evidence / f"{name}.trx")
+              discovered = json.loads((evidence / f"{name}-discovery.json").read_text(encoding="utf-8"))
+              if actual != discovered:
+                  raise ValueError(f"{name} discovery and execution inventories disagree")
+              require_retained(previous, actual)
+              print(f"{name}: retained {len(previous)} cases, verified {len(actual)} executions")
+          PY
       - name: Upload complete TRX, discovery and evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

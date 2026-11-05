@@ -277,16 +277,49 @@
                     <dd>{{ record.location.context.revisionId }}</dd>
                   </div>
                 </dl>
-                @if (store.inspectedSymbols().length) {
+                @if (store.inspectedSymbols().length || store.referenceRows().length) {
                   <section data-testid="ide-semantic-inspection">
                     <h3>{{ t('ide.symbols') }}</h3>
                     @for (symbol of store.inspectedSymbols(); track symbol.key) {
                       <p>{{ symbol.kind }} · {{ symbol.status }} · {{ symbol.location.propertyPath }}</p>
                       @if (symbol.declaredType) { <pre tabindex="0">{{ symbol.declaredType | json }}</pre> }
+                      <button type="button" (click)="findReferences(symbol)"
+                        [attr.aria-label]="t('ide.findReferences') + ' · ' + symbol.kind + ' · ' + (symbol.location.propertyPath || '/')">
+                        {{ t('ide.findReferences') }}
+                      </button>
                     }
                     <p>{{ t('ide.references') }}: {{ store.inspectedReferences().length }}</p>
-                    @for (reference of store.inspectedReferences(); track $index) {
-                      <p>{{ reference.state }} · {{ reference.origin.propertyPath }}</p>
+                    @if (store.referenceSearch(); as search) {
+                      <div role="status" data-testid="ide-reference-search">
+                        @if (search.status === 'searching') {
+                          {{ t('ide.referenceSearching') }}
+                        } @else {
+                          {{ t('ide.referenceMatches', { count: search.references.length }) }}
+                          @if (!search.coverageComplete) { {{ t('ide.referencePartial') }} }
+                          @if (search.truncated) { {{ t('ide.referenceLimit') }} }
+                        }
+                      </div>
+                      <button type="button" (click)="store.cancelReferenceSearch()">
+                        {{ t('ide.clearReferenceSearch') }}
+                      </button>
+                    }
+                    @for (reference of store.referenceSearch()?.references ?? store.referenceRows(); track $index) {
+                      <p>
+                        <button type="button" (click)="inspectReference(reference)"
+                          [attr.aria-pressed]="store.selectedReference() === reference">
+                          {{ t('ide.referenceOrigin') }} · {{ reference.origin.entityId ?? reference.origin.relationId ?? reference.origin.documentId }} · {{ reference.origin.propertyPath }}
+                        </button>
+                      </p>
+                    }
+                    @if (store.selectedReference(); as reference) {
+                      <h4>{{ t('ide.referenceOrigin') }}</h4>
+                      <pre tabindex="0">{{ reference.origin | json }}</pre>
+                      @if (store.referenceSymbol(); as symbol) {
+                        <h4>{{ t('ide.referenceDefinition') }} · {{ symbol.kind }}</h4>
+                        <pre tabindex="0">{{ symbol.location | json }}</pre>
+                      }
+                      <button type="button" (click)="navigateReference('origin')">{{ t('ide.goReferenceOrigin') }}</button>
+                      <button type="button" (click)="navigateReference('definition')">{{ t('ide.goDefinition') }}</button>
                     }
                   </section>
                 }
@@ -346,6 +379,12 @@
                     {{ target.identity }} · {{ t('ide.document') }}:
                     {{ target.location.documentId }}
                   </p>
+                  @if (store.sourceLocation(); as location) {
+                    <p data-testid="ide-source-location">
+                      <code>{{ location.propertyPath || '/' }}</code>
+                      @if (location.textSpan; as span) { <span> · {{ span.start }}–{{ span.start + span.length }}</span> }
+                    </p>
+                  }
                   <pre tabindex="0">{{ target.data | json }}</pre>
                 </section>
               }
