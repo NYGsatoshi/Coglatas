@@ -116,8 +116,6 @@ public sealed class AdminService(
             {
                 return Result<AdminUserDetailResponse>.Failure("Display name is required and must be 120 characters or fewer.");
             }
-
-            user.DisplayName = request.DisplayName.Trim();
         }
 
         if (request.Email is not null)
@@ -136,6 +134,11 @@ public sealed class AdminService(
 
             user.Email = request.Email.Trim();
             user.NormalizedEmail = normalizedEmail;
+        }
+
+        if (request.DisplayName is not null)
+        {
+            user.DisplayName = request.DisplayName.Trim();
         }
 
         var shouldRevokeSessions = false;
