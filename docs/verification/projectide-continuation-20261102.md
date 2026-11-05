@@ -1764,7 +1764,7 @@ NOT_EVALUATED.
 
 ### Starting PR and ordinary CI inventory
 
-All 24 PRs were opened by NYGsatoshi. This table preserves the starting
+All 24 PRs share the repository owner as their author. This table preserves the starting
 heads and CI runs, including the historical standalone Test failures. The
 PR links retain the titles and effective file lists. The only unresolved
 inline thread at this checkpoint was the original #1697 finding.
