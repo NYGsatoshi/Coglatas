@@ -5,12 +5,14 @@ using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
-/// <summary>One resolver for Diagnostic and Symbol navigation over the accepted immutable Core objects.</summary>
+/// <summary>One resolver for Diagnostic, Symbol and Reference navigation over the accepted immutable Core objects.</summary>
 internal static class SyntheticSourceNavigation
 {
-    internal static string Resolve(CompilerHostRequest? desired, ProjectSource? source, CoreCompilation? compilation, ProjectLocation location)
+    internal static string Resolve(CompilerHostRequest? desired, ProjectSource? source, CoreCompilation? compilation,
+        ProjectLocation location, bool requireSourceMap = false)
     {
         if (desired is null || source is null || compilation?.Model is not { } model) return "unavailable";
+        if (requireSourceMap && compilation.Result.Execution != CompilerExecutionState.Completed) return "unavailable";
         var input = compilation.Input;
         if (!input.InputDigest.Equals(desired.Input.ExpectedInputDigest) || !input.Source.Data.Equals(source.Data) ||
             !compilation.Result.Input.Data.Equals(input.Data) || !model.Input.Data.Equals(input.Data)) return "stale";
@@ -25,16 +27,20 @@ internal static class SyntheticSourceNavigation
                 HasIdentity(item.Data.Value, "documentId", location.DocumentId.ToString())).Select(item => item.Data.Value).Take(2).ToArray();
         if (records.Length != 1) return "unavailable";
         // A partial model may have no IR/map. When produced, use its exact input and artifact binding.
-        var mapArtifact = compilation.Result.Artifacts.SingleOrDefault(item => item.Role == "coglatas.source-map");
+        var mapArtifacts = compilation.Result.Artifacts.Where(item => item.Role == "coglatas.source-map").Take(2).ToArray();
+        if (mapArtifacts.Length > 1) return "wrong-scope";
         if (compilation.Validation?.Ir is { } ir)
         {
-            if (!ir.Input.Data.Equals(input.Data) || mapArtifact is null || !mapArtifact.InputDigest.Equals(input.InputDigest) ||
-                !mapArtifact.Digest.Equals(ir.SourceMapDigest)) return "wrong-scope";
+            if (!ir.Input.Data.Equals(input.Data) || mapArtifacts.Length != 1 || !mapArtifacts[0].InputDigest.Equals(input.InputDigest) ||
+                !mapArtifacts[0].Digest.Equals(ir.SourceMapDigest)) return "wrong-scope";
             var entries = ir.SourceMap.Value.GetProperty(location.EntityId is null ? "relations" : "nodes").EnumerateArray();
-            if (entries.Count(entry => SameRecord(ProjectLocation.Parse(SourceJson.Parse(entry.GetProperty("location").GetRawText())), location)) != 1)
+            var matches = entries.Select(entry => ProjectLocation.Parse(SourceJson.Parse(entry.GetProperty("location").GetRawText())))
+                .Where(mapped => SameRecord(mapped, location)).Take(2).ToArray();
+            if (matches.Length != 1 || (requireSourceMap && (matches[0].PropertyPath.Length != 0 || matches[0].TextSpan is not null)))
                 return "unavailable";
         }
-        else if (mapArtifact is not null) return "wrong-scope";
+        else if (mapArtifacts.Length != 0) return "wrong-scope";
+        else if (requireSourceMap) return "unavailable";
         var target = records[0];
         var segments = location.PropertyPath.Length == 0 ? [] : location.PropertyPath[1..].Split('/');
         for (var position = 0; position < segments.Length; position++)

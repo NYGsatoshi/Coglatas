@@ -277,7 +277,7 @@
                     <dd>{{ record.location.context.revisionId }}</dd>
                   </div>
                 </dl>
-                @if (store.inspectedSymbols().length) {
+                @if (store.inspectedSymbols().length || store.referenceRows().length) {
                   <section data-testid="ide-semantic-inspection">
                     <h3>{{ t('ide.symbols') }}</h3>
                     @for (symbol of store.inspectedSymbols(); track symbol.key) {
@@ -285,8 +285,23 @@
                       @if (symbol.declaredType) { <pre tabindex="0">{{ symbol.declaredType | json }}</pre> }
                     }
                     <p>{{ t('ide.references') }}: {{ store.inspectedReferences().length }}</p>
-                    @for (reference of store.inspectedReferences(); track $index) {
-                      <p>{{ reference.state }} · {{ reference.origin.propertyPath }}</p>
+                    @for (reference of store.referenceRows(); track reference) {
+                      <p>
+                        <button type="button" (click)="inspectReference(reference)"
+                          [attr.aria-pressed]="store.selectedReference() === reference">
+                          {{ t('ide.referenceOrigin') }} · {{ reference.origin.entityId ?? reference.origin.relationId ?? reference.origin.documentId }} · {{ reference.origin.propertyPath }}
+                        </button>
+                      </p>
+                    }
+                    @if (store.selectedReference(); as reference) {
+                      <h4>{{ t('ide.referenceOrigin') }}</h4>
+                      <pre tabindex="0">{{ reference.origin | json }}</pre>
+                      @if (store.referenceSymbol(); as symbol) {
+                        <h4>{{ t('ide.referenceDefinition') }} · {{ symbol.kind }}</h4>
+                        <pre tabindex="0">{{ symbol.location | json }}</pre>
+                      }
+                      <button type="button" (click)="navigateReference('origin')">{{ t('ide.goReferenceOrigin') }}</button>
+                      <button type="button" (click)="navigateReference('definition')">{{ t('ide.goDefinition') }}</button>
                     }
                   </section>
                 }
@@ -346,6 +361,12 @@
                     {{ target.identity }} · {{ t('ide.document') }}:
                     {{ target.location.documentId }}
                   </p>
+                  @if (store.sourceLocation(); as location) {
+                    <p data-testid="ide-source-location">
+                      <code>{{ location.propertyPath || '/' }}</code>
+                      @if (location.textSpan; as span) { <span> · {{ span.start }}–{{ span.start + span.length }}</span> }
+                    </p>
+                  }
                   <pre tabindex="0">{{ target.data | json }}</pre>
                 </section>
               }

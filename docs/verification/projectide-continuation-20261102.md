@@ -1479,3 +1479,27 @@ Inspector. The stacked Symbol slice displays the unique exact-location symbol
 and its references for a Diagnostic selection. Source-record inspection still
 shows the record's symbols. The independent control checks a Diagnostic with a
 valid property location and no exact symbol at that location.
+
+## Local reference navigation scope
+
+The next independent Product/Test pair extends #1699 and #1700. The
+synthetic Web preview and Windows pure ViewModel resolve a current
+Core-emitted reference to the unique decoded symbol with the exact
+ordinal SymbolKey. The shared Source resolver checks both the origin
+and the definition against the current input, revision, source records
+and bound SourceMap. Origin and definition are separate read-only
+actions. A result with partial coverage may support those actions when
+both positions are backed by its map.
+
+Supported locations are mapped declaration and relation records and
+their exact properties, including task-port symbol locations when
+present. References that are missing, unknown, ambiguous, unsupported,
+out of scope, external, mapless, or bound to a different result cannot
+produce a navigation target. Document-level source-reference envelopes
+remain outside the existing record navigation contract.
+
+#1697 retains its review boundary. Its open finding applies to that
+HEAD. The exact Diagnostic-to-Symbol fix and independent regressions
+are in #1699/#1700. Find References and its coverage/budget contract
+are tracked as a separate slice under #1030. The prior HOLD decisions
+remain in force, including #1144 and #1128.

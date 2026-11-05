@@ -2,6 +2,10 @@ export const PROJECTIDE_ENGLISH_MESSAGES = {
   'ide.title': 'ProjectIDE Workbench',
   'ide.symbols': 'Semantic symbols and declared types',
   'ide.references': 'Resolved references in loaded scope',
+  'ide.referenceOrigin': 'Reference origin',
+  'ide.referenceDefinition': 'Resolved local symbol',
+  'ide.goReferenceOrigin': 'Go to reference origin',
+  'ide.goDefinition': 'Go to definition',
   'ide.preview': 'Synthetic fixture preview',
   'ide.notice':
     'Read-only synthetic data exported by .NET Core. Loading a fixture does not run the Compiler. No production Project data is connected.',
@@ -89,6 +93,10 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
 > = {
   'ide.symbols': '意味モデルのシンボルと宣言型',
   'ide.references': '取得済みスコープ内の解決済み参照',
+  'ide.referenceOrigin': '参照元',
+  'ide.referenceDefinition': '解決済みローカルシンボル',
+  'ide.goReferenceOrigin': '参照元へ移動',
+  'ide.goDefinition': '定義へ移動',
   'ide.title': 'ProjectIDE ワークベンチ',
   'ide.preview': '合成Fixtureプレビュー',
   'ide.notice':

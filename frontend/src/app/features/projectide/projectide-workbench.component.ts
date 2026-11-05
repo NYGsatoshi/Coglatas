@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { Diagnostic, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
+import { BoundReference, Diagnostic, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -144,10 +144,12 @@ export class ProjectIdeWorkbenchComponent {
   }
   open(panel: (typeof this.tabs)[number], focus = false): void {
     const generation = ++this.focusGeneration;
+    const target = this.store.sourceLocation();
     this.panel.set(panel);
     if (focus) {
       setTimeout(() => {
-        if (generation === this.focusGeneration && this.panel() === panel) {
+        if (generation === this.focusGeneration && this.panel() === panel && this.canRead() &&
+            (panel !== 'source' || this.store.sourceLocation() === target)) {
           (panel === 'source' && this.store.sourceTarget()
             ? this.sourceTarget()
             : this.heading()
@@ -157,6 +159,7 @@ export class ProjectIdeWorkbenchComponent {
     }
   }
   inspectDiagnostic(diagnostic: Diagnostic): void {
+    this.focusGeneration++;
     if (this.store.selectDiagnostic(diagnostic)) this.open('inspector', true);
   }
   inspectRecord(record: SourceRecord): void {
@@ -173,6 +176,16 @@ export class ProjectIdeWorkbenchComponent {
     if (navigated) {
       this.open('source', true);
     }
+  }
+  inspectReference(reference: BoundReference): void {
+    this.focusGeneration++;
+    if (this.canRead()) this.store.selectReference(reference);
+    else this.store.clear('denied');
+  }
+  navigateReference(destination: 'origin' | 'definition'): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateReference(destination)) this.open('source', true);
   }
   cancel(): void {
     this.focusGeneration++;

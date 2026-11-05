@@ -183,6 +183,7 @@ export class ProjectIdePreviewAdapter {
 export function resolveLocation(
   value: PreviewCase,
   location: ProjectLocation,
+  requireSourceMap = false,
 ): SourceRecord | 'unavailable' | 'stale' | 'wrong-scope' | 'unsupported' | 'invalid-location' {
   if (!isPreviewCaseShape(value) || !isProjectLocationShape(location)) {
     return 'unavailable';
@@ -206,6 +207,7 @@ export function resolveLocation(
   ) {
     return 'unavailable';
   }
+  if (requireSourceMap && !value.sourceMap) return 'unavailable';
   if (!location.entityId && !location.relationId) return 'unsupported';
   const records = [...value.declarations, ...value.relations].filter(
     (r) =>
@@ -221,16 +223,18 @@ export function resolveLocation(
   }
   const record = records[0];
   if (
-    value.sourceMap &&
-    [...value.sourceMap.nodes, ...value.sourceMap.relations].filter(
+    value.sourceMap
+  ) {
+    const entries = [...value.sourceMap.nodes, ...value.sourceMap.relations].filter(
       (entry) =>
         entry.location.documentId === location.documentId &&
         (location.entityId
           ? entry.location.entityId === location.entityId
           : entry.location.relationId === location.relationId),
-    ).length !== 1
-  ) {
-    return 'unavailable';
+    );
+    if (entries.length !== 1 || (requireSourceMap && !sameJson(entries[0].location, record.location))) {
+      return 'unavailable';
+    }
   }
   let target: unknown = record.data;
   if (
