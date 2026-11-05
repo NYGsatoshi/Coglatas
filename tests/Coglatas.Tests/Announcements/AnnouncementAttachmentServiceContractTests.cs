@@ -182,7 +182,7 @@ public sealed class AnnouncementAttachmentServiceContractTests
         fixture.Dependencies.Expect("files.GetAttachmentAsync", Task.FromException<Attachment?>(failure),
             [fixture.Attachment.Id, fixture.Token]);
 
-        Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ResolveAsync()));
+        Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(fixture.ResolveAsync));
 
         fixture.Dependencies.VerifyComplete();
         Assert.Equal(2, fixture.Dependencies.Calls.Count);
@@ -193,7 +193,7 @@ public sealed class AnnouncementAttachmentServiceContractTests
     {
         using var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         fixture.Dependencies.Expect("features.RequireEnabledAsync", Task.FromCanceled<Result>(cancellation.Token),
             [FeatureKeys.FileSharing, cancellation.Token]);
 
@@ -217,12 +217,12 @@ public sealed class AnnouncementAttachmentServiceContractTests
         private readonly CancellationTokenSource _cancellation = new();
         public AnnouncementContractDependencies Dependencies { get; } = new();
         public CurrentTenantService Tenant { get; } = new();
-        public Guid TenantId { get; } = Guid.NewGuid();
+        private Guid TenantId { get; } = Guid.NewGuid();
         public Guid WorkspaceId { get; } = Guid.NewGuid();
         public Guid ActorId { get; } = Guid.NewGuid();
         public CancellationToken Token => _cancellation.Token;
         public Attachment Attachment { get; }
-        public AnnouncementAttachmentService Service { get; }
+        public IAnnouncementAttachmentService Service { get; }
 
         public Fixture()
         {

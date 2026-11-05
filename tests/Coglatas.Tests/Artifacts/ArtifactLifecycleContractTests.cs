@@ -381,14 +381,14 @@ public sealed class ArtifactLifecycleContractTests
         public Repository Repository { get; }
         public Artifact Artifact { get; }
         public ArtifactVersion Version { get; }
-        public bool Allowed { get; set; } = true;
-        public bool CanManage { get; set; } = true;
+        public bool Allowed { get; init; } = true;
+        public bool CanManage { get; init; } = true;
         public List<string> ProjectChecks { get; } = [];
-        public List<AuditLogEntry> Audits { get; } = [];
+        private List<AuditLogEntry> Audits { get; } = [];
         public List<(Guid Recipient, string Title, string? Body, string Type, Guid Id)> Notifications { get; } = [];
-        public List<ProjectMember> Members { get; } = [];
+        private List<ProjectMember> Members { get; } = [];
         private List<(string Dependency, string Method, object?[] Arguments)> Calls { get; } = [];
-        public int SaveCalls { get; private set; }
+        private int SaveCalls { get; set; }
         public ArtifactService Service { get; }
 
         public Fixture()
