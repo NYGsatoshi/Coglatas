@@ -32,6 +32,7 @@ def main() -> None:
         ".github/workflows/projectide-core-isolated.yml",
         "frontend/scripts/av-mig-source.node-test.mjs",
         "tests/Coglatas.Tests/Coglatas.Tests.csproj",
+        "tests/ci/test_projectide_integration_isolated.py",
         "tests/ui/projectide-workbench.spec.ts",
         "tests/ui/run-angular-playwright.mjs",
     }
