@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {"case":"empty","verdict":"Pass","coverage":"Complete","execution":"Completed"},
+    {"case":"constraint-pass","verdict":"Pass","coverage":"Complete","execution":"Completed"},
+    {"case":"constraint-fail","verdict":"Fail","coverage":"Complete","execution":"Completed"},
+    {"case":"constraint-unknown","verdict":"Inconclusive","coverage":"Partial","execution":"Completed"},
+    {"case":"partial-fail","verdict":"Fail","coverage":"Partial","execution":"Completed"},
+    {"case":"budget","verdict":"Inconclusive","coverage":"Partial","execution":"ResourceExhausted"},
+    {"case":"opaque","verdict":"Inconclusive","coverage":"Partial","execution":"Completed"}
+  ]
+}
