@@ -40,6 +40,7 @@ export const PROJECTIDE_ENGLISH_MESSAGES = {
   'ide.count': '{{visible}} of {{total}} diagnostics',
   'ide.select': 'Inspect diagnostic',
   'ide.go': 'Go to source location',
+  'ide.goSymbol': 'Go to related symbol source',
   'ide.empty':
     'No diagnostics in this view. This alone does not establish a complete successful analysis.',
   'ide.pass':
@@ -126,6 +127,7 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   'ide.count': '診断 {{visible}}／{{total}} 件',
   'ide.select': '診断を調べる',
   'ide.go': 'ソース位置へ移動',
+  'ide.goSymbol': '関連シンボルのソースへ移動',
   'ide.empty': 'この表示に診断はありません。これだけでは解析の完全な成功を意味しません。',
   'ide.pass': '完全な根拠を持つ最新のComplete PASS Fixtureです。承認やMerge権限を付与しません。',
   'ide.notRun': '結果Fixtureは未読込です。Compiler実行状態：NotRun。',
