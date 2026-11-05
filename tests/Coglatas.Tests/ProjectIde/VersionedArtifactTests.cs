@@ -267,6 +267,96 @@ public sealed class VersionedArtifactTests
     }
 
     [Theory]
+    [InlineData("artifactType")]
+    [InlineData("schemaVersion")]
+    [InlineData("canonicalEncodingVersion")]
+    public void Unsupported_offline_headers_return_a_state_without_publishing_or_opening_source_suppliers(string field)
+    {
+        var source = CompilerContractFixtures.Source(); var retained = Manifest(source); var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Imported, store.Import(retained.Identity, Buffers(retained), [source]));
+        var next = Manifest(CompilerContractFixtures.Source(7));
+        var node = JsonNode.Parse(next.Data.CanonicalText)!;
+        if (field == "artifactType") node[field] = "coglatas.prototype.future";
+        else node[field] = 2;
+        var futureBytes = SourceJson.Parse(node.ToJsonString()).ToCanonicalBytes();
+        var sourceOpened = false; var disposed = false;
+        IEnumerable<ReadOnlyMemory<byte>> Entries()
+        {
+            try { yield return next.Data.ToCanonicalBytes(); yield return futureBytes; }
+            finally { disposed = true; }
+        }
+        IEnumerable<ProjectSource> Sources() { sourceOpened = true; yield return source; }
+        Assert.Equal(ArtifactImportState.Unsupported, store.Import(next.Identity, Entries(), Sources()));
+        Assert.True(disposed); Assert.False(sourceOpened);
+        Assert.Equal(1, store.Count); Assert.Equal(1, store.SourceCount);
+        Assert.Equal(retained.Data, store.Find(retained.Identity)!.Data);
+        Assert.Null(store.Find(next.Identity));
+        Assert.Equal(futureBytes, SourceJson.Parse(node.ToJsonString()).ToCanonicalBytes());
+    }
+
+    [Fact]
+    public void Exactly_the_artifact_capacity_is_imported_with_its_source()
+    {
+        var source = CompilerContractFixtures.Source(); var manifest = Manifest(source); var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Imported, store.Import(manifest.Identity, Buffers(manifest), [source], maximumArtifacts: 1));
+        Assert.Equal(1, store.Count); Assert.Equal(1, store.SourceCount);
+    }
+
+    [Fact]
+    public void Exactly_the_source_capacity_is_imported_without_rejecting_terminal_enumeration()
+    {
+        var source = CompilerContractFixtures.Source(); var manifest = Manifest(source); var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Imported, store.Import(manifest.Identity, Buffers(manifest),
+            [source, CompilerContractFixtures.Source(7)], maximumArtifacts: 2));
+        Assert.Equal(1, store.Count); Assert.Equal(2, store.SourceCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void One_over_artifact_or_source_capacity_disposes_and_never_publishes_a_prefix(bool exceedArtifacts)
+    {
+        var source = CompilerContractFixtures.Source(); var manifest = Manifest(source);
+        var nextSource = CompilerContractFixtures.Source(7); var nextManifest = Manifest(nextSource);
+        var buffersDisposed = false; var sourcesDisposed = false; var sourcesOpened = false;
+        IEnumerable<ReadOnlyMemory<byte>> Entries()
+        {
+            try
+            {
+                yield return manifest.Data.ToCanonicalBytes();
+                if (exceedArtifacts) yield return nextManifest.Data.ToCanonicalBytes();
+            }
+            finally { buffersDisposed = true; }
+        }
+        IEnumerable<ProjectSource> Sources()
+        {
+            sourcesOpened = true;
+            try { yield return source; yield return nextSource; }
+            finally { sourcesDisposed = true; }
+        }
+        var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Exhausted, store.Import(manifest.Identity, Entries(), Sources(), maximumArtifacts: 1));
+        Assert.True(buffersDisposed); Assert.Equal(!exceedArtifacts, sourcesOpened); Assert.Equal(!exceedArtifacts, sourcesDisposed);
+        Assert.Equal(0, store.Count); Assert.Equal(0, store.SourceCount);
+    }
+
+    [Theory]
+    [InlineData("present")]
+    [InlineData("missing")]
+    public void Nonempty_offline_chains_remain_incomplete_without_registered_external_bodies(string state)
+    {
+        var source = CompilerContractFixtures.Source(); var manifest = Manifest(source, Entry());
+        var association = ArtifactAssembly.Associate(CompilerContractFixtures.Input(source: source), manifest);
+        var expected = new ArtifactIdentity("coglatas.prototype.unit", 1, 1, new string('a', 64));
+        var actual = Actual(manifest, "completed", new { entryKey = "a", expected = expected.Data.Value, state,
+            actual = state == "present" ? expected.Data.Value : (object?)null });
+        var receipt = Receipt(association, actual); var store = new PrototypeArtifactStore();
+        Assert.Equal(state == "present", ArtifactAssembly.MaterializationComplete(association, manifest, actual));
+        Assert.Equal(ArtifactImportState.Incomplete, store.Import(receipt.Identity, Buffers(manifest, association, actual, receipt), [source]));
+        Assert.Equal(0, store.Count); Assert.Equal(0, store.SourceCount);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void Cancellation_during_successful_or_terminal_MoveNext_disposes_without_publication(bool yieldItem)
