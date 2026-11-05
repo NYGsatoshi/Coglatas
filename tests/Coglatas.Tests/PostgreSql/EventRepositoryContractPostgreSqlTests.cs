@@ -17,6 +17,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), AssertEventQueriesAsync);
 
+    /// <summary>Executes native Event queries against a migrated synthetic database and checks scope and ordering.</summary>
+    /// <param name="connectionString">The isolated database supplied by the test harness.</param>
     private static async Task AssertEventQueriesAsync(string connectionString)
     {
         await using var fixture = await Fixture.CreateAsync(connectionString);
@@ -43,19 +45,19 @@ public sealed class EventRepositoryContractPostgreSqlTests
         var rows = await fixture.Repository.ListAsync(new EventListQuery(
             WorkspaceId: fixture.Workspace.Id, FromDate: boundary, ToDate: boundary));
 
-        Assert.Equal(new[] { endsAtBoundary.Id, first.Id, cancelled.Id, second.Id }, rows.Select(item => item.Id));
+        Assert.Equal([endsAtBoundary.Id, first.Id, cancelled.Id, second.Id], rows.Select(item => item.Id));
         Assert.Equal(Enumerable.Repeat(fixture.TenantId, rows.Count), rows.Select(item => item.TenantId));
         Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
 
         // Without a scope predicate, only tenant isolation can exclude the foreign event.
         var allScopes = await fixture.Repository.ListAsync(new EventListQuery(FromDate: boundary, ToDate: boundary));
-        Assert.Equal(new[] { endsAtBoundary.Id, first.Id, cancelled.Id, otherScope.Id, second.Id }, allScopes.Select(item => item.Id));
+        Assert.Equal([endsAtBoundary.Id, first.Id, cancelled.Id, otherScope.Id, second.Id], allScopes.Select(item => item.Id));
         var allCalendarScopes = await fixture.Repository.ListCalendarEventsAsync(new CalendarQuery(boundary, boundary));
-        Assert.Equal(new[] { endsAtBoundary.Id, first.Id, cancelled.Id, otherScope.Id, second.Id }, allCalendarScopes.Select(item => item.Id));
+        Assert.Equal([endsAtBoundary.Id, first.Id, cancelled.Id, otherScope.Id, second.Id], allCalendarScopes.Select(item => item.Id));
 
         var published = await fixture.Repository.ListAsync(new EventListQuery(WorkspaceId: fixture.Workspace.Id,
             FromDate: boundary, ToDate: boundary, Status: EventStatus.Published));
-        Assert.Equal(new[] { endsAtBoundary.Id, first.Id, second.Id }, published.Select(item => item.Id));
+        Assert.Equal([endsAtBoundary.Id, first.Id, second.Id], published.Select(item => item.Id));
 
         var archiveRows = await fixture.Repository.ListAsync(new EventListQuery(
             WorkspaceId: fixture.Workspace.Id, Status: EventStatus.Archived));
@@ -64,7 +66,7 @@ public sealed class EventRepositoryContractPostgreSqlTests
 
         var calendarRows = await fixture.Repository.ListCalendarEventsAsync(new CalendarQuery(
             boundary, boundary, WorkspaceId: fixture.Workspace.Id));
-        Assert.Equal(new[] { endsAtBoundary.Id, first.Id, cancelled.Id, second.Id }, calendarRows.Select(item => item.Id));
+        Assert.Equal([endsAtBoundary.Id, first.Id, cancelled.Id, second.Id], calendarRows.Select(item => item.Id));
         Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
 
         var local = await fixture.Repository.GetAsync(first.Id);
@@ -80,6 +82,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), AssertAttendanceQueriesAsync);
 
+    /// <summary>Checks native attendance accounting and recipient queries across Tenant and Event boundaries.</summary>
+    /// <param name="connectionString">The isolated database supplied by the test harness.</param>
     private static async Task AssertAttendanceQueriesAsync(string connectionString)
     {
         await using var fixture = await Fixture.CreateAsync(connectionString);
@@ -116,8 +120,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         await fixture.Seed.SaveChangesAsync();
 
         var attendance = await fixture.Repository.ListAttendanceAsync(activityEvent.Id);
-        Assert.Equal(new[] { alpha.Id, beta.Id, zulu.Id }, attendance.Select(item => item.UserId));
-        Assert.Equal(new[] { "Alpha", "Beta", "Zulu" }, attendance.Select(item => item.User!.DisplayName));
+        Assert.Equal([alpha.Id, beta.Id, zulu.Id], attendance.Select(item => item.UserId));
+        Assert.Equal(["Alpha", "Beta", "Zulu"], attendance.Select(item => item.User!.DisplayName));
         Assert.Equal(Enumerable.Repeat(activityEvent.Id, attendance.Count), attendance.Select(item => item.EventId));
         Assert.Empty(await fixture.Repository.ListAttendanceAsync(foreign.Id));
         Assert.Equal(beta.Id, (await fixture.Repository.GetAttendanceAsync(activityEvent.Id, beta.Id))!.UserId);

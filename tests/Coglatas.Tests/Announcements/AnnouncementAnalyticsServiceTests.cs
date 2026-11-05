@@ -102,15 +102,23 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires a live persisted administrator for the analytics scope bypass.</summary>
+    /// <param name="inactive">Whether the persisted account is suspended.</param>
+    /// <param name="deleted">Whether the persisted account has been soft deleted.</param>
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
     public async Task OnlyAnActivePersistedSystemAdministratorBypassesScopeManagement(bool inactive, bool deleted)
     {
-        var fixture = new Fixture();
-        fixture.User.SystemRole = SystemRole.SystemAdmin;
-        fixture.User.Status = inactive ? UserStatus.Suspended : UserStatus.Active;
+        var fixture = new Fixture
+        {
+            User =
+            {
+                SystemRole = SystemRole.SystemAdmin,
+                Status = inactive ? UserStatus.Suspended : UserStatus.Active
+            }
+        };
         if (deleted) fixture.User.MarkDeleted(fixture.UtcNow);
         fixture.Targets = [fixture.ChannelTarget];
 
@@ -133,14 +141,18 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Limits legacy global analytics to the persisted administrator role.</summary>
+    /// <param name="administrator">Whether the persisted actor has that role.</param>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GlobalLegacyAnalyticsAreRestrictedToSystemAdministrators(bool administrator)
     {
-        var fixture = new Fixture();
-        fixture.Announcement.WorkspaceId = null;
-        fixture.User.SystemRole = administrator ? SystemRole.SystemAdmin : SystemRole.Teacher;
+        var fixture = new Fixture
+        {
+            Announcement = { WorkspaceId = null },
+            User = { SystemRole = administrator ? SystemRole.SystemAdmin : SystemRole.Teacher }
+        };
 
         Assert.Equal(administrator, (await fixture.Service().GetAsync(fixture.Announcement.Id)).IsSuccess);
         Assert.Empty(fixture.ManagementChecks);
@@ -167,6 +179,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires both identity and authenticated state for every analytics or engagement operation.</summary>
+    /// <param name="operation">The protected operation under test.</param>
+    /// <param name="hasIdentity">Whether an identity is supplied while authenticated state is absent.</param>
     [Theory]
     [InlineData("get", false)]
     [InlineData("get", true)]
@@ -176,8 +191,11 @@ public sealed class AnnouncementAnalyticsServiceTests
     [InlineData("cta", true)]
     public async Task AuthenticationRequiresBothIdentityAndAuthenticatedState(string operation, bool hasIdentity)
     {
-        var fixture = new Fixture { Authenticated = !hasIdentity, HasIdentity = hasIdentity };
-        fixture.User.SystemRole = SystemRole.SystemAdmin;
+        var fixture = new Fixture
+        {
+            Authenticated = !hasIdentity, HasIdentity = hasIdentity,
+            User = { SystemRole = SystemRole.SystemAdmin }
+        };
 
         Assert.False((await fixture.InvokeAsync(operation)).IsSuccess);
         Assert.DoesNotContain("recipients", fixture.Calls);
@@ -185,6 +203,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires recipient visibility independently of management or administrator authority.</summary>
+    /// <param name="operation">The engagement operation under test.</param>
+    /// <param name="visible">Whether the visibility dependency admits the resource.</param>
     [Theory]
     [InlineData("acknowledge", false)]
     [InlineData("acknowledge", true)]
@@ -192,8 +213,11 @@ public sealed class AnnouncementAnalyticsServiceTests
     [InlineData("cta", true)]
     public async Task ManagersAndAdministratorsMustAlsoBeVisibleRecipientsForEngagement(string operation, bool visible)
     {
-        var fixture = new Fixture { Visible = visible };
-        fixture.User.SystemRole = SystemRole.SystemAdmin;
+        var fixture = new Fixture
+        {
+            Visible = visible,
+            User = { SystemRole = SystemRole.SystemAdmin }
+        };
         fixture.Recipients = [Fixture.Recipient(Guid.NewGuid())];
 
         var result = await fixture.InvokeAsync(operation);
@@ -239,14 +263,17 @@ public sealed class AnnouncementAnalyticsServiceTests
             Assert.Single(fixture.Events));
     }
 
+    /// <summary>Rejects unsupported acknowledgement or CTA engagement without persistence effects.</summary>
+    /// <param name="operation">The engagement operation whose content prerequisite is absent.</param>
     [Theory]
     [InlineData("acknowledge")]
     [InlineData("cta")]
     public async Task UnsupportedEngagementDoesNotStageReadsOrPersistEvents(string operation)
     {
-        var fixture = new Fixture();
-        fixture.Announcement.RequiresReadConfirmation = false;
-        fixture.Announcement.Body = "Plain announcement with no CTA";
+        var fixture = new Fixture
+        {
+            Announcement = { RequiresReadConfirmation = false, Body = "Plain announcement with no CTA" }
+        };
 
         var result = await fixture.InvokeAsync(operation);
 
@@ -256,6 +283,8 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Preserves read-before-sidecar ordering and avoids staging a duplicate read.</summary>
+    /// <param name="alreadyRead">Whether the recipient already has a committed read.</param>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -274,7 +303,7 @@ public sealed class AnnouncementAnalyticsServiceTests
             Assert.Equal(fixture.ActorId, read.UserId);
             Assert.Equal(fixture.UtcNow, read.ReadAt);
         }
-        Assert.Equal(new[] { "save", "event:" + AnnouncementEngagementActions.Acknowledged },
+        Assert.Equal(["save", "event:" + AnnouncementEngagementActions.Acknowledged],
             fixture.Calls.Where(call => call == "save" || call.StartsWith("event:", StringComparison.Ordinal)));
         var written = Assert.Single(fixture.Events);
         Assert.Equal((fixture.Announcement.TenantId, fixture.Announcement.Id, fixture.ActorId,
