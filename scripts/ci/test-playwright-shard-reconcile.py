@@ -145,6 +145,30 @@ class ShardEvidenceTests(unittest.TestCase):
             with self.assertRaises((OSError, reconcile.InvalidEvidence)):
                 reconcile.read_json(path)
 
+    def test_input_parent_symlink_hardlink_traversal_and_nonfinite_refuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trusted = root / "trusted"
+            trusted.mkdir()
+            receipt = trusted / "receipt.json"
+            receipt.write_text('{"schema":"synthetic"}', encoding="utf-8")
+            self.assertEqual({"schema": "synthetic"}, reconcile.read_json(receipt))
+            alias = root / "symlinked-parent"
+            alias.symlink_to(trusted, target_is_directory=True)
+            with self.assertRaises((OSError, reconcile.InvalidEvidence)):
+                reconcile.read_json(alias / "receipt.json")
+            with self.assertRaises((OSError, reconcile.InvalidEvidence)):
+                reconcile.read_json(trusted / ".." / "trusted" / "receipt.json")
+            second = root / "hardlink.json"
+            os.link(receipt, second)
+            with self.assertRaises(reconcile.InvalidEvidence):
+                reconcile.read_json(receipt)
+            second.unlink()
+            self.assertEqual({"schema": "synthetic"}, reconcile.read_json(receipt))
+            receipt.write_text('{"schema":NaN}', encoding="utf-8")
+            with self.assertRaisesRegex(reconcile.InvalidEvidence, "NONFINITE_JSON"):
+                reconcile.read_json(receipt)
+
     def test_cli_does_not_overwrite_existing_aggregate_or_allow_arbitrary_path(self):
         roster, shards = fixtures()
         with tempfile.TemporaryDirectory() as tmp:

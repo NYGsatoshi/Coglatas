@@ -44,13 +44,39 @@ def unique_pairs(pairs):
     return row
 
 
+def _reject_nonfinite(_value):
+    raise InvalidEvidence("NONFINITE_JSON")
+
+
+def _open_evidence_leaf(path: Path) -> int:
+    """Walk each parent directory with no-follow semantics, then open leaf."""
+    require(hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY"),
+            "UNSUPPORTED_EVIDENCE_PLATFORM")
+    require(type(path) is Path and bool(path.name) and
+            all(part not in ("..", "") for part in path.parts),
+            "INVALID_EVIDENCE_PATH")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    parent_fd = os.open("/" if path.is_absolute() else ".", directory_flags)
+    try:
+        parts = path.parts[1:-1] if path.is_absolute() else path.parts[:-1]
+        for part in parts:
+            require(part not in (".", ".."), "EVIDENCE_PARENT_TRAVERSAL")
+            next_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = next_fd
+        leaf_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+        return os.open(path.name, leaf_flags, dir_fd=parent_fd)
+    finally:
+        os.close(parent_fd)
+
+
 def read_json(path: Path):
-    """Read a regular file only, bounded and without symlink following."""
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    fd = os.open(path, flags)
+    """Read a bounded regular file, refusing symlink ancestors and hardlinks."""
+    fd = _open_evidence_leaf(path)
     try:
         metadata = os.fstat(fd)
-        require(stat.S_ISREG(metadata.st_mode) and 0 < metadata.st_size <= MAX_BYTES,
+        require(stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1
+                and 0 < metadata.st_size <= MAX_BYTES,
                 "INVALID_EVIDENCE_FILE")
         chunks = []
         size = 0
@@ -61,8 +87,16 @@ def read_json(path: Path):
             chunks.append(chunk)
             size += len(chunk)
             require(size <= MAX_BYTES, "EVIDENCE_TOO_LARGE")
-        require(os.fstat(fd).st_size == size, "EVIDENCE_FILE_CHANGED")
-        return json.loads(b"".join(chunks).decode("utf-8"), object_pairs_hook=unique_pairs)
+        final = os.fstat(fd)
+        require(final.st_dev == metadata.st_dev and
+                final.st_ino == metadata.st_ino and
+                final.st_size == size and
+                final.st_mtime_ns == metadata.st_mtime_ns and
+                final.st_ctime_ns == metadata.st_ctime_ns,
+                "EVIDENCE_FILE_CHANGED")
+        return json.loads(b"".join(chunks).decode("utf-8"),
+                          object_pairs_hook=unique_pairs,
+                          parse_constant=_reject_nonfinite)
     finally:
         os.close(fd)
 

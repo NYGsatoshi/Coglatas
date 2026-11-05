@@ -27,3 +27,11 @@ The fixed aggregate output is also opened relative to no-follow directory file
 descriptors for both `artifacts/` and `artifacts/ci/`, refusing parent
 symlinks and an existing output file. This is Linux-only preparatory CI
 behavior; no shard execution or publication is activated.
+
+Input roster/shard receipt files now use no-follow directory descriptors for
+**every path component**, not only the final filename. They reject
+symbolic-link ancestors, hardlinked evidence, `..` traversal, non-finite JSON,
+and same-file size/mtime/ctime drift while reading. These are fail-closed
+Linux CI controls. They still **do not** independently prove which GitHub
+workflow/job uploaded the bytes: `requiredCheckQualified=false` and
+`EXTERNAL_VERIFICATION_REQUIRED` remain mandatory.
