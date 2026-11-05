@@ -2,6 +2,13 @@
 
 ### Current component verification and retained suspension — 2026-11-06
 
+CodeRabbit's 18:19 UTC reply independently inspected corrected acquisition
+Product `25f97851` and explicitly verified the finding is addressed; it did not
+run the tests or inspect the separate Test commit. Its prerequisite of fresh
+exact-head CI now holds. This is scoped Product fix verification, not independent
+approval of the separate Test PR or a blanket review of the other batches.
+The reply belongs to [the original review thread](https://github.com/NYGsatoshi/Coglatas/pull/1726#discussion_r4484197793).
+
 Acquisition Test `2f1fc335281191ea69bd817a3f76b2a219df7fc9` now passes the
 current ordinary checks, including ReSharper. Its
 [hosted run 42087174522](https://github.com/NYGsatoshi/Coglatas/actions/runs/42087174522)
@@ -48,6 +55,12 @@ approval-history tests and nine environment-class tests pass. Both exact-source
 assurance receipts remain SUSPENDED / NOT_EVALUATED with all acceptance and
 baseline qualification credit false and automatic reactivation false. This is
 inventory/governance verification, not a numerical campaign or SLA evidence.
+
+An additional external Main merge of #1720 at 18:22:57 UTC advanced Main to
+`481b557745c6dd9f1826e78408009d872388d8a8` (parents `8319300f` and `f7523e45`).
+It is unrelated runtime APT work, was not performed by this task and is not
+incorporated into these ProjectIDE candidates. The dedicated integration and
+SecurityTestImplimation observations remain `634ab304` and `35fa0b8b`.
 
 ### Composed foundations and reviewed acquisition correction — 2026-11-06
 
