@@ -81,7 +81,9 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.base_ref == 'projectide/integration-20261031' &&
-      startsWith(github.head_ref, 'test/projectide-integration-compiler-')
+      (startsWith(github.head_ref, 'test/projectide-integration-compiler-') ||
+      startsWith(github.head_ref, 'test/projectide-integration-web-windows-') ||
+      startsWith(github.head_ref, 'test/projectide-integration-navigation-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
