@@ -80,14 +80,17 @@ test.describe('Conversation-create intent across real browser catch-up (mock HTT
       freshRecipients = true;
       holdRefresh = true;
       await reconnect!();
-      await expect.poll(() => refreshReads).toBeGreaterThan(0);
-      await expect(dialog).toBeVisible();
-      await expect(submit).toBeDisabled();
-      await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
-      await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeDisabled();
-      await expect(page.getByTestId('remove-recipient')).toHaveCount(0);
-      await expect(page.getByTestId(group ? 'group-recipient-option' : 'recipient-option')).toHaveCount(0);
-      releaseRefresh();
+      try {
+        await expect.poll(() => refreshReads).toBeGreaterThan(0);
+        await expect(dialog).toBeVisible();
+        await expect(submit).toBeDisabled();
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeDisabled();
+        await expect(page.getByTestId('remove-recipient')).toHaveCount(0);
+        await expect(page.getByTestId(group ? 'group-recipient-option' : 'recipient-option')).toHaveCount(0);
+      } finally {
+        releaseRefresh();
+      }
       if (result === 'direct-denied') {
         await expect(dialog).toHaveCount(0);
       } else {
