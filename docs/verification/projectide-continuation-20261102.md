@@ -1685,3 +1685,113 @@ must be inspected separately; supplementary CI does not satisfy it.
 No unverified Main integration, owner approval, review, release, or
 native/Avalonia eligibility is inferred. The Draft/NO_MERGE and all
 prior HOLD decisions stay in effect.
+
+
+## Dedicated integration audit, 2026-11-05
+
+Scope is the dedicated branch and ProjectIDE-owned source, tests, and evidence.
+The audit started from `a9b1b1ec9388e2483cc93f943a72fccefe432d46`.
+The GitHub branch-protection endpoint reported no classic protection for this
+branch and the applicable rules endpoint returned an empty set. The existing
+ordinary CI, independent inventory, and review gates were evaluated separately.
+
+### Integrated Diagnostic-to-Symbol Product
+
+| Identity | Commit | Tree |
+| --- | --- | --- |
+| Dedicated base | `a9b1b1ec9388e2483cc93f943a72fccefe432d46` | `c8061c7edfc686231d8b7adf7aacf41b096b7448` |
+| [Product #1699](https://github.com/NYGsatoshi/Coglatas/pull/1699) | `41de2efbd69be364119c361c75f175d914e3284c` | `8dbc4712d61ea5af09e8d996da187034372d2a55` |
+| Dedicated merge | `0ce09ceb52d02746782876cd1f8509237cfb23a6` | `8dbc4712d61ea5af09e8d996da187034372d2a55` |
+
+All 17 ordinary jobs passed in [run 41945344585](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945344585).
+[CodeRabbit completed the exact-HEAD review](https://github.com/NYGsatoshi/Coglatas/pull/1699#issuecomment-6647083813)
+with a successful check, an advisory docstring-coverage warning, and no inline
+threads. The merge and Product trees match exactly. The dedicated push
+[LegacyNameGuard](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949516292)
+and [Sonar routing](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949516330)
+completed successfully. GitHub marked #1697 merged by ancestry when #1699
+merged. [The historical thread and disposition remain visible](https://github.com/NYGsatoshi/Coglatas/pull/1697#issuecomment-6647203294).
+
+### Independent Test disposition
+
+- #1604, #1609, and #1612 were closed as superseded after checking the
+  merged #1706, #1707, and #1708 ports. The integrated document-reference
+  negative case and stricter Slice 2 TRX count checks are retained. The
+  [Slice 3 ordinary run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41944290571)
+  passed 584 ProjectIDE cases, and its
+  [inventory controls](https://github.com/NYGsatoshi/Coglatas/actions/runs/41944290642)
+  passed separately.
+- #1709 ports the compiler tests and fixtures from #1615, #1618, #1621,
+  #1625, and #1629. Its first dedicated
+  [inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949141376)
+  verified **726 ProjectIDE and 12 Architecture** cases with zero failures
+  or skips. The full TRX and discovery inventory for head
+  `7ab5ff1a0773c39b7c76fad6c8ef92da542c9649`, tree
+  `2b7b519fe92fa99d15a38b16a75414944b3a7b92`, are in
+  [artifact 13379714103](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949141376/artifacts/13379714103).
+  Its downloaded ZIP SHA-256 `3b6ca29664c81a74bd583eb282a800d614ef9368eae1793b82dfb282d669a9c7`
+  matches GitHub, and every file digest listed in the receipt was checked.
+  The port was synchronized with the merged Product. The newer
+  [ordinary run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626131)
+  and [inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626053)
+  are tracked at head `2a8b14772ffe7f0d996a1d6b6c0fcb64a2ad1e8e`.
+- The remaining Resource, Graph, Web, Windows, and Navigation Test stacks
+  are tracked below. The historical ordinary Test failures come from
+  missing Product dependencies on their Test bases. Their supplemental
+  qualification runs retain their original Product and Test pins.
+
+### Dependency order
+
+- Navigation Product #1699 → #1702 → #1704 → #1705 (evidence only).
+- Core Test #1604 → #1609 → #1612 → #1615 → #1618 → #1621 → #1625 → #1629.
+  Slices 6–8 used intermediate candidate refs for their isolated bases.
+- Resource and Graph Test #1629 → #1658 → #1668 → #1682 → #1687 → #1689.
+  The Product prerequisites are #1657, #1667, #1681, #1686, and #1688.
+- Workbench Test #1629 → #1638 → #1654 → #1698 → #1700 → #1701 → #1703.
+  The Product prerequisites are #1637, #1653, #1699, #1702, and #1704.
+  The navigation Test compositions also use the qualified Graph Test controls.
+
+The next Product gate is the [ordinary run on #1702](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949701643),
+at head `7422813de3574fb6519f979fbfb0ac94c1ca71c9`. Its reconciliation
+keeps tree `a5fd9d8f9ba8a8f00506cbb8b4800530c5867184` unchanged from
+the prior stack head. Main and SecurityTestImplimation were verified at
+`fe44c73a161b663b4f8fffe491a7fdae0be034e3` and
+`ce57148d8fc233e4134d720d9804e212f73c66bb` after the #1699 merge.
+The Owner holds on Native Avalonia, public schemas, Evidence trust and
+eligibility, external acquisition, real data, Security Enforce, and release
+authorization continue. #1144 remains HOLD and #1128 remains SUSPENDED /
+NOT_EVALUATED.
+
+### Starting PR and ordinary CI inventory
+
+All 24 PRs were opened by NYGsatoshi. This table preserves the starting
+heads and CI runs, including the historical standalone Test failures. The
+PR links retain the titles and effective file lists. The only unresolved
+inline thread at this checkpoint was the original #1697 finding.
+
+| PR | Layer | Starting head | Starting base | Ordinary PR CI | Disposition |
+| --- | --- | --- | --- | --- | --- |
+| [#1604](https://github.com/NYGsatoshi/Coglatas/pull/1604) | Independent Test | `51a057aa7a250953383c99e49dfcd97ab6e01145` | `SecurityTestImplimation` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41204055236) | Superseded by #1706 |
+| [#1609](https://github.com/NYGsatoshi/Coglatas/pull/1609) | Independent Test | `15ae613d8db1397eb105a6753798afb948ea7758` | `test/projectide-core-slice2-values-20261031` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231959088) | Superseded by #1707 |
+| [#1612](https://github.com/NYGsatoshi/Coglatas/pull/1612) | Independent Test | `3632e50742425ddfb07bd04101d431c79fce3b3a` | `test/projectide-core-slice2-remainder-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41237949236) | Superseded by #1708 |
+| [#1615](https://github.com/NYGsatoshi/Coglatas/pull/1615) | Independent Test | `d5ae33642fb772ce7690c97bfc64ffaa0e87657a` | `test/projectide-core-slice3-relations-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41238366832) | Core port #1709 |
+| [#1618](https://github.com/NYGsatoshi/Coglatas/pull/1618) | Independent Test | `839965c0f068ccf1f7e34beab9061fe4a24c931c` | `test/projectide-core-slice4-envelopes-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248801309) | Core port #1709 |
+| [#1621](https://github.com/NYGsatoshi/Coglatas/pull/1621) | Independent Test | `cd1bb602c48c319bbef9aa70941595959a6531f1` | `candidate/projectide-slice5-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248804290) | Core port #1709 |
+| [#1625](https://github.com/NYGsatoshi/Coglatas/pull/1625) | Independent Test | `24c8386b37267ac730363de1f943c606de0d35fe` | `candidate/projectide-slice6-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248807654) | Core port #1709 |
+| [#1629](https://github.com/NYGsatoshi/Coglatas/pull/1629) | Independent Test | `9e969183f5b311789b0197d0b6aac12a88206e7c` | `candidate/projectide-slice7-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41499618041) | Core port #1709 |
+| [#1638](https://github.com/NYGsatoshi/Coglatas/pull/1638) | Independent Test | `5f2825e1d88f307efddc5edac16579ec220cbd4b` | `test/projectide-core-slice8-hosts-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41500323734) | Workbench Test port |
+| [#1654](https://github.com/NYGsatoshi/Coglatas/pull/1654) | Independent Test | `ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2` | `test/projectide-web-workbench-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41666843802) | Workbench Test port |
+| [#1658](https://github.com/NYGsatoshi/Coglatas/pull/1658) | Independent Test | `8f701e8db3097c74c9a63c30669fbfe36be7bb48` | `test/projectide-core-slice8-hosts-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41517973360) | Resource and Graph Test port |
+| [#1668](https://github.com/NYGsatoshi/Coglatas/pull/1668) | Independent Test | `6edddea75a8dfd0ecaca8559827ffb92ba06a365` | `test/projectide-core-value-binding-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716565) | Resource and Graph Test port |
+| [#1682](https://github.com/NYGsatoshi/Coglatas/pull/1682) | Independent Test | `1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6` | `test/projectide-evidence-foundation-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651634871) | Resource and Graph Test port |
+| [#1687](https://github.com/NYGsatoshi/Coglatas/pull/1687) | Independent Test | `3eee9a05892d987629e410a8c6c4d501f02acb70` | `test/projectide-evidence-materialization-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41670994211) | Resource and Graph Test port |
+| [#1689](https://github.com/NYGsatoshi/Coglatas/pull/1689) | Independent Test | `7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0` | `test/projectide-compiler-diagnostic-integration-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41672744304) | Resource and Graph Test port |
+| [#1697](https://github.com/NYGsatoshi/Coglatas/pull/1697) | Product | `a37a02d60a739d6408319888bb989ebd1401e349` | `projectide/integration-20261031` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41747573610) | Superseded by corrected #1699; GitHub recorded ancestry |
+| [#1698](https://github.com/NYGsatoshi/Coglatas/pull/1698) | Independent Test | `4cb9b7966fcdb553d8cf93f6fb1a666e6cebb00f` | `test/projectide-web-windows-inspection-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41748117387) | Navigation Test port |
+| [#1699](https://github.com/NYGsatoshi/Coglatas/pull/1699) | Product | `41de2efbd69be364119c361c75f175d914e3284c` | `projectide/integration-20261031` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945344585) | Merged to dedicated integration |
+| [#1700](https://github.com/NYGsatoshi/Coglatas/pull/1700) | Independent Test | `42bdd8777ffce045e076886f2f741bd995e8de93` | `test/projectide-diagnostic-navigation-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41749538618) | Navigation Test port |
+| [#1701](https://github.com/NYGsatoshi/Coglatas/pull/1701) | Independent Test | `617381fb651054a86128820d9cee46c04609de71` | `test/projectide-diagnostic-navigation-symbol-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544187) | Navigation Test port |
+| [#1702](https://github.com/NYGsatoshi/Coglatas/pull/1702) | Product | `4b0427f360034e0868210c4ac45c94cb195c758b` | `feature/projectide-diagnostic-symbol-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945516029) | Dedicated CI in progress after synchronization |
+| [#1703](https://github.com/NYGsatoshi/Coglatas/pull/1703) | Independent Test | `5ec19c43d4d4d64390b8f938286131b7d941af56` | `test/projectide-diagnostic-navigation-local-reference-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439) | Navigation Test port |
+| [#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) | Product | `8bbc80d8598a32ef2194d1907c06e7bfa16f5a83` | `feature/projectide-local-reference-navigation-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945659352) | Await #1702 |
+| [#1705](https://github.com/NYGsatoshi/Coglatas/pull/1705) | Docs | `cceebcabe4dbfa3ed39cf51a8b552c3baa138e57` | `feature/projectide-find-local-references-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945716158) | Await #1704 |
