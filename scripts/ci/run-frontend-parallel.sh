@@ -11,6 +11,14 @@ enabled() {
   [[ "${1:-false}" == "true" ]]
 }
 
+# This is the protected full frontend-test lane. A partial shard can only run
+# through a separate, explicitly aggregated and source-bound experiment.
+if [[ -n "${COGLATAS_STATIC_PLAYWRIGHT_SHARD:-}" ||
+      "${COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:-0}" != "0" ]]; then
+  echo "::error::Protected frontend-test must never execute a partial Playwright shard." >&2
+  exit 1
+fi
+
 run_build() { npm --prefix frontend run build; }
 run_unit() {
   # Bound Vitest worker contention when this same hosted runner also executes

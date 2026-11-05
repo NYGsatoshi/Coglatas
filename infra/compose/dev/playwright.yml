@@ -21,6 +21,9 @@ services:
       # Explicit opt-in only from the full GitHub Actions frontend lane.
       # Playwright's project-wide default remains one worker.
       COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "${COGLATAS_STATIC_PLAYWRIGHT_WORKERS:-1}"
+      # Experimental only; the required frontend-test launcher rejects shards.
+      COGLATAS_STATIC_PLAYWRIGHT_SHARD: "${COGLATAS_STATIC_PLAYWRIGHT_SHARD:-}"
+      COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: "${COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH:-0}"
       # Diagnostic-only, default off; no application values are recorded.
       COGLATAS_PENPOT_PHASE_PROFILE: "${COGLATAS_PENPOT_PHASE_PROFILE:-0}"
     volumes:
