@@ -36,6 +36,16 @@
       "allowedVersions": "/^34\\./"
     },
     {
+      "description": "Hold Stylelint 18 until SCSS config supports its peer dependency",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "stylelint"
+      ],
+      "allowedVersions": "/^17\\./"
+    },
+    {
       "description": "Skip broken Angular build 22.2.5 optional peer tree",
       "matchManagers": [
         "npm"
