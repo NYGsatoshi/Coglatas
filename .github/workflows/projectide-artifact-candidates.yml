@@ -5,8 +5,10 @@ on:
     paths:
       - src/Coglatas.Domain/ProjectIde/VersionedArtifacts/**
       - src/Coglatas.Application/ProjectIde/DependencyAcquisition/**
+      - src/Coglatas.Application/ProjectIde/ReceiptVerification/**
       - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
       - tests/Coglatas.Tests/ProjectIde/SyntheticDependencyAcquisitionTests.cs
+      - tests/Coglatas.Tests/ProjectIde/SyntheticReceiptAuthenticationTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
@@ -26,7 +28,8 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
        startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
-       startsWith(github.base_ref, 'projectide/synthetic-acquisition-'))
+       startsWith(github.base_ref, 'projectide/synthetic-acquisition-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -87,7 +90,7 @@ jobs:
         run: |
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-acquisition
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-acquisition --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
@@ -103,7 +106,8 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
        startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
-       startsWith(github.base_ref, 'projectide/synthetic-acquisition-'))
+       startsWith(github.base_ref, 'projectide/synthetic-acquisition-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: windows-latest
     timeout-minutes: 25
     env:
@@ -164,7 +168,7 @@ jobs:
         run: |
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-acquisition
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-acquisition --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
