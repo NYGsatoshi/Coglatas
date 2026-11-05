@@ -281,7 +281,7 @@ public sealed class CompilerHostTests
         var input = Input();
         var request = new CompilerHostRequest(new(input));
         var response = await Hosts(input).Local.CompileAsync(request);
-        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, (CompilerHostRequest?)null).State);
+        Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, null).State);
         Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response with { Execution = null }, request).State);
         var invalid = new CompilerHostRequest(new CompilerInputTransfer(Encoding.UTF8.GetBytes("invalid"), input.ToEnvelope().ToCanonicalBytes(), input.InputDigest));
         Assert.Equal(CompilerFreshness.Undetermined, CompilerHostFreshnessAssessment.Assess(response, invalid).State);
