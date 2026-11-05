@@ -36,6 +36,105 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         Assert.Empty(fixture.Dependencies.Calls);
     }
 
+    /// <summary>Denies non-author ordinary users without staging mutations or engagement effects.</summary>
+    /// <param name="operation">The protected mutation or read-status operation.</param>
+    [Theory]
+    [InlineData("update")]
+    [InlineData("delete")]
+    [InlineData("status")]
+    [InlineData("remind")]
+    public async Task NonAuthorWithoutManagementAuthorityCannotMutateOrReadRecipientStatus(string operation)
+    {
+        using var fixture = new Fixture { Announcement = { AuthorUserId = Guid.NewGuid() } };
+        var ordinary = new User { Id = fixture.ActorId, Status = UserStatus.Active, SystemRole = SystemRole.User };
+        fixture.ExpectAnnouncement();
+        fixture.ExpectUser(ordinary);
+        if (operation is "status" or "remind") fixture.ExpectUser(ordinary);
+
+        var result = await fixture.InvokeAsync(operation);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(operation switch
+        {
+            "update" => "You are not allowed to update this announcement.",
+            "delete" => "You are not allowed to delete this announcement.",
+            _ => "You are not allowed to view read status."
+        }, result.Error);
+        Assert.Equal(("Original", "Original body", (DateTimeOffset?)null),
+            (fixture.Announcement.Title, fixture.Announcement.Body, fixture.Announcement.DeletedAt));
+        fixture.Dependencies.VerifyComplete();
+    }
+
+    /// <summary>Preserves resource-read-before-identity ordering for existing mutation and recipient-status APIs.</summary>
+    /// <param name="operation">The operation whose existing admission ordering is retained.</param>
+    /// <param name="identity">Whether identity is present while authenticated state is absent.</param>
+    [Theory]
+    [InlineData("update", false)]
+    [InlineData("update", true)]
+    [InlineData("delete", false)]
+    [InlineData("delete", true)]
+    [InlineData("status", false)]
+    [InlineData("status", true)]
+    [InlineData("remind", false)]
+    [InlineData("remind", true)]
+    public async Task MissingAuthenticationForExistingResourceStopsAfterTheRequiredResourceRead(string operation, bool identity)
+    {
+        using var fixture = new Fixture(new Actor(identity ? Guid.NewGuid() : null, !identity));
+        fixture.ExpectAnnouncement();
+
+        var result = await fixture.InvokeAsync(operation);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(operation switch
+        {
+            "update" => "You are not allowed to update this announcement.",
+            "delete" => "You are not allowed to delete this announcement.",
+            _ => "You are not allowed to view read status."
+        }, result.Error);
+        var call = Assert.Single(fixture.Dependencies.Calls);
+        Assert.Equal("announcements.GetAsync", call.Method);
+        Assert.Equal(("Original", "Original body", (DateTimeOffset?)null),
+            (fixture.Announcement.Title, fixture.Announcement.Body, fixture.Announcement.DeletedAt));
+        fixture.Dependencies.VerifyComplete();
+    }
+
+    /// <summary>Rejects denied scoped creation after the corresponding resource and authority reads, without effects.</summary>
+    /// <param name="scope">The Workspace, Group or Channel scope under test.</param>
+    [Theory]
+    [InlineData("workspace")]
+    [InlineData("group")]
+    [InlineData("channel")]
+    public async Task ScopedCreationWithoutManagementOrElevatedAuthorityDoesNotStageAnnouncement(string scope)
+    {
+        using var fixture = new Fixture();
+        var id = Guid.NewGuid();
+        switch (scope)
+        {
+            case "workspace":
+                fixture.Dependencies.Expect("workspaces.GetByIdAsync", Task.FromResult<Workspace?>(new Workspace { Id = id }), [id, fixture.Token]);
+                fixture.Dependencies.Expect("workspaceAuthority.CanManageWorkspace", Task.FromResult(false), [fixture.ActorId, id, fixture.Token]);
+                break;
+            case "group":
+                fixture.Dependencies.Expect("groups.GetByIdAsync", Task.FromResult<Group?>(new Group { Id = id }), [id, fixture.Token]);
+                fixture.Dependencies.Expect("groupAuthority.CanManageGroup", Task.FromResult(false), [fixture.ActorId, id, fixture.Token]);
+                break;
+            case "channel":
+                fixture.Dependencies.Expect("channels.GetByIdAsync", Task.FromResult<Channel?>(new Channel { Id = id }), [id, fixture.Token]);
+                fixture.Dependencies.Expect("channelAuthority.CanManageChannel", Task.FromResult(false), [fixture.ActorId, id, fixture.Token]);
+                break;
+        }
+        if (scope != "channel") fixture.ExpectUser(new User { Id = fixture.ActorId, Status = UserStatus.Active, SystemRole = SystemRole.User });
+        var request = new CreateAnnouncementRequest(scope == "workspace" ? id : null,
+            scope == "group" ? id : null, scope == "channel" ? id : null, "Council update", "Body");
+
+        var result = await fixture.Service.CreateAsync(request, fixture.Token);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.Equal($"You are not allowed to create {scope} announcements.", result.Error);
+        fixture.Dependencies.VerifyComplete();
+    }
+
     /// <summary>Preserves requested scope and reader-specific projection while keeping pagination representable.</summary>
     [Theory]
     [InlineData(-4, -1, 1, 1)]
@@ -502,6 +601,10 @@ public sealed class AnnouncementLegacyLifecycleContractTests
                 "create" => Status(await Service.CreateAsync(new CreateAnnouncementRequest(null, null, null, "New", "Body"), Token)),
                 "get" => Status(await Service.GetAsync(Announcement.Id, Token)),
                 "read" => await Service.MarkReadAsync(Announcement.Id, Token),
+                "update" => Status(await Service.UpdateAsync(Announcement.Id, new UpdateAnnouncementRequest(Title: "Changed"), Token)),
+                "delete" => await Service.DeleteAsync(Announcement.Id, Token),
+                "status" => Status(await Service.GetReadStatusAsync(Announcement.Id, Token)),
+                "remind" => await Service.ResendUnreadAsync(Announcement.Id, Token),
                 _ => throw new ArgumentOutOfRangeException(nameof(operation))
             };
         }
