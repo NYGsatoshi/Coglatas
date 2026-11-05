@@ -1795,3 +1795,41 @@ inline thread at this checkpoint was the original #1697 finding.
 | [#1703](https://github.com/NYGsatoshi/Coglatas/pull/1703) | Independent Test | `5ec19c43d4d4d64390b8f938286131b7d941af56` | `test/projectide-diagnostic-navigation-local-reference-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439) | Navigation Test port |
 | [#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) | Product | `8bbc80d8598a32ef2194d1907c06e7bfa16f5a83` | `feature/projectide-local-reference-navigation-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945659352) | Await #1702 |
 | [#1705](https://github.com/NYGsatoshi/Coglatas/pull/1705) | Docs | `cceebcabe4dbfa3ed39cf51a8b552c3baa138e57` | `feature/projectide-find-local-references-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945716158) | Await #1704 |
+
+
+### Test port CI follow-up
+
+The [Core Test port #1709](https://github.com/NYGsatoshi/Coglatas/pull/1709)
+at `2a8b14772ffe7f0d996a1d6b6c0fcb64a2ad1e8e` failed the ordinary
+ReSharper changed-file gate. The
+[SARIF artifact 13380766740](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626131/artifacts/13380766740)
+records the redundant nullable cast in the host freshness test. The port
+retains the null-input assertion and drops the redundant cast in
+`9e39c2ade7b7f9bccc7f1091bd15c24f88f641da`, tree
+`cdc720d4caae405c3db8af7cba9c2f153b781c5f`. The
+[ordinary rerun](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259856)
+and [complete inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259861)
+passed. [Artifact 13381485450](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259861/artifacts/13381485450)
+reports ZIP SHA-256 `c7400b2d0bcfab09ddf9376becfdf173a4473f3805f9d29ff62698cce3e9f0da`.
+CodeRabbit reported its rate limit and the independent full review remains open.
+
+The [Workbench Test port #1710](https://github.com/NYGsatoshi/Coglatas/pull/1710)
+covers #1638 and #1654. Its [first ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41950135993)
+reported test ViewModel lifetime diagnostics. The
+[Resource and Graph Test port #1711](https://github.com/NYGsatoshi/Coglatas/pull/1711)
+covers #1658, #1668, #1682, #1687, and #1689. Its
+[first ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41950136131)
+reported cancellation fixture lifetime and assertion diagnostics. The Test-only
+corrections were pushed to both branches. Their temporary base is #1709 for
+shared Test fixtures and both final merge destinations are the dedicated branch.
+
+### Protected-ref event
+
+An external [merge of #1665](https://github.com/NYGsatoshi/Coglatas/pull/1665)
+advanced SecurityTestImplimation at 01:59:41 UTC from
+`ce57148d8fc233e4134d720d9804e212f73c66bb` to
+`35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1`. The ProjectIDE merge
+operation was suspended while the GitHub commit, parent and effective files
+were reconciled. The external merge is the Playwright shard preparation
+change. The dedicated ProjectIDE branches do not incorporate that change.
+Main remained at `fe44c73a161b663b4f8fffe491a7fdae0be034e3`.
