@@ -186,11 +186,24 @@ def main(argv=None):
                            [read_json(args.shard_one), read_json(args.shard_two)],
                            source_sha=args.source_sha,
                            run_id=args.run_id, attempt=args.attempt)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(args.output, flags, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(report, handle, sort_keys=True, separators=(",", ":"))
-            handle.write("\n")
+        # Do not trust a pathname-only parent check: artifacts/ or ci/ may
+        # be replaced with a directory symlink, escaping the fixed output root.
+        require(hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY"),
+                "UNSUPPORTED_OUTPUT_PLATFORM")
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        artifacts_fd = os.open("artifacts", directory_flags)
+        try:
+            ci_fd = os.open("ci", directory_flags, dir_fd=artifacts_fd)
+            try:
+                flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                fd = os.open(args.output.name, flags, 0o600, dir_fd=ci_fd)
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    json.dump(report, handle, sort_keys=True, separators=(",", ":"))
+                    handle.write("\n")
+            finally:
+                os.close(ci_fd)
+        finally:
+            os.close(artifacts_fd)
         print("Playwright shard union verified: exact two shards, no missing/duplicate IDs.")
     except (OSError, ValueError, TypeError, UnicodeError, RecursionError) as error:
         print("Playwright shard reconciliation refused: " + (

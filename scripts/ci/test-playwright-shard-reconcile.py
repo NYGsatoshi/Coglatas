@@ -170,6 +170,34 @@ class ShardEvidenceTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
+    def test_symlinked_output_ancestors_never_escape_fixed_artifact_directory(self):
+        roster, shards = fixtures()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, payload in (("roster.json", roster),
+                                  ("one.json", shards[0]), ("two.json", shards[1])):
+                (root / name).write_text(json.dumps(payload))
+            outside_ci = root / "outside" / "ci"
+            outside_ci.mkdir(parents=True)
+            args = ["--roster", "roster.json", "--shard-one", "one.json",
+                    "--shard-two", "two.json", "--source-sha", SHA,
+                    "--run-id", "12345", "--attempt", "1",
+                    "--output", "artifacts/ci/playwright-shard-aggregate.json"]
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(root)
+                artifacts = Path("artifacts")
+                artifacts.symlink_to(root / "outside", target_is_directory=True)
+                self.assertEqual(1, reconcile.main(args))
+                self.assertFalse((outside_ci / "playwright-shard-aggregate.json").exists())
+                artifacts.unlink()
+                artifacts.mkdir()
+                (artifacts / "ci").symlink_to(outside_ci, target_is_directory=True)
+                self.assertEqual(1, reconcile.main(args))
+                self.assertFalse((outside_ci / "playwright-shard-aggregate.json").exists())
+            finally:
+                os.chdir(original_cwd)
+
     def test_boolean_and_noninteger_provenance_cannot_masquerade_as_one(self):
         # Python True == 1; a plain equality silently accepts forged JSON booleans.
         # The source/run/attempt/artifact identity is security-relevant metadata.

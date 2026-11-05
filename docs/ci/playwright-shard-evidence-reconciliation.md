@@ -22,3 +22,8 @@ retention and all required checks remain unchanged.
 
 No speedup or sharding activation is claimed. Only `SecurityTestImplimation`
 may be modified, never Main.
+
+The fixed aggregate output is also opened relative to no-follow directory file
+descriptors for both `artifacts/` and `artifacts/ci/`, refusing parent
+symlinks and an existing output file. This is Linux-only preparatory CI
+behavior; no shard execution or publication is activated.
