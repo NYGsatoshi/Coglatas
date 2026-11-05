@@ -97,6 +97,7 @@ public sealed class AdminService(
             : Result<AdminUserDetailResponse>.Success(ToUserDetail(user));
     }
 
+    /// <summary>Validates supplied display-name and email fields before staging profile changes on the repository-owned user.</summary>
     public async Task<Result<AdminUserDetailResponse>> UpdateUserAsync(Guid userId, UpdateAdminUserRequest request, CancellationToken cancellationToken = default)
     {
         if (!await IsSystemAdminAsync(cancellationToken))
