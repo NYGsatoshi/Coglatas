@@ -1,0 +1,51 @@
+name: SEC-17 finding scope review controls
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/security/sec17_realtime_finding_candidate.py'
+      - 'tests/ci/test_sec17_realtime_finding_candidate.py'
+      - 'docs/verification/sec17-realtime-finding-bridge-candidate.md'
+      - '.github/workflows/sec17-finding-candidate.yml'
+      - 'scripts/security/finding_policy.py'
+      - 'scripts/security/finding-policy.json'
+      - 'tests/ci/test_security_finding_policy.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sec17-finding-candidate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  review-controls:
+    name: REVIEW_ONLY unadopted scope controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact review revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Enforce public workflow boundary
+        run: python3 -B scripts/ci/check-publication-readiness.py
+      - name: Record actual source identity
+        run: git rev-parse HEAD
+      - name: Execute nine candidate and thirty-two existing policy controls without skips
+        run: |
+          python3 -B - <<'PY'
+          import unittest
+          loader = unittest.TestLoader()
+          for pattern, expected in (
+              ('test_sec17_realtime_finding_candidate.py', 9),
+              ('test_security_finding_policy.py', 32),
+          ):
+              suite = loader.discover('tests/ci', pattern=pattern)
+              if suite.countTestCases() != expected:
+                  raise SystemExit('REVIEW_ONLY_CONTROL_SELECTION_MISMATCH')
+              result = unittest.TextTestRunner(verbosity=2).run(suite)
+              if result.testsRun != expected or result.skipped or not result.wasSuccessful():
+                  raise SystemExit('REVIEW_ONLY_CONTROL_EXECUTION_FAILED')
+          print('SEC17_REVIEW_ONLY_CONTROLS_EXECUTED: candidate=9 common=32; CANDIDATE_NOT_ADOPTED')
+          PY
