@@ -1517,3 +1517,341 @@ The Web query yields during scanning and discards cancelled results.
 The pure ViewModel observes cancellation and returns an immutable
 query result whose entries must still pass current selection checks
 before navigation. No protocol or persistent index is introduced.
+
+
+## Historical reference-navigation evidence reconciliation — 2026-11-04
+
+The following evidence ledger sections were originally recorded against the exact older Product/Test candidates described there. Their status counts, protected-ref snapshots, full-review state, and HOLD remarks are historical, not a statement of the current dedicated integration branch or later reconciled PR heads. Their original exact SHA/receipt references are retained verbatim; fresh changed-head validation is required independently.
+
+## Local language service exact cross-host evidence
+
+The starting audit covered 38 open ProjectIDE PRs. All were Draft, with 21
+ordinary CI successes and 17 Independent Test failures. CodeRabbit showed two
+completed reviews, 13 rate-limited reviews and 23 skipped reviews. Owner/CODEOWNER
+approval was absent. The original 38 PRs kept their exact bases, heads and Draft
+state during the continuation.
+
+The single unresolved inline finding was on #1697. The stacked fix in
+#1699/#1700 passed a fresh 18-test focused Vitest run on combined commit
+360c381de3727a081977516f6374ee90f915237a, tree
+2ecfbf2d9711f1b82684b06a315fc7e700cb33ac. The report SHA-256 is
+646e4e16fcb9fcc46b0ca4a405a1aa51d253e86fce04234f5355e7fd5ed8b110.
+The [parent thread](https://github.com/NYGsatoshi/Coglatas/pull/1697#discussion_r4468135066)
+remains open at its original review boundary.
+
+| Input | Commit | Tree |
+| --- | --- | --- |
+| Go Product base #1699 | 19a3ad044d078b256121f88d109abf77743b7d86 | f4b9f13f4c5fd7d401d7ca0800d0261647ab6c85 |
+| Go Product #1702 and Find Product base | 73528ac668067707392521099301e57b5c6d3c1d | d66e9510e496d2cdf4a4c3642edb1de42ee96745 |
+| Go Test base #1700 | 42bdd8777ffce045e076886f2f741bd995e8de93 | e2db613f380c2320e90c86a896b6390eeb0ff768 |
+| Go Test #1701 and Find Test base | 617381fb651054a86128820d9cee46c04609de71 | 9add919abe52494a124791c9365fb22561f3eee2 |
+| Go combined | 4ff98d0881d74fe5e8d24436d484c2a9ca8dcd7f | 1c5585ef293bd319b0160883a36bd67fca2aa5fa |
+| Find Product #1704 | 8fa6d1827a19175b75a8446d55b3a18b086a9618 | 2c2d1fe671313c54d3a9ee7cae7271dc37a40aa4 |
+| Find Test #1703 | 1f4078b3b6625ec1396e41879d90c21481a03e0d | b33bf36b5862c6690e2b4ff490e60ac293596b00 |
+| Find combined | eaad2f8cb0827aecec7f3ab83c9e55b0088b2b8f | 53422355cfc302c3ceb38d98518e0d3365e13f8b |
+
+Both slices used Graph Product #1688 at 05c9fa5afc6c57eb81cfa1d321b555bb85ff8130
+and Graph Test #1689 at 7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0. The
+independent ownership checks, exact parent ancestry and branch merge trees
+matched the pins.
+
+| Candidate | ProjectIDE .NET and pure ViewModel | Navigation ViewModel class subset | Architecture | Vitest | Node | Playwright | Controls | FAIL | SKIP | NOT_RUN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Go to Definition | 925 | 38 | 12 | 324 | 70 | 54 | 72 | 0 | 0 | 0 |
+| Find References | 927 | 40 | 12 | 332 | 70 | 58 | 72 | 0 | 0 | 0 |
+
+Both hosts passed Release build with warnings as errors, TypeScript, frontend
+architecture, route inventory and Angular production build. The existing
+stylesheet-budget warnings remain in the logs. Windows used .NET 10.0.403,
+Node 24.22.1 and Python 3.12.14. Ubuntu used .NET 10.0.403, Node 24.22.2 and
+Python 3.12.12. The first Windows Go build exhausted disk space and passed on
+retry at the exact same candidate.
+
+| Candidate | Ubuntu artifact | Ubuntu ZIP SHA-256 | Windows ZIP SHA-256 |
+| --- | --- | --- | --- |
+| Go to Definition | [41838544006](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544006/artifacts/13326718884) | d11519c51c681b301b5003c16fbd13843a40a5652004cd69d483932f221b9a98 | edcec025657a20539d7dd0f2d8aba778d5e8eddd4685a52fc2da224ad5ec882a |
+| Find References | [41841167565](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841167565/artifacts/13329582116) | 1b699402c8c8ab01bcb1c7f9ae529f7d069c39a56fade3756855eb2b804fb9fa | 33d4b587ac7f56a406fa6ec8eef97b9156f8faa2bb04e2e4d9f0c244337f0a21 |
+
+Both golden exports matched SHA-256
+bc8a3a16917544d144aff0db0dcd91cd8e258d0c4ef427baa2d29c11818c243a.
+The verifier SHA-256 is
+65acbc622c56592877ad10c87f3c298491152fc21f62d9c12b31426c17f267b8.
+The ZIPs retain the producer hashes, every recorded artifact-file digest,
+full test inventories and the exact checkout checks before and after verification.
+
+The prior Go browser candidate lacked the reference-origin action. Its failed
+JUnit report has SHA-256 e07d6ec642c361dac074cb5c81a1ae4ad8205e23040ea8045ab480ed893b7a5f.
+The prior Find candidate lacked the query action. Its failed JUnit report has
+SHA-256 9e897b33a97ef2f4326b80bfe941d42a31a3279827da810ce5524b833d8eec50.
+The [first Find References supplemental run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41839719829)
+retains two browser failures for a literal count placeholder. The repaired
+locale messages use the existing interpolation format and the independent
+browser suite checks both languages.
+
+| Slice | Ordinary Product CI | Ordinary Independent Test CI |
+| --- | --- | --- |
+| Go to Definition | [41838495161](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838495161) build-test success, workflow in progress at capture | [41838544187](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544187) build-test failure, workflow in progress at capture |
+| Find References | [41841161162](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841161162) queued at capture | [41841167800](https://github.com/NYGsatoshi/Coglatas/actions/runs/41841167800) queued at capture |
+
+The Go Test producer and the first Find Test producer both failed on the unintegrated Core types. The
+supplemental evidence has a separate role. All four feature and test PRs
+remain Draft, with Owner/CODEOWNER approval pending. CodeRabbit reported
+zero actionable issues and a docstring advisory on #1702. The other full
+reviews remain pending following rate limits.
+
+The protected refs audit matched main at fe44c73a161b663b4f8fffe491a7fdae0be034e3,
+the formal integration ref projectide/integration-20261031 at
+158ab153551184cede99c85ce6476dd6e87b6767 and SecurityTestImplimation at
+ce57148d8fc233e4134d720d9804e212f73c66bb. ProjectIDEMain was absent at both checks.
+
+Typed context-aware completion is the next bounded read-only candidate under
+#1030. Rename Preview, incremental invalidation and production authorization
+integration remain open. The existing Manifest, Receipt, Evidence, external
+acquisition, executable IR, production enforcement and Native Avalonia holds
+retain their recorded status. #1144 remains on HOLD and #1128 is
+SUSPENDED/NOT_EVALUATED.
+
+## Independent Find References post-receipt tests — 2026-11-04
+
+The independent Test-only follow-up on [#1703](https://github.com/NYGsatoshi/Coglatas/pull/1703)
+advanced from the qualified `1f4078b3b6625ec1396e41879d90c21481a03e0d` to
+`5ec19c43d4d4d64390b8f938286131b7d941af56` without changing Product
+[#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) or the Test base.
+It adds three Vitest regression cases for overlapping query supersession,
+selection of a reference while a query is pending, and a match just beyond the
+4,096-reference scan ceiling. The before/after source ownership remains
+separate: the Product runtime is not copied into the Test delta.
+
+The preceding Windows/Ubuntu counts, combined tree, producer digests and ZIP
+hashes **remain evidence only for their exact previous Test head**. They do
+not automatically qualify this later Test-only commit. New
+[supplemental compatibility run 41844487429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+and [ordinary PR CI 41844487439](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439)
+were initiated. Their subsequent exact Ubuntu evidence and the independently
+failed ordinary .NET producer are recorded in the next section. Prior ordinary Test CI failures caused by unintegrated Core
+inputs are retained. All Draft/NO_MERGE, reviewer and Owner/CODEOWNER gates,
+protected refs, and Native/Manifest/Receipt/Evidence/production HOLD decisions
+remain unchanged.
+
+
+### Fresh Ubuntu continuation receipt for Test 5ec19c43
+
+The [supplemental Navigation run 41844487429](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+completed **SUCCESS** against the updated Test-only head. The exact
+candidate and clean composition recorded in `receipt.json` are:
+
+| Role | Commit | Tree |
+| --- | --- | --- |
+| Product #1704 (unchanged) | `8fa6d1827a19175b75a8446d55b3a18b086a9618` | `2c2d1fe671313c54d3a9ee7cae7271dc37a40aa4` |
+| Independent Test #1703 (new) | `5ec19c43d4d4d64390b8f938286131b7d941af56` | `93930dbf3156c0367307480dd758dfd2a0bfc314` |
+| Exact combined candidate | `fe849ae7af65ce4544bbd390a9ef77b6d2857b23` | `eb0de162970b5880d66391edc1f53bc70dbd3361` |
+
+The [retained artifact 13330702632](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429/artifacts/13330702632)
+was downloaded, independently opened and compared to the embedded receipt.
+ZIP SHA-256: `4849e60e6c48fa046ae412cf32b28f3e661eb8e3c9df1514a9421b2a80150a38`.
+The ZIP has 44 entries including `receipt.json`, and all 43
+receipt-declared file SHA-256 hashes match the bytes in the ZIP.
+The receipt SHA-256 is `a667bd55a74da25f7deaa3f4a3a503587102a425211e253e415badc883cdcc7c`.
+
+| Executed inventory | Passed | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| ProjectIDE .NET and pure ViewModel (TRX) | 927 | 0 | 0 |
+| Architecture (TRX) | 12 | 0 | 0 |
+| Vitest (JSON) | 335 | 0 | 0 |
+| Frontend Node (TAP) | 70 | 0 | 0 |
+| Desktop/mobile Playwright (JUnit) | 58 | 0 | 0 |
+| Composition controls (unittest) | 72 | 0 | 0 |
+| **Total** | **1,474** | **0** | **0** |
+
+The three new tests were each present and marked `passed` in the
+Vitest JSON: overlapping search supersession, reference selection
+while a search is pending, and a match beyond the 4,096-entry scan limit.
+All 15 recorded command exit codes were zero. The receipt's browser
+serving and expected-index hashes match and Playwright retry count is
+zero. Release `dotnet build -warnaserror`, TypeScript and Angular
+production builds passed; the pre-existing Angular bundle/stylesheet
+budget warnings remain.
+
+This is **fresh Ubuntu evidence only** for the new Test head.
+The prior Windows ZIP and its inventory apply to the earlier Test head;
+they must not be relabeled as new cross-host qualification.
+
+[Ordinary Independent Test CI 41844487439](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439)
+remains a distinct validation boundary. Its .NET producer failed with
+197 C# errors (including CS0234 and CS0246 for missing unmerged
+ProjectIDE Core/host types on the Test-only base), not with a failure
+of the three new Vitest cases. The full ordinary workflow conclusion
+must be inspected separately; supplementary CI does not satisfy it.
+No unverified Main integration, owner approval, review, release, or
+native/Avalonia eligibility is inferred. The Draft/NO_MERGE and all
+prior HOLD decisions stay in effect.
+
+
+## Dedicated integration audit, 2026-11-05
+
+Scope is the dedicated branch and ProjectIDE-owned source, tests, and evidence.
+The audit started from `a9b1b1ec9388e2483cc93f943a72fccefe432d46`.
+The GitHub branch-protection endpoint reported no classic protection for this
+branch and the applicable rules endpoint returned an empty set. The existing
+ordinary CI, independent inventory, and review gates were evaluated separately.
+
+### Integrated Diagnostic-to-Symbol Product
+
+| Identity | Commit | Tree |
+| --- | --- | --- |
+| Dedicated base | `a9b1b1ec9388e2483cc93f943a72fccefe432d46` | `c8061c7edfc686231d8b7adf7aacf41b096b7448` |
+| [Product #1699](https://github.com/NYGsatoshi/Coglatas/pull/1699) | `41de2efbd69be364119c361c75f175d914e3284c` | `8dbc4712d61ea5af09e8d996da187034372d2a55` |
+| Dedicated merge | `0ce09ceb52d02746782876cd1f8509237cfb23a6` | `8dbc4712d61ea5af09e8d996da187034372d2a55` |
+
+All 17 ordinary jobs passed in [run 41945344585](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945344585).
+[CodeRabbit completed the exact-HEAD review](https://github.com/NYGsatoshi/Coglatas/pull/1699#issuecomment-6647083813)
+with a successful check, an advisory docstring-coverage warning, and no inline
+threads. The merge and Product trees match exactly. The dedicated push
+[LegacyNameGuard](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949516292)
+and [Sonar routing](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949516330)
+completed successfully. GitHub marked #1697 merged by ancestry when #1699
+merged. [The historical thread and disposition remain visible](https://github.com/NYGsatoshi/Coglatas/pull/1697#issuecomment-6647203294).
+
+### Independent Test disposition
+
+- #1604, #1609, and #1612 were closed as superseded after checking the
+  merged #1706, #1707, and #1708 ports. The integrated document-reference
+  negative case and stricter Slice 2 TRX count checks are retained. The
+  [Slice 3 ordinary run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41944290571)
+  passed 584 ProjectIDE cases, and its
+  [inventory controls](https://github.com/NYGsatoshi/Coglatas/actions/runs/41944290642)
+  passed separately.
+- #1709 ports the compiler tests and fixtures from #1615, #1618, #1621,
+  #1625, and #1629. Its first dedicated
+  [inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949141376)
+  verified **726 ProjectIDE and 12 Architecture** cases with zero failures
+  or skips. The full TRX and discovery inventory for head
+  `7ab5ff1a0773c39b7c76fad6c8ef92da542c9649`, tree
+  `2b7b519fe92fa99d15a38b16a75414944b3a7b92`, are in
+  [artifact 13379714103](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949141376/artifacts/13379714103).
+  Its downloaded ZIP SHA-256 `3b6ca29664c81a74bd583eb282a800d614ef9368eae1793b82dfb282d669a9c7`
+  matches GitHub, and every file digest listed in the receipt was checked.
+  The port was synchronized with the merged Product. The newer
+  [ordinary run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626131)
+  and [inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626053)
+  are tracked at head `2a8b14772ffe7f0d996a1d6b6c0fcb64a2ad1e8e`.
+- The remaining Resource, Graph, Web, Windows, and Navigation Test stacks
+  are tracked below. The historical ordinary Test failures come from
+  missing Product dependencies on their Test bases. Their supplemental
+  qualification runs retain their original Product and Test pins.
+
+### Dependency order
+
+- Navigation Product #1699 → #1702 → #1704 → #1705 (evidence only).
+- Core Test #1604 → #1609 → #1612 → #1615 → #1618 → #1621 → #1625 → #1629.
+  Slices 6–8 used intermediate candidate refs for their isolated bases.
+- Resource and Graph Test #1629 → #1658 → #1668 → #1682 → #1687 → #1689.
+  The Product prerequisites are #1657, #1667, #1681, #1686, and #1688.
+- Workbench Test #1629 → #1638 → #1654 → #1698 → #1700 → #1701 → #1703.
+  The Product prerequisites are #1637, #1653, #1699, #1702, and #1704.
+  The navigation Test compositions also use the qualified Graph Test controls.
+
+The next Product gate is the [ordinary run on #1702](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949701643),
+at head `7422813de3574fb6519f979fbfb0ac94c1ca71c9`. Its reconciliation
+keeps tree `a5fd9d8f9ba8a8f00506cbb8b4800530c5867184` unchanged from
+the prior stack head. Main and SecurityTestImplimation were verified at
+`fe44c73a161b663b4f8fffe491a7fdae0be034e3` and
+`ce57148d8fc233e4134d720d9804e212f73c66bb` after the #1699 merge.
+The Owner holds on Native Avalonia, public schemas, Evidence trust and
+eligibility, external acquisition, real data, Security Enforce, and release
+authorization continue. #1144 remains HOLD and #1128 remains SUSPENDED /
+NOT_EVALUATED.
+
+### Starting PR and ordinary CI inventory
+
+All 24 PRs share the repository owner as their author. This table preserves the starting
+heads and CI runs, including the historical standalone Test failures. The
+PR links retain the titles and effective file lists. The only unresolved
+inline thread at this checkpoint was the original #1697 finding.
+
+| PR | Layer | Starting head | Starting base | Ordinary PR CI | Disposition |
+| --- | --- | --- | --- | --- | --- |
+| [#1604](https://github.com/NYGsatoshi/Coglatas/pull/1604) | Independent Test | `51a057aa7a250953383c99e49dfcd97ab6e01145` | `SecurityTestImplimation` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41204055236) | Superseded by #1706 |
+| [#1609](https://github.com/NYGsatoshi/Coglatas/pull/1609) | Independent Test | `15ae613d8db1397eb105a6753798afb948ea7758` | `test/projectide-core-slice2-values-20261031` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41231959088) | Superseded by #1707 |
+| [#1612](https://github.com/NYGsatoshi/Coglatas/pull/1612) | Independent Test | `3632e50742425ddfb07bd04101d431c79fce3b3a` | `test/projectide-core-slice2-remainder-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41237949236) | Superseded by #1708 |
+| [#1615](https://github.com/NYGsatoshi/Coglatas/pull/1615) | Independent Test | `d5ae33642fb772ce7690c97bfc64ffaa0e87657a` | `test/projectide-core-slice3-relations-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41238366832) | Core port #1709 |
+| [#1618](https://github.com/NYGsatoshi/Coglatas/pull/1618) | Independent Test | `839965c0f068ccf1f7e34beab9061fe4a24c931c` | `test/projectide-core-slice4-envelopes-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248801309) | Core port #1709 |
+| [#1621](https://github.com/NYGsatoshi/Coglatas/pull/1621) | Independent Test | `cd1bb602c48c319bbef9aa70941595959a6531f1` | `candidate/projectide-slice5-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248804290) | Core port #1709 |
+| [#1625](https://github.com/NYGsatoshi/Coglatas/pull/1625) | Independent Test | `24c8386b37267ac730363de1f943c606de0d35fe` | `candidate/projectide-slice6-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41248807654) | Core port #1709 |
+| [#1629](https://github.com/NYGsatoshi/Coglatas/pull/1629) | Independent Test | `9e969183f5b311789b0197d0b6aac12a88206e7c` | `candidate/projectide-slice7-tests-fixed-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41499618041) | Core port #1709 |
+| [#1638](https://github.com/NYGsatoshi/Coglatas/pull/1638) | Independent Test | `5f2825e1d88f307efddc5edac16579ec220cbd4b` | `test/projectide-core-slice8-hosts-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41500323734) | Workbench Test port |
+| [#1654](https://github.com/NYGsatoshi/Coglatas/pull/1654) | Independent Test | `ed2e0b4019cc1e3b8f6cf178238ddc664772ffe2` | `test/projectide-web-workbench-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41666843802) | Workbench Test port |
+| [#1658](https://github.com/NYGsatoshi/Coglatas/pull/1658) | Independent Test | `8f701e8db3097c74c9a63c30669fbfe36be7bb48` | `test/projectide-core-slice8-hosts-20261101` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41517973360) | Resource and Graph Test port |
+| [#1668](https://github.com/NYGsatoshi/Coglatas/pull/1668) | Independent Test | `6edddea75a8dfd0ecaca8559827ffb92ba06a365` | `test/projectide-core-value-binding-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41562716565) | Resource and Graph Test port |
+| [#1682](https://github.com/NYGsatoshi/Coglatas/pull/1682) | Independent Test | `1e54da1d5d04b3fa3bb8820f1f9870798bc6b3f6` | `test/projectide-evidence-foundation-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41651634871) | Resource and Graph Test port |
+| [#1687](https://github.com/NYGsatoshi/Coglatas/pull/1687) | Independent Test | `3eee9a05892d987629e410a8c6c4d501f02acb70` | `test/projectide-evidence-materialization-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41670994211) | Resource and Graph Test port |
+| [#1689](https://github.com/NYGsatoshi/Coglatas/pull/1689) | Independent Test | `7241cd0c2f50ccc740b11d0dbbe2a4e5624df4f0` | `test/projectide-compiler-diagnostic-integration-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41672744304) | Resource and Graph Test port |
+| [#1697](https://github.com/NYGsatoshi/Coglatas/pull/1697) | Product | `a37a02d60a739d6408319888bb989ebd1401e349` | `projectide/integration-20261031` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41747573610) | Superseded by corrected #1699; GitHub recorded ancestry |
+| [#1698](https://github.com/NYGsatoshi/Coglatas/pull/1698) | Independent Test | `4cb9b7966fcdb553d8cf93f6fb1a666e6cebb00f` | `test/projectide-web-windows-inspection-20261103` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41748117387) | Navigation Test port |
+| [#1699](https://github.com/NYGsatoshi/Coglatas/pull/1699) | Product | `41de2efbd69be364119c361c75f175d914e3284c` | `projectide/integration-20261031` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945344585) | Merged to dedicated integration |
+| [#1700](https://github.com/NYGsatoshi/Coglatas/pull/1700) | Independent Test | `42bdd8777ffce045e076886f2f741bd995e8de93` | `test/projectide-diagnostic-navigation-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41749538618) | Navigation Test port |
+| [#1701](https://github.com/NYGsatoshi/Coglatas/pull/1701) | Independent Test | `617381fb651054a86128820d9cee46c04609de71` | `test/projectide-diagnostic-navigation-symbol-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41838544187) | Navigation Test port |
+| [#1702](https://github.com/NYGsatoshi/Coglatas/pull/1702) | Product | `4b0427f360034e0868210c4ac45c94cb195c758b` | `feature/projectide-diagnostic-symbol-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945516029) | Dedicated CI in progress after synchronization |
+| [#1703](https://github.com/NYGsatoshi/Coglatas/pull/1703) | Independent Test | `5ec19c43d4d4d64390b8f938286131b7d941af56` | `test/projectide-diagnostic-navigation-local-reference-20261104` | [FAIL](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487439) | Navigation Test port |
+| [#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) | Product | `8bbc80d8598a32ef2194d1907c06e7bfa16f5a83` | `feature/projectide-local-reference-navigation-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945659352) | Await #1702 |
+| [#1705](https://github.com/NYGsatoshi/Coglatas/pull/1705) | Docs | `cceebcabe4dbfa3ed39cf51a8b552c3baa138e57` | `feature/projectide-find-local-references-20261104` | [PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41945716158) | Await #1704 |
+
+
+### Test port CI follow-up
+
+The [Core Test port #1709](https://github.com/NYGsatoshi/Coglatas/pull/1709)
+at `2a8b14772ffe7f0d996a1d6b6c0fcb64a2ad1e8e` failed the ordinary
+ReSharper changed-file gate. The
+[SARIF artifact 13380766740](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949626131/artifacts/13380766740)
+records the redundant nullable cast in the host freshness test. The port
+retains the null-input assertion and drops the redundant cast in
+`9e39c2ade7b7f9bccc7f1091bd15c24f88f641da`, tree
+`cdc720d4caae405c3db8af7cba9c2f153b781c5f`. The
+[ordinary rerun](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259856)
+and [complete inventory run](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259861)
+passed. [Artifact 13381485450](https://github.com/NYGsatoshi/Coglatas/actions/runs/41951259861/artifacts/13381485450)
+reports ZIP SHA-256 `c7400b2d0bcfab09ddf9376becfdf173a4473f3805f9d29ff62698cce3e9f0da`.
+CodeRabbit reported its rate limit and the independent full review remains open.
+
+The [Workbench Test port #1710](https://github.com/NYGsatoshi/Coglatas/pull/1710)
+covers #1638 and #1654. Its [first ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41950135993)
+reported test ViewModel lifetime diagnostics. The
+[Resource and Graph Test port #1711](https://github.com/NYGsatoshi/Coglatas/pull/1711)
+covers #1658, #1668, #1682, #1687, and #1689. Its
+[first ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41950136131)
+reported cancellation fixture lifetime and assertion diagnostics. The Test-only
+corrections were pushed to both branches. Their temporary base is #1709 for
+shared Test fixtures and both final merge destinations are the dedicated branch.
+
+### Protected-ref event
+
+An external [merge of #1665](https://github.com/NYGsatoshi/Coglatas/pull/1665)
+advanced SecurityTestImplimation at 01:59:41 UTC from
+`ce57148d8fc233e4134d720d9804e212f73c66bb` to
+`35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1`. The ProjectIDE merge
+operation was suspended while the GitHub commit, parent and effective files
+were reconciled. The external merge is the Playwright shard preparation
+change. The dedicated ProjectIDE branches do not incorporate that change.
+Main remained at `fe44c73a161b663b4f8fffe491a7fdae0be034e3`.
+
+
+### Navigation Product integration results
+
+| PR | Exact Product head | Product and merged tree | Dedicated merge | Ordinary CI |
+| --- | --- | --- | --- | --- |
+| [#1702](https://github.com/NYGsatoshi/Coglatas/pull/1702) | `7422813de3574fb6519f979fbfb0ac94c1ca71c9` | `a5fd9d8f9ba8a8f00506cbb8b4800530c5867184` | `fdecc8caae02225fc0b21d1a20476f420224a1ce` | [17/17 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41949701643) |
+| [#1704](https://github.com/NYGsatoshi/Coglatas/pull/1704) | `f6c5f0be2fb84e28d5199545d839b5002a25fea6` | `a93a9dd19134b6de108f3cc36fb9525beb5b5e4c` | `168b53d352b1952ace21129e8fe3c53934afd16c` | [17/17 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/41953044709) |
+
+Each merge tree matches the exact Product head. Each Product reconciliation
+retained the earlier reviewed file content and acquired a new ordinary run on
+the dedicated base. The PR records separate independent Windows, Angular, and
+Desktop/Mobile checks from ordinary CI. The #1704 source-backed search evidence
+covers the 4,096 scan, 64 origin-check, and 32 result ceilings, partial coverage,
+cancellation, and stale request invalidation.
+
+The latest historical [Navigation Test evidence](https://github.com/NYGsatoshi/Coglatas/actions/runs/41844487429)
+remains bound to its original Product/Test revisions. [Core #1709](https://github.com/NYGsatoshi/Coglatas/pull/1709)
+is Ready and an independent CodeRabbit full review started. [Resource #1711 ordinary CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/41952228915)
+passed at `8611c62585911d022aa770d85024eac0d0205eec` on its temporary
+Test base. The Web and Navigation Test ports still need their dedicated-base
+qualification.
