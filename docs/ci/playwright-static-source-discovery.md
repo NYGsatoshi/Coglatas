@@ -81,3 +81,14 @@ The original, independently executed full Playwright suite must still
 pass 443 and skip 13; the aggregate/shard receipts must eventually
 attest precise individual IDs and skip justifications, never rely on
 the declaration-only count as a shortcut.
+
+## Race-safe local output handling (Linux CI only)
+
+The local roster writer opens the checkout root and each ancestor directory
+through stable directory file descriptors using `O_DIRECTORY|O_NOFOLLOW`
+and Linux `/proc/self/fd/<fd>` relative paths. The `artifacts/` and
+`artifacts/ci/` parent handles remain open while the fixed JSON leaf is
+created with `O_EXCL|O_NOFOLLOW` and permissions `0600`. This avoids
+a pathname-only `lstat` to `open` race involving symlink substitutions.
+Failures never echo the raw JSON/test names, and the local roster is not
+uploaded. This is not an independent GitHub producer or retry attestation.

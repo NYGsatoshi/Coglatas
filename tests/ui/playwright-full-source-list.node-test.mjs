@@ -181,7 +181,15 @@ test('local source-only output is exclusive and rejects symlinked parents', () =
     const saved = JSON.parse(readFileSync(
       join(tmp, 'artifacts/ci/playwright-source-discovery.json'), 'utf8'));
     assert.deepEqual(saved, roster);
-    assert.throws(() => persistNonpublishingRoster(roster, tmp));
+    assert.throws(() => persistNonpublishingRoster(roster, tmp), /DISCOVERY_REFUSED/);
+    // Disallow a symlink in the path to the repository root as well as
+    // a symlink in the artifacts/ or artifacts/ci directory components.
+    const rootAlias = join(tmp, 'root-alias');
+    const rootActual = join(tmp, 'root-real');
+    mkdirSync(join(rootActual, 'artifacts/ci'), { recursive: true });
+    symlinkSync(rootActual, rootAlias, 'dir');
+    assert.throws(() => persistNonpublishingRoster(roster, rootAlias),
+      /DISCOVERY_REFUSED/);
     const second = mkdtempSync(join(tmpdir(), 'coglatas-roster-elsewhere-'));
     try {
       mkdirSync(join(second, 'ci'));

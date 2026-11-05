@@ -6,7 +6,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { constants, lstatSync, openSync, readFileSync, writeFileSync, closeSync } from 'node:fs';
+import { constants, openSync, readFileSync, writeFileSync, closeSync, fsyncSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -97,23 +97,52 @@ function requireContext(env) {
       git.stdout.trim() !== env.GITHUB_SHA) deny('SOURCE_CHECKOUT_MISMATCH');
 }
 
-export function persistNonpublishingRoster(data, root = ROOT) {
-  const artifactRoot = path.join(root, 'artifacts');
-  const parent = path.join(artifactRoot, 'ci');
-  for (const directory of [artifactRoot, parent]) {
-    const s = lstatSync(directory);
-    if (!s.isDirectory() || s.isSymbolicLink()) deny('UNSAFE_OUTPUT_PARENT');
-  }
-  const flags = constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY |
-    (constants.O_NOFOLLOW || 0);
-  const destination = path.join(parent, 'playwright-source-discovery.json');
-  const fd = openSync(destination, flags, 0o600);
+function openPinnedRootDirectory(root) {
+  // Linux CI only. Each component is opened relative to the previous stable
+  // directory descriptor; no pathname-only lstat/open race is accepted.
+  const flags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  let fd = -1;
   try {
-    writeFileSync(fd, JSON.stringify(data) + '\n', { encoding: 'utf8' });
-  } finally {
-    closeSync(fd);
+    fd = openSync('/', flags);
+    for (const segment of path.resolve(root).split(path.sep).filter(Boolean)) {
+      const next = openSync('/proc/self/fd/' + fd + '/' + segment, flags);
+      closeSync(fd);
+      fd = next;
+    }
+    return fd;
+  } catch {
+    if (fd >= 0) closeSync(fd);
+    deny('UNSAFE_OUTPUT_PARENT');
   }
 }
+
+export function persistNonpublishingRoster(data, root = ROOT) {
+  if (process.platform !== 'linux' ||
+      !constants.O_NOFOLLOW || !constants.O_DIRECTORY)
+    deny('UNSUPPORTED_SAFE_OUTPUT_PLATFORM');
+  const dirFlags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  const writeFlags = constants.O_WRONLY | constants.O_CREAT |
+    constants.O_EXCL | constants.O_NOFOLLOW;
+  let rootFd = -1, artifactsFd = -1, ciFd = -1, outputFd = -1;
+  try {
+    rootFd = openPinnedRootDirectory(root);
+    artifactsFd = openSync('/proc/self/fd/' + rootFd + '/artifacts', dirFlags);
+    ciFd = openSync('/proc/self/fd/' + artifactsFd + '/ci', dirFlags);
+    outputFd = openSync('/proc/self/fd/' + ciFd +
+      '/playwright-source-discovery.json', writeFlags, 0o600);
+    writeFileSync(outputFd, JSON.stringify(data) + '\n', { encoding: 'utf8' });
+    fsyncSync(outputFd);
+  } catch (error) {
+    if (typeof error?.message === 'string' &&
+        error.message.startsWith('DISCOVERY_REFUSED:')) throw error;
+    deny('UNSAFE_OUTPUT_OR_WRITE');
+  } finally {
+    for (const fd of [outputFd, ciFd, artifactsFd, rootFd]) {
+      if (fd >= 0) closeSync(fd);
+    }
+  }
+}
+
 
 export function runSourceDiscovery(env = process.env) {
   requireContext(env);
@@ -186,7 +215,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       'UNAUTHORIZED_TRIAL_CONTEXT',
       'SOURCE_CHECKOUT_MISMATCH', 'CHILD_START_FAILED', 'CHILD_INTERRUPTED',
       'CHILD_EXIT_NONZERO', 'INVALID_REPORTER_BUFFER',
-      'UNSANITIZED_REPORTER_STDOUT', 'REPORTER_UNQUALIFIED_LIST',
+      'UNSANITIZED_REPORTER_STDOUT', 'UNSAFE_OUTPUT_PARENT',
+      'UNSUPPORTED_SAFE_OUTPUT_PLATFORM', 'UNSAFE_OUTPUT_OR_WRITE',
+      'REPORTER_UNQUALIFIED_LIST',
       'REPORTER_DUPLICATE_ONBEGIN', 'REPORTER_ONBEGIN_INVALID_CASES',
       'REPORTER_UNEXPECTED_TEST_EXECUTION', 'REPORTER_PLAYWRIGHT_GLOBAL_ERROR',
       'REPORTER_PLAYWRIGHT_LIST_STATUS_FAILED', 'REPORTER_REPORTER_OUTPUT_FAILED',
