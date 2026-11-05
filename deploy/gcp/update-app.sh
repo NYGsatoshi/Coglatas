@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 APP_DIR="${APP_DIR:-/opt/coglatas}"
 BRANCH="${BRANCH:-main}"
@@ -38,7 +39,7 @@ git fetch origin "${BRANCH}"
 git checkout "${BRANCH}"
 git pull --ff-only origin "${BRANCH}"
 
-run_compose config --quiet
+run_compose config --format json | python3 "${SCRIPT_DIR}/verify-loopback.py"
 run_compose build app
 run_compose up -d postgres
 wait_for_postgres

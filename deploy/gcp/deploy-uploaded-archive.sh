@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 APP_DIR="${APP_DIR:-/opt/coglatas}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-/tmp/coglatas-deploy.tar}"
@@ -52,7 +53,7 @@ DB_HOST=db
 DB_NAME=coglatas
 DB_USER=coglatas
 DB_PASSWORD=${POSTGRES_PASSWORD_VALUE}
-COGLATAS_PORT=8080
+COGLATAS_PORT=127.0.0.1:8080
 FILE_STORAGE_MAX_FILE_SIZE_BYTES=52428800
 ASPNETCORE_ENVIRONMENT=Development
 TENANCY_APP_MODE=OnPremSingleTenant
@@ -86,7 +87,7 @@ test -n "${SYNCFUSION_LICENSE:-}" || {
   exit 1
 }
 
-run_compose config --quiet
+run_compose config --format json | python3 "${SCRIPT_DIR}/verify-loopback.py"
 run_compose build app
 run_compose up -d postgres
 wait_for_postgres
@@ -95,13 +96,7 @@ run_compose up -d app
 run_compose ps
 run_compose logs --tail=100 app
 
-EXTERNAL_IP="$(curl -fsS -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip' || true)"
-
 echo ""
-echo "Deployment complete."
+echo "Development deployment complete; use an encrypted SSH tunnel to the VM loopback port."
 echo "Local health:"
 curl -fsS http://localhost:8080/health/ready || true
-echo ""
-if [ -n "${EXTERNAL_IP}" ]; then
-  echo "Access URL: http://${EXTERNAL_IP}:8080"
-fi
