@@ -216,9 +216,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         var fixture = new Fixture
         {
             Visible = visible,
-            User = { SystemRole = SystemRole.SystemAdmin }
+            User = { SystemRole = SystemRole.SystemAdmin },
+            Recipients = [Fixture.Recipient(Guid.NewGuid())]
         };
-        fixture.Recipients = [Fixture.Recipient(Guid.NewGuid())];
 
         var result = await fixture.InvokeAsync(operation);
 
