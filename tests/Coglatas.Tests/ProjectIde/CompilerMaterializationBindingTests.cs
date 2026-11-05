@@ -53,9 +53,11 @@ public sealed class CompilerMaterializationBindingTests
     [Fact]
     public void CancellationDuringSupplyStopsBeforeRequestingTheNextBodyAndDisposesTheEnumerator()
     {
-        var f = Fixture(); using var cancellation = new CancellationTokenSource();
-        var supply = new ObservedSupply(() => cancellation.Cancel(), f.Body);
-        Assert.Throws<OperationCanceledException>(() => ProjectSemanticBinder.Bind(f.Input, supply, cancellation.Token));
+        var f = Fixture();
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var supply = new ObservedSupply(cancellation.Cancel, f.Body);
+        Assert.Throws<OperationCanceledException>(() => ProjectSemanticBinder.Bind(f.Input, supply, token));
         Assert.Equal(1, supply.MoveNextCalls); Assert.True(supply.Disposed);
     }
 

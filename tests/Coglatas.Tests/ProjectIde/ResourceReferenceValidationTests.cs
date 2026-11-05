@@ -29,7 +29,7 @@ public sealed class ResourceReferenceValidationTests
     private static void Limited(ResourceReferenceAssessment result)
     {
         Assert.Equal(ReferenceResolutionState.Unsupported, result.Resolution); Assert.Equal(CompilerFreshness.Undetermined, result.Freshness);
-        Assert.Contains(result.Findings, item => item.Diagnostic.Code == "coglatas.analysis.resource-snapshot-unavailable");
+        Assert.Contains("coglatas.analysis.resource-snapshot-unavailable", result.Findings.Select(item => item.Diagnostic.Code));
     }
 
     [Theory]

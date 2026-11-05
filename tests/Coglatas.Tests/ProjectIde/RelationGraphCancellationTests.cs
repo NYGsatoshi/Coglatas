@@ -75,7 +75,8 @@ public sealed class RelationGraphCancellationTests
         else
         {
             Assert.Equal(new[] { RelationId.Parse(Id(20)), RelationId.Parse(Id(21)) }, direct.Findings.Select(item => item.Location.RelationId!.Value));
-            Assert.All(direct.Findings, item => { Assert.Equal("coglatas.relation.dependency-cycle", item.Code); Assert.Equal(RelationFindingState.Invalid, item.State); });
+            var expected = Enumerable.Repeat(("coglatas.relation.dependency-cycle", RelationFindingState.Invalid), 2);
+            Assert.Equal(expected, direct.Findings.Select(item => (item.Code, item.State)));
         }
     }
 

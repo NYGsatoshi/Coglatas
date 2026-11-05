@@ -14,10 +14,11 @@ public sealed class CompilerDiagnosticIntegrationTests
     {
         var input = Input(); var model = ProjectSemanticBinder.Bind(input);
         using var cancellation = new CancellationTokenSource();
-        var units = new ObservedSupply<UnitDefinition>(() => cancellation.Cancel(), Unit());
-        var calendars = new ObservedSupply<CalendarSnapshot>(() => cancellation.Cancel(), Calendar());
+        var token = cancellation.Token;
+        var units = new ObservedSupply<UnitDefinition>(cancellation.Cancel, Unit());
+        var calendars = new ObservedSupply<CalendarSnapshot>(cancellation.Cancel, Calendar());
         Assert.Throws<OperationCanceledException>(() => CompilerSemanticValidation.Validate(model,
-            family == "units" ? units : null, family == "calendars" ? calendars : null, cancellation.Token));
+            family == "units" ? units : null, family == "calendars" ? calendars : null, token));
         Assert.Equal(1, family == "units" ? units.MoveNextCalls : calendars.MoveNextCalls);
         Assert.True(family == "units" ? units.Disposed : calendars.Disposed);
     }
@@ -25,8 +26,9 @@ public sealed class CompilerDiagnosticIntegrationTests
     [Fact]
     public void CancellationAtTheEndOfOneSupplyPreventsOpeningTheNextSupply()
     {
-        var input = Input(); using var cancellation = new CancellationTokenSource();
-        var units = new ObservedSupply<UnitDefinition>(() => cancellation.Cancel(), Unit(), count: 0);
+        var input = Input();
+        using var cancellation = new CancellationTokenSource();
+        var units = new ObservedSupply<UnitDefinition>(cancellation.Cancel, Unit(), count: 0);
         var calendars = new ObservedSupply<CalendarSnapshot>(() => { }, Calendar(), throwOnOpen: true);
         var result = PureCoreCompiler.Compile(input, input.Compiler, units: units, calendars: calendars, cancellationToken: cancellation.Token);
         Assert.Equal(CompilerExecutionState.Cancelled, result.Result.Execution);
@@ -137,7 +139,7 @@ public sealed class CompilerDiagnosticIntegrationTests
     {
         Assert.Equal(CompilerExecutionState.ResourceExhausted, result.Result.Execution);
         Assert.Equal(CompilerCoverage.Partial, result.Result.Coverage); Assert.False(result.Result.EvidenceComplete);
-        Assert.Contains(result.Result.Diagnostics, item => item.Code == "coglatas.semantic.budget-exhausted");
+        Assert.Contains("coglatas.semantic.budget-exhausted", result.Result.Diagnostics.Select(item => item.Code));
         Assert.Equal(result.Input.ExecutionProfile.MaximumOperations, result.Validation!.LogicalOperationsConsumed);
         Assert.Empty(result.Result.Artifacts); Assert.Null(result.Validation.Ir);
     }

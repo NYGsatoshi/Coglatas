@@ -173,10 +173,16 @@ public sealed class RequirementEvidenceValidationTests
     [Fact]
     public void EnumerationIsBoundedAndChecksCancellationBetweenClaims()
     {
-        var input = EvidenceInput(); using var cts = new CancellationTokenSource();
-        IEnumerable<RequirementEvidenceClaim?> Cancel()
-        { yield return Claim(input); cts.Cancel(); yield return Claim(input); }
-        var cancelled = RequirementEvidenceValidator.Assess(input, Location(input), Cancel(), cts.Token);
+        var input = EvidenceInput();
+        using var cts = new CancellationTokenSource();
+        static IEnumerable<RequirementEvidenceClaim?> CancelBetweenClaims(CompilerInputManifest input, Action cancel)
+        {
+            yield return Claim(input);
+            cancel();
+            yield return Claim(input);
+        }
+
+        var cancelled = RequirementEvidenceValidator.Assess(input, Location(input), CancelBetweenClaims(input, cts.Cancel), cts.Token);
         Assert.Equal(CompilerExecutionState.Cancelled, cancelled.Outcome.Execution); Assert.Single(cancelled.Claims); Incomplete(cancelled);
         var count = 0;
         IEnumerable<RequirementEvidenceClaim?> Nulls()
