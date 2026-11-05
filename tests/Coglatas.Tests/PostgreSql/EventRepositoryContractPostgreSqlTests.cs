@@ -17,6 +17,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), AssertEventQueriesAsync);
 
+    /// <summary>Executes native Event queries against a migrated synthetic database and checks scope and ordering.</summary>
+    /// <param name="connectionString">The isolated database supplied by the test harness.</param>
     private static async Task AssertEventQueriesAsync(string connectionString)
     {
         await using var fixture = await Fixture.CreateAsync(connectionString);
@@ -80,6 +82,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), AssertAttendanceQueriesAsync);
 
+    /// <summary>Checks native attendance accounting and recipient queries across Tenant and Event boundaries.</summary>
+    /// <param name="connectionString">The isolated database supplied by the test harness.</param>
     private static async Task AssertAttendanceQueriesAsync(string connectionString)
     {
         await using var fixture = await Fixture.CreateAsync(connectionString);

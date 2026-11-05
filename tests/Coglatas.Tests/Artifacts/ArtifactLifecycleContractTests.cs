@@ -381,13 +381,18 @@ public sealed class ArtifactLifecycleContractTests
         public Repository Repository { get; }
         public Artifact Artifact { get; }
         public ArtifactVersion Version { get; }
+        /// <summary>Configures project admission before any service operation executes.</summary>
         public bool Allowed { get; init; } = true;
+        /// <summary>Configures management admission independently of read permission.</summary>
         public bool CanManage { get; init; } = true;
         public List<string> ProjectChecks { get; } = [];
+        /// <summary>Retains audit effects for mutation and no-effect assertions.</summary>
         private List<AuditLogEntry> Audits { get; } = [];
         public List<(Guid Recipient, string Title, string? Body, string Type, Guid Id)> Notifications { get; } = [];
+        /// <summary>Supplies the synthetic project membership used by notification assertions.</summary>
         private List<ProjectMember> Members { get; } = [];
         private List<(string Dependency, string Method, object?[] Arguments)> Calls { get; } = [];
+        /// <summary>Counts persistence calls so denied paths and successful mutations are distinguished.</summary>
         private int SaveCalls { get; set; }
         public ArtifactService Service { get; }
 

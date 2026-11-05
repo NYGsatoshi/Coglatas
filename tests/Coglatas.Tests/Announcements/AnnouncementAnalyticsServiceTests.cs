@@ -179,6 +179,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires both identity and authenticated state for every analytics or engagement operation.</summary>
+    /// <param name="operation">The protected operation under test.</param>
+    /// <param name="hasIdentity">Whether an identity is supplied while authenticated state is absent.</param>
     [Theory]
     [InlineData("get", false)]
     [InlineData("get", true)]
@@ -200,6 +203,9 @@ public sealed class AnnouncementAnalyticsServiceTests
         fixture.AssertNoWrites();
     }
 
+    /// <summary>Requires recipient visibility independently of management or administrator authority.</summary>
+    /// <param name="operation">The engagement operation under test.</param>
+    /// <param name="visible">Whether the visibility dependency admits the resource.</param>
     [Theory]
     [InlineData("acknowledge", false)]
     [InlineData("acknowledge", true)]
