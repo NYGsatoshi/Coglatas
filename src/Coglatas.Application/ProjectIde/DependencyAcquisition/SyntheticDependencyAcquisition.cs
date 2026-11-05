@@ -121,6 +121,9 @@ public sealed class SyntheticDependencyResolver(ISyntheticAcquisitionContextProv
         {
             return new(SyntheticAcquisitionState.Cancelled);
         }
+        catch (UnsupportedSourceException) { return new(SyntheticAcquisitionState.Unsupported); }
+        catch (FormatException) { return new(SyntheticAcquisitionState.Invalid); }
+        catch (UnauthorizedAccessException) { return new(SyntheticAcquisitionState.Denied); }
         catch (Exception error) when (error is IOException or InvalidOperationException)
         {
             return new(SyntheticAcquisitionState.Failed);
