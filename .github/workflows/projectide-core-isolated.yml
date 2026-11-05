@@ -6,6 +6,11 @@ on:
       - tests/Coglatas.Tests/ProjectIde/**
       - tests/ci/projectide*
       - tests/ci/test_projectide*
+      - tests/Coglatas.Tests/Coglatas.Tests.csproj
+      - frontend/scripts/av-mig-source.node-test.mjs
+      - frontend/src/app/features/projectide/*.spec.ts
+      - tests/ui/projectide-workbench.spec.ts
+      - tests/ui/run-angular-playwright.mjs
       - .github/workflows/projectide-core-isolated.yml
 
 permissions:

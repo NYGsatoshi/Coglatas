@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { readPreviewBundle } from './projectide-preview.adapter';
+import { PreviewReadError, readPreviewBundle } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 const fixture = () => JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8'));
@@ -60,7 +60,7 @@ describe('Source-backed semantic inspection', () => {
       item.source.documents.push(document); inspection.symbols[0].location.documentId = document.documentId;
     }
     if (mode === 'reference-state') inspection.references[0].state = 'UnknownDueToCoverage';
-    expect(() => readPreviewBundle(raw)).toThrow();
+    expect(() => readPreviewBundle(raw)).toThrow(PreviewReadError);
   });
   it('retains compatibility with a fixture that has no optional inspection, without inferring symbols', async () => {
     const raw = fixture(); for (const item of raw.cases) delete item.semanticInspection;
