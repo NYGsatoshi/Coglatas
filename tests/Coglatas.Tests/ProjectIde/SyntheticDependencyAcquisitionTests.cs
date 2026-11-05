@@ -119,7 +119,8 @@ public sealed class SyntheticDependencyAcquisitionTests
     public async Task Cancellation_after_provider_work_never_publishes_a_body()
     {
         using var cancellation = new CancellationTokenSource();
-        var resolver = Resolver(body: () => { cancellation.Cancel(); return Body(); });
+        Action cancel = cancellation.Cancel;
+        var resolver = Resolver(body: () => { cancel(); return Body(); });
         var result = await resolver.AcquireAsync(Manifest(Body()), "unit-1", SyntheticDependencyResolver.AllowedSource, cancellation.Token);
         Assert.Equal(SyntheticAcquisitionState.Cancelled, result.State); Assert.Null(result.Body);
     }
