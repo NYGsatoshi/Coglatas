@@ -139,7 +139,10 @@ test('adapter remains disconnected from native Playwright CLI and all uploader p
   const runner = readFileSync('tests/ui/run-angular-playwright.mjs', 'utf8');
   const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
   const compose = readFileSync('infra/compose/dev/playwright.yml', 'utf8');
+  const config = readFileSync('playwright.config.ts', 'utf8');
   assert.doesNotMatch(runner, /playwright-shard-capture\.mjs/);
-  assert.doesNotMatch(workflow, /--reporter=.*playwright-shard-capture/);
+  // A future multiline command, not just '--reporter=<module>', would be unsafe.
+  assert.doesNotMatch(workflow, /playwright-shard-capture\.mjs/);
   assert.doesNotMatch(compose, /playwright-shard-capture\.mjs/);
+  assert.doesNotMatch(config, /playwright-shard-capture/);
 });
