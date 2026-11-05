@@ -1,5 +1,43 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Full runtime failures and environment-identity correction — 2026-11-06
+
+The configured broader isolated runtime runner at `6f0ceaeb` completed **336
+PASS / 17 FAIL / 0 skipped**, observing all 353 required cases with no missing
+method identities. It retained six-assembly byte reconciliation, exact candidate
+verification and owned cleanup. Twelve failures include role-dependency cleanup
+SQLSTATE `2BP01`; five include database read timeouts. These are observed failure
+mechanisms, not proof that the underlying security assertions all succeeded.
+Report SHA-256 is `bd98dee6403e317ac6165641cd20c3569e04349d8e378547dfc0291d06fd0057`;
+raw TRX SHA-256 is `db25b78eb88c2c5fb004e255c5f04c808c0c7af6aaa0257a289cdf7525b30ec8`.
+The detailed sanitized report is retained privately. The earlier 71-case bounded
+success does not qualify this full run.
+
+A separately labelled `DOTNET_PROCESSOR_COUNT=2` experiment at that same SHA
+exceeded the unchanged ten-minute execution deadline. It remains ERROR, with
+`timedOut=true`, no complete TRX/observation and UNVERIFIED dependency/candidate
+qualification; owned cleanup succeeded. Its report SHA-256 is
+`1602dc5e2403b36127b6f75905391d0e17ee23871d8a4a09f12f5626d80d38a2`.
+No passing subset is substituted for the missing complete result.
+
+[Fixture Test #1728](https://github.com/NYGsatoshi/Coglatas/pull/1728) fixes an
+observed reporting gap: the runtime environment hash omitted the inherited
+processor override. Candidate `93e69ea26d29ecbcb0b5f48b4acc71a3471e3c40` records
+only the explicit non-secret requested setting, rejects ambiguous values and
+retains all timeout/denial/cleanup controls. Seventeen Node controls pass.
+Requested settings do not establish measured quota or effective concurrency.
+Old receipts cannot prove the requested-profile equivalence; their original
+bytes and failures remain intact. This is a separate Test/tooling PR, with no
+Product authority, database policy, production or numerical activation.
+
+Verification-only `8ee1980e2921b24eb04da04b07ec52db8927d302` composes that fixture
+correction and the acquisition Test analyzer correction. Twenty-two Node controls
+(17 fixture and five hash controls) pass. A separately recorded four-processor
+runtime experiment uses this new exact candidate; it cannot inherit `6f0ceaeb`
+successes. Dedicated integration remains unchanged pending review. The normal
+19:12 UTC CodeRabbit retry on #1721 was still rate-limited; CLI agent status
+remains `not_authenticated`. No review or merge success is inferred.
+
 ### Current component verification and retained suspension — 2026-11-06
 
 CodeRabbit's 18:19 UTC reply independently inspected corrected acquisition
