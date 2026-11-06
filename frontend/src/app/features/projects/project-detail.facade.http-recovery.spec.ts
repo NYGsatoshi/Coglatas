@@ -7,7 +7,8 @@ import { EMPTY, Subject } from 'rxjs';
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { I18nService } from '../../core/i18n/i18n.service';
-import { COGLATAS_REALTIME_TRANSPORT } from '../../core/realtime/realtime-transport';
+import { COGLATAS_REALTIME_TRANSPORT, RealtimeTransportStatus } from '../../core/realtime/realtime-transport';
+import { RealtimeSubscriptionRequest } from '../../core/realtime/realtime.models';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { WorkspaceSelectionFacade } from '../../core/workspace/workspace-selection.facade';
@@ -42,11 +43,14 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
   let realtime: RealtimeFacade;
   let http: HttpTestingController;
   let invalidations: Subject<void>;
+  let transportStatuses: Subject<RealtimeTransportStatus>;
+  let subscriptions: RealtimeSubscriptionRequest[];
   const history = { touchProject: vi.fn() };
   const start = vi.fn(async () => {});
 
   beforeEach(() => {
     history.touchProject.mockReset(); start.mockClear(); invalidations = new Subject<void>();
+    transportStatuses = new Subject<RealtimeTransportStatus>(); subscriptions = [];
     TestBed.configureTestingModule({ imports: [ProjectDetailPageComponent], providers: [
       provideRouter([]),
       { provide: ActivatedRoute, useFactory: (router: Router) => ({
@@ -58,9 +62,11 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         getItem: () => null, setItem: () => {}, removeItem: () => {},
       } },
       { provide: COGLATAS_REALTIME_TRANSPORT, useValue: {
-        durableEvents$: EMPTY, authorizationInvalidations$: invalidations, statuses$: EMPTY,
+        durableEvents$: EMPTY, authorizationInvalidations$: invalidations, statuses$: transportStatuses,
         start, stop: async () => {},
-        subscribe: async () => ({ allowed: true, code: 'Subscribed' }),
+        subscribe: async (request: RealtimeSubscriptionRequest) => {
+          subscriptions.push(request); return { allowed: true, code: 'Subscribed' };
+        },
         unsubscribe: async () => ({ allowed: true, code: 'Unsubscribed' }),
       } },
       { provide: ContinueWorkingHistoryService, useValue: history },
@@ -294,6 +300,51 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       expect(detail.view().kanban.status).toBe('ready');
       expect(detail.view().kanban.snapshot).not.toBeNull();
     } finally { fixture.destroy(); }
+  });
+
+  it.each([401, 403])('reauthorizes subscriptions and fresh HTTP projections on reconnect after current Board %s navigation recovery', async (status) => {
+    const projectId = '76d614a0-4339-4d48-8d22-47dbdf36cc31';
+    const selectedWorkspace = { ...workspace, id: '644f02a2-3f97-4e36-91bb-7272cd768c25' };
+    const parent = { ...active, id: projectId, workspaceId: selectedWorkspace.id };
+    const path = `/api/projects/${projectId}`;
+    const flushWorkspace = () => {
+      http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
+      http.expectOne('/api/workspaces').flush([selectedWorkspace]);
+    };
+    const navigation = () => {
+      http.expectOne(path).flush(parent);
+      http.expectOne(`${path}/tasks`).flush({ items: [] });
+      http.expectOne(`${path}/workload`).flush({ members: [] });
+      http.expectOne(`${path}/members`).flush({ members: [] });
+    };
+    const operational = () => {
+      const board = snapshotDto();
+      http.expectOne(request => request.url === `${path}/kanban`).flush({ ...board, board: { ...board.board!, projectId } });
+      http.expectOne(`${path}/gantt`).flush({ ...ganttSnapshotDto(), projectId });
+    };
+    enableBoard(); flushWorkspace(); await settle();
+    detail.load(projectId); navigation(); operational();
+    TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'realtime.signalR': true });
+    await settle(); flushWorkspace(); await settle(); navigation(); operational(); await settle();
+    expect(realtime.connectionState()).toBe('Connected');
+    detail.retryKanban();
+    http.expectOne(request => request.url === `${path}/kanban`).flush(
+      { message: 'Current Board denied' }, { status, statusText: 'Denied' });
+    navigation();
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().kanban.status).toBe('permissionDenied');
+    expect(detail.view().schedule.status).toBe('permissionDenied');
+    http.expectNone(request => request.url.startsWith(path));
+    subscriptions.length = 0;
+    transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await settle();
+    expect(subscriptions).toContainEqual({ subscriptionType: 'project', resourceId: projectId });
+    // Workspace's authoritative catch-up precedes the Project callback.
+    http.expectNone(request => request.url.startsWith(path));
+    flushWorkspace(); await settle();
+    expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
+    navigation(); operational(); await settle();
+    expect(realtime.connectionState()).toBe('Connected');
+    expect(detail.view().kanban.snapshot).not.toBeNull(); expect(detail.view().schedule.snapshot).not.toBeNull();
   });
 
   for (const denial of [401, 403]) {
