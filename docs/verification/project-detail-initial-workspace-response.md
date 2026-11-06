@@ -1,5 +1,15 @@
 # Project detail initial response Workspace binding
 
+The required browser regression exposed a missing navigation recovery after an
+initial Board/Gantt denial. Protected data is still cleared immediately, but a
+new parent request and fresh Task/workload/member requests can restore authorized
+Project navigation. Both operational projections stay denied and empty; neither
+is automatically retried. Failed parent revalidation retains denial. Captured
+Project/load/authorization/Workspace ownership is checked before follow-up
+dispatch and application, so an old response cannot revive a replaced scope.
+Ten additional controls first failed on the previous implementation; the original
+browser assertions and original facade regression suite remain unchanged.
+
 The initial detail load captures the selected Workspace identity with its
 existing Project/load/authorization generations. It rechecks that identity
 before dispatching operational reads, before mapping their joined result, and

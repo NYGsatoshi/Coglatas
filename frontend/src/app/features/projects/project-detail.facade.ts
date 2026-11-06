@@ -1526,7 +1526,7 @@ export class ProjectDetailFacade {
     return this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { withCredentials: true }).pipe(
       map((dto): KanbanLoadOutcome => ({ kind: 'success', dto })),
       catchError((error: unknown) => {
-        this.handleInitialProjectionDenial(error, isCurrent, 'kanban');
+        this.handleInitialProjectionDenial(error, isCurrent);
         return of<KanbanLoadOutcome>({ kind: 'error', error });
       })
     );
@@ -1539,20 +1539,32 @@ export class ProjectDetailFacade {
     ).pipe(
       map((dto): ScheduleLoadOutcome => ({ kind: 'success', dto })),
       catchError((error: unknown) => {
-        this.handleInitialProjectionDenial(error, isCurrent, 'schedule');
+        this.handleInitialProjectionDenial(error, isCurrent);
         return of<ScheduleLoadOutcome>({ kind: 'error', error });
       })
     );
   }
 
-  private handleInitialProjectionDenial(error: unknown, isCurrent: () => boolean, kind: 'kanban' | 'schedule'): void {
+  private handleInitialProjectionDenial(error: unknown, isCurrent: () => boolean): void {
     if (!isCurrent()) {return;}
     const failure = this.failure(error);
     if (failure.status !== 'permissionDenied') {return;}
+    const projectId = this.projectId;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.clearProtectedProjectionsForDeniedSubscription();
-    this.state.set(kind === 'kanban'
-      ? { ...failure, kanban: this.kanbanFailure(error, null) }
-      : { ...failure, schedule: this.scheduleFailure(error, null) });
+    this.state.set({
+      ...failure,
+      kanban: this.kanbanFailure(error, null),
+      schedule: this.scheduleFailure(error, null)
+    });
+    if (!projectId) {return;}
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    // Recover navigation only through fresh parent and collection authority.
+    // The denied operational projections remain redacted without retry loops.
+    this.refreshProjectProjections(projectId, authorizationGeneration, false, undefined, () =>
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
   }
 
   private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
@@ -1992,13 +2004,17 @@ export class ProjectDetailFacade {
     projectId: string,
     authorizationGeneration: number,
     refreshOperationalViews = true,
-    onSettled?: () => void
+    onSettled?: () => void,
+    isCurrent?: () => boolean
   ): void {
     const loadGeneration = this.loadGeneration;
+    const requestIsCurrent = isCurrent ?? (() =>
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration));
+    if (!requestIsCurrent()) {return;}
     const taskListRequestGeneration = ++this.taskListRequestGeneration;
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
+        if (!requestIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         this.projectOperational = record.isOperational === true;
@@ -2030,11 +2046,7 @@ export class ProjectDetailFacade {
       catchError((error: unknown) => of({ kind: 'error' as const, error })),
       finalize(() => onSettled?.())
     ).subscribe((result) => {
-      if (
-        this.projectId !== projectId ||
-        this.loadGeneration !== loadGeneration ||
-        this.authorizationGeneration !== authorizationGeneration
-      ) {return;}
+      if (!requestIsCurrent()) {return;}
 
       if (result.kind === 'error') {
         // A denied realtime reauthorization has already cleared every

@@ -221,6 +221,10 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       for (const request of http.match((request) => request.url === '/api/projects/project-1/kanban')) request.flush(snapshotDto());
       expect(immediateStatus).toBe('permissionDenied');
       expect(detail.view().status).toBe('permissionDenied');
+      http.expectOne('/api/projects/project-1').flush(
+        { message: 'Current parent denied' }, { status, statusText: 'Denied' },
+      );
+      expect(detail.view().status).toBe('permissionDenied');
       expect(detail.view().kanban.snapshot).toBeNull();
       expect(detail.view().schedule.snapshot).toBeNull();
     });
