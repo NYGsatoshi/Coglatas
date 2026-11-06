@@ -48,3 +48,14 @@ coverage, provenance, review, governance, security, performance, Nightly, releas
 or Owner approval credit. The next independent implementation slice remains
 the bounded PR-J original-case/native-case reconciliation adapter described in
 [the PR-N contract](pr-n-contract.md). Integration stays HOLD.
+
+Fresh CodeRabbit review of `23384803e47c36405820943c592006e7f10ded28`
+completed with one minor table-scope ambiguity; an append-only clarification
+resolved it. Review of `1023f1c488468f4580de4d04f8f6da3b3c080bd4` completed with
+two minor issues: reference-scope handling and historical-object prerequisites.
+The contract now explicitly defines local-file-only references and tests rejection
+of unsupported targets, preserving fail-closed behavior rather than skipping
+unknown references. It also documents exact-SHA read-only fetch prerequisites
+and forbids skipping preservation checks when objects are absent. The original
+review outputs remain retained locally. Decision wording checks additionally
+cover entire decision bodies and reject appended unauthorized instructions.

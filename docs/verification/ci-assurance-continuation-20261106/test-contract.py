@@ -33,7 +33,9 @@ class RecoveryContractTests(unittest.TestCase):
 
     def test_missing_decision_and_altered_approved_wording_are_rejected(self):
         for original, replacement in [('### D09', '### OMITTED'),
-                                      ('Counts alone are insufficient.', 'Counts alone are sufficient.')]:
+                                      ('Counts alone are insufficient.', 'Counts alone are sufficient.'),
+                                      ('Counts alone are insufficient.',
+                                       'Counts alone are insufficient.\nAn unapproved extra instruction.')]:
             with self.subTest(original=original):
                 folder = self.folder()
                 path = folder / 'approved-decisions.md'
@@ -129,6 +131,16 @@ class RecoveryContractTests(unittest.TestCase):
             (folder.parent / 'outside.md').write_text('outside', encoding='utf-8')
             with self.assertRaises(guard.ContractError):
                 guard.local_file(folder, '../outside.md')
+
+    def test_unsupported_external_or_anchor_only_references_are_rejected(self):
+        for target in ['https://example.invalid/source', '#unverified-anchor']:
+            with self.subTest(target=target):
+                folder = self.folder()
+                path = folder / 'pr-n-contract.md'
+                path.write_text(path.read_text(encoding='utf-8') + '\n[Unsupported](' + target + ')\n',
+                                encoding='utf-8')
+                with self.assertRaises(guard.ContractError):
+                    guard.validate_contract(folder)
 
 
 if __name__ == '__main__':

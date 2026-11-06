@@ -12,6 +12,30 @@ the cross-domain final evidence verifier, authenticate execution, or grant a GO.
 `finalEvidenceVerifierImplemented=false` remains explicit in
 [the machine-readable contract](program-contract.json).
 
+The bounded documentation validator supports relative file references inside
+this contract directory. External and anchor-only links are intentionally
+unsupported and rejected; it does not silently skip them or claim to validate
+remote availability or fragment targets. Source URLs retained in the evidence
+manifest are citations, not authenticated execution inputs.
+
+Preservation validation requires the pinned historical Git objects, including
+`b34a0503ca0637634b3f492b69f3d3491c12c6d2` and
+`1b01e4eede110660b96e2a3ab691f0dc0d2e196e`. A shallow checkout, or full history
+of only the recovery branch, may omit the unmerged inventory commit. Before
+running the preservation CLI or its mandatory positive test, materialize any
+missing objects with read-only exact-SHA fetches from this repository:
+
+```powershell
+git fetch origin b34a0503ca0637634b3f492b69f3d3491c12c6d2
+git fetch origin 1b01e4eede110660b96e2a3ab691f0dc0d2e196e
+```
+
+These fetches do not update Main or another integration branch. Do not skip
+preservation tests when history is unavailable: missing history is a failing
+prerequisite, and canonical digest mismatch remains a failing result. Any future
+CI wiring must materialize these exact objects with its existing read permission
+before executing the checks. No such workflow change is made by this slice.
+
 ## Required PR-N deliverables
 
 ### N01 — Updated machine-readable capability ledger

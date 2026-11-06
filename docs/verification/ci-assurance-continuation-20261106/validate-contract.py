@@ -110,7 +110,8 @@ def validate_contract(folder: Path = HERE, root: Path = ROOT,
     require(isinstance(decisions, list) and len(decisions) == 15,
             'Approved decision set is incomplete.')
     text = local_file(folder, 'approved-decisions.md').read_text(encoding='utf-8')
-    declared = re.findall(r'^### (D\d\d)\n\n([^\n]+)', text, re.M)
+    declared = [(identity, body.strip()) for identity, body in re.findall(
+        r'^### (D\d\d)\n\n(.*?)(?=^### D\d\d|\Z)', text, re.M | re.S)]
     require([identity for identity, _ in declared] == [f'D{i:02}' for i in range(1, 16)],
             'Approved decision headings are missing, duplicated or reordered.')
     require(decisions == [{'id': identity, 'wordingSha256': hashlib.sha256(wording.encode()).hexdigest()}
