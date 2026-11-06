@@ -121,12 +121,12 @@ public sealed class RealtimeDispatchDeliveryTests
 
         Assert.Equal(3, fixture.Sessions.Calls.Count);
         Assert.Equal(3, fixture.Notifications.Calls.Count);
-        Assert.All(fixture.Notifications.Calls, call =>
+        foreach (var call in fixture.Notifications.Calls)
         {
             Assert.Equal((operation, fixture.Tenant, fixture.User, cancellation.Token),
                 (call.Operation, call.Tenant, call.User, call.Token));
             Assert.Same(envelope, call.Envelope);
-        });
+        }
         Assert.Equal([operation, operation, operation], fixture.Trace);
     }
 
