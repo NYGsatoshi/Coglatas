@@ -140,6 +140,41 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
   });
 
+  it.each([401, 403])('retains initial %s denial over an older catch-up and permits a new authorized recovery', async (status) => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    const recovered = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovered; await settle();
+    const catchUp = http.expectOne('/api/projects/project-1');
+    initial.flush({ message: 'Initial access denied' }, { status, statusText: 'Denied' });
+    expect(detail.view().status).toBe('permissionDenied');
+    catchUp.flush(draft);
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+
+    const authorized = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await authorized; await settle();
+    http.expectOne('/api/projects/project-1').flush(draft);
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().project?.id).toBe('project-1');
+  });
+
+  it('permits an authorized catch-up after an initial transient failure', async () => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    const recovered = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovered; await settle();
+    const catchUp = http.expectOne('/api/projects/project-1');
+    initial.flush({ message: 'Temporary failure' }, { status: 503, statusText: 'Unavailable' });
+    expect(detail.view().status).toBe('error');
+    catchUp.flush(draft);
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().project?.id).toBe('project-1');
+  });
+
   it('keeps the explicit same-Project reload instead of duplicating it during hydration', async () => {
     detail.load('project-1'); const old = http.expectOne('/api/projects/project-1');
     selectFromHttp(); detail.load('project-1');
