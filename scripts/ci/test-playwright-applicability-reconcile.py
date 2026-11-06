@@ -87,7 +87,13 @@ class PolicyControls(unittest.TestCase):
             if mode == 'project': sidecar['tests'][0]['project'] = 'UNKNOWN'
             if mode == 'binding': sidecar['tests'][0]['bindingSha256'] = None
             if mode == 'empty': sidecar['tests'] = []
-            with self.assertRaises(original.InvalidCaseEvidence): compare(source, native, sidecar, identity)
+            if mode in {'missing', 'duplicate', 'project', 'binding', 'empty'}: seal(sidecar)
+            codes = {'missing': 'APPLICABILITY_COUNT', 'empty': 'APPLICABILITY_COUNT',
+                     'duplicate': 'APPLICABILITY_CASE_ID', 'project': 'APPLICABILITY_CASE_SCHEMA',
+                     'binding': 'APPLICABILITY_CASE_SCHEMA', 'field': 'APPLICABILITY_FIELDS',
+                     'schema': 'APPLICABILITY_IDENTITY'}
+            with self.assertRaisesRegex(original.InvalidCaseEvidence, '^' + codes[mode] + '$'):
+                compare(source, native, sidecar, identity)
 
     def test_malformed_oversized_duplicate_json_and_empty_evidence_refuse(self):
         source, native, sidecar, identity = load_fixture()
