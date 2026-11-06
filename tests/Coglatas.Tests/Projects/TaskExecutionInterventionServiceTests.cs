@@ -207,7 +207,7 @@ public sealed class TaskExecutionInterventionServiceTests
         Assert.True(result.IsSuccess, result.Error);
         Assert.Equal("CorrectDirection", result.Value!.Action);
         Assert.Equal("NewRunFromLatestTaskState", result.Value.ResumePoint);
-        Assert.Equal(new[] { "Task brief", "Research plan", "Active source scope" }, result.Value.EditableSurfaces);
+        Assert.Equal(["Task brief", "Research plan", "Active source scope"], result.Value.EditableSurfaces);
         Assert.NotNull(result.Value.ResumedRun);
         fixture.Db.ChangeTracker.Clear();
         var closed = await fixture.Db.TaskExecutionRuns.SingleAsync(run => run.Id == fixture.Run.Id);
@@ -329,7 +329,7 @@ public sealed class TaskExecutionInterventionServiceTests
         public FixedClock Clock { get; } = clock;
         public TaskExecutionScopeRepository Scopes { get; } = new(db);
         public Saving Save { get; } = new(db);
-        public TaskExecutionSourcePolicyV2 ClosedPolicy { get; } = TaskExecutionSourcePolicyV2.FromLegacy(false, true) with
+        private TaskExecutionSourcePolicyV2 ClosedPolicy { get; } = TaskExecutionSourcePolicyV2.FromLegacy(false, true) with
         {
             ProjectFile = TaskExecutionSourceState.Prioritize,
             Items = [new(TaskExecutionSourceKind.ProjectFile, TaskExecutionSourcePolicyV2.ProjectFileSourceId(Guid.NewGuid()), TaskExecutionSourceState.Exclude)]
