@@ -351,6 +351,153 @@ public sealed class WpcFinal01CanonicalCompletionPostgreSqlTests
     }
 
     [PostgreSqlFact]
+    public async Task RealtimeResolversRejectMismatchedTaskAndProjectEnvelopesOnPostgreSql()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var graph = await SeedProjectGraphAsync(database, "realtime-envelope", ProjectVisibility.MembersOnly);
+                await using var scope = CreateResolverScope(database, graph);
+                var taskId = (await scope.Db.Notifications.AsNoTracking()
+                    .SingleAsync(item => item.Id == graph.TaskNotificationId)).RelatedEntityId!.Value;
+                var projectEvent = NewProjectEvent(graph);
+                var taskEvent = NewTaskEvent(graph, taskId);
+
+                await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent, expected: true);
+                DurableEventEnvelope[] invalidProjects =
+                [
+                    projectEvent with { EventType = "Projects.Unknown.v1" },
+                    projectEvent with { TenantId = Guid.NewGuid() },
+                    projectEvent with { AggregateType = "Task" },
+                    projectEvent with { AggregateId = Guid.NewGuid() },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { workspaceId = graph.WorkspaceId }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = graph.ProjectId }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = Guid.NewGuid(), workspaceId = graph.WorkspaceId }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = graph.ProjectId, workspaceId = Guid.NewGuid() }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = "not-a-guid", workspaceId = graph.WorkspaceId }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = graph.ProjectId, workspaceId = 42 }) },
+                    projectEvent with { Payload = JsonSerializer.SerializeToElement<object?>(null) }
+                ];
+                foreach (var envelope in invalidProjects)
+                {
+                    Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(
+                        graph.TenantId, graph.ReaderUserId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, envelope));
+                }
+
+                DurableEventEnvelope[] invalidTasks =
+                [
+                    taskEvent with { EventType = "Projects.Unknown.v1" },
+                    taskEvent with { TenantId = Guid.NewGuid() },
+                    taskEvent with { AggregateType = "Project" },
+                    taskEvent with { AggregateId = Guid.NewGuid() },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { taskId }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { projectId = graph.ProjectId }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { taskId = Guid.NewGuid(), projectId = graph.ProjectId }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { taskId, projectId = Guid.NewGuid() }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { taskId = "not-a-guid", projectId = graph.ProjectId }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement(new { taskId, projectId = 42 }) },
+                    taskEvent with { Payload = JsonSerializer.SerializeToElement<object?>(null) }
+                ];
+                foreach (var envelope in invalidTasks)
+                {
+                    Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
+                        graph.TenantId, graph.ReaderUserId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, envelope));
+                }
+
+                foreach (var eventType in new[]
+                {
+                    "Projects.TaskChanged.v1", "Projects.TaskAssignmentChanged.v1",
+                    "Projects.TaskWorkflowChanged.v1", "Projects.TaskCommentChanged.v1"
+                })
+                {
+                    await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent with { EventType = eventType }, expected: true);
+                }
+                foreach (var targetType in new[]
+                {
+                    RealtimeSubscriptionType.User, RealtimeSubscriptionType.Project,
+                    RealtimeSubscriptionType.Workspace, (RealtimeSubscriptionType)int.MaxValue
+                })
+                {
+                    var unrelatedResource = Guid.NewGuid();
+                    Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(
+                        graph.TenantId, graph.ReaderUserId, targetType, unrelatedResource, projectEvent));
+                    Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
+                        graph.TenantId, graph.ReaderUserId, targetType, unrelatedResource, taskEvent));
+                }
+                foreach (var userId in new[] { Guid.Empty, Guid.NewGuid() })
+                {
+                    Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(
+                        graph.TenantId, userId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, projectEvent));
+                    Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
+                        graph.TenantId, userId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, taskEvent));
+                }
+                Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(
+                    Guid.NewGuid(), graph.ReaderUserId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, projectEvent));
+                Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
+                    Guid.NewGuid(), graph.ReaderUserId, RealtimeSubscriptionType.Workspace, graph.WorkspaceId, taskEvent));
+                await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent, expected: true);
+            });
+    }
+
+    [PostgreSqlFact]
+    public async Task RealtimeResolversRecheckCommittedWorkspaceRevocationWithTrackedMembership()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var graph = await SeedProjectGraphAsync(database, "realtime-revocation", ProjectVisibility.MembersOnly);
+                await using var scope = CreateResolverScope(database, graph);
+                var trackedMembership = await scope.Db.WorkspaceMembers.SingleAsync(item =>
+                    item.WorkspaceId == graph.WorkspaceId && item.UserId == graph.ReaderUserId);
+                var taskId = (await scope.Db.Notifications.AsNoTracking()
+                    .SingleAsync(item => item.Id == graph.TaskNotificationId)).RelatedEntityId!.Value;
+                var projectEvent = NewProjectEvent(graph);
+                var taskEvent = NewTaskEvent(graph, taskId);
+                await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent, expected: true);
+
+                await using var writer = CreateTenantContext(database, graph);
+                Assert.Equal(1, await writer.WorkspaceMembers
+                    .Where(item => item.WorkspaceId == graph.WorkspaceId && item.UserId == graph.ReaderUserId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(item => item.Status, MembershipStatus.Suspended)));
+                Assert.Equal(MembershipStatus.Active, trackedMembership.Status);
+                await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent, expected: false);
+
+                Assert.Equal(1, await writer.WorkspaceMembers
+                    .Where(item => item.WorkspaceId == graph.WorkspaceId && item.UserId == graph.ReaderUserId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(item => item.Status, MembershipStatus.Active)));
+                Assert.Same(trackedMembership, scope.Db.WorkspaceMembers.Local.Single());
+                await AssertRealtimeTargetsAsync(scope, graph, projectEvent, taskEvent, expected: true);
+            });
+    }
+
+    private static async Task AssertRealtimeTargetsAsync(
+        ResolverScope scope, ProjectGraph graph, DurableEventEnvelope projectEvent,
+        DurableEventEnvelope taskEvent, bool expected)
+    {
+        (RealtimeSubscriptionType Type, Guid ResourceId)[] targets =
+        [
+            (RealtimeSubscriptionType.User, graph.ReaderUserId),
+            (RealtimeSubscriptionType.Project, graph.ProjectId),
+            (RealtimeSubscriptionType.Workspace, graph.WorkspaceId)
+        ];
+        foreach (var target in targets)
+        {
+            Assert.Equal(expected, await scope.Resolver.CanReceiveProjectEventAsync(
+                graph.TenantId, graph.ReaderUserId, target.Type, target.ResourceId, projectEvent));
+            Assert.Equal(expected, await scope.Resolver.CanReceiveTaskEventAsync(
+                graph.TenantId, graph.ReaderUserId, target.Type, target.ResourceId, taskEvent));
+        }
+    }
+
+    private static DurableEventEnvelope NewTaskEvent(ProjectGraph graph, Guid taskId) => NewProjectEvent(graph) with
+    {
+        EventType = "Projects.TaskChanged.v1",
+        AggregateType = "Task",
+        AggregateId = taskId,
+        Payload = JsonSerializer.SerializeToElement(new { taskId, projectId = graph.ProjectId })
+    };
+
+    [PostgreSqlFact]
     public async Task ArchivedWorkspaceCurrentMemberUsesCanonicalHistoricalProjectReadScope()
     {
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
