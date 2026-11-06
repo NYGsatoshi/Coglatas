@@ -72,13 +72,18 @@ await test('native mapping repairs actual Playwright transforms while retaining 
   const assertOwned = () => { assert.ok(directory.startsWith(tempRoot + sep)); assert.ok(directory.slice(tempRoot.length + 1).startsWith('coglatas-node-map-control-')); };
   assertOwned(); t.after(() => { assertOwned(); rmSync(directory, { recursive: true, force: true }); });
   const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
+  // Keep both original transform modes as a negative/positive mapping control.
+  // Explicit owned directories isolate both native reports from the producer's raw input.
+  environment.COGLATAS_TEST_FORCE_MJS_TRANSFORM = '1';
   const execute = mapped => {
     const output = join(directory, mapped ? 'mapped.lcov' : 'raw.lcov');
     const args = [...(mapped ? ['--enable-source-maps'] : []), '--test', '--experimental-test-coverage', '--test-coverage-exclude=**/*.node-test.mjs',
       '--test-coverage-exclude=' + join(tmpdir(), 'thread-secondary-reporter-*/**').replaceAll('\\', '/'),
       '--test-reporter=spec', '--test-reporter-destination=' + output + '.log', '--test-reporter=lcov', '--test-reporter-destination=' + output,
       'tests/functional/thread-probe-observation.node-test.mjs'];
-    const result = spawnSync(process.execPath, args, { cwd: root, env: environment, encoding: 'utf8', timeout: 40000 });
+    const result = spawnSync(process.execPath, args, { cwd: root,
+      env: { ...environment, NODE_V8_COVERAGE: join(directory, mapped ? 'mapped-v8' : 'raw-v8') },
+      encoding: 'utf8', timeout: 40000 });
     assert.equal(result.status, 0, 'The unchanged existing observer/reporter regressions must pass in both producer modes.');
     return readFileSync(output, 'utf8');
   };
