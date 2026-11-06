@@ -153,6 +153,7 @@ export class ProjectDetailFacade {
   private draftProjectRefreshInFlight = false;
   private interactionActive = false;
   private moveInFlight = false;
+  private initialLoadGeneration: number | null = null;
   private scheduleInteractionActive = false;
   private scheduleCommandInFlight = false;
   private scheduleCommandGeneration = 0;
@@ -218,6 +219,7 @@ export class ProjectDetailFacade {
     if (this.projectId !== projectId)
       {this.activationNotice = null;}
     const loadGeneration = ++this.loadGeneration;
+    this.initialLoadGeneration = loadGeneration;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.scheduleCommandGeneration++;
@@ -269,7 +271,10 @@ export class ProjectDetailFacade {
           response.members
         )) : EMPTY));
       }),
-      catchError((error: unknown) => of(this.failure(error)))
+      catchError((error: unknown) => of(this.failure(error))),
+      finalize(() => {
+        if (this.initialLoadGeneration === loadGeneration) {this.initialLoadGeneration = null;}
+      })
     ).subscribe((view) => {
       if (loadIsCurrent()) {
         const latest = this.state();
@@ -937,12 +942,15 @@ export class ProjectDetailFacade {
 
     if (error.httpStatus === 401 || error.httpStatus === 403) {
       this.authorizationGeneration++;
+      const moveWasInFlight = this.moveInFlight;
+      this.moveInFlight = false;
       this.scheduleRequestGeneration++;
       this.scheduleRefreshInFlight = false;
       this.scheduleRefreshAfterFlight = false;
       this.scheduleRefreshAfterFlightFeedback = undefined;
       this.state.set({
         ...latest,
+        kanban: moveWasInFlight ? { ...latest.kanban, busyTaskId: null } : latest.kanban,
         schedule: {
           ...this.loadingSchedule(),
           status: 'permissionDenied',
@@ -951,6 +959,7 @@ export class ProjectDetailFacade {
           error
         }
       });
+      if (moveWasInFlight) {this.refreshKanban(false);}
       return;
     }
     if (error.httpStatus === 404) {
@@ -1036,8 +1045,10 @@ export class ProjectDetailFacade {
         catchError((error: unknown) => of({ kind: 'error' as const, error }))
       )
       .subscribe((result) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
-          {return;}
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {
+          if (result.kind === 'success') {this.reconcileCompletedStaleMove(projectId);}
+          return;
+        }
         this.moveInFlight = false;
         const latest = this.state();
         if (result.kind === 'success') {
@@ -1103,7 +1114,23 @@ export class ProjectDetailFacade {
           }
         });
         if (conflict) {this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.conflictResolvedFromTheAuthoritativeProjectBoard"));}
+        else if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
       });
+  }
+
+  private reconcileCompletedStaleMove(projectId: string | null): void {
+    if (!projectId || this.projectId !== projectId ||
+        (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId)
+      {return;}
+    if (this.initialLoadGeneration === this.loadGeneration) {
+      this.load(projectId);
+      return;
+    }
+    if (!this.projectOperational || this.state().status !== 'ready') {return;}
+    // The old response cannot own this mount. Reconcile its committed effect
+    // through current HTTP authority, queuing the board read behind a new move.
+    this.refreshKanban(false);
+    this.queueTaskListRefresh();
   }
 
   updateKanbanConfig(defaultSwimlane: ProjectKanbanSwimlane, columns: readonly ProjectKanbanColumn[]): void {
@@ -1176,6 +1203,7 @@ export class ProjectDetailFacade {
     this.projectOperational = false;
     this.draftProjectRefreshInFlight = false;
     this.loadGeneration++;
+    this.initialLoadGeneration = null;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.activationNotice = null;
@@ -1435,6 +1463,7 @@ export class ProjectDetailFacade {
   private clearProtectedProjectionsForDeniedSubscription(): void {
     this.authorizationGeneration++;
     this.loadGeneration++;
+    this.initialLoadGeneration = null;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.projectOperational = false;
@@ -1803,6 +1832,9 @@ export class ProjectDetailFacade {
       const wasOperational = this.projectOperational;
       this.authorizationGeneration++;
       this.loadGeneration++;
+      this.initialLoadGeneration = null;
+      this.moveInFlight = false;
+      this.interactionActive = false;
       this.activationGeneration++;
       this.activationInFlight = false;
       this.projectOperational = false;

@@ -121,6 +121,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectOne('/api/tasks/task-1/schedule').flush(
       { message: 'Schedule permission changed' }, { status, statusText: 'Denied' },
     );
+    http.expectOne((request) => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
     oldMove.flush({ message: 'Old denied move' }, { status: 403, statusText: 'Forbidden' });
     expect(detail.view().kanban.busyTaskId).toBeNull();
     // A fresh explicit reload remains authorized by its current server responses.
@@ -146,6 +147,34 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(boards).toHaveLength(1);
     expect(tasks).toHaveLength(1);
     expect(detail.view().kanban.snapshot?.boardVersion).toBe(8);
+  });
+
+  it('restarts an overlapping initial reload after an old move succeeds without applying either stale response', async () => {
+    await mountBoard(); moveFirstCard();
+    const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.load('project-1'); const staleRead = http.expectOne('/api/projects/project-1');
+    oldMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+    staleRead.flush(active);
+    http.expectNone('/api/projects/project-1/tasks');
+    flushBoard();
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(7);
+  });
+
+  it('queues a late old move success behind a new command and drains the refresh after its failure', async () => {
+    await mountBoard(); moveFirstCard();
+    const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.load('project-1'); flushBoard(); moveFirstCard();
+    const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    oldMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+    await settle();
+    expect(detail.view().kanban.reconciliationQueued).toBe(true);
+    http.expectNone((request) => request.url === '/api/projects/project-1/kanban');
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    moveFirstCard(); http.expectNone('/api/tasks/task-1/kanban-move');
+    currentMove.flush({ message: 'Current failure' }, { status: 503, statusText: 'Unavailable' });
+    http.expectOne((request) => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
+    expect(detail.view().kanban.reconciliationQueued).toBe(false);
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(7);
   });
 
   it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
