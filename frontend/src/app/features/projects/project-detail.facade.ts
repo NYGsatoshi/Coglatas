@@ -1536,7 +1536,7 @@ export class ProjectDetailFacade {
     return this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { withCredentials: true }).pipe(
       map((dto): KanbanLoadOutcome => ({ kind: 'success', dto })),
       catchError((error: unknown) => {
-        this.handleInitialProjectionDenial(error, isCurrent);
+        this.handleProjectionDenial(error, isCurrent);
         return of<KanbanLoadOutcome>({ kind: 'error', error });
       })
     );
@@ -1549,13 +1549,13 @@ export class ProjectDetailFacade {
     ).pipe(
       map((dto): ScheduleLoadOutcome => ({ kind: 'success', dto })),
       catchError((error: unknown) => {
-        this.handleInitialProjectionDenial(error, isCurrent);
+        this.handleProjectionDenial(error, isCurrent);
         return of<ScheduleLoadOutcome>({ kind: 'error', error });
       })
     );
   }
 
-  private handleInitialProjectionDenial(error: unknown, isCurrent: () => boolean): void {
+  private handleProjectionDenial(error: unknown, isCurrent: () => boolean): void {
     if (!isCurrent()) {return;}
     const failure = this.failure(error);
     if (failure.status !== 'permissionDenied') {return;}
@@ -1642,7 +1642,7 @@ export class ProjectDetailFacade {
       if (result.kind === 'error') {
         const failure = this.failure(result.error);
         if (failure.status === 'permissionDenied') {
-          this.handleInitialProjectionDenial(result.error, () =>
+          this.handleProjectionDenial(result.error, () =>
             this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
             (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
           return;

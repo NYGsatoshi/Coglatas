@@ -104,3 +104,29 @@ atomic authorization, cancel already dispatched HTTP, implement guards for every
 detail command/refresh, or prove the cause of historical MSG/Thread/P0 failures.
 Independent exact-head native, protected browser, required-check, original Gate
 and resulting-Main qualification remain separate requirements.
+
+Further independent review identified the same missing live Workspace binding
+in HTTP catch-up and Project-event parent refreshes. These paths now require a
+captured non-null Workspace before dispatch and at every response/application
+stage; an optional caller guard supplements that scope check instead of replacing
+it. Both operational readers also refuse dispatch without a live selection.
+Real HTTP-only controls with multiple Workspaces and no preference preserve
+selectionRequired, discard unscoped parent results, and wait for explicit
+selection before reading fresh projections. No API row-zero adoption is added.
+
+An initial route whose Workspace discovery settles empty or unavailable now
+presents the existing localized Workspace state instead of an indefinite Project
+spinner. The mounted route intent remains available for later selection and a
+fresh scoped request. Discovery retry and the initial scoped load may overlap;
+their normal authoritative reads remain allowed. An attempted broad initial-load
+coalescing guard broke 15 existing recovery controls and was removed. The
+current implementation preserves those original assertions and denial behavior.
+
+A current refreshed Gantt 401/403, including while an editor is active, now uses
+the shared immediate protected-state invalidation and fresh parent/collection
+navigation recovery already required by the initial readers. Both operational
+snapshots remain denied and null until an explicit user retry or explicit
+authorization revalidation. Ordinary events, editor close and queued refreshes
+do not retry them. Fresh parent 403/503 retains denial. New native controls cover
+both Gantt denial statuses, explicit retry, failed parent recovery and the
+Workspace states above. They do not prove live transport or historical causes.
