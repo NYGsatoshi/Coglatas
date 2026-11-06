@@ -44,6 +44,12 @@
     "liveRulesetError": "live required-check ruleset must be active",
     "exactHeadProducerDecision": "pass",
     "qualifiedPullRequests": [1680, 1696, 1738, 1739],
+    "evaluatedHeads": {
+      "1680": "d52b365c1049c6d17915b692855a0c5506fd2fd8",
+      "1696": "b3e7e96afa7c721c5b5f092431d513e0b9a06690",
+      "1738": "5408dd2450645ffc140e594e05fa4b0b138a12c5",
+      "1739": "768c487b394cf81245fad41fed18e73f15d6c9b0"
+    },
     "qualificationScope": "Six successful source/workflow/event/app-bound contexts; not independent review or release acceptance"
   },
   "approvalState": "OWNER_HOLD",
