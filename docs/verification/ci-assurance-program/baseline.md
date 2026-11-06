@@ -45,6 +45,13 @@ reconciles all 37 declared cases against a later exact-run artifact and classifi
 snapshot's source or incomplete domain-coverage state.
 The [SEC-15 admission assessment](restler-admission-assessment.md) records existing
 stateful-tool overlap and the unverified requirements before introducing RESTler.
+The later [live governance observation](observations/live-governance-20261106.json)
+adds a hold: the registered ruleset is disabled, while another active ruleset
+enforces the same six default-branch contexts. The existing live validator fails
+the identity/enforcement contract even though all six exact-head producers pass
+for #1680/#1696/#1738/#1739. This is not an absence-of-Main-checks claim.
+Security is unprotected. No settings, registry or protection policy was changed;
+Owner intent and separate approval for any required change remain unverified.
 
 ## Required contract and source identity
 

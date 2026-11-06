@@ -23,14 +23,15 @@
         ]
       },
       "configured": {
-        "state": "VERIFIED",
-        "qualification": "Source inspection; local checks identified in baseline.md only"
+        "state": "PARTIAL",
+        "qualification": "Static contract validated; live registered ruleset disabled while a differently named active ruleset enforces the same six contexts. Owner governance intent unverified."
       },
       "executionEvidence": {
         "state": "PARTIAL",
         "references": [
           "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1",
-          "source-native-inventory.json"
+          "source-native-inventory.json",
+          "observations/live-governance-20261106.json"
         ],
         "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
       },
@@ -47,19 +48,21 @@
         "identities": null
       },
       "coverageState": "UNVERIFIED",
-      "gateState": "PARTIAL",
-      "gapType": "NATIVE_PRODUCER_AND_CASE_ATTESTATION_INCOMPLETE",
-      "severity": "MEDIUM",
-      "dependency": [],
+      "gateState": "FAILED",
+      "gapType": "REGISTERED_RULESET_TO_LIVE_IDENTITY_DRIFT",
+      "severity": "HIGH",
+      "dependency": [
+        "Verify Owner intent for the live successor ruleset; no settings or acceptance-contract change is authorized by this observation"
+      ],
       "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
       "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
-      "approvalState": "UNVERIFIED",
+      "approvalState": "OWNER_HOLD",
       "levels": {
         "FILE_PRESENT": "VERIFIED",
-        "CONFIGURED": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
         "EXECUTED": "PARTIAL",
         "COVERAGE_PROVEN": "UNVERIFIED",
-        "GATE_INTEGRATED": "PARTIAL"
+        "GATE_INTEGRATED": "FAILED"
       }
     },
     {
@@ -2453,5 +2456,9 @@
         "GATE_INTEGRATED": "PARTIAL"
       }
     }
+  ],
+  "followUpObservations": [
+    "observations/sec05-native-42132259076.json",
+    "observations/live-governance-20261106.json"
   ]
 }

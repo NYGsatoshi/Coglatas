@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-11-06T01:07:00Z",
+  "repository": "NYGsatoshi/Coglatas",
+  "registrySourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "registryPath": "governance/required-checks.json",
+  "validatorPath": "scripts/ci/required_check_contract.py",
+  "state": "OWNER_HOLD",
+  "gapType": "REGISTERED_RULESET_TO_LIVE_IDENTITY_DRIFT",
+  "registeredRuleset": {
+    "id": 22302146,
+    "name": "Public Main Protection - Strict External Review",
+    "expectedEnforcement": "active",
+    "actualEnforcement": "disabled",
+    "refIncludes": ["~DEFAULT_BRANCH"]
+  },
+  "observedActiveRuleset": {
+    "id": 24643016,
+    "name": "Coglatas Main Protection - Owner Only",
+    "enforcement": "active",
+    "refIncludes": ["~DEFAULT_BRANCH"],
+    "strictRequiredStatusChecksPolicy": true,
+    "requiredContexts": [
+      "build-test",
+      "frontend-test",
+      "security-scan",
+      "publication-readiness",
+      "functional-fast",
+      "performance-fast"
+    ],
+    "producerIntegrationId": 15368,
+    "sixContextAndProducerTuplesMatchRegistry": true,
+    "bypassActors": [],
+    "mergeMethods": ["merge", "squash"]
+  },
+  "additionalRuleset": {"id": 22302157, "name": "PRreview", "enforcement": "disabled"},
+  "securityBranch": {
+    "name": "SecurityTestImplimation",
+    "headSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+    "protected": false
+  },
+  "existingValidatorResult": {
+    "overallDecision": "fail",
+    "liveRulesetError": "live required-check ruleset must be active",
+    "exactHeadProducerDecision": "pass",
+    "qualifiedPullRequests": [1680, 1696, 1738, 1739],
+    "qualificationScope": "Six successful source/workflow/event/app-bound contexts; not independent review or release acceptance"
+  },
+  "approvalState": "OWNER_HOLD",
+  "integrationDecision": "NO_MERGE",
+  "settingsMutation": "NONE",
+  "limitations": [
+    "The disabled registered ruleset does not mean the six Main checks are absent: another active ruleset enforces the same tuples.",
+    "This does not establish Owner approval for the ruleset identity/other governance differences or Security branch protection changes.",
+    "No registry acceptance rule, enforcement, topology or repository setting was changed to convert the validator result into PASS."
+  ]
+}
