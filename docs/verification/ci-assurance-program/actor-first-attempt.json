@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "state": "INCOMPLETE",
+  "firstAttemptOutcome": "FAILED",
+  "failureClass": "PRE_TEST_ADMISSION_REJECTION_FIRST_ASSERTION_UNKNOWN",
+  "repository": "NYGsatoshi/Coglatas",
+  "headSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "testedMergeSha": "f08d37afd82be8c33e31e1fc98b4e0826b4e5bc6",
+  "headTree": "7c7e86aaacc9306307ec14873305ee6585ae06c1",
+  "testedMergeTree": "e29c0d35dc6c1db5827785b581e9a90ee8f836ec",
+  "mergeParents": [
+    "586ee441f21a33d3e39c6bfec9bdfde1c5b971ae",
+    "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f"
+  ],
+  "workflow": ".github/workflows/ci.yml",
+  "runId": 42131490366,
+  "runAttempt": 1,
+  "jobId": 127611373281,
+  "jobName": "PR same-document actor replacement",
+  "firstFailingStep": "Require the fixed real-browser actor journey",
+  "testCaseIdentity": null,
+  "actualBrowserExecution": "NOT_EXECUTED",
+  "scenarioSource": "tests/ui/actor-replacement-real.mjs",
+  "scenarioSha256": "b8eaf7577da1503db15ac85f57331090b40c981d932727f648dd2216907ba942",
+  "artifactId": 13462918887,
+  "artifactName": "actor-replacement-pr-1",
+  "artifactArchiveSha256": "619deee57c80bee7fe931d3fc9c24048c78d5408723f5898ece7d21bf4ec9300",
+  "artifactSizeBytes": 231,
+  "archiveDigestComparedWithGitHubApi": true,
+  "producerUploadMatchedInJobLog": true,
+  "receipt": {
+    "schemaVersion": 1,
+    "qualification": "INCOMPLETE",
+    "phase": "ADMISSION",
+    "release": "RELEASE_NO_GO"
+  },
+  "inputDownloads": [
+    {
+      "id": 13463751971,
+      "name": "pr-functional-runtime",
+      "sha256": "49128cddb76a9d0f621dae23f0c9742844f9142184fe26f94db521bbbf17d31a"
+    },
+    {
+      "id": 13463766527,
+      "name": "dotnet-release-build",
+      "sha256": "b8c64b659dc640ec3d30d041a3c3eef166feb7aaabae4b07f466dc5b99a75028"
+    },
+    {
+      "id": 13464485150,
+      "name": "frontend-build-artifacts",
+      "sha256": "2fa442e9f69ffaf554e4d5193479272b7f6e4f7aa3e70bb8249e63bbb62135cc"
+    }
+  ],
+  "inputDownloadQualification": "JOB_LOG_REPORTED_DIGEST_MATCH_NOT_INDEPENDENT_ARCHIVE_REVALIDATION",
+  "inference": "The unequal source/head trees necessarily fail validateAdmission if reached; the old receipt does not identify the first failed assertion.",
+  "historicalEquivalence": "NOT_ESTABLISHED",
+  "resolution": "UNRESOLVED_NO_RERUN_WAIVER",
+  "release": "RELEASE_NO_GO"
+}

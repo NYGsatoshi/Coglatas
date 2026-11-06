@@ -1,0 +1,2457 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "testedMergeSha": "f08d37afd82be8c33e31e1fc98b4e0826b4e5bc6",
+  "integrationBranch": "SecurityTestImplimation",
+  "auditState": "PARTIAL",
+  "programState": "INCOMPLETE",
+  "assurance": "INVENTORY_ONLY_NOT_A_GATE_OR_APPROVAL",
+  "entries": [
+    {
+      "domain": "CI and governance",
+      "capability": "Six required contexts and producer contract",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "governance/required-checks.json",
+          "scripts/ci/required_check_contract.py"
+        ]
+      },
+      "configured": {
+        "state": "VERIFIED",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [
+          "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1",
+          "source-native-inventory.json"
+        ],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "governance/required-checks.json",
+          "scripts/ci/required_check_contract.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "NATIVE_PRODUCER_AND_CASE_ATTESTATION_INCOMPLETE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "VERIFIED",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "CI and governance",
+      "capability": "Event/path routing and conditional exemptions",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/route-main-ci-changes.sh",
+          ".github/workflows/ci.yml",
+          ".github/workflows/performance-api.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/route-main-ci-changes.sh",
+          ".github/workflows/ci.yml",
+          ".github/workflows/performance-api.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "ROUTING_MATRIX_NATIVE_QUALIFICATION_INCOMPLETE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "CI and governance",
+      "capability": "Workflow permissions, immutable pins and trust boundaries",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "governance/workflow-trust-policy.json",
+          "governance/github-actions-allowlist.json",
+          "scripts/ci/check-publication-readiness.py",
+          "scripts/ci/test-workflow-trust-boundaries-all.rb"
+        ]
+      },
+      "configured": {
+        "state": "VERIFIED",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "governance/workflow-trust-policy.json",
+          "governance/github-actions-allowlist.json",
+          "scripts/ci/check-publication-readiness.py",
+          "scripts/ci/test-workflow-trust-boundaries-all.rb"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "STATIC_AND_NATIVE_EVIDENCE_NOT_FULLY_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "VERIFIED",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "CI and governance",
+      "capability": "Artifact ownership, reuse and cross-run evidence",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/sec_arch_github_provenance.py",
+          "scripts/ci/sec_arch_reconcile.py",
+          "scripts/ci/restore-main-build-artifacts.sh"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/sec_arch_github_provenance.py",
+          "scripts/ci/sec_arch_reconcile.py",
+          "scripts/ci/restore-main-build-artifacts.sh"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "PER_CAPABILITY_INDEPENDENT_PROVENANCE_INCOMPLETE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "CI and governance",
+      "capability": "Retry, cancellation and first-attempt retention",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/ci.yml",
+          "scripts/ci/functional_evidence.py",
+          "tests/ui/run-real-backend-actor-replacement.mjs"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "INCOMPLETE",
+        "references": [
+          "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1",
+          "actor-first-attempt.json"
+        ],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/ci.yml",
+          "scripts/ci/functional_evidence.py",
+          "tests/ui/run-real-backend-actor-replacement.mjs"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "INCOMPLETE_ADMISSION_RECEIPT_AND_HISTORICAL_FAILURES",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "INCOMPLETE",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "CI and governance",
+      "capability": "Runner utilization and whole-DAG cost",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "docs/ci/playwright-shard-source-identity.md",
+          ".github/workflows/ci.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "docs/ci/playwright-shard-source-identity.md",
+          ".github/workflows/ci.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "PR_1696_UNMERGED_JOB_TIMING_NOT_DAG_PROOF",
+      "severity": "MEDIUM",
+      "dependency": [
+        "PR #1696",
+        "PR #1715 closed unmerged; no benefit established"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1691",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": ".NET unit and service tests",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Tests",
+          ".github/workflows/ci.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [
+          "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1/job/127610007391"
+        ],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Tests",
+          ".github/workflows/ci.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "SOURCE_EXECUTION_CASE_SET_NOT_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": "Real HTTP transport versus InMemory fixtures",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "tests/Coglatas.Tests/Auth/AuthSecurityHttpTests.cs",
+          "docs/TESTING.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "tests/Coglatas.Tests/Auth/AuthSecurityHttpTests.cs",
+          "docs/TESTING.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "PROVIDER_AND_ROUTE_COVERAGE_CLASSIFICATION_INCOMPLETE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": "Real PostgreSQL acceptance and migrations",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          ".github/workflows/ci.yml",
+          "docs/TESTING.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          ".github/workflows/ci.yml",
+          "docs/TESTING.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "EXPECTED_PROVIDER_CASE_SET_NOT_AUTHENTICATED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": "Tenant isolation and all-table product RLS",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "src/Coglatas.Infrastructure/Persistence/AppDbContext.cs",
+          "scripts/ci/sec_arch_rls_matrix.py",
+          "docs/verification/security-architecture-preflight.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "src/Coglatas.Infrastructure/Persistence/AppDbContext.cs",
+          "scripts/ci/sec_arch_rls_matrix.py",
+          "docs/verification/security-architecture-preflight.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "BLOCKED",
+      "gapType": "PRODUCT_RLS_NOT_ACTIVATED_AND_ALL_TABLE_QUALIFICATION_INCOMPLETE",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "BLOCKED"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": "Transactions and concurrent state changes",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "docs/verification/security-architecture-fixtures.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "docs/verification/security-architecture-fixtures.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "REPRESENTATIVE_CONTROLS_NOT_COMPLETE_TRANSITION_COVERAGE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Backend and databases",
+      "capability": "Recovery, idempotency and restore",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/synthetic-logical-recovery-probe.mjs",
+          "scripts/ci/synthetic-logical-recovery-receipt.mjs",
+          "docs/TESTING.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/synthetic-logical-recovery-probe.mjs",
+          "scripts/ci/synthetic-logical-recovery-receipt.mjs",
+          "docs/TESTING.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "BOUNDED_SYNTHETIC_RECOVERY_NOT_COMPLETE_RESTORE_PROOF",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Angular/Vitest full source case accounting",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "frontend",
+          "scripts/ci/run-frontend-parallel.sh"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [
+          "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1/job/127610917380"
+        ],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "frontend",
+          "scripts/ci/run-frontend-parallel.sh"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "2029_PASS_OBSERVATION_WITHOUT_FULL_ID_RECONCILIATION",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Protected full Playwright and source roster",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/ui/run-angular-playwright.mjs",
+          "tests/ui/playwright-shard-evidence.mjs",
+          "tests/ui/playwright-shard-capture.mjs"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/ui/run-angular-playwright.mjs",
+          "tests/ui/playwright-shard-evidence.mjs",
+          "tests/ui/playwright-shard-capture.mjs"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "PR_1717_SOURCE_LIST_DISCOVERY_UNMERGED_NOT_EXECUTION",
+      "severity": "MEDIUM",
+      "dependency": [
+        "PR #1716 merged",
+        "PR #1717 Draft"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1691",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Independent shard union and artifact ownership",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/ui/playwright-shard-evidence.mjs",
+          "docs/ci/playwright-shard-source-identity.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/ui/playwright-shard-evidence.mjs",
+          "docs/ci/playwright-shard-source-identity.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "PR_1680_UNMERGED_EXTERNAL_PROVENANCE_NOT_IMPLEMENTED",
+      "severity": "MEDIUM",
+      "dependency": [
+        "PR #1717",
+        "PR #1680"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1691",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Functional Fast/Full/Extended",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/functional-validation.yml",
+          ".github/workflows/functional-extended.yml",
+          "scripts/ci/functional_evidence.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/functional-validation.yml",
+          ".github/workflows/functional-extended.yml",
+          "scripts/ci/functional_evidence.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "FAST_OBSERVED_FULL_EXTENDED_EXACT_CANDIDATE_UNVERIFIED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Real backend browser journeys and actor replacement",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/ui/actor-replacement-real.mjs",
+          "tests/ui/run-real-backend-actor-replacement.mjs",
+          ".github/workflows/licensed-real-backend-acceptance.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "INCOMPLETE",
+        "references": [
+          "https://github.com/NYGsatoshi/Coglatas/actions/runs/42131490366/attempts/1/job/127611373281",
+          "actor-first-attempt.json"
+        ],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/ui/actor-replacement-real.mjs",
+          "tests/ui/run-real-backend-actor-replacement.mjs",
+          ".github/workflows/licensed-real-backend-acceptance.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "FAILED",
+      "gapType": "FIRST_ATTEMPT_ADMISSION_INCOMPLETE_BROWSER_NOT_EXECUTED",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "INCOMPLETE",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "FAILED"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Accessibility and keyboard operation",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/ui/a11y.ts",
+          "scripts/ci/verify-mvp-a-required-a11y-tests.py",
+          "tests/ui/group-keyboard-observation.browser-control.mjs"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/ui/a11y.ts",
+          "scripts/ci/verify-mvp-a-required-a11y-tests.py",
+          "tests/ui/group-keyboard-observation.browser-control.mjs"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "BOUNDED_OWNERS_NOT_COMPLETE_ACCESSIBILITY_CONFORMANCE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Browser/mobile/OS compatibility",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/mobile-compatibility.yml",
+          ".github/workflows/os-portability.yml",
+          "scripts/ci/mobile-runtime-contract.mjs"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/mobile-compatibility.yml",
+          ".github/workflows/os-portability.yml",
+          "scripts/ci/mobile-runtime-contract.mjs"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "FULL_SECURITY_CANDIDATE_MATRIX_NOT_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/611",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Frontend and functionality",
+      "capability": "Desktop-client qualification applicability",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "docs/verification/security-architecture-preflight.md",
+          "docs/AI_CONTEXT.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "docs/verification/security-architecture-preflight.md",
+          "docs/AI_CONTEXT.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "BLOCKED",
+      "gapType": "PRE_AVALONIA_BLOCKED_NO_DESKTOP_ACCEPTANCE_CREDIT",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/828",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "BLOCKED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "CodeQL SAST and ReSharper",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/codeql.yml",
+          ".github/workflows/resharper_pr.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/codeql.yml",
+          ".github/workflows/resharper_pr.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "SCANNER_COMPLETION_NOT_DETECTION_OR_FULL_SOURCE_COVERAGE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "Qodana duplicate Community/Cloud analysis",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/qodana_code_quality.yml",
+          ".github/workflows/qodana_cloud_quality.yml",
+          ".github/workflows/qodana_trusted_gate.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/qodana_code_quality.yml",
+          ".github/workflows/qodana_cloud_quality.yml",
+          ".github/workflows/qodana_trusted_gate.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "NO_EXACT_SECURITY_CANDIDATE_SINGLE_ANALYSIS_QUALIFICATION",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1500",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "Sonar native language coverage and quality gate",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/sonarcloud-ci.yml",
+          "scripts/ci/verify-sonar-node-coverage.mjs",
+          "scripts/ci/verify-sonar-dotnet-coverage.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "INCOMPLETE",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/sonarcloud-ci.yml",
+          "scripts/ci/verify-sonar-node-coverage.mjs",
+          "scripts/ci/verify-sonar-dotnet-coverage.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "PENDING_ANALYSIS_AND_NATIVE_COVERAGE_GAPS",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1507",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "INCOMPLETE",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "OSV, Trivy, npm, NuGet and Socket SCA",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/osv-scanner.yml",
+          ".github/workflows/trivy-repository.yml",
+          ".github/workflows/npm-security-audit.yml",
+          ".github/workflows/socket-dependency-security.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/osv-scanner.yml",
+          ".github/workflows/trivy-repository.yml",
+          ".github/workflows/npm-security-audit.yml",
+          ".github/workflows/socket-dependency-security.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "INDIVIDUAL_EXECUTION_FINDING_AND_SCOPE_RECONCILIATION_INCOMPLETE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "Gitleaks secrets scanning",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/ci.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/ci.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "NATIVE_FINDINGS_SCOPE_AND_RETENTION_NOT_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "Infrastructure misconfiguration, actionlint and zizmor",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/security-misconfiguration.yml",
+          ".github/workflows/workflow-static-analysis.yml",
+          "scripts/ci/verify_security_misconfiguration_sarif.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/security-misconfiguration.yml",
+          ".github/workflows/workflow-static-analysis.yml",
+          "scripts/ci/verify_security_misconfiguration_sarif.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "SOURCE_AND_NATIVE_METADATA_ONLY",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-01 deterministic OpenAPI 3.1",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/verify-openapi.py",
+          "scripts/ci/generate-security-openapi-from-prebuilt.sh"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/verify-openapi.py",
+          "scripts/ci/generate-security-openapi-from-prebuilt.sh"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "EXACT_CONTRACT_ARTIFACT_BYTES_NOT_YET_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-02 isolated synthetic target and scanner authentication",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/scanner-harness.sh",
+          "scripts/ci/verify-security-compose.py",
+          "infra/compose/test"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/scanner-harness.sh",
+          "scripts/ci/verify-security-compose.py",
+          "infra/compose/test"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "EXACT_ENVIRONMENT_AUTH_AND_BOUNDARY_EVIDENCE_PARTIAL",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-04 Schemathesis operation coverage",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/schemathesis-runner.sh",
+          "scripts/security/schemathesis_policy.py",
+          "scripts/security/process-schemathesis-report.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/schemathesis-runner.sh",
+          "scripts/security/schemathesis_policy.py",
+          "scripts/security/process-schemathesis-report.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "PER_OPERATION_EXPECTED_ACTUAL_CASE_SETS_NOT_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-05 authorization-negative route inventory",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/sec05-route-inventory.py",
+          "scripts/security/authorization-negative-matrix.sh"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/sec05-route-inventory.py",
+          "scripts/security/authorization-negative-matrix.sh"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "BOUNDED_P0_INVENTORY_NOT_EVERY_API_ROUTE",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-06 authenticated API DAST",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/zap-runner.sh",
+          "scripts/security/process-zap-report.py",
+          "scripts/security/zap-policy.json"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/zap-runner.sh",
+          "scripts/security/process-zap-report.py",
+          "scripts/security/zap-policy.json"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "ROLE_RESULTS_OBSERVED_ARTIFACT_FINDING_AND_REQUEST_RECONCILIATION_PENDING",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/572",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-07 authenticated Angular browser/AJAX DAST",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "PARTIAL",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/sec14-browser-fixture-run.sh",
+          "scripts/ci/sec14_browser_evidence.py",
+          "scripts/ci/release_assurance_advisory.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "NOT_EXECUTED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/sec14-browser-fixture-run.sh",
+          "scripts/ci/sec14_browser_evidence.py",
+          "scripts/ci/release_assurance_advisory.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "SYNTHETIC_BROWSER_FIXTURE_NOT_AUTHENTICATED_ANGULAR_CRAWL",
+      "severity": "MEDIUM",
+      "dependency": [
+        "SEC-02",
+        "SEC-03",
+        "Compatible SEC-08 contract"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/580",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "PARTIAL",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "NOT_EXECUTED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-08 finding normalization, exceptions and delta",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/security/finding_policy.py",
+          "scripts/security/finding-policy.json",
+          "tests/ci/test_security_finding_policy.py",
+          "docs/verification/sec08-finding-policy-preparation.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/security/finding_policy.py",
+          "scripts/security/finding-policy.json",
+          "tests/ci/test_security_finding_policy.py",
+          "docs/verification/sec08-finding-policy-preparation.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "PREPARATION_ONLY_INITIAL_MEDIUM_INVENTORY_UNREVIEWED",
+      "severity": "MEDIUM",
+      "dependency": [
+        "Authenticated scanner evidence",
+        "Independent initial inventory review",
+        "Owner approval"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-15 RESTler sequence-dependent API fuzzing",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "NOT_IMPLEMENTED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py"
+        ]
+      },
+      "configured": {
+        "state": "NOT_IMPLEMENTED",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "NOT_EXECUTED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "RESTLER_ADAPTER_AND_NATIVE_SEQUENCE_EXECUTION_MISSING",
+      "severity": "MEDIUM",
+      "dependency": [
+        "SEC-01",
+        "SEC-02",
+        "SEC-03",
+        "Tool admission review"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/688",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "NOT_IMPLEMENTED",
+        "CONFIGURED": "NOT_IMPLEMENTED",
+        "EXECUTED": "NOT_EXECUTED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-16 Files and download-grant lifecycle",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "tests/Coglatas.Tests/Files/FileDownloadGrantBoundaryTests.cs",
+          "docs/verification/sec16-grant-http-lifecycle.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Tests/PostgreSql",
+          "tests/Coglatas.Tests/Files/FileDownloadGrantBoundaryTests.cs",
+          "docs/verification/sec16-grant-http-lifecycle.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "REPRESENTATIVE_CONTROLS_NOT_ALL_CURRENT_FILE_TRANSITIONS",
+      "severity": "HIGH",
+      "dependency": [
+        "Issue #689 lifecycle closed; residual acceptance remains in #614"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-17 realtime authorization and reconnect",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/sec17-deep.yml",
+          ".github/workflows/sec17-file-policy.yml",
+          "docs/verification/sec17-bounded-deep-reconnect.md",
+          "src/Coglatas.Web"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/sec17-deep.yml",
+          ".github/workflows/sec17-file-policy.yml",
+          "docs/verification/sec17-bounded-deep-reconnect.md",
+          "src/Coglatas.Web"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "REPRESENTATIVE_NATIVE_CONTROLS_NOT_FULL_HUB_EVENT_TRANSITION_COVERAGE",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/690",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-18 outbound/OAST applicability",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "src/Coglatas.Web",
+          "scripts/ci/release_assurance_advisory.py"
+        ]
+      },
+      "configured": {
+        "state": "UNVERIFIED",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "src/Coglatas.Web",
+          "scripts/ci/release_assurance_advisory.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "gapType": "CURRENT_OUTBOUND_SURFACE_APPLICABILITY_REQUIRES_TRACE",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "UNVERIFIED",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "UNVERIFIED"
+      }
+    },
+    {
+      "domain": "Security",
+      "capability": "SEC-20 advanced evidence adapters and retention",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "PARTIAL",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py",
+          "scripts/security/finding_policy.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py",
+          "scripts/security/finding_policy.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "ADVANCED_ADAPTERS_MISSING_PROVENANCE_AND_SANITIZATION_PARTIAL",
+      "severity": "MEDIUM",
+      "dependency": [
+        "SEC-08",
+        "SEC-15",
+        "SEC-16",
+        "SEC-17"
+      ],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/695",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "PARTIAL",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Performance",
+      "capability": "API k6 numerical assurance and baseline validity",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/performance-api.yml",
+          "scripts/performance/assurance_policy.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "NOT_EXECUTED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/performance-api.yml",
+          "scripts/performance/assurance_policy.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "OWNER_HOLD",
+      "gapType": "INDEFINITELY_SUSPENDED_NOT_EVALUATED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1128",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "NOT_EXECUTED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "OWNER_HOLD"
+      }
+    },
+    {
+      "domain": "Performance",
+      "capability": "PostgreSQL structural contracts and numerical duration",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/performance-db.yml",
+          "scripts/performance",
+          "docs/verification/performance-structural-main-integration.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/performance-db.yml",
+          "scripts/performance",
+          "docs/verification/performance-structural-main-integration.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "STRUCTURAL_EVIDENCE_SEPARATE_DURATION_SUSPENDED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1128",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Performance",
+      "capability": "Realtime fan-out, stress/soak and resource behavior",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "docs/verification/sec17-bounded-deep-reconnect.md",
+          "scripts/performance"
+        ]
+      },
+      "configured": {
+        "state": "UNVERIFIED",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "NOT_EXECUTED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "docs/verification/sec17-bounded-deep-reconnect.md",
+          "scripts/performance"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "NOT_IMPLEMENTED",
+      "gapType": "BOUNDED_CORRECTNESS_NOT_LOAD_CAPACITY_PROOF",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1691",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "UNVERIFIED",
+        "EXECUTED": "NOT_EXECUTED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "NOT_IMPLEMENTED"
+      }
+    },
+    {
+      "domain": "Performance",
+      "capability": "Client performance and CI artifact/storage costs",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "frontend/angular.json",
+          ".github/workflows/ci.yml",
+          "scripts/performance"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "frontend/angular.json",
+          ".github/workflows/ci.yml",
+          "scripts/performance"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "BUNDLE_BUDGET_NOT_CLIENT_RUNTIME_OR_WHOLE_DAG_BENEFIT",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/1691",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Release assurance",
+      "capability": "SBOM, vulnerability evaluation, image signing and provenance",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          ".github/workflows/sbom-security.yml",
+          ".github/workflows/sbom-image-security.yml",
+          ".github/workflows/release-supply-chain.yml",
+          "scripts/ci/release_supply_chain.py"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          ".github/workflows/sbom-security.yml",
+          ".github/workflows/sbom-image-security.yml",
+          ".github/workflows/release-supply-chain.yml",
+          "scripts/ci/release_supply_chain.py"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "EXACT_RELEASE_CANDIDATE_NATIVE_SUBJECT_EVIDENCE_NOT_RECONCILED",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "UNVERIFIED",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    },
+    {
+      "domain": "Release assurance",
+      "capability": "Exact-candidate independent final security/quality gate",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py",
+          "docs/verification/sec14-release-evidence-consistency.md",
+          "docs/verification/security-architecture-preflight.md"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "UNVERIFIED",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "scripts/ci/release_assurance_advisory.py",
+          "docs/verification/sec14-release-evidence-consistency.md",
+          "docs/verification/security-architecture-preflight.md"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "BLOCKED",
+      "gapType": "MANDATORY_DEPENDENCIES_AND_TRUSTED_ATTESTATION_INCOMPLETE",
+      "severity": "HIGH",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/614",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "UNVERIFIED",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "BLOCKED"
+      }
+    },
+    {
+      "domain": "Release assurance",
+      "capability": "Architecture CI qualification and protected topology",
+      "owner": {
+        "state": "UNVERIFIED",
+        "assignment": "Repository maintainers; individual assignment not authenticated"
+      },
+      "existingImplementation": {
+        "state": "VERIFIED",
+        "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "references": [
+          "tests/Coglatas.Architecture.Tests",
+          "governance/required-checks.json",
+          ".github/workflows/ci.yml"
+        ]
+      },
+      "configured": {
+        "state": "PARTIAL",
+        "qualification": "Source inspection; local checks identified in baseline.md only"
+      },
+      "executionEvidence": {
+        "state": "PARTIAL",
+        "references": [],
+        "qualification": "Job/log observation only unless explicitly stated; not a full case-set attestation"
+      },
+      "expectedCaseSet": {
+        "state": "UNVERIFIED",
+        "references": [
+          "tests/Coglatas.Architecture.Tests",
+          "governance/required-checks.json",
+          ".github/workflows/ci.yml"
+        ],
+        "identities": null
+      },
+      "actualCaseSet": {
+        "state": "UNVERIFIED",
+        "identities": null
+      },
+      "coverageState": "UNVERIFIED",
+      "gateState": "PARTIAL",
+      "gapType": "EXISTING_BACKEND_LANE_NOT_AUTHORIZATION_FOR_SEVENTH_REQUIRED_CHECK",
+      "severity": "MEDIUM",
+      "dependency": [],
+      "trackingIssue": "https://github.com/NYGsatoshi/Coglatas/issues/828",
+      "proposedSlice": "Reconcile existing implementation and exact-source native evidence before activation",
+      "approvalState": "OWNER_HOLD",
+      "levels": {
+        "FILE_PRESENT": "VERIFIED",
+        "CONFIGURED": "PARTIAL",
+        "EXECUTED": "PARTIAL",
+        "COVERAGE_PROVEN": "UNVERIFIED",
+        "GATE_INTEGRATED": "PARTIAL"
+      }
+    }
+  ]
+}
