@@ -18,6 +18,9 @@ function testHash(id) {
     .update(id, 'utf8').digest('hex');
 }
 
+// Reuse the integrated domain-separated scheme for non-shard case observation.
+export { testHash as hashPlaywrightTestId };
+
 function testsOf(tests, label) {
   if (!Array.isArray(tests) || tests.length < 1 ||
       tests.length > MAX_TESTS) deny(label + '_SIZE');
@@ -101,5 +104,25 @@ export function constructUnverifiedShardEvidence({
   return {
     roster, shard, artifactTrust: 'EXTERNAL_VERIFICATION_REQUIRED',
     requiredCheckQualified: false,
+  };
+}
+
+/**
+ * Source-only discovery inventory (NOT proof of result coverage or artifact origin).
+ * The Playwright --list reporter can call this without running a browser.
+ * Only hashed TestCase.id values leave this module.
+ */
+export function constructSourceOnlyDiscovery({ sourceSha, discoveredTests }) {
+  if (typeof sourceSha !== 'string' || !SHA.test(sourceSha)) deny('SOURCE_SHA');
+  const tests = testsOf(discoveredTests, 'SOURCE');
+  return {
+    schema: 'coglatas.playwright-source-discovery.v1',
+    suite: 'angular-static',
+    sourceSha,
+    tests,
+    rosterSha256: rosterDigest(sourceSha, tests),
+    artifactTrust: 'EXTERNAL_VERIFICATION_REQUIRED',
+    requiredCheckQualified: false,
+    qualification: 'SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF',
   };
 }
