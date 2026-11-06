@@ -59,3 +59,11 @@ unknown references. It also documents exact-SHA read-only fetch prerequisites
 and forbids skipping preservation checks when objects are absent. The original
 review outputs remain retained locally. Decision wording checks additionally
 cover entire decision bodies and reject appended unauthorized instructions.
+
+Review of `54e7c9d0611f31d0a88e8ddb60bacc4fd3fe4864` completed with one minor
+newline-symmetry issue in the append-only comparison. Although the pinned
+checkpoint blob contains LF and passed both hosts, the implementation now
+compares byte prefixes with explicit CRLF clean handling on both sides. Focused
+controls retain valid LF/CRLF checkouts and reject changed failure wording,
+truncation and prepending. The original canonical blob digest is still checked
+first; raw native artifact digest handling and source bytes remain unchanged.

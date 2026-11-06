@@ -142,6 +142,15 @@ class RecoveryContractTests(unittest.TestCase):
                 with self.assertRaises(guard.ContractError):
                     guard.validate_contract(folder)
 
+    def test_append_only_prose_handles_crlf_and_rejects_replaced_or_truncated_content(self):
+        original = b'Original checkpoint\nOriginal failure\n'
+        for pinned in [original, original.replace(b'\n', b'\r\n')]:
+            for current in [original + b'Addendum\n', (original + b'Addendum\n').replace(b'\n', b'\r\n')]:
+                self.assertTrue(guard.append_only_prefix(current, pinned))
+            self.assertFalse(guard.append_only_prefix(original.replace(b'failure', b'success'), pinned))
+            self.assertFalse(guard.append_only_prefix(original[:-1], pinned))
+            self.assertFalse(guard.append_only_prefix(b'Addendum\n' + original, pinned))
+
 
 if __name__ == '__main__':
     unittest.main()

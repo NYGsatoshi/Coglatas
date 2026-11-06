@@ -74,6 +74,11 @@ def local_file(folder: Path, name: str) -> Path:
     return path
 
 
+def append_only_prefix(current: bytes, original: bytes) -> bool:
+    """Compare checkpoint prose under the same explicit CRLF clean rule."""
+    return current.replace(b'\r\n', b'\n').startswith(original.replace(b'\r\n', b'\n'))
+
+
 def validate_contract(folder: Path = HERE, root: Path = ROOT,
                       verify_preservation: bool = False) -> None:
     contract = load(folder / 'program-contract.json')
@@ -189,7 +194,7 @@ def validate_contract(folder: Path = HERE, root: Path = ROOT,
                                          cwd=root, capture_output=True, check=True).stdout.strip()
             require(current_oid == expected_oid, 'Retained evidence bytes changed.')
         elif anchor['mode'] == 'append-only':
-            require(path.read_text(encoding='utf-8').startswith(original.decode('utf-8')),
+            require(append_only_prefix(path.read_bytes(), original),
                     'Original checkpoint prose was replaced rather than appended.')
     if verify_preservation:
         data = subprocess.run(['git', 'show', ledger['sourceSha'] + ':' + ledger['path']],
