@@ -297,12 +297,12 @@ export class ProjectDetailFacade {
       if (loadIsCurrent()) {
         const latest = this.state();
         if (view.status !== 'ready') {
-          this.projectOperational = false;
-          this.settleInitialProjectionAuthorization(false);
           if (view.status === 'permissionDenied')
             {this.clearProtectedProjectionsForDeniedSubscription();}
           else if (latest.status === 'ready')
             {return;}
+          this.projectOperational = false;
+          this.settleInitialProjectionAuthorization(false);
           this.state.set(view);
           return;
         }
