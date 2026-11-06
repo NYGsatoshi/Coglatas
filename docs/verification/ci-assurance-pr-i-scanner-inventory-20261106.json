@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "qualification": "SOURCE_CONFIGURATION_AUDIT_NATIVE_FINDINGS_AND_DEPENDENCY_COMPLETENESS_UNVERIFIED",
+  "scanners": [
+    {
+      "tool": "CodeQL",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/codeql.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "b0dd6b011280d30f2c154c77325f5c4b148f837d8b7ad8a7fad638d570c5ad31"
+        }
+      ],
+      "configuredResponsibility": "Actions, C#, JavaScript/TypeScript and Python static query analysis; matrix build-mode none.",
+      "limits": "Does not establish package vulnerability, runtime-image, secret, dynamic authorization or complete generated-artifact coverage.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "OSV",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/osv-scanner.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "be6957eb513a9ac242f0154e72fee5c323dbee59a8490dfafe44cf2a34808af2"
+        }
+      ],
+      "configuredResponsibility": "Recursive supported manifest/lock discovery; base/candidate advisory comparison on PRs; full inventory advisory on push/manual/schedule.",
+      "limits": "Resolved graph/database completeness and external binary detection remain unverified; full inventory is advisory, not a zero-vulnerability gate.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Trivy",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "87c4445bb4d219f826ad24e7120448996dd5cd6b4995f65991423769d20a6971"
+        },
+        {
+          "path": ".github/workflows/licensed-image-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "b003c9f149bb2a1d12072c25b1d0a4223630c6d3380c814876b85112b5d341c0"
+        },
+        {
+          "path": ".github/workflows/sbom-image-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "441a3a7282cc086aae7a96855327f53ac79f047f90abf2d8023e328882eef65b"
+        },
+        {
+          "path": ".github/workflows/security-misconfiguration.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "fd4191a9394cfb682523eead5504ed231e6f4d9e65a2db0df54a92819fe7283c"
+        }
+      ],
+      "configuredResponsibility": "Repository filesystem vulnerability scan, licensed/runtime image OS/library scan, and separate HIGH/CRITICAL misconfiguration shadow. Vulnerability lanes use 0.65.0; misconfiguration uses 0.76.1.",
+      "limits": "Separate artifact/database identities must be checked per run; advisory misconfiguration success is not blocking remediation or complete IaC coverage.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "npm audit",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/npm-security-audit.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "9e7b5196afc90ddefb84f9385891affb0b1fff9e2a8674b57e0aa5b3231cdb1e"
+        },
+        {
+          "path": "scripts/ci/check-npm-audit-baseline.mjs",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "186bccf4f994fd2990dc1b93a7808c0c1b5417f6a1d64819ec57d54de596e8f1"
+        },
+        {
+          "path": "scripts/ci/npm-audit-baseline.json",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "2e6a37fbebc19596128652adc6e29438dda8721f64f8c791b9879262d85c4160"
+        }
+      ],
+      "configuredResponsibility": "Discovers all package-lock.json outside node_modules and audits lockfile graphs; existing identity/debt baseline governs admission.",
+      "limits": "Manifests without locks and external binaries are not proven covered; accepted debt remains visible; audit service success does not prove advisory completeness.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "NuGet vulnerability detection",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "87c4445bb4d219f826ad24e7120448996dd5cd6b4995f65991423769d20a6971"
+        },
+        {
+          "path": ".github/workflows/nuget-dependency-submission.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "73fadcf081e53b4cef0ce26f562448d909b002fbc28e37edae6e0956bff13fb6"
+        }
+      ],
+      "configuredResponsibility": "Routed solution restore and dotnet list package --vulnerable --include-transitive; separate manual graph submission.",
+      "limits": "A skipped routed scan is not execution; manual graph submission is not continuously refreshed graph proof. SDK/runtime image patching is separate.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Socket",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/socket-dependency-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "ef238b6c84c66c29ab5cb67287e37e4396a611f4d0bb3f8eb2c6987140ff245e"
+        },
+        {
+          "path": ".github/workflows/socket-sca.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "318f0af6cb2bd3f6fd2ddb1c1db3b204b360a21bb43cbe8169329be882327ece"
+        },
+        {
+          "path": "scripts/ci/route-socket-dependency-scopes.py",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "0d4392b76bba67af95dc06dad417f6dd563a2965d57406ae6019b6073978efb8"
+        }
+      ],
+      "configuredResponsibility": "Firewall Free wraps ignore-scripts npm ci for selected changed locked npm scopes. Separate token-backed SCA requires SOCKET_SCA_ENABLED and protected environment.",
+      "limits": "Opt-in configuration is not native execution. SCA workflow title says Trusted Main Only, but its visible job condition checks the variable only; actual environment branch restrictions were not retrieved. No claim of Main-only enforcement or non-npm completeness.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Gitleaks",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "87c4445bb4d219f826ad24e7120448996dd5cd6b4995f65991423769d20a6971"
+        },
+        {
+          "path": ".github/workflows/publication-readiness.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "5b6e66ec8b121e3c273df6044d9b6ff0ca527fca4b1a840a63c18af56a21bf94"
+        },
+        {
+          "path": ".gitleaksignore",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "6ecfe3841e4c7a8762efd8ebf42ea90d4c4bcf8ac06c9c137341b548da5467a4"
+        }
+      ],
+      "configuredResponsibility": "PR merge-base diff or configured current-ref history, redacted reports and existing ignore evidence.",
+      "limits": "Does not establish scanning of unreachable history, external secrets, image layers or all generated artifact contents.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Dependency Review",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/dependency-review.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "8dc7a937f10f9cf460116608894dea733de89d9ccefe0262d605064e19b3c0c7"
+        },
+        {
+          "path": ".github/workflows/nuget-dependency-submission.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "73fadcf081e53b4cef0ce26f562448d909b002fbc28e37edae6e0956bff13fb6"
+        }
+      ],
+      "configuredResponsibility": "PR dependency-graph delta with fail-on-severity high; graph population is a separate prerequisite.",
+      "limits": "NuGet submission is manual; graph delta success does not prove all restored transitive dependencies or binary/image contents were represented.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Syft",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/sbom-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "f319936498daaa89646af0115814e7caecec0c544e2ba8a612fbe299f2a217f5"
+        },
+        {
+          "path": ".github/workflows/sbom-image-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "441a3a7282cc086aae7a96855327f53ac79f047f90abf2d8023e328882eef65b"
+        },
+        {
+          "path": "scripts/ci/verify_sbom.py",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "1075a7cbffcd69efe1ab733beeb6b3e313f91963a2ff433d50f4983295359114"
+        }
+      ],
+      "configuredResponsibility": "Source CycloneDX/SPDX after resolved NuGet lock materialization, dev npm dependencies enabled, plus independently built/restored image SBOMs with source/run/hash receipts.",
+      "limits": "Catalogue presence is not vulnerability detection or complete identity/origin coverage; generated external binaries require per-component inventory reconciliation.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Grype",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/sbom-image-security.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "441a3a7282cc086aae7a96855327f53ac79f047f90abf2d8023e328882eef65b"
+        },
+        {
+          "path": "scripts/ci/verify_sbom_vulnerability_gate.py",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "66c04c3d9bac835d0d6b7186a0757ce89d9e8bcd615e60a61913299401b7a944"
+        },
+        {
+          "path": "scripts/ci/verify_grype_sbom_source.py",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "fe7cdc92e85c254e58d9e0de829223e929a9387793357b3d3eec0525903831bf"
+        }
+      ],
+      "configuredResponsibility": "0.118.0 vulnerability analysis against canonical SBOM, source binding, database age/schema checks and independent Trivy disagreement reconciliation.",
+      "limits": "Configured database maximum age is not current database observation; package origin/version and scanner disagreement retain existing admission semantics.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Cosign",
+      "configurationEvidence": [
+        {
+          "path": ".github/workflows/release-supply-chain.yml",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "97beaaf3c20dd45d28e2e580cf054da8843c691ca5d0b83fab8c9a15d833f3f0"
+        },
+        {
+          "path": "scripts/ci/release_supply_chain.py",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "1c30d53a00c0c31a3b7107e5b04e24c1833a357d6a3148d8719bbe9931966e9c"
+        },
+        {
+          "path": "scripts/ci/install-cosign.sh",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "1d1008488fa3ee8314061347904a719ddec04ee9f78f6019d548798b6127a40d"
+        }
+      ],
+      "configuredResponsibility": "3.1.3 checksum-pinned CLI for release image-digest signatures, attestations and verification with isolated keyless signing authority.",
+      "limits": "Release-triggered publication is not evidence of a current qualified release; signature identity does not establish vulnerability absence, complete SBOM or all build inputs.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    },
+    {
+      "tool": "Renovate",
+      "configurationEvidence": [
+        {
+          "path": ".github/renovate.json",
+          "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "canonicalBlobSha256": "583452d466b3301600b6c3d4544910e0f63c656df6a87ec08e78372240a4f691"
+        }
+      ],
+      "configuredResponsibility": "Configured sole version-update bot: automerge false; PR concurrency 8/hourly 4; major dashboard approval; scoped holds and reviewed Action-pin restrictions.",
+      "limits": "Update proposals are not security scans. Configuration does not establish every manager/external binary is discovered, a guaranteed schedule, or completed remediation. No second bot is introduced.",
+      "executionCompleteness": "UNVERIFIED",
+      "responsibilityRemoved": false
+    }
+  ],
+  "componentSourceInventory": {
+    "dotnetProjects": [
+      "src/Coglatas.Application/Coglatas.Application.csproj",
+      "src/Coglatas.Domain/Coglatas.Domain.csproj",
+      "src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj",
+      "src/Coglatas.UI.Core/Coglatas.UI.Core.csproj",
+      "src/Coglatas.Web/Coglatas.Web.csproj",
+      "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj",
+      "tests/Coglatas.Tests/Coglatas.Tests.csproj",
+      "tools/AvMig.SourceInspector/AvMig.SourceInspector.csproj",
+      "tools/Coglatas.SecurityArchitecture/Coglatas.SecurityArchitecture.csproj"
+    ],
+    "npmManifests": [
+      "coglatas-frontend/package.json",
+      "frontend/package.json",
+      "package.json",
+      "scripts/ci/sonar-operational-coverage-tools/package.json",
+      "tools/frontend-inspections/package.json"
+    ],
+    "npmLocks": [
+      "coglatas-frontend/package-lock.json",
+      "frontend/package-lock.json",
+      "package-lock.json",
+      "scripts/ci/sonar-operational-coverage-tools/package-lock.json",
+      "tools/frontend-inspections/package-lock.json"
+    ],
+    "containerBuildFiles": [
+      "Dockerfile",
+      "infra/docker/backend-dev.Dockerfile",
+      "infra/docker/frontend-dev.Dockerfile",
+      "infra/docker/playwright.Dockerfile",
+      "infra/docker/runtime-prebuilt.Dockerfile",
+      "infra/docker/security-runtime-pr-prebuilt.Dockerfile",
+      "infra/docker/security-runtime-prebuilt.Dockerfile",
+      "infra/docker/security-runtime.Dockerfile"
+    ],
+    "externalInstallerScripts": [
+      "scripts/ci/install-cosign.sh",
+      "scripts/ci/install-grype.sh",
+      "scripts/ci/install-self-hosted-runner-pool.sh",
+      "scripts/ci/install-syft.sh"
+    ]
+  },
+  "componentReconciliation": {
+    "manifestToResolvedTransitiveGraph": "PARTIAL",
+    "runtimeImageToSbom": "CONFIGURED_NOT_REQUALIFIED",
+    "externalBinaries": "UNVERIFIED",
+    "generatedArtifacts": "UNVERIFIED"
+  },
+  "additionalScannerAdmission": "NONE_UNIQUE_DETECTION_GAP_AND_TRUST_REVIEW_NOT_ESTABLISHED",
+  "independentReview": "PENDING",
+  "integration": "HOLD"
+}
