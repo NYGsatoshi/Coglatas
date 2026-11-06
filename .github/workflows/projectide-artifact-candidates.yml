@@ -5,7 +5,9 @@ on:
     paths:
       - src/Coglatas.Domain/ProjectIde/**
       - global.json
+      - src/Coglatas.Application/ProjectIde/ReceiptVerification/**
       - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
+      - tests/Coglatas.Tests/ProjectIde/SyntheticReceiptAuthenticationTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
@@ -26,7 +28,8 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
-       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+       startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -72,7 +75,7 @@ jobs:
                 @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
               throw "Incomplete or unsuccessful $name inventory"
             }
-            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 1002) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
             }
@@ -88,7 +91,7 @@ jobs:
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
@@ -103,7 +106,8 @@ jobs:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.base_ref == 'projectide/integration-20261031' ||
-       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+       startsWith(github.base_ref, 'projectide/artifact-foundation-') ||
+       startsWith(github.base_ref, 'projectide/receipt-proof-'))
     runs-on: windows-latest
     timeout-minutes: 25
     env:
@@ -149,7 +153,7 @@ jobs:
                 @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
               throw "Incomplete or unsuccessful $name inventory"
             }
-            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 1002) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
             }
@@ -165,7 +169,7 @@ jobs:
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
-          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
       - name: Upload actual candidate results
         if: always()
