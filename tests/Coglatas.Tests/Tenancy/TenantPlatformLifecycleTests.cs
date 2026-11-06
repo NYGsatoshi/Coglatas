@@ -201,4 +201,3 @@ public sealed partial class TenantIsolationSecurityTests
         Assert.DoesNotContain(dbContext.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
     }
 }
-}
