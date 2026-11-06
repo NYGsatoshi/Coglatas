@@ -40,7 +40,7 @@ test('independent reader Unicode and ordered-array digest vectors remain distinc
     hashes.set(vector.id, value);
     assert.notEqual(
       createHash('sha256').update(readerCompatibility.domain, 'utf8').update(Buffer.from([0]))
-        .update(vector.canonical + '\\n', 'utf8').digest('hex'),
+        .update(vector.canonical + '\n', 'utf8').digest('hex'),
       value,
     );
   }
