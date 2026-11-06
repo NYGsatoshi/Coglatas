@@ -248,7 +248,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
 
         public async Task DispatchAsync(CancellationToken token = default)
         {
-            if (token == default) {token = _lifetime.Token;}
+            if (token == CancellationToken.None) {token = _lifetime.Token;}
             Assert.NotEqual(CancellationToken.None, token);
             Repository.Token = token;
             Authorizer.Token = token;
