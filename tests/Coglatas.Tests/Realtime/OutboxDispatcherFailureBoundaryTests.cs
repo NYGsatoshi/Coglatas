@@ -79,7 +79,9 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             default: throw new ArgumentOutOfRangeException(nameof(mutation));
         }
         if (mutation is not ("payload-json" or "payload-null"))
-            {fixture.Event.PayloadJson = JsonSerializer.Serialize(envelope, Fixture.JsonOptions);}
+        {
+            fixture.Event.PayloadJson = JsonSerializer.Serialize(envelope, Fixture.JsonOptions);
+        }
         await fixture.DispatchAsync();
         fixture.AssertNoDelivery();
         var failure = Assert.Single(fixture.Repository.Failures);
@@ -183,8 +185,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
     private sealed class Fixture : IAsyncDisposable
     {
         public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web);
-        private readonly ServiceProvider services;
-        private readonly OutboxDispatcher dispatcher;
+        private readonly ServiceProvider _services;
+        private readonly OutboxDispatcher _dispatcher;
         public Guid Recipient { get; } = Guid.NewGuid();
         public DurableEventEnvelope Envelope { get; }
         public OutboxEvent Event { get; }
@@ -210,7 +212,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
                 LockToken = Guid.NewGuid()
             };
             Repository = new RecordingRepository(Event);
-            services = new ServiceCollection()
+            _services = new ServiceCollection()
                 .AddScoped<ICurrentTenantAccessor, CurrentTenantService>()
                 .AddScoped<IOutboxEventRepository>(provider =>
                 {
@@ -226,7 +228,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
                 Event.TenantId, RealtimeSubscriptionType.User, Recipient, "synthetic-target-group", DateTimeOffset.UtcNow), 20));
             Assert.True(registry.TryAdd(new HubSubscription("foreign-connection", Recipient, Guid.NewGuid(),
                 Guid.NewGuid(), RealtimeSubscriptionType.User, Recipient, "synthetic-foreign-group", DateTimeOffset.UtcNow), 20));
-            dispatcher = new OutboxDispatcher(services.GetRequiredService<IServiceScopeFactory>(), Hub, registry,
+            _dispatcher = new OutboxDispatcher(_services.GetRequiredService<IServiceScopeFactory>(), Hub, registry,
                 Diagnostics, Microsoft.Extensions.Options.Options.Create(Options), NullLogger<OutboxDispatcher>.Instance);
         }
 
@@ -246,7 +248,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Repository.Token = token;
             var method = typeof(OutboxDispatcher).GetMethod("DispatchBatchAsync", BindingFlags.Instance | BindingFlags.NonPublic)
                 ?? throw Unexpected();
-            await Assert.IsAssignableFrom<Task>(method.Invoke(dispatcher, [token]));
+            await Assert.IsAssignableFrom<Task>(method.Invoke(_dispatcher, [token]));
         }
 
         public void AssertNoDelivery()
@@ -256,7 +258,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Assert.Empty(Repository.Delivered);
         }
 
-        public ValueTask DisposeAsync() => services.DisposeAsync();
+        public ValueTask DisposeAsync() => _services.DisposeAsync();
     }
 
     private sealed class RecordingAuthorizer : IRealtimeDispatchAuthorizer
