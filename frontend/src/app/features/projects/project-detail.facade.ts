@@ -1463,10 +1463,12 @@ export class ProjectDetailFacade {
       this.realtime.registerCatchUp(PROJECT_REALTIME_OWNER, (context) => {
         const wasOperational = this.projectOperational;
         const denied = context.deniedOwners.has(PROJECT_REALTIME_OWNER);
+        const recoveringDenied = denied || this.state().kanban.status === 'permissionDenied' ||
+          this.state().schedule.status === 'permissionDenied';
         if (denied)
           {this.clearProtectedProjectionsForDeniedSubscription();}
-        this.refreshProjectProjections(projectId, this.authorizationGeneration, !wasOperational);
-        if (wasOperational) {
+        this.refreshProjectProjections(projectId, this.authorizationGeneration, !wasOperational || recoveringDenied);
+        if (wasOperational && !recoveringDenied) {
           this.refreshKanban(
             false,
             denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedBoardDataWas2") : projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"),
@@ -1924,7 +1926,6 @@ export class ProjectDetailFacade {
       {return;}
 
     if (event.eventType === 'Security.AuthorizationStateChanged.v1') {
-      const wasOperational = this.projectOperational;
       this.authorizationGeneration++;
       this.loadGeneration++;
       this.initialLoadGeneration = null;
@@ -1970,11 +1971,7 @@ export class ProjectDetailFacade {
         }
         this.releaseRealtime();
         this.registerRealtime(projectId);
-        this.refreshProjectProjections(projectId, authorizationGeneration, !wasOperational);
-        if (wasOperational) {
-          this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
-          this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
-        }
+        this.refreshProjectProjections(projectId, authorizationGeneration);
       });
       return;
     }
@@ -2114,7 +2111,8 @@ export class ProjectDetailFacade {
         const failure = this.failure(result.error);
         if (failure.status === 'permissionDenied')
           {this.clearProtectedProjectionsForDeniedSubscription();}
-        else if (this.state().status === 'permissionDenied')
+        else if (this.state().status === 'permissionDenied' || this.state().kanban.status === 'permissionDenied' ||
+                 this.state().schedule.status === 'permissionDenied')
           {return;}
         this.state.set(failure);
         return;
