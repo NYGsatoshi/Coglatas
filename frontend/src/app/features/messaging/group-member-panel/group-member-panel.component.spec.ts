@@ -134,6 +134,46 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     } finally { next.fixture.destroy(); outer.remove(); }
   });
 
+  it.each(['fractional', 'document'] as const)('keeps the Home row within the actual %s clipping bounds', async (kind) => {
+    await setup();
+    TestBed.inject(GroupRosterBoundaryIntent).remember({ tenantId: 'tenant-one', workspaceId: 'workspace-one',
+      conversationId: 'group-one', userId: 'reader-one' }, 'Home');
+    const next = mount();
+    Object.defineProperty(next.list, 'clientHeight', { configurable: true, value: 220 });
+    const outer = document.createElement('div'); outer.style.overflowY = 'auto';
+    Object.defineProperty(outer, 'clientHeight', { value: kind === 'document' ? 100 : 101 });
+    Object.defineProperty(outer, 'offsetHeight', { value: kind === 'document' ? 100 : 101 });
+    Object.defineProperty(outer, 'scrollHeight', { value: 1000 });
+    outer.getBoundingClientRect = () => ({ top: kind === 'document' ? -200 : 0,
+      bottom: kind === 'document' ? 800 : 100.75 } as DOMRect);
+    let scrolled = 0;
+    outer.scrollBy = vi.fn((options: ScrollToOptions) => { scrolled += options.top ?? 0; });
+    next.firstRow.getBoundingClientRect = () => ({ top: (kind === 'document' ? 150 : 80) - scrolled,
+      bottom: (kind === 'document' ? 200 : 100.9) - scrolled } as DOMRect);
+    const summary = next.fixture.nativeElement.querySelector('summary') as HTMLElement;
+    summary.getBoundingClientRect = () => ({ top: (kind === 'document' ? 110 : 10) - scrolled,
+      bottom: (kind === 'document' ? 140 : 54) - scrolled } as DOMRect);
+    const rootDescriptor = Object.getOwnPropertyDescriptor(document, 'scrollingElement');
+    const viewportDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    if (kind === 'document') {
+      Object.defineProperty(document, 'scrollingElement', { configurable: true, value: outer });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 });
+    }
+    outer.appendChild(next.fixture.nativeElement); document.body.appendChild(outer);
+    try {
+      await Promise.resolve();
+      expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
+      expect(next.firstRow.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+      expect(next.firstRow.getBoundingClientRect().bottom).toBeLessThanOrEqual(kind === 'document' ? 100 : 100.75);
+      expect(summary.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+    } finally {
+      next.fixture.destroy(); outer.remove();
+      if (rootDescriptor) Object.defineProperty(document, 'scrollingElement', rootDescriptor);
+      else Reflect.deleteProperty(document, 'scrollingElement');
+      if (viewportDescriptor) Object.defineProperty(window, 'innerHeight', viewportDescriptor);
+    }
+  });
+
   it('does not restore a boundary into another Workspace or later same-scope mount', async () => {
     await setup();
     rememberEnd();

@@ -519,6 +519,37 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
   });
 
+  test('exposes Home and the summary through fractional-height enclosing scrollports', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.addInitScript(() => { localStorage.setItem('coglatas.locale', 'ja'); });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), summary = panel.locator('summary');
+    const list = panel.locator('ul'), rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    for (const height of [302.55, 302.75, 302.95]) {
+      await page.locator('.app-shell__main').evaluate((element, height) => {
+        Object.assign((element as HTMLElement).style, { flex: `0 0 ${height}px`, height: `${height}px`, maxHeight: `${height}px` });
+      }, height);
+      expect(await page.locator('.app-shell__main').evaluate(element => element.getBoundingClientRect().height)).toBeCloseTo(height, 1);
+      await summary.scrollIntoViewIfNeeded(); await summary.focus();
+      await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+      await page.keyboard.press('End');
+      await page.keyboard.press('Tab'); await expect(panel.getByTestId('group-leave')).toBeFocused();
+      await page.keyboard.press('Shift+Tab'); await expect(list).toBeFocused();
+      await page.keyboard.press('Home');
+      expect(await list.evaluate(ul => ul.scrollTop)).toBe(0);
+      await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+      await page.keyboard.press('Shift+Tab'); await expect(summary).toBeFocused();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+    }
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
   test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
