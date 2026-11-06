@@ -3,6 +3,11 @@
 The local runtime environment fingerprint includes the inherited
 `DOTNET_PROCESSOR_COUNT` setting as `dotnetExecutionProfile.requestedProcessorCountOverride`.
 Unset is explicitly null; a configured value must be a positive decimal Int32.
+The legacy `COMPlus_PROCESSOR_COUNT` setting is rejected, including when the
+modern setting is also present; unset it before collecting a runtime receipt.
+An isolated Windows .NET 10.0.14 probe confirms that the legacy setting affects
+`Environment.ProcessorCount`, that the modern setting takes precedence, and that
+both parse `10` as decimal ten. These observations do not measure CPU quota.
 Only this non-secret setting is recorded, never the process environment. A
 constrained run and an unset run must not share the same declared environment
 fingerprint. This records the requested override; it does not measure effective
