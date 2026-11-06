@@ -231,3 +231,7 @@ class ApiGovernanceTests(unittest.TestCase):
         with self.assertRaises(baseline_updates.BaselineUpdateError):
             baseline_updates.validate_transition({'schemaVersion': 1, 'budgets': []}, api_k6.governance_budgets(contract),
                                                 json.loads((ROOT / 'performance/baseline-updates.json').read_text()), head_sha=HEAD)
+
+
+if __name__ == '__main__':
+    unittest.main()

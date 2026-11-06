@@ -246,7 +246,13 @@ jobs:
             scripts/quality/test_qodana_reconciliation.py \
             scripts/ci/qodana-packets/test_verify.py \
             scripts/ci/qodana-packets/test_r2_verify.py \
-            scripts/ci/qodana-packets/test_r2_candidate.py; do
+            scripts/ci/qodana-packets/test_r2_candidate.py \
+            scripts/ci/test-functional-evidence.py \
+            scripts/ci/test_nuget_dependency_snapshot.py \
+            scripts/ci/test_audit_sbom_component_inventory.py \
+            tests/ci/test_performance_api.py \
+            tests/ci/test_performance_api_diagnostics.py \
+            tests/ci/test_performance_api_collection.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
