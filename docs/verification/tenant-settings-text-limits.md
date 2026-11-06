@@ -19,12 +19,11 @@ settings or audit mutations.
 Three real PostgreSQL controls cover service rejection, exact stored boundaries
 and Unicode/trim/null preservation, and loopback vendor-JSON HTTP400 versus500,
 unchanged settings/audit snapshots, valid update and current-member403. The
-clean test-only7ea2b78b run reproduced2FAIL/1PASS before implementation. Original
+clean test-only7ea2b78b run reproduced2FAIL/1PASS before implementation.
 The first implementation run retained2PASS/1FAIL: HTTP400 and Unicode boundary
 controls passed, but the new service control created the shared fixture twice
 inside one database and collided on its default normalized email. It now reuses
 one fixture for both rejected updates; every rejection assertion is retained.
-Original
-tests/assertions, authentication, Tenant authority, RLS and quality policies
+Original tests/assertions, authentication, Tenant authority, RLS and quality policies
 remain unchanged. Synthetic Development HTTP does not establish deployed HTTPS,
 production database or Student Council Pilot acceptance.
