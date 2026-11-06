@@ -19,10 +19,10 @@ public sealed class TenantSettingsTextBoundaryPostgreSqlTests
     public Task OversizedLocaleAndTimeZoneAreRejectedBeforeTrackedOrPersistedSettingsChange() =>
         WithDatabaseAsync(async database =>
         {
+            await using var fixture = await AdministrationFixture.CreateAsync(database);
+            var before = await SnapshotAsync(fixture.Db);
             foreach (var locale in new[] { true, false })
             {
-                await using var fixture = await AdministrationFixture.CreateAsync(database);
-                var before = await SnapshotAsync(fixture.Db);
                 var request = Oversized(locale);
                 var result = await fixture.Service.UpdateCurrentTenantSettingsAsync(request);
                 Assert.False(result.IsSuccess);
