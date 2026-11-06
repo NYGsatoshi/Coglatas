@@ -5,9 +5,26 @@ import { mkdtemp, mkdir, rm, writeFile, readFile, symlink } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { runtimeArguments, insideDirectory, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage } from './sec-arch-runtime-options.mjs';
+import { createHash } from 'node:crypto';
+import { runtimeArguments, insideDirectory, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage, dotnetExecutionProfile } from './sec-arch-runtime-options.mjs';
 // Keep producer identity controls in the existing runtime fixture verification lane.
 import './sec-arch-runtime-assemblies.test.mjs';
+
+test('Runtime environment fingerprints distinguish an inherited processor override without exporting secrets', () => {
+  const fingerprint = environment => createHash('sha256').update(JSON.stringify({ fixture: 'SEC02_SYNTHETIC',
+    dotnetExecutionProfile: dotnetExecutionProfile(environment) })).digest('hex');
+  assert.notEqual(fingerprint({}), fingerprint({ DOTNET_PROCESSOR_COUNT: '2' }));
+  assert.notEqual(fingerprint({ DOTNET_PROCESSOR_COUNT: '2' }), fingerprint({ DOTNET_PROCESSOR_COUNT: '3' }));
+  assert.deepEqual(dotnetExecutionProfile({ SECRET: 'synthetic-hidden-value' }), { requestedProcessorCountOverride: null });
+  assert.deepEqual(dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: '2', SECRET: 'synthetic-hidden-value' }),
+    { requestedProcessorCountOverride: 2 });
+});
+
+test('Malformed or ambiguous inherited processor settings cannot produce a runtime environment receipt', () => {
+  for (const value of ['', '0', '-1', '02', '2.0', '2e0', '0x2', ' 2', '2 ', 'NaN', 'Infinity', '2147483648', 2, null])
+    assert.throws(() => dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: value }));
+  assert.deepEqual(dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: '2147483647' }), { requestedProcessorCountOverride: 2147483647 });
+});
 
 test('Runtime private inventory is explicit and preserves common fixture arguments', () => {
   const options = runtimeArguments(['--candidate-sha', '1'.repeat(40), 'artifacts/sec-arch/runtime.json',
