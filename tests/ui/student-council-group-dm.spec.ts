@@ -595,7 +595,25 @@ test.describe('Student Council Group DM mock frontend contract', () => {
   test('restores short-roster End through a real enclosing scrollport after authorized remount', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page); control.manager = false; control.readOnly = true;
-    await page.addStyleTag({ content: '.dm-page__group-details { height: 110px !important; max-height: 110px !important; min-height: 0 !important; overflow-y: auto !important; }' });
+    await page.route('**/api/ui/runtime-config.js', route => route.fulfill({
+      contentType: 'application/javascript', body: 'window.__COGLATAS_FEATURE_FLAGS__={"realtime.signalR":true};'
+    }));
+    await page.route('**/hubs/app/negotiate?*', route => route.fulfill({ json: {
+      negotiateVersion: 1, connectionId: 'synthetic-short-roster', connectionToken: 'synthetic-short-roster',
+      availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
+    } }));
+    let reconnect: (() => Promise<void>) | undefined;
+    await page.routeWebSocket('**/hubs/app?*', socket => {
+      reconnect = () => socket.close({ code: 1012, reason: 'Synthetic short-roster reconnect' });
+      socket.onMessage(raw => {
+        for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
+          const message = JSON.parse(frame);
+          if (message.protocol) { socket.send('{}\u001e'); continue; }
+          if (message.type === 1) socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
+            result: { allowed: true, code: 'Allowed' } }) + '\u001e');
+        }
+      });
+    });
     let hold = false, held = 0, release = () => {};
     const gate = new Promise<void>(resolve => { release = resolve; });
     await page.route(`**/api/conversations/${groupId}`, async route => {
@@ -603,7 +621,7 @@ test.describe('Student Council Group DM mock frontend contract', () => {
       await route.fallback();
     });
     await page.goto(`/app/dm/${groupId}`);
-    // Navigation replaces the document containing an earlier style tag.
+    await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
     await page.addStyleTag({ content: '.dm-page__group-details { height: 110px !important; max-height: 110px !important; min-height: 0 !important; overflow-y: auto !important; }' });
     const panel = page.getByTestId('group-members-panel'), list = panel.locator('ul');
     const last = panel.getByTestId('group-member-row').last();
@@ -613,7 +631,7 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     await list.focus(); await page.keyboard.press('End');
     await expect(last.locator('small')).toBeInViewport({ ratio: 1 });
     hold = true;
-    await page.getByTestId('manual-refresh').evaluate(button => (button as HTMLButtonElement).click());
+    await reconnect!();
     try { await expect.poll(() => held).toBeGreaterThan(0); await expect(panel).toHaveCount(0); }
     finally { release(); }
     await expect(panel.getByTestId('group-member-row')).toHaveCount(3);
