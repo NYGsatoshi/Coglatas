@@ -156,6 +156,7 @@ export class ProjectDetailFacade {
   private interactionActive = false;
   private moveInFlight = false;
   private initialLoadGeneration: number | null = null;
+  private initialProjectionAuthorization: ReplaySubject<boolean> | null = null;
   private kanbanRefreshGeneration: number | null = null;
   private scheduleInteractionActive = false;
   private scheduleCommandInFlight = false;
@@ -228,6 +229,9 @@ export class ProjectDetailFacade {
   }
 
   load(projectId: string): void {
+    this.settleInitialProjectionAuthorization(false);
+    const initialAuthorization = new ReplaySubject<boolean>(1);
+    this.initialProjectionAuthorization = initialAuthorization;
     if (this.projectId !== projectId)
       {this.activationNotice = null;}
     const loadGeneration = ++this.loadGeneration;
@@ -265,6 +269,7 @@ export class ProjectDetailFacade {
         if (!loadIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
+        this.projectOperational = record.isOperational === true;
         if (!record.isOperational)
           {return of(this.draftReady(project));}
         return forkJoin({
@@ -285,11 +290,15 @@ export class ProjectDetailFacade {
       catchError((error: unknown) => of(this.failure(error))),
       finalize(() => {
         if (this.initialLoadGeneration === loadGeneration) {this.initialLoadGeneration = null;}
+        if (this.initialProjectionAuthorization === initialAuthorization)
+          {this.settleInitialProjectionAuthorization(false);}
       })
     ).subscribe((view) => {
       if (loadIsCurrent()) {
         const latest = this.state();
         if (view.status !== 'ready') {
+          this.projectOperational = false;
+          this.settleInitialProjectionAuthorization(false);
           if (view.status === 'permissionDenied')
             {this.clearProtectedProjectionsForDeniedSubscription();}
           else if (latest.status === 'ready')
@@ -332,6 +341,7 @@ export class ProjectDetailFacade {
         if (appliedProject) {
           this.continueWorkingHistory.touchProject(appliedProject.id, appliedProject.workspaceId);
         }
+        this.settleInitialProjectionAuthorization(true);
       }
     });
   }
@@ -1222,6 +1232,7 @@ export class ProjectDetailFacade {
   }
 
   release(): void {
+    this.settleInitialProjectionAuthorization(false);
     this.releaseRealtime();
     this.projectId = null;
     this.projectOperational = false;
@@ -1489,6 +1500,7 @@ export class ProjectDetailFacade {
   }
 
   private clearProtectedProjectionsForDeniedSubscription(): void {
+    this.settleInitialProjectionAuthorization(false);
     this.authorizationGeneration++;
     this.loadGeneration++;
     this.initialLoadGeneration = null;
@@ -1584,7 +1596,7 @@ export class ProjectDetailFacade {
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
   }
 
-  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization?: Observable<boolean>): void {
+  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization: Observable<boolean> | undefined = this.initialProjectionAuthorization ?? undefined): void {
     const projectId = this.projectId;
     if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (this.scheduleInteractionActive || this.scheduleCommandInFlight) {
@@ -1757,6 +1769,7 @@ export class ProjectDetailFacade {
     const flightGeneration = ++this.taskListRefreshFlightGeneration;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const parentAuthorization = this.initialProjectionAuthorization;
     this.taskListRefreshInFlight = true;
     this.http.get<PagedResponseDto<TaskDto>>(
       `/api/projects/${projectId}/tasks`,
@@ -1766,7 +1779,14 @@ export class ProjectDetailFacade {
         kind: 'success' as const,
         rows: (response.items ?? []).map((task) => this.toRow(mapTaskDtoToRecord(task, [])))
       })),
-      catchError((error: unknown) => of({ kind: 'error' as const, error }))
+      switchMap((result) => parentAuthorization
+        ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+        : of(result)),
+      catchError((error: unknown) => of({ kind: 'error' as const, error })),
+      finalize(() => {
+        if (flightGeneration === this.taskListRefreshFlightGeneration)
+          {this.taskListRefreshInFlight = false;}
+      })
     ).subscribe((result) => {
       if (flightGeneration === this.taskListRefreshFlightGeneration)
         {this.taskListRefreshInFlight = false;}
@@ -1846,7 +1866,7 @@ export class ProjectDetailFacade {
     this.taskListRefreshFeedback = null;
   }
 
-  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization?: Observable<boolean>): void {
+  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization: Observable<boolean> | undefined = this.initialProjectionAuthorization ?? undefined): void {
     const projectId = this.projectId;
     if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (!this.flags.kanbanV1Enabled()) {
@@ -1945,6 +1965,7 @@ export class ProjectDetailFacade {
       {return;}
 
     if (event.eventType === 'Security.AuthorizationStateChanged.v1') {
+      this.settleInitialProjectionAuthorization(false);
       const wasOperational = this.projectOperational;
       this.authorizationGeneration++;
       this.loadGeneration++;
@@ -2074,6 +2095,13 @@ export class ProjectDetailFacade {
       {this.queueTaskListRefresh();}
   }
 
+  private settleInitialProjectionAuthorization(authorized: boolean): void {
+    const pending = this.initialProjectionAuthorization;
+    this.initialProjectionAuthorization = null;
+    pending?.next(authorized);
+    pending?.complete();
+  }
+
   private revalidateProjectProjections(projectId: string, authorizationGeneration: number, refreshOperationalViews: boolean): Observable<boolean> {
     const authorization = new ReplaySubject<boolean>(1);
     let authorized = false;
@@ -2195,6 +2223,7 @@ export class ProjectDetailFacade {
         ...projectFeedbackField("message", undefined)
       });
       this.taskListFollowUpRefresh(projectId);
+      this.settleInitialProjectionAuthorization(true);
       onAuthorized?.();
       if (refreshOperationalViews) {
         this.refreshKanban(false, projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"));
