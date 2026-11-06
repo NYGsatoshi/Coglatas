@@ -26,6 +26,14 @@ test('Malformed or ambiguous inherited processor settings cannot produce a runti
   assert.deepEqual(dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: '2147483647' }), { requestedProcessorCountOverride: 2147483647 });
 });
 
+test('Legacy processor overrides cannot masquerade as an unconstrained diagnostic run', () => {
+  for (const value of ['2', '10', '', '0', 'invalid', 2, null]) {
+    assert.throws(() => dotnetExecutionProfile({ COMPlus_PROCESSOR_COUNT: value }));
+    assert.throws(() => dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: '3', COMPlus_PROCESSOR_COUNT: value }));
+  }
+  assert.deepEqual(dotnetExecutionProfile({ DOTNET_PROCESSOR_COUNT: '10' }), { requestedProcessorCountOverride: 10 });
+});
+
 test('Runtime private inventory is explicit and preserves common fixture arguments', () => {
   const options = runtimeArguments(['--candidate-sha', '1'.repeat(40), 'artifacts/sec-arch/runtime.json',
     '--private-inventory-directory', resolve('private-synthetic')]);
