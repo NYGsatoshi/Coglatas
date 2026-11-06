@@ -19,7 +19,7 @@ def main() -> None:
         actual = inventory(args.results / f"{name}.trx")
         if not set(baseline[lane]).issubset(actual):
             raise ValueError(f"Retained {lane} identities are missing")
-        if lane == "projectIde" and sum(".VersionedArtifactTests." in identity for identity in actual) < 36:
+        if lane == "projectIde" and sum(".VersionedArtifactTests." in identity for identity in actual) < 51:
             raise ValueError("Prototype artifact regression inventory is incomplete")
         if lane == "projectIde" and args.require_acquisition and sum(".SyntheticDependencyAcquisitionTests." in identity for identity in actual) < 39:
             raise ValueError("Synthetic acquisition inventory is incomplete")
