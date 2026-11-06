@@ -25,7 +25,7 @@ first row together when they fit, or aligning the beginning of an oversized row.
 The list remains at Home zero. A short fresh roster still handles ancestor
 overflow. The same operation uses only the newly authorized first row when
 restoring a pending Home across an authorized remount. It does not move
-focus, retain an old DOM node, change End, accept modified/child/IME keys, or
+focus, retain an old DOM node, accept modified/child/IME keys, or
 change membership/authorization state. Existing native boundary, original
 ReadOnly owner, retry, deadline, lifecycle and authority assertions remain.
 
@@ -37,6 +37,13 @@ document root uses viewport-origin bounds. Native browser controls cover three
 fractional ancestor heights, full first-name/status and summary visibility,
 Shift+Tab, and inner Home zero. These do not establish a historical initiating
 cause or universal arbitrary-transform/zoom acceptance.
+
+An independent inline review additionally identified End remaining clipped after
+Home repositioned the enclosing scrollport. A separate native Home/End reversal
+control first fails both profiles before Tab. Both boundaries now expose their
+corresponding row through ancestors while keeping inner zero/maximum and focus.
+An oversized final row exposes its end. A fresh short roster also restores End
+through an overflowing ancestor. The original End assertions remain unchanged.
 
 This isolated mock-HTTP browser regression and Angular unit execution are
 separate from exact-head protected real-backend roster execution, required CI,

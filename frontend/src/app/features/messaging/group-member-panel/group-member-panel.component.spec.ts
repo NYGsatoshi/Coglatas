@@ -112,10 +112,10 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     next.fixture.destroy();
   });
 
-  it('restores Home through an overflowing ancestor when the fresh list has no inner overflow', async () => {
+  it.each(['Home', 'End'] as const)('restores %s through an overflowing ancestor when the fresh list has no inner overflow', async (boundary) => {
     await setup();
     const old = mount(); old.list.focus();
-    old.list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    old.list.dispatchEvent(new KeyboardEvent('keydown', { key: boundary, bubbles: true, cancelable: true }));
     old.fixture.destroy();
     const next = mount();
     Object.defineProperty(next.list, 'clientHeight', { configurable: true, value: 220 });

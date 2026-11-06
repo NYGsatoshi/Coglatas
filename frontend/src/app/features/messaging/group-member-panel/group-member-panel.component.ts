@@ -335,15 +335,16 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       }
       if (!boundary) return;
       const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
-      if (!list || (boundary === 'End' && list.scrollHeight <= list.clientHeight)) return;
-      list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+      if (!list) return;
+      list.scrollTo({ top: boundary === 'Home' ? 0 : Math.max(0, list.scrollHeight - list.clientHeight), behavior: 'instant' });
       if (boundary === 'End') {
         // A fresh nested scrollport alone is not enough: the desktop aside may
         // also have reset during remount. Keep the final row visible through
         // the authorized enclosing scrollport without retaining old content.
         list.querySelector<HTMLElement>('li:last-child')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+        this.revealBoundaryInAncestors(list, 'End');
       } else {
-        this.revealHomeInAncestors(list);
+        this.revealBoundaryInAncestors(list, 'Home');
       }
     });
   }
@@ -356,20 +357,18 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     // discarded while the previous End/Home animation is still settling.
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
-    if (event.key === 'Home') {
-      this.revealHomeInAncestors(list);
-    }
+    this.revealBoundaryInAncestors(list, event.key === 'Home' ? 'Home' : 'End');
     if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End',
       at: Date.now(), epoch: this.boundaryIntent?.epoch ?? 0 };
   }
 
-  private revealHomeInAncestors(list: HTMLElement): void {
-    const firstRow = list.querySelector<HTMLElement>('li:first-child');
-    const summary = this.host.nativeElement.querySelector<HTMLElement>('summary');
-    if (!firstRow) return;
-    // Scroll enclosing containers only: a tall row must never move inner Home
-    // away from zero. Include the summary when both fit so Shift+Tab keeps the
-    // first member visible; an oversized row exposes its beginning instead.
+  private revealBoundaryInAncestors(list: HTMLElement, boundary: RosterBoundary): void {
+    const targetRow = list.querySelector<HTMLElement>(boundary === 'Home' ? 'li:first-child' : 'li:last-child');
+    const summary = boundary === 'Home' ? this.host.nativeElement.querySelector<HTMLElement>('summary') : null;
+    if (!targetRow) return;
+    // Scroll enclosing containers only, preserving the inner boundary. Home
+    // includes the summary when both fit; an oversized row exposes its start
+    // or end. End must also remain visible after Home moved an outer scroller.
     for (let outer = list.parentElement; outer; outer = outer.parentElement) {
       const isRoot = outer === document.scrollingElement;
       const style = getComputedStyle(outer);
@@ -386,13 +385,14 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       const bottom = isRoot ? window.innerHeight - 1 : box.bottom - borderBottom - scrollbar - 1;
       const height = bottom - top;
       if (height <= 0) continue;
-      const row = firstRow.getBoundingClientRect();
+      const row = targetRow.getBoundingClientRect();
       const heading = summary?.getBoundingClientRect();
       const start = Math.min(row.top, heading?.top ?? row.top);
       const end = Math.max(row.bottom, heading?.bottom ?? row.bottom);
-      const delta = end - start > height ? Math.floor(row.top - top)
-        : start < top ? Math.floor(start - top)
-        : end > bottom ? Math.ceil(end - bottom) : 0;
+      let delta = 0;
+      if (end - start > height) delta = boundary === 'Home' ? Math.floor(row.top - top) : Math.ceil(row.bottom - bottom);
+      else if (start < top) delta = Math.floor(start - top);
+      else if (end > bottom) delta = Math.ceil(end - bottom);
       if (delta) outer.scrollBy({ top: delta, behavior: 'instant' });
     }
   }
