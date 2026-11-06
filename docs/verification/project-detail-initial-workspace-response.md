@@ -202,3 +202,13 @@ initial dispatch broke 12 controls; buffering without preserving recovered
 ownership broke four. Those failed implementations remain retained. The repair
 preserves every original assertion and records current-scope HTTP completion,
 not live transport or a change in server authorization.
+
+Ordinary Task refreshes also retain their live Workspace identity while queued
+and in flight. Four clean controls failed when that Workspace was cleared or
+replaced, with the other 230 passing. The queued callback now checks its load,
+authorization and Workspace before dispatch; the held response checks that
+same Workspace before applying data or scheduling follow-up work. A normal
+same-Workspace label refresh still proceeds. Additional controls hold nonempty
+Task responses across initial collection failure and inspect state before
+recovery. The resulting four-file cohort has 234 passing controls. This is
+client lifecycle evidence with HTTP doubles, not server isolation acceptance.
