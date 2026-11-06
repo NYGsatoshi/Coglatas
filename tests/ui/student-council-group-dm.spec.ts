@@ -439,7 +439,7 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
   });
 
-  test('exposes the first complete member after Home through the mobile outer scrollport', async ({ page }) => {
+  test('exposes the first complete member after Home through the mobile outer scrollport', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 420 });
     await page.addInitScript(() => {
       localStorage.setItem('coglatas.locale', 'ja');
@@ -472,6 +472,13 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(await list.evaluate(element => element.scrollTop)).toBe(0);
     await page.keyboard.press('Shift+Tab');
     await expect(summary).toBeFocused();
+    await testInfo.attach('mobile-home-geometry.json', { contentType: 'application/json', body: JSON.stringify(await panel.evaluate(element => {
+      const rect = (node: Element | null) => node?.getBoundingClientRect().toJSON() ?? null;
+      const list = element.querySelector('ul');
+      return { viewport: { width: innerWidth, height: innerHeight }, summary: rect(element.querySelector('summary')),
+        list: rect(list), firstName: rect(list?.querySelector('strong') ?? null), firstStatus: rect(list?.querySelector('small') ?? null),
+        locale: document.documentElement.lang, active: document.activeElement?.tagName, home: list?.scrollTop };
+    })) });
     await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
     await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
     await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
