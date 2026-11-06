@@ -1,5 +1,63 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Authenticated review resumption and first ordinary merge — 2026-11-06
+
+The owner completed sign-in. Fresh CLI status is **authenticated** in the actual
+WSL Ubuntu execution context with CLI 0.9.2. Reviews use isolated native WSL Git
+checkouts because native Git cannot resolve Windows-format linked-worktree
+pointers. No authentication material is extracted or transferred. Earlier
+`not_authenticated` observations below are historical and are not current blockers.
+
+| PR / scope | Exact observation |
+| --- | --- |
+| #1721 Product | Ordinary merge `efcbf142b05d5ccbb2e0778bd52b6c011067c09e` into dedicated integration; parents `634ab304`, `a7fcf48f`; merge tree exactly matches reviewed Product `a7fcf48f` |
+| #1721 review | Actual CLI review at `2620e227`: one major / two minor issues; follow-up at `a7fcf48f`: one conditional minor issue; all reports completed |
+| Valid import issues | Unsupported headers now return Unsupported; exact capacity is inclusive. Regressions reproduce 39 PASS / six FAIL before the fix and pass after it |
+| External-body suggestion | Skipping unavailable external pins is declined as contrary to verified closure. Full present/missing nonempty chains stay Incomplete without publishing a prefix |
+| Conditional decoder concern | Existing CanonicalJson/SourceFields helpers already convert malformed JSON/missing members to FormatException. Six byte-recovery regressions pass without a broader catch |
+| #1722 Test | `c16981c5`: 51 artifact cases, full ProjectIDE 979, architecture 12; exact hosted Windows/Ubuntu parity independently reconciled; retargeted to dedicated integration; review pending |
+| #1728 fixture | Actual CLI review at `93e69ea2` reports zero issues. Exact standalone local runtime at that SHA passes all 353 required cases with candidate/assembly/cleanup verified |
+
+Product ordinary CI completed successfully before the #1721 merge. The tests
+preserve every 928 historical ProjectIDE identity and all 12 architecture
+identities; the retained integration inventory grows to 979 rather than dropping
+earlier cases. Standalone Test review remains separate from Product review.
+
+Retained report SHA-256:
+
+- Initial #1721 CLI review: `5052ec71ccc557dc533f5ca6395e46341714a639fc6d2605baae9108c6863a75`.
+- Corrected #1721 CLI review: `ed6cacd683399970b018a385b13f17ff7a19a1534b252392d9d8d91c70a197ee`.
+- #1728 CLI review: `92da98436ebc8a771d4a9e0b8c3529b7d8ddb21919c790f2373ac01863a38068`.
+- Independent regression patch: `c2012277f002edcdb18472b3958a66b5fd7a20248182549f72033eb1f0d839e2`.
+- #1728 standalone runtime report: `fb12ce3d85acf1e340efcbc9b5344e4bbb1d6ac19f02f04aeb117c81fe68fbc8`.
+
+Hosted Test run [42132170037](https://github.com/NYGsatoshi/Coglatas/actions/runs/42132170037)
+has 979/12 passing cases per host with no failures/skips. Downloaded Windows
+artifact 13464835421 ZIP digest is
+`ccc93a91834fc68cf7da90e307d26ebf0f092697ac56efe48a041f7f4a355702`;
+Ubuntu 13463038774 is
+`2356a7e8f7f008bee85f486f17517d5ad127a3af3135c1051c18206e5f54672c`.
+Both exact SHA stamps, TRX digests and full retained inventories reconcile.
+
+CLI review of #1722 did not run: the service reports all three included reviews
+used and a 38-minute wait, separately from successful authentication. Existing
+GitHub App review requests also returned rate limiting. No seat/billing/key
+configuration is changed, no manual review is called a CodeRabbit success, and
+independent test/evidence work continues while included capacity replenishes.
+
+The #1728 upstream-only head `17787984` has a byte-identical relative patch to
+reviewed `93e69ea2`: both patch digests are
+`b1675994deecfea4c815224a99c86854dc99049b767f99502bdc3d9570948eed`.
+Its new-head CI is separate; old-SHA runtime results are not relabelled as
+new-head execution. Proof and acquisition Product candidates incorporate the
+merged artifact correction and now target dedicated integration directly.
+
+This integrates only a provisional pure Domain foundation. Formal schema/trust/
+policy/mapping/activation decisions remain held; all unfinished engineering
+remains OPEN. Private Spec Draft #301 retains independent formal approval.
+#1144 remains BLOCKED, #1128 remains SUSPENDED, production activation remains
+HOLD, and no ProjectIDE change is merged into Main or SecurityTestImplimation.
+
 ### Exact composed verification checkpoint — 2026-11-06
 
 Verification-only candidate `8ee1980e2921b24eb04da04b07ec52db8927d302` passes
