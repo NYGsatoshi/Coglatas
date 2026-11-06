@@ -185,8 +185,20 @@ Further clean controls retained three failures with 215 controls passing:
 ordinary Task events could read operational projections after the parent but
 before its collections completed, and activation reconciliation could advance
 the response generation while leaving an old Schedule refresh owner stranded.
-Operational admission now changes only after the full authorized collection join.
+Revalidation admits ordinary operational events only after the full authorized
+collection join. Project events reenter Draft recovery only for a ready Draft.
 Schedule cleanup tracks its actual refresh owner separately from response
 application generations. Both collection-failure response orders and the held
 Schedule/activation sequence must pass; older cleanup still cannot release a
 newer refresh. No original test body or authority policy is relaxed.
+
+Initial loading preserves the original concurrent HTTP refresh contract.
+Successful Board, Gantt and Task responses wait for the initial authorized join
+or a completed explicit current catch-up. An initial failure discards buffered
+responses; an older non-authority failure cannot revoke an already recovered
+view's owner. Four additional clean controls reproduced Project-event and
+initial-join bypasses with the preceding 218 controls passing. Serializing all
+initial dispatch broke 12 controls; buffering without preserving recovered
+ownership broke four. Those failed implementations remain retained. The repair
+preserves every original assertion and records current-scope HTTP completion,
+not live transport or a change in server authorization.
