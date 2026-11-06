@@ -1,8 +1,12 @@
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
-import { criteria, validateAdmission, validateCompletion, validateJourney } from './run-real-backend-actor-replacement.mjs';
+import { criteria, incompleteReceipt, validateAdmission, validateCompletion, validateJourney } from './run-real-backend-actor-replacement.mjs';
 
 const source = 'a'.repeat(40), head = 'b'.repeat(40), tree = 'c'.repeat(40);
 const hash = 'd'.repeat(64), imageId = `sha256:${hash}`;
@@ -103,4 +107,68 @@ await test('the actual canonical scenario retains the independently frozen byte 
   const bytes = readFileSync(new URL('./actor-replacement-real.mjs', import.meta.url));
   assert.equal(createHash('sha256').update(bytes).digest('hex'),
     'b8eaf7577da1503db15ac85f57331090b40c981d932727f648dd2216907ba942');
+});
+
+await test('admission refusals distinguish tree, stamp, run and producer failures without changing admission', () => {
+  const cases = [
+    ['PRODUCER_HEAD_TREE_MISMATCH', v => { v.headTree = 'e'.repeat(40); }],
+    ['PRODUCER_STAMP_MISMATCH', v => { v.frontendSource = 'e'.repeat(40); }],
+    ['RUN_IDENTITY_INVALID', v => { v.attempt = '0'; }],
+    ['PR_PRODUCER_IDENTITY_INVALID', v => { v.artifactHead = 'e'.repeat(40); }],
+    ['PUSH_PRODUCER_IDENTITY_INVALID', v => { v.event = 'workflow_dispatch'; }],
+    ['IMAGE_IDENTITY_INVALID', v => { v.engineImage = 'untrusted:latest'; }],
+  ];
+  for (const [code, mutate] of cases) {
+    const input = admission(); mutate(input);
+    assert.throws(() => validateAdmission(input), error => {
+      assert.deepEqual(incompleteReceipt('ADMISSION', error), {
+        schemaVersion: 1, qualification: 'INCOMPLETE', phase: 'ADMISSION',
+        failureCode: code, release: 'RELEASE_NO_GO',
+      });
+      return true;
+    });
+  }
+  // A later tree mismatch must not conceal an earlier inconsistent source stamp.
+  const input = admission(); input.frontendSource = head; input.headTree = head;
+  assert.throws(() => validateAdmission(input), error => {
+    assert.equal(incompleteReceipt('ADMISSION', error).failureCode, 'PRODUCER_STAMP_MISMATCH');
+    return true;
+  });
+  assert.doesNotThrow(() => validateAdmission(admission()));
+});
+
+await test('failure publication never reads or echoes arbitrary error diagnostics or fake codes', () => {
+  const canary = 'private diagnostic /control/private https://private.invalid';
+  const errors = [new Error(canary), { code: 'PRODUCER_HEAD_TREE_MISMATCH', message: canary },
+    { get message() { throw new Error(canary); } }, null, canary];
+  for (const error of errors) {
+    const receipt = incompleteReceipt('ADMISSION', error, canary);
+    assert.deepEqual(receipt, { schemaVersion: 1, qualification: 'INCOMPLETE', phase: 'ADMISSION',
+      failureCode: 'UNCLASSIFIED_FAILURE', release: 'RELEASE_NO_GO' });
+    assert.equal(JSON.stringify(receipt).includes(canary), false);
+  }
+  assert.equal(incompleteReceipt(canary, null).phase, 'UNKNOWN');
+  assert.equal(incompleteReceipt('HARNESS', new Error(canary), 'HARNESS_INCOMPLETE').failureCode,
+    'HARNESS_INCOMPLETE');
+  assert.equal(incompleteReceipt('RECEIPT', new Error(canary), 'COMPLETION_RECEIPT_REJECTED').qualification,
+    'INCOMPLETE');
+});
+
+await test('the actual CLI refuses prerequisites with a finite receipt and nonzero exit before browser launch', () => {
+  const root = mkdtempSync(join(tmpdir(), 'actor-admission-refusal-'));
+  try {
+    const child = spawnSync(process.execPath,
+      [fileURLToPath(new URL('./run-real-backend-actor-replacement.mjs', import.meta.url))],
+      { cwd: root, encoding: 'utf8', timeout: 10000,
+        env: { ...process.env, COGLATAS_REUSE_PREBUILT_APP_IMAGE: '0' } });
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, null);
+    assert.equal(child.status, 1);
+    assert.equal(child.stderr, '');
+    assert.equal(child.stdout.trim(), 'Actor replacement: INCOMPLETE; release remains RELEASE_NO_GO.');
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'artifacts/actor-replacement/receipt.json'), 'utf8')),
+      { schemaVersion: 1, qualification: 'INCOMPLETE', phase: 'ADMISSION',
+        failureCode: process.platform === 'linux' ? 'PREBUILT_RUNTIME_REQUIRED' : 'PLATFORM_UNSUPPORTED',
+        release: 'RELEASE_NO_GO' });
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
