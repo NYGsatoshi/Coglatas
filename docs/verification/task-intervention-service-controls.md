@@ -28,6 +28,12 @@ fallback; EF InMemory does not persist those JSON documents. Two Research Plan
 revisions distinguish the current revision pointer from older history. Outbox
 assertions inspect type, Tenant, Task/version, Project routing and refetch payload,
 and correction audit/activity assertions bind actor and resource identities.
+The full closed document is serialized before the command and compared with the
+observed document, including all owner/scope/version fields. Reference identity
+also remains unchanged: the real repository replaces a pending document object
+on every upsert, so even an otherwise equal closed-Run restage is rejected by
+these controls. Itemized file identities are synthetic canonical identifiers;
+the controls do not validate their PostgreSQL inventory admission.
 
 Run the focused native collector with:
 

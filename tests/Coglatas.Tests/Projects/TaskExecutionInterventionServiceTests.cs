@@ -128,7 +128,8 @@ public sealed class TaskExecutionInterventionServiceTests
         fixture.Run.Status = status;
         await fixture.Db.SaveChangesAsync();
         var originalSnapshot = Snapshot(fixture.Run);
-        var originalPolicy = JsonSerializer.Serialize(fixture.ClosedPolicy);
+        var originalDocument = await fixture.Scopes.GetSourcePolicyDocumentAsync(TaskExecutionSourcePolicyOwnerType.Run, fixture.Run.Id);
+        var originalDocumentJson = JsonSerializer.Serialize(originalDocument);
 
         var result = await fixture.InvokeAsync(false, fixture.Task.Id, fixture.Run.Id);
 
@@ -144,7 +145,9 @@ public sealed class TaskExecutionInterventionServiceTests
         Assert.Equal(fixture.Clock.UtcNow, stored.FinishedAtUtc);
         Assert.Equal(8, stored.VersionNo);
         Assert.Equal(originalSnapshot, Snapshot(stored));
-        Assert.Equal(originalPolicy, JsonSerializer.Serialize(Assert.Single(fixture.Save.StagedRunDocuments).Policy));
+        var observedDocument = Assert.Single(fixture.Save.StagedRunDocuments);
+        Assert.Same(originalDocument, observedDocument);
+        Assert.Equal(originalDocumentJson, JsonSerializer.Serialize(observedDocument));
         Assert.Equal(5, (await fixture.Db.TaskItems.SingleAsync()).VersionNo);
         Assert.Equal("TaskExecutionRunStopped", Assert.Single(fixture.Audit.Entries).Action);
         Assert.Equal(fixture.Actor.UserId, fixture.Audit.Entries[0].ActorUserId);
@@ -168,7 +171,8 @@ public sealed class TaskExecutionInterventionServiceTests
     {
         await using var fixture = await Fixture.CreateAsync();
         var originalSnapshot = Snapshot(fixture.Run);
-        var originalPolicy = JsonSerializer.Serialize(fixture.ClosedPolicy);
+        var originalDocument = await fixture.Scopes.GetSourcePolicyDocumentAsync(TaskExecutionSourcePolicyOwnerType.Run, fixture.Run.Id);
+        var originalDocumentJson = JsonSerializer.Serialize(originalDocument);
         var currentPolicy = TaskExecutionSourcePolicyV2.FromLegacy(true, false) with
         {
             Web = TaskExecutionSourceState.Prioritize,
@@ -211,7 +215,8 @@ public sealed class TaskExecutionInterventionServiceTests
         Assert.Equal(TaskExecutionRunStatus.Redirected, closed.Status);
         Assert.Equal(originalSnapshot, Snapshot(closed));
         var closedDocument = Assert.Single(fixture.Save.StagedRunDocuments, item => item.OwnerId == closed.Id);
-        Assert.Equal(originalPolicy, JsonSerializer.Serialize(closedDocument.Policy));
+        Assert.Same(originalDocument, closedDocument);
+        Assert.Equal(originalDocumentJson, JsonSerializer.Serialize(closedDocument));
         Assert.Equal(8, closed.VersionNo);
         Assert.Equal(fixture.Clock.UtcNow, closed.FinishedAtUtc);
         Assert.Equal(successor.Id, result.Value.ResumedRun!.Id);
