@@ -1880,8 +1880,9 @@ export class ProjectDetailFacade {
         if (result.kind === 'error') {
           const error = normalizeProjectFeedbackError(result.error);
           if (error.httpStatus === 401 || error.httpStatus === 403) {
-            this.clearProtectedProjectionsForDeniedSubscription();
-            this.state.set({ ...this.failure(result.error), kanban: this.kanbanFailure(result.error, null) });
+            this.handleProjectionDenial(result.error, () =>
+              this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+              (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
             return;
           }
         }
