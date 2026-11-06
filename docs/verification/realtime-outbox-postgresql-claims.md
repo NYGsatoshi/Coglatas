@@ -10,8 +10,11 @@ while the actual claim query executes `FOR UPDATE SKIP LOCKED`.
 The initial five-control run retained three passes and two failures because
 the new controls compared compact input JSON to PostgreSQL's canonical `jsonb`
 text. Preservation is now measured against a fresh persisted pre-transition
-read and compared byte-for-byte after the transition. No production or old
+read and compared as exact PostgreSQL-returned JSON text after the transition,
+not physical storage bytes. No production or old
 test assertion was changed to accommodate that initial test-authoring mistake.
+The claim control also compares the returned token, owner and lock timestamp
+against a fresh persisted read and requires its next-attempt value to be cleared.
 
 Production source, old assertions, authorization contracts and coverage policy
 remain unchanged. These controls do not establish application-role RLS,

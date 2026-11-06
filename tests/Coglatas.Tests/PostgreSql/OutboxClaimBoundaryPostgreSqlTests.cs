@@ -24,9 +24,10 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
             await using var transaction = await owner.Database.BeginTransactionAsync();
             await owner.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT 1 FROM outbox_events WHERE \"Id\" = {locked.Id} FOR UPDATE");
+            OutboxEvent claimed;
             await using (var worker = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
             {
-                var claimed = Assert.Single(await new OutboxEventRepository(worker)
+                claimed = Assert.Single(await new OutboxEventRepository(worker)
                     .ClaimDueAsync("synthetic-worker", Now, 100, TimeSpan.FromMinutes(1)));
                 Assert.Equal(available.Id, claimed.Id);
                 Assert.NotNull(claimed.LockToken);
@@ -37,9 +38,12 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
             await using (var observed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
             {
                 Assert.Equal(OutboxEventStatus.Pending, (await observed.OutboxEvents.SingleAsync(e => e.Id == locked.Id)).Status);
-                var claimed = await observed.OutboxEvents.SingleAsync(e => e.Id == available.Id);
-                Assert.Equal(OutboxEventStatus.Processing, claimed.Status);
-                Assert.NotNull(claimed.LockToken);
+                var persisted = await observed.OutboxEvents.SingleAsync(e => e.Id == available.Id);
+                Assert.Equal(OutboxEventStatus.Processing, persisted.Status);
+                Assert.Equal(claimed.LockToken, persisted.LockToken);
+                Assert.Equal(claimed.LockOwner, persisted.LockOwner);
+                Assert.Equal(claimed.LockedAt, persisted.LockedAt);
+                Assert.Null(persisted.NextAttemptAt);
             }
             await transaction.RollbackAsync();
         });
