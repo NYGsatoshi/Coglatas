@@ -8,6 +8,8 @@ import copy
 import importlib.util
 import io
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -234,6 +236,28 @@ class NativeProfileTests(unittest.TestCase):
             self.assertEqual(213, json.loads(message)["totalRunnerSeconds"])
             self.assertNotIn("CI preflight", message)
             self.assertNotIn("runner_name", message)
+
+    def test_actual_cli_rejects_private_arguments_with_finite_diagnostics(self):
+        canary = "SYNTHETIC_PRIVATE_PROFILE_ARGUMENT"
+        args = ["--run-json", "run.json", "--jobs-json", "jobs.json", "--sha", SHA]
+        variants = [args + ["--unknown", canary], ["--run-json", canary],
+                    ["--sha"], ["--help", "--unknown", canary], ["--run", canary]]
+        with tempfile.TemporaryDirectory() as directory:
+            for index, values in enumerate(variants):
+                with self.subTest(selection=index):
+                    child = subprocess.run([sys.executable, "-B", str(script), *values],
+                                           cwd=directory, capture_output=True, text=True, timeout=10)
+                    self.assertNotIn(canary, child.stdout + child.stderr)
+                    self.assertEqual(1, child.returncode)
+                    self.assertEqual("", child.stdout)
+                    self.assertEqual("Unqualified PR CI profile: INVALID_ARGUMENTS\n", child.stderr)
+                    self.assertEqual([], list(Path(directory).iterdir()))
+            help_result = subprocess.run([sys.executable, "-B", str(script), "--help"],
+                                         cwd=directory, capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, help_result.returncode)
+            self.assertEqual("", help_result.stderr)
+            self.assertIn("profile-pr-ci-jobs", help_result.stdout)
+            self.assertNotIn(str(script), help_result.stdout)
 
 
 if __name__ == "__main__":

@@ -54,3 +54,28 @@ of **4070, 3994, 4374**, plus the respective Security path sums
 These samples are regression fixtures, **not independent API attestation** or
 proof of native test/scan-count parity. They deliberately exclude logs,
 runner names, auth values, HTTP requests and browser content.
+
+## Current Security reconciliation and argument privacy
+
+The original PR #1696 was reconciled with Security head
+`3865b09a2d3ea3cb82f450c6d19ec643ffbae01f` without importing Main. The original
+eleven Linux tests passed, including all three historical timing fixtures.
+An additional actual-CLI control then failed five assertions against the old
+parser: rejected argument values could be echoed and mixed help/invalid options
+could exit successfully. The corrected parser emits only `INVALID_ARGUMENTS`,
+fixes the static help program name, permits help only alone and rejects abbreviated
+options. All twelve Linux tests pass. Earlier failures remain retained; these are
+offline parser/metric controls, not new native test/scanner execution.
+
+Read-only collection from successful native run `42132259076/1`, head
+`64ba845fe29dd18112400ac741cc98e5fb710801`, replays 17 complete native jobs:
+3,909 total runner-seconds, Security job 838 seconds, Frontend 893, Backend 1,004,
+Security runtime step 670 and contract step 81. Queue/allocation time is excluded.
+The illustrative Security/Frontend path sums are 975/1,151 seconds. They are not
+a whole-DAG critical path or an A/B improvement; `JOB_TIMING_ONLY`, no native
+coverage/six-check attestation and `speedupAttribution=NOT_ESTABLISHED` remain.
+
+Fresh exact-head native CI and independent review are required before integration
+into SecurityTestImplimation. Roll back this privacy repair by reverting its
+parser/test/documentation commit through a Security-targeted PR. Do not activate
+an optimization or change scanner budgets based on these measurements.

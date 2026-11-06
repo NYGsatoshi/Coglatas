@@ -44,6 +44,13 @@ class IncompleteProfile(ValueError):
     """A run cannot be described as source-bound, complete native timing."""
 
 
+class PrivateArgumentParser(argparse.ArgumentParser):
+    """Refuse invalid options without echoing caller-supplied values."""
+
+    def error(self, _message):
+        raise IncompleteProfile("INVALID_ARGUMENTS")
+
+
 def require(condition: bool, reason: str) -> None:
     if not condition:
         raise IncompleteProfile(reason)
@@ -201,12 +208,17 @@ def profile(run, inventory, *, expected_sha):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = PrivateArgumentParser(prog="profile-pr-ci-jobs", description=__doc__,
+                                   add_help=False, allow_abbrev=False)
     parser.add_argument("--run-json", type=Path, required=True)
     parser.add_argument("--jobs-json", type=Path, required=True)
     parser.add_argument("--sha", required=True)
-    args = parser.parse_args(argv)
     try:
+        values = sys.argv[1:] if argv is None else argv
+        if values in (["--help"], ["-h"]):
+            parser.print_help()
+            return 0
+        args = parser.parse_args(values)
         report = profile(read_json(args.run_json, 512 * 1024),
                          read_json(args.jobs_json, 8 * 1024 * 1024),
                          expected_sha=args.sha)
