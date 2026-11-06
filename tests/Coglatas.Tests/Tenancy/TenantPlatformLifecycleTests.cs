@@ -1,5 +1,6 @@
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Tenancy;
+using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -169,6 +170,42 @@ public sealed partial class TenantIsolationSecurityTests
         Assert.Equal(saved.Id, entry.TenantId);
         Assert.Equal(saved.Id, entry.EntityId);
         Assert.Equal(data.PlatformAdmin.Id, entry.ActorUserId);
+    }
+
+    [Fact]
+    public async Task StalePlatformPrincipalCannotReplaceCurrentPersistedAuthority()
+    {
+        var (dbContext, currentTenant, data) = await CreateSeededContextAsync();
+        await using var ownedContext = dbContext;
+        currentTenant.SetPlatformScope();
+        var stalePrincipal = new User
+        {
+            Id = data.PlatformAdmin.Id,
+            Email = data.PlatformAdmin.Email,
+            SystemRole = SystemRole.PlatformAdmin,
+            Status = UserStatus.Active
+        };
+        data.PlatformAdmin.SystemRole = SystemRole.User;
+        await dbContext.SaveChangesAsync();
+        var before = (data.TenantA.Name, data.TenantA.DisplayName, data.TenantA.Status);
+        var audit = new CapturingAuditLogger();
+        var service = CreateTenantService(dbContext, currentTenant, stalePrincipal, new TenancyOptions(), audit);
+
+        var created = await service.CreateTenantAsync(new CreateTenantRequest("New", "new", null, null, null));
+        var updated = await service.UpdateTenantAsync(data.TenantA.Id, new UpdateTenantRequest("Changed", "Changed", null, null));
+        var suspended = await service.SuspendTenantAsync(data.TenantA.Id);
+
+        Assert.False(created.IsSuccess);
+        Assert.False(updated.IsSuccess);
+        Assert.False(suspended.IsSuccess);
+        Assert.Equal("PlatformAdmin access is required.", created.Error);
+        Assert.Equal(created.Error, updated.Error);
+        Assert.Equal(created.Error, suspended.Error);
+        Assert.Equal(SystemRole.PlatformAdmin, stalePrincipal.SystemRole);
+        Assert.Equal(SystemRole.User, (await dbContext.Users.AsNoTracking().SingleAsync(user => user.Id == stalePrincipal.Id)).SystemRole);
+        Assert.Equal(before, (data.TenantA.Name, data.TenantA.DisplayName, data.TenantA.Status));
+        Assert.Empty(audit.Entries);
+        Assert.DoesNotContain(dbContext.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
     }
 
     [Fact]

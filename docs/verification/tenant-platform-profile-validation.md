@@ -9,7 +9,8 @@ The moved property assignments have ordinary setters and no intervening callback
 
 The new controls use the existing synthetic EF InMemory seed and real Tenant
 repository/authorization services. They cover current persisted administrator
-eligibility, creation failures and defaults, normalization, existing-domain reuse,
+eligibility (including a separately retained stale administrator principal),
+creation failures and defaults, normalization, existing-domain reuse,
 domain clearing/preservation, missing records, audit identity and unchanged tracked
 state on rejection. Every original test body and assertion remains unchanged;
 the fixture class is partial so the new cases can reuse it without replacement.
