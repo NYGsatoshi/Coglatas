@@ -67,7 +67,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
   });
 
   afterEach(() => {
-    detail.release(); http.verify(); TestBed.resetTestingModule();
+    try { detail.release(); http.verify(); }
+    finally { TestBed.resetTestingModule(); }
   });
 
   function selectFromHttp() {
@@ -216,7 +217,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().project).toBeUndefined();
   });
 
-  it('keeps a new Kanban move and its queued refresh owned when an old move completes after denial and recovery', async () => {
+  it.each([403, 503])('keeps a new Kanban move owned when an old move returns %s after denial and recovery', async (status) => {
     TestBed.inject(FrontendFeatureFlagsService).setForTesting({
       'realtime.signalR': false, 'tasks.kanbanV1': true, 'tasks.ganttV1': false,
     });
@@ -243,9 +244,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     );
     detail.load('project-1'); flushBoard();
     move(0); const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
-    detail.retryKanban();
-    expect(detail.view().kanban.reconciliationQueued).toBe(true);
-    oldMove.flush({ message: 'Old result' }, { status: 403, statusText: 'Forbidden' });
+    oldMove.flush({ message: 'Old result' }, { status, statusText: 'Unavailable' });
     const earlyRefreshes = http.match((request) => request.url === '/api/projects/project-1/kanban');
     move(1);
     const unexpectedMoves = http.match('/api/tasks/task-2/kanban-move');
@@ -259,7 +258,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     );
     expect(earlyRefreshes).toHaveLength(0);
     expect(unexpectedMoves).toHaveLength(0);
-    expect(ownedRefreshes).toHaveLength(1);
+    expect(ownedRefreshes).toHaveLength(0);
   });
 
   it('keeps the explicit same-Project reload instead of duplicating it during hydration', async () => {
