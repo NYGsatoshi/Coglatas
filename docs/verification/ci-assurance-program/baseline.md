@@ -25,6 +25,9 @@ check records, 35 run records, referenced PR heads and issue lifecycle states at
 the recorded observation time. Both API inventories fit their requested first
 page; no omitted page is treated as success. These are source and GitHub metadata
 observations, not signed execution or complete coverage attestations.
+Non-GitHub-Actions app slugs are omitted from the public summary; app IDs and
+check IDs remain, and the original responses are retained locally. All required
+GitHub Actions app/producer identities remain explicit.
 
 The audit covers source/configuration routing across workflows, CI/security/
 performance harnesses, governance, backend/provider/architecture tests,
@@ -141,6 +144,16 @@ PostgreSQL/browser acceptance has not been executed for this slice.
 **Integration decision: NO_MERGE pending independent review and exact-head native
 qualification. Program remains INCOMPLETE.** Subsequent native evidence belongs in
 the PR or a separate dated observation, preserving this original snapshot.
+
+The inventory's own initial head `13655527` failed native LegacyNameGuard and
+PR CI preflight because a copied external app slug violated the existing content
+policy. Five downstream jobs also failed their producer/evidence requirements;
+they receive no test execution credit. [The first-attempt record](inventory-first-attempt.json)
+preserves those failures. The correction omits the unnecessary public app slug,
+retains the original API response locally and changes no guard/exception. Fresh
+qualification is required. The first local CodeRabbit request also failed with
+`payload_too_large`: 122,532,160 bytes exceeded its 100 MiB limit. A scoped
+independent review is required; that failure grants no review credit.
 
 Rollback: revert only the inventory slice on a Security-targeted feature branch
 and open a PR to SecurityTestImplimation. Do not delete the original failed-run
