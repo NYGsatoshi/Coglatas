@@ -26,6 +26,11 @@ fresh fallback denial overwritten by a delayed initial success. A definitive
 authorization-generation and protected projection clearer before presenting
 the original denial. Earlier pending loads or catch-ups cannot restore the old
 projection. Both arrival orders and fresh authorized recovery are covered.
+Repeated definitive denials also invalidate earlier overlapping recoveries when
+the current view is already denied. Non-definitive failures preserve the
+existing denial presentation. An older Kanban move response cannot release the
+in-flight flag or trigger reconciliation owned by a new load/authorization
+generation; current move completion retains its existing behavior.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.

@@ -1003,6 +1003,7 @@ export class ProjectDetailFacade {
 
     this.moveInFlight = true;
     const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
     const presentationSwimlane = this.selectedSwimlane ?? snapshot.selectedSwimlane;
     const presentationIncludesOlderCompleted = this.includeOlderCompleted;
@@ -1035,12 +1036,10 @@ export class ProjectDetailFacade {
         catchError((error: unknown) => of({ kind: 'error' as const, error }))
       )
       .subscribe((result) => {
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
+          {return;}
         this.moveInFlight = false;
         const latest = this.state();
-        if (this.projectId !== projectId || this.authorizationGeneration !== authorizationGeneration) {
-          if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
-          return;
-        }
         if (result.kind === 'success') {
           const warning = result.value.warnings.find((item) => item.code === 'KANBAN_WIP_LIMIT_EXCEEDED');
           const feedback = warning ? projectFeedbackText("projectFeedback.projectDetail.moveSaved", { value0: projectFeedbackValue(warning, "message") }) : projectFeedbackText("projectFeedback.projectDetail.moveSaved2");
@@ -1970,11 +1969,11 @@ export class ProjectDetailFacade {
         // denial that can be a 400/404 rather than a credential 401/403; do
         // not let that response replace the security state with a generic
         // loading error after the clear.
-        if (this.state().status === 'permissionDenied')
-          {return;}
         const failure = this.failure(result.error);
         if (failure.status === 'permissionDenied')
           {this.clearProtectedProjectionsForDeniedSubscription();}
+        else if (this.state().status === 'permissionDenied')
+          {return;}
         this.state.set(failure);
         return;
       }
