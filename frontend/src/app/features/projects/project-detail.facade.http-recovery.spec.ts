@@ -150,4 +150,24 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().project?.id).toBe('project-1');
     expect(history.touchProject).toHaveBeenCalledOnce();
   });
+
+  it('rejects an invalidated initial response and recovers through current HTTP authorization', async () => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    invalidations.next();
+    expect(detail.view().status).toBe('permissionDenied');
+    initial.flush(draft);
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+    await settle();
+    http.expectOne('/api/auth/status').flush({
+      isAuthenticated: true, user: DEFAULT_AUTH_SESSION.currentUser,
+    });
+    await settle(); selectFromHttp(); await settle();
+    http.expectOne('/api/projects/project-1').flush(draft);
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().project?.id).toBe('project-1');
+    expect(start).not.toHaveBeenCalled();
+  });
 });
