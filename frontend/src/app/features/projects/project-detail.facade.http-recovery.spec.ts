@@ -219,6 +219,44 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().kanban.status).toBe('rollback');
   });
 
+  for (const failedProjection of ['tasks', 'workload'] as const) {
+    it.each([200, 503])(`retains fallback ownership after initial ${failedProjection} fails and the current move returns %s`, async (moveStatus) => {
+      await mountBoard(); moveFirstCard();
+      const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+      detail.release(); detail.load('project-1');
+      http.expectOne('/api/projects/project-1').flush(active);
+      const held = {
+        tasks: http.expectOne('/api/projects/project-1/tasks'),
+        board: http.expectOne('/api/projects/project-1/kanban'),
+        schedule: http.expectOne('/api/projects/project-1/gantt'),
+        workload: http.expectOne('/api/projects/project-1/workload'),
+        members: http.expectOne('/api/projects/project-1/members'),
+      };
+      const recovery = workspaces.loadWorkspaces(true);
+      selectFromHttp(); await recovery; await settle(); flushBoard();
+      moveFirstCard(); const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+      oldMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+      await settle();
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      held[failedProjection].flush({ message: 'Older initial projection unavailable' }, { status: 503, statusText: 'Unavailable' });
+      const statusBeforeCompletion = detail.view().status;
+      const busyBeforeCompletion = detail.view().kanban.busyTaskId;
+      const queuedBeforeCompletion = detail.view().kanban.reconciliationQueued;
+      if (moveStatus === 200) currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+      else currentMove.flush({ message: 'Current failure' }, { status: 503, statusText: 'Unavailable' });
+      await settle();
+      const boards = http.match((request) => request.url === '/api/projects/project-1/kanban');
+      for (const request of boards) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 9 } }));
+      for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+      expect(statusBeforeCompletion).toBe('ready');
+      expect(busyBeforeCompletion).toBe('task-1');
+      expect(queuedBeforeCompletion).toBe(true);
+      expect(boards).toHaveLength(1);
+      expect(detail.view().status).toBe('ready');
+      expect(detail.view().kanban.snapshot?.boardVersion).toBe(9);
+    });
+  }
+
   it('reconciles a late successful move after a same-Project remount using fresh reads instead of the old response', async () => {
     await mountBoard(); moveFirstCard();
     const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
