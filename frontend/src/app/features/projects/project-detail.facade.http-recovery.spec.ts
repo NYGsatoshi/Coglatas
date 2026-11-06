@@ -221,6 +221,42 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     });
   }
 
+  it.each([200, 503])('queues explicit Board refresh during a move until its %s completion', async (status) => {
+    await mountBoard(); moveFirstCard();
+    const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.retryKanban();
+    const premature = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    for (const request of premature) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 6 } }));
+    const busyBeforeCompletion = detail.view().kanban.busyTaskId;
+    if (status === 200) currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+    else currentMove.flush({ message: 'Current failure' }, { status, statusText: 'Unavailable' });
+    await settle();
+    const currentReads = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    for (const request of currentReads) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 9 } }));
+    for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+    expect(premature).toHaveLength(0);
+    expect(busyBeforeCompletion).toBe('task-1');
+    expect(currentReads).toHaveLength(1);
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(9);
+  });
+
+  it('retains a presentation filter selected during a move for its deferred authoritative read', async () => {
+    await mountBoard(); moveFirstCard();
+    const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.setIncludeOlderCompleted(true);
+    const premature = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    for (const request of premature) request.flush(snapshotDto({ board: { ...snapshotDto().board!, includesOlderCompleted: true } }));
+    currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+    await settle();
+    const currentReads = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    const filterValues = currentReads.map((request) => request.request.params.get('includeOlderCompleted'));
+    for (const request of currentReads) request.flush(snapshotDto({ board: { ...snapshotDto().board!, includesOlderCompleted: true, version: 9 } }));
+    for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+    expect(premature).toHaveLength(0);
+    expect(filterValues).toEqual(['true']);
+    expect(detail.view().kanban.snapshot?.includesOlderCompleted).toBe(true);
+  });
+
   it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
     detail.load('project-1');
     const old = http.expectOne('/api/projects/project-1');
