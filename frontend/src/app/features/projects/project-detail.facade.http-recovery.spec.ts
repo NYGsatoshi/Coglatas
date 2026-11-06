@@ -355,7 +355,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
 
   for (const firstProjection of ['board', 'schedule'] as const) {
     for (const subscriptionDenied of [false, true]) {
-      it.each([200, 403, 503])(`holds ${firstProjection} until reconnect parent %s settles with subscriptionDenied=${subscriptionDenied}`, async (parentStatus) => {
+      it.each([200, 403, 503].flatMap(parentStatus => [true, false].map(childFirst => ({ parentStatus, childFirst }))))(
+        `holds ${firstProjection} until reconnect parent $parentStatus settles with subscriptionDenied=${subscriptionDenied}, childFirst=$childFirst`, async ({ parentStatus, childFirst }) => {
         const projectId = 'a1e33828-b8d3-4b70-a802-dde89e185915';
         const parent = { ...active, id: projectId };
         const path = `/api/projects/${projectId}`;
@@ -388,7 +389,10 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         const early = http.match(request => request.url === `${path}/kanban` || request.url === `${path}/gantt`);
         const ordered = early.sort((left, right) => Number(right.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt'))
           - Number(left.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt')));
-        for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? board : schedule);
+        const flushEarly = () => {
+          for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? board : schedule);
+        };
+        if (childFirst) {flushEarly();}
         const earlyBoard = detail.view().kanban.snapshot, earlySchedule = detail.view().schedule.snapshot;
         if (parentStatus === 200) {
           http.expectOne(path).flush(parent);
@@ -401,6 +405,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         } else {
           http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
         }
+        if (!childFirst) {flushEarly();}
         await settle();
         // Denied subscription revalidation preserves the established parallel
         // HTTP contract, but successful child responses await the fresh parent.
@@ -412,6 +417,18 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
           expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
         }
         http.expectNone(request => request.url.startsWith(path));
+        if (parentStatus === 503) {
+          denyProjectSubscription = false;
+          transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await connected();
+          navigation();
+          http.expectOne(request => request.url === `${path}/kanban`).flush(board);
+          http.expectOne(`${path}/gantt`).flush(schedule);
+          expect(detail.view().schedule.snapshot).not.toBeNull();
+          detail.retrySchedule();
+          http.expectOne(`${path}/gantt`).flush({ ...schedule, projectVersion: 37 });
+          expect(detail.view().schedule.snapshot?.projectVersion).toBe(37);
+          http.expectNone(request => request.url.startsWith(path));
+        }
       });
     }
   }
