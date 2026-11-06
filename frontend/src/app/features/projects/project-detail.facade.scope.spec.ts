@@ -9,6 +9,7 @@ import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { ProjectDetailFacade } from './project-detail.facade';
+import { ganttSnapshotDto } from './project-detail-gantt.test-data';
 import { ProjectDto } from './projects.api';
 
 const draft: ProjectDto = {
@@ -78,6 +79,40 @@ describe('ProjectDetailFacade initial response scope', () => {
     const pending = http.expectOne('/api/projects/project-1');
     workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Refreshed label' });
     pending.flush(draft);
+    expect(facade.view().project?.id).toBe('project-1');
+    expect(facade.view().status).toBe('ready');
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+    http.expectNone(() => true);
+  });
+
+  it.each(['cleared', 'replaced'] as const)(
+    'discards completed operational collections when Workspace is %s during the reads',
+    (change) => {
+      facade.load('project-1');
+      http.expectOne('/api/projects/project-1').flush(active);
+      const tasks = http.expectOne('/api/projects/project-1/tasks');
+      const gantt = http.expectOne('/api/projects/project-1/gantt');
+      const workload = http.expectOne('/api/projects/project-1/workload');
+      const members = http.expectOne('/api/projects/project-1/members');
+      if (change === 'cleared') workspace.clearWorkspace();
+      else workspace.setActiveWorkspace({ id: 'workspace-2', label: 'Workspace 2' });
+      tasks.flush({ items: [] }); gantt.flush(ganttSnapshotDto());
+      workload.flush({ members: [] }); members.flush({ members: [] });
+      expect(facade.view().project).toBeUndefined();
+      expect(history.touchProject).not.toHaveBeenCalled();
+      http.expectNone(() => true);
+    },
+  );
+
+  it('keeps operational reads and application for a label refresh of the same Workspace', () => {
+    facade.load('project-1');
+    const project = http.expectOne('/api/projects/project-1');
+    workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Refreshed label' });
+    project.flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
     expect(facade.view().project?.id).toBe('project-1');
     expect(facade.view().status).toBe('ready');
     expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');

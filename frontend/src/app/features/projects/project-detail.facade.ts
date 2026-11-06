@@ -12,6 +12,7 @@ import {
   RealtimeFacade,
 } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import {
   CoglatasGanttDependency,
   CoglatasGanttEditIntent,
@@ -140,6 +141,7 @@ export class ProjectDetailFacade {
   private readonly i18n = injectProjectsI18n();
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
+  private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly state = signal<ProjectDetailViewModel>(this.loading());
@@ -212,6 +214,10 @@ export class ProjectDetailFacade {
     this.scheduleCommandGeneration++;
     this.scheduleCommandInFlight = false;
     const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const loadIsCurrent = () =>
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
     const initialKanbanRequestGeneration = ++this.kanbanRequestGeneration;
     const initialScheduleRequestGeneration = ++this.scheduleRequestGeneration;
     const initialTaskListRequestGeneration = ++this.taskListRequestGeneration;
@@ -232,7 +238,7 @@ export class ProjectDetailFacade {
     this.state.set(this.loading());
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
+        if (!loadIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         this.projectOperational = record.isOperational === true;
@@ -244,20 +250,18 @@ export class ProjectDetailFacade {
           gantt: this.initialScheduleRequest(projectId),
           workload: this.http.get<unknown>(`/api/projects/${projectId}/workload`, { withCredentials: true }),
           members: this.http.get<unknown>(`/api/projects/${projectId}/members`, { withCredentials: true })
-        }).pipe(map((response) => this.ready(
+        }).pipe(switchMap((response) => loadIsCurrent() ? of(this.ready(
           project,
           response.tasks.items ?? [],
           response.kanban,
           response.gantt,
           response.workload,
           response.members
-        )));
+        )) : EMPTY));
       }),
       catchError((error: unknown) => of(this.failure(error)))
     ).subscribe((view) => {
-      if (this.projectId === projectId &&
-          this.loadGeneration === loadGeneration &&
-          this.authorizationGeneration === authorizationGeneration) {
+      if (loadIsCurrent()) {
         const latest = this.state();
         if (view.status !== 'ready') {
           this.state.set(view);
