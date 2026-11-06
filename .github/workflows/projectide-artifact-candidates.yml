@@ -3,13 +3,16 @@ name: ProjectIDE artifact candidate parity
 on:
   pull_request:
     paths:
-      - src/Coglatas.Domain/ProjectIde/VersionedArtifacts/**
+      - src/Coglatas.Domain/ProjectIde/**
+      - global.json
       - src/Coglatas.Application/ProjectIde/ReceiptVerification/**
       - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
       - tests/Coglatas.Tests/ProjectIde/SyntheticReceiptAuthenticationTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
+      - tests/ci/projectide_core_isolated.py
+      - tests/ci/projectide_integration_inventory.json
       - .github/workflows/projectide-artifact-candidates.yml
 
 permissions:
@@ -85,7 +88,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
@@ -162,7 +166,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
