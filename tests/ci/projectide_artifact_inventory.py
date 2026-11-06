@@ -19,7 +19,7 @@ def main() -> None:
         actual = inventory(args.results / f"{name}.trx")
         if not set(baseline[lane]).issubset(actual):
             raise ValueError(f"Retained {lane} identities are missing")
-        if lane == "projectIde" and sum(".VersionedArtifactTests." in identity for identity in actual) < 36:
+        if lane == "projectIde" and sum(".VersionedArtifactTests." in identity for identity in actual) < 51:
             raise ValueError("Prototype artifact regression inventory is incomplete")
         if lane == "projectIde" and args.require_receipt_proof and sum(".SyntheticReceiptAuthenticationTests." in identity for identity in actual) < 23:
             raise ValueError("Synthetic receipt proof inventory is incomplete")
