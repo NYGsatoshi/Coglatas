@@ -180,3 +180,13 @@ releases the completed refresh without retrying denied state. Both response
 orders must recover on later authorized reconnect and permit explicit Schedule
 retry. A separate control holds a newer refresh while an older response completes:
 old cleanup must not release that newer owner or bypass its queued refresh.
+
+Further clean controls retained three failures with 215 controls passing:
+ordinary Task events could read operational projections after the parent but
+before its collections completed, and activation reconciliation could advance
+the response generation while leaving an old Schedule refresh owner stranded.
+Operational admission now changes only after the full authorized collection join.
+Schedule cleanup tracks its actual refresh owner separately from response
+application generations. Both collection-failure response orders and the held
+Schedule/activation sequence must pass; older cleanup still cannot release a
+newer refresh. No original test body or authority policy is relaxed.
