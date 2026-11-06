@@ -29,6 +29,15 @@ focus, retain an old DOM node, change End, accept modified/child/IME keys, or
 change membership/authorization state. Existing native boundary, original
 ReadOnly owner, retry, deadline, lifecycle and authority assertions remain.
 
+Further review identified integer `clientHeight` accepting a fractionally clipped
+edge and a document root using document instead of viewport coordinates. Separate
+geometry controls retain those counterexamples. The helper uses fractional
+rectangle bounds with border/scrollbar accounting and a one-pixel inset; the
+document root uses viewport-origin bounds. Native browser controls cover three
+fractional ancestor heights, full first-name/status and summary visibility,
+Shift+Tab, and inner Home zero. These do not establish a historical initiating
+cause or universal arbitrary-transform/zoom acceptance.
+
 This isolated mock-HTTP browser regression and Angular unit execution are
 separate from exact-head protected real-backend roster execution, required CI,
 official PR Gate, independent review and resulting-Main qualification. They do

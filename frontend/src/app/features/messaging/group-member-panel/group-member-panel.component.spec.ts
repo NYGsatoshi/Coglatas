@@ -121,8 +121,9 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     Object.defineProperty(next.list, 'clientHeight', { configurable: true, value: 220 });
     const outer = document.createElement('div'); outer.style.overflowY = 'auto';
     Object.defineProperty(outer, 'clientHeight', { value: 100 });
+    Object.defineProperty(outer, 'offsetHeight', { value: 100 });
     Object.defineProperty(outer, 'scrollHeight', { value: 400 });
-    outer.getBoundingClientRect = () => ({ top: 0 } as DOMRect);
+    outer.getBoundingClientRect = () => ({ top: 0, bottom: 100 } as DOMRect);
     next.firstRow.getBoundingClientRect = () => ({ top: 200, bottom: 250 } as DOMRect);
     const summary = next.fixture.nativeElement.querySelector('summary') as HTMLElement;
     summary.getBoundingClientRect = () => ({ top: 160, bottom: 190 } as DOMRect);
@@ -130,7 +131,7 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     try {
       await Promise.resolve();
       expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
-      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 150, behavior: 'instant' });
+      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 151, behavior: 'instant' });
     } finally { next.fixture.destroy(); outer.remove(); }
   });
 
