@@ -172,7 +172,7 @@ public sealed class TaskExecutionInterventionServiceTests
         var currentPolicy = TaskExecutionSourcePolicyV2.FromLegacy(true, false) with
         {
             Web = TaskExecutionSourceState.Prioritize,
-            Items = [new(TaskExecutionSourceKind.ProjectFile, Guid.NewGuid().ToString(), TaskExecutionSourceState.Exclude)]
+            Items = [new(TaskExecutionSourceKind.ProjectFile, TaskExecutionSourcePolicyV2.ProjectFileSourceId(Guid.NewGuid()), TaskExecutionSourceState.Exclude)]
         };
         var projectScope = await fixture.Db.ProjectExecutionScopes.SingleAsync();
         projectScope.WebEnabled = false;
@@ -327,7 +327,7 @@ public sealed class TaskExecutionInterventionServiceTests
         public TaskExecutionSourcePolicyV2 ClosedPolicy { get; } = TaskExecutionSourcePolicyV2.FromLegacy(false, true) with
         {
             ProjectFile = TaskExecutionSourceState.Prioritize,
-            Items = [new(TaskExecutionSourceKind.ProjectFile, Guid.NewGuid().ToString(), TaskExecutionSourceState.Exclude)]
+            Items = [new(TaskExecutionSourceKind.ProjectFile, TaskExecutionSourcePolicyV2.ProjectFileSourceId(Guid.NewGuid()), TaskExecutionSourceState.Exclude)]
         };
 
         public Task<Result<TaskExecutionInterventionResponse>> InvokeAsync(bool correct, Guid taskId, Guid runId)
