@@ -673,7 +673,9 @@ async function installGroupApi(page: Page) {
         const message = { id: 'created-group-message', workspaceId, conversationId: groupId, createdAt: '2026-10-20T00:00:00Z', isDeleted: false, version: 1,
           authorUserId: actor, authorDisplayName: 'Current participant', body: payload.body, clientRequestId: payload.clientRequestId };
         messages = [...messages, message]; await route.fulfill({ json: message });
-      } else { await route.fulfill({ json: { items: messages } }); }
+      } else { await route.fulfill({ json: { items: control.persistedRosterShape
+        ? messages.map(message => ({ ...message, body: 'Synthetic roster positive 00000000-0000-4000-8000-000000000000' }))
+        : messages } }); }
       return;
     }
     if (path === `/api/conversations/${groupId}/members` && method === 'POST') {
