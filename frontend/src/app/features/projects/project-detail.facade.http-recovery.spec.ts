@@ -177,6 +177,44 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().kanban.snapshot?.boardVersion).toBe(7);
   });
 
+  for (const refreshFirst of [true, false]) {
+    it.each([200, 401, 403])(`keeps current move authority when an older recovery returns %s ${refreshFirst ? 'before' : 'after'} command completion`, async (status) => {
+      await mountBoard(); moveFirstCard();
+      const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+      detail.applyGanttEdit({ kind: 'schedule', taskId: 'task-1',
+        plannedStartDate: '2026-07-02', plannedEndDate: '2026-07-11', milestoneDate: null,
+        expectedVersion: 3, source: 'form' });
+      http.expectOne('/api/tasks/task-1/schedule').flush(
+        { message: 'Schedule denied' }, { status: 403, statusText: 'Forbidden' },
+      );
+      const recovery = http.expectOne((request) => request.url === '/api/projects/project-1/kanban');
+      oldMove.flush({ message: 'Old move denied' }, { status: 403, statusText: 'Forbidden' });
+      moveFirstCard(); const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+      const completeRecovery = () => {
+        if (status === 200) recovery.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 6 } }));
+        else recovery.flush({ message: 'Current board authority denied' }, { status, statusText: 'Denied' });
+      };
+      if (refreshFirst) completeRecovery();
+      currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+      if (!refreshFirst) completeRecovery();
+      await settle();
+      const resultingBoard = detail.view().kanban.snapshot?.boardVersion;
+      const resultingStatus = detail.view().kanban.status;
+      const followups = http.match((request) => request.url === '/api/projects/project-1/kanban');
+      for (const request of followups) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 9 } }));
+      for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+      if (status === 200) {
+        expect(resultingBoard).toBe(8);
+        expect(followups).toHaveLength(1);
+        expect(detail.view().kanban.snapshot?.boardVersion).toBe(9);
+      } else {
+        expect(resultingBoard).toBeUndefined();
+        expect(resultingStatus).toBe('permissionDenied');
+        expect(followups).toHaveLength(0);
+      }
+    });
+  }
+
   it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
     detail.load('project-1');
     const old = http.expectOne('/api/projects/project-1');
