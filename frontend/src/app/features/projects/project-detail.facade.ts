@@ -259,8 +259,8 @@ export class ProjectDetailFacade {
           {return of(this.draftReady(project));}
         return forkJoin({
           tasks: this.http.get<PagedResponseDto<TaskDto>>(`/api/projects/${projectId}/tasks`, { withCredentials: true }),
-          kanban: this.initialKanbanRequest(projectId),
-          gantt: this.initialScheduleRequest(projectId),
+          kanban: this.initialKanbanRequest(projectId, loadIsCurrent),
+          gantt: this.initialScheduleRequest(projectId, loadIsCurrent),
           workload: this.http.get<unknown>(`/api/projects/${projectId}/workload`, { withCredentials: true }),
           members: this.http.get<unknown>(`/api/projects/${projectId}/members`, { withCredentials: true })
         }).pipe(switchMap((response) => loadIsCurrent() ? of(this.ready(
@@ -292,9 +292,14 @@ export class ProjectDetailFacade {
         if (applyInitialTasks)
           {this.taskListAppliedGeneration = initialTaskListRequestGeneration;}
         this.clearTaskListRefreshFeedback(initialTaskListRequestGeneration);
+        const applyInitialKanban = this.kanbanRequestGeneration === initialKanbanRequestGeneration;
+        if (applyInitialKanban && view.kanban.snapshot) {
+          this.selectedSwimlane = view.kanban.snapshot.selectedSwimlane;
+          this.includeOlderCompleted = view.kanban.snapshot.includesOlderCompleted;
+        }
         this.state.set({
           ...view,
-          kanban: this.kanbanRequestGeneration === initialKanbanRequestGeneration
+          kanban: applyInitialKanban
             ? view.kanban
             : latest.kanban,
           schedule: this.scheduleRequestGeneration === initialScheduleRequestGeneration
@@ -1127,7 +1132,7 @@ export class ProjectDetailFacade {
     if (!projectId || this.projectId !== projectId ||
         (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId)
       {return;}
-    if (this.initialLoadGeneration === this.loadGeneration) {
+    if (!this.moveInFlight && this.initialLoadGeneration === this.loadGeneration) {
       this.load(projectId);
       return;
     }
@@ -1240,6 +1245,10 @@ export class ProjectDetailFacade {
       authorizationGeneration
     )) {return;}
 
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const projectionsAreCurrent = () => this.activationAttemptIsCurrent(
+      projectId, generation, loadGeneration, authorizationGeneration,
+    ) && (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
     this.state.set({
       ...this.state(),
       activation: {
@@ -1254,12 +1263,7 @@ export class ProjectDetailFacade {
     const scheduleRequestGeneration = ++this.scheduleRequestGeneration;
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.activationAttemptIsCurrent(
-          projectId,
-          generation,
-          loadGeneration,
-          authorizationGeneration
-        )) {return EMPTY;}
+        if (!projectionsAreCurrent()) {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         if (!record.isOperational)
           {return of({ kind: 'draft' as const, project });}
@@ -1269,8 +1273,8 @@ export class ProjectDetailFacade {
             `/api/projects/${projectId}/tasks`,
             { withCredentials: true }
           ),
-          kanban: this.initialKanbanRequest(projectId),
-          gantt: this.initialScheduleRequest(projectId),
+          kanban: this.initialKanbanRequest(projectId, projectionsAreCurrent),
+          gantt: this.initialScheduleRequest(projectId, projectionsAreCurrent),
           workload: this.http.get<unknown>(
             `/api/projects/${projectId}/workload`,
             { withCredentials: true }
@@ -1300,17 +1304,17 @@ export class ProjectDetailFacade {
       }),
       catchError((error: unknown) => of({ kind: 'error' as const, error }))
     ).subscribe((result) => {
-      if (!this.activationAttemptIsCurrent(
-        projectId,
-        generation,
-        loadGeneration,
-        authorizationGeneration
-      )) {return;}
+      if (!projectionsAreCurrent()) {return;}
       this.activationInFlight = false;
 
       if (result.kind === 'active') {
         this.projectOperational = true;
         this.taskListAppliedGeneration = taskRequestGeneration;
+        const applyKanban = this.kanbanRequestGeneration === kanbanRequestGeneration;
+        if (applyKanban && result.view.kanban.snapshot) {
+          this.selectedSwimlane = result.view.kanban.snapshot.selectedSwimlane;
+          this.includeOlderCompleted = result.view.kanban.snapshot.includesOlderCompleted;
+        }
         const activation = this.activationForAuthorizedProjection(
           projectId,
           true,
@@ -1322,7 +1326,7 @@ export class ProjectDetailFacade {
         );
         this.state.set({
           ...result.view,
-          kanban: this.kanbanRequestGeneration === kanbanRequestGeneration
+          kanban: applyKanban
             ? result.view.kanban
             : this.state().kanban,
           schedule: this.scheduleRequestGeneration === scheduleRequestGeneration
@@ -1515,22 +1519,38 @@ export class ProjectDetailFacade {
       {cleanup();}
   }
 
-  private initialKanbanRequest(projectId: string) {
+  private initialKanbanRequest(projectId: string, isCurrent: () => boolean) {
     if (!this.flags.kanbanV1Enabled()) {return of<KanbanLoadOutcome>({ kind: 'disabled' });}
     return this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { withCredentials: true }).pipe(
       map((dto): KanbanLoadOutcome => ({ kind: 'success', dto })),
-      catchError((error: unknown) => of<KanbanLoadOutcome>({ kind: 'error', error }))
+      catchError((error: unknown) => {
+        this.handleInitialProjectionDenial(error, isCurrent, 'kanban');
+        return of<KanbanLoadOutcome>({ kind: 'error', error });
+      })
     );
   }
 
-  private initialScheduleRequest(projectId: string) {
+  private initialScheduleRequest(projectId: string, isCurrent: () => boolean) {
     return this.http.get<ProjectGanttSnapshotDto>(
       `/api/projects/${projectId}/gantt`,
       { withCredentials: true }
     ).pipe(
       map((dto): ScheduleLoadOutcome => ({ kind: 'success', dto })),
-      catchError((error: unknown) => of<ScheduleLoadOutcome>({ kind: 'error', error }))
+      catchError((error: unknown) => {
+        this.handleInitialProjectionDenial(error, isCurrent, 'schedule');
+        return of<ScheduleLoadOutcome>({ kind: 'error', error });
+      })
     );
+  }
+
+  private handleInitialProjectionDenial(error: unknown, isCurrent: () => boolean, kind: 'kanban' | 'schedule'): void {
+    if (!isCurrent()) {return;}
+    const failure = this.failure(error);
+    if (failure.status !== 'permissionDenied') {return;}
+    this.clearProtectedProjectionsForDeniedSubscription();
+    this.state.set(kind === 'kanban'
+      ? { ...failure, kanban: this.kanbanFailure(error, null) }
+      : { ...failure, schedule: this.scheduleFailure(error, null) });
   }
 
   private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
@@ -2240,8 +2260,6 @@ export class ProjectDetailFacade {
     if (outcome.kind === 'error') {return this.kanbanFailure(outcome.error, null);}
     try {
       const snapshot = mapProjectKanbanSnapshot(outcome.dto);
-      this.selectedSwimlane = snapshot.selectedSwimlane;
-      this.includeOlderCompleted = snapshot.includesOlderCompleted;
       return {
         status: snapshot.cards.length ? 'ready' : 'empty',
         snapshot,
