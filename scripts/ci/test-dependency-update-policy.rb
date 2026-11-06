@@ -102,6 +102,12 @@ def update_errors(config)
     angular_build['allowedVersions'] == '!/^22\\.2\\.5$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
 
+  stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
+  errors << 'Stylelint 18 cannot be proposed until the SCSS preset supports its peer dependency' unless
+    stylelint.is_a?(Hash) && stylelint['matchManagers'] == ['npm'] &&
+    stylelint['matchPackageNames'] == ['stylelint'] && stylelint['allowedVersions'] == '/^17\./' &&
+    !stylelint.key?('enabled')
+
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
   errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
     gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
@@ -141,6 +147,19 @@ def image_errors(source, sdk_version)
   end
   errors << 'SDK image manifests unexpectedly missing' if matches < 3
   errors
+end
+
+# Keep the Vite security floor without a global override that conflicts when
+# Renovate installs a direct Vite version temporarily during lockfile updates.
+def vite_override_errors(sources)
+  %w[frontend/package.json coglatas-frontend/package.json].filter_map do |path|
+    manifest = JSON.parse(sources.fetch(path, nil) || (ROOT / path).read)
+    overrides = manifest.fetch('overrides', {})
+    unless overrides.is_a?(Hash) && overrides['vite@<8.3.5'] == '^8.3.5' &&
+           !overrides.key?('vite')
+      "#{path}: Vite must have a conditional security floor, not a global override"
+    end
+  end
 end
 
 # The production build and development images must stay on an owner-approved
@@ -188,7 +207,7 @@ approved_rc3 = sdk_version == '11.0.100-rc.3.26522.148' && sdk['allowPrerelease'
 abort('SDK must pin approved stable .NET 10 or exact isolated .NET 11 RC3') unless
   (stable_sdk || approved_rc3) && sdk['rollForward'] == 'disable'
 
-errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({})
+errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -205,6 +224,8 @@ mutations = {
   're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
   'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
+  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['allowedVersions'] = '>=17' },
+  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['enabled'] = false },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
@@ -224,6 +245,19 @@ mutations.each do |name, change|
   change.call(copy)
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
+%w[frontend/package.json coglatas-frontend/package.json].each do |path|
+  original = JSON.parse((ROOT / path).read)
+  global_override = JSON.parse(JSON.generate(original))
+  global_override['overrides']['vite'] = '^8.3.5'
+  abort("Guard missed global Vite override: #{path}") if
+    vite_override_errors(path => JSON.generate(global_override)).empty?
+
+  removed_floor = JSON.parse(JSON.generate(original))
+  removed_floor['overrides'].delete('vite@<8.3.5')
+  abort("Guard missed removed Vite security floor: #{path}") if
+    vite_override_errors(path => JSON.generate(removed_floor)).empty?
+end
+
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
   /mcr\.microsoft\.com\/dotnet\/sdk:[^@\s]+(?=@sha256:)/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
@@ -238,4 +272,4 @@ bad_node_digest = {
 }
 abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
 
-puts "Mend-hosted Renovate policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 3} negative controls)"
+puts "Mend-hosted Renovate policy, SDK/image parity, Vite and Node LTS: PASS (#{mutations.length + 7} negative controls)"

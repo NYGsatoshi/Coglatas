@@ -1,5 +1,19 @@
 # Testing
 
+Forms answer normalization and submission admission controls are documented
+in [the Forms answer contract verification](verification/forms-answer-contract-tests.md).
+They exercise Application unit contracts and preserve the original Forms
+authority implementation; they do not establish PostgreSQL or HTTP acceptance.
+
+The Functional Compose harness prepares the scoped browser runtime with a
+no-dependency `/bin/true` entrypoint before recording setup time and executing
+the real suite. Image acquisition or container preparation failure is
+`[INFRA/SETUP FAILURE] phase=prepare-browser`; it does not execute test owners.
+Preparation success is not browser, backend or journey acceptance. The actual
+suite keeps its original command, assertions, retries, deadlines and exit code.
+Its `[PRODUCT TEST FAILURE]` marker still requires causal investigation before
+classifying a failure as a product defect. Historical failures remain retained.
+
 The historical audit below predates the PR07-C remediation. No final
 post-remediation backend, frontend, or hosted result is recorded in this file;
 see `docs/verification/task-v1-pr07-c-deadline-digest.md` for the required
@@ -50,6 +64,12 @@ Covered areas include:
 - tenancy and save rules.
 
 Most service fixtures use fakes or EF Core InMemory.
+
+The [legacy Announcement lifecycle suite](verification/announcement-legacy-lifecycle.md)
+executes the existing controller-facing Application service with strict dependency
+contracts. Its read/reminder, validation and ordered-effect controls complement
+the separate Analytics/Attachment and persisted-authority suites; they do not
+establish database, HTTP, delivery or pilot acceptance.
 
 ### HTTP tests
 

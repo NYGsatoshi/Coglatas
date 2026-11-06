@@ -9,6 +9,21 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class ProjectRepository(AppDbContext dbContext) : IProjectRepository
 {
+    public async Task<bool> ReadCurrentAuthorizationAsync(Func<CancellationToken, Task<bool>> authorization,
+        CancellationToken cancellationToken = default)
+    {
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await authorization(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
     public async Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(
         Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default)
     {

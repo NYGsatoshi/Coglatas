@@ -10,7 +10,7 @@ using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class ProjectServiceTests
+public sealed partial class ProjectServiceTests
 {
     [Fact]
     public async Task MatchingSecurityBindingDoesNotAuthorizeProjectDiscoveryOrCurrentRead()

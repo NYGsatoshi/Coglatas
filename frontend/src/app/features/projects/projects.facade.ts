@@ -3,7 +3,7 @@ import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projec
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { effect, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin, Observable, of, Subscription, throwError } from 'rxjs';
+import { EMPTY, forkJoin, Observable, of, Subscription, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
@@ -535,6 +535,10 @@ export class ProjectsFacade {
     this.projectsRequest = this.fetchProjectList(workspaceId)
       .pipe(
         switchMap((projects) => {
+          // Scope teardown effects can lag this response. Recheck before any
+          // old Project identity can dispatch a follow-up Task request.
+          if (!this.isAuthorizationCurrent(generation) ||
+              this.activeWorkspace.activeWorkspace()?.id !== workspaceId) {return EMPTY;}
           if (projects.length === 0) {
             return of({
               projects,
