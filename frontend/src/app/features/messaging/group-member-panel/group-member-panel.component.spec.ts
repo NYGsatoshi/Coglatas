@@ -116,6 +116,28 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     next.fixture.destroy();
   });
 
+  it('restores Home through an overflowing ancestor when the fresh list has no inner overflow', async () => {
+    await setup();
+    const old = mount(); old.list.focus();
+    old.list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    old.fixture.destroy();
+    const next = mount();
+    Object.defineProperty(next.list, 'clientHeight', { configurable: true, value: 220 });
+    const outer = document.createElement('div'); outer.style.overflowY = 'auto';
+    Object.defineProperty(outer, 'clientHeight', { value: 100 });
+    Object.defineProperty(outer, 'scrollHeight', { value: 400 });
+    outer.getBoundingClientRect = () => ({ top: 0 } as DOMRect);
+    next.firstRow.getBoundingClientRect = () => ({ top: 200, bottom: 250 } as DOMRect);
+    const summary = next.fixture.nativeElement.querySelector('summary') as HTMLElement;
+    summary.getBoundingClientRect = () => ({ top: 160, bottom: 190 } as DOMRect);
+    outer.scrollBy = vi.fn(); outer.appendChild(next.fixture.nativeElement); document.body.appendChild(outer);
+    try {
+      await Promise.resolve();
+      expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
+      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 150, behavior: 'instant' });
+    } finally { next.fixture.destroy(); outer.remove(); }
+  });
+
   it('does not restore a boundary into another Workspace or later same-scope mount', async () => {
     await setup();
     rememberEnd();

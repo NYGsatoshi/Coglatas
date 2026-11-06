@@ -488,6 +488,37 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
   });
 
+  test('keeps Home zero and the start visible when the first member is taller than its scrollport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    control.firstMemberName = Array.from({ length: 120 }, () => 'Synthetic long member').join(' ');
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const list = panel.locator('ul');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    expect(await list.evaluate(ul => ul.querySelector('li')!.getBoundingClientRect().height > ul.clientHeight)).toBe(true);
+    await panel.locator('summary').scrollIntoViewIfNeeded();
+    await panel.locator('summary').focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    await page.keyboard.press('End');
+    expect(await list.evaluate(ul => ul.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press('Home');
+    expect(await list.evaluate(ul => ul.scrollTop)).toBe(0);
+    expect(await list.evaluate(ul => {
+      let top = 0, bottom = innerHeight;
+      for (let node: Element | null = ul; node; node = node.parentElement) {
+        if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(node).overflowY)) {
+          const rect = node.getBoundingClientRect(); top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom);
+        }
+      }
+      const start = ul.querySelector('li')!.getBoundingClientRect().top;
+      return start >= top && start < bottom;
+    })).toBe(true);
+    await expect(list).toBeFocused();
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
   test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
@@ -623,7 +654,7 @@ async function installGroupApi(page: Page) {
   let releaseCreate = () => {};
   const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
   const control = { creates: [] as Record<string, unknown>[], sends: [] as Record<string, unknown>[], adds: [] as string[], removes: [] as string[],
-    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, persistedRosterShape: false, holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
+    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, persistedRosterShape: false, firstMemberName: '', holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
   const workspaceMembers = [
     { userId: actor, displayName: 'Current participant', status: 1 },
     { userId: 'peer', displayName: 'Council peer', status: 1 },
@@ -641,7 +672,7 @@ async function installGroupApi(page: Page) {
     createdAt: '2026-10-19T01:00:00Z', clientRequestId: 'original-group-key', isDeleted: false, version: 1 }];
   const detail = () => ({ id: groupId, workspaceId, type: 'Group', title, projectId: null, parentConversationId: null, rootConversationId: null,
     isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member, index) => control.persistedRosterShape
-      ? { ...member, displayName: `Synthetic roster participant ${String(index + 1).padStart(2, '0')}`, role: index === 1 ? 'Admin' : 'ReadOnly', canPost: index === 1, canManageMembers: index === 1, leftAt: null, removedAt: null }
+      ? { ...member, displayName: index === 0 && control.firstMemberName ? control.firstMemberName : `Synthetic roster participant ${String(index + 1).padStart(2, '0')}`, role: index === 1 ? 'Admin' : 'ReadOnly', canPost: index === 1, canManageMembers: index === 1, leftAt: null, removedAt: null }
       : member).map((member) => member.userId === actor
       ? { ...member, role: control.readOnly ? 'ReadOnly' : control.manager ? 'Admin' : 'Member', canManageMembers: control.manager } : member) });
   await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: { token: 'csrf-group-ui', headerName: 'X-CSRF-Token' } }));
