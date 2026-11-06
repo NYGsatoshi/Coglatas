@@ -154,6 +154,7 @@ export class ProjectDetailFacade {
   private interactionActive = false;
   private moveInFlight = false;
   private initialLoadGeneration: number | null = null;
+  private kanbanRefreshGeneration: number | null = null;
   private scheduleInteractionActive = false;
   private scheduleCommandInFlight = false;
   private scheduleCommandGeneration = 0;
@@ -1011,6 +1012,8 @@ export class ProjectDetailFacade {
       {return;}
 
     this.moveInFlight = true;
+    const refreshWasInFlight = this.kanbanRefreshGeneration === this.kanbanRequestGeneration;
+    this.kanbanRequestGeneration++;
     const projectId = this.projectId;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
@@ -1026,6 +1029,7 @@ export class ProjectDetailFacade {
         snapshot: optimistic,
         busyTaskId: authoritativeCard.taskId,
         focusTaskId: null,
+        reconciliationQueued: current.kanban.reconciliationQueued || refreshWasInFlight,
         ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.moving", { value0: authoritativeCard.summary })),
         error: undefined
       }
@@ -1771,7 +1775,10 @@ export class ProjectDetailFacade {
     }
 
     const generation = ++this.kanbanRequestGeneration;
+    this.kanbanRefreshGeneration = generation;
     const authorizationGeneration = this.authorizationGeneration;
+    const loadGeneration = this.loadGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     const current = this.state();
     this.state.set({
       ...current,
@@ -1787,12 +1794,24 @@ export class ProjectDetailFacade {
     this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { params, withCredentials: true })
       .pipe(
         map((dto) => ({ kind: 'success' as const, value: mapProjectKanbanSnapshot(dto) })),
-        catchError((error: unknown) => of({ kind: 'error' as const, error }))
+        catchError((error: unknown) => of({ kind: 'error' as const, error })),
+        finalize(() => {
+          if (this.kanbanRefreshGeneration === generation) {this.kanbanRefreshGeneration = null;}
+        })
       )
       .subscribe((result) => {
-        if (generation !== this.kanbanRequestGeneration ||
-            authorizationGeneration !== this.authorizationGeneration)
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId)
           {return;}
+        if (result.kind === 'error') {
+          const error = normalizeProjectFeedbackError(result.error);
+          if (error.httpStatus === 401 || error.httpStatus === 403) {
+            this.clearProtectedProjectionsForDeniedSubscription();
+            this.state.set({ ...this.failure(result.error), kanban: this.kanbanFailure(result.error, null) });
+            return;
+          }
+        }
+        if (generation !== this.kanbanRequestGeneration) {return;}
         const latest = this.state();
         if (result.kind === 'success') {
           this.selectedSwimlane = result.value.selectedSwimlane;

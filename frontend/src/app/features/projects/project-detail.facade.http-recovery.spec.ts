@@ -195,6 +195,10 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         else recovery.flush({ message: 'Current board authority denied' }, { status, statusText: 'Denied' });
       };
       if (refreshFirst) completeRecovery();
+      if (refreshFirst && status === 200) {
+        expect(detail.view().kanban.snapshot?.boardVersion).toBe(7);
+        expect(detail.view().kanban.busyTaskId).toBe('task-1');
+      }
       currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
       if (!refreshFirst) completeRecovery();
       await settle();
@@ -210,7 +214,9 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       } else {
         expect(resultingBoard).toBeUndefined();
         expect(resultingStatus).toBe('permissionDenied');
-        expect(followups).toHaveLength(0);
+        expect(followups).toHaveLength(refreshFirst ? 0 : 1);
+        expect(detail.view().kanban.snapshot).toBeNull();
+        expect(detail.view().kanban.status).toBe('permissionDenied');
       }
     });
   }

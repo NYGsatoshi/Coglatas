@@ -38,6 +38,12 @@ committed effect is reconciled through fresh, current-authority board and Task
 reads; an in-flight initial reload is restarted, and a newer move keeps the
 board refresh queued until that command completes. Route/Workspace replacement
 and denial prevent those stale completions from reviving the old view.
+Starting a move invalidates earlier successful board refresh responses and
+retains a queued read when one was in flight. Such a response cannot clear the
+current move's busy state or replace its successful board. A definitive board
+401/403 still clears current protected generations before the refresh-order
+check, provided Project/load/authorization/Workspace ownership remains current.
+Already dispatched reads are retained but cannot restore state after denial.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
