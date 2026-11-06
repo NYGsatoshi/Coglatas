@@ -153,7 +153,8 @@ same pinned artifact action as the other native reports and also runs after a
 failed collection; a missing file remains an error. Original report bytes,
 including zero-hit rows and branch counts, are uploaded without conversion or
 filtering. Use the provider's run, source SHA, attempt and artifact digest to
-bind a downloaded report before checking its full source mapping. An uploaded
+bind a downloaded report, then compare the extracted file's SHA-256 with the
+pre-upload digest in the collection log before checking its full source mapping. An uploaded
 report from a failed job is diagnostic evidence, not successful coverage or a
 passing Quality Gate. This retention step adds no producer or scanner import
 and makes no coverage improvement claim.
