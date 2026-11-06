@@ -23,9 +23,12 @@ describe('Message send recovery', () => {
   let events: Subject<DurableRealtimeEvent>;
 
   afterEach(() => {
-    http?.verify();
-    sessionStorage.clear();
-    TestBed.resetTestingModule();
+    try {
+      http?.verify();
+    } finally {
+      sessionStorage.clear();
+      TestBed.resetTestingModule();
+    }
   });
 
   async function configure(optimistic = true, normalizeErrors = false): Promise<void> {
@@ -504,6 +507,82 @@ describe('Message send recovery', () => {
     expect(facade.page().status).toBe('permissionDenied');
     expect(facade.page().messages).toEqual([]);
     expect(facade.page().conversation.id).toBe('');
+  });
+
+  it.each([false, true].flatMap((normalizeErrors) =>
+    [401, 403, 404].map((status) => ({ normalizeErrors, status })),
+  ))('clears a failed-row retry after HTTP $status with normalization $normalizeErrors', async ({ normalizeErrors, status }) => {
+    await configure(true, normalizeErrors);
+    const conversation = facade.page().conversation;
+    const scope = { tenantId: conversation.tenantId, userId: currentUserId,
+      workspaceId: conversation.workspaceId, conversationId: conversation.id };
+    const storage = TestBed.inject(DraftStorageService);
+    facade.setDraft('Private retry payload');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    const failed = facade.page().messages[0];
+    expect(failed.deliveryState).toBe('failed');
+    facade.retryMessage(failed.id);
+    const retry = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(retry.request.body.clientRequestId).toBe(first.request.body.clientRequestId);
+    retry.flush({ error: 'Private diagnostic' }, { status, statusText: 'Denied' });
+    if (normalizeErrors && status === 401) {
+      // The real interceptor resolves current session authority before passing
+      // a resource-level 401 to the owner. Do not substitute an immediate error.
+      expect(facade.page().sending).toBe(true);
+      http.expectOne('/api/auth/me').flush(DEFAULT_AUTH_SESSION.currentUser);
+    }
+
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().conversation.id).toBe('');
+    expect(facade.page().draft).toBe('');
+    expect(storage.readDraft(scope)).toBe('');
+    expect(JSON.stringify(facade.page())).not.toContain('Private');
+    if (normalizeErrors) expect(normalizedFailures.at(-1)?.httpStatus).toBe(status);
+    facade.retryMessage(failed.id);
+    facade.sendDraft();
+    http.expectNone('/api/conversations/conversation-a/messages');
+
+    facade.manualRefresh();
+    flushConversation();
+    expect(facade.page().draft).toBe('');
+    facade.retryMessage(failed.id);
+    http.expectNone('/api/conversations/conversation-a/messages');
+    facade.setDraft('Fresh authorized command');
+    facade.sendDraft();
+    const fresh = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(fresh.request.body.clientRequestId).not.toBe(first.request.body.clientRequestId);
+    fresh.flush(created('Fresh authorized command', fresh.request.body.clientRequestId));
+    expect(facade.page().sendState.status).toBe('sent');
+  });
+
+  it.each([false, true])('reauthorizes a failed-row legacy 400 before preserving retry identity with normalization %s', async (normalizeErrors) => {
+    await configure(true, normalizeErrors);
+    facade.setDraft('Rejected retry payload');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    const failed = facade.page().messages[0];
+    facade.retryMessage(failed.id);
+    const retry = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(retry.request.body.clientRequestId).toBe(first.request.body.clientRequestId);
+    retry.flush({}, { status: 400, statusText: 'Rejected' });
+    expect(facade.page().status).toBe('loading');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    http.expectNone('/api/conversations/conversation-a/messages');
+    flushConversation();
+    await vi.waitFor(() => expect(facade.page().sendState.status).toBe('failed'));
+    expect(facade.page().draft).toBe('Rejected retry payload');
+    facade.sendDraft();
+    const fresh = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(fresh.request.body.clientRequestId).toBe(first.request.body.clientRequestId);
+    fresh.flush(created('Rejected retry payload', fresh.request.body.clientRequestId));
+    expect(facade.page().sendState.status).toBe('sent');
+    expect(facade.page().messages).toHaveLength(1);
+    expect(facade.page().draft).toBe('');
   });
 
   it('cancels legacy-400 revalidation when the selected conversation changes', async () => {
