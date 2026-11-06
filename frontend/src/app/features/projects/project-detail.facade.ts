@@ -1,7 +1,7 @@
 import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
 import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, projectFeedbackError, normalizeProjectFeedbackError, projectPriorityFeedback } from './project-feedback';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
+import { effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { catchError, EMPTY, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
@@ -146,6 +146,7 @@ export class ProjectDetailFacade {
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly state = signal<ProjectDetailViewModel>(this.loading());
   private projectId: string | null = null;
+  private initialLoadWorkspaceId: string | null = null;
   private projectOperational = false;
   private realtimeCleanups: (() => void)[] = [];
   private refreshPending = false;
@@ -179,6 +180,14 @@ export class ProjectDetailFacade {
   private includeOlderCompleted = false;
 
   constructor() {
+    effect(() => {
+      const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+      const projectId = this.projectId;
+      // A direct route can start before initial Workspace hydration. Reauthorize
+      // its intent with a fresh request once the first selection is available.
+      if (workspaceId && projectId && this.initialLoadWorkspaceId === null)
+        {untracked(() => this.load(projectId));}
+    });
     this.realtime.durableEvents$.subscribe((event) => this.handleRealtimeEvent(event));
     this.realtime.registerProtectedStateClearer?.(
       PROJECT_REALTIME_OWNER,
@@ -215,6 +224,7 @@ export class ProjectDetailFacade {
     this.scheduleCommandInFlight = false;
     const authorizationGeneration = this.authorizationGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    this.initialLoadWorkspaceId = workspaceId;
     const loadIsCurrent = () =>
       this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;

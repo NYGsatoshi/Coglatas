@@ -118,4 +118,50 @@ describe('ProjectDetailFacade initial response scope', () => {
     expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
     http.expectNone(() => true);
   });
+
+  it.each(['active', 'draft'] as const)(
+    'reauthorizes a cold %s route after initial Workspace hydration',
+    (kind) => {
+      workspace.clearWorkspace();
+      facade.load('project-1');
+      const old = http.expectOne('/api/projects/project-1');
+      workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Hydrated workspace' });
+      old.flush(kind === 'active' ? active : draft);
+      expect(facade.view().project).toBeUndefined();
+      expect(history.touchProject).not.toHaveBeenCalled();
+      http.expectNone(() => true);
+
+      TestBed.tick();
+      const fresh = http.expectOne('/api/projects/project-1');
+      fresh.flush(kind === 'active' ? active : draft);
+      if (kind === 'active') {
+        http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+        http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+        http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+        http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      }
+      expect(facade.view().project?.id).toBe('project-1');
+      expect(facade.view().status).toBe('ready');
+      expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+      http.expectNone(() => true);
+    },
+  );
+
+  it('uses the fresh authorization denial after initial Workspace hydration', () => {
+    workspace.clearWorkspace();
+    facade.load('project-1');
+    const old = http.expectOne('/api/projects/project-1');
+    workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Hydrated workspace' });
+    old.flush({ message: 'Previous request denied' }, { status: 401, statusText: 'Unauthorized' });
+    expect(facade.view().status).toBe('loading');
+
+    TestBed.tick();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Current request denied' }, { status: 403, statusText: 'Forbidden' },
+    );
+    expect(facade.view().status).toBe('permissionDenied');
+    expect(facade.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+    http.expectNone(() => true);
+  });
 });
