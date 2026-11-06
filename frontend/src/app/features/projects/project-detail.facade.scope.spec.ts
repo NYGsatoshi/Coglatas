@@ -248,6 +248,14 @@ describe('ProjectDetailFacade initial response scope', () => {
     expect(forbiddenRetry).toHaveLength(0);
     expect(facade.view().schedule.snapshot).toBeNull();
 
+    // Current denial restores navigation only through fresh parent authority.
+    // Closing the editor and queued data events must not retry the Gantt read.
+    http.expectOne('/api/projects/project-1').flush(active); finishCollections();
+    expect(facade.view().status).toBe('ready');
+    expect(facade.view().kanban.status).toBe('permissionDenied');
+    expect(facade.view().schedule.status).toBe('permissionDenied');
+    http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+
     events.next({ ...taskEvent, eventId: 'fresh-authority-event', eventType: 'Security.AuthorizationStateChanged.v1' });
     await Promise.resolve();
     http.expectOne('/api/projects/project-1').flush(active); finishCollections();

@@ -13,6 +13,7 @@ import {
 } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { WorkspaceSelectionFacade } from '../../core/workspace/workspace-selection.facade';
 import {
   CoglatasGanttDependency,
   CoglatasGanttEditIntent,
@@ -142,6 +143,7 @@ export class ProjectDetailFacade {
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
+  private readonly workspaceSelection = inject(WorkspaceSelectionFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly state = signal<ProjectDetailViewModel>(this.loading());
@@ -201,6 +203,14 @@ export class ProjectDetailFacade {
 
   private rawView(): ProjectDetailViewModel {
     const current = this.state();
+    const selection = this.workspaceSelection.selection();
+    if (this.projectId && this.initialLoadWorkspaceId === null && !this.activeWorkspace.activeWorkspace() &&
+        selection.status !== 'loading') {
+      // A null-scope response cannot authorize the route. End the spinner when
+      // discovery settles, retaining mounted intent for a later real selection.
+      return { ...this.loading(), status: 'error', message: this.i18n.translate(
+        selection.status === 'selectionRequired' ? 'topBar.selectWorkspace' : 'topBar.workspaceUnavailable') };
+    }
     return {
       ...current,
       ...projectFeedbackField("taskListFeedback", this.taskListRefreshFeedback),
@@ -1569,7 +1579,7 @@ export class ProjectDetailFacade {
 
   private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
     const projectId = this.projectId;
-    if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
+    if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (this.scheduleInteractionActive || this.scheduleCommandInFlight) {
       const current = this.state();
       this.state.set({
@@ -1632,8 +1642,9 @@ export class ProjectDetailFacade {
       if (result.kind === 'error') {
         const failure = this.failure(result.error);
         if (failure.status === 'permissionDenied') {
-          this.clearProtectedProjectionsForDeniedSubscription();
-          this.state.set({ ...failure, schedule: this.scheduleFailure(result.error, null) });
+          this.handleInitialProjectionDenial(result.error, () =>
+            this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
           return;
         }
       }
@@ -1818,7 +1829,7 @@ export class ProjectDetailFacade {
 
   private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
     const projectId = this.projectId;
-    if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
+    if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (!this.flags.kanbanV1Enabled()) {
       const current = this.state();
       this.state.set({ ...current, kanban: this.disabledKanban() });
@@ -2047,8 +2058,12 @@ export class ProjectDetailFacade {
     isCurrent?: () => boolean
   ): void {
     const loadGeneration = this.loadGeneration;
-    const requestIsCurrent = isCurrent ?? (() =>
-      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration));
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    // Catch-ups and Project events must obey the same live scope boundary as
+    // the initial route, including before dispatch and after each HTTP stage.
+    const requestIsCurrent = () => workspaceId !== null &&
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && (isCurrent?.() ?? true);
     if (!requestIsCurrent()) {return;}
     const taskListRequestGeneration = ++this.taskListRequestGeneration;
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
