@@ -257,6 +257,22 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     });
   }
 
+  it('retains the first-load error when no later authorized view has recovered', async () => {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush(active);
+    const tasks = http.expectOne('/api/projects/project-1/tasks');
+    http.expectOne('/api/projects/project-1/kanban');
+    http.expectOne('/api/projects/project-1/gantt');
+    http.expectOne('/api/projects/project-1/workload');
+    http.expectOne('/api/projects/project-1/members');
+    tasks.flush({ message: 'Initial Task load unavailable' }, { status: 503, statusText: 'Unavailable' });
+    expect(detail.view().status).toBe('error');
+    expect(detail.view().project).toBeNull();
+    expect(detail.view().kanban.snapshot).toBeNull();
+  });
+
   it('reconciles a late successful move after a same-Project remount using fresh reads instead of the old response', async () => {
     await mountBoard(); moveFirstCard();
     const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');

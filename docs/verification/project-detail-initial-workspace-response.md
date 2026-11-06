@@ -57,6 +57,11 @@ Successful initial Board mapping has no presentation side effects: only the
 request that still owns Board state may apply its selected filters. A late old
 move queues reconciliation behind a newer fallback move even while the initial
 join remains pending; it cannot restart that load or release the newer lock.
+A non-definitive initial join failure also retains a later ready fallback view,
+including its current move lock and queued reconciliation. This covers either
+Task or workload failure followed by current move success or failure. Without
+a later authorized ready view, initial failure presentation remains unchanged;
+definitive current 401/403 continues to clear protected generations.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
