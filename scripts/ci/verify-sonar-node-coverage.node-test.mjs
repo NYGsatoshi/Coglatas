@@ -73,7 +73,8 @@ await test('native mapping repairs actual Playwright transforms while retaining 
   assertOwned(); t.after(() => { assertOwned(); rmSync(directory, { recursive: true, force: true }); });
   const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
   // Keep both original transform modes as a negative/positive mapping control.
-  // This nested control has no NODE_V8_COVERAGE and cannot enter the producer's raw input.
+  // An explicit empty value prevents Node from propagating the producer's raw directory.
+  environment.NODE_V8_COVERAGE = '';
   environment.COGLATAS_TEST_FORCE_MJS_TRANSFORM = '1';
   const execute = mapped => {
     const output = join(directory, mapped ? 'mapped.lcov' : 'raw.lcov');

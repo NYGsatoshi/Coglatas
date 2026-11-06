@@ -19,8 +19,13 @@ No actual browser acceptance configuration or product module changes.
 
 The existing native-mapping regression deliberately retains both transformed
 modes using `COGLATAS_TEST_FORCE_MJS_TRANSFORM=1` only in its nested Thread
-fixture invocation. That control already removes `NODE_V8_COVERAGE`, so its
-intentional invalid-coordinate report cannot contaminate producer raw input.
+fixture invocation. That control explicitly sets `NODE_V8_COVERAGE` to an empty
+string, which prevents Node's automatic propagation of the producer directory
+([Node CLI contract](https://nodejs.org/docs/latest-v24.x/api/cli.html#node_v8_coveragedir)).
+Deleting the property alone still propagated the original directory in the first
+expanded execution; the six-source guard rejected those transformed records.
+The explicit empty value isolates that intentional invalid-coordinate report
+from producer raw input while preserving its own native LCOV execution.
 Its original undefined-coordinate rejection, mapped report validation, source
 retention and covered/uncovered branch assertions remain unchanged. Ordinary
 Thread controls use native MJS; the six-source guard rejects transformed input.
