@@ -247,6 +247,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectNone('/api/projects/project-1/gantt');
     expect(detail.view().schedule.reconciliationQueued).toBe(true);
     currentRead.flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    await settle();
     http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 38 });
     expect(detail.view().schedule.snapshot?.projectVersion).toBe(38);
     http.expectNone('/api/projects/project-1/gantt');
