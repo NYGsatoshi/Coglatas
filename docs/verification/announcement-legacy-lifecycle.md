@@ -1,5 +1,11 @@
 # Legacy Announcement service contract tests
 
+Current-source independent inspection6674828994 found no blocking regression
+and identified a reader-binding assertion gap. The list projection cases now
+also assert the Actor and CancellationToken passed to the read-ID query,
+retaining the existing requested-ID and projection assertions. Product sources
+and all earlier assertions remain unchanged.
+
 `AnnouncementLegacyLifecycleContractTests` exercises the existing
 `IAnnouncementService` implementation used by `AnnouncementsController`.
 It complements the separate Analytics, audience and Attachment service suites.

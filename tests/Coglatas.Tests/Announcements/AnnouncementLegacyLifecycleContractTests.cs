@@ -168,6 +168,8 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         Assert.Equal(fixture.Token, call.Arguments[3]);
         Assert.Equal([fixture.Announcement.Id],
             Assert.IsAssignableFrom<IEnumerable<Guid>>(fixture.Dependencies.Calls[^1].Arguments[1]));
+        Assert.Equal(fixture.ActorId, fixture.Dependencies.Calls[^1].Arguments[0]);
+        Assert.Equal(fixture.Token, fixture.Dependencies.Calls[^1].Arguments[2]);
         fixture.Dependencies.VerifyComplete();
     }
 
