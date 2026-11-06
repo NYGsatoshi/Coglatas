@@ -19,6 +19,13 @@ that optional storage caused the hosted failure. Public pilot status is NO_GO.
 
 Last WPC creation remediation audit: 2026-08-24.
 
+A separate conversation-create dialog loss was reproduced with real Angular
+lifecycle and mocked HTTP: same-scope routine inbox loading discarded the open
+dialog. The repair retains local dialog intent while discarding old recipient
+identities and pending UI work; hard boundaries and denial still close it. See
+[the bounded contract](verification/direct-dialog-routine-catchup.md). This does
+not establish the cause of the historical MSG-01 timeout in `41577374340/1`.
+
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
 ## SEC-ARCH coverage and owner gates remain open

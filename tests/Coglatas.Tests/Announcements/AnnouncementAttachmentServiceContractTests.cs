@@ -173,6 +173,7 @@ public sealed class AnnouncementAttachmentServiceContractTests
         Assert.Equal(3, fixture.Dependencies.Calls.Count(call => call.Method == "authorization.CanDownloadAttachment"));
     }
 
+    /// <summary>Preserves the repository exception and prevents owner resolution or metadata disclosure.</summary>
     [Fact]
     public async Task RepositoryFailurePropagatesWithoutResolvingOwnerOrIssuingMetadata()
     {
@@ -182,18 +183,19 @@ public sealed class AnnouncementAttachmentServiceContractTests
         fixture.Dependencies.Expect("files.GetAttachmentAsync", Task.FromException<Attachment?>(failure),
             [fixture.Attachment.Id, fixture.Token]);
 
-        Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ResolveAsync()));
+        Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(fixture.ResolveAsync));
 
         fixture.Dependencies.VerifyComplete();
         Assert.Equal(2, fixture.Dependencies.Calls.Count);
     }
 
+    /// <summary>Forwards completed cancellation to the feature gate before protected metadata is read.</summary>
     [Fact]
     public async Task CancellationReachesFeatureGateAndDoesNotReadMetadata()
     {
         using var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         fixture.Dependencies.Expect("features.RequireEnabledAsync", Task.FromCanceled<Result>(cancellation.Token),
             [FeatureKeys.FileSharing, cancellation.Token]);
 
@@ -217,12 +219,14 @@ public sealed class AnnouncementAttachmentServiceContractTests
         private readonly CancellationTokenSource _cancellation = new();
         public AnnouncementContractDependencies Dependencies { get; } = new();
         public CurrentTenantService Tenant { get; } = new();
-        public Guid TenantId { get; } = Guid.NewGuid();
+        /// <summary>Identifies the synthetic Tenant shared by the service scope and stored graph.</summary>
+        private Guid TenantId { get; } = Guid.NewGuid();
         public Guid WorkspaceId { get; } = Guid.NewGuid();
         public Guid ActorId { get; } = Guid.NewGuid();
         public CancellationToken Token => _cancellation.Token;
         public Attachment Attachment { get; }
-        public AnnouncementAttachmentService Service { get; }
+        /// <summary>Exposes the actual service through the contract used by its callers.</summary>
+        public IAnnouncementAttachmentService Service { get; }
 
         public Fixture()
         {
