@@ -237,6 +237,21 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().schedule.snapshot).not.toBeNull();
   });
 
+  it('does not let completed old Schedule cleanup release a newer refresh', async () => {
+    await mountBoard();
+    detail.retrySchedule(); const oldRead = http.expectOne('/api/projects/project-1/gantt');
+    detail.load('project-1'); flushBoard();
+    detail.retrySchedule(); const currentRead = http.expectOne('/api/projects/project-1/gantt');
+    oldRead.flush({ ...ganttSnapshotDto(), projectVersion: 99 });
+    detail.retrySchedule();
+    http.expectNone('/api/projects/project-1/gantt');
+    expect(detail.view().schedule.reconciliationQueued).toBe(true);
+    currentRead.flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 38 });
+    expect(detail.view().schedule.snapshot?.projectVersion).toBe(38);
+    http.expectNone('/api/projects/project-1/gantt');
+  });
+
   for (const denial of [401, 403]) {
     it.each([403, 503])(`keeps current Gantt ${denial} redacted when fresh parent authority returns %s`, async (status) => {
       await mountBoard(); detail.retrySchedule();

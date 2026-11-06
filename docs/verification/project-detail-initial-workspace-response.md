@@ -172,3 +172,11 @@ require parent 200 and the final collection before either snapshot is restored.
 The original 56 facade callback bodies, 61 expanded assertions, 23 page controls,
 and original browser assertions remain unchanged. Earlier serial-only and
 replayed-false implementation failures are retained; they are not passing runs.
+
+An additional review found that a discarded successful Schedule response could
+complete without releasing its in-flight owner after parent 503. Four clean
+controls failed with the other 210 passing. Generation-owned finalization now
+releases the completed refresh without retrying denied state. Both response
+orders must recover on later authorized reconnect and permit explicit Schedule
+retry. A separate control holds a newer refresh while an older response completes:
+old cleanup must not release that newer owner or bypass its queued refresh.
