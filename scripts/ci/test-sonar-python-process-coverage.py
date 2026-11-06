@@ -137,6 +137,15 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/quality/reviewed_qodana_correspondence.py',
             ROOT.as_posix() + '/scripts/ci/qodana-packets/verify.py',
             ROOT.as_posix() + '/scripts/ci/qodana-packets/r2_verify.py',
+            ROOT.as_posix() + '/scripts/ci/nuget_dependency_snapshot.py',
+            ROOT.as_posix() + '/scripts/ci/audit_sbom_component_inventory.py',
+            ROOT.as_posix() + '/scripts/ci/verify-mvp-a-final-checks.py',
+            ROOT.as_posix() + '/scripts/ci/validate-functional-quarantine.py',
+            ROOT.as_posix() + '/scripts/ci/finalize-functional-lane.py',
+            ROOT.as_posix() + '/scripts/performance/api_k6.py',
+            ROOT.as_posix() + '/scripts/performance/api_diagnostics.py',
+            ROOT.as_posix() + '/scripts/performance/common.py',
+            ROOT.as_posix() + '/scripts/performance/environment_class.py',
         })
 
 
