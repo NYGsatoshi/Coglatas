@@ -58,6 +58,20 @@ public sealed class TaskDeadlineDigestAdminServiceTests
     }
 
     [Fact]
+    public async Task RestartRejectsNullRequestBeforeDelegation()
+    {
+        var fixture = Fixture.Create(SystemRole.SystemAdmin);
+
+        var result = await fixture.Service.RestartTaskDeadlineDigestAsync(Guid.NewGuid(), null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("A bounded digest restart reason is required.", result.Error);
+        Assert.Equal(0, fixture.Digests.RestartCalls);
+        Assert.Equal(0, fixture.UnitOfWork.SaveCalls);
+        Assert.Equal(0, fixture.Diagnostics.Snapshot().OperatorRestarts);
+    }
+
+    [Fact]
     public async Task RestartRejectsReasonLongerThanFiveHundredCharacters()
     {
         var fixture = Fixture.Create(SystemRole.SystemAdmin);
