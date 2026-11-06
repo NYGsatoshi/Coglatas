@@ -215,6 +215,11 @@ jobs:
             scripts/ci/test_verify_sbom_vulnerability_gate.py \
             scripts/ci/test_verify_sbom.py \
             scripts/ci/test_verify_grype_sbom_source.py \
+            tests/ci/test_qodana_sarif_parity.py \
+            tests/ci/test_qodana_artifact_provenance.py \
+            tests/ci/test_qodana_cloud_send_preflight.py \
+            tests/ci/test_qodana_shadow_signature.py \
+            tests/ci/test_qodana_signed_subject.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
             scripts/ci/test_sec17_deep_execution.py \
