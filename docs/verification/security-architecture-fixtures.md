@@ -1,5 +1,16 @@
 # SEC-ARCH isolated fixture status
 
+The local runtime environment fingerprint includes the inherited
+`DOTNET_PROCESSOR_COUNT` setting as `dotnetExecutionProfile.requestedProcessorCountOverride`.
+Unset is explicitly null; a configured value must be a positive decimal Int32.
+Only this non-secret setting is recorded, never the process environment. A
+constrained run and an unset run must not share the same declared environment
+fingerprint. This records the requested override; it does not measure effective
+CPU quota, thread-pool concurrency, hardware isolation or numerical capacity.
+Older reports omit this setting and cannot establish that equivalence. Keep
+failed/unverified reports and label any separate constrained experiment; this
+change does not convert earlier failures to PASS or activate security gates.
+
 Tracks #1144–#1152 and RLS children #1156–#1158. **PRE-AVALONIA SEC-ARCH: BLOCKED.** The initial formal mapping, complete policy/role approval, product RLS activation, full adapter coverage and trusted exact-candidate qualification remain outstanding. This file contains only reviewed public status and synthetic test instructions; the detailed mapping, table classification proposal and defense design remain private.
 
 ## Implemented verification
