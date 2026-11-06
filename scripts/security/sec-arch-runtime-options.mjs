@@ -3,6 +3,8 @@ import { mkdir, realpath } from 'node:fs/promises';
 import { fixtureArguments } from './sec-arch-kafka-acls.mjs';
 
 export function dotnetExecutionProfile(environment) {
+  if (environment.COMPlus_PROCESSOR_COUNT !== undefined)
+    throw new Error('Unset legacy COMPlus_PROCESSOR_COUNT before recording a runtime environment');
   const value = environment.DOTNET_PROCESSOR_COUNT;
   if (value === undefined) return { requestedProcessorCountOverride: null };
   // Record only this explicit non-secret control, never the process environment.
