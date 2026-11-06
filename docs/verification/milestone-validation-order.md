@@ -24,6 +24,13 @@ returned and tracked values, version, audit identity, invalidation and save
 counts. Existing Project test bodies and assertions remain unchanged; the
 original class is made partial to share its established fixture.
 
+Independent source review identified a useful additional accepted-input
+boundary: an initially undated Milestone receives its date and becomes active
+or completed in the same request. Two further controls cover this boundary,
+including retained description/order, trimmed title, returned values, version
+and effect counts. The source set now has 13 new cases; its fresh owning result
+must be recorded separately from the earlier 119-case source below.
+
 At fixed-source commit `d0c936ff1ebc6e2c76fa24d5e06493944472d431`, the owning
 ProjectService cohort passed 119/119 with no failure or skip: 108 existing cases
 and 11 new cases. Original log SHA256:

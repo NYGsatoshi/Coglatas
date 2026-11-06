@@ -137,4 +137,43 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
     }
+
+    [Theory]
+    [InlineData(MilestoneStatus.InProgress)]
+    [InlineData(MilestoneStatus.Completed)]
+    public async Task UndatedMilestoneCanReceiveDateAndProgressInSameUpdate(MilestoneStatus status)
+    {
+        var fixture = ProjectFixture.Create();
+        var manager = fixture.AddUser();
+        fixture.Current.UserIdValue = manager.Id;
+        fixture.AddProjectMember(manager.Id, ProjectRole.Manager);
+        var milestone = fixture.AddMilestone("Original title", 7);
+        milestone.Description = "Retained description";
+        var dueDate = new DateOnly(2026, 11, 8);
+
+        var result = await fixture.Service.UpdateMilestoneAsync(
+            milestone.Id,
+            new UpdateMilestoneRequest("  Updated title  ", null, dueDate, status, null, milestone.VersionNo));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Updated title", milestone.Name);
+        Assert.Equal("Retained description", milestone.Description);
+        Assert.Equal(dueDate, milestone.DueDate);
+        Assert.Equal(status, milestone.Status);
+        Assert.Equal(7, milestone.SortOrder);
+        Assert.Equal(2, milestone.VersionNo);
+        Assert.NotNull(result.Value);
+        Assert.Equal(milestone.Name, result.Value.Title);
+        Assert.Equal(dueDate, result.Value.DueDate);
+        Assert.Equal(status, result.Value.Status);
+        Assert.Equal(2, result.Value.Version);
+        var entry = Assert.Single(fixture.Audit.Entries);
+        Assert.Equal(manager.Id, entry.ActorUserId);
+        Assert.Equal("MilestoneUpdated", entry.Action);
+        Assert.Equal(milestone.Id, entry.EntityId);
+        Assert.Equal(1, fixture.Invalidations.ProjectChangedCount);
+        Assert.Equal(0, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
+    }
 }
