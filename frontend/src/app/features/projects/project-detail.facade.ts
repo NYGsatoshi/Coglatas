@@ -1017,8 +1017,6 @@ export class ProjectDetailFacade {
     const projectId = this.projectId;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
-    const presentationSwimlane = this.selectedSwimlane ?? snapshot.selectedSwimlane;
-    const presentationIncludesOlderCompleted = this.includeOlderCompleted;
     const rollbackSnapshot = snapshot;
     const optimistic = this.optimisticMove(snapshot, authoritativeCard, intent.targetStatus, intent.targetBeforeItemId, intent.targetAfterItemId);
     this.state.set({
@@ -1056,6 +1054,8 @@ export class ProjectDetailFacade {
         this.moveInFlight = false;
         const latest = this.state();
         if (result.kind === 'success') {
+          const presentationSwimlane = this.selectedSwimlane ?? snapshot.selectedSwimlane;
+          const presentationIncludesOlderCompleted = this.includeOlderCompleted;
           const warning = result.value.warnings.find((item) => item.code === 'KANBAN_WIP_LIMIT_EXCEEDED');
           const feedback = warning ? projectFeedbackText("projectFeedback.projectDetail.moveSaved", { value0: projectFeedbackValue(warning, "message") }) : projectFeedbackText("projectFeedback.projectDetail.moveSaved2");
           const presentationRefetchRequired =
@@ -1761,7 +1761,7 @@ export class ProjectDetailFacade {
       this.state.set({ ...current, kanban: this.disabledKanban() });
       return;
     }
-    if (!force && (this.interactionActive || this.moveInFlight)) {
+    if (this.moveInFlight || (!force && this.interactionActive)) {
       const current = this.state();
       this.state.set({
         ...current,

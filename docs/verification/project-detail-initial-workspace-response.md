@@ -44,6 +44,9 @@ current move's busy state or replace its successful board. A definitive board
 401/403 still clears current protected generations before the refresh-order
 check, provided Project/load/authorization/Workspace ownership remains current.
 Already dispatched reads are retained but cannot restore state after denial.
+Explicit Refresh and presentation changes also queue while a move is pending.
+The resulting current-authority read preserves the latest selected presentation
+and runs after the move succeeds or fails, never across its busy interval.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
