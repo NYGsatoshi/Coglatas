@@ -1938,6 +1938,9 @@ export class ProjectDetailFacade {
       return;
     }
 
+    // Ordinary data events cannot authorize projections cleared by a denial.
+    // Explicit authorization invalidation above retains its revalidation path.
+    if (this.state().status === 'permissionDenied') {return;}
     if (!this.projectOperational) {
       if (event.eventType === 'Projects.ProjectChanged.v1')
         {this.refreshDraftProjectAfterChange();}
@@ -1948,8 +1951,8 @@ export class ProjectDetailFacade {
       event.eventType === 'Projects.TaskChanged.v1' ||
       event.eventType === 'Projects.TaskAssignmentChanged.v1' ||
       event.eventType === 'Projects.TaskWorkflowChanged.v1';
-    let refreshKanban = true;
-    let refreshSchedule = true;
+    let refreshKanban = this.state().kanban.status !== 'permissionDenied';
+    let refreshSchedule = this.state().schedule.status !== 'permissionDenied';
     if (event.eventType !== 'Projects.ProjectChanged.v1') {
       const taskId = text(event.payload['taskId']);
       const eventVersion = number(event.payload['taskVersion']);

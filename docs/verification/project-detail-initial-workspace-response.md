@@ -9,6 +9,11 @@ Project/load/authorization/Workspace ownership is checked before follow-up
 dispatch and application, so an old response cannot revive a replaced scope.
 Ten additional controls first failed on the previous implementation; the original
 browser assertions and original facade regression suite remain unchanged.
+Independent review additionally identified ordinary Realtime events restarting
+denied projections between fresh parent and collection responses. Eight controls
+reproduce that ordering for Board/Gantt, 401/403 and Task/Project events. Ordinary
+events retain denial both during and after navigation recovery; explicit
+authorization invalidation still clears and revalidates operational projections.
 
 The initial detail load captures the selected Workspace identity with its
 existing Project/load/authorization generations. It rechecks that identity
