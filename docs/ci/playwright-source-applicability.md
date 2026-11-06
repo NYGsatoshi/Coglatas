@@ -56,7 +56,11 @@ It emits a bounded source-only envelope with:
 - Per-case hashed ID, fixed Chromium project classification, `RUN`,
   `DECLARATION_SKIP` or `CONDITIONAL_SKIP`, and a source-binding digest.
 
-Raw titles, reasons, paths, helper names, bodies and diagnostics are not emitted.
+The sanitized sidecar emits no raw titles, reasons, paths, helper names, bodies or
+diagnostics. This guarantee does not cover the Playwright CLI: configuration or
+startup errors can print paths or input values before the reporter starts. Capture
+CLI stdout/stderr privately and sanitize it before any publication; never publish
+the raw CLI stream as sidecar evidence.
 The reporter is not installed into current Playwright configurations or workflows.
 All configured selection, assertions, worker/retry budgets, timeouts, reporters,
 artifact ownership, permissions and scanners remain unchanged.
@@ -88,7 +92,8 @@ distinction and input artifact identities. A newly executed local composed trial
 does not establish GitHub Artifact authenticity.
 
 The collector also requires a completely clean checkout: `git status --porcelain`
-must be empty, including unrelated untracked files. Write qualification evidence
+with `--untracked-files=all` must be empty, including unrelated untracked files
+even when local `status.showUntrackedFiles=no` is configured. Write qualification evidence
 outside the checkout or to an ignored path. Ignored dependency installations do
 not replace Git source or producer verification.
 

@@ -156,6 +156,11 @@ export function buildApplicability({ sourceSha, files, baselineFiles, tests, con
     requiredCheckQualified: false, qualification: 'AST_SOURCE_APPLICABILITY_ONLY_NOT_EXECUTION' } };
 }
 
+/** Local status.showUntrackedFiles must never hide untracked qualification input. */
+export function verifyCleanCheckout(git) {
+  check(git(['status', '--porcelain', '--untracked-files=all']).trim() === '');
+}
+
 /** Read pinned Git blobs and compare the actual checkout; no input source is evaluated. */
 export function collectApplicability(root, sourceSha, config, suite) {
   check(/^[a-f0-9]{40}$/.test(sourceSha) && ts.version === '6.0.3');
@@ -164,7 +169,7 @@ export function collectApplicability(root, sourceSha, config, suite) {
     check(!result.error && !result.signal && result.status === 0); return result.stdout;
   };
   check(git(['rev-parse', 'HEAD']).trim() === sourceSha);
-  check(git(['status', '--porcelain']).trim() === '');
+  verifyCleanCheckout(git);
   const runner = 'tests/ui/run-angular-playwright.mjs';
   const selected = extractStaticSpecFiles(git(['show', sourceSha + ':' + runner]));
   const paths = [...selected, runner, 'playwright.config.ts'];

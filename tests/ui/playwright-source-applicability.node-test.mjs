@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { analyzeSpec, buildApplicability, verifySourceAnchors, collectApplicability } from '../../scripts/ci/playwright-source-applicability.mjs';
+import { analyzeSpec, buildApplicability, verifySourceAnchors, collectApplicability, verifyCleanCheckout } from '../../scripts/ci/playwright-source-applicability.mjs';
 
 const sourceSha = 'a'.repeat(40), configuredProjects = ['chromium-desktop', 'chromium-mobile'];
 const source = `import { test } from '@playwright/test';
@@ -88,6 +88,26 @@ test('unknown projects, unmatched locations, duplicate cases, source types and c
     mutate(value); assert.throws(() => buildApplicability(value), /SOURCE_APPLICABILITY_REFUSED/);
   }
   assert.throws(() => collectApplicability(process.cwd(), '0'.repeat(40), {}, {}), /SOURCE_APPLICABILITY_REFUSED/);
+});
+
+test('untracked qualification input rejects even when local Git configuration hides it', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'coglatas-untracked-control-'));
+  const git = args => {
+    const result = spawnSync('git', args, { cwd: directory, encoding: 'utf8', timeout: 15000, maxBuffer: 65536 });
+    assert.equal(result.status, 0, 'Git control failed; diagnostic output withheld');
+    return result.stdout;
+  };
+  try {
+    git(['init', '--quiet']);
+    git(['config', 'status.showUntrackedFiles', 'no']);
+    verifyCleanCheckout(git);
+    writeFileSync(path.join(directory, 'untracked-input.txt'), 'synthetic input');
+    assert.equal(git(['status', '--porcelain']), '');
+    assert.throws(() => verifyCleanCheckout(git), /SOURCE_APPLICABILITY_REFUSED/);
+  } finally {
+    assert.equal(path.dirname(path.resolve(directory)), path.resolve(tmpdir()));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('actual native SDK IDs bind to AST declaration, project and describe scope in list-only mode', () => {
