@@ -471,6 +471,8 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     await expect(list).toBeFocused();
     await page.keyboard.press('Home');
     expect(await list.evaluate(element => element.scrollTop)).toBe(0);
+    await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+    await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
     await page.keyboard.press('Shift+Tab');
     await expect(summary).toBeFocused();
     await testInfo.attach('mobile-home-geometry.json', { contentType: 'application/json', body: JSON.stringify(await panel.evaluate(element => {
