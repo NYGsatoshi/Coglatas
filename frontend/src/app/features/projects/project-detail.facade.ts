@@ -1637,7 +1637,11 @@ export class ProjectDetailFacade {
       switchMap((result) => parentAuthorization
         ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
         : of(result)),
-      catchError((error: unknown) => of({ kind: 'error' as const, error }))
+      catchError((error: unknown) => of({ kind: 'error' as const, error })),
+      finalize(() => {
+        if (requestGeneration === this.scheduleRequestGeneration)
+          {this.scheduleRefreshInFlight = false;}
+      })
     ).subscribe((result) => {
       if (requestGeneration === this.scheduleRequestGeneration)
         {this.scheduleRefreshInFlight = false;}
