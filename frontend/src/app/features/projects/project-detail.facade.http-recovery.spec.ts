@@ -257,6 +257,25 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().kanban.snapshot?.includesOlderCompleted).toBe(true);
   });
 
+  it.each([200, 404, 401, 403])('drains a queued refresh after a moved Task disappears and handles Board %s independently', async (status) => {
+    await mountBoard(); moveFirstCard();
+    const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.retryKanban();
+    http.expectNone((request) => request.url === '/api/projects/project-1/kanban');
+    currentMove.flush({ message: 'Task no longer available' }, { status: 404, statusText: 'Not Found' });
+    const reads = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    for (const request of reads) {
+      if (status === 200) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 9 } }));
+      else request.flush({ message: 'Board unavailable' }, { status, statusText: 'Unavailable' });
+    }
+    expect(reads).toHaveLength(1);
+    if (status === 200) expect(detail.view().kanban.snapshot?.boardVersion).toBe(9);
+    else {
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().kanban.status).toBe(status === 404 ? 'notFound' : 'permissionDenied');
+    }
+  });
+
   it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
     detail.load('project-1');
     const old = http.expectOne('/api/projects/project-1');
