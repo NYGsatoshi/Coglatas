@@ -169,6 +169,7 @@ export class ProjectDetailFacade {
   private activationNotice: ProjectActivationNotice | null = null;
   private scheduleRefreshPending = false;
   private scheduleRefreshInFlight = false;
+  private scheduleRefreshOwner: number | null = null;
   private scheduleRefreshAfterFlight = false;
   private scheduleRefreshAfterFlightFeedback: ProjectFeedbackString | undefined;
   private taskListRequestGeneration = 0;
@@ -1619,6 +1620,7 @@ export class ProjectDetailFacade {
     const loadGeneration = this.loadGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.scheduleRefreshInFlight = true;
+    this.scheduleRefreshOwner = requestGeneration;
     const current = this.state();
     this.state.set({
       ...current,
@@ -1639,12 +1641,16 @@ export class ProjectDetailFacade {
         : of(result)),
       catchError((error: unknown) => of({ kind: 'error' as const, error })),
       finalize(() => {
-        if (requestGeneration === this.scheduleRequestGeneration)
-          {this.scheduleRefreshInFlight = false;}
+        if (requestGeneration === this.scheduleRefreshOwner) {
+          this.scheduleRefreshInFlight = false;
+          this.scheduleRefreshOwner = null;
+        }
       })
     ).subscribe((result) => {
-      if (requestGeneration === this.scheduleRequestGeneration)
-        {this.scheduleRefreshInFlight = false;}
+      if (requestGeneration === this.scheduleRefreshOwner) {
+        this.scheduleRefreshInFlight = false;
+        this.scheduleRefreshOwner = null;
+      }
       if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
           (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId) {
         this.scheduleFollowUpRefresh(projectId);
@@ -2103,7 +2109,6 @@ export class ProjectDetailFacade {
         if (!requestIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
-        this.projectOperational = record.isOperational === true;
         if (!record.isOperational)
           {return of({ kind: 'draft' as const, project });}
         return forkJoin({
