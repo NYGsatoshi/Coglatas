@@ -441,6 +441,10 @@ test.describe('Student Council Group DM mock frontend contract', () => {
 
   test('exposes the first complete member after Home through the mobile outer scrollport', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
+    await page.addInitScript(() => {
+      localStorage.setItem('coglatas.locale', 'ja');
+      localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+    });
     const control = await installGroupApi(page);
     control.manager = false; control.readOnly = true; control.longRoster = true;
     await page.goto(`/app/dm/${groupId}`);
