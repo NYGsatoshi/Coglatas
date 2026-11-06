@@ -92,7 +92,7 @@ void test('actual failed Playwright owner emits finite diagnostics without a PAS
     mkdirSync(join(directory, 'test-results'));
     writeFileSync(join(directory, 'test-results/host-sentinel'), 'host-owned');
     writeFileSync(join(directory, 'config.mjs'), `import mobile from ${JSON.stringify(config)}; export default { ...mobile, ...${JSON.stringify({
-      testDir: directory, testMatch: 'owner.spec.mjs', workers: 1, retries: 0,
+      build: { external: ['**/*.mjs'] }, testDir: directory, testMatch: 'owner.spec.mjs', workers: 1, retries: 0,
       ...(process.platform === 'win32' ? { outputDir: join(directory, 'runner-output') } : {}),
       reporter: [[reporter]], projects: [{ ...profile(), retries: 0 }],
     })}};`);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -26,6 +26,39 @@ await test('missing, duplicate, outside-root and untracked sources cannot qualif
 });
 await test('tracked test bodies remain outside the operational coverage scope', () => {
   assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', 'subject.node-test.mjs'), { ...options, tracked: new Set(['subject.node-test.mjs']) }));
+  for (const path of ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs']) {
+    assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', path), { ...options, tracked: new Set([path]) }));
+  }
+});
+await test('native LCOV source separators preserve operational counters and reject test bodies, traversal and duplicates', () => {
+  const source = 'scripts/security/zap-attribution.cjs';
+  const nativeRecord = record.replace('subject.mjs', join(...source.split('/')));
+  const settings = { ...options, tracked: new Set([source]) };
+  assert.deepEqual(validateNodeCoverage(nativeRecord, settings), { sourceFiles: 1, branches: 2, uncoveredBranches: 1 });
+  assert.throws(() => validateNodeCoverage(nativeRecord + nativeRecord, settings));
+  assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', join('..', 'outside.mjs')), settings));
+  for (const source of ['tests/ci/synthetic-trigger-catalog.postgres-test.mjs', 'scripts/security/zap-attribution.test.cjs']) {
+    assert.throws(() => validateNodeCoverage(record.replace('subject.mjs', join(...source.split('/'))), { ...options, tracked: new Set([source]) }));
+  }
+});
+await test('actual ZAP tests execute while native LCOV excludes only their body and raw V8 retains it', t => {
+  const directory = ownedDirectory(t, 'coglatas-zap-coverage-body-');
+  const output = join(directory, 'lcov.info'), raw = join(directory, 'raw'); mkdirSync(raw);
+  const environment = { ...process.env, NODE_V8_COVERAGE: raw }; delete environment.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, ['--enable-source-maps', '--test', '--experimental-test-coverage',
+    '--test-coverage-exclude=**/scripts/security/zap-attribution.test.cjs',
+    '--test-reporter=spec', '--test-reporter-destination=' + join(directory, 'tests.log'),
+    '--test-reporter=lcov', '--test-reporter-destination=' + output,
+    'scripts/security/zap-attribution.test.cjs'], { cwd: root, env: environment, encoding: 'utf8', timeout: 40000 });
+  assert.equal(result.status, 0);
+  const text = readFileSync(output, 'utf8');
+  assert.doesNotMatch(text, /SF:.*zap-attribution\.test\.cjs/);
+  assert.match(text.replaceAll('\\', '/'), /SF:scripts\/security\/zap-attribution\.cjs/);
+  assert.equal(validateNodeCoverage(text, { root }).sourceFiles, 1);
+  assert.match(text, /BRDA:[^\n]*,0(?:\r?\n|$)/);
+  const evidence = readdirSync(raw).filter(name => name.endsWith('.json')).flatMap(name => JSON.parse(readFileSync(join(raw, name))).result);
+  const bodies = evidence.filter(entry => entry.url.endsWith('/scripts/security/zap-attribution.test.cjs'));
+  assert.ok(bodies.length > 0 && bodies.some(entry => entry.functions.some(fn => fn.ranges.some(range => range.count > 0))));
 });
 await test('empty and truncated records cannot silently qualify', () => {
   for (const text of ['', record.replace('end_of_record\n', '')]) assert.throws(() => validateNodeCoverage(text, options));
@@ -39,13 +72,18 @@ await test('native mapping repairs actual Playwright transforms while retaining 
   const assertOwned = () => { assert.ok(directory.startsWith(tempRoot + sep)); assert.ok(directory.slice(tempRoot.length + 1).startsWith('coglatas-node-map-control-')); };
   assertOwned(); t.after(() => { assertOwned(); rmSync(directory, { recursive: true, force: true }); });
   const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
+  // Keep both original transform modes as a negative/positive mapping control.
+  // Explicit owned directories isolate both native reports from the producer's raw input.
+  environment.COGLATAS_TEST_FORCE_MJS_TRANSFORM = '1';
   const execute = mapped => {
     const output = join(directory, mapped ? 'mapped.lcov' : 'raw.lcov');
     const args = [...(mapped ? ['--enable-source-maps'] : []), '--test', '--experimental-test-coverage', '--test-coverage-exclude=**/*.node-test.mjs',
       '--test-coverage-exclude=' + join(tmpdir(), 'thread-secondary-reporter-*/**').replaceAll('\\', '/'),
       '--test-reporter=spec', '--test-reporter-destination=' + output + '.log', '--test-reporter=lcov', '--test-reporter-destination=' + output,
       'tests/functional/thread-probe-observation.node-test.mjs'];
-    const result = spawnSync(process.execPath, args, { cwd: root, env: environment, encoding: 'utf8', timeout: 40000 });
+    const result = spawnSync(process.execPath, args, { cwd: root,
+      env: { ...environment, NODE_V8_COVERAGE: join(directory, mapped ? 'mapped-v8' : 'raw-v8') },
+      encoding: 'utf8', timeout: 40000 });
     assert.equal(result.status, 0, 'The unchanged existing observer/reporter regressions must pass in both producer modes.');
     return readFileSync(output, 'utf8');
   };

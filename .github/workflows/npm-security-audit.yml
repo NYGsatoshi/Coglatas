@@ -49,6 +49,9 @@ jobs:
           node-version: "26"
           package-manager-cache: false
 
+      - name: Use repository npm version without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
       - name: Report Node toolchain
         run: |
           node --version
@@ -73,6 +76,23 @@ jobs:
             package_dir="$(dirname "$lockfile")"
             node scripts/ci/verify-npm-lockfile.mjs "$package_dir"
           done
+
+      - name: Verify every npm lockfile is installable without lifecycle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' lockfiles < <(
+            git ls-files -z -- '**/package-lock.json' 'package-lock.json'
+          )
+          test "${#lockfiles[@]}" -gt 0
+          for lockfile in "${lockfiles[@]}"; do
+            package_dir="$(dirname "$lockfile")"
+            echo "::group::npm lockfile consistency: $package_dir"
+            npm ci --prefix "$package_dir" --dry-run --ignore-scripts \
+              --no-audit --no-fund --engine-strict
+            echo "::endgroup::"
+          done
+          git diff --exit-code -- '**/package.json' '**/package-lock.json' package.json package-lock.json
 
       - name: Verify npm audit evidence rejection controls
         run: node --test scripts/ci/check-npm-audit-baseline.node-test.mjs

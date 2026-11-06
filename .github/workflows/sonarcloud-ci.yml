@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 75
     services:
       postgres:
-        image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # PostgreSQL 18.6
+        image: postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81 # PostgreSQL 18.6
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -209,6 +209,12 @@ jobs:
           for control in \
             scripts/ci/test-sonar-python-process-coverage.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
+            scripts/ci/test-required-pr-checks.py \
+            scripts/ci/test-publication-readiness.py \
+            scripts/ci/test_github_action_pins.py \
+            scripts/ci/test_verify_sbom_vulnerability_gate.py \
+            scripts/ci/test_verify_sbom.py \
+            scripts/ci/test_verify_grype_sbom_source.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
             scripts/ci/test_sec17_deep_execution.py \
@@ -218,11 +224,35 @@ jobs:
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
+            tests/ci/test_release_supply_chain.py \
+            tests/ci/test_release_main_security_evidence.py \
+            tests/ci/test_release_browser_evidence.py \
+            tests/ci/test_release_assurance_advisory.py \
+            tests/ci/test_performance_contract.py \
+            tests/ci/test_performance_comparator.py \
+            tests/ci/test_performance_comparator_hardening.py \
+            tests/ci/test_performance_db_campaign.py \
+            scripts/ci/test_specification_contract.py \
+            scripts/ci/test_specification_contract_check.py \
+            scripts/ci/test_sec_arch_http_accounting.py \
+            scripts/ci/test_sec_arch_signalr_accounting.py \
+            scripts/ci/test_sec_arch_worker_accounting.py \
+            scripts/ci/test_sec_arch_rls_matrix.py \
             scripts/ci/test-functional-diagnostics.py \
             scripts/ci/test-postgres-log-privacy.py \
             scripts/ci/test-functional-setup-failure-probe.py \
             tests/ci/test_security_zap_attribution.py \
-            tests/ci/test_performance_db_ci.py; do
+            tests/ci/test_performance_db_ci.py \
+            scripts/quality/test_qodana_reconciliation.py \
+            scripts/ci/qodana-packets/test_verify.py \
+            scripts/ci/qodana-packets/test_r2_verify.py \
+            scripts/ci/qodana-packets/test_r2_candidate.py \
+            scripts/ci/test-functional-evidence.py \
+            scripts/ci/test_nuget_dependency_snapshot.py \
+            scripts/ci/test_audit_sbom_component_inventory.py \
+            tests/ci/test_performance_api.py \
+            tests/ci/test_performance_api_diagnostics.py \
+            tests/ci/test_performance_api_collection.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
@@ -247,14 +277,20 @@ jobs:
       - name: Install pinned headless Chromium for existing Group entry controls
         run: node node_modules/@playwright/test/cli.js install --with-deps --only-shell chromium
 
+      - name: Prepare pinned isolated recovery PostgreSQL before analysis credentials
+        run: docker pull postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+
       - name: Measure existing Functional and roster Node controls before credentials
         env:
           NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-node/raw
+          COGLATAS_RI_NATIVE_TEST: '1'
         run: |
           mkdir -p artifacts/sonar-node
           coverage_temp_root="$(node -p 'require("node:os").tmpdir()')"
           node --enable-source-maps --test --experimental-test-coverage \
             --test-coverage-exclude='**/*.node-test.mjs' \
+            --test-coverage-exclude='**/tests/ci/synthetic-trigger-catalog.postgres-test.mjs' \
+            --test-coverage-exclude='**/scripts/security/zap-attribution.test.cjs' \
             --test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs' \
             --test-coverage-exclude="$coverage_temp_root/thread-secondary-reporter-*/**" \
             --test-coverage-exclude="$coverage_temp_root/coglatas-thread-matrix-*/**" \
@@ -269,6 +305,12 @@ jobs:
             tests/functional/thread-probe-observation.node-test.mjs \
             tests/functional/private-playwright-output.node-test.mjs \
             tests/ui/readonly-roster-runner.node-test.mjs \
+            tests/ui/readonly-roster-fixture.node-test.mjs \
+            tests/ui/actor-replacement-runner.node-test.mjs \
+            tests/ui/prepare-host-artifacts.node-test.mjs \
+            tests/ui/real-backend-smoke-compose-helpers.node-test.mjs \
+            tests/ui/student-council-pilot-origin-guard.node-test.mjs \
+            tests/ui/webkit-pinned-provisioning.node-test.mjs \
             tests/ui/mobile-mvp0-profile.node-test.mjs \
             tests/ui/mobile-mvp0-runner.node-test.mjs \
             tests/diagnostics/thread-matrix.node-test.mjs \
@@ -276,18 +318,86 @@ jobs:
             tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
             scripts/ci/node-toolchain-qualification.node-test.mjs \
+            tests/ci/synthetic-logical-recovery.node-test.mjs \
+            tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs \
+            tests/ci/synthetic-logical-recovery-probe.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.postgres-test.mjs \
+            tests/ci/synthetic-restore-list.node-test.mjs \
             tests/ci/test_restore_data_dependency_advisor.mjs \
             tests/ui/channel-dialog-serializer-coverage.node-test.mjs \
+            scripts/security/zap-attribution.test.cjs \
             scripts/ci/verify-sonar-node-coverage.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
           node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info
+          env -u NODE_V8_COVERAGE node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { execFileSync } from 'node:child_process';
+          import { createHash } from 'node:crypto';
+          import { readdirSync, realpathSync, writeFileSync } from 'node:fs';
+          import { pathToFileURL } from 'node:url';
+          import { resolve } from 'node:path';
+          import { readOwnedRepositoryText, trustedGitExecutable } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd()), sha = process.env.GITHUB_SHA;
+          assert.match(sha ?? '', /^[a-f0-9]{40}$/);
+          const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+          const paths = ['tests/functional/fixtures/functional-diagnostics.mjs',
+            'tests/functional/fixtures/messaging-observation.mjs',
+            'tests/functional/helpers/thread-probe-diagnostics.mjs',
+            'tests/functional/helpers/thread-probe-observation.mjs',
+            'tests/ui/helpers/group-keyboard-observation.mjs',
+            'tests/ui/helpers/search-drawer-observation.mjs'];
+          const subjects = new Map(paths.map(path => {
+            const source = readOwnedRepositoryText(root, path);
+            const original = execFileSync(trustedGitExecutable(), ['show', sha + ':' + path]);
+            assert.ok(original.equals(Buffer.from(source)), 'Source differs from Git: ' + path);
+            return [pathToFileURL(resolve(root, path)).href,
+              { path, sourceSha256: digest(original), utf16Length: source.length, records: 0 }];
+          }));
+          const originals = [];
+          for (const name of readdirSync('artifacts/sonar-node/raw').filter(name => /^coverage-.*\.json$/.test(name))) {
+            const text = readOwnedRepositoryText(root, 'artifacts/sonar-node/raw/' + name);
+            const raw = JSON.parse(text);
+            originals.push({ name, sha256: digest(text) });
+            for (const script of raw.result) {
+              const subject = subjects.get(script.url);
+              if (!subject) continue;
+              assert.ok(!raw['source-map-cache']?.[script.url]?.data,
+                'Functional helper was transpiled: ' + subject.path);
+              const ranges = script.functions.flatMap(fn => fn.ranges);
+              assert.ok(ranges.length > 0);
+              for (const range of ranges) {
+                assert.ok(Number.isInteger(range.startOffset) && Number.isInteger(range.endOffset) &&
+                  range.startOffset >= 0 && range.startOffset <= range.endOffset && range.endOffset <= subject.utf16Length,
+                  'Raw range differs from Git: ' + subject.path);
+                assert.ok(Number.isSafeInteger(range.count) && range.count >= 0, 'Invalid native hit count: ' + subject.path);
+              }
+              const end = Math.max(...ranges.map(range => range.endOffset));
+              assert.equal(end, subject.utf16Length, 'Raw coordinates differ from Git: ' + subject.path);
+              subject.records++;
+            }
+          }
+          assert.ok(originals.length > 0);
+          for (const subject of subjects.values()) assert.ok(subject.records > 0, 'Missing native source: ' + subject.path);
+          const report = readOwnedRepositoryText(root, 'artifacts/sonar-node/lcov.info');
+          const reported = new Set(report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
+            .map(row => pathToFileURL(resolve(root, row.slice(3))).href));
+          for (const [url, subject] of subjects) assert.ok(reported.has(url), 'Missing LCOV source: ' + subject.path);
+          writeFileSync('artifacts/sonar-node/representation.json', JSON.stringify({
+            sourceSha: sha, nodeVersion: process.version, reportSha256: digest(report),
+            subjects: [...subjects.values()], rawFiles: originals, originalBytesRewritten: false,
+          }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+          console.log('Functional helper native coordinates match Git: ' + subjects.size + ' subjects.');
+          JS
 
       - name: Retain measured Node regression coverage
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sonar-node-coverage
-          path: artifacts/sonar-node/lcov.info
+          path: |
+            artifacts/sonar-node/lcov.info
+            artifacts/sonar-node/representation.json
           if-no-files-found: error
           retention-days: 7
 
@@ -345,7 +455,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Measure existing source inventory and npm audit controls before credentials
+      - name: Measure existing operational contract controls before credentials
         env:
           NODE_V8_COVERAGE: ${{ github.workspace }}/artifacts/sonar-operational/raw
         run: |
@@ -354,10 +464,24 @@ jobs:
           node --enable-source-maps --test --experimental-test-coverage --test-concurrency=1 \
             --test-coverage-include='frontend/scripts/check-av-mig-source.mjs' \
             --test-coverage-include='scripts/ci/check-npm-audit-baseline.mjs' \
+            --test-coverage-include='scripts/ci/os-portability-contract.mjs' \
+            --test-coverage-include='scripts/ci/verify-os-portability-results.mjs' \
+            --test-coverage-include='scripts/ci/compat-critical-contract.mjs' \
+            --test-coverage-include='tests/ui/fixed-sha-evidence.mjs' \
+            --test-coverage-include='tests/ui/real-backend-authorization-frame.mjs' \
+            --test-coverage-include='scripts/security/sec-arch-runtime-options.mjs' \
+            --test-coverage-include='scripts/security/sec-arch-runtime-assemblies.mjs' \
+            --test-coverage-include='scripts/security/sec-arch-kafka-acls.mjs' \
             --test-reporter=spec --test-reporter-destination=stdout \
             --test-reporter=lcov --test-reporter-destination=artifacts/sonar-operational/lcov.info \
             frontend/scripts/av-mig-source.node-test.mjs \
-            scripts/ci/check-npm-audit-baseline.node-test.mjs
+            scripts/ci/check-npm-audit-baseline.node-test.mjs \
+            tests/ci/os-portability-contract.node-test.mjs \
+            tests/ui/compat-critical-contract.node-test.mjs \
+            tests/ui/fixed-sha-evidence.node-test.mjs \
+            tests/ui/real-backend-authorization-frame.node-test.mjs \
+            scripts/security/sec-arch-runtime-options.test.mjs \
+            scripts/security/sec-arch-kafka-acls.test.mjs
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { realpathSync } from 'node:fs';
@@ -369,8 +493,12 @@ jobs:
           assert.ok(Buffer.byteLength(text) <= 1024 * 1024);
           const checked = validateNodeCoverage(text);
           const sources = new Set(text.split(/\r?\n/).filter(row => row.startsWith('SF:')).map(row => identity(row.slice(3))));
-          assert.equal(checked.sourceFiles, 2); assert.equal(sources.size, 2);
-          for (const source of ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs']) assert.ok(sources.has(source));
+          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs',
+            'scripts/ci/os-portability-contract.mjs', 'scripts/ci/verify-os-portability-results.mjs',
+            'scripts/ci/compat-critical-contract.mjs', 'tests/ui/fixed-sha-evidence.mjs',
+            'tests/ui/real-backend-authorization-frame.mjs', 'scripts/security/sec-arch-runtime-options.mjs',
+            'scripts/security/sec-arch-runtime-assemblies.mjs', 'scripts/security/sec-arch-kafka-acls.mjs'];
+          assert.equal(checked.sourceFiles, paths.length); assert.deepEqual([...sources].sort(), [...paths].sort());
           for (const report of ['artifacts/sonar-node/lcov.info', 'artifacts/sonar-pilot-helper/lcov.info']) {
             const existing = readOwnedRepositoryText(root, report);
             validateNodeCoverage(existing);
@@ -399,12 +527,16 @@ jobs:
           import { pathToFileURL } from 'node:url';
           import { readOwnedRepositoryText, validateNodeCoverage } from './scripts/ci/verify-sonar-node-coverage.mjs';
           const root = realpathSync(process.cwd());
-          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs'];
+          const paths = ['frontend/scripts/check-av-mig-source.mjs', 'scripts/ci/check-npm-audit-baseline.mjs',
+            'scripts/ci/os-portability-contract.mjs', 'scripts/ci/verify-os-portability-results.mjs',
+            'scripts/ci/compat-critical-contract.mjs', 'tests/ui/fixed-sha-evidence.mjs',
+            'tests/ui/real-backend-authorization-frame.mjs', 'scripts/security/sec-arch-runtime-options.mjs',
+            'scripts/security/sec-arch-runtime-assemblies.mjs', 'scripts/security/sec-arch-kafka-acls.mjs'];
           const report = readOwnedRepositoryText(root, 'artifacts/sonar-operational/c8/lcov.info');
           const checked = validateNodeCoverage(report);
           const sources = report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
             .map(row => relative(root, resolve(root, row.slice(3))).replaceAll('\\', '/'));
-          assert.equal(checked.sourceFiles, 2); assert.deepEqual(sources.sort(), [...paths].sort());
+          assert.equal(checked.sourceFiles, paths.length); assert.deepEqual(sources.sort(), [...paths].sort());
           const originals = new Map(paths.map(path => [pathToFileURL(resolve(root, path)).href,
             { path, source: readFileSync(resolve(root, path), 'utf8'), scripts: [] }]));
           const rawFiles = readdirSync('artifacts/sonar-operational/raw').filter(name => /^coverage-.*\.json$/.test(name));
@@ -470,6 +602,16 @@ jobs:
         run: |
           npm --prefix frontend run test:coverage
           test -s frontend/coverage/frontend/lcov.info
+          sha256sum -- frontend/coverage/frontend/lcov.info
+
+      - name: Retain original frontend coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-frontend-coverage
+          path: frontend/coverage/frontend/lcov.info
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Begin pinned SonarCloud analysis
         shell: bash
