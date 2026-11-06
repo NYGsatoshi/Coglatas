@@ -6,13 +6,19 @@ empty `AuthorizationInvalidated` control to the affected connections. The new
 tests exercise the real registry and invalidator with strict SignalR dependency
 doubles. Production source and every existing test remain unchanged.
 
-Eleven native controls cover all five subscription types, multiple sessions and
+Twelve native controls cover all five subscription types, multiple sessions and
 connections, another User in the same Tenant and the same User in another Tenant,
 exact original group removal, per-subscription removal-before-notification order,
 empty control payloads and cancellation-token propagation. Unknown identities
 must have no effect. Repeated invalidation is quiet until a later registration.
 The asynchronous control holds group cleanup in progress and verifies that all
 target registry authority is already removed while other identities are retained.
+An additional mixed-type control requires simultaneous removal of Tenant, User,
+Workspace, Project and Conversation subscriptions on the same connection.
+The pending-cleanup test races entry against early invalidation completion with
+a bounded wait and releases the fake in `finally`, so a regression cannot hang
+until the CI job timeout. Tokens are captured as values rather than retaining a
+disposable source in callbacks; cancellation uses the asynchronous API.
 
 Group-removal failure, client-send failure and cancellation propagate without
 restoring removed registry entries. The tests preserve that current contract;

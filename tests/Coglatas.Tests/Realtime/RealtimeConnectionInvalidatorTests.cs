@@ -61,6 +61,33 @@ public sealed class RealtimeConnectionInvalidatorTests
         Assert.Empty(fixture.Hub.Trace);
     }
 
+    [Fact]
+    public async Task MixedSubscriptionTypesAreRemovedTogetherForTheSameUserConnection()
+    {
+        var fixture = new Fixture(RealtimeSubscriptionType.Project);
+        var mixed = new[] { RealtimeSubscriptionType.Tenant, RealtimeSubscriptionType.User,
+            RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Conversation }
+            .Select(type => new HubSubscription("connection-a", fixture.User, Guid.NewGuid(), fixture.Tenant,
+                type, type == RealtimeSubscriptionType.User ? fixture.User : type == RealtimeSubscriptionType.Tenant ? fixture.Tenant : Guid.NewGuid(),
+                $"synthetic-mixed-{type}", DateTimeOffset.UtcNow)).ToArray();
+        foreach (var item in mixed) Assert.True(fixture.Registry.TryAdd(item, 20));
+        fixture.Hub.GroupsRecorder.BeforeRemove = (_, _, _) =>
+        {
+            fixture.AssertScopeRemoved();
+            foreach (var item in mixed)
+            {
+                Assert.DoesNotContain(item, fixture.Registry.GetForTarget(item.TenantId, item.SubscriptionType, item.ResourceId));
+            }
+            return Task.CompletedTask;
+        };
+        await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User);
+        fixture.AssertScopeRemoved();
+        Assert.Equal(fixture.Targets.Concat(mixed).Select(item => (item.ConnectionId, item.CanonicalGroupName)).Order(),
+            fixture.Hub.GroupsRecorder.Removals.Order());
+        Assert.Equal(fixture.Targets.Concat(mixed).Select(item => item.ConnectionId).Order(),
+            fixture.Hub.ClientsRecorder.Sends.Select(item => item.Connection).Order());
+    }
+
     [Theory]
     [InlineData("remove")]
     [InlineData("send")]
@@ -124,9 +151,10 @@ public sealed class RealtimeConnectionInvalidatorTests
             await release.Task;
         };
         var invalidation = fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User);
-        await entered.Task;
         try
         {
+            var first = await Task.WhenAny(entered.Task, invalidation).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Same(entered.Task, first);
             fixture.AssertScopeRemoved();
             Assert.False(invalidation.IsCompleted);
             Assert.Empty(fixture.Hub.ClientsRecorder.Sends);
