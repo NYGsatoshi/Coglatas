@@ -1,0 +1,176 @@
+name: ProjectIDE artifact candidate parity
+
+on:
+  pull_request:
+    paths:
+      - src/Coglatas.Domain/ProjectIde/**
+      - global.json
+      - tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs
+      - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
+      - tests/ci/projectide-artifact-vectors.test.mjs
+      - tests/ci/projectide_artifact_inventory.py
+      - tests/ci/projectide_core_isolated.py
+      - tests/ci/projectide_integration_inventory.json
+      - .github/workflows/projectide-artifact-candidates.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-artifact-candidate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu:
+    name: Prototype artifact parity (ubuntu-latest)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.base_ref == 'projectide/integration-20261031' ||
+       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Set up independent hash runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - name: Set up inventory verifier
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Build with warnings as errors
+        run: dotnet build Coglatas.slnx -c Release -warnaserror
+      - name: Run complete ProjectIDE inventory
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj -c Release --no-build --filter FullyQualifiedName~ProjectIde --logger 'trx;LogFileName=projectide.trx' --results-directory candidate-evidence
+      - name: Run architecture boundaries
+        run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=architecture.trx' --results-directory candidate-evidence
+      - name: Check independent Node hash vectors
+        run: node --test tests/ci/projectide-artifact-vectors.test.mjs
+      - name: Reject missing failed skipped or empty test results
+        run: |
+          foreach ($name in @('projectide', 'architecture')) {
+            [xml]$report = Get-Content "candidate-evidence/$name.trx" -Raw
+            $counters = $report.TestRun.ResultSummary.Counters
+            $results = @($report.TestRun.Results.UnitTestResult)
+            if ($report.TestRun.ResultSummary.outcome -ne 'Completed' -or [int]$counters.total -le 0 -or
+                $counters.total -ne $counters.passed -or $results.Count -ne [int]$counters.total -or
+                @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
+              throw "Incomplete or unsuccessful $name inventory"
+            }
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
+                ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
+              throw "Retained $name inventory shrank"
+            }
+          }
+          git rev-parse HEAD | Set-Content candidate-evidence/candidate-sha.txt
+          Get-FileHash candidate-evidence/*.trx -Algorithm SHA256 | ForEach-Object {
+            @{ file = Split-Path $_.Path -Leaf; sha256 = $_.Hash.ToLowerInvariant() }
+          } | ConvertTo-Json | Set-Content candidate-evidence/trx-digests.json
+      - name: Reconcile retained exact test identities
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Upload actual candidate results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-prototype-ubuntu-latest-${{ github.run_attempt }}
+          path: candidate-evidence
+          if-no-files-found: error
+
+  windows:
+    name: Prototype artifact parity (windows-latest)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.base_ref == 'projectide/integration-20261031' ||
+       startsWith(github.base_ref, 'projectide/artifact-foundation-'))
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Set up independent hash runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - name: Set up inventory verifier
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Build with warnings as errors
+        run: dotnet build Coglatas.slnx -c Release -warnaserror
+      - name: Run complete ProjectIDE inventory
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj -c Release --no-build --filter FullyQualifiedName~ProjectIde --logger 'trx;LogFileName=projectide.trx' --results-directory candidate-evidence
+      - name: Run architecture boundaries
+        run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=architecture.trx' --results-directory candidate-evidence
+      - name: Check independent Node hash vectors
+        run: node --test tests/ci/projectide-artifact-vectors.test.mjs
+      - name: Reject missing failed skipped or empty test results
+        run: |
+          foreach ($name in @('projectide', 'architecture')) {
+            [xml]$report = Get-Content "candidate-evidence/$name.trx" -Raw
+            $counters = $report.TestRun.ResultSummary.Counters
+            $results = @($report.TestRun.Results.UnitTestResult)
+            if ($report.TestRun.ResultSummary.outcome -ne 'Completed' -or [int]$counters.total -le 0 -or
+                $counters.total -ne $counters.passed -or $results.Count -ne [int]$counters.total -or
+                @($results | Where-Object outcome -ne 'Passed').Count -ne 0) {
+              throw "Incomplete or unsuccessful $name inventory"
+            }
+            if (($name -eq 'projectide' -and [int]$counters.total -lt 979) -or
+                ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
+              throw "Retained $name inventory shrank"
+            }
+          }
+          git rev-parse HEAD | Set-Content candidate-evidence/candidate-sha.txt
+          Get-FileHash candidate-evidence/*.trx -Algorithm SHA256 | ForEach-Object {
+            @{ file = Split-Path $_.Path -Leaf; sha256 = $_.Hash.ToLowerInvariant() }
+          } | ConvertTo-Json | Set-Content candidate-evidence/trx-digests.json
+      - name: Reconcile retained exact test identities
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          git show "${env:BASE_SHA}:tests/ci/projectide_integration_inventory.json" | Set-Content candidate-evidence/baseline.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
+          python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json
+          if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Upload actual candidate results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-prototype-windows-latest-${{ github.run_attempt }}
+          path: candidate-evidence
+          if-no-files-found: error
