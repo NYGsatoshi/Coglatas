@@ -43,6 +43,8 @@ The separate [SEC-05 native observation](observations/sec05-native-42132259076.m
 reconciles all 37 declared cases against a later exact-run artifact and classifies
 404 native OpenAPI operations. Its bounded credit does not change this original
 snapshot's source or incomplete domain-coverage state.
+The [SEC-15 admission assessment](restler-admission-assessment.md) records existing
+stateful-tool overlap and the unverified requirements before introducing RESTler.
 
 ## Required contract and source identity
 
