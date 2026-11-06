@@ -39,7 +39,7 @@ and 16 real isolated Kafka controls, all with no failures/skips. Its six actual
 .NET assembly bytes reconcile. Runtime requests processor override four; Core
 has no override. Runtime and Kafka report SHA-256 values are respectively
 `06d6f8490f7bd34bd6dd8bfc73fd232588136077017fa00f491253a5a48447f6`
-and `badced4c57a375eae62491aa3fa97a515dadbcbdfa5a9b72999fbbed8547aaad6`.
+and `badced4c57a375eae62491aa3fa97a515dadbcbdfa5a9b72999fbed8547aaad6`.
 The diagnostic receipt digest is
 `4caceb5c84d060d207ef98dadba27f35f7de210bccb6166ca624642de2209194`.
 These results belong to that SHA, not subsequent corrected compositions.
