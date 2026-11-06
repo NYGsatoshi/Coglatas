@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { EMPTY, Subject } from 'rxjs';
 
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
@@ -17,6 +18,7 @@ import { ganttSnapshotDto } from './project-detail-gantt.test-data';
 import { ProjectDetailFacade } from './project-detail.facade';
 import { snapshotDto } from './project-kanban.test-data';
 import { ProjectDto } from './projects.api';
+import { ProjectDetailPageComponent } from './project-detail-page/project-detail-page.component';
 
 const draft: ProjectDto = {
   id: 'project-1', workspaceId: 'workspace-1', groupId: null, ownerUserId: 'owner-1',
@@ -45,7 +47,11 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
 
   beforeEach(() => {
     history.touchProject.mockReset(); start.mockClear(); invalidations = new Subject<void>();
-    TestBed.configureTestingModule({ providers: [
+    TestBed.configureTestingModule({ imports: [ProjectDetailPageComponent], providers: [
+      provideRouter([]),
+      { provide: ActivatedRoute, useFactory: (router: Router) => ({
+        paramMap: new Subject(), snapshot: router.routerState.root.snapshot,
+      }), deps: [Router] },
       provideHttpClient(), provideHttpClientTesting(),
       { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       { provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: {
@@ -259,6 +265,35 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
     expect(detail.view().kanban.status).toBe('ready');
     expect(detail.view().kanban.snapshot).not.toBeNull();
+  });
+
+  it.each([401, 403])('offers a page-level retry after Board %s and sends no operational request before the click', async (status) => {
+    enableBoard(); selectFromHttp(); await settle();
+    const route = TestBed.inject(ActivatedRoute);
+    const fixture = TestBed.createComponent(ProjectDetailPageComponent);
+    try {
+      (route.paramMap as Subject<ReturnType<typeof convertToParamMap>>).next(convertToParamMap({ projectId: 'project-1' }));
+      fixture.detectChanges();
+      http.expectOne('/api/projects/project-1').flush(active); flushActiveCollections();
+      http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(
+        { message: 'Current Board denied' }, { status, statusText: 'Denied' });
+      http.expectOne('/api/projects/project-1').flush(active);
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      fixture.componentInstance.tab.set('tasks'); fixture.detectChanges();
+      expect(detail.view().status).toBe('ready');
+      expect(detail.view().kanban.status).toBe('permissionDenied');
+      http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+      const retry = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="project-board-denied-retry"]');
+      expect(retry).not.toBeNull(); expect(retry?.disabled).toBe(false);
+      retry!.click();
+      const fresh = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
+      expect(fresh.request.method).toBe('GET'); expect(fresh.request.withCredentials).toBe(true);
+      fresh.flush(snapshotDto());
+      expect(detail.view().kanban.status).toBe('ready');
+      expect(detail.view().kanban.snapshot).not.toBeNull();
+    } finally { fixture.destroy(); }
   });
 
   for (const denial of [401, 403]) {
