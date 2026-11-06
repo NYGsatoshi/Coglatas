@@ -308,7 +308,7 @@ def main():
             need(all(ordinary), 'ARGUMENTS_INVALID')
             result = verify(api, api.download, read_regular(Path(args.policy), 65536), args.policy_sha256,
                             datetime.now(timezone.utc), args.content_root)
-    except (OSError, ValueError, TypeError, RuntimeError):
+    except (OSError, ValueError, TypeError, RuntimeError, KeyError, AttributeError):
         result = {'schema': 'coglatas.d10-verification.v1', 'decision': 'REJECTED', 'reason': 'D10_ARGUMENTS_OR_INPUT_REFUSED',
                   'states': {name: False for name in STATES}, 'ARTIFACT_PROVENANCE_VERIFIED': False, 'REQUIRED_GATE_QUALIFIED': False}
     print(json.dumps(result, sort_keys=True, separators=(',', ':')))

@@ -282,6 +282,25 @@ class SyntheticD10Controls(unittest.TestCase):
         self.artifacts.clear()
         self.assertEqual('NATIVE_CAPTURE_ARTIFACT_ABSENT', d10.audit_run(self.api, 99, HEAD, 11)['availability'])
 
+    def test_audit_cli_malformed_authority_emits_only_sanitized_refusal_json(self):
+        from contextlib import redirect_stdout, redirect_stderr
+        def missing_key(path):
+            value = self.api(path)
+            if '/pulls/' in path: value.pop('head')
+            return value
+        def invalid_authority(path): raise AttributeError('PRIVATE_TOKEN_CANARY')
+        for api in [missing_key, invalid_authority]:
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with patch.object(sys, 'argv', ['d10', '--audit-pr', '99', '--audit-head', HEAD, '--audit-run', '11']), \
+                 patch.object(d10, 'ArtifactGitHub', return_value=api), redirect_stdout(stdout), redirect_stderr(stderr):
+                self.assertEqual(1, d10.main())
+            result = json.loads(stdout.getvalue())
+            self.assertEqual('D10_ARGUMENTS_OR_INPUT_REFUSED', result['reason'])
+            self.assertFalse(result['ARTIFACT_PROVENANCE_VERIFIED'])
+            self.assertFalse(any(result['states'].values()))
+            self.assertEqual('', stderr.getvalue())
+            self.assertNotIn('PRIVATE_', stdout.getvalue())
+
 
 class TransportAndSharedProfileControls(unittest.TestCase):
     def test_storage_redirects_and_non_numeric_ids_fail_closed(self):
