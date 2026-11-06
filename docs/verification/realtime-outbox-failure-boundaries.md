@@ -26,7 +26,9 @@ the dispatch task completes or throws, so assertion failures cannot be mistaken
 for the injected retryable fault.
 The transient-stage and both cancellation controls additionally require exactly
 one recorded authorizer invocation outside dispatch, proving that execution
-reached the intended injected authorization fault rather than failing earlier.
+reached authorization rather than failing earlier. The authorizer cases inject
+their fault there; send and acknowledgement cases inject faults at their own
+respective stages.
 
 A transport send followed by lost delivery acknowledgement is deliberately
 recorded as retryable. These controls do not assert exactly-once delivery,
