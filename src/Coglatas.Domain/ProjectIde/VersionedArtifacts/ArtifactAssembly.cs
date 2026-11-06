@@ -107,14 +107,16 @@ public sealed class PrototypeArtifactStore
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
-                if (staged.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var hasNext = iterator.MoveNext();
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
                 if (!hasNext) break;
+                if (staged.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var buffer = iterator.Current;
                 if (buffer.Length > maximumBytes - bytes) return ArtifactImportState.Exhausted;
                 bytes += buffer.Length;
-                var artifact = PrototypeArtifact.ReadCanonical(buffer.Span);
+                PrototypeArtifact artifact;
+                try { artifact = PrototypeArtifact.ReadCanonical(buffer.Span); }
+                catch (UnsupportedSourceException) { return ArtifactImportState.Unsupported; }
                 if (!artifact.SemanticsSupported) return ArtifactImportState.Unsupported;
                 if (!staged.TryAdd(artifact.Identity, artifact)) throw new FormatException("Duplicate offline artifact entry.");
             }
@@ -125,10 +127,10 @@ public sealed class PrototypeArtifactStore
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
-                if (sourcePins.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var hasNext = iterator.MoveNext();
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
                 if (!hasNext) break;
+                if (sourcePins.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var source = iterator.Current;
                 var sourceBytes = ProjectSourceCodec.Encode(source);
                 if (sourceBytes.Length > maximumBytes - bytes) return ArtifactImportState.Exhausted;
@@ -166,6 +168,7 @@ public sealed class PrototypeArtifactStore
                 if (visited.Count > maximumArtifacts) return ArtifactImportState.Exhausted;
                 if (!candidate.TryGetValue(identity, out var artifact)) return ArtifactImportState.Incomplete;
                 if (!candidateSources.TryGetValue(artifact.Source!.Data.CanonicalText, out var source)) return ArtifactImportState.Incomplete;
+                // External pins remain closure obligations. Without a supported body reader they stay Incomplete.
                 foreach (var dependency in artifact.Dependencies) frontier.Push(dependency);
                 if (identity.ArtifactType == PrototypeArtifactRegistry.CompilerInputAssociation)
                 {
