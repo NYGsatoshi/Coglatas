@@ -63,9 +63,20 @@ the exact final candidate diff before integration.
 
 ## Governance reconciliation
 
-[The governance observation](governance-observation.json) contains the canonical
+[The corrected governance projection](governance-observation-v2.json) contains the canonical
 source-file digests, expected policy, all three live rulesets, effective branch
 rules and classic-protection responses. Main was read only.
+
+The original public projection is immutable in commit
+`13b450aa090b0a8e78792ea79d49ea4d156395ee` and in the raw local archive.
+Its first native attempts `42164786876/1` (LegacyNameGuard) and
+`42164786888/1` (PR CI) rejected four unrelated profile URLs copied from the
+branch API. The second projection retains only branch identity, head SHA and
+protection fields, with the original projection digest recorded. Governance
+facts and raw evidence are unchanged. This is an evidence-publication content
+defect, not a product defect, flaky test or successful execution of downstream
+build, browser and security owners. Downstream failures/skips remain first-
+attempt evidence; later success does not erase them.
 
 | Dimension | Expected | Observed | Qualification |
 | --- | --- | --- | --- |

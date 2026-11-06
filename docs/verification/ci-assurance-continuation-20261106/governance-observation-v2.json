@@ -359,211 +359,13 @@
   "securityBranch": {
     "before": {
       "name": "SecurityTestImplimation",
-      "commit": {
-        "sha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "node_id": "C_kwDOSy0QwNoAKDM4NjViMDlhMmQzZWEzY2I4MmY0NTBjNmQxOWVjNjQzZmZiYWUwMWY",
-        "commit": {
-          "author": {
-            "name": "Hirota Satoshi",
-            "email": "202610880@edu.nishiyamato.ed.jp",
-            "date": "2026-11-05T23:42:50Z"
-          },
-          "committer": {
-            "name": "GitHub",
-            "email": "noreply@github.com",
-            "date": "2026-11-05T23:42:50Z"
-          },
-          "message": "test(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
-          "tree": {
-            "sha": "7c7e86aaacc9306307ec14873305ee6585ae06c1",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/trees/7c7e86aaacc9306307ec14873305ee6585ae06c1"
-          },
-          "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-          "comment_count": 0,
-          "verification": {
-            "verified": true,
-            "reason": "valid",
-            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq7RR6CRC1aQ7uu5UhlAAAxkgQAJdwdE/fZBtW7FRyYWr1SBta\ng2CzhgkqjZz6bnyjpKy4Y1Hl4hBUKrbrIGmcrOPXLNVBIzGNjMpQGy5oRylChu09\ngHuxF4/fuoPV5bwZ2Zahm3bmi25qL1nPTuKifkSK1qDw93zs/tZf57+6zrhFj9o4\ngK8uU70wS6zf4LopBgFTkEZB5sKF7eNEemKj0R/L8wbkJJx5ekhHXAerND6m0jGJ\nbOyucSiGHufYRiTq7N86MeyZ845etoqfaIdo+pnap5Wza8VRvocDp+XDgrweNr1x\nI6RgpsfnIJpGgyefshHkNyxlLUjoewSMG5n/LVotD+3qbkgyW/89eKe0hBdY9ukw\nguqSDvC2ObyfaUG2gTpXFO+hmF6lTiar2sEF6LJdwy3JtR87xHnLE6ZV0nMzfjbF\nrt4sKWUDQgEm273yxoRXpIhRfpPuY+Mmn+m5eTtE5ROV5eljohUXouu2e+it19Ej\nm/kxr21btapomKshFE9rVwCH3WtSHFbCToCNeJrzpj5uHQBkRvhLoUNMMM8jDmkz\nWKX5LlG1E8B4wUsYedQ7pBfILXoRZqYPXhY84H1zK0CY8u6Yh5oQddxlhQiS6cR6\nrbxEnb65xglPUwY3RYnVTRAmt5Oe0xs1l9LLDq2A6vpHBpUFl/an/Oif7fZwEIRH\nhUCvPhhSzQPTlIBgm8F1\n=zdGs\n-----END PGP SIGNATURE-----\n",
-            "payload": "tree 7c7e86aaacc9306307ec14873305ee6585ae06c1\nparent 35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1\nparent 5f0db6d22e193330a4fd1c8f386b498100a92d67\nauthor Hirota Satoshi <202610880@edu.nishiyamato.ed.jp> 1793922170 +0530\ncommitter GitHub <noreply@github.com> 1793922170 +0530\n\ntest(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
-            "verified_at": "2026-11-05T23:42:50Z"
-          }
-        },
-        "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "comments_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f/comments",
-        "author": {
-          "login": "NYGsatoshi",
-          "id": 285141121,
-          "node_id": "U_kgDOEP7ogQ",
-          "avatar_url": "https://avatars.githubusercontent.com/u/285141121?v=4",
-          "gravatar_id": "",
-          "url": "https://api.github.com/users/NYGsatoshi",
-          "html_url": "https://github.com/NYGsatoshi",
-          "followers_url": "https://api.github.com/users/NYGsatoshi/followers",
-          "following_url": "https://api.github.com/users/NYGsatoshi/following{/other_user}",
-          "gists_url": "https://api.github.com/users/NYGsatoshi/gists{/gist_id}",
-          "starred_url": "https://api.github.com/users/NYGsatoshi/starred{/owner}{/repo}",
-          "subscriptions_url": "https://api.github.com/users/NYGsatoshi/subscriptions",
-          "organizations_url": "https://api.github.com/users/NYGsatoshi/orgs",
-          "repos_url": "https://api.github.com/users/NYGsatoshi/repos",
-          "events_url": "https://api.github.com/users/NYGsatoshi/events{/privacy}",
-          "received_events_url": "https://api.github.com/users/NYGsatoshi/received_events",
-          "type": "User",
-          "user_view_type": "public",
-          "site_admin": false
-        },
-        "committer": {
-          "login": "web-flow",
-          "id": 19864447,
-          "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-          "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-          "gravatar_id": "",
-          "url": "https://api.github.com/users/web-flow",
-          "html_url": "https://github.com/web-flow",
-          "followers_url": "https://api.github.com/users/web-flow/followers",
-          "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-          "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
-          "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-          "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
-          "organizations_url": "https://api.github.com/users/web-flow/orgs",
-          "repos_url": "https://api.github.com/users/web-flow/repos",
-          "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-          "received_events_url": "https://api.github.com/users/web-flow/received_events",
-          "type": "User",
-          "user_view_type": "public",
-          "site_admin": false
-        },
-        "parents": [
-          {
-            "sha": "35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
-            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1"
-          },
-          {
-            "sha": "5f0db6d22e193330a4fd1c8f386b498100a92d67",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/5f0db6d22e193330a4fd1c8f386b498100a92d67",
-            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/5f0db6d22e193330a4fd1c8f386b498100a92d67"
-          }
-        ]
-      },
-      "_links": {
-        "self": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation",
-        "html": "https://github.com/NYGsatoshi/Coglatas/tree/SecurityTestImplimation"
-      },
-      "protected": false,
-      "protection": {
-        "enabled": false,
-        "required_status_checks": {
-          "enforcement_level": "off",
-          "contexts": [],
-          "checks": []
-        }
-      },
-      "protection_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation/protection"
+      "headSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "protected": false
     },
     "after": {
       "name": "SecurityTestImplimation",
-      "commit": {
-        "sha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "node_id": "C_kwDOSy0QwNoAKDM4NjViMDlhMmQzZWEzY2I4MmY0NTBjNmQxOWVjNjQzZmZiYWUwMWY",
-        "commit": {
-          "author": {
-            "name": "Hirota Satoshi",
-            "email": "202610880@edu.nishiyamato.ed.jp",
-            "date": "2026-11-05T23:42:50Z"
-          },
-          "committer": {
-            "name": "GitHub",
-            "email": "noreply@github.com",
-            "date": "2026-11-05T23:42:50Z"
-          },
-          "message": "test(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
-          "tree": {
-            "sha": "7c7e86aaacc9306307ec14873305ee6585ae06c1",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/trees/7c7e86aaacc9306307ec14873305ee6585ae06c1"
-          },
-          "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-          "comment_count": 0,
-          "verification": {
-            "verified": true,
-            "reason": "valid",
-            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq7RR6CRC1aQ7uu5UhlAAAxkgQAJdwdE/fZBtW7FRyYWr1SBta\ng2CzhgkqjZz6bnyjpKy4Y1Hl4hBUKrbrIGmcrOPXLNVBIzGNjMpQGy5oRylChu09\ngHuxF4/fuoPV5bwZ2Zahm3bmi25qL1nPTuKifkSK1qDw93zs/tZf57+6zrhFj9o4\ngK8uU70wS6zf4LopBgFTkEZB5sKF7eNEemKj0R/L8wbkJJx5ekhHXAerND6m0jGJ\nbOyucSiGHufYRiTq7N86MeyZ845etoqfaIdo+pnap5Wza8VRvocDp+XDgrweNr1x\nI6RgpsfnIJpGgyefshHkNyxlLUjoewSMG5n/LVotD+3qbkgyW/89eKe0hBdY9ukw\nguqSDvC2ObyfaUG2gTpXFO+hmF6lTiar2sEF6LJdwy3JtR87xHnLE6ZV0nMzfjbF\nrt4sKWUDQgEm273yxoRXpIhRfpPuY+Mmn+m5eTtE5ROV5eljohUXouu2e+it19Ej\nm/kxr21btapomKshFE9rVwCH3WtSHFbCToCNeJrzpj5uHQBkRvhLoUNMMM8jDmkz\nWKX5LlG1E8B4wUsYedQ7pBfILXoRZqYPXhY84H1zK0CY8u6Yh5oQddxlhQiS6cR6\nrbxEnb65xglPUwY3RYnVTRAmt5Oe0xs1l9LLDq2A6vpHBpUFl/an/Oif7fZwEIRH\nhUCvPhhSzQPTlIBgm8F1\n=zdGs\n-----END PGP SIGNATURE-----\n",
-            "payload": "tree 7c7e86aaacc9306307ec14873305ee6585ae06c1\nparent 35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1\nparent 5f0db6d22e193330a4fd1c8f386b498100a92d67\nauthor Hirota Satoshi <202610880@edu.nishiyamato.ed.jp> 1793922170 +0530\ncommitter GitHub <noreply@github.com> 1793922170 +0530\n\ntest(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
-            "verified_at": "2026-11-05T23:42:50Z"
-          }
-        },
-        "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
-        "comments_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f/comments",
-        "author": {
-          "login": "NYGsatoshi",
-          "id": 285141121,
-          "node_id": "U_kgDOEP7ogQ",
-          "avatar_url": "https://avatars.githubusercontent.com/u/285141121?v=4",
-          "gravatar_id": "",
-          "url": "https://api.github.com/users/NYGsatoshi",
-          "html_url": "https://github.com/NYGsatoshi",
-          "followers_url": "https://api.github.com/users/NYGsatoshi/followers",
-          "following_url": "https://api.github.com/users/NYGsatoshi/following{/other_user}",
-          "gists_url": "https://api.github.com/users/NYGsatoshi/gists{/gist_id}",
-          "starred_url": "https://api.github.com/users/NYGsatoshi/starred{/owner}{/repo}",
-          "subscriptions_url": "https://api.github.com/users/NYGsatoshi/subscriptions",
-          "organizations_url": "https://api.github.com/users/NYGsatoshi/orgs",
-          "repos_url": "https://api.github.com/users/NYGsatoshi/repos",
-          "events_url": "https://api.github.com/users/NYGsatoshi/events{/privacy}",
-          "received_events_url": "https://api.github.com/users/NYGsatoshi/received_events",
-          "type": "User",
-          "user_view_type": "public",
-          "site_admin": false
-        },
-        "committer": {
-          "login": "web-flow",
-          "id": 19864447,
-          "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
-          "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
-          "gravatar_id": "",
-          "url": "https://api.github.com/users/web-flow",
-          "html_url": "https://github.com/web-flow",
-          "followers_url": "https://api.github.com/users/web-flow/followers",
-          "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
-          "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
-          "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
-          "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
-          "organizations_url": "https://api.github.com/users/web-flow/orgs",
-          "repos_url": "https://api.github.com/users/web-flow/repos",
-          "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
-          "received_events_url": "https://api.github.com/users/web-flow/received_events",
-          "type": "User",
-          "user_view_type": "public",
-          "site_admin": false
-        },
-        "parents": [
-          {
-            "sha": "35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
-            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1"
-          },
-          {
-            "sha": "5f0db6d22e193330a4fd1c8f386b498100a92d67",
-            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/5f0db6d22e193330a4fd1c8f386b498100a92d67",
-            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/5f0db6d22e193330a4fd1c8f386b498100a92d67"
-          }
-        ]
-      },
-      "_links": {
-        "self": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation",
-        "html": "https://github.com/NYGsatoshi/Coglatas/tree/SecurityTestImplimation"
-      },
-      "protected": false,
-      "protection": {
-        "enabled": false,
-        "required_status_checks": {
-          "enforcement_level": "off",
-          "contexts": [],
-          "checks": []
-        }
-      },
-      "protection_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation/protection"
+      "headSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "protected": false
     },
     "effectiveRules": [],
     "classicProtection": {
@@ -658,5 +460,11 @@
     "INDEPENDENT_REVIEW_VALID": "NOT_ESTABLISHED",
     "GOVERNANCE_IDENTITY_DRIFT": "OWNER_HOLD"
   },
-  "qualification": "API_OBSERVATION_NOT_SIGNED_EXECUTION_OR_OWNER_APPROVAL"
+  "qualification": "API_OBSERVATION_NOT_SIGNED_EXECUTION_OR_OWNER_APPROVAL",
+  "priorPublicProjection": {
+    "commitSha": "13b450aa090b0a8e78792ea79d49ea4d156395ee",
+    "sha256": "c7f377fa8e76573bc18747f59a9e0437407fa307b2191fe0f715c4ce94cf86e2",
+    "qualification": "ORIGINAL_RETAINED_IN_GIT_AND_RAW_ARCHIVE_PUBLIC_PROJECTION_REJECTED_BY_CONTENT_GUARD"
+  },
+  "publicProjectionCorrection": "Only branch identity, head SHA and protection fields retained; unrelated profile and commit-profile URLs omitted. Original API captures remain hash-bound."
 }
