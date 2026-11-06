@@ -443,4 +443,48 @@ public sealed class VersionedArtifactTests
         Assert.Equal(firstSource.Data.CanonicalText, store.FindSource(Pin(firstSource))!.Data.CanonicalText);
         Assert.Equal(secondSource.Data.CanonicalText, store.FindSource(Pin(secondSource))!.Data.CanonicalText);
     }
+    [Fact]
+    public void Independent_reader_compat_vectors_preserve_unicode_scalar_sequences_and_array_order()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "artifact-reader-compat-vectors-v1.json");
+        using var fixture = JsonDocument.Parse(File.ReadAllBytes(path));
+        Assert.Equal("PROTOTYPE_ONLY", fixture.RootElement.GetProperty("status").GetString());
+        var domain = fixture.RootElement.GetProperty("domain").GetString()!;
+        Assert.Equal(PrototypeArtifactRegistry.Domain(PrototypeArtifactRegistry.DependencyManifest, 1, 1), domain);
+        var vectors = fixture.RootElement.GetProperty("vectors").EnumerateArray().ToArray();
+        Assert.Equal(4, vectors.Length);
+        var computed = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var vector in vectors)
+        {
+            var id = vector.GetProperty("id").GetString()!;
+            var canonical = vector.GetProperty("canonical").GetString()!;
+            var data = SourceJson.Parse(canonical);
+            Assert.Equal(canonical, data.CanonicalText);
+            var digest = ContentDigest.Compute(domain, data.ToCanonicalBytes()).Value;
+            Assert.Equal(vector.GetProperty("sha256").GetString(), digest);
+            Assert.True(computed.TryAdd(id, digest));
+            Assert.NotEqual(digest, ContentDigest.Compute(domain, Encoding.UTF8.GetBytes(canonical + "\\n")).Value);
+        }
+        Assert.Equal(4, computed.Count);
+        foreach (var pair in fixture.RootElement.GetProperty("casePairs").EnumerateArray())
+            Assert.NotEqual(computed[pair[0].GetString()!], computed[pair[1].GetString()!]);
+    }
+
+    [Fact]
+    public void Unallocated_formal_type_name_is_opaque_and_cannot_be_relabelled_into_existing_prototype_reader()
+    {
+        var manifest = Manifest();
+        var node = JsonNode.Parse(manifest.Data.CanonicalText)!.AsObject();
+        node["artifactType"] = "coglatas.dependency-manifest";
+        var original = SourceJson.Parse(node.ToJsonString()).ToCanonicalBytes();
+        var result = ArtifactDecodeResult.Decode(original);
+        Assert.Equal(ArtifactDecodeStatus.Unsupported, result.Status);
+        Assert.Null(result.Artifact);
+        Assert.Equal(original, result.RecoverOriginalBytes());
+        var copy = result.RecoverOriginalBytes();
+        copy[0] ^= 1;
+        Assert.Equal(original, result.RecoverOriginalBytes());
+        Assert.NotEqual(original, manifest.Data.ToCanonicalBytes());
+    }
+
 }
