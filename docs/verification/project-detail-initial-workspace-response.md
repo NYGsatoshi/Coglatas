@@ -159,3 +159,16 @@ inspected HTTP before subscription reconciliation completed; those failures are
 retained separately. The bounded coordinator wait changes no original deadline.
 This verifies client coordination with doubles, not live server/transport or a
 new authorization policy.
+
+Review subsequently identified an ordering gap: a successful Board/Gantt read
+could restore a denied snapshot while the reconnect parent was still pending.
+Eight clean controls failed before the repair. Navigation-only recovery now
+joins the current parent and all three collections before starting operational
+reads. The established parallel HTTP contract for subscription denial and
+explicit authorization invalidation remains, but successful child responses
+wait for that same completed parent authorization decision. Parent 403/503
+never releases those buffered responses. Four positive controls additionally
+require parent 200 and the final collection before either snapshot is restored.
+The original 56 facade callback bodies, 61 expanded assertions, 23 page controls,
+and original browser assertions remain unchanged. Earlier serial-only and
+replayed-false implementation failures are retained; they are not passing runs.

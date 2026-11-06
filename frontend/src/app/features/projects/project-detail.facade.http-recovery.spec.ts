@@ -355,7 +355,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
 
   for (const firstProjection of ['board', 'schedule'] as const) {
     for (const subscriptionDenied of [false, true]) {
-      it.each([403, 503])(`keeps ${firstProjection} denied when it finishes before reconnect parent %s with subscriptionDenied=${subscriptionDenied}`, async (parentStatus) => {
+      it.each([200, 403, 503])(`holds ${firstProjection} until reconnect parent %s settles with subscriptionDenied=${subscriptionDenied}`, async (parentStatus) => {
         const projectId = 'a1e33828-b8d3-4b70-a802-dde89e185915';
         const parent = { ...active, id: projectId };
         const path = `/api/projects/${projectId}`;
@@ -390,13 +390,27 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
           - Number(left.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt')));
         for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? board : schedule);
         const earlyBoard = detail.view().kanban.snapshot, earlySchedule = detail.view().schedule.snapshot;
-        http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
+        if (parentStatus === 200) {
+          http.expectOne(path).flush(parent);
+          http.expectOne(`${path}/tasks`).flush({ items: [] });
+          http.expectOne(`${path}/workload`).flush({ members: [] });
+          expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
+          http.expectOne(`${path}/members`).flush({ members: [] });
+          for (const read of http.match(request => request.url === `${path}/kanban` || request.url === `${path}/gantt`))
+            read.flush(read.request.url.endsWith('/kanban') ? board : schedule);
+        } else {
+          http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
+        }
         await settle();
         // Denied subscription revalidation preserves the established parallel
         // HTTP contract, but successful child responses await the fresh parent.
         expect(early).toHaveLength(subscriptionDenied ? 2 : 0);
         expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
-        expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
+        if (parentStatus === 200) {
+          expect(detail.view().kanban.snapshot).not.toBeNull(); expect(detail.view().schedule.snapshot).not.toBeNull();
+        } else {
+          expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
+        }
         http.expectNone(request => request.url.startsWith(path));
       });
     }
