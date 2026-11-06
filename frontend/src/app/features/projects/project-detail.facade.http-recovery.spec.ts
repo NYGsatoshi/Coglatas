@@ -237,6 +237,91 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     });
   }
 
+  it.each([401, 403])('restores navigation after current Board %s while requiring an explicit Board retry', async (status) => {
+    await mountBoard(); detail.retryKanban();
+    http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(
+      { message: 'Current Board denied' }, { status, statusText: 'Denied' });
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().kanban.snapshot).toBeNull();
+    const parents = http.match('/api/projects/project-1');
+    expect(parents).toHaveLength(1);
+    parents[0].flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().kanban.status).toBe('permissionDenied');
+    expect(detail.view().kanban.snapshot).toBeNull();
+    expect(detail.view().schedule.status).toBe('permissionDenied');
+    expect(detail.view().schedule.snapshot).toBeNull();
+    http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+    detail.retryKanban();
+    http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
+    expect(detail.view().kanban.status).toBe('ready');
+    expect(detail.view().kanban.snapshot).not.toBeNull();
+  });
+
+  for (const denial of [401, 403]) {
+    it.each([403, 503])(`keeps current Board ${denial} redacted when fresh parent returns %s`, async (status) => {
+      await mountBoard(); detail.retryKanban();
+      http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(
+        { message: 'Board denied' }, { status: denial, statusText: 'Denied' });
+      const parents = http.match('/api/projects/project-1');
+      expect(parents).toHaveLength(1);
+      parents[0].flush({ message: 'Parent unavailable' }, { status, statusText: 'Unavailable' });
+      detail.retryKanban();
+      http.expectNone(request => request.url.startsWith('/api/projects/project-1/'));
+      expect(detail.view().status).toBe('permissionDenied');
+      expect(detail.view().project).toBeUndefined();
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+    });
+  }
+
+  for (const moveFirst of [true, false]) {
+    it.each([401, 403])(`rejects an in-flight move after Board refresh %s ${moveFirst ? 'before' : 'after'} navigation recovery`, async (status) => {
+      await mountBoard(); detail.retryKanban();
+      const board = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
+      moveFirstCard(); const move = http.expectOne('/api/tasks/task-1/kanban-move');
+      board.flush({ message: 'Current Board denied' }, { status, statusText: 'Denied' });
+      const parents = http.match('/api/projects/project-1');
+      expect(parents).toHaveLength(1);
+      const completeMove = () => move.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+      if (moveFirst) completeMove();
+      expect(detail.view().status).toBe('permissionDenied');
+      expect(detail.view().kanban.snapshot).toBeNull();
+      parents[0].flush(active);
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      if (!moveFirst) completeMove();
+      await settle();
+      expect(detail.view().status).toBe('ready');
+      expect(detail.view().kanban.status).toBe('permissionDenied');
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+      http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+    });
+  }
+
+  it.each(['draft', 'active'] as const)('discards a held HTTP catch-up %s after an explicit Workspace replacement', async (kind) => {
+    await mountBoard();
+    const refresh = workspaces.loadWorkspaces(true);
+    http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
+    http.expectOne('/api/workspaces').flush([workspace, { ...workspace, id: 'workspace-2', name: 'Other Workspace' }]);
+    await refresh; await settle();
+    const parent = http.expectOne('/api/projects/project-1');
+    expect(await TestBed.inject(WorkspaceSelectionFacade).selectWorkspace('workspace-2')).toBe(true);
+    parent.flush(kind === 'draft' ? draft : active);
+    await settle();
+    expect(TestBed.inject(ActiveWorkspaceFacade).activeWorkspace()?.id).toBe('workspace-2');
+    expect(detail.view().project).toBeUndefined();
+    expect(detail.view().kanban.snapshot).toBeNull();
+    expect(detail.view().schedule.snapshot).toBeNull();
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+    http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+  });
+
   for (const projection of ['board', 'schedule'] as const) {
     it.each([401, 403])(`requires a fresh authorized parent and collections after initial ${projection} %s without retrying the projection`, async (status) => {
       const held = await holdInitialOperationalRead();
