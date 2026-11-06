@@ -232,7 +232,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       http.expectOne('/api/projects/project-1/kanban').flush(board);
     };
     const move = (index: number) => detail.moveTask({
-      item: detail.view().kanban.snapshot!.cards[index], targetStatus: 'stage-done',
+      item: detail.view().kanban.snapshot!.cards.find((card) => card.taskId === `task-${index + 1}`)!,
+      targetStatus: 'stage-done',
       targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard',
     });
     detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
