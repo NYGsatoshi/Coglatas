@@ -57,6 +57,77 @@ describe('ProjectDetailFacade initial response scope', () => {
     facade.release(); http.verify(); TestBed.resetTestingModule();
   });
 
+  function enableViews() {
+    const flags = TestBed.inject(FrontendFeatureFlagsService);
+    vi.spyOn(flags, 'kanbanV1Enabled').mockReturnValue(true);
+    vi.spyOn(flags, 'ganttV1Enabled').mockReturnValue(true);
+  }
+
+  function emitCurrent(type: DurableRealtimeEvent['eventType']) {
+    events.next({ eventId: `current-${type}`, eventType: type, payloadSchemaVersion: 1,
+      occurredAt: '2026-11-06T00:00:00Z', tenantId: 'tenant-1', aggregateType: 'Project',
+      aggregateId: 'project-1', aggregateVersion: 1, actor: { actorType: 'System', actorId: null },
+      correlationId: null, causationId: null, payload: { projectId: 'project-1', taskId: 'task-1', taskVersion: 100 } });
+  }
+
+  function finishNavigation() {
+    http.expectOne('/api/projects/project-1').flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+  }
+
+  function finishViews() {
+    http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+  }
+
+  it.each([true, false])('keeps ordinary events behind pending authorization collections with childFirst=%s', async (childFirst) => {
+    enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
+    emitCurrent('Security.AuthorizationStateChanged.v1'); await Promise.resolve();
+    http.expectOne('/api/projects/project-1').flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    const workload = http.expectOne('/api/projects/project-1/workload');
+    const gatedBoard = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
+    const gatedSchedule = http.expectOne('/api/projects/project-1/gantt');
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    const bypass = http.match(request => request.url === '/api/projects/project-1/kanban' || request.url === '/api/projects/project-1/gantt');
+    for (const task of http.match('/api/projects/project-1/tasks')) task.flush({ items: [] });
+    const completeBypass = () => {
+      for (const request of bypass) request.flush(request.request.url.endsWith('/kanban') ? snapshotDto() : ganttSnapshotDto());
+    };
+    if (childFirst) {completeBypass();}
+    const earlyBoard = facade.view().kanban.snapshot, earlySchedule = facade.view().schedule.snapshot;
+    workload.flush({ message: 'Current collections unavailable' }, { status: 503, statusText: 'Unavailable' });
+    if (!childFirst) {completeBypass();}
+    gatedBoard.flush(snapshotDto()); gatedSchedule.flush(ganttSnapshotDto());
+    const failedBoard = facade.view().kanban.snapshot, failedSchedule = facade.view().schedule.snapshot;
+    emitCurrent('Security.AuthorizationStateChanged.v1'); await Promise.resolve(); finishNavigation();
+    const laterBoard = facade.view().kanban.snapshot, laterSchedule = facade.view().schedule.snapshot;
+    finishViews();
+    expect(bypass).toHaveLength(0);
+    expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
+    expect(failedBoard).toBeNull(); expect(failedSchedule).toBeNull();
+    expect(laterBoard).toBeNull(); expect(laterSchedule).toBeNull();
+    expect(facade.view().status).toBe('ready');
+  });
+
+  it('releases the old Schedule owner after activation reconciliation advances its response generation', async () => {
+    enableViews(); facade.load('project-1'); http.expectOne('/api/projects/project-1').flush(draft);
+    facade.activate(); const activation = http.expectOne('/api/projects/project-1/activate');
+    emitCurrent('Projects.ProjectChanged.v1'); await Promise.resolve(); finishNavigation();
+    http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
+    const oldSchedule = http.expectOne('/api/projects/project-1/gantt');
+    activation.flush({ requestId: 'synthetic-activation', data: { projectId: 'project-1' }, warnings: [] });
+    finishNavigation(); finishViews();
+    oldSchedule.flush({ ...ganttSnapshotDto(), projectVersion: 99 });
+    facade.retrySchedule();
+    http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    expect(facade.view().schedule.snapshot?.projectVersion).toBe(37);
+    expect(facade.view().activation.status).toBe('success');
+  });
+
   for (const kind of ['active', 'draft'] as const) {
     it.each(['cleared', 'replaced'] as const)(
       `discards the held ${kind} response when Workspace is %s before teardown`,
