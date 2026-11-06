@@ -22,7 +22,7 @@ public sealed partial class TenantIsolationSecurityTests
         var audit = new CapturingAuditLogger();
         var service = CreateTenantService(dbContext, currentTenant, data.PlatformAdmin, new TenancyOptions(), audit);
 
-        var result = await service.UpdatePlatformTenantAsync(data.TenantA.Id, new UpdateTenantRequest(
+        var result = await service.UpdateTenantAsync(data.TenantA.Id, new UpdateTenantRequest(
             field is "name" or "both" ? "Changed name" : null,
             field is "display-name" or "both" ? "Changed display" : null,
             "  USED.EXAMPLE.TEST  ", "changed-plan"));
@@ -31,6 +31,6 @@ public sealed partial class TenantIsolationSecurityTests
         Assert.Equal("Tenant primary domain is already in use.", result.Error);
         Assert.Equal(before, (data.TenantA.Name, data.TenantA.DisplayName, data.TenantA.PrimaryDomain, data.TenantA.PlanId));
         Assert.Empty(audit.Entries);
-        Assert.Empty(dbContext.ChangeTracker.Entries().Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted));
+        Assert.DoesNotContain(dbContext.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
     }
 }
