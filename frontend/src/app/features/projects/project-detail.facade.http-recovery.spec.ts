@@ -125,6 +125,88 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
   }
 
   for (const projection of ['board', 'schedule'] as const) {
+    it.each([401, 403])(`requires a fresh authorized parent and collections after initial ${projection} %s without retrying the projection`, async (status) => {
+      const held = await holdInitialOperationalRead();
+      held[projection].flush({ message: 'Initial authority denied' }, { status, statusText: 'Denied' });
+      expect(detail.view().status).toBe('permissionDenied');
+      expect(detail.view().project).toBeUndefined();
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+
+      const freshParent = http.expectOne('/api/projects/project-1');
+      freshParent.flush({ ...active, title: 'Freshly authorized Project' });
+      expect(detail.view().status).toBe('permissionDenied');
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      expect(detail.view().status).toBe('ready');
+      expect(detail.view().project?.name).toBe('Freshly authorized Project');
+      expect(detail.view().kanban.status).toBe('permissionDenied');
+      expect(detail.view().schedule.status).toBe('permissionDenied');
+
+      finishOldInitialRead(held, projection);
+      expect(detail.view().project?.name).toBe('Freshly authorized Project');
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+      http.expectNone((request) => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+    });
+  }
+
+  it.each(['clear', 'replace', 'release', 'project'] as const)(
+    'discards the new parent response before dispatch when the mounted scope changes by %s', async (boundary) => {
+      const held = await holdInitialOperationalRead();
+      held.board.flush({ message: 'Denied' }, { status: 403, statusText: 'Denied' });
+      const freshParent = http.expectOne('/api/projects/project-1');
+      const selection = TestBed.inject(ActiveWorkspaceFacade);
+      if (boundary === 'clear') selection.clearWorkspace();
+      else if (boundary === 'replace') selection.setActiveWorkspace({ id: 'workspace-2', label: 'Other Workspace' });
+      else if (boundary === 'release') detail.release();
+      else {
+        detail.load('project-2');
+        http.expectOne('/api/projects/project-2').flush({ ...draft, id: 'project-2', title: 'Current Project' });
+      }
+      freshParent.flush({ ...active, title: 'Stale authorized Project' });
+      finishOldInitialRead(held, 'board');
+      expect(detail.view().project?.id).toBe(boundary === 'project' ? 'project-2' : undefined);
+      http.expectNone((request) => request.url.startsWith('/api/projects/project-1/'));
+    },
+  );
+
+  it.each([403, 503])('keeps initial denial after a fresh parent %s without retrying it', async (status) => {
+    const held = await holdInitialOperationalRead();
+    held.board.flush({ message: 'Denied' }, { status: 403, statusText: 'Denied' });
+    http.expectOne('/api/projects/project-1').flush({ message: 'Parent unavailable' }, { status, statusText: 'Unavailable' });
+    finishOldInitialRead(held, 'board');
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().project).toBeUndefined();
+    expect(detail.view().kanban.snapshot).toBeNull();
+    expect(detail.view().schedule.snapshot).toBeNull();
+    http.expectNone(() => true);
+  });
+
+  async function holdInitialOperationalRead() {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush(active);
+    return {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne('/api/projects/project-1/kanban'),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+      workload: http.expectOne('/api/projects/project-1/workload'),
+      members: http.expectOne('/api/projects/project-1/members'),
+    };
+  }
+
+  function finishOldInitialRead(
+    held: Awaited<ReturnType<typeof holdInitialOperationalRead>>, denied: 'board' | 'schedule',
+  ) {
+    if (denied === 'board') held.schedule.flush(ganttSnapshotDto());
+    else held.board.flush(snapshotDto());
+    held.tasks.flush({ items: [] }); held.workload.flush({ members: [] }); held.members.flush({ members: [] });
+  }
+
+  for (const projection of ['board', 'schedule'] as const) {
     it.each([401, 403])(`honors initial ${projection} %s before a joined load or newer move can restore it`, async (status) => {
       const held = await loadBoardWithHeldInitialCollections(); moveFirstCard();
       const move = http.expectOne('/api/tasks/task-1/kanban-move');
