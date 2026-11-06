@@ -125,6 +125,21 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(history.touchProject).not.toHaveBeenCalled();
   });
 
+  it('retains an authorized initial result after a transient fallback error', async () => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    const recovered = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovered; await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Temporary service failure' }, { status: 503, statusText: 'Unavailable' },
+    );
+    expect(detail.view().status).toBe('error');
+    initial.flush(draft);
+    expect(detail.view().status).toBe('ready');
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+  });
+
   it('keeps the explicit same-Project reload instead of duplicating it during hydration', async () => {
     detail.load('project-1'); const old = http.expectOne('/api/projects/project-1');
     selectFromHttp(); detail.load('project-1');

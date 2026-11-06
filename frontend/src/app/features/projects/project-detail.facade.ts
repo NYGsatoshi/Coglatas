@@ -1970,7 +1970,10 @@ export class ProjectDetailFacade {
         // loading error after the clear.
         if (this.state().status === 'permissionDenied')
           {return;}
-        this.state.set(this.failure(result.error));
+        const failure = this.failure(result.error);
+        if (failure.status === 'permissionDenied')
+          {this.clearProtectedProjectionsForDeniedSubscription();}
+        this.state.set(failure);
         return;
       }
       if (result.kind === 'draft') {
