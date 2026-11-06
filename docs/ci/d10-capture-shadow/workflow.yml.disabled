@@ -1,0 +1,59 @@
+# INERT PROPOSAL. Not under .github/workflows; no execution/publication is admitted.
+name: Playwright native capture Shadow
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+permissions:
+  contents: read
+  actions: read # Proposed cross-run input read; requires separate approval.
+jobs:
+  shadow:
+    if: ${{ false }} # Owner HOLD: do not remove without explicit admission.
+    name: Shadow Playwright native capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Unconditional admission HOLD
+        run: |
+          echo 'D10_CAPTURE_ADMISSION_OWNER_HOLD'
+          exit 1
+      # Before activation, an independently verified prebuilt frontend, exact
+      # source/applicability discovery envelope, numeric producer/workflow frame,
+      # locked dependencies and an owned 0700 output directory must be admitted.
+      # No frontend build or unverified download fallback is proposed here.
+      - name: Require already admitted prebuilt input
+        run: test -f frontend/dist/coglatas-web/index.html
+      - name: Original full runner with additive Shadow configuration
+        env:
+          CI: 'true'
+          PLAYWRIGHT_SKIP_BUILD: '1'
+          COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: 'true'
+          COGLATAS_STATIC_PLAYWRIGHT_WORKERS: '2'
+          COGLATAS_D10_CAPTURE_SHADOW: '1'
+          D10_WORKFLOW_ID: OWNER_HOLD
+          D10_JOB_ID: OWNER_HOLD
+        run: |
+          # Config passthrough retains the original one-worker fallback.
+          # Worker parity is unresolved; do not add a worker override.
+          status=0
+          node tests/ui/run-angular-playwright.mjs --config=playwright-shadow.config.ts > "$RUNNER_TEMP/d10-shadow-native.private.log" 2>&1 || status=$?
+          echo "D10_SHADOW_NATIVE_EXIT=$status"
+          exit "$status"
+      - name: Proposed sanitized case bundle owner only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: playwright-native-shadow-v1
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/d10-shadow-case-bundle/source.json
+            ${{ runner.temp }}/d10-shadow-case-bundle/applicability.json
+            ${{ runner.temp }}/d10-shadow-case-bundle/native.json
+            ${{ runner.temp }}/d10-shadow-case-bundle/capture-receipt.json

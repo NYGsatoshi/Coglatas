@@ -1,0 +1,88 @@
+/** Intended tests/ui path after admission. Existing observers are unmerged dependencies. */
+import { NativeCaseCapture } from './playwright-case-capture.mjs';
+import { collectApplicability } from '../../scripts/ci/playwright-source-applicability.mjs';
+import { constants, openSync, closeSync, fstatSync, readFileSync, writeFileSync, fsyncSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+
+const refuse = () => { throw new Error('D10_SHADOW_EXPORT_REFUSED'); };
+const requireValue = value => { if (!value) refuse(); };
+const hash = raw => createHash('sha256').update(raw).digest('hex');
+const integer = value => {
+  requireValue(typeof value === 'string' && /^[1-9][0-9]{0,15}$/.test(value));
+  const number = Number(value); requireValue(Number.isSafeInteger(number)); return number;
+};
+function pinnedDirectory(root) {
+  requireValue(process.platform === 'linux' && constants.O_NOFOLLOW && constants.O_DIRECTORY &&
+    ['/__w/_temp', '/home/runner/work/_temp'].includes(root));
+  let fd = openSync('/', constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  try {
+    for (const part of root.split('/').filter(Boolean)) {
+      const next = openSync(`/proc/self/fd/${fd}/${part}`, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      closeSync(fd); fd = next;
+    }
+    return fd;
+  } catch { closeSync(fd); refuse(); }
+}
+function readOwned(fd, name) {
+  const input = openSync(`/proc/self/fd/${fd}/${name}`, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const info = fstatSync(input);
+    requireValue(info.isFile() && info.uid === process.getuid() && info.size > 0 && info.size <= 2 * 1024 * 1024);
+    const raw = readFileSync(input); requireValue(raw.length === info.size); return raw;
+  } finally { closeSync(input); }
+}
+function writeOwned(fd, name, raw) {
+  requireValue(raw.length > 0 && raw.length <= 2 * 1024 * 1024);
+  const output = openSync(`/proc/self/fd/${fd}/${name}`, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  try { writeFileSync(output, raw); fsyncSync(output); } finally { closeSync(output); }
+}
+
+export default class ShadowCapture extends NativeCaseCapture {
+  onBegin(config, suite) {
+    super.onBegin(config, suite);
+    try {
+      requireValue(process.env.COGLATAS_D10_CAPTURE_SHADOW === '1' && process.env.GITHUB_ACTIONS === 'true' &&
+        process.env.GITHUB_BASE_REF === 'SecurityTestImplimation' && process.env.GITHUB_WORKFLOW === 'Playwright native capture Shadow' &&
+        process.env.GITHUB_REPOSITORY === 'NYGsatoshi/Coglatas' && process.env.GITHUB_RUN_ATTEMPT === '1');
+      this.discovered = collectApplicability(process.cwd(), process.env.GITHUB_SHA, config, suite);
+      // Compare to a separately executed, complete --list envelope. Never infer
+      // source completeness from the actual-execution onBegin set alone.
+      const root = pinnedDirectory(process.env.RUNNER_TEMP);
+      try {
+        const original = readOwned(root, 'd10-independent-source-envelope.json');
+        requireValue(original.equals(Buffer.from(JSON.stringify(this.discovered) + '\n')));
+      } finally { closeSync(root); }
+      const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+      requireValue(/^[a-f0-9]{40}$/.test(event.pull_request.head.sha));
+      this.frame = { reviewedHeadSha: event.pull_request.head.sha, workflowId: integer(process.env.D10_WORKFLOW_ID),
+        jobId: integer(process.env.D10_JOB_ID), runId: integer(process.env.GITHUB_RUN_ID) };
+    } catch { this.admissionFailed = true; refuse(); }
+  }
+  onEnd(result) {
+    super.onEnd(result);
+    requireValue(!this.admissionFailed && this.discovered && this.frame);
+    const native = this.snapshot({ sourceSha: process.env.GITHUB_SHA, executionKind: 'GITHUB_ACTIONS',
+      runId: process.env.GITHUB_RUN_ID, runAttempt: 1 });
+    const files = {
+      'source.json': Buffer.from(JSON.stringify(this.discovered.source) + '\n'),
+      'applicability.json': Buffer.from(JSON.stringify(this.discovered.applicability) + '\n'),
+      'native.json': Buffer.from(JSON.stringify(native) + '\n'),
+    };
+    const receipt = { schema: 'coglatas.playwright-capture-receipt.v1', repository: 'NYGsatoshi/Coglatas',
+      reviewedHeadSha: this.frame.reviewedHeadSha, testedMergeSha: process.env.GITHUB_SHA,
+      workflowId: this.frame.workflowId, runId: this.frame.runId, attempt: 1, jobId: this.frame.jobId,
+      producerRole: 'PLAYWRIGHT_STATIC_SHADOW_V1',
+      reportDigests: Object.fromEntries(Object.entries(files).map(([name, raw]) => [name, hash(raw)])) };
+    files['capture-receipt.json'] = Buffer.from(JSON.stringify(receipt) + '\n');
+    let root = -1, output = -1;
+    try {
+      root = pinnedDirectory(process.env.RUNNER_TEMP);
+      output = openSync(`/proc/self/fd/${root}/d10-shadow-case-bundle`, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      const info = fstatSync(output);
+      requireValue(info.uid === process.getuid() && (info.mode & 0o777) === 0o700);
+      for (const [name, raw] of Object.entries(files)) writeOwned(output, name, raw);
+    } catch { refuse(); }
+    finally { if (output >= 0) closeSync(output); if (root >= 0) closeSync(root); }
+    // Observer/export only: original native outcome and all failed attempts remain intact.
+  }
+}

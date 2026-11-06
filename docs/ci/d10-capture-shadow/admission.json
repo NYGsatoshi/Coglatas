@@ -1,0 +1,21 @@
+{
+  "schema": "coglatas.d10-shadow-preparation.v1",
+  "phaseA": "https://github.com/NYGsatoshi/Coglatas/pull/1760",
+  "baseBranch": "SecurityTestImplimation",
+  "ownerApproval": "NOT_GRANTED",
+  "executionAuthorized": false,
+  "publicationAuthorized": false,
+  "newRunnerAuthorized": false,
+  "workflowActivated": false,
+  "requiredGateQualified": false,
+  "workerParity": "OWNER_HOLD",
+  "frontendInputProvenance": "NOT_ADMITTED",
+  "sourceDependency": "1717@37e7b381c382b6207412db4c42cb948e79c3f526",
+  "nativeDependency": "1755@4ca1c2834e17f9da623ac0520291fdf1b97383b5",
+  "frontendRunId": null,
+  "frontendArtifactId": null,
+  "producerJobId": null,
+  "captureArtifactId": null,
+  "archiveDigest": null,
+  "nativeExecution": "NOT_EXECUTED"
+}
