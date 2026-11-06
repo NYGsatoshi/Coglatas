@@ -336,7 +336,7 @@ jobs:
           import { readdirSync, realpathSync, writeFileSync } from 'node:fs';
           import { pathToFileURL } from 'node:url';
           import { resolve } from 'node:path';
-          import { readOwnedRepositoryText } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          import { readOwnedRepositoryText, trustedGitExecutable } from './scripts/ci/verify-sonar-node-coverage.mjs';
           const root = realpathSync(process.cwd()), sha = process.env.GITHUB_SHA;
           assert.match(sha ?? '', /^[a-f0-9]{40}$/);
           const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -348,7 +348,7 @@ jobs:
             'tests/ui/helpers/search-drawer-observation.mjs'];
           const subjects = new Map(paths.map(path => {
             const source = readOwnedRepositoryText(root, path);
-            const original = execFileSync('git', ['show', sha + ':' + path]);
+            const original = execFileSync(trustedGitExecutable(), ['show', sha + ':' + path]);
             assert.ok(original.equals(Buffer.from(source)), 'Source differs from Git: ' + path);
             return [pathToFileURL(resolve(root, path)).href,
               { path, sourceSha256: digest(original), utf16Length: source.length, records: 0 }];
@@ -363,7 +363,15 @@ jobs:
               if (!subject) continue;
               assert.ok(!raw['source-map-cache']?.[script.url]?.data,
                 'Functional helper was transpiled: ' + subject.path);
-              const end = Math.max(...script.functions.flatMap(fn => fn.ranges.map(range => range.endOffset)));
+              const ranges = script.functions.flatMap(fn => fn.ranges);
+              assert.ok(ranges.length > 0);
+              for (const range of ranges) {
+                assert.ok(Number.isInteger(range.startOffset) && Number.isInteger(range.endOffset) &&
+                  range.startOffset >= 0 && range.startOffset <= range.endOffset && range.endOffset <= subject.utf16Length,
+                  'Raw range differs from Git: ' + subject.path);
+                assert.ok(Number.isSafeInteger(range.count) && range.count >= 0, 'Invalid native hit count: ' + subject.path);
+              }
+              const end = Math.max(...ranges.map(range => range.endOffset));
               assert.equal(end, subject.utf16Length, 'Raw coordinates differ from Git: ' + subject.path);
               subject.records++;
             }
@@ -371,6 +379,9 @@ jobs:
           assert.ok(originals.length > 0);
           for (const subject of subjects.values()) assert.ok(subject.records > 0, 'Missing native source: ' + subject.path);
           const report = readOwnedRepositoryText(root, 'artifacts/sonar-node/lcov.info');
+          const reported = new Set(report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
+            .map(row => pathToFileURL(resolve(root, row.slice(3))).href));
+          for (const [url, subject] of subjects) assert.ok(reported.has(url), 'Missing LCOV source: ' + subject.path);
           writeFileSync('artifacts/sonar-node/representation.json', JSON.stringify({
             sourceSha: sha, nodeVersion: process.version, reportSha256: digest(report),
             subjects: [...subjects.values()], rawFiles: originals, originalBytesRewritten: false,

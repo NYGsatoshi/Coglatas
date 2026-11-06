@@ -18,9 +18,10 @@ scope, native reporters and the scanner's single existing import are preserved.
 No actual browser acceptance configuration or product module changes.
 
 Before scanner credentials, the producer verifies six affected helpers against
-their exact Git bytes. Every retained raw record for those URLs must use the
-original UTF-16 source extent and have no transformed source map. All six must
-be present; mixed representations or missing sources fail collection. The
+their exact Git bytes using the existing trusted Git executable. Every retained
+raw record for those URLs must have valid ranges within the original UTF-16
+source extent, nonnegative hit counts and no transformed source map. All six
+must be present in raw coverage and LCOV; mixed representations or missing sources fail collection. The
 read-only verifier does not instrument itself, alter raw records, remap reports
 or filter findings. It retains a companion `representation.json` with the Git
 SHA, Node version, source identities, raw-file digests and original LCOV digest.
