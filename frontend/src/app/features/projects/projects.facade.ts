@@ -3,7 +3,7 @@ import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projec
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { effect, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin, Observable, of, Subscription, throwError } from 'rxjs';
+import { EMPTY, forkJoin, Observable, of, Subscription, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
