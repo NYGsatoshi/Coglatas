@@ -463,7 +463,7 @@ public sealed class VersionedArtifactTests
             var digest = ContentDigest.Compute(domain, data.ToCanonicalBytes()).Value;
             Assert.Equal(vector.GetProperty("sha256").GetString(), digest);
             Assert.True(computed.TryAdd(id, digest));
-            Assert.NotEqual(digest, ContentDigest.Compute(domain, Encoding.UTF8.GetBytes(canonical + "\\n")).Value);
+            Assert.NotEqual(digest, ContentDigest.Compute(domain, Encoding.UTF8.GetBytes(canonical + "\n")).Value);
         }
         Assert.Equal(4, computed.Count);
         foreach (var pair in fixture.RootElement.GetProperty("casePairs").EnumerateArray())
