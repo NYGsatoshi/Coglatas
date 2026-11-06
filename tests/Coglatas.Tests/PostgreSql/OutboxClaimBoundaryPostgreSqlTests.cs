@@ -79,6 +79,7 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
             {
                 var item = Event(alpha, OutboxEventStatus.Processing);
                 await SeedAsync(connection, item);
+                var persisted = await ReadAsync(connection, item.Id);
                 var token = item.LockToken!.Value;
                 await using (var worker = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
                 {
@@ -97,8 +98,8 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
                 Assert.Equal(deliver ? "AuthorizationSuppressed" : item.LastErrorCode, actual.LastErrorCode);
                 Assert.Equal(deliver ? null : item.LastErrorSummary, actual.LastErrorSummary);
                 Assert.Equal(item.AttemptCount, actual.AttemptCount);
-                Assert.Equal(item.PayloadJson, actual.PayloadJson);
-                Assert.Equal(item.RoutingJson, actual.RoutingJson);
+                Assert.Equal(persisted.PayloadJson, actual.PayloadJson);
+                Assert.Equal(persisted.RoutingJson, actual.RoutingJson);
                 AssertClearedLock(actual);
             }
         });
@@ -114,6 +115,7 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
                 var item = Event(alpha, OutboxEventStatus.Processing);
                 item.AttemptCount = terminal ? 9 : 0;
                 await SeedAsync(connection, item);
+                var persisted = await ReadAsync(connection, item.Id);
                 await using (var worker = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
                 {
                     Assert.True(await new OutboxEventRepository(worker).MarkFailureAsync(item.Id, item.LockToken!.Value,
@@ -127,8 +129,8 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
                 Assert.Equal(terminal ? null : Now, actual.NextAttemptAt);
                 Assert.Equal(terminal ? "Unknown" : new string('c', 100), actual.LastErrorCode);
                 Assert.Equal(new string('s', 1000), actual.LastErrorSummary);
-                Assert.Equal(item.PayloadJson, actual.PayloadJson);
-                Assert.Equal(item.RoutingJson, actual.RoutingJson);
+                Assert.Equal(persisted.PayloadJson, actual.PayloadJson);
+                Assert.Equal(persisted.RoutingJson, actual.RoutingJson);
                 AssertClearedLock(actual);
             }
         });
@@ -201,11 +203,14 @@ public sealed class OutboxClaimBoundaryPostgreSqlTests
         await db.SaveChangesAsync();
     }
 
-    private static async Task<string> SnapshotAsync(string connection, Guid eventId)
+    private static async Task<OutboxEvent> ReadAsync(string connection, Guid eventId)
     {
         await using var observed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
-        return JsonSerializer.Serialize(await observed.OutboxEvents.AsNoTracking().SingleAsync(e => e.Id == eventId));
+        return await observed.OutboxEvents.AsNoTracking().SingleAsync(e => e.Id == eventId);
     }
+
+    private static async Task<string> SnapshotAsync(string connection, Guid eventId) =>
+        JsonSerializer.Serialize(await ReadAsync(connection, eventId));
 
     private static Task WithDatabaseAsync(Func<string, Guid, Guid, Task> test) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
