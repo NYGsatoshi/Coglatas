@@ -123,8 +123,13 @@ describe('ProjectDetailFacade initial response scope', () => {
   });
   }
 
-  it.each(['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const)(
-    'keeps %s behind the initial authorized collection join', async (type) => {
+  for (const type of ['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const) {
+  it.each([
+    { lateSuccess: false, boundary: 'none' },
+    { lateSuccess: true, boundary: 'none' },
+    { lateSuccess: true, boundary: 'cleared' },
+    { lateSuccess: true, boundary: 'replaced' },
+  ] as const)(`keeps ${type} behind the initial join with lateSuccess=$lateSuccess, boundary=$boundary`, async ({ lateSuccess, boundary }) => {
       enableViews(); facade.load('project-1'); http.expectOne('/api/projects/project-1').flush(active);
       http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
       http.expectOne('/api/projects/project-1/members').flush({ members: [] });
@@ -138,21 +143,65 @@ describe('ProjectDetailFacade initial response scope', () => {
         extras.push(...requests);
         for (const request of requests) {
           const url = request.request.url;
-          request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
+          if (!lateSuccess) request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
             : url.endsWith('/tasks') ? { items: [] } : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
         }
       }
       const earlyBoard = facade.view().kanban.snapshot, earlySchedule = facade.view().schedule.snapshot;
       board.flush(snapshotDto()); schedule.flush(ganttSnapshotDto());
       workload.flush({ message: 'Initial collections unavailable' }, { status: 503, statusText: 'Unavailable' });
+      if (boundary === 'cleared') workspace.clearWorkspace();
+      else if (boundary === 'replaced') workspace.setActiveWorkspace({ id: 'workspace-2', label: 'Workspace 2' });
+      if (lateSuccess) for (const request of extras) {
+        const url = request.request.url;
+        request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
+          : url.endsWith('/tasks') ? { items: [] } : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
+      }
+      const failedBoard = facade.view().kanban.snapshot, failedSchedule = facade.view().schedule.snapshot;
+      const failedTasks = facade.view().tasks;
+      workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
       facade.load('project-1'); finishNavigation(); finishViews();
       // Preserve the original concurrent refresh contract; successful responses
       // cannot become visible until a complete current join authorizes them.
       expect(extras.length).toBeGreaterThan(0);
       expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
+      expect(failedBoard).toBeNull(); expect(failedSchedule).toBeNull(); expect(failedTasks).toEqual([]);
       expect(facade.view().status).toBe('ready');
       expect(facade.view().kanban.snapshot).not.toBeNull();
     });
+  }
+
+  const taskRows = { items: [{ id: 'task-1', projectId: 'project-1', title: 'Scoped Task',
+    workflowStageId: 'stage-progress', workflowStageName: 'In progress', stageCategory: 'InProgress',
+    status: 1, isBlocked: false, priority: 'Medium', progressPercent: 25,
+    createdAt: '2026-08-20T09:00:00Z', updatedAt: '2026-08-21T09:00:00Z', hasArtifact: false, version: 3 }] };
+
+  for (const queued of [true, false]) {
+    it.each(['cleared', 'replaced'] as const)(`discards an ordinary Task-list read when Workspace is %s with queued=${queued}`, async (boundary) => {
+      enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
+      facade.retryTaskList();
+      if (!queued) {await Promise.resolve();}
+      const held = queued ? [] : [http.expectOne('/api/projects/project-1/tasks')];
+      if (boundary === 'cleared') workspace.clearWorkspace();
+      else workspace.setActiveWorkspace({ id: 'workspace-2', label: 'Workspace 2' });
+      await Promise.resolve();
+      const unexpected = http.match('/api/projects/project-1/tasks');
+      for (const request of [...held, ...unexpected]) request.flush(taskRows);
+      expect(unexpected).toHaveLength(0);
+      expect(facade.view().tasks).toEqual([]);
+      http.expectNone(() => true);
+    });
+    it(`retains a same-Workspace Task-list label refresh with queued=${queued}`, async () => {
+      enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
+      facade.retryTaskList();
+      if (!queued) {await Promise.resolve();}
+      workspace.setActiveWorkspace({ id: 'workspace-1', label: 'Refreshed label' });
+      await Promise.resolve();
+      http.expectOne('/api/projects/project-1/tasks').flush(taskRows);
+      expect(facade.view().tasks[0].title).toBe('Scoped Task');
+      http.expectNone(() => true);
+    });
+  }
 
   it('releases the old Schedule owner after activation reconciliation advances its response generation', async () => {
     enableViews(); facade.load('project-1'); http.expectOne('/api/projects/project-1').flush(draft);
