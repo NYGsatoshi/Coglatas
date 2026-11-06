@@ -14,7 +14,12 @@ intermediate callback. No modifying dependency runs between those assignments.
 
 The two regression cases use the existing synthetic administrative fixture.
 They require the exact invalid/duplicate-email error, unchanged name/email/role/
-status and no audit, authorization-change, session-call or save effect. Their
+status and no audit, authorization-change, user-wide session-revocation call or save effect. Their
 original failure is an Application object-mutation reproduction, not proof that
 a normal failing HTTP request later saves the same database context. This fix
 does not establish complete transaction atomicity or deployed acceptance.
+
+The existing digest-restart null-request guard is retained. Its implementation
+parameter is annotated nullable to describe the already-supported rejection;
+a direct regression verifies the same failure without delegation or saves.
+This annotation does not change the interface or runtime authorization.

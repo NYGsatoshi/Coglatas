@@ -31,7 +31,7 @@ public sealed class AdminService(
 
     public async Task<Result> RestartTaskDeadlineDigestAsync(
         Guid jobId,
-        RestartTaskDeadlineDigestRequest request,
+        RestartTaskDeadlineDigestRequest? request,
         CancellationToken cancellationToken = default)
     {
         if (jobId == Guid.Empty ||

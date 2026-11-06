@@ -202,13 +202,13 @@ public sealed partial class AdminServiceTests
         Assert.Equal(
             new[] { fixture.ActorUser.Id, memberId, secondSystemAdmin.Id }.Order().ToArray(),
             fixture.AuthorizationChanges.Items.Select(item => item.UserId).Order().ToArray());
-        Assert.All(fixture.AuthorizationChanges.Items, item =>
+        foreach (var item in fixture.AuthorizationChanges.Items)
         {
             Assert.Equal(project.TenantId, item.TenantId);
             Assert.Equal("project", item.ScopeType);
             Assert.Equal(project.Id, item.ScopeId);
             Assert.Equal("archived", item.Change);
-        });
+        }
     }
 
     [Fact]
