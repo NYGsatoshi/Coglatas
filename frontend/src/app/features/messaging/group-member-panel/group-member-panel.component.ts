@@ -342,6 +342,8 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
         // also have reset during remount. Keep the final row visible through
         // the authorized enclosing scrollport without retaining old content.
         list.querySelector<HTMLElement>('li:last-child')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      } else {
+        list.querySelector<HTMLElement>('li:first-child')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
       }
     });
   }
@@ -354,6 +356,12 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     // discarded while the previous End/Home animation is still settling.
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+    if (event.key === 'Home') {
+      // The list can be taller than its enclosing mobile scrollport. Expose
+      // the first row through that ancestor too, leaving room for the summary
+      // when Shift+Tab returns focus. Inner Home remains clamped at zero.
+      list.querySelector<HTMLElement>('li:first-child')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    }
     if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End',
       at: Date.now(), epoch: this.boundaryIntent?.epoch ?? 0 };
   }

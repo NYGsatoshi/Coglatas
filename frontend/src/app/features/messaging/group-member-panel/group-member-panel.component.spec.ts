@@ -16,6 +16,8 @@ describe('Group roster boundary keyboard scope', () => {
     fixture.detectChanges();
     const list = fixture.nativeElement.querySelector('ul') as HTMLElement;
     const child = list.querySelector('button')!;
+    const firstRow = list.querySelector('li') as HTMLElement;
+    firstRow.scrollIntoView = vi.fn();
     const scrollTo = vi.fn();
     list.scrollTo = scrollTo;
     for (const options of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true },
@@ -43,6 +45,7 @@ describe('Group roster boundary keyboard scope', () => {
       expect(boundary.defaultPrevented).toBe(true);
     }
     expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(firstRow.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
     fixture.destroy();
   });
 });
@@ -74,7 +77,9 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     list.scrollTo = vi.fn();
     const finalRow = list.querySelector('li:last-child') as HTMLElement;
     finalRow.scrollIntoView = vi.fn();
-    return { fixture, list, finalRow };
+    const firstRow = list.querySelector('li:first-child') as HTMLElement;
+    firstRow.scrollIntoView = vi.fn();
+    return { fixture, list, finalRow, firstRow };
   }
 
   function rememberEnd() {
@@ -94,6 +99,20 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     expect(next.list.scrollTo).toHaveBeenCalledOnce();
     expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 180, behavior: 'instant' });
     expect(next.finalRow.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    next.fixture.destroy();
+  });
+
+  it('exposes only the fresh first row when restoring Home after authorized remount', async () => {
+    await setup();
+    const old = mount();
+    old.list.focus();
+    old.list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    old.fixture.destroy();
+    const next = mount();
+    await Promise.resolve();
+    expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
+    expect(next.firstRow.scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    expect(next.firstRow).not.toBe(old.firstRow);
     next.fixture.destroy();
   });
 

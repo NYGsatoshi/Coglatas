@@ -1,0 +1,32 @@
+# Group roster Home across nested scrollports
+
+Main `1dcb3244bf2d8e2c6a620bda800eaad6975431d5` first-attempt CI
+`42251339047/1`, job `128008837766`, retains the UI07 Mobile failure at
+`HOME_FIRST_NAME_VISIBILITY`. Its internal Home position is zero, but the first
+name and status remain below the enclosing viewport. Desktop and the separate
+eight core real-backend cases passed. The finite lifecycle shows no remount
+after initial presentation in that sequence; historical initiating causes remain
+UNKNOWN. This does not attribute that failure to the Project overview change.
+
+The boundary handler previously changed only the inner list's scroll position.
+A native Chromium control at 320x420 additionally checks the first complete row
+immediately after Home and again after returning focus to the summary. Before
+the product correction, both configured Chromium profiles fail that immediate
+visibility assertion with ratio zero. Earlier English/default-locale/mock-shape
+controls passed after Shift+Tab and are retained as narrower evidence; they do
+not reproduce the complete hosted failure. The initial runner preparation failed
+dependency resolution before browser execution and is retained separately.
+
+Home now brings the first row through enclosing scrollports as well. Centering
+that short row leaves room above it for the summary; the first inner row remains
+clamped at Home zero. The same operation uses only the newly authorized first
+row when restoring a pending Home across an authorized remount. It does not move
+focus, retain an old DOM node, change End, accept modified/child/IME keys, or
+change membership/authorization state. Existing native boundary, original
+ReadOnly owner, retry, deadline, lifecycle and authority assertions remain.
+
+This isolated mock-HTTP browser regression and Angular unit execution are
+separate from exact-head protected real-backend roster execution, required CI,
+official PR Gate, independent review and resulting-Main qualification. They do
+not close #1346, historical MSG/Thread failures, real Pilot/physical/HTTPS
+acceptance, or authorize Release GO.
