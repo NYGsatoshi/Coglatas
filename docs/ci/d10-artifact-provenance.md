@@ -37,12 +37,13 @@ review remain separate; the verifier never grants either.
 ```text
 schema, repository, repositoryId, prNumber, reviewedHeadSha, baseSha,
 testedMergeSha, sourceTreeSha, workflowId, workflowPath, workflowSourceSha256,
+producerWorkflowSourceSha256,
 runId, attempt, jobId, artifactId, sourceRosterSha256, applicabilitySha256
 ```
 
 Repository ID is pinned to Coglatas, the base to SecurityTestImplimation, the
 workflow path to `.github/workflows/playwright-native-capture-shadow.yml`, producer
-name to `Shadow Playwright native capture`, role to `PLAYWRIGHT_STATIC_SHADOW_V1`
+name to `Shadow Playwright native capture / Native capture`, role to `PLAYWRIGHT_STATIC_SHADOW_V1`
 and artifact name to `playwright-native-shadow-v1`. That workflow is not activated
 or registered by this PR. Unknown policy fields and unsupported versions reject.
 
@@ -51,6 +52,16 @@ reviewed-head tree. It separately verifies the tested merge's two exact parents,
 current PR head/base/merge and current Security base. Nonidentical trees reject;
 there is no implicit subset-equivalence waiver. Reviewed head and tested merge
 remain distinct fields even when their trees are identical.
+
+The run's server-provided `referenced_workflows` must contain exactly the local
+reusable `.github/workflows/playwright-native-capture-producer.yml`, with the exact
+tested merge SHA in both its path suffix and SHA and `refs/pull/<number>/merge`
+as its ref. The run's PR head/base association must also match. Absent, ambiguous,
+foreign or unsupported revision bindings reject. Neither run `head_sha`, today's
+PR merge ref nor a candidate receipt proves the actual tested merge. The independent
+policy additionally pins `producerWorkflowSourceSha256`; both caller and reusable
+producer bytes are independently read at the server-bound revision and hashed.
+Operator admission must review their exact local-call and checkout behavior.
 
 Live API checks cover repository IDs, PR/source identity, workflow ID/path/state
 and immutable workflow bytes (SHA-256 plus Git blob identity), Run ID/attempt,

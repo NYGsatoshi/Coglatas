@@ -21,7 +21,8 @@ from d10_transport import ArtifactGitHub, MAX_ZIP
 REPOSITORY = 'NYGsatoshi/Coglatas'
 REPOSITORY_ID = 1261244608
 WORKFLOW = '.github/workflows/playwright-native-capture-shadow.yml'
-JOB = 'Shadow Playwright native capture'
+PRODUCER_WORKFLOW = '.github/workflows/playwright-native-capture-producer.yml'
+JOB = 'Shadow Playwright native capture / Native capture'
 ARTIFACT = 'playwright-native-shadow-v1'
 ROLE = 'PLAYWRIGHT_STATIC_SHADOW_V1'
 FILES = {'source.json', 'applicability.json', 'native.json', 'capture-receipt.json'}
@@ -32,7 +33,7 @@ PINS = {'playwright_case_reconcile': '56bc4e341f580682e9441b4425723666b5dfe67e73
         'playwright_applicability_reconcile': '5b75507ce54549131faeda6024c12f30a3c7e6e745fbb46ddb52f5b15a648dba'}
 POLICY_FIELDS = {'schema', 'repository', 'repositoryId', 'prNumber', 'reviewedHeadSha', 'baseSha',
                  'testedMergeSha', 'sourceTreeSha', 'workflowId', 'workflowPath', 'workflowSourceSha256',
-                 'runId', 'attempt', 'jobId', 'artifactId', 'sourceRosterSha256', 'applicabilitySha256'}
+                 'producerWorkflowSourceSha256', 'runId', 'attempt', 'jobId', 'artifactId', 'sourceRosterSha256', 'applicabilitySha256'}
 
 
 class Refused(ValueError):
@@ -71,7 +72,7 @@ def policy_document(raw, expected_digest):
         need(type(policy[key]) is int and 0 < policy[key] <= 2**63 - 1, 'POLICY_INVALID')
     need(type(policy['attempt']) is int and policy['attempt'] == 1, 'ATTEMPT_UNSUPPORTED')
     for key in ['reviewedHeadSha', 'baseSha', 'testedMergeSha', 'sourceTreeSha']: need(hex_value(policy[key], 40), 'POLICY_INVALID')
-    for key in ['workflowSourceSha256', 'sourceRosterSha256', 'applicabilitySha256']: need(hex_value(policy[key], 64), 'POLICY_INVALID')
+    for key in ['workflowSourceSha256', 'producerWorkflowSourceSha256', 'sourceRosterSha256', 'applicabilitySha256']: need(hex_value(policy[key], 64), 'POLICY_INVALID')
     need(len({policy['reviewedHeadSha'], policy['testedMergeSha'], policy['baseSha']}) == 3, 'POLICY_INVALID')
     return policy
 
@@ -101,15 +102,27 @@ def snapshot(api, p, now):
          run['status'] == 'completed' and run['conclusion'] == 'success', 'RUN_IDENTITY_MISMATCH')
     need(int_equal(run['workflow_id'], p['workflowId']) and run['path'] == WORKFLOW and
          type(run['check_suite_id']) is int and run['check_suite_id'] > 0, 'WORKFLOW_MISMATCH')
+    # Run head_sha is the reviewed head, not the executed merge. Require an
+    # independent server revision binding from the local reusable producer call.
+    references = run['referenced_workflows']
+    need(type(references) is list and len(references) == 1, 'TESTED_MERGE_UNAUTHENTICATED')
+    fields(references[0], {'path', 'ref', 'sha'}, 'TESTED_MERGE_UNAUTHENTICATED')
+    need(references[0] == {'path': REPOSITORY + '/' + PRODUCER_WORKFLOW + '@' + p['testedMergeSha'],
+         'ref': 'refs/pull/' + str(p['prNumber']) + '/merge', 'sha': p['testedMergeSha']}, 'TESTED_MERGE_UNAUTHENTICATED')
+    requests = run['pull_requests']
+    need(type(requests) is list and len(requests) == 1 and int_equal(requests[0]['number'], p['prNumber']) and
+         requests[0]['head']['sha'] == p['reviewedHeadSha'] and requests[0]['head']['ref'] == pr['head']['ref'] and
+         requests[0]['base']['sha'] == p['baseSha'] and requests[0]['base']['ref'] == 'SecurityTestImplimation', 'RUN_IDENTITY_MISMATCH')
     need(instant(run['created_at']) <= instant(run['updated_at']) <= now, 'RUN_IDENTITY_MISMATCH')
     workflow = api(prefix + '/actions/workflows/' + str(p['workflowId']))
     need(int_equal(workflow['id'], p['workflowId']) and workflow['path'] == WORKFLOW and workflow['state'] == 'active', 'WORKFLOW_MISMATCH')
-    source = api(prefix + '/contents/' + WORKFLOW + '?ref=' + p['testedMergeSha'])
-    need(source['type'] == 'file' and source['encoding'] == 'base64' and type(source['size']) is int and
-         0 < source['size'] <= MAX_REPORT, 'WORKFLOW_MISMATCH')
-    raw = base64.b64decode(''.join(source['content'].split()), validate=True)
-    need(len(raw) == source['size'] and hashlib.sha256(raw).hexdigest() == p['workflowSourceSha256'] and
-         hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == source['sha'], 'WORKFLOW_MISMATCH')
+    for path, digest in [(WORKFLOW, p['workflowSourceSha256']), (PRODUCER_WORKFLOW, p['producerWorkflowSourceSha256'])]:
+        source = api(prefix + '/contents/' + path + '?ref=' + p['testedMergeSha'])
+        need(source['type'] == 'file' and source['encoding'] == 'base64' and type(source['size']) is int and
+             0 < source['size'] <= MAX_REPORT, 'WORKFLOW_MISMATCH')
+        raw = base64.b64decode(''.join(source['content'].split()), validate=True)
+        need(len(raw) == source['size'] and hashlib.sha256(raw).hexdigest() == digest and
+             hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == source['sha'], 'WORKFLOW_MISMATCH')
     jobs = collect(api, run_path + '/attempts/1/jobs', 'jobs')
     need(len(jobs) == 1, 'PRODUCER_SCOPE_UNSUPPORTED')
     job = jobs[0]
@@ -144,6 +157,7 @@ def snapshot(api, p, now):
          type(artifact['digest']) is str and re.fullmatch('sha256:[a-f0-9]{64}', artifact['digest']), 'ARTIFACT_MISMATCH')
     return {'artifact': {key: artifact[key] for key in relevant}, 'jobId': job['id'],
             'checkRunId': check['id'], 'workflowDigest': p['workflowSourceSha256'],
+            'producerWorkflowDigest': p['producerWorkflowSourceSha256'],
             'reviewedHead': p['reviewedHeadSha'], 'testedMerge': p['testedMergeSha'], 'tree': p['sourceTreeSha']}
 
 
@@ -252,6 +266,7 @@ def verify(api, download, policy_raw, expected_policy_digest, now, content_root)
         result.update(decision='VERIFIED', ARTIFACT_PROVENANCE_VERIFIED=True, repository=REPOSITORY,
                       reviewedHeadSha=p['reviewedHeadSha'], testedMergeSha=p['testedMergeSha'], sourceTreeSha=p['sourceTreeSha'],
                       workflowId=p['workflowId'], workflowPath=WORKFLOW, runId=p['runId'], attempt=p['attempt'],
+                      producerWorkflowPath=PRODUCER_WORKFLOW,
                       producerJobId=p['jobId'], artifactId=p['artifactId'], archiveSha256=authority['artifact']['digest'][7:],
                       reportDigests=digests, counts=counts, policySha256=expected_policy_digest)
     except Refused as error:

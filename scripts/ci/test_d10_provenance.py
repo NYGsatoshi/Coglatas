@@ -56,7 +56,7 @@ class SyntheticD10Controls(unittest.TestCase):
         self.policy = {'schema': 'coglatas.d10-policy.v1', 'repository': d10.REPOSITORY, 'repositoryId': d10.REPOSITORY_ID,
                        'prNumber': 99, 'reviewedHeadSha': HEAD, 'baseSha': BASE, 'testedMergeSha': MERGE, 'sourceTreeSha': TREE,
                        'workflowId': 21, 'workflowPath': d10.WORKFLOW, 'workflowSourceSha256': sha(workflow_bytes),
-                       'runId': 11, 'attempt': 1, 'jobId': 31, 'artifactId': 41,
+                       'producerWorkflowSourceSha256': sha(workflow_bytes), 'runId': 11, 'attempt': 1, 'jobId': 31, 'artifactId': 41,
                        'sourceRosterSha256': self.source['rosterSha256'], 'applicabilitySha256': self.applicability['applicabilitySha256']}
         self.receipt = {'schema': 'coglatas.playwright-capture-receipt.v1', 'repository': d10.REPOSITORY,
                         'reviewedHeadSha': HEAD, 'testedMergeSha': MERGE, 'workflowId': 21, 'runId': 11,
@@ -67,6 +67,10 @@ class SyntheticD10Controls(unittest.TestCase):
         self.run = {'id': 11, 'run_attempt': 1, 'head_sha': HEAD, 'head_branch': 'candidate', 'event': 'pull_request',
                     'status': 'completed', 'conclusion': 'success', 'workflow_id': 21, 'path': d10.WORKFLOW,
                     'repository': identity, 'head_repository': identity, 'check_suite_id': 61,
+                    'referenced_workflows': [{'path': d10.REPOSITORY + '/' + d10.PRODUCER_WORKFLOW + '@' + MERGE,
+                                             'ref': 'refs/pull/99/merge', 'sha': MERGE}],
+                    'pull_requests': [{'number': 99, 'head': {'sha': HEAD, 'ref': 'candidate'},
+                                       'base': {'sha': BASE, 'ref': 'SecurityTestImplimation'}}],
                     'created_at': '2026-11-06T00:00:00Z', 'updated_at': '2026-11-06T04:00:00Z'}
         self.job = {'id': 31, 'name': d10.JOB, 'run_id': 11, 'run_attempt': 1, 'head_sha': HEAD,
                     'status': 'completed', 'conclusion': 'success', 'started_at': '2026-11-06T01:00:00Z',
@@ -163,6 +167,21 @@ class SyntheticD10Controls(unittest.TestCase):
             self.setUp(); getattr(self, item)[field] = value; self.rejected(self.verify())
         self.setUp(); self.jobs = []; self.rejected(self.verify())
         self.setUp(); self.jobs.append(dict(self.job, id=32)); self.rejected(self.verify())
+
+    def test_current_merge_and_receipt_cannot_replace_server_tested_revision_binding(self):
+        for mode in ['absent', 'empty', 'wrong-sha', 'wrong-ref', 'wrong-path', 'duplicate', 'unknown-field', 'wrong-pr']:
+            self.setUp()
+            if mode == 'absent': self.run.pop('referenced_workflows')
+            if mode == 'empty': self.run['referenced_workflows'] = []
+            if mode == 'wrong-sha': self.run['referenced_workflows'][0]['sha'] = HEAD
+            if mode == 'wrong-ref': self.run['referenced_workflows'][0]['ref'] = 'refs/heads/main'
+            if mode == 'wrong-path': self.run['referenced_workflows'][0]['path'] = 'other/repo/' + d10.PRODUCER_WORKFLOW + '@' + MERGE
+            if mode == 'duplicate': self.run['referenced_workflows'] *= 2
+            if mode == 'unknown-field': self.run['referenced_workflows'][0]['claim'] = True
+            if mode == 'wrong-pr': self.run['pull_requests'][0]['number'] = 100
+            self.rejected(self.verify())
+        self.setUp(); self.policy['producerWorkflowSourceSha256'] = '0' * 64
+        self.rejected(self.verify())
 
     def test_artifact_missing_expired_other_run_name_spoof_and_digest_reject(self):
         for mode in ['missing', 'expired', 'run', 'id', 'name', 'duplicate', 'digest', 'time', 'size']:
