@@ -106,6 +106,60 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     selectFromHttp(); cold.flush(draft); await settle(); flushBoard();
   }
 
+  async function loadBoardWithHeldInitialCollections() {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush(active);
+    const held = {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne('/api/projects/project-1/kanban'),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+      workload: http.expectOne('/api/projects/project-1/workload'),
+      members: http.expectOne('/api/projects/project-1/members'),
+    };
+    const recovery = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovery; await settle(); flushBoard();
+    expect(detail.view().status).toBe('ready');
+    return held;
+  }
+
+  for (const projection of ['board', 'schedule'] as const) {
+    it.each([401, 403])(`honors initial ${projection} %s before a joined load or newer move can restore it`, async (status) => {
+      const held = await loadBoardWithHeldInitialCollections(); moveFirstCard();
+      const move = http.expectOne('/api/tasks/task-1/kanban-move');
+      held[projection].flush({ message: 'Initial authority denied' }, { status, statusText: 'Denied' });
+      const immediateStatus = detail.view().status;
+      if (projection === 'board') held.schedule.flush(ganttSnapshotDto());
+      else held.board.flush(snapshotDto());
+      held.tasks.flush({ items: [] }); held.workload.flush({ members: [] }); held.members.flush({ members: [] });
+      move.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+      await settle();
+      for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+      for (const request of http.match((request) => request.url === '/api/projects/project-1/kanban')) request.flush(snapshotDto());
+      expect(immediateStatus).toBe('permissionDenied');
+      expect(detail.view().status).toBe('permissionDenied');
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+    });
+  }
+
+  it('keeps a new filter when an initial Board result loses ownership to a fallback and move', async () => {
+    const held = await loadBoardWithHeldInitialCollections(); moveFirstCard();
+    const move = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.setIncludeOlderCompleted(true);
+    held.board.flush(snapshotDto()); held.schedule.flush(ganttSnapshotDto());
+    held.tasks.flush({ items: [] }); held.workload.flush({ members: [] }); held.members.flush({ members: [] });
+    move.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+    await settle();
+    const reads = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    const filters = reads.map((request) => request.request.params.get('includeOlderCompleted'));
+    for (const request of reads) request.flush(snapshotDto({ board: { ...snapshotDto().board!, includesOlderCompleted: true } }));
+    for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+    expect(filters).toEqual(['true']);
+    expect(detail.view().kanban.snapshot?.includesOlderCompleted).toBe(true);
+  });
+
   function moveFirstCard() {
     detail.moveTask({ item: detail.view().kanban.snapshot!.cards[0],
       targetStatus: 'stage-done', targetBeforeItemId: null, targetAfterItemId: null,
