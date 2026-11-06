@@ -17,6 +17,10 @@ contract failures do not schedule automatic retry. Host cancellation propagates
 without recording false failure/delivery; unrelated cancellation remains retryable.
 Duplicate targets send a single authorized envelope and do not reach a foreign
 Tenant's connection. Broad SignalR sends and unused repository operations fail.
+Claim identities are snapshotted when returned, independently of the mutable
+event row. Non-default tokens must reach claims, authorization, sends and outcome
+calls. Terminal-failure controls require the injected send attempt and assert
+recorded unexpected transport operations outside the dispatch exception handler.
 
 A transport send followed by lost delivery acknowledgement is deliberately
 recorded as retryable. These controls do not assert exactly-once delivery,

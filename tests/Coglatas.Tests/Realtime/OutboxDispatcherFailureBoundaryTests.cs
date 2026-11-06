@@ -251,6 +251,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             if (token == default) {token = _lifetime.Token;}
             Assert.NotEqual(CancellationToken.None, token);
             Repository.Token = token;
+            Authorizer.Token = token;
+            Hub.Token = token;
             var method = typeof(OutboxDispatcher).GetMethod("DispatchBatchAsync", BindingFlags.Instance | BindingFlags.NonPublic)
                 ?? throw Unexpected();
             await Assert.IsAssignableFrom<Task>(method.Invoke(_dispatcher, [token]));
@@ -274,10 +276,12 @@ public sealed class OutboxDispatcherFailureBoundaryTests
     {
         public int Calls { get; private set; }
         public Exception? Exception { get; set; }
+        public CancellationToken Token { get; set; }
         public Task<bool> CanReceiveAsync(HubSubscription subscription, RealtimeSubscriptionType targetType,
             Guid targetResourceId, DurableEventEnvelope envelope, CancellationToken cancellationToken = default)
         {
             Calls++;
+            Assert.Equal(Token, cancellationToken);
             Assert.Equal(envelope.TenantId, subscription.TenantId);
             Assert.Equal(targetType, subscription.SubscriptionType);
             Assert.Equal(targetResourceId, subscription.ResourceId);
@@ -346,6 +350,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
     {
         public List<(string Connection, string Method, object?[] Arguments)> Sends { get; } = [];
         public List<string> UnexpectedCalls { get; } = [];
+        public CancellationToken Token { get; set; }
         public Exception? Exception { get; set; }
         IHubClients IHubContext<AppHub>.Clients => this;
         IGroupManager IHubContext<AppHub>.Groups => this;
@@ -354,6 +359,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         {
             public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
             {
+                Assert.Equal(hub.Token, cancellationToken);
                 hub.Sends.Add((connection, method, args));
                 return hub.Exception is null ? Task.CompletedTask : Task.FromException(hub.Exception);
             }
