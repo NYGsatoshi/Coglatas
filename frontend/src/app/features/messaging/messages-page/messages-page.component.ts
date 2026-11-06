@@ -142,17 +142,19 @@ interface RecipientOption {
               <button type="button" [attr.aria-label]="i18n.translate('common.close')" (click)="closeCreateDialog()">×</button>
             </header>
             <div class="messages-page__dialog-content" role="region" tabindex="0" aria-labelledby="new-message-title">
-            <fieldset class="messages-page__mode" [disabled]="creating()">
+            <fieldset class="messages-page__mode" [disabled]="creating() || !canCreateConversation()">
               <legend>{{ i18n.translate('messaging.group.conversationType') }}</legend>
               <label><input type="radio" name="conversation-type" value="direct" [ngModel]="createMode()" (ngModelChange)="changeCreateMode($event)" />{{ i18n.translate('messaging.directMessage') }}</label>
               <label><input type="radio" name="conversation-type" value="group" [ngModel]="createMode()" (ngModelChange)="changeCreateMode($event)" data-testid="group-create-mode" />{{ i18n.translate('messaging.group.title') }}</label>
             </fieldset>
             @if (createMode() === 'group') {
               <label class="messages-page__field"><span>{{ i18n.translate('messaging.group.optionalTitle') }}</span>
-                <input type="text" maxlength="200" [ngModel]="groupTitle()" (ngModelChange)="groupTitle.set($event)" [disabled]="creating()" data-testid="group-title" />
+                <input type="text" maxlength="200" [ngModel]="groupTitle()" (ngModelChange)="groupTitle.set($event)" [disabled]="creating() || !canCreateConversation()" data-testid="group-title" />
               </label>
+              @if (canCreateConversation()) {
               <app-workspace-recipient-picker [workspaceId]="facade.activeWorkspaceId() ?? ''" [disabled]="creating()"
                 [excludedUserIds]="excludedCreator()" [resetKey]="groupPickerResetKey()" (recipientsChanged)="onGroupRecipientsChanged($event)" />
+              }
               <p class="messages-page__muted">{{ i18n.translate('messaging.group.minimum') }}</p>
             } @else {
             <label class="messages-page__field">
@@ -165,7 +167,7 @@ interface RecipientOption {
                 (ngModelChange)="onRecipientQueryChange($event)"
                 [placeholder]="i18n.translate('messaging.recipient.placeholder')"
                 autocomplete="off"
-                [disabled]="creating()"
+                [disabled]="creating() || !canCreateConversation()"
                 cdkFocusInitial
               />
             </label>
@@ -264,7 +266,7 @@ export class MessagesPageComponent {
     return workspaceId ? conversations.filter((conversation) =>
       conversation.kind === 'channel' && conversation.workspaceId === workspaceId) : [];
   });
-  readonly canCreateConversation = computed(() => !['loading', 'permissionDenied', 'sessionExpired'].includes(this.page().status));
+  readonly canCreateConversation = computed(() => ['ready', 'empty'].includes(this.page().status));
   readonly createDialogOpen = signal(false);
   readonly searchPresentation = signal<{ readonly binding: string; readonly value: MessageSearchPresentation } | null>(null);
   readonly searchPresentationScopes = computed(() => {
@@ -283,12 +285,15 @@ export class MessagesPageComponent {
   readonly excludedCreator = computed(() => this.facade.actorUserId() ? [this.facade.actorUserId()!] : []);
   private readonly createErrorKey = signal<MessagingTextKey | null>(null);
   readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
-  readonly canSubmitCreate = computed(() => this.canCreateConversation() && !this.creating() &&
+  readonly canSubmitCreate = computed(() => this.createDialogOpen() &&
+    this.activeCreateIdentity(this.createIdentity, this.createGeneration) && !this.creating() &&
     (this.createMode() === 'group'
       ? !!this.facade.activeWorkspaceId() && this.selectedRecipients().length >= 2 && this.groupTitle().length <= 200
       : this.selectedRecipients().length === 1));
   private createWorkspaceId: string | null = null;
   private createIdentity: string | null = null;
+  private createPresentationBinding: string | null = null;
+  private createRefreshRevision = 0;
   private createGeneration = 0;
   private recipientRequest?: Subscription;
   private createRequest?: Subscription;
@@ -306,14 +311,34 @@ export class MessagesPageComponent {
       if (this.page().status !== 'loading') {
         this.navigationState.restoreListScroll();
       }
-      if (!this.canCreateConversation()) {
+      const binding = this.facade.listPresentationBinding();
+      const revision = this.facade.listRefreshRevision();
+      const sameDialogScope = this.createDialogOpen() && binding !== null &&
+        binding === this.createPresentationBinding && this.facade.activeWorkspaceId() === this.createWorkspaceId &&
+        this.createIdentity === this.currentCreateIdentity();
+      // A rejected inbox projection can settle while the page still shows loading.
+      const revalidatingDialog = sameDialogScope && this.page().status === 'loading' &&
+        this.facade.inbox().status === 'loading';
+      if ((this.createDialogOpen() && !sameDialogScope) ||
+          (!this.canCreateConversation() && !revalidatingDialog)) {
         this.createRequest?.unsubscribe();
         this.creating.set(false);
         this.closeCreateDialog();
+        return;
       }
-      if (this.createDialogOpen() && (this.facade.activeWorkspaceId() !== this.createWorkspaceId ||
-          this.createIdentity !== this.currentCreateIdentity())) {
-        this.createRequest?.unsubscribe(); this.creating.set(false); this.closeCreateDialog();
+      if (sameDialogScope && revision !== this.createRefreshRevision) {
+        // Retain local intent only; old protected results and pending UI work
+        // cannot cross a routine list revalidation.
+        this.recipientRequest?.unsubscribe();
+        this.createRequest?.unsubscribe();
+        this.creating.set(false);
+        this.createGeneration++;
+        this.createRefreshRevision = revision;
+        this.recipients.set([]);
+        this.selectedRecipients.set([]);
+        this.recipientStatus.set('idle');
+        this.createErrorKey.set(null);
+        this.groupPickerResetKey.update((key) => key + 1);
       }
     });
     this.facade.loadConversationListPage();
@@ -327,9 +352,12 @@ export class MessagesPageComponent {
 
   openCreateDialog(): void {
     const identity = this.currentCreateIdentity();
-    if (!this.canCreateConversation() || !identity) { return; }
+    const binding = this.facade.listPresentationBinding();
+    if (!this.canCreateConversation() || !identity || !binding) { return; }
     this.createGeneration++;
     this.createIdentity = identity;
+    this.createPresentationBinding = binding;
+    this.createRefreshRevision = this.facade.listRefreshRevision();
     this.createWorkspaceId = this.facade.activeWorkspaceId();
     this.createDialogOpen.set(true);
     this.createErrorKey.set(null);
@@ -362,6 +390,7 @@ export class MessagesPageComponent {
     this.createDialogOpen.set(false);
     this.createGeneration++;
     this.createIdentity = null;
+    this.createPresentationBinding = null;
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set('');
     this.recipientStatus.set('idle');
@@ -453,7 +482,8 @@ export class MessagesPageComponent {
       next: (conversation) => {
         if (!this.activeCreateIdentity(identity, generation)) {
           // A stale callback must not cancel a newly opened dialog or command.
-          if (this.createGeneration === generation && this.createIdentity === identity) {
+          if (this.createGeneration === generation && this.createIdentity === identity &&
+              this.createRefreshRevision === this.facade.listRefreshRevision()) {
             this.creating.set(false);
             this.closeCreateDialog();
           }
@@ -475,7 +505,8 @@ export class MessagesPageComponent {
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         if (!this.activeCreateIdentity(identity, generation)) {
-          if (this.createGeneration === generation && this.createIdentity === identity) {
+          if (this.createGeneration === generation && this.createIdentity === identity &&
+              this.createRefreshRevision === this.facade.listRefreshRevision()) {
             this.creating.set(false);
             this.closeCreateDialog();
           }
@@ -499,7 +530,9 @@ export class MessagesPageComponent {
 
   private activeCreateIdentity(identity: string | null, generation: number): boolean {
     return identity !== null && this.createDialogOpen() && this.createIdentity === identity &&
-      generation === this.createGeneration && this.currentCreateIdentity() === identity;
+      generation === this.createGeneration && this.currentCreateIdentity() === identity &&
+      this.createPresentationBinding === this.facade.listPresentationBinding() &&
+      this.createRefreshRevision === this.facade.listRefreshRevision() && this.canCreateConversation();
   }
 }
 
