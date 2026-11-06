@@ -45,6 +45,7 @@ test('reversed, unknown and dynamic predicates, ambiguous hooks and nonleading h
   for (const text of [source.replace("!== 'chromium-mobile'", "=== 'chromium-mobile'"),
     source.replace("!== 'chromium-mobile'", "!== 'firefox-desktop'"),
     source.replace("info.project.name !== 'chromium-mobile'", 'arbitraryFunction()'),
+    source + "test.skip(({ browserName }) => { return browserName === 'chromium'; }, 'PRIVATE');",
     source.replace('onlyMobile(info);', 'await Promise.resolve(); onlyMobile(info);'),
     source.replace("test.beforeEach(async", "test.beforeEach(async () => {}); test.beforeEach(async"),
     source + "test.beforeEach(async ({}, info) => { test.skip(info.project.name !== 'chromium-mobile', 'PRIVATE'); });",
@@ -59,7 +60,8 @@ test('source anchors reject removed, moved, reversed, extra and changed-scope sk
     source.replace('onlyMobile(info);', '').replace("test('PRIVATE_THREE', async ({}, info) => {", "test('PRIVATE_THREE', async ({}, info) => { onlyMobile(info);"),
     source.replace("!== 'chromium-mobile'", "!== 'chromium-desktop'"),
     source.replace("test('PRIVATE_TWO', async ({}, info) => {});", "test('PRIVATE_TWO', async ({}, info) => { onlyMobile(info); });"),
-    source.replace("  test.beforeEach", "  test.describe('PRIVATE_CHANGED_SCOPE', () => {}); test.beforeEach"),
+    source.replace("test.describe('PRIVATE_SCOPE', () => {\n  test.beforeEach(async ({}, info) => { onlyMobile(info); });",
+      "test.beforeEach(async ({}, info) => { onlyMobile(info); });\ntest.describe('PRIVATE_SCOPE', () => {"),
     source + "test('PRIVATE_EXTRA', async ({}, info) => { onlyMobile(info); });",
   ]) assert.throws(() => verifySourceAnchors(new Map([['fixture.spec.ts', changed]]), fixture().baselineFiles), /SOURCE_APPLICABILITY_REFUSED/);
 });

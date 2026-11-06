@@ -18,7 +18,7 @@ const callName = node => node && ts.isCallExpression(node) ? node.expression.get
 const callback = call => call.arguments.findLast(node => ts.isArrowFunction(node) || ts.isFunctionExpression(node));
 const expression = statement => ts.isExpressionStatement(statement) ? statement.expression : null;
 const isDeclaration = call => ts.isCallExpression(call) && ['test', 'test.skip'].includes(callName(call)) &&
-  call.arguments.length >= 2 && callback(call);
+  call.arguments.length >= 2 && callback(call) === call.arguments.at(-1) && callback(call) !== call.arguments[0];
 function visit(node, fn) { fn(node); ts.forEachChild(node, child => visit(child, fn)); }
 
 /** Compare complete canonical source anchors, never a set of approved native IDs. */
@@ -182,6 +182,8 @@ export function collectApplicability(root, sourceSha, config, suite) {
       line: test.location.line, column: test.location.column, project: test.parent.project().name };
   });
   const result = buildApplicability({ sourceSha, files, baselineFiles, tests, configuredProjects: config.projects.map(p => p.name) });
+  // The shared verifier's omitted third argument deliberately enforces its original
+  // full-suite default of 456. Passing tests.length here would weaken that boundary.
   verifySourceDiscovery(result.source, sourceSha);
   check(git(['rev-parse', 'HEAD']).trim() === sourceSha);
   return result;

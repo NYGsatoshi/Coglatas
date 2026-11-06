@@ -87,6 +87,11 @@ SHA must not simply be relabeled. Preserve any producer merge versus reviewed he
 distinction and input artifact identities. A newly executed local composed trial
 does not establish GitHub Artifact authenticity.
 
+The collector also requires a completely clean checkout: `git status --porcelain`
+must be empty, including unrelated untracked files. Write qualification evidence
+outside the checkout or to an ignored path. Ignored dependency installations do
+not replace Git source or producer verification.
+
 Even CONTENT_MATCH retains `COVERAGE_UNVERIFIED` for final assurance. D10 artifact
 provenance and protected Required Gate qualification remain false. Local producer
 identity, native case-content reconciliation, mandatory independent review,
