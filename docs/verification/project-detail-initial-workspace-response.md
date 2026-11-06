@@ -146,3 +146,16 @@ action after navigation is reauthorized. Real Angular page/HTTP controls for
 401 and 403 first retain the missing-button failure, then verify no automatic
 operational read, an enabled user action, and a credentialed fresh Board GET
 only after that action. Original page and browser tests remain unchanged.
+
+Normal reconnect reauthorizes the server subscription before invoking Project
+catch-up and accepting fresh HTTP projections. This existing path is explicit
+authority revalidation, distinct from ordinary Task/Project data events. Two
+controls run the actual Realtime coordinator with synthetic transport responses:
+after Board 401/403 and navigation-only recovery, both operational snapshots
+remain denied; reconnect must issue a fresh Project subscription and accept new
+parent/Board/Gantt responses before restoring them. An unchanged Workspace
+directory need not be reloaded. Early fixture versions assumed that reload or
+inspected HTTP before subscription reconciliation completed; those failures are
+retained separately. The bounded coordinator wait changes no original deadline.
+This verifies client coordination with doubles, not live server/transport or a
+new authorization policy.
