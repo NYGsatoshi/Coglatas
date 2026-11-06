@@ -10,9 +10,10 @@ remain binding. The PR-N final verifier remains unimplemented.
 ## Source and identity proof
 
 The existing locked frontend TypeScript **6.0.3** compiler API parses the original
-24 selected specs. No dependency is added. No predicate text is executed,
-transpiled or passed to an evaluator. Playwright's existing trusted `--list`
-discovery supplies actual `TestCase.id`, location, describe ancestry, project and
+24 selected specs. No dependency is added. The AST analyzer never executes,
+transpiles or passes predicate text to an evaluator. Playwright's existing trusted
+`--list` discovery transforms and imports the specs and can execute module-level
+code; it supplies actual `TestCase.id`, location, describe ancestry, project and
 declaration status. The AST independently verifies the declaration and hook edges.
 The same integrated `coglatas.playwright-test-id.v1\0` hash is reused.
 
@@ -96,8 +97,10 @@ governance, Nightly and release acceptance remain separate.
 Run `node --test tests/ui/playwright-source-applicability.node-test.mjs` with the
 existing frontend TypeScript and root SDK dependencies available. Run
 `python3 -B scripts/ci/test-playwright-applicability-reconcile.py` only with the
-pinned #1755 adapter explicitly available in the composed checkout or an isolated
-qualification import path. That import path is not evidence of integration.
+pinned #1755 adapter and its companion `test-playwright-case-reconcile.py` fixture
+explicitly available together in the composed checkout or an isolated qualification
+import path. Pin both files to #1755's `4ca1c2834e17f9da623ac0520291fdf1b97383b5`.
+That import path is not evidence of integration.
 Synthetic controls never grant product/browser acceptance.
 
 Controls cover predicate reversal, renamed projects, removed/moved helpers and
