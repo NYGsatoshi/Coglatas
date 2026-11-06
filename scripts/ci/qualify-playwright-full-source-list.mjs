@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+/**
+ * PR-only source discovery via original Playwright 1.64 --list Reporter.
+ * No browser is launched; this only attests the local test discovery inventory,
+ * NEVER execution, disjoint shard union or GitHub producer artifact ownership.
+ */
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { constants, openSync, readFileSync, writeFileSync, closeSync, fsyncSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
+const BRANCH = 'ci-opt/playwright-full-source-list-20261105';
+const SHA = /^[0-9a-f]{40}$/;
+const TEST_ID = /^[0-9a-f]{64}$/;
+const ALLOWED_COUNT = 456;
+
+const deny = value => { throw new Error('DISCOVERY_REFUSED:' + value); };
+
+export function extractStaticSpecFiles(text) {
+  if (typeof text !== 'string' || !text.length || text.length > 20000)
+    deny('BAD_SOURCE_FILE');
+  const matches = [...text.matchAll(/^const staticSuiteFiles = \[\r?\n([\s\S]*?)^\];/gm)];
+  if (matches.length !== 1) deny('STATIC_SELECTION_NOT_UNIQUE');
+  const lines = matches[0][1].trim().split(/\r?\n/);
+  if (lines.length !== 24) deny('STATIC_SELECTION_SIZE');
+  const seen = new Set();
+  const paths = [];
+  for (const [index, line] of lines.entries()) {
+    const match = /^\s*'(tests\/ui\/[a-z0-9-]+\.spec\.ts)'(,?)\s*$/.exec(line);
+    if (!match || (index < lines.length - 1 && match[2] !== ',') ||
+        seen.has(match?.[1])) deny('INVALID_STATIC_SELECTION');
+    paths.push(match[1]);
+    seen.add(match[1]);
+  }
+  return paths;
+}
+
+export function verifySourceDiscovery(data, expectedSha, expectedCount = ALLOWED_COUNT) {
+  if (!data || typeof data !== 'object' || Array.isArray(data) ||
+      !SHA.test(expectedSha)) deny('SCHEMA');
+  const keys = ['schema', 'suite', 'sourceSha', 'tests', 'rosterSha256',
+                'artifactTrust', 'requiredCheckQualified', 'qualification'];
+  if (Object.keys(data).sort().join('|') !== keys.sort().join('|') ||
+      data.schema !== 'coglatas.playwright-source-discovery.v1' ||
+      data.suite !== 'angular-static' || data.sourceSha !== expectedSha ||
+      data.artifactTrust !== 'EXTERNAL_VERIFICATION_REQUIRED' ||
+      data.requiredCheckQualified !== false ||
+      data.qualification !== 'SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF') {
+    deny('UNTRUSTED_DISCOVERY');
+  }
+  if (!Array.isArray(data.tests) || data.tests.length !== expectedCount)
+    deny('UNEXPECTED_TEST_COUNT');
+  let last = '';
+  for (const item of data.tests) {
+    if (!item || typeof item !== 'object' || Array.isArray(item) ||
+        Object.keys(item).sort().join('|') !== 'id|status' ||
+        !TEST_ID.test(item.id) || item.id <= last ||
+        !['passed', 'skipped'].includes(item.status)) {
+      deny('NONCANONICAL_SOURCE_TESTS');
+    }
+    last = item.id;
+  }
+  const expected = createHash('sha256').update(JSON.stringify({
+    sourceSha: data.sourceSha, suite: data.suite, tests: data.tests,
+  })).digest('hex');
+  if (data.rosterSha256 !== expected) deny('SOURCE_DIGEST');
+  const declaredSkip = data.tests.filter(x => x.status === 'skipped').length;
+  // --list observes declaration-time expectedStatus, not runtime test.skip().
+  // A source-discovery receipt does not attest the 13 skips observed in the
+  // original full Playwright execution. Never accept >13 declared skips here.
+  if (expectedCount === ALLOWED_COUNT && declaredSkip > 13)
+    deny('DECLARED_SKIP_EXCEEDS_BASELINE');
+  return {
+    cases: data.tests.length,
+    declaredPass: data.tests.length - declaredSkip,
+    declaredSkip,
+    runtimeSkipAttestation: 'NOT_PERFORMED',
+    digest: expected,
+  };
+}
+
+function requireContext(env) {
+  if (env.COGLATAS_SOURCE_DISCOVERY_TRIAL !== '1' ||
+      env.GITHUB_EVENT_NAME !== 'pull_request' ||
+      env.GITHUB_BASE_REF !== 'SecurityTestImplimation' ||
+      env.GITHUB_HEAD_REF !== BRANCH ||
+      typeof env.GITHUB_SHA !== 'string' || !SHA.test(env.GITHUB_SHA) ||
+      env.CI !== 'true' || env.GITHUB_ACTIONS !== 'true') {
+    deny('UNAUTHORIZED_TRIAL_CONTEXT');
+  }
+  const git = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: ROOT, encoding: 'utf8', timeout: 10000,
+  });
+  if (git.error || git.signal || git.status !== 0 ||
+      git.stdout.trim() !== env.GITHUB_SHA) deny('SOURCE_CHECKOUT_MISMATCH');
+}
+
+function openPinnedRootDirectory(root) {
+  // Linux CI only. Each component is opened relative to the previous stable
+  // directory descriptor; no pathname-only lstat/open race is accepted.
+  const flags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  let fd = -1;
+  try {
+    fd = openSync('/', flags);
+    for (const segment of path.resolve(root).split(path.sep).filter(Boolean)) {
+      const next = openSync('/proc/self/fd/' + fd + '/' + segment, flags);
+      closeSync(fd);
+      fd = next;
+    }
+    return fd;
+  } catch {
+    if (fd >= 0) closeSync(fd);
+    deny('UNSAFE_OUTPUT_PARENT');
+  }
+}
+
+export function persistNonpublishingRoster(data, root = ROOT) {
+  if (process.platform !== 'linux' ||
+      !constants.O_NOFOLLOW || !constants.O_DIRECTORY)
+    deny('UNSUPPORTED_SAFE_OUTPUT_PLATFORM');
+  const dirFlags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  const writeFlags = constants.O_WRONLY | constants.O_CREAT |
+    constants.O_EXCL | constants.O_NOFOLLOW;
+  let rootFd = -1, artifactsFd = -1, ciFd = -1, outputFd = -1;
+  try {
+    rootFd = openPinnedRootDirectory(root);
+    artifactsFd = openSync('/proc/self/fd/' + rootFd + '/artifacts', dirFlags);
+    ciFd = openSync('/proc/self/fd/' + artifactsFd + '/ci', dirFlags);
+    outputFd = openSync('/proc/self/fd/' + ciFd +
+      '/playwright-source-discovery.json', writeFlags, 0o600);
+    writeFileSync(outputFd, JSON.stringify(data) + '\n', { encoding: 'utf8' });
+    fsyncSync(outputFd);
+  } catch (error) {
+    if (typeof error?.message === 'string' &&
+        error.message.startsWith('DISCOVERY_REFUSED:')) throw error;
+    deny('UNSAFE_OUTPUT_OR_WRITE');
+  } finally {
+    for (const fd of [outputFd, ciFd, artifactsFd, rootFd]) {
+      if (fd >= 0) closeSync(fd);
+    }
+  }
+}
+
+
+export function runSourceDiscovery(env = process.env) {
+  requireContext(env);
+  const raw = readFileSync(path.join(ROOT, 'tests/ui/run-angular-playwright.mjs'), 'utf8');
+  const files = extractStaticSpecFiles(raw);
+  const cli = path.join(ROOT, 'node_modules/@playwright/test/cli.js');
+  const reporter = path.join(ROOT, 'tests/ui/playwright-full-source-list-reporter.mjs');
+  const args = [cli, 'test', ...files, '--list', '--reporter=' + reporter];
+  const child = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: 90000, maxBuffer: 1024 * 1024,
+    env: {
+      ...env,
+      COGLATAS_SOURCE_DISCOVERY_LIST: '1',
+      COGLATAS_SOURCE_DISCOVERY_SHA: env.GITHUB_SHA,
+      COGLATAS_STATIC_PLAYWRIGHT_SHARD_AUTH: '0',
+      COGLATAS_STATIC_PLAYWRIGHT_SHARD: '',
+      COGLATAS_COMPAT_CRITICAL: '0',
+      COGLATAS_REAL_BACKEND_SMOKE: '0',
+      COGLATAS_PUBLIC_HTTPS_SMOKE: '0',
+      PLAYWRIGHT_SKIP_BUILD: '1',
+      CI: 'true',
+    },
+  });
+  if (child.error) deny('CHILD_START_FAILED');
+  if (child.signal) deny('CHILD_INTERRUPTED');
+  if (child.status !== 0) {
+    const allowed = new Set([
+      'UNQUALIFIED_LIST', 'DUPLICATE_ONBEGIN', 'ONBEGIN_INVALID_CASES',
+      'UNEXPECTED_TEST_EXECUTION', 'PLAYWRIGHT_GLOBAL_ERROR',
+      'PLAYWRIGHT_LIST_STATUS_FAILED', 'REPORTER_OUTPUT_FAILED',
+    ]);
+    const marker = typeof child.stderr === 'string'
+      ? /^COGLATAS_SOURCE_ROSTER_STATUS=([A-Z_]+)$/m.exec(child.stderr)?.[1]
+      : undefined;
+    deny(marker && allowed.has(marker)
+      ? 'REPORTER_' + marker : 'CHILD_EXIT_NONZERO');
+  }
+  if (typeof child.stdout !== 'string' || child.stdout.length > 512 * 1024)
+    deny('INVALID_REPORTER_BUFFER');
+  let data;
+  try {
+    data = JSON.parse(child.stdout);
+  } catch {
+    deny('UNSANITIZED_REPORTER_STDOUT');
+  }
+  const stats = verifySourceDiscovery(data, env.GITHUB_SHA);
+  persistNonpublishingRoster(data);
+  return stats;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const result = runSourceDiscovery();
+    process.stdout.write('Playwright full-source discovery: cases=' + result.cases +
+      ' declaredPass=' + result.declaredPass + ' declaredSkip=' + result.declaredSkip +
+      ' runtimeSkipAttestation=' + result.runtimeSkipAttestation +
+      ' rosterSha256=' + result.digest +
+      ' qualification=SOURCE_LIST_ONLY_NOT_EXECUTION_PROOF\n');
+  } catch (error) {
+    // Only our fixed nonsecret error codes are printed, never raw test names,
+    // Playwright stderr/stdout, filesystem paths, arguments or exception data.
+    const code = typeof error?.message === 'string'
+      ? /^DISCOVERY_REFUSED:([A-Z_]+)$/.exec(error.message)?.[1]
+      : undefined;
+    const approved = new Set([
+      'BAD_SOURCE_FILE', 'STATIC_SELECTION_NOT_UNIQUE', 'STATIC_SELECTION_SIZE',
+      'INVALID_STATIC_SELECTION', 'SCHEMA', 'UNTRUSTED_DISCOVERY',
+      'UNEXPECTED_TEST_COUNT', 'NONCANONICAL_SOURCE_TESTS', 'SOURCE_DIGEST',
+      'SKIP_BASELINE_DRIFT', 'DECLARED_SKIP_EXCEEDS_BASELINE',
+      'UNAUTHORIZED_TRIAL_CONTEXT',
+      'SOURCE_CHECKOUT_MISMATCH', 'CHILD_START_FAILED', 'CHILD_INTERRUPTED',
+      'CHILD_EXIT_NONZERO', 'INVALID_REPORTER_BUFFER',
+      'UNSANITIZED_REPORTER_STDOUT', 'UNSAFE_OUTPUT_PARENT',
+      'UNSUPPORTED_SAFE_OUTPUT_PLATFORM', 'UNSAFE_OUTPUT_OR_WRITE',
+      'REPORTER_UNQUALIFIED_LIST',
+      'REPORTER_DUPLICATE_ONBEGIN', 'REPORTER_ONBEGIN_INVALID_CASES',
+      'REPORTER_UNEXPECTED_TEST_EXECUTION', 'REPORTER_PLAYWRIGHT_GLOBAL_ERROR',
+      'REPORTER_PLAYWRIGHT_LIST_STATUS_FAILED', 'REPORTER_REPORTER_OUTPUT_FAILED',
+    ]);
+    process.stderr.write('Playwright full-source discovery refused: ' +
+      (approved.has(code) ? code : 'UNQUALIFIED_SOURCE_OR_OUTPUT') + '\n');
+    process.exitCode = 1;
+  }
+}
