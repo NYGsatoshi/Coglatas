@@ -263,7 +263,8 @@ jobs:
             tests/ci/test_performance_environment_class.py \
             tests/ci/test_performance_local.py \
             tests/ci/test_performance_public_digest.py \
-            tests/ci/test_performance_runtime_compatibility.py; do
+            tests/ci/test_performance_runtime_compatibility.py \
+            tests/ci/test_performance_remaining_cli.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"

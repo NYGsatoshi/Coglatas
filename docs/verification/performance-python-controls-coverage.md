@@ -33,3 +33,16 @@ hardware, real SSH/HTTPS, full recovery, deployed acceptance or Release GO.
 Owner-held promotions and formal finding decisions remain separate.
 
 Specification850a5d9376db11e75235cf55e03ebed4de9c0510; #615 Phase G.
+
+The complete named-user baseline executes all 156 cases in the eleven existing
+modules. Initial committed native collection8787e882 executes 1115 cases, but
+contains only 78 of the declared 82 sources: four CLI modules were never loaded.
+That incomplete report is retained and is not qualified as full source mapping.
+The include scope is not reduced. Ten additional offline controls exercise
+those entry points: bounded health reads and denial handling, warmup rejection
+before authentication/network/output, trusted GitHub source identity and output
+binding, and immutable/local-only Announcement diagnostic admission. They use
+synthetic in-memory responses and temporary output files, with network disabled.
+The resulting 58-suite collection must retain every previous case and report all
+82 sources, including zero-hit executable paths. No report is rewritten to add
+missing subjects or manufacture coverage.
