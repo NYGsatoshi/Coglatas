@@ -46,9 +46,9 @@ class RemainingPerformanceCliTests(unittest.TestCase):
         response.read.assert_called_once_with(4096)
 
     def test_preflight_http_denial_retains_status_and_bounded_body(self):
-        error = urllib.error.HTTPError('http://127.0.0.1/health/ready', 503, 'unavailable', {}, io.BytesIO(b'not ready'))
+        error = urllib.error.HTTPError('http://127.0.0.1/health/ready', 503, 'unavailable', {}, io.BytesIO(b'x' * 5000))
         with patch.object(preflight.urllib.request, 'urlopen', side_effect=error):
-            self.assertEqual((503, 'not ready'), preflight.request_ok('http://127.0.0.1/health/ready', 'synthetic', 1))
+            self.assertEqual((503, 'x' * 4096), preflight.request_ok('http://127.0.0.1/health/ready', 'synthetic', 1))
 
     def test_preflight_rejection_writes_no_success_or_network_request(self):
         argv = ['preflight', '--base-url', 'invalid', '--profile', 'small', '--fixture-evidence', 'unused', '--output', 'unused-output']
@@ -60,26 +60,37 @@ class RemainingPerformanceCliTests(unittest.TestCase):
         requested.assert_not_called()
         written.assert_not_called()
 
-    def warmup_rejection(self, contract):
+    def warmup_rejection(self, contract, expected_error, with_password=True):
         argv = ['warmup', '--base-url', 'http://127.0.0.1', '--profile', 'small', '--fixture-evidence', 'synthetic', '--output', 'unused-output']
-        fixture = {'identities': {}, 'fixtureHash': 'synthetic'}
-        with patch.object(sys, 'argv', argv), patch.dict(os.environ, {}, clear=True), \
+        fixture = {'identities': {'tenantSlug': 'synthetic', 'operatorEmail': 'operator@example.invalid',
+                                 'workspaceId': 'workspace', 'taskListProjectId': 'task-project',
+                                 'ganttProjectId': 'gantt-project', 'kanbanProjectId': 'kanban-project'},
+                   'fixtureHash': 'synthetic'}
+        environment = {'COGLATAS_PERFORMANCE_PASSWORD': 'synthetic-unit-credential'} if with_password else {}
+        errors = io.StringIO()
+        with patch.object(sys, 'argv', argv), patch.dict(os.environ, environment, clear=True), \
                 patch.object(warmup, 'validate_target', return_value='http://127.0.0.1'), \
                 patch.object(warmup, 'load_json', side_effect=[fixture, contract]), \
                 patch.object(warmup, 'validate_fixture_evidence', return_value=fixture), \
                 patch.object(warmup.urllib.request, 'build_opener') as opened, \
-                patch.object(warmup, 'write_json_atomic') as written, contextlib.redirect_stderr(io.StringIO()):
+                patch.object(warmup, 'write_json_atomic') as written, contextlib.redirect_stderr(errors):
             self.assertEqual(2, warmup.main())
+        self.assertIn(expected_error, errors.getvalue())
         opened.assert_not_called()
         written.assert_not_called()
 
     def test_warmup_rejects_measurement_credit_or_invalid_contract_before_authentication(self):
-        for value in [None, {}, {'measured': True}, {'measured': False, 'iterations': 0}, {'measured': False, 'iterations': 1, 'routes': []}]:
+        for value, expected in [(None, 'warm-up contract must explicitly set measured=false'),
+                                ({}, 'warm-up contract must explicitly set measured=false'),
+                                ({'measured': True}, 'warm-up contract must explicitly set measured=false'),
+                                ({'measured': False, 'iterations': 0}, 'warm-up iterations must be a positive integer'),
+                                ({'measured': False, 'iterations': 1, 'routes': []}, 'warm-up contract requires at least one route')]:
             with self.subTest(contract=value):
-                self.warmup_rejection({'warmup': value})
+                self.warmup_rejection({'warmup': value}, expected)
 
     def test_warmup_requires_password_before_constructing_a_network_client(self):
-        self.warmup_rejection({'warmup': {'measured': False, 'iterations': 1, 'routes': ['/health/ready']}})
+        self.warmup_rejection({'warmup': {'measured': False, 'iterations': 1, 'routes': ['/health/ready']}},
+                              'COGLATAS_PERFORMANCE_PASSWORD is required for warm-up authentication', with_password=False)
 
     def test_warmup_http_denial_is_consumed_and_reported_as_a_status(self):
         opener = Mock()
@@ -119,6 +130,30 @@ class RemainingPerformanceCliTests(unittest.TestCase):
                               call('commits/' + '1' * 40), call('commits/' + '3' * 40)], get.call_args_list)
             invoke.assert_called_once_with(['git', 'rev-parse', 'HEAD'])
             self.assertEqual('tree_sha=' + '4' * 40 + '\ntrusted_sha=' + '2' * 40 + '\n', output.read_text())
+
+    def test_github_preflight_rejects_live_identity_mismatches_before_source_or_output(self):
+        upstream = {'repo': {'full_name': 'NYGsatoshi/Coglatas'}, 'sha': '1' * 40}
+        cases = [('trusted-head', '5' * 40, {}, 'ahead', 'trusted-main', 1),
+                 ('pr-head', '2' * 40, {'head': upstream | {'sha': '5' * 40}}, 'ahead', 'live-pr-head', 2),
+                 ('pr-base', '2' * 40, {'base': {'sha': '5' * 40}}, 'ahead', 'live-pr-head', 2),
+                 ('pr-closed', '2' * 40, {'state': 'closed'}, 'ahead', 'live-pr-head', 2),
+                 ('pr-repository', '2' * 40, {'head': upstream | {'repo': {'full_name': 'foreign/repository'}}}, 'ahead', 'live-pr-head', 2),
+                 ('ancestry', '2' * 40, {}, 'behind', 'base-ancestry', 3)]
+        for name, trusted, changes, ancestry, stage, expected_calls in cases:
+            with self.subTest(mismatch=name), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / 'output'
+                info = {'state': 'open', 'head': upstream, 'base': {'sha': '2' * 40}} | changes
+                replies = [{'commit': {'sha': '2' * 40}}, info, {'status': ancestry},
+                           {'commit': {'tree': {'sha': '4' * 40}}}, {}]
+                with patch.dict(os.environ, self.github_environment(output), clear=True), \
+                        patch.object(github, 'get', side_effect=replies) as get, \
+                        patch.object(github, 'invoke', return_value=trusted):
+                    with self.assertRaises(LocalError) as rejected:
+                        github.main()
+                self.assertEqual('EVIDENCE_INVALID', rejected.exception.code)
+                self.assertEqual(stage, rejected.exception.stage)
+                self.assertEqual(expected_calls, get.call_count)
+                self.assertFalse(output.exists())
 
     def test_announcement_diagnostic_rejects_nonlocal_or_ci_execution_before_outputs(self):
         for environment in [{}, {'COGLATAS_LOCAL_EVIDENCE_MODE': 'LOCAL_DIAGNOSTIC', 'GITHUB_ACTIONS': 'true'}]:

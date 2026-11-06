@@ -46,3 +46,16 @@ synthetic in-memory responses and temporary output files, with network disabled.
 The resulting 58-suite collection must retain every previous case and report all
 82 sources, including zero-hit executable paths. No report is rewritten to add
 missing subjects or manufacture coverage.
+
+Independent review6678459875 identified that the initial warmup rejection
+helper could fail for a missing password instead of the selected contract guard,
+and that successful GitHub identity binding lacked rejection controls. The helper
+now supplies complete synthetic identities and a synthetic credential for the
+invalid-contract cases, requires the exact guard error and no client/output, and
+keeps a separate missing-password case. A new case rejects mismatched trusted
+HEAD, PR head/base/repository/state and ancestry before output. The HTTP denial
+case uses a 5000-byte body and requires the original 4096-byte read limit.
+All eleven current CLI tests pass. Separate unmeasured in-memory mutation probes
+detect removal of each of the three warmup and three GitHub identity guards;
+product files are never modified by those probes. Fresh complete collection is
+required after these changes; the earlier1125-case report remains historical.
