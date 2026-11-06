@@ -39,3 +39,17 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract_check.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_http_accounting.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_signalr_accounting.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_worker_accounting.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_rls_matrix.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_rls_sources.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_http_theory_cases.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_manual_replay.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/quality/reconcile_qodana.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/quality/reviewed_qodana_correspondence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/verify.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/r2_verify.py
