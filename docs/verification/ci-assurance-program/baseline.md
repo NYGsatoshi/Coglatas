@@ -28,6 +28,10 @@ observations, not signed execution or complete coverage attestations.
 Non-GitHub-Actions app slugs are omitted from the public summary; app IDs and
 check IDs remain, and the original responses are retained locally. All required
 GitHub Actions app/producer identities remain explicit.
+Workflow `sha256` fields bind canonical Git blob bytes at the pinned source SHA.
+The first draft instead hashed Windows CRLF checkout bytes. All 72 original
+digests remain as `initialWindowsCheckoutSha256`, with their limitation explicit;
+the corrected digests were compared independently with all 72 pinned Git blobs.
 
 The audit covers source/configuration routing across workflows, CI/security/
 performance harnesses, governance, backend/provider/architecture tests,
