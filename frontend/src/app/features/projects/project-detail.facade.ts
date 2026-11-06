@@ -265,7 +265,6 @@ export class ProjectDetailFacade {
         if (!loadIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
-        this.projectOperational = record.isOperational === true;
         if (!record.isOperational)
           {return of(this.draftReady(project));}
         return forkJoin({
@@ -298,6 +297,7 @@ export class ProjectDetailFacade {
           this.state.set(view);
           return;
         }
+        this.projectOperational = view.project?.isOperational === true;
 
         // A later request that failed must not make a valid initial response
         // disappear. Only a later successfully applied Task snapshot wins.
@@ -2004,7 +2004,8 @@ export class ProjectDetailFacade {
     // Explicit authorization invalidation above retains its revalidation path.
     if (this.state().status === 'permissionDenied') {return;}
     if (!this.projectOperational) {
-      if (event.eventType === 'Projects.ProjectChanged.v1')
+      if (event.eventType === 'Projects.ProjectChanged.v1' && this.state().status === 'ready' &&
+          this.state().project?.isOperational === false)
         {this.refreshDraftProjectAfterChange();}
       return;
     }
