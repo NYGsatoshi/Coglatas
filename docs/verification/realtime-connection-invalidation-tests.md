@@ -15,9 +15,10 @@ The asynchronous control holds group cleanup in progress and verifies that all
 target registry authority is already removed while other identities are retained.
 An additional mixed-type control requires simultaneous removal of Tenant, User,
 Workspace, Project and Conversation subscriptions on the same connection.
-The pending-cleanup test races entry against early invalidation completion with
-a bounded wait and releases the fake in `finally`, so a regression cannot hang
-until the CI job timeout. Tokens are captured as values rather than retaining a
+The pending-cleanup test races entry against early invalidation completion,
+bounds waits on returned tasks, and releases the fake in `finally`. These waits
+do not bound synchronous blocking before a task is returned or cancel a task
+that exceeds the wait. Tokens are captured as values rather than retaining a
 disposable source in callbacks; cancellation uses the asynchronous API.
 
 Group-removal failure, client-send failure and cancellation propagate without
