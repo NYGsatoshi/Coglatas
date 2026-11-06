@@ -43,6 +43,9 @@
     "vitest": "^5.0.5"
   },
   "overrides": {
+    "@ts-morph/common": {
+      "minimatch": "11.0.4"
+    },
     "undici": "8.12.3",
     "fast-uri": "4.2.3",
     "nanoid": "6.0.2",
