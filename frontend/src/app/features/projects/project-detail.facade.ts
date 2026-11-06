@@ -1142,7 +1142,8 @@ export class ProjectDetailFacade {
 
   private reconcileCompletedStaleMove(projectId: string | null): void {
     if (!projectId || this.projectId !== projectId ||
-        (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId)
+        (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId ||
+        this.state().kanban.status === 'permissionDenied')
       {return;}
     if (!this.moveInFlight && this.initialLoadGeneration === this.loadGeneration) {
       this.load(projectId);

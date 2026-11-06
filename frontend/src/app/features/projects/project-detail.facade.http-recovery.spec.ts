@@ -311,8 +311,11 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectOne('/api/workspaces').flush([workspace, { ...workspace, id: 'workspace-2', name: 'Other Workspace' }]);
     await refresh; await settle();
     const parent = http.expectOne('/api/projects/project-1');
+    const oldBoard = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
+    const oldSchedule = http.expectOne('/api/projects/project-1/gantt');
     expect(await TestBed.inject(WorkspaceSelectionFacade).selectWorkspace('workspace-2')).toBe(true);
     parent.flush(kind === 'draft' ? draft : active);
+    oldBoard.flush(snapshotDto()); oldSchedule.flush(ganttSnapshotDto());
     await settle();
     expect(TestBed.inject(ActiveWorkspaceFacade).activeWorkspace()?.id).toBe('workspace-2');
     expect(detail.view().project).toBeUndefined();
@@ -643,6 +646,13 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         expect(detail.view().kanban.snapshot).toBeNull();
         expect(detail.view().kanban.status).toBe('permissionDenied');
       }
+      if (status !== 200) {
+        http.expectOne('/api/projects/project-1').flush(
+          { message: 'Fresh parent authority also denied' }, { status: 403, statusText: 'Denied' });
+        expect(detail.view().kanban.snapshot).toBeNull();
+        expect(detail.view().kanban.status).toBe('permissionDenied');
+        http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+      }
     });
   }
 
@@ -698,6 +708,12 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     else {
       expect(detail.view().kanban.snapshot).toBeNull();
       expect(detail.view().kanban.status).toBe(status === 404 ? 'notFound' : 'permissionDenied');
+    }
+    if (status === 401 || status === 403) {
+      http.expectOne('/api/projects/project-1').flush(
+        { message: 'Fresh parent unavailable' }, { status: 403, statusText: 'Denied' });
+      expect(detail.view().kanban.snapshot).toBeNull();
+      http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
     }
   });
 
