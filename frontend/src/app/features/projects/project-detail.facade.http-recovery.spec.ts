@@ -359,6 +359,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         const projectId = 'a1e33828-b8d3-4b70-a802-dde89e185915';
         const parent = { ...active, id: projectId };
         const path = `/api/projects/${projectId}`;
+        const board = snapshotDto({ board: { ...snapshotDto().board!, projectId } });
+        const schedule = { ...ganttSnapshotDto(), projectId };
         const connected = () => vi.waitFor(() => {
           TestBed.tick(); expect(realtime.connectionState()).toBe('Connected');
         }, { timeout: 5000, interval: 10 });
@@ -369,12 +371,12 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
           http.expectOne(`${path}/members`).flush({ members: [] });
         };
         enableBoard(); selectFromHttp(); await settle(); detail.load(projectId); navigation();
-        http.expectOne(request => request.url === `${path}/kanban`).flush(snapshotDto());
-        http.expectOne(`${path}/gantt`).flush(ganttSnapshotDto());
+        http.expectOne(request => request.url === `${path}/kanban`).flush(board);
+        http.expectOne(`${path}/gantt`).flush(schedule);
         TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'realtime.signalR': true });
         await connected(); navigation();
-        http.expectOne(request => request.url === `${path}/kanban`).flush(snapshotDto());
-        http.expectOne(`${path}/gantt`).flush(ganttSnapshotDto());
+        http.expectOne(request => request.url === `${path}/kanban`).flush(board);
+        http.expectOne(`${path}/gantt`).flush(schedule);
         detail.retryKanban();
         http.expectOne(request => request.url === `${path}/kanban`).flush(
           { message: 'Current Board denied' }, { status: 403, statusText: 'Denied' });
@@ -386,7 +388,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         const early = http.match(request => request.url === `${path}/kanban` || request.url === `${path}/gantt`);
         const ordered = early.sort((left, right) => Number(right.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt'))
           - Number(left.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt')));
-        for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? snapshotDto() : ganttSnapshotDto());
+        for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? board : schedule);
         const earlyBoard = detail.view().kanban.snapshot, earlySchedule = detail.view().schedule.snapshot;
         http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
         await settle();
