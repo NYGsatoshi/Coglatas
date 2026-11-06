@@ -12,8 +12,8 @@ The generated Playwright configurations in the five affected Node control suites
 set `build.external` to `['**/*.mjs']`. This is the documented
 [Playwright transpilation setting](https://playwright.dev/docs/api/class-testconfig#test-config-build),
 not a coverage exclusion. Those files already run as native MJS in the parent
-controls. TypeScript fixtures still use the existing transpiler. Test bodies,
-assertions, intentional first-failure/retry controls, privacy checks, source
+controls. TypeScript fixtures still use the existing transpiler. Existing test
+cases, assertions, intentional first-failure/retry controls, privacy checks, source
 scope, native reporters and the scanner's single existing import are preserved.
 No actual browser acceptance configuration or product module changes.
 
