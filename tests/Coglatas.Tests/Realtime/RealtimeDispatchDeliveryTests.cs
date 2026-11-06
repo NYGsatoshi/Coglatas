@@ -104,6 +104,33 @@ public sealed class RealtimeDispatchDeliveryTests
     }
 
     [Theory]
+    [InlineData("Notifications.NotificationCreated.v1", "created")]
+    [InlineData("Notifications.NotificationReadStateChanged.v1", "read-state")]
+    public async Task RecipientAuthorityIsRecheckedAfterRevocationOnTheSameAuthorizerAndEnvelope(string eventType, string operation)
+    {
+        var fixture = new Fixture();
+        var envelope = fixture.Envelope(eventType);
+        var subscription = fixture.Subscription(RealtimeSubscriptionType.User);
+        using var cancellation = new CancellationTokenSource();
+
+        Assert.True(await fixture.ReceiveAsync(subscription, envelope, cancellation.Token));
+        fixture.Notifications.Allowed = false;
+        Assert.False(await fixture.ReceiveAsync(subscription, envelope, cancellation.Token));
+        fixture.Notifications.Allowed = true;
+        Assert.True(await fixture.ReceiveAsync(subscription, envelope, cancellation.Token));
+
+        Assert.Equal(3, fixture.Sessions.Calls.Count);
+        Assert.Equal(3, fixture.Notifications.Calls.Count);
+        Assert.All(fixture.Notifications.Calls, call =>
+        {
+            Assert.Equal((operation, fixture.Tenant, fixture.User, cancellation.Token),
+                (call.Operation, call.Tenant, call.User, call.Token));
+            Assert.Same(envelope, call.Envelope);
+        });
+        Assert.Equal([operation, operation, operation], fixture.Trace);
+    }
+
+    [Theory]
     [InlineData("null")]
     [InlineData("[]")]
     [InlineData("true")]
