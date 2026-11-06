@@ -212,3 +212,9 @@ These checks validate contract structure, references and source preservation.
 They do not authenticate native artifacts, implement the final cross-domain
 verifier or establish program acceptance. Current-source native CI and mandatory
 independent review require their own retained evidence and qualification.
+
+Clarification of the original Exact-head refresh table: it lists the five heads
+evaluated by the unchanged required-check evaluator. The native-refresh record
+and hash-bound archive cover all twelve checkpoint Security-targeted PRs,
+including the seven heads outside that bounded evaluator table. This addendum
+resolves the review ambiguity without altering the original observation.
