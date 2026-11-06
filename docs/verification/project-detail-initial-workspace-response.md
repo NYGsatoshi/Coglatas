@@ -140,3 +140,9 @@ move/refresh assertions remain, with additional fresh-parent denial checks.
 Real HTTP-only controls also hold parent, Board and Gantt reads across an
 explicit Workspace replacement: already dispatched responses complete without
 restoring the old Project or starting old-scope child reads.
+
+The denied Board presentation now exposes the existing explicit Retry board
+action after navigation is reauthorized. Real Angular page/HTTP controls for
+401 and 403 first retain the missing-button failure, then verify no automatic
+operational read, an enabled user action, and a credentialed fresh Board GET
+only after that action. Original page and browser tests remain unchanged.
