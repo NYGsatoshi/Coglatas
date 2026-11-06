@@ -5,6 +5,7 @@ import { EMPTY, Subject } from 'rxjs';
 
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { COGLATAS_REALTIME_TRANSPORT } from '../../core/realtime/realtime-transport';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
@@ -184,7 +185,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     else listing.flush({ message: 'Discovery unavailable' }, { status: 503, statusText: 'Unavailable' });
     await settle();
     expect(detail.view().status).toBe('error');
-    expect(detail.view().message).toBe('Workspace unavailable');
+    expect(detail.view().message).toBe(TestBed.inject(I18nService).translate('topBar.workspaceUnavailable'));
     expect(detail.view().project).toBeUndefined();
     expect(history.touchProject).not.toHaveBeenCalled();
     const retry = workspaces.loadWorkspaces(true); selectFromHttp(); await retry; await settle();
@@ -212,7 +213,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
     detail.retrySchedule();
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
-    expect(detail.view().schedule.status).toBe('ready');
+    expect(detail.view().schedule.status).toBe('degraded');
+    expect(detail.view().schedule.snapshot).not.toBeNull();
   });
 
   for (const denial of [401, 403]) {
