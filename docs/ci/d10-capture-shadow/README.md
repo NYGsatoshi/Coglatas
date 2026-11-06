@@ -1,19 +1,37 @@
 # D10-B prepared Shadow capture candidate — OWNER HOLD
 
-This is an **inactive engineering proposal**, prepared after D10-A's 18 negative/
-positive controls and 40 existing archive/provenance controls passed on Linux.
+This is an **inactive engineering proposal**, initially prepared after D10-A's
+58 Linux methods and tightened after its server-bound tested-merge contract passed
+20 focused controls plus 40 existing archive/provenance controls on Linux.
 It is not an authorized execution path. No file is placed under .github/workflows,
 no active Playwright configuration imports the reporter and no artifact is
 published. The workflow also has a literal false job condition and an unconditional
 exit-1 admission step. The proposal remains blocked even if copied accidentally.
 
 The [admission register](admission.json) keeps every execution/publication/runner
-authorization false. The [workflow template](workflow.yml.disabled),
+authorization false. The [caller template](workflow.yml.disabled),
+[reusable producer template](producer-workflow.yml.disabled),
 [additive config wrapper](playwright-shadow.config.ts.proposed) and
 [observer/exporter proposal](playwright-shadow-capture-reporter.mjs.proposed) are
 concrete review inputs, not runtime qualification. They require a future separately
 approved source composition containing #1760, #1717 and #1755. None is assumed
 integrated into SecurityTestImplimation. #1755's historical rejection is unchanged.
+
+The proposed paths after separate admission are
+`.github/workflows/playwright-native-capture-shadow.yml` for the caller and
+`.github/workflows/playwright-native-capture-producer.yml` for the local reusable
+producer. Both job conditions are false and the producer has an exit-1 admission
+step. The server's run `referenced_workflows` must identify exactly that local
+producer at `refs/pull/<number>/merge`, with the actual tested merge SHA. D10-A
+independently verifies that binding and both workflow byte digests. The sole
+executed job's expected API name is
+`Shadow Playwright native capture / Native capture`; an unknown name rejects.
+This adds no second runner: the caller delegates its only job. It remains inert.
+
+Source preparation now identifies #1717@a1aebc3ce6494d8d827be9d3e48521846084cda2,
+including the explicit untracked-file guard and private CLI-output instructions.
+The original #1717 Python reconciliation bytes pinned by D10-A remain unchanged.
+The earlier composed native result is not relabeled to this revision.
 
 ## Exact activation decisions still required
 
