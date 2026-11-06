@@ -550,6 +550,28 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
   });
 
+  test('exposes each Home and End row before focus leaves a clipped roster', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), summary = panel.locator('summary');
+    const list = panel.locator('ul'), rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    await summary.scrollIntoViewIfNeeded(); await summary.focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    for (const key of ['Home', 'End', 'Home', 'End']) {
+      await page.keyboard.press(key);
+      const position = await list.evaluate(ul => ({ top: ul.scrollTop, max: ul.scrollHeight - ul.clientHeight }));
+      expect(position.top).toBe(key === 'Home' ? 0 : position.max);
+      const row = key === 'Home' ? rows.first() : rows.last();
+      await expect(row.locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(row.locator('small')).toBeInViewport({ ratio: 1 });
+      await expect(list).toBeFocused();
+    }
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
   test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
