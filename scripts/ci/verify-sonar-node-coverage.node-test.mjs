@@ -73,8 +73,7 @@ await test('native mapping repairs actual Playwright transforms while retaining 
   assertOwned(); t.after(() => { assertOwned(); rmSync(directory, { recursive: true, force: true }); });
   const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
   // Keep both original transform modes as a negative/positive mapping control.
-  // An explicit empty value prevents Node from propagating the producer's raw directory.
-  environment.NODE_V8_COVERAGE = '';
+  // Explicit owned directories isolate both native reports from the producer's raw input.
   environment.COGLATAS_TEST_FORCE_MJS_TRANSFORM = '1';
   const execute = mapped => {
     const output = join(directory, mapped ? 'mapped.lcov' : 'raw.lcov');
@@ -82,7 +81,9 @@ await test('native mapping repairs actual Playwright transforms while retaining 
       '--test-coverage-exclude=' + join(tmpdir(), 'thread-secondary-reporter-*/**').replaceAll('\\', '/'),
       '--test-reporter=spec', '--test-reporter-destination=' + output + '.log', '--test-reporter=lcov', '--test-reporter-destination=' + output,
       'tests/functional/thread-probe-observation.node-test.mjs'];
-    const result = spawnSync(process.execPath, args, { cwd: root, env: environment, encoding: 'utf8', timeout: 40000 });
+    const result = spawnSync(process.execPath, args, { cwd: root,
+      env: { ...environment, NODE_V8_COVERAGE: join(directory, mapped ? 'mapped-v8' : 'raw-v8') },
+      encoding: 'utf8', timeout: 40000 });
     assert.equal(result.status, 0, 'The unchanged existing observer/reporter regressions must pass in both producer modes.');
     return readFileSync(output, 'utf8');
   };
