@@ -35,6 +35,11 @@ Angular/Playwright/Functional owners and active verification records. Deeper
 per-route, per-event, per-transition and per-case reconciliation remains PARTIAL.
 The size of this inventory does not establish coverage or Phase 0 completion.
 
+The separate [SEC-05 native observation](observations/sec05-native-42132259076.md)
+reconciles all 37 declared cases against a later exact-run artifact and classifies
+404 native OpenAPI operations. Its bounded credit does not change this original
+snapshot's source or incomplete domain-coverage state.
+
 ## Required contract and source identity
 
 `governance/required-checks.json` remains authoritative. The six exact contexts

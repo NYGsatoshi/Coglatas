@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "headSha": "64ba845fe29dd18112400ac741cc98e5fb710801",
+  "sourcePath": "src/Coglatas.Web/Realtime/AppHub.cs",
+  "sourceSha256": "07c28fc58451ea72e5d4e2728de0260a47991f2d556ad89cad88581be32b2500",
+  "route": "/hubs/app",
+  "routeDeclaration": "src/Coglatas.Web/Program.cs:326",
+  "scope": "SOURCE_DECLARATION_ONLY_NOT_NATIVE_HUB_COVERAGE",
+  "methods": [
+    {
+      "name": "SubscribeUser",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "SubscribeTenant",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "SubscribeWorkspace",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "SubscribeConversation",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "SubscribeProject",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "UnsubscribeWorkspace",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "UnsubscribeConversation",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    },
+    {
+      "name": "UnsubscribeProject",
+      "coverageState": "UNVERIFIED",
+      "gateState": "UNVERIFIED",
+      "testSources": [
+        "tests/Coglatas.Tests/Realtime/AppHubSubscriptionTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      ]
+    }
+  ]
+}
