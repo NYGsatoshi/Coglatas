@@ -2,14 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { EMPTY } from 'rxjs';
+import { Subject } from 'rxjs';
 
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { ProjectDetailFacade } from './project-detail.facade';
 import { ganttSnapshotDto } from './project-detail-gantt.test-data';
+import { snapshotDto } from './project-kanban.test-data';
 import { ProjectDto } from './projects.api';
 
 const draft: ProjectDto = {
@@ -27,14 +29,16 @@ describe('ProjectDetailFacade initial response scope', () => {
   let facade: ProjectDetailFacade;
   let workspace: ActiveWorkspaceFacade;
   let http: HttpTestingController;
+  let events: Subject<DurableRealtimeEvent>;
   const history = { touchProject: vi.fn() };
 
   beforeEach(() => {
     history.touchProject.mockReset();
+    events = new Subject<DurableRealtimeEvent>();
     TestBed.configureTestingModule({ providers: [
       provideHttpClient(), provideHttpClientTesting(),
       { provide: RealtimeFacade, useValue: {
-        durableEvents$: EMPTY, connectionState: signal('Connected'),
+        durableEvents$: events.asObservable(), connectionState: signal('Connected'),
         registerSubscription: () => () => {}, registerCatchUp: () => () => {},
         registerProtectedStateClearer: () => () => {},
       } },
@@ -146,6 +150,61 @@ describe('ProjectDetailFacade initial response scope', () => {
       http.expectNone(() => true);
     },
   );
+
+  for (const deniedProjection of ['kanban', 'gantt'] as const) {
+    for (const eventType of ['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const) {
+      it.each([401, 403])(`keeps ${deniedProjection} denial through ${eventType} during navigation recovery after %s`, async (status) => {
+        TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'tasks.kanbanV1': true, 'tasks.ganttV1': true });
+        facade.load('project-1');
+        http.expectOne('/api/projects/project-1').flush(active);
+        const oldTasks = http.expectOne('/api/projects/project-1/tasks');
+        const oldWorkload = http.expectOne('/api/projects/project-1/workload');
+        const oldMembers = http.expectOne('/api/projects/project-1/members');
+        const oldBoard = http.expectOne('/api/projects/project-1/kanban');
+        const oldGantt = http.expectOne('/api/projects/project-1/gantt');
+        (deniedProjection === 'kanban' ? oldBoard : oldGantt).flush(
+          { message: 'Initial projection denied' }, { status, statusText: 'Denied' },
+        );
+        http.expectOne('/api/projects/project-1').flush(active);
+        const tasks = http.expectOne('/api/projects/project-1/tasks');
+        const workload = http.expectOne('/api/projects/project-1/workload');
+        const members = http.expectOne('/api/projects/project-1/members');
+        const emit = (type: DurableRealtimeEvent['eventType']) => events.next({
+          eventId: 'recovery-event', eventType: type, payloadSchemaVersion: 1,
+          occurredAt: '2026-11-06T00:00:00Z', tenantId: 'tenant-1', aggregateType: 'Project',
+          aggregateId: 'project-1', aggregateVersion: 1, actor: { actorType: 'System', actorId: null },
+          correlationId: null, causationId: null, payload: { projectId: 'project-1', taskId: 'task-1', taskVersion: 100 },
+        });
+        emit(eventType); await Promise.resolve();
+        const premature = http.match(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+        for (const request of premature) request.flush(request.request.url.endsWith('/kanban') ? snapshotDto() : ganttSnapshotDto());
+        for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+        expect(premature).toHaveLength(0);
+        expect(facade.view().status).toBe('permissionDenied');
+        tasks.flush({ items: [] }); workload.flush({ members: [] }); members.flush({ members: [] });
+        oldTasks.flush({ items: [] }); oldWorkload.flush({ members: [] }); oldMembers.flush({ members: [] });
+        if (deniedProjection === 'kanban') oldGantt.flush(ganttSnapshotDto());
+        else oldBoard.flush(snapshotDto());
+        emit(eventType); await Promise.resolve();
+        http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+        for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+        expect(facade.view().status).toBe('ready');
+        expect(facade.view().kanban.snapshot).toBeNull(); expect(facade.view().schedule.snapshot).toBeNull();
+        expect(facade.view().kanban.status).toBe('permissionDenied'); expect(facade.view().schedule.status).toBe('permissionDenied');
+
+        // Explicit authority invalidation still starts fresh operational reads.
+        emit('Security.AuthorizationStateChanged.v1'); await Promise.resolve();
+        http.expectOne('/api/projects/project-1').flush(active);
+        http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+        http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+        http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+        http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+        http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+        expect(facade.view().status).toBe('ready');
+        expect(facade.view().kanban.snapshot).not.toBeNull(); expect(facade.view().schedule.snapshot).not.toBeNull();
+      });
+    }
+  }
 
   it('uses the fresh authorization denial after initial Workspace hydration', () => {
     workspace.clearWorkspace();
