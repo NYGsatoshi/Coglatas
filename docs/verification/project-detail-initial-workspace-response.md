@@ -130,3 +130,13 @@ authorization revalidation. Ordinary events, editor close and queued refreshes
 do not retry them. Fresh parent 403/503 retains denial. New native controls cover
 both Gantt denial statuses, explicit retry, failed parent recovery and the
 Workspace states above. They do not prove live transport or historical causes.
+
+The same navigation-only recovery now applies to refreshed Board 401/403.
+Additional controls cover both denial statuses, fresh parent success/403/503,
+explicit Board retry, and a previously dispatched Move succeeding before or
+after the parent recovery. A stale committed Move cannot restart a currently
+denied Board even after navigation is authorized again. Existing overlapping
+move/refresh assertions remain, with additional fresh-parent denial checks.
+Real HTTP-only controls also hold parent, Board and Gantt reads across an
+explicit Workspace replacement: already dispatched responses complete without
+restoring the old Project or starting old-scope child reads.

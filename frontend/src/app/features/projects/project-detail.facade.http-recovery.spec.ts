@@ -650,7 +650,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         http.expectOne('/api/projects/project-1').flush(
           { message: 'Fresh parent authority also denied' }, { status: 403, statusText: 'Denied' });
         expect(detail.view().kanban.snapshot).toBeNull();
-        expect(detail.view().kanban.status).toBe('permissionDenied');
+        expect(detail.view().status).toBe('permissionDenied');
         http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
       }
     });
