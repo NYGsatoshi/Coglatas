@@ -17,10 +17,14 @@ controls passed after Shift+Tab and are retained as narrower evidence; they do
 not reproduce the complete hosted failure. The initial runner preparation failed
 dependency resolution before browser execution and is retained separately.
 
-Home now brings the first row through enclosing scrollports as well. Centering
-that short row leaves room above it for the summary; the first inner row remains
-clamped at Home zero. The same operation uses only the newly authorized first
-row when restoring a pending Home across an authorized remount. It does not move
+Independent review exposed two additional gaps in the initial centering repair:
+a row taller than the list can move inner Home above zero, and an outer-only
+overflow is skipped after a short roster remount. Separate controls retain both
+failures. The correction scrolls only enclosing containers, showing summary and
+first row together when they fit, or aligning the beginning of an oversized row.
+The list remains at Home zero. A short fresh roster still handles ancestor
+overflow. The same operation uses only the newly authorized first row when
+restoring a pending Home across an authorized remount. It does not move
 focus, retain an old DOM node, change End, accept modified/child/IME keys, or
 change membership/authorization state. Existing native boundary, original
 ReadOnly owner, retry, deadline, lifecycle and authority assertions remain.

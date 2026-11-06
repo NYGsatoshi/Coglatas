@@ -335,7 +335,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       }
       if (!boundary) return;
       const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
-      if (!list || list.scrollHeight <= list.clientHeight) return;
+      if (!list || (boundary === 'End' && list.scrollHeight <= list.clientHeight)) return;
       list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
       if (boundary === 'End') {
         // A fresh nested scrollport alone is not enough: the desktop aside may
@@ -343,7 +343,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
         // the authorized enclosing scrollport without retaining old content.
         list.querySelector<HTMLElement>('li:last-child')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
       } else {
-        list.querySelector<HTMLElement>('li:first-child')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+        this.revealHomeInAncestors(list);
       }
     });
   }
@@ -357,13 +357,33 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
     if (event.key === 'Home') {
-      // The list can be taller than its enclosing mobile scrollport. Expose
-      // the first row through that ancestor too, leaving room for the summary
-      // when Shift+Tab returns focus. Inner Home remains clamped at zero.
-      list.querySelector<HTMLElement>('li:first-child')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      this.revealHomeInAncestors(list);
     }
     if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End',
       at: Date.now(), epoch: this.boundaryIntent?.epoch ?? 0 };
+  }
+
+  private revealHomeInAncestors(list: HTMLElement): void {
+    const firstRow = list.querySelector<HTMLElement>('li:first-child');
+    const summary = this.host.nativeElement.querySelector<HTMLElement>('summary');
+    if (!firstRow) return;
+    // Scroll enclosing containers only: a tall row must never move inner Home
+    // away from zero. Include the summary when both fit so Shift+Tab keeps the
+    // first member visible; an oversized row exposes its beginning instead.
+    for (let outer = list.parentElement; outer; outer = outer.parentElement) {
+      if (outer.clientHeight <= 0 || outer.scrollHeight <= outer.clientHeight ||
+          (outer !== document.scrollingElement && !/(auto|scroll|hidden)/.test(getComputedStyle(outer).overflowY))) continue;
+      const top = outer.getBoundingClientRect().top + outer.clientTop;
+      const bottom = top + outer.clientHeight;
+      const row = firstRow.getBoundingClientRect();
+      const heading = summary?.getBoundingClientRect();
+      const start = Math.min(row.top, heading?.top ?? row.top);
+      const end = Math.max(row.bottom, heading?.bottom ?? row.bottom);
+      const delta = end - start > outer.clientHeight ? Math.floor(row.top - top)
+        : start < top ? Math.floor(start - top)
+        : end > bottom ? Math.ceil(end - bottom) : 0;
+      if (delta) outer.scrollBy({ top: delta, behavior: 'instant' });
+    }
   }
 
   roleKey(member: MessagingGroupMember): MessagingTextKey | null {

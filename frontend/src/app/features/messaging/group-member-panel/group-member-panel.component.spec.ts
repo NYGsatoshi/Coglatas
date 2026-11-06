@@ -16,8 +16,6 @@ describe('Group roster boundary keyboard scope', () => {
     fixture.detectChanges();
     const list = fixture.nativeElement.querySelector('ul') as HTMLElement;
     const child = list.querySelector('button')!;
-    const firstRow = list.querySelector('li') as HTMLElement;
-    firstRow.scrollIntoView = vi.fn();
     const scrollTo = vi.fn();
     list.scrollTo = scrollTo;
     for (const options of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true },
@@ -45,7 +43,6 @@ describe('Group roster boundary keyboard scope', () => {
       expect(boundary.defaultPrevented).toBe(true);
     }
     expect(scrollTo).toHaveBeenCalledTimes(2);
-    expect(firstRow.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
     fixture.destroy();
   });
 });
@@ -111,7 +108,6 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     const next = mount();
     await Promise.resolve();
     expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
-    expect(next.firstRow.scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
     expect(next.firstRow).not.toBe(old.firstRow);
     next.fixture.destroy();
   });
