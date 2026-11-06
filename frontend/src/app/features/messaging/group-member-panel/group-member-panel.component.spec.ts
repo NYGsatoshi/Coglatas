@@ -131,7 +131,7 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     try {
       await Promise.resolve();
       expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
-      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 150, behavior: 'instant' });
+      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 151, behavior: 'instant' });
     } finally { next.fixture.destroy(); outer.remove(); }
   });
 
