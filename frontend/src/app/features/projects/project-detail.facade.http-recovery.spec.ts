@@ -88,6 +88,66 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     for (let count = 0; count < 5; count++) { TestBed.tick(); await Promise.resolve(); }
   }
 
+  function enableBoard() {
+    TestBed.inject(FrontendFeatureFlagsService).setForTesting({
+      'realtime.signalR': false, 'tasks.kanbanV1': true, 'tasks.ganttV1': true,
+    });
+  }
+
+  function flushBoard() {
+    http.expectOne('/api/projects/project-1').flush(active);
+    flushActiveCollections();
+    http.expectOne('/api/projects/project-1/kanban').flush(snapshotDto());
+  }
+
+  async function mountBoard() {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle(); flushBoard();
+  }
+
+  function moveFirstCard() {
+    detail.moveTask({ item: detail.view().kanban.snapshot!.cards[0],
+      targetStatus: 'stage-done', targetBeforeItemId: null, targetAfterItemId: null,
+      reason: null, source: 'keyboard' });
+  }
+
+  it.each([401, 403])('releases only the invalidated move when an overlapping schedule command returns %s', async (status) => {
+    await mountBoard();
+    moveFirstCard(); const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.applyGanttEdit({ kind: 'schedule', taskId: 'task-1',
+      plannedStartDate: '2026-07-02', plannedEndDate: '2026-07-11', milestoneDate: null,
+      expectedVersion: 3, source: 'form' });
+    http.expectOne('/api/tasks/task-1/schedule').flush(
+      { message: 'Schedule permission changed' }, { status, statusText: 'Denied' },
+    );
+    oldMove.flush({ message: 'Old denied move' }, { status: 403, statusText: 'Forbidden' });
+    expect(detail.view().kanban.busyTaskId).toBeNull();
+    // A fresh explicit reload remains authorized by its current server responses.
+    detail.load('project-1'); flushBoard(); moveFirstCard();
+    http.expectOne('/api/tasks/task-1/kanban-move').flush(
+      { message: 'Current failure' }, { status: 503, statusText: 'Unavailable' },
+    );
+    expect(detail.view().kanban.status).toBe('rollback');
+  });
+
+  it('reconciles a late successful move after a same-Project remount using fresh reads instead of the old response', async () => {
+    await mountBoard(); moveFirstCard();
+    const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.release(); detail.load('project-1'); flushBoard();
+    oldMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }),
+      focusTaskId: 'task-1', warnings: [] });
+    await settle();
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(7);
+    const boards = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    const tasks = http.match('/api/projects/project-1/tasks');
+    for (const request of boards) request.flush(snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }));
+    for (const request of tasks) request.flush({ items: [] });
+    expect(boards).toHaveLength(1);
+    expect(tasks).toHaveLength(1);
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(8);
+  });
+
   it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
     detail.load('project-1');
     const old = http.expectOne('/api/projects/project-1');
