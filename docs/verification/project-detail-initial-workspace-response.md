@@ -22,9 +22,11 @@ Draft and denial controls qualify fresh requests instead of accepting old data.
 
 The real HTTP-only Workspace/Realtime integration controls also reproduced a
 fresh fallback denial overwritten by a delayed initial success. A definitive
-401/403 fallback now uses the existing authorization-generation and protected
-projection clearer before presenting the original denial. Earlier pending loads
-cannot restore the old projection. Transient failures retain their original
+401/403 from either the initial load or fallback now uses the existing
+authorization-generation and protected projection clearer before presenting
+the original denial. Earlier pending loads or catch-ups cannot restore the old
+projection. Both arrival orders and fresh authorized recovery are covered.
+Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
 

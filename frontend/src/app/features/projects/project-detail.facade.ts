@@ -274,6 +274,8 @@ export class ProjectDetailFacade {
       if (loadIsCurrent()) {
         const latest = this.state();
         if (view.status !== 'ready') {
+          if (view.status === 'permissionDenied')
+            {this.clearProtectedProjectionsForDeniedSubscription();}
           this.state.set(view);
           return;
         }
