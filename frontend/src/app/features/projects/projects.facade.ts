@@ -700,13 +700,16 @@ export class ProjectsFacade {
     // Cold direct-route hydration can otherwise change null -> Workspace mid-flight.
     // That race can duplicate the parent Project read across authorization generations.
     const expectedWorkspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const isCurrent = () => this.isAuthorizationCurrent(authorizationGeneration) &&
+      this.isActive(taskId, generation) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === expectedWorkspaceId;
     if (scope.kind === 'initialLoad') {this.setSectionState('detail', { status: 'loading' });}
     if (scope.kind === 'sectionRecovery') {this.setSectionState(scope.section, { status: 'loading', retryKind: 'aggregate' });}
-    this.detailRequest = this.fetchTaskWithParentProject(taskId, this.activeProjectId, expectedWorkspaceId).pipe(finalize(() => {
+    this.detailRequest = this.fetchTaskWithParentProject(taskId, this.activeProjectId, expectedWorkspaceId, isCurrent).pipe(finalize(() => {
       if (this.isActive(taskId, generation)) {this.detailRequest = null;}
     })).subscribe({
       next: (response) => {
-        if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
+        if (!isCurrent()) {return;}
         if (response.scopeMismatch) {
           this.denyTaskDetail();
           return;
@@ -746,7 +749,7 @@ export class ProjectsFacade {
         if (typeof projectId === 'string' && (permissions?.canApplyLabels === true || permissions?.canManageLabelDefinitions === true)) {this.loadProjectLabelDefinitions(projectId);}
       },
       error: (error: unknown) => {
-        if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
+        if (!isCurrent()) {return;}
         this.taskConflictReloadInProgress = false;
         const normalized = normalizeProjectFeedbackError(error);
         // A revoked membership is intentionally surfaced by the API as the same
@@ -782,10 +785,12 @@ export class ProjectsFacade {
   private fetchTaskWithParentProject(
     taskId: string,
     expectedProjectId: string | null,
-    expectedWorkspaceId: string | null
+    expectedWorkspaceId: string | null,
+    isCurrent: () => boolean
   ): Observable<TaskDetailLoadResult> {
     return this.fetchTask(taskId).pipe(
       switchMap((response) => {
+        if (!isCurrent()) {return EMPTY;}
         const projectId = response.task.projectId;
         if (!expectedProjectId || projectId !== expectedProjectId) {
           return of({ ...response, scopeMismatch: true });
