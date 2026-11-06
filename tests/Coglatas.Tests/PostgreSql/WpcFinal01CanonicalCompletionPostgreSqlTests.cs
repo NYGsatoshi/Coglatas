@@ -424,6 +424,22 @@ public sealed class WpcFinal01CanonicalCompletionPostgreSqlTests
                     Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
                         graph.TenantId, graph.ReaderUserId, targetType, unrelatedResource, taskEvent));
                 }
+                RealtimeSubscriptionType[] unsupportedTypes =
+                [
+                    RealtimeSubscriptionType.Tenant, RealtimeSubscriptionType.Conversation,
+                    (RealtimeSubscriptionType)int.MaxValue
+                ];
+                Guid[] authorizedResources = [graph.ReaderUserId, graph.ProjectId, graph.WorkspaceId];
+                foreach (var targetType in unsupportedTypes)
+                {
+                    foreach (var resourceId in authorizedResources)
+                    {
+                        Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(
+                            graph.TenantId, graph.ReaderUserId, targetType, resourceId, projectEvent));
+                        Assert.False(await scope.Resolver.CanReceiveTaskEventAsync(
+                            graph.TenantId, graph.ReaderUserId, targetType, resourceId, taskEvent));
+                    }
+                }
                 foreach (var userId in new[] { Guid.Empty, Guid.NewGuid() })
                 {
                     Assert.False(await scope.Resolver.CanReceiveProjectEventAsync(

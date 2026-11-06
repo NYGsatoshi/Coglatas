@@ -7,6 +7,9 @@ The envelope matrix checks authorized User, Project and Workspace delivery
 targets, all four accepted Task event types, and rejects mismatched event types,
 Tenant and aggregate identities, missing or malformed JSON references, unrelated
 subscription resources, unsupported subscription types and unknown recipients.
+Unsupported Tenant, Conversation and unknown enum values are also checked with
+each otherwise-authorized User, Project and Workspace destination ID, so a
+mistaken default destination fallback cannot pass only because an ID is unknown.
 Authorized controls before and after the matrix ensure rejection is not caused
 by an unavailable fixture.
 
@@ -25,7 +28,9 @@ or unexecuted run is not evidence of current-state behavior.
 Direct committed membership updates model persisted authority changes; they do
 not exercise an HTTP revocation command, session admission, the Outbox transport,
 concurrent authorization through dispatch, application-role RLS, production
-migrations, physical devices or pilot acceptance. Existing archived-Workspace
+migrations, physical devices or pilot acceptance. Unknown recipient/resource IDs
+do not establish existing-but-unauthorized or populated foreign-Tenant coverage.
+Existing archived-Workspace
 historical read behavior remains governed by its separate original controls.
 No formal finding disposition, Owner decision or Release GO follows from these
 tests. Resulting Main still needs its own CI, both full Qodana scans, official
