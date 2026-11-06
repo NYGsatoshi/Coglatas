@@ -1,5 +1,10 @@
 # Testing
 
+Forms answer normalization and submission admission controls are documented
+in [the Forms answer contract verification](verification/forms-answer-contract-tests.md).
+They exercise Application unit contracts and preserve the original Forms
+authority implementation; they do not establish PostgreSQL or HTTP acceptance.
+
 The Functional Compose harness prepares the scoped browser runtime with a
 no-dependency `/bin/true` entrypoint before recording setup time and executing
 the real suite. Image acquisition or container preparation failure is
