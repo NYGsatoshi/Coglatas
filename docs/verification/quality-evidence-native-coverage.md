@@ -18,5 +18,7 @@ subjects are preserved.
 
 Local native reports retain original bytes, zero-hit lines and missing branch
 arcs. Only a separately qualified resulting-Main analysis establishes any Main
-coverage or original Quality Gate change. Integration follows #1677 and its
-resulting-Main evaluation; local increments are not added to other PR totals.
+coverage or original Quality Gate change. The collection first proposed in
+#1732 is incorporated through #1677 after the earlier pilot integrations and
+their resulting-Main evaluations. Local increments are not added to other PR
+totals.
