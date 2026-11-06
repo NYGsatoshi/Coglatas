@@ -45,12 +45,14 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
   let invalidations: Subject<void>;
   let transportStatuses: Subject<RealtimeTransportStatus>;
   let subscriptions: RealtimeSubscriptionRequest[];
+  let denyProjectSubscription: boolean;
   const history = { touchProject: vi.fn() };
   const start = vi.fn(async () => {});
 
   beforeEach(() => {
     history.touchProject.mockReset(); start.mockClear(); invalidations = new Subject<void>();
     transportStatuses = new Subject<RealtimeTransportStatus>(); subscriptions = [];
+    denyProjectSubscription = false;
     TestBed.configureTestingModule({ imports: [ProjectDetailPageComponent], providers: [
       provideRouter([]),
       { provide: ActivatedRoute, useFactory: (router: Router) => ({
@@ -65,7 +67,9 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         durableEvents$: EMPTY, authorizationInvalidations$: invalidations, statuses$: transportStatuses,
         start, stop: async () => {},
         subscribe: async (request: RealtimeSubscriptionRequest) => {
-          subscriptions.push(request); return { allowed: true, code: 'Subscribed' };
+          subscriptions.push(request);
+          return request.subscriptionType === 'project' && denyProjectSubscription
+            ? { allowed: false, code: 'Forbidden' } : { allowed: true, code: 'Subscribed' };
         },
         unsubscribe: async () => ({ allowed: true, code: 'Unsubscribed' }),
       } },
@@ -348,6 +352,51 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(realtime.connectionState()).toBe('Connected');
     expect(detail.view().kanban.snapshot).not.toBeNull(); expect(detail.view().schedule.snapshot).not.toBeNull();
   });
+
+  for (const firstProjection of ['board', 'schedule'] as const) {
+    for (const subscriptionDenied of [false, true]) {
+      it.each([403, 503])(`keeps ${firstProjection} denied when it finishes before reconnect parent %s with subscriptionDenied=${subscriptionDenied}`, async (parentStatus) => {
+        const projectId = 'a1e33828-b8d3-4b70-a802-dde89e185915';
+        const parent = { ...active, id: projectId };
+        const path = `/api/projects/${projectId}`;
+        const connected = () => vi.waitFor(() => {
+          TestBed.tick(); expect(realtime.connectionState()).toBe('Connected');
+        }, { timeout: 5000, interval: 10 });
+        const navigation = () => {
+          http.expectOne(path).flush(parent);
+          http.expectOne(`${path}/tasks`).flush({ items: [] });
+          http.expectOne(`${path}/workload`).flush({ members: [] });
+          http.expectOne(`${path}/members`).flush({ members: [] });
+        };
+        enableBoard(); selectFromHttp(); await settle(); detail.load(projectId); navigation();
+        http.expectOne(request => request.url === `${path}/kanban`).flush(snapshotDto());
+        http.expectOne(`${path}/gantt`).flush(ganttSnapshotDto());
+        TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'realtime.signalR': true });
+        await connected(); navigation();
+        http.expectOne(request => request.url === `${path}/kanban`).flush(snapshotDto());
+        http.expectOne(`${path}/gantt`).flush(ganttSnapshotDto());
+        detail.retryKanban();
+        http.expectOne(request => request.url === `${path}/kanban`).flush(
+          { message: 'Current Board denied' }, { status: 403, statusText: 'Denied' });
+        navigation();
+        expect(detail.view().kanban.status).toBe('permissionDenied');
+        expect(detail.view().schedule.status).toBe('permissionDenied');
+        denyProjectSubscription = subscriptionDenied;
+        transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await connected();
+        const early = http.match(request => request.url === `${path}/kanban` || request.url === `${path}/gantt`);
+        const ordered = early.sort((left, right) => Number(right.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt'))
+          - Number(left.request.url.endsWith(firstProjection === 'board' ? '/kanban' : '/gantt')));
+        for (const read of ordered) read.flush(read.request.url.endsWith('/kanban') ? snapshotDto() : ganttSnapshotDto());
+        const earlyBoard = detail.view().kanban.snapshot, earlySchedule = detail.view().schedule.snapshot;
+        http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
+        await settle();
+        expect(early).toHaveLength(0);
+        expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
+        expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
+        http.expectNone(request => request.url.startsWith(path));
+      });
+    }
+  }
 
   for (const denial of [401, 403]) {
     it.each([403, 503])(`keeps current Board ${denial} redacted when fresh parent returns %s`, async (status) => {
