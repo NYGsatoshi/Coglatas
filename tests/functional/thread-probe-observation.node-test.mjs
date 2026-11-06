@@ -417,7 +417,7 @@ void test('actual Playwright reporter does not attribute a caught restoration ti
       });`;
     writeFileSync(join(directory, 'messaging/collaboration-owner-journey.spec.ts'), spec);
     writeFileSync(join(directory, 'config.mjs'), `import mobile from ${JSON.stringify(pathToFileURL(join(root, 'playwright.mobile-real.config.ts')).href)};
-      export default {...mobile,...${JSON.stringify({ testDir: directory, testMatch: 'collaboration-owner-journey.spec.ts',
+      export default {...mobile,...${JSON.stringify({ build: { external: process.env.COGLATAS_TEST_FORCE_MJS_TRANSFORM === '1' ? [] : ['**/*.mjs'] }, testDir: directory, testMatch: 'collaboration-owner-journey.spec.ts',
         outputDir: join(directory, 'runner-output'), workers: 1, retries: 0,
         reporter: [[join(root, 'tests/functional/mobile/reporter.mjs')]],
         projects: [{ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) }, retries: 0 }],
