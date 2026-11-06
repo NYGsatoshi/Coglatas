@@ -208,7 +208,8 @@ describe('ProjectDetailFacade initial response scope', () => {
     }
   }
 
-  it.each([401, 403])('discards an already queued ordinary Gantt refresh after current %s and permits explicit authorization recovery', async (status) => {
+  for (const interaction of [false, true]) {
+  it.each([401, 403])(`discards an already queued ordinary Gantt refresh after current %s with interaction=${interaction} and permits explicit authorization recovery`, async (status) => {
     const flags = TestBed.inject(FrontendFeatureFlagsService);
     vi.spyOn(flags, 'kanbanV1Enabled').mockReturnValue(true);
     vi.spyOn(flags, 'ganttV1Enabled').mockReturnValue(true);
@@ -236,9 +237,11 @@ describe('ProjectDetailFacade initial response scope', () => {
     const pending = http.expectOne('/api/projects/project-1/gantt'); finishOrdinarySiblings();
     events.next({ ...taskEvent, eventId: 'queued-schedule-followup' }); await Promise.resolve();
     finishOrdinarySiblings();
+    if (interaction) facade.setScheduleInteractionActive(true);
     pending.flush({ message: 'Current Gantt denied' }, { status, statusText: 'Denied' });
     expect(facade.view().schedule.status).toBe('permissionDenied');
     expect(facade.view().schedule.snapshot).toBeNull();
+    if (interaction) facade.setScheduleInteractionActive(false);
     await Promise.resolve();
     const forbiddenRetry = http.match('/api/projects/project-1/gantt');
     for (const request of forbiddenRetry) request.flush(ganttSnapshotDto());
@@ -252,6 +255,7 @@ describe('ProjectDetailFacade initial response scope', () => {
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
     expect(facade.view().status).toBe('ready'); expect(facade.view().schedule.snapshot).not.toBeNull();
   });
+  }
 
   it('uses the fresh authorization denial after initial Workspace hydration', () => {
     workspace.clearWorkspace();
