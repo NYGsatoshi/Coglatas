@@ -23,3 +23,7 @@ class PublicDigestReaderTests(unittest.TestCase):
         for value in ({}, {'environmentCompatibilityDigest': 'credential-shaped-text'}, {'environmentCompatibilityDigest': True}):
             with self.assertRaises(ComparatorError):
                 baseline_environment_digest(value)
+
+
+if __name__ == '__main__':
+    unittest.main()

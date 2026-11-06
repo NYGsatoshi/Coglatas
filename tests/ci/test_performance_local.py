@@ -483,3 +483,7 @@ class SignedBundleTests(unittest.TestCase):
         self.persist_policy()
         with self.assertRaises(evidence.LocalError):
             self.verify()
+
+
+if __name__ == '__main__':
+    unittest.main()

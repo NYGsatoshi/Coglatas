@@ -479,3 +479,7 @@ class ZeroCaptureRecoveryTests(unittest.TestCase):
             with self.subTest(directive=directive):
                 self.assertTrue(campaign.has_negative_approval_directive([directive]))
 
+
+
+if __name__ == '__main__':
+    unittest.main()

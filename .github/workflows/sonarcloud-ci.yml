@@ -252,7 +252,18 @@ jobs:
             scripts/ci/test_audit_sbom_component_inventory.py \
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \
-            tests/ci/test_performance_api_collection.py; do
+            tests/ci/test_performance_api_collection.py \
+            tests/ci/test_performance_assurance.py \
+            tests/ci/test_performance_db.py \
+            tests/ci/test_performance_db_approval_history.py \
+            tests/ci/test_performance_db_assignment_transition.py \
+            tests/ci/test_performance_db_candidate.py \
+            tests/ci/test_performance_diagnostic_recovery.py \
+            tests/ci/test_performance_environment.py \
+            tests/ci/test_performance_environment_class.py \
+            tests/ci/test_performance_local.py \
+            tests/ci/test_performance_public_digest.py \
+            tests/ci/test_performance_runtime_compatibility.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
