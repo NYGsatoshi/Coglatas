@@ -21,6 +21,14 @@ Task/run versions, activity, audit requests, persisted invalidation, and safe
 failure after an injected save conflict. They assert denied calls produce no
 save or Outbox writes and rejected saves do not return success.
 
+Itemized closed and successor Run policies are inspected through the real
+repository's pending documents immediately before the unit of work flushes
+them. This checks full rule and scope/version staging, including stale-document
+fallback; EF InMemory does not persist those JSON documents. Two Research Plan
+revisions distinguish the current revision pointer from older history. Outbox
+assertions inspect type, Tenant, Task/version, Project routing and refetch payload,
+and correction audit/activity assertions bind actor and resource identities.
+
 Run the focused native collector with:
 
 ```text

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
@@ -127,6 +128,7 @@ public sealed class TaskExecutionInterventionServiceTests
         fixture.Run.Status = status;
         await fixture.Db.SaveChangesAsync();
         var originalSnapshot = Snapshot(fixture.Run);
+        var originalPolicy = JsonSerializer.Serialize(fixture.ClosedPolicy);
 
         var result = await fixture.InvokeAsync(false, fixture.Task.Id, fixture.Run.Id);
 
@@ -142,12 +144,13 @@ public sealed class TaskExecutionInterventionServiceTests
         Assert.Equal(fixture.Clock.UtcNow, stored.FinishedAtUtc);
         Assert.Equal(8, stored.VersionNo);
         Assert.Equal(originalSnapshot, Snapshot(stored));
+        Assert.Equal(originalPolicy, JsonSerializer.Serialize(Assert.Single(fixture.Save.StagedRunDocuments).Policy));
         Assert.Equal(5, (await fixture.Db.TaskItems.SingleAsync()).VersionNo);
         Assert.Equal("TaskExecutionRunStopped", Assert.Single(fixture.Audit.Entries).Action);
         Assert.Equal(fixture.Actor.UserId, fixture.Audit.Entries[0].ActorUserId);
         Assert.Equal(fixture.Run.Id, fixture.Audit.Entries[0].EntityId);
         Assert.Equal(fixture.Task.Id, (await fixture.Db.Set<ActivityLog>().SingleAsync()).TaskItemId);
-        Assert.Single(await fixture.Db.OutboxEvents.ToListAsync());
+        await AssertInvalidationAsync(fixture, "executionRunStopped");
         Assert.Equal(1, fixture.Save.Calls);
     }
 
@@ -165,6 +168,12 @@ public sealed class TaskExecutionInterventionServiceTests
     {
         await using var fixture = await Fixture.CreateAsync();
         var originalSnapshot = Snapshot(fixture.Run);
+        var originalPolicy = JsonSerializer.Serialize(fixture.ClosedPolicy);
+        var currentPolicy = TaskExecutionSourcePolicyV2.FromLegacy(true, false) with
+        {
+            Web = TaskExecutionSourceState.Prioritize,
+            Items = [new(TaskExecutionSourceKind.ProjectFile, Guid.NewGuid().ToString(), TaskExecutionSourceState.Exclude)]
+        };
         var projectScope = await fixture.Db.ProjectExecutionScopes.SingleAsync();
         projectScope.WebEnabled = false;
         projectScope.ProjectFilesEnabled = true;
@@ -187,7 +196,7 @@ public sealed class TaskExecutionInterventionServiceTests
             taskOverride ? fixture.Task.Id : null,
             taskOverride || matchingDocument ? 3 : 2,
             taskOverride ? matchingDocument ? 5 : 4 : null,
-            TaskExecutionSourcePolicyV2.FromLegacy(true, false)));
+            currentPolicy));
 
         var result = await fixture.InvokeAsync(true, fixture.Task.Id, fixture.Run.Id);
 
@@ -201,6 +210,8 @@ public sealed class TaskExecutionInterventionServiceTests
         var successor = await fixture.Db.TaskExecutionRuns.SingleAsync(run => run.Id != fixture.Run.Id);
         Assert.Equal(TaskExecutionRunStatus.Redirected, closed.Status);
         Assert.Equal(originalSnapshot, Snapshot(closed));
+        var closedDocument = Assert.Single(fixture.Save.StagedRunDocuments, item => item.OwnerId == closed.Id);
+        Assert.Equal(originalPolicy, JsonSerializer.Serialize(closedDocument.Policy));
         Assert.Equal(8, closed.VersionNo);
         Assert.Equal(fixture.Clock.UtcNow, closed.FinishedAtUtc);
         Assert.Equal(successor.Id, result.Value.ResumedRun!.Id);
@@ -218,13 +229,34 @@ public sealed class TaskExecutionInterventionServiceTests
         Assert.Equal(!matchingDocument, successor.SnapshotProjectFilesEnabled);
         Assert.Equal(revision?.Id, successor.SnapshotResearchPlanRevisionId);
         Assert.Equal(revision?.RevisionNo, successor.SnapshotResearchPlanRevisionNo);
+        var successorDocument = Assert.Single(fixture.Save.StagedRunDocuments, item => item.OwnerId == successor.Id);
+        Assert.Equal(TaskExecutionSourcePolicyOwnerType.Run, successorDocument.OwnerType);
+        Assert.Equal(successor.TenantId, successorDocument.TenantId);
+        Assert.Equal(successor.WorkspaceId, successorDocument.WorkspaceId);
+        Assert.Equal(successor.ProjectId, successorDocument.ProjectId);
+        Assert.Equal(successor.TaskItemId, successorDocument.TaskItemId);
+        Assert.Equal(3, successorDocument.ProjectScopeVersion);
+        Assert.Equal(taskOverride ? 5L : null, successorDocument.TaskOverrideVersion);
+        Assert.Equal(JsonSerializer.Serialize(matchingDocument ? currentPolicy : TaskExecutionSourcePolicyV2.FromLegacy(false, true)),
+            JsonSerializer.Serialize(successorDocument.Policy));
         Assert.Null(successor.QueuedAtUtc);
         Assert.Null(successor.StartedAtUtc);
         Assert.Null(successor.FinishedAtUtc);
         Assert.Equal(5, (await fixture.Db.TaskItems.SingleAsync()).VersionNo);
-        Assert.Equal("TaskExecutionRunRedirected", Assert.Single(fixture.Audit.Entries).Action);
-        Assert.Single(await fixture.Db.Set<ActivityLog>().ToListAsync());
-        Assert.Single(await fixture.Db.OutboxEvents.ToListAsync());
+        var audit = Assert.Single(fixture.Audit.Entries);
+        Assert.Equal("TaskExecutionRunRedirected", audit.Action);
+        Assert.Equal(fixture.Actor.UserId, audit.ActorUserId);
+        Assert.Equal(closed.Id, audit.EntityId);
+        Assert.Equal(fixture.Task.WorkspaceId, audit.WorkspaceId);
+        Assert.Equal(fixture.Task.ProjectId, audit.ProjectId);
+        Assert.Equal(successor.Id, audit.Metadata!["successorRunId"]);
+        var activity = await fixture.Db.Set<ActivityLog>().SingleAsync();
+        Assert.Equal(fixture.Task.TenantId, activity.TenantId);
+        Assert.Equal(fixture.Task.ProjectId, activity.ProjectId);
+        Assert.Equal(fixture.Task.Id, activity.TaskItemId);
+        Assert.Equal(fixture.Actor.UserId, activity.AuthorUserId);
+        Assert.Equal(fixture.Clock.UtcNow, activity.OccurredAt);
+        await AssertInvalidationAsync(fixture, "executionRunRedirected");
         Assert.Equal(1, fixture.Save.Calls);
     }
 
@@ -256,6 +288,29 @@ public sealed class TaskExecutionInterventionServiceTests
         run.SnapshotResearchPlanRevisionId, run.SnapshotResearchPlanRevisionNo
     };
 
+    private static async Task AssertInvalidationAsync(Fixture fixture, string change)
+    {
+        var item = await fixture.Db.OutboxEvents.SingleAsync();
+        Assert.Equal("Projects.TaskChanged.v1", item.EventType);
+        Assert.Equal(fixture.Task.TenantId, item.TenantId);
+        Assert.Equal("Task", item.AggregateType);
+        Assert.Equal(fixture.Task.Id, item.AggregateId);
+        Assert.Equal(5, item.AggregateVersion);
+        Assert.Equal(OutboxEventStatus.Pending, item.Status);
+        Assert.Equal(fixture.Clock.UtcNow, item.OccurredAt);
+        using var envelope = JsonDocument.Parse(item.PayloadJson);
+        var payload = envelope.RootElement.GetProperty("payload");
+        Assert.Equal(fixture.Task.Id, payload.GetProperty("taskId").GetGuid());
+        Assert.Equal(fixture.Task.ProjectId, payload.GetProperty("projectId").GetGuid());
+        Assert.Equal(5, payload.GetProperty("taskVersion").GetInt64());
+        Assert.Equal(change, payload.GetProperty("change").GetString());
+        Assert.True(payload.GetProperty("requiresRefetch").GetBoolean());
+        using var routing = JsonDocument.Parse(item.RoutingJson);
+        var route = Assert.Single(routing.RootElement.EnumerateArray());
+        Assert.Equal((int)RealtimeSubscriptionType.Project, route.GetProperty("subscriptionType").GetInt32());
+        Assert.Equal(fixture.Task.ProjectId, route.GetProperty("resourceId").GetGuid());
+    }
+
     private sealed class Fixture(AppDbContext db, CurrentTenantService tenantContext, TaskItem task, TaskExecutionRun run,
         CurrentActor actor, Authorization authorization, AuditLogger audit, FixedClock clock) : IAsyncDisposable
     {
@@ -269,10 +324,16 @@ public sealed class TaskExecutionInterventionServiceTests
         public FixedClock Clock { get; } = clock;
         public TaskExecutionScopeRepository Scopes { get; } = new(db);
         public Saving Save { get; } = new(db);
+        public TaskExecutionSourcePolicyV2 ClosedPolicy { get; } = TaskExecutionSourcePolicyV2.FromLegacy(false, true) with
+        {
+            ProjectFile = TaskExecutionSourceState.Prioritize,
+            Items = [new(TaskExecutionSourceKind.ProjectFile, Guid.NewGuid().ToString(), TaskExecutionSourceState.Exclude)]
+        };
 
         public Task<Result<TaskExecutionInterventionResponse>> InvokeAsync(bool correct, Guid taskId, Guid runId)
         {
             Save.Inner = new EfUnitOfWork(Db, Scopes);
+            Save.Scopes = Scopes;
             var outbox = new TransactionalOutbox(new OutboxEventRepository(Db), TenantContext, Clock);
             var service = new TaskExecutionInterventionService(new ProjectRepository(Db), Authorization,
                 new TaskExecutionInterventionRepository(Db), Scopes, new ResearchPlanRepository(Db), Actor,
@@ -304,17 +365,25 @@ public sealed class TaskExecutionInterventionServiceTests
                 SnapshotScopeOrigin = TaskExecutionScopeOrigin.ProjectDefault, SnapshotProjectScopeVersion = 2,
                 SnapshotProjectFilesEnabled = true };
             db.Add(run); await db.SaveChangesAsync();
-            return new Fixture(db, tenantContext, task, run, new CurrentActor(user.Id), new Authorization(), new AuditLogger(), new FixedClock());
+            var fixture = new Fixture(db, tenantContext, task, run, new CurrentActor(user.Id), new Authorization(), new AuditLogger(), new FixedClock());
+            fixture.Scopes.StageSourcePolicyDocument(new TaskExecutionSourcePolicyDocument(
+                TaskExecutionSourcePolicyOwnerType.Run, run.Id, task.TenantId, task.WorkspaceId,
+                task.ProjectId, task.Id, run.SnapshotProjectScopeVersion,
+                run.SnapshotTaskOverrideVersion, fixture.ClosedPolicy));
+            return fixture;
         }
 
         public async Task<ResearchPlanRevision> AddResearchPlanAsync()
         {
             var plan = new ResearchPlan { TenantId = Task.TenantId, WorkspaceId = Task.WorkspaceId,
                 ProjectId = Task.ProjectId, TaskItemId = Task.Id, VersionNo = 9 };
+            var older = new ResearchPlanRevision { TenantId = Task.TenantId, WorkspaceId = Task.WorkspaceId,
+                ProjectId = Task.ProjectId, TaskItemId = Task.Id, ResearchPlanId = plan.Id,
+                RevisionNo = 8, CreatedByUserId = Actor.UserId!.Value, CreatedAtUtc = Clock.UtcNow.AddMinutes(-1) };
             var revision = new ResearchPlanRevision { TenantId = Task.TenantId, WorkspaceId = Task.WorkspaceId,
                 ProjectId = Task.ProjectId, TaskItemId = Task.Id, ResearchPlanId = plan.Id,
                 RevisionNo = 9, CreatedByUserId = Actor.UserId!.Value, CreatedAtUtc = Clock.UtcNow };
-            plan.CurrentRevisionId = revision.Id; Db.AddRange(plan, revision); await Db.SaveChangesAsync();
+            plan.CurrentRevisionId = revision.Id; Db.AddRange(plan, older, revision); await Db.SaveChangesAsync();
             return revision;
         }
 
@@ -355,6 +424,8 @@ public sealed class TaskExecutionInterventionServiceTests
     private sealed class Saving(AppDbContext db) : ITaskCommandUnitOfWork
     {
         public ITaskCommandUnitOfWork Inner { private get; set; } = new EfUnitOfWork(db);
+        public TaskExecutionScopeRepository? Scopes { private get; set; }
+        public List<TaskExecutionSourcePolicyDocument> StagedRunDocuments { get; } = [];
         public TaskCommandSaveResult Outcome { get; set; } = TaskCommandSaveResult.Saved;
         public int Calls { get; private set; }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => db.SaveChangesAsync(cancellationToken);
@@ -362,6 +433,15 @@ public sealed class TaskExecutionInterventionServiceTests
         public async Task<TaskCommandSaveOutcome> SaveTaskCommandAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
+            if (Scopes is not null)
+            {
+                foreach (var entry in db.ChangeTracker.Entries<TaskExecutionRun>().ToArray())
+                {
+                    var document = await Scopes.GetSourcePolicyDocumentAsync(
+                        TaskExecutionSourcePolicyOwnerType.Run, entry.Entity.Id, cancellationToken);
+                    if (document is not null) StagedRunDocuments.Add(document);
+                }
+            }
             if (Outcome == TaskCommandSaveResult.Saved) return await Inner.SaveTaskCommandAsync(cancellationToken);
             ClearTaskCommandTracking(); return new TaskCommandSaveOutcome(Outcome);
         }
