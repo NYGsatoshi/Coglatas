@@ -136,6 +136,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         Assert.Null(failure.NextAttempt);
         Assert.Equal("DispatchContractFailure", failure.Code);
         Assert.Equal("Realtime delivery contract validation failed.", failure.Summary);
+        Assert.Single(fixture.Hub.Sends);
+        Assert.Empty(fixture.Hub.UnexpectedCalls);
         Assert.Empty(fixture.Repository.Delivered);
     }
 
@@ -187,6 +189,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web);
         private readonly ServiceProvider _services;
         private readonly OutboxDispatcher _dispatcher;
+        private readonly CancellationTokenSource _lifetime = new();
         public Guid Recipient { get; } = Guid.NewGuid();
         public DurableEventEnvelope Envelope { get; }
         public OutboxEvent Event { get; }
@@ -245,6 +248,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
 
         public async Task DispatchAsync(CancellationToken token = default)
         {
+            if (token == default) {token = _lifetime.Token;}
+            Assert.NotEqual(CancellationToken.None, token);
             Repository.Token = token;
             var method = typeof(OutboxDispatcher).GetMethod("DispatchBatchAsync", BindingFlags.Instance | BindingFlags.NonPublic)
                 ?? throw Unexpected();
@@ -258,7 +263,11 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Assert.Empty(Repository.Delivered);
         }
 
-        public ValueTask DisposeAsync() => _services.DisposeAsync();
+        public async ValueTask DisposeAsync()
+        {
+            try {await _services.DisposeAsync();}
+            finally {_lifetime.Dispose();}
+        }
     }
 
     private sealed class RecordingAuthorizer : IRealtimeDispatchAuthorizer
@@ -288,6 +297,9 @@ public sealed class OutboxDispatcherFailureBoundaryTests
 
     private sealed class RecordingRepository(OutboxEvent item) : IOutboxEventRepository
     {
+        private Guid _claimedId;
+        private Guid _claimedTenant;
+        private Guid? _claimedToken;
         public ICurrentTenantAccessor Context { get; set; } = null!;
         public List<ICurrentTenantAccessor> Contexts { get; } = [];
         public CancellationToken Token { get; set; }
@@ -301,6 +313,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Assert.True(Context.IsPlatformScope); Assert.False(Context.IsAvailable);
             Assert.False(string.IsNullOrWhiteSpace(lockOwner)); Assert.True(batchSize > 0); Assert.True(lockTimeout > TimeSpan.Zero);
             Assert.Equal(Token, cancellationToken);
+            _claimedId = item.Id; _claimedTenant = item.TenantId; _claimedToken = item.LockToken;
             return Task.FromResult<IReadOnlyList<OutboxEvent>>([item]);
         }
         public Task<bool> MarkDeliveredAsync(Guid eventId, Guid lockToken, DateTimeOffset deliveredAt, string? outcomeCode, CancellationToken cancellationToken = default)
@@ -318,8 +331,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         { AssertClaim(eventId, lockToken, cancellationToken); Releases.Add(nextAttemptAt); return Task.FromResult(true); }
         private void AssertClaim(Guid id, Guid token, CancellationToken cancellation)
         {
-            Assert.Equal(item.TenantId, Context.TenantId); Assert.True(Context.IsAvailable); Assert.False(Context.IsPlatformScope);
-            Assert.Equal(item.Id, id); Assert.Equal(item.LockToken, token); Assert.Equal(Token, cancellation);
+            Assert.Equal(_claimedTenant, Context.TenantId); Assert.True(Context.IsAvailable); Assert.False(Context.IsPlatformScope);
+            Assert.Equal(_claimedId, id); Assert.Equal(_claimedToken, token); Assert.Equal(Token, cancellation);
         }
         public Task AddAsync(OutboxEvent eventItem, CancellationToken cancellationToken = default) => throw Unexpected();
         public Task<int> RecoverStaleLocksAsync(DateTimeOffset staleBefore, DateTimeOffset now, int maximumAttempts, CancellationToken cancellationToken = default) => throw Unexpected();
@@ -332,6 +345,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
     private sealed class RecordingHub : IHubContext<AppHub>, IHubClients, IGroupManager
     {
         public List<(string Connection, string Method, object?[] Arguments)> Sends { get; } = [];
+        public List<string> UnexpectedCalls { get; } = [];
         public Exception? Exception { get; set; }
         IHubClients IHubContext<AppHub>.Clients => this;
         IGroupManager IHubContext<AppHub>.Groups => this;
@@ -344,16 +358,17 @@ public sealed class OutboxDispatcherFailureBoundaryTests
                 return hub.Exception is null ? Task.CompletedTask : Task.FromException(hub.Exception);
             }
         }
-        public IClientProxy All => throw Unexpected();
-        public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw Unexpected();
-        public IClientProxy Clients(IReadOnlyList<string> connectionIds) => throw Unexpected();
-        public IClientProxy Group(string groupName) => throw Unexpected();
-        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => throw Unexpected();
-        public IClientProxy Groups(IReadOnlyList<string> groupNames) => throw Unexpected();
-        public IClientProxy User(string userId) => throw Unexpected();
-        public IClientProxy Users(IReadOnlyList<string> userIds) => throw Unexpected();
-        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => throw Unexpected();
-        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => throw Unexpected();
+        private InvalidOperationException UnexpectedHub(string method) {UnexpectedCalls.Add(method); return Unexpected();}
+        public IClientProxy All => throw UnexpectedHub(nameof(All));
+        public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw UnexpectedHub(nameof(AllExcept));
+        public IClientProxy Clients(IReadOnlyList<string> connectionIds) => throw UnexpectedHub(nameof(Clients));
+        public IClientProxy Group(string groupName) => throw UnexpectedHub(nameof(Group));
+        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => throw UnexpectedHub(nameof(GroupExcept));
+        public IClientProxy Groups(IReadOnlyList<string> groupNames) => throw UnexpectedHub(nameof(Groups));
+        public IClientProxy User(string userId) => throw UnexpectedHub(nameof(User));
+        public IClientProxy Users(IReadOnlyList<string> userIds) => throw UnexpectedHub(nameof(Users));
+        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => throw UnexpectedHub(nameof(AddToGroupAsync));
+        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => throw UnexpectedHub(nameof(RemoveFromGroupAsync));
     }
 
     private static InvalidOperationException Unexpected() => new("Unexpected broad transport or repository operation.");
