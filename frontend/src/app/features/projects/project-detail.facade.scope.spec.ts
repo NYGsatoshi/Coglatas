@@ -208,6 +208,51 @@ describe('ProjectDetailFacade initial response scope', () => {
     }
   }
 
+  it.each([401, 403])('discards an already queued ordinary Gantt refresh after current %s and permits explicit authorization recovery', async (status) => {
+    const flags = TestBed.inject(FrontendFeatureFlagsService);
+    vi.spyOn(flags, 'kanbanV1Enabled').mockReturnValue(true);
+    vi.spyOn(flags, 'ganttV1Enabled').mockReturnValue(true);
+    facade.load('project-1');
+    http.expectOne('/api/projects/project-1').flush(active);
+    const finishCollections = () => {
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    };
+    finishCollections();
+    http.expectOne('/api/projects/project-1/kanban').flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    const taskEvent: DurableRealtimeEvent = {
+      eventId: 'queued-schedule-event', eventType: 'Projects.TaskChanged.v1', payloadSchemaVersion: 1,
+      occurredAt: '2026-11-06T00:00:00Z', tenantId: 'tenant-1', aggregateType: 'Project',
+      aggregateId: 'project-1', aggregateVersion: 1, actor: { actorType: 'System', actorId: null },
+      correlationId: null, causationId: null, payload: { projectId: 'project-1', taskId: 'task-1', taskVersion: 100 },
+    };
+    const finishOrdinarySiblings = () => {
+      http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    };
+    events.next(taskEvent); await Promise.resolve();
+    const pending = http.expectOne('/api/projects/project-1/gantt'); finishOrdinarySiblings();
+    events.next({ ...taskEvent, eventId: 'queued-schedule-followup' }); await Promise.resolve();
+    finishOrdinarySiblings();
+    pending.flush({ message: 'Current Gantt denied' }, { status, statusText: 'Denied' });
+    expect(facade.view().schedule.status).toBe('permissionDenied');
+    expect(facade.view().schedule.snapshot).toBeNull();
+    await Promise.resolve();
+    const forbiddenRetry = http.match('/api/projects/project-1/gantt');
+    for (const request of forbiddenRetry) request.flush(ganttSnapshotDto());
+    expect(forbiddenRetry).toHaveLength(0);
+    expect(facade.view().schedule.snapshot).toBeNull();
+
+    events.next({ ...taskEvent, eventId: 'fresh-authority-event', eventType: 'Security.AuthorizationStateChanged.v1' });
+    await Promise.resolve();
+    http.expectOne('/api/projects/project-1').flush(active); finishCollections();
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    expect(facade.view().status).toBe('ready'); expect(facade.view().schedule.snapshot).not.toBeNull();
+  });
+
   it('uses the fresh authorization denial after initial Workspace hydration', () => {
     workspace.clearWorkspace();
     facade.load('project-1');
