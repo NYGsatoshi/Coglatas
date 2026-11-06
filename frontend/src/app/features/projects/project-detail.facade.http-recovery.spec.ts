@@ -13,6 +13,7 @@ import { ContinueWorkingHistoryService } from '../../shared/continue-working/con
 import { WorkspacesFacade } from '../workspaces/workspaces.facade';
 import { ganttSnapshotDto } from './project-detail-gantt.test-data';
 import { ProjectDetailFacade } from './project-detail.facade';
+import { snapshotDto } from './project-kanban.test-data';
 import { ProjectDto } from './projects.api';
 
 const draft: ProjectDto = {
@@ -173,6 +174,92 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     catchUp.flush(draft);
     expect(detail.view().status).toBe('ready');
     expect(detail.view().project?.id).toBe('project-1');
+  });
+
+  it.each([401, 403])('invalidates overlapping recoveries on a repeated %s denial and permits a later fresh read', async (status) => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Initial denial' }, { status: 403, statusText: 'Forbidden' },
+    );
+    const first = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await first; await settle();
+    const older = http.expectOne('/api/projects/project-1');
+    const second = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await second; await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Repeated denial' }, { status, statusText: 'Denied' },
+    );
+    older.flush(draft);
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().project).toBeUndefined();
+    const current = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await current; await settle();
+    http.expectOne('/api/projects/project-1').flush(draft);
+    expect(detail.view().status).toBe('ready');
+  });
+
+  it.each([400, 404, 503])('preserves existing denial when a fallback returns %s', async (status) => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Authoritative denial' }, { status: 403, statusText: 'Forbidden' },
+    );
+    const message = detail.view().message;
+    const fallback = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await fallback; await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Later failure' }, { status, statusText: 'Unavailable' },
+    );
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().message).toBe(message);
+    expect(detail.view().project).toBeUndefined();
+  });
+
+  it('keeps a new Kanban move and its queued refresh owned when an old move completes after denial and recovery', async () => {
+    TestBed.inject(FrontendFeatureFlagsService).setForTesting({
+      'realtime.signalR': false, 'tasks.kanbanV1': true, 'tasks.ganttV1': false,
+    });
+    const base = snapshotDto();
+    const board = snapshotDto({
+      board: { ...base.board!, totalAuthorizedCardCount: 2 },
+      cards: [base.cards![0], { ...base.cards![0], taskId: 'task-2', summary: 'Second card' }],
+    });
+    const flushBoard = () => {
+      http.expectOne('/api/projects/project-1').flush(active);
+      flushActiveCollections();
+      http.expectOne('/api/projects/project-1/kanban').flush(board);
+    };
+    const move = (index: number) => detail.moveTask({
+      item: detail.view().kanban.snapshot!.cards[index], targetStatus: 'stage-done',
+      targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard',
+    });
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle(); flushBoard();
+    move(0); const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.load('project-1');
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Current denial' }, { status: 403, statusText: 'Forbidden' },
+    );
+    detail.load('project-1'); flushBoard();
+    move(0); const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.retryKanban();
+    expect(detail.view().kanban.reconciliationQueued).toBe(true);
+    oldMove.flush({ message: 'Old result' }, { status: 403, statusText: 'Forbidden' });
+    const earlyRefreshes = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    move(1);
+    const unexpectedMoves = http.match('/api/tasks/task-2/kanban-move');
+    for (const request of earlyRefreshes) request.flush(board);
+    currentMove.flush({ message: 'Temporary move failure' }, { status: 503, statusText: 'Unavailable' });
+    const ownedRefreshes = http.match((request) => request.url === '/api/projects/project-1/kanban');
+    for (const request of ownedRefreshes) request.flush(board);
+    detail.release();
+    for (const request of unexpectedMoves) request.flush(
+      { message: 'Discarded extra request' }, { status: 503, statusText: 'Unavailable' },
+    );
+    expect(earlyRefreshes).toHaveLength(0);
+    expect(unexpectedMoves).toHaveLength(0);
+    expect(ownedRefreshes).toHaveLength(1);
   });
 
   it('keeps the explicit same-Project reload instead of duplicating it during hydration', async () => {
