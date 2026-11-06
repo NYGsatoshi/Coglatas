@@ -1,5 +1,70 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Corrected review and runtime checkpoint — 2026-11-06
+
+This is an immutable checkpoint of observed work, not completion of all 48 rows.
+Authenticated CodeRabbit CLI review of joint candidate
+`515db40fc5dd1630e4e492298d82344f6c5bbf8a` completed with three issues: one
+major Windows baseline-decoding issue, a minor parity path-filter omission and
+a minor unrecorded legacy processor override. The local report SHA-256 is
+`9ff31121717fb570d7bb3c75e5a81d1539d200c995c876cc46fde07d69a9bd93`.
+Its completed file inventory covers the Artifact Test, Receipt Product/Test,
+Acquisition Product/Test and fixture source. Scope mapping digest is
+`93d552784361dc63fc692cefe6a69885700072ba178e72e5e8a8dfe8a841a7b7`.
+Product and test source bytes match their mapped PR heads; shared Test/CI files
+are the explicit union of both mandatory lanes and complete test inventories.
+This does not claim a separate CLI execution at every PR head.
+
+- Artifact Test #1722 correction `f2320904` explicitly decodes Git output as
+  UTF-8 on both hosts and includes Domain canonicalization, SDK and retained
+  inventory inputs in workflow routing. A controlled Windows code-page-932
+  capture produces invalid JSON before the correction; UTF-8 capture preserves
+  all 979 identities and equals the original committed JSON.
+- Fixture follow-up #1741, `52228152`, rejects a defined legacy
+  `COMPlus_PROCESSOR_COUNT`, including simultaneous modern/legacy settings.
+  Its regression produces 17 PASS / one FAIL before the fix and 18 PASS after it,
+  without skips. An isolated actual Windows .NET 10.0.14 process confirms the
+  legacy override and decimal-ten parsing; the review's hexadecimal hypothesis
+  is not reproduced on this runtime. This is no effective CPU quota guarantee.
+- #1728 merged normally as `6afe5b130143ba4472117a945a90384b40591190`, parents
+  `efcbf142`, `17787984`. Its directly executed current-head runtime passes all
+  353 required cases with exact candidate/assembly/cleanup verified; report
+  SHA-256 `13e5497872164b1a483e28b935ebc0e056ac5c88d0bcb38146897972e6daf68a`.
+  All 28 successful CI checks completed before merge; eight routed skips are
+  recorded separately. The later legacy-override issue is handled by #1741.
+
+Joint `515db40f` passes a zero-warning Release solution build, 1,041 complete
+ProjectIDE cases, 12 architecture cases, 353 configured isolated runtime cases
+and 16 real isolated Kafka controls, all with no failures/skips. Its six actual
+.NET assembly bytes reconcile. Runtime requests processor override four; Core
+has no override. Runtime and Kafka report SHA-256 values are respectively
+`06d6f8490f7bd34bd6dd8bfc73fd232588136077017fa00f491253a5a48447f6`
+and `badced4c57a375eae62491aa3fa97a515dadbcbdfa5a9b72999fbbed8547aaad6`.
+The diagnostic receipt digest is
+`4caceb5c84d060d207ef98dadba27f35f7de210bccb6166ca624642de2209194`.
+These results belong to that SHA, not subsequent corrected compositions.
+
+Updated Receipt Test `60bd0c1e` and Acquisition Test `b0620a72` have downloaded,
+independently reconciled Windows/Ubuntu parity, respectively 1,002/12 and
+1,018/12 passing identities per host. Exact SHA stamps, ZIP/TRX hashes and every
+retained baseline identity agree. Fresh private source/PostgreSQL observations
+at `515db40f` also reconcile all 114 objects and 101 model tables, with all five
+scope-loss controls rejecting. Detailed topology/classification remains private.
+
+At this checkpoint, the two Product PRs incorporate the latest integration
+fixture prerequisite and are rerunning new-head CI. Earlier cancelled producer
+runs retain their original failed dependent checks. Corrected Test/fixture and
+documentation review/CI remain pending; no failing or quota-limited attempt is
+called a successful review. Subsequent merge evidence belongs in the linked
+PR conversations with exact heads and merge commits.
+
+Private Spec Draft #301 retains its independent formal approval; its candidate
+contains the corrected diagnostic observations, with no Owner approval inferred
+from mechanical validation. #1144 remains BLOCKED, #1128 remains SUSPENDED /
+NOT_EVALUATED with no numerical/baseline credit or automatic reactivation, and
+production activation remains HOLD. Main and SecurityTestImplimation are never
+ProjectIDE merge targets. Unfinished engineering remains OPEN.
+
 ### Authenticated review resumption and first ordinary merge — 2026-11-06
 
 The owner completed sign-in. Fresh CLI status is **authenticated** in the actual
