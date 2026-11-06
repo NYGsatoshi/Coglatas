@@ -307,6 +307,9 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     const selectedWorkspace = { ...workspace, id: '644f02a2-3f97-4e36-91bb-7272cd768c25' };
     const parent = { ...active, id: projectId, workspaceId: selectedWorkspace.id };
     const path = `/api/projects/${projectId}`;
+    const connected = () => vi.waitFor(() => {
+      TestBed.tick(); expect(realtime.connectionState()).toBe('Connected');
+    }, { timeout: 5000, interval: 10 });
     const flushWorkspace = () => {
       http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
       http.expectOne('/api/workspaces').flush([selectedWorkspace]);
@@ -325,7 +328,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     enableBoard(); flushWorkspace(); await settle();
     detail.load(projectId); navigation(); operational();
     TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'realtime.signalR': true });
-    await settle(); navigation(); operational(); await settle();
+    await connected(); navigation(); operational(); await settle();
     expect(realtime.connectionState()).toBe('Connected');
     detail.retryKanban();
     http.expectOne(request => request.url === `${path}/kanban`).flush(
@@ -336,7 +339,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().schedule.status).toBe('permissionDenied');
     http.expectNone(request => request.url.startsWith(path));
     subscriptions.length = 0;
-    transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await settle();
+    transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await connected();
     expect(subscriptions).toContainEqual({ subscriptionType: 'project', resourceId: projectId });
     // A same-scope reconnect reauthorizes the Project subscription, then reads
     // current projections. It need not reload an unchanged Workspace directory.
