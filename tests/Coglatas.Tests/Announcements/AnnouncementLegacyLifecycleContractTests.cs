@@ -296,7 +296,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
-    /// <summary>Rejects invalid public record copies at the service boundary without modifying the existing Announcement.</summary>
+    /// <summary>Rejects invalid public record initializers at the service boundary without modifying the existing Announcement.</summary>
     [Theory]
     [InlineData("create", "title")]
     [InlineData("create", "body")]
@@ -313,13 +313,13 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         var before = (fixture.Announcement.Title, fixture.Announcement.Body, fixture.Announcement.ExpiresAt);
         if (operation == "update") fixture.ExpectAnnouncement();
 
-        // The public records permit init/with copies after constructor validation.
+        // The public record init properties can change after constructor validation.
         // Exercise the service boundary independently of that constructor guard.
         var result = operation == "create"
             ? await fixture.Service.CreateAsync(new CreateAnnouncementRequest(null, null, null, "Valid", "Valid body",
-                PublishedAt: Fixture.Now, ExpiresAt: expires) with { Title = title, Body = body }, fixture.Token)
+                PublishedAt: Fixture.Now, ExpiresAt: expires) { Title = title, Body = body }, fixture.Token)
             : await fixture.Service.UpdateAsync(fixture.Announcement.Id,
-                new UpdateAnnouncementRequest(PublishedAt: Fixture.Now, ExpiresAt: expires) with { Title = title, Body = body }, fixture.Token);
+                new UpdateAnnouncementRequest(PublishedAt: Fixture.Now, ExpiresAt: expires) { Title = title, Body = body }, fixture.Token);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -393,7 +393,7 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         fixture.Dependencies.VerifyComplete();
     }
 
-    /// <summary>Keeps constructor body validation distinct from service validation of later record copies.</summary>
+    /// <summary>Keeps constructor body validation distinct from service validation of later record initialization.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

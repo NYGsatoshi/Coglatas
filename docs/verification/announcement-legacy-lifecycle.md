@@ -26,7 +26,7 @@ in the expected order. Reminder dependency failures propagate without later
 effects or a save. The test does not claim rollback of already staged changes.
 
 Request constructors reject blank bodies. The service validation tests also
-exercise public record `with` copies, which can otherwise change init properties
+exercise public record object initializers, which can change init properties
 after constructor validation. Neither validation boundary is removed or relaxed.
 
 This suite executes Application code with contract doubles. It does not prove
