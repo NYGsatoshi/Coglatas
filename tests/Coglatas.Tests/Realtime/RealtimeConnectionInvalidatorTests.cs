@@ -16,10 +16,11 @@ public sealed class RealtimeConnectionInvalidatorTests
     {
         var fixture = new Fixture(type);
         using var cancellation = new CancellationTokenSource();
+        var cancellationToken = cancellation.Token;
         fixture.Hub.GroupsRecorder.BeforeRemove = (_, _, token) =>
         {
             fixture.AssertScopeRemoved();
-            Assert.Equal(cancellation.Token, token);
+            Assert.Equal(cancellationToken, token);
             return Task.CompletedTask;
         };
         fixture.Hub.ClientsRecorder.BeforeSend = (_, method, arguments, token) =>
@@ -27,11 +28,11 @@ public sealed class RealtimeConnectionInvalidatorTests
             fixture.AssertScopeRemoved();
             Assert.Equal("AuthorizationInvalidated", method);
             Assert.Empty(arguments);
-            Assert.Equal(cancellation.Token, token);
+            Assert.Equal(cancellationToken, token);
             return Task.CompletedTask;
         };
 
-        await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellation.Token);
+        await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellationToken);
 
         fixture.AssertScopeRemoved();
         Assert.Equal(fixture.Targets.Select(item => (item.ConnectionId, item.CanonicalGroupName)).Order(),
@@ -68,23 +69,24 @@ public sealed class RealtimeConnectionInvalidatorTests
     {
         var fixture = new Fixture(RealtimeSubscriptionType.Workspace);
         using var cancellation = new CancellationTokenSource();
+        var cancellationToken = cancellation.Token;
         var failure = new InvalidOperationException("Synthetic invalidation transport failure.");
         if (stage == "send")
             fixture.Hub.ClientsRecorder.BeforeSend = (_, _, _, _) => Task.FromException(failure);
         else
             fixture.Hub.GroupsRecorder.BeforeRemove = (_, _, token) =>
             {
-                Assert.Equal(cancellation.Token, token);
+                Assert.Equal(cancellationToken, token);
                 if (stage == "cancel") token.ThrowIfCancellationRequested();
                 return Task.FromException(failure);
             };
-        if (stage == "cancel") cancellation.Cancel();
+        if (stage == "cancel") await cancellation.CancelAsync();
 
         if (stage == "cancel")
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellation.Token));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellationToken));
         else
             Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellation.Token)));
+                fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User, cancellationToken)));
 
         fixture.AssertScopeRemoved();
         Assert.Single(fixture.Hub.GroupsRecorder.Removals);
