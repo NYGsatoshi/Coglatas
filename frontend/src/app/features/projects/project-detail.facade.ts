@@ -1464,6 +1464,14 @@ export class ProjectDetailFacade {
         const denied = context.deniedOwners.has(PROJECT_REALTIME_OWNER);
         if (denied)
           {this.clearProtectedProjectionsForDeniedSubscription();}
+        if (!this.activeWorkspace.activeWorkspace()) {return;}
+        if (this.initialLoadWorkspaceId === null) {
+          this.load(projectId);
+          return;
+        }
+        // Hydration may register this owner again while the catch-up runner is
+        // stabilizing. The new scoped initial request already revalidates it.
+        if (this.initialLoadGeneration === this.loadGeneration) {return;}
         this.refreshProjectProjections(projectId, this.authorizationGeneration, !wasOperational);
         if (wasOperational) {
           this.refreshKanban(
