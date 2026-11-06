@@ -229,7 +229,7 @@ export class ProjectDetailFacade {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.initialLoadWorkspaceId = workspaceId;
     const loadIsCurrent = () =>
-      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      workspaceId !== null && this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
     const initialKanbanRequestGeneration = ++this.kanbanRequestGeneration;
     const initialScheduleRequestGeneration = ++this.scheduleRequestGeneration;

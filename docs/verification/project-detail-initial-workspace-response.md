@@ -8,7 +8,14 @@ is automatically retried. Failed parent revalidation retains denial. Captured
 Project/load/authorization/Workspace ownership is checked before follow-up
 dispatch and application, so an old response cannot revive a replaced scope.
 Ten additional controls first failed on the previous implementation; the original
-browser assertions and original facade regression suite remain unchanged.
+browser assertions and original facade regression test bodies remain unchanged.
+The original facade fixture now explicitly selects an authorized Workspace;
+its assertions are preserved. A cold Active response must not dispatch any
+subresource before the first Workspace selection. The actual mobile browser
+trace exposed two Board GETs when that response beat hydration. A deterministic
+HTTP control reproduces all five premature subresource reads. Requiring the
+captured non-null Workspace suppresses them, then hydration starts the fresh
+authorized load. No pre-hydration response is adopted or retroactively rebound.
 Independent review additionally identified ordinary Realtime events restarting
 denied projections between fresh parent and collection responses. Eight controls
 reproduce that ordering for Board/Gantt, 401/403 and Task/Project events. Ordinary
