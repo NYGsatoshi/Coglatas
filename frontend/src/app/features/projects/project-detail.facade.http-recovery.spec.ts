@@ -8,6 +8,7 @@ import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-f
 import { COGLATAS_REALTIME_TRANSPORT } from '../../core/realtime/realtime-transport';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { WorkspaceSelectionFacade } from '../../core/workspace/workspace-selection.facade';
 import { COGLATAS_WORKSPACE_PREFERENCE_STORAGE } from '../../core/workspace/workspace-preference.service';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { WorkspacesFacade } from '../workspaces/workspaces.facade';
@@ -149,6 +150,86 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().kanban.snapshot).toBeNull();
     http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
   });
+
+  it.each(['draft', 'active'] as const)('keeps HTTP catch-up %s reads behind explicit selection with multiple Workspaces', async (kind) => {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    cold.flush(draft);
+    http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
+    http.expectOne('/api/workspaces').flush([workspace, { ...workspace, id: 'workspace-2', name: 'Other Workspace' }]);
+    await settle();
+    const beforeSelection = http.match('/api/projects/project-1');
+    for (const parent of beforeSelection) parent.flush(kind === 'draft' ? draft : active);
+    const children = http.match(request => request.url.startsWith('/api/projects/project-1/'));
+    for (const child of children) child.flush(child.request.url.endsWith('/tasks') ? { items: [] }
+      : child.request.url.endsWith('/kanban') ? snapshotDto() : child.request.url.endsWith('/gantt') ? ganttSnapshotDto() : { members: [] });
+    expect(beforeSelection).toHaveLength(0);
+    expect(children).toHaveLength(0);
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+    expect(TestBed.inject(WorkspaceSelectionFacade).selection().status).toBe('selectionRequired');
+    expect(detail.view().status).toBe('error');
+    await TestBed.inject(WorkspaceSelectionFacade).selectWorkspace('workspace-1');
+    await settle(); flushBoard();
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().project?.id).toBe('project-1');
+  });
+
+  it.each(['empty', 'unavailable'] as const)('ends the cold Project spinner when Workspace discovery is %s and recovers after selection', async (kind) => {
+    detail.load('project-1');
+    http.expectOne('/api/projects/project-1').flush({ message: 'Unscoped response' }, { status: 503, statusText: 'Unavailable' });
+    http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
+    const listing = http.expectOne('/api/workspaces');
+    if (kind === 'empty') listing.flush([]);
+    else listing.flush({ message: 'Discovery unavailable' }, { status: 503, statusText: 'Unavailable' });
+    await settle();
+    expect(detail.view().status).toBe('error');
+    expect(detail.view().message).toBe('Workspace unavailable');
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+    const retry = workspaces.loadWorkspaces(true); selectFromHttp(); await retry; await settle();
+    http.expectOne('/api/projects/project-1').flush(draft);
+    expect(detail.view().status).toBe('ready');
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+  });
+
+  it.each([401, 403])('restores navigation after current Gantt %s without automatically retrying either projection', async (status) => {
+    await mountBoard(); detail.retrySchedule();
+    http.expectOne('/api/projects/project-1/gantt').flush({ message: 'Current schedule denied' }, { status, statusText: 'Denied' });
+    expect(detail.view().schedule.snapshot).toBeNull();
+    expect(detail.view().status).toBe('permissionDenied');
+    const parents = http.match('/api/projects/project-1');
+    expect(parents).toHaveLength(1);
+    parents[0].flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().kanban.status).toBe('permissionDenied');
+    expect(detail.view().kanban.snapshot).toBeNull();
+    expect(detail.view().schedule.status).toBe('permissionDenied');
+    expect(detail.view().schedule.snapshot).toBeNull();
+    http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+    detail.retrySchedule();
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    expect(detail.view().schedule.status).toBe('ready');
+  });
+
+  for (const denial of [401, 403]) {
+    it.each([403, 503])(`keeps current Gantt ${denial} redacted when fresh parent authority returns %s`, async (status) => {
+      await mountBoard(); detail.retrySchedule();
+      http.expectOne('/api/projects/project-1/gantt').flush({ message: 'Schedule denied' }, { status: denial, statusText: 'Denied' });
+      const parents = http.match('/api/projects/project-1');
+      expect(parents).toHaveLength(1);
+      parents[0].flush({ message: 'Parent unavailable' }, { status, statusText: 'Unavailable' });
+      detail.retrySchedule();
+      http.expectNone(request => request.url.startsWith('/api/projects/project-1/'));
+      expect(detail.view().status).toBe('permissionDenied');
+      expect(detail.view().project).toBeUndefined();
+      expect(detail.view().kanban.snapshot).toBeNull();
+      expect(detail.view().schedule.snapshot).toBeNull();
+    });
+  }
 
   for (const projection of ['board', 'schedule'] as const) {
     it.each([401, 403])(`requires a fresh authorized parent and collections after initial ${projection} %s without retrying the projection`, async (status) => {
