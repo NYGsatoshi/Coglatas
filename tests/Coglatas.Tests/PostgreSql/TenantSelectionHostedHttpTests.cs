@@ -29,16 +29,20 @@ public sealed class TenantSelectionHostedHttpTests
                 var beta = await db.Tenants.SingleAsync(tenant => tenant.Slug == SecurityCiFixtureSeed.TenantBSlug);
                 var foreign = NewTenant("foreign", TenantStatus.Active);
                 var invited = NewTenant("invited", TenantStatus.Active);
+                var archivedMembership = NewTenant("archived-membership", TenantStatus.Active);
+                var leftMembership = NewTenant("left-membership", TenantStatus.Active);
                 var suspended = NewTenant("suspended", TenantStatus.Suspended);
                 var archived = NewTenant("archived", TenantStatus.Archived);
                 archived.MarkDeleted(DateTimeOffset.UtcNow);
-                db.Tenants.AddRange(foreign, invited, suspended, archived);
+                db.Tenants.AddRange(foreign, invited, archivedMembership, leftMembership, suspended, archived);
                 var betaMembership = Membership(beta, actorId, TenantUserStatus.Active);
                 betaMembership.Role = TenantUserRole.Staff;
                 db.TenantUsers.AddRange(
                     betaMembership,
                     Membership(foreign, SecurityCiFixtureSeed.TenantBOwnerUserId, TenantUserStatus.Active),
                     Membership(invited, actorId, TenantUserStatus.Invited),
+                    Membership(archivedMembership, actorId, TenantUserStatus.Archived),
+                    Membership(leftMembership, actorId, TenantUserStatus.Left),
                     Membership(suspended, actorId, TenantUserStatus.Active),
                     Membership(archived, actorId, TenantUserStatus.Active));
                 await db.SaveChangesAsync();
@@ -64,6 +68,8 @@ public sealed class TenantSelectionHostedHttpTests
                 await AssertSwitchDeniedAsync(client, foreign.Id, "Tenant membership is required.");
                 await AssertSwitchDeniedAsync(client, Guid.NewGuid(), "Tenant membership is required.");
                 await AssertSwitchDeniedAsync(client, invited.Id, "Tenant membership is required.");
+                await AssertSwitchDeniedAsync(client, archivedMembership.Id, "Tenant membership is required.");
+                await AssertSwitchDeniedAsync(client, leftMembership.Id, "Tenant membership is required.");
                 await AssertSwitchDeniedAsync(client, suspended.Id, "Tenant is not available.");
                 await AssertSwitchDeniedAsync(client, archived.Id, "Tenant is not available.");
                 await AssertCurrentAsync(client, beta, TenantUserRole.Staff);
