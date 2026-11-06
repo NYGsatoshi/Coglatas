@@ -97,7 +97,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
   function flushBoard() {
     http.expectOne('/api/projects/project-1').flush(active);
     flushActiveCollections();
-    http.expectOne('/api/projects/project-1/kanban').flush(snapshotDto());
+    http.expectOne((request) => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
   }
 
   async function mountBoard() {
