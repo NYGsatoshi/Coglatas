@@ -18,6 +18,12 @@ An ordinary Gantt follow-up queued before a 401/403 is also discarded. Queued
 continuations recheck current scope and denial before dispatch; explicit
 authorization revalidation still recovers. Separate 401/403 controls first
 reproduce the forbidden extra GET while the other 136 controls remain passing.
+A current Gantt 401/403 also takes precedence over an active editor or command,
+matching the Board's existing definitive-authority rule. It clears protected
+generations and pending interaction/queue ownership immediately. Closing the
+invalidated editor cannot retry it; explicit authority revalidation still recovers.
+The response checks captured Project/load/authorization/live Workspace before
+either denial or successful projection application.
 
 The initial detail load captures the selected Workspace identity with its
 existing Project/load/authorization generations. It rechecks that identity

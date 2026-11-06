@@ -1600,6 +1600,8 @@ export class ProjectDetailFacade {
 
     const requestGeneration = ++this.scheduleRequestGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const loadGeneration = this.loadGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.scheduleRefreshInFlight = true;
     const current = this.state();
     this.state.set({
@@ -1620,9 +1622,22 @@ export class ProjectDetailFacade {
     ).subscribe((result) => {
       if (requestGeneration === this.scheduleRequestGeneration)
         {this.scheduleRefreshInFlight = false;}
-      if (this.projectId !== projectId ||
-          requestGeneration !== this.scheduleRequestGeneration ||
-          authorizationGeneration !== this.authorizationGeneration) {
+      if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+          (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId) {
+        this.scheduleFollowUpRefresh(projectId);
+        return;
+      }
+      // Definitive current authority wins over interaction buffering and
+      // refresh order, just as it does for the Board reader.
+      if (result.kind === 'error') {
+        const failure = this.failure(result.error);
+        if (failure.status === 'permissionDenied') {
+          this.clearProtectedProjectionsForDeniedSubscription();
+          this.state.set({ ...failure, schedule: this.scheduleFailure(result.error, null) });
+          return;
+        }
+      }
+      if (requestGeneration !== this.scheduleRequestGeneration) {
         this.scheduleFollowUpRefresh(projectId);
         return;
       }
