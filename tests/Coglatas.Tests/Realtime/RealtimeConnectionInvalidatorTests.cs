@@ -179,7 +179,7 @@ public sealed class RealtimeConnectionInvalidatorTests
         public RecordingHub Hub { get; } = new();
         public IReadOnlyList<HubSubscription> Targets { get; }
         public IReadOnlyList<HubSubscription> Controls { get; }
-        public RealtimeConnectionInvalidator Invalidator { get; }
+        public IRealtimeConnectionInvalidator Invalidator { get; }
 
         public Fixture(RealtimeSubscriptionType type)
         {
