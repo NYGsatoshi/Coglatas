@@ -166,6 +166,39 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       reason: null, source: 'keyboard' });
   }
 
+  it('keeps a fallback move locked when an old successful move arrives during the initial join', async () => {
+    await mountBoard(); moveFirstCard();
+    const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    detail.release(); detail.load('project-1');
+    http.expectOne('/api/projects/project-1').flush(active);
+    const tasks = http.expectOne('/api/projects/project-1/tasks');
+    const board = http.expectOne('/api/projects/project-1/kanban');
+    const schedule = http.expectOne('/api/projects/project-1/gantt');
+    const workload = http.expectOne('/api/projects/project-1/workload');
+    const members = http.expectOne('/api/projects/project-1/members');
+    const recovery = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovery; await settle(); flushBoard();
+    moveFirstCard(); const currentMove = http.expectOne('/api/tasks/task-1/kanban-move');
+    oldMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 99 } }), warnings: [] });
+    await settle();
+    http.expectNone('/api/projects/project-1');
+    http.expectNone((request) => request.url === '/api/projects/project-1/kanban');
+    expect(detail.view().kanban.busyTaskId).toBe('task-1');
+    expect(detail.view().kanban.reconciliationQueued).toBe(true);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    tasks.flush({ items: [] }); board.flush(snapshotDto()); schedule.flush(ganttSnapshotDto());
+    workload.flush({ members: [] }); members.flush({ members: [] });
+    moveFirstCard(); http.expectNone('/api/tasks/task-1/kanban-move');
+    currentMove.flush({ snapshot: snapshotDto({ board: { ...snapshotDto().board!, version: 8 } }), warnings: [] });
+    await settle();
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(8);
+    http.expectOne((request) => request.url === '/api/projects/project-1/kanban').flush(
+      snapshotDto({ board: { ...snapshotDto().board!, version: 9 } }),
+    );
+    for (const request of http.match('/api/projects/project-1/tasks')) request.flush({ items: [] });
+    expect(detail.view().kanban.snapshot?.boardVersion).toBe(9);
+  });
+
   it.each([401, 403])('releases only the invalidated move when an overlapping schedule command returns %s', async (status) => {
     await mountBoard();
     moveFirstCard(); const oldMove = http.expectOne('/api/tasks/task-1/kanban-move');

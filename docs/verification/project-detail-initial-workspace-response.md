@@ -50,6 +50,13 @@ and runs after the move succeeds or fails, never across its busy interval.
 A moved Task returning 404 also drains an already queued Board read. A still
 available Board can recover independently; a Board 404 retains not-found
 presentation and its current 401/403 still clears protected state.
+Initial Board and Gantt readers apply a current 401/403 immediately, before
+waiting for the other joined projections. Their shared guard covers initial
+load and activation reconciliation, including the captured live Workspace.
+Successful initial Board mapping has no presentation side effects: only the
+request that still owns Board state may apply its selected filters. A late old
+move queues reconciliation behind a newer fallback move even while the initial
+join remains pending; it cannot restart that load or release the newer lock.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
