@@ -31,6 +31,13 @@ the current view is already denied. Non-definitive failures preserve the
 existing denial presentation. An older Kanban move response cannot release the
 in-flight flag or trigger reconciliation owned by a new load/authorization
 generation; current move completion retains its existing behavior.
+An overlapping schedule denial or durable authorization invalidation releases
+the invalidated move's lock without giving its old callback ownership of a new
+command. A late successful old move is never applied to a remounted view. Its
+committed effect is reconciled through fresh, current-authority board and Task
+reads; an in-flight initial reload is restarted, and a newer move keeps the
+board refresh queued until that command completes. Route/Workspace replacement
+and denial prevent those stale completions from reviving the old view.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.
