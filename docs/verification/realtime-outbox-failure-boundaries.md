@@ -21,6 +21,9 @@ Claim identities are snapshotted when returned, independently of the mutable
 event row. Non-default tokens must reach claims, authorization, sends and outcome
 calls. Terminal-failure controls require the injected send attempt and assert
 recorded unexpected transport operations outside the dispatch exception handler.
+Authorizer arguments and send tokens are also recorded first and validated after
+the dispatch task completes or throws, so assertion failures cannot be mistaken
+for the injected retryable fault.
 
 A transport send followed by lost delivery acknowledgement is deliberately
 recorded as retryable. These controls do not assert exactly-once delivery,
