@@ -392,7 +392,9 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
         const earlyBoard = detail.view().kanban.snapshot, earlySchedule = detail.view().schedule.snapshot;
         http.expectOne(path).flush({ message: 'Fresh parent not authorized' }, { status: parentStatus, statusText: 'Unavailable' });
         await settle();
-        expect(early).toHaveLength(0);
+        // Denied subscription revalidation preserves the established parallel
+        // HTTP contract, but successful child responses await the fresh parent.
+        expect(early).toHaveLength(subscriptionDenied ? 2 : 0);
         expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
         expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
         http.expectNone(request => request.url.startsWith(path));

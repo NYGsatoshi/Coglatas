@@ -2,7 +2,7 @@ import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
 import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, projectFeedbackError, normalizeProjectFeedbackError, projectPriorityFeedback } from './project-feedback';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { effect, inject, Injectable, signal, untracked } from '@angular/core';
-import { catchError, EMPTY, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, EMPTY, finalize, forkJoin, map, Observable, of, ReplaySubject, switchMap, take } from 'rxjs';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
@@ -1467,17 +1467,20 @@ export class ProjectDetailFacade {
           this.state().schedule.status === 'permissionDenied';
         if (denied)
           {this.clearProtectedProjectionsForDeniedSubscription();}
-        this.refreshProjectProjections(projectId, this.authorizationGeneration, !wasOperational || recoveringDenied);
-        if (wasOperational && !recoveringDenied) {
+        const parallelRevalidation = wasOperational && (!recoveringDenied || denied);
+        const parentAuthorization = this.revalidateProjectProjections(projectId, this.authorizationGeneration, !parallelRevalidation);
+        if (parallelRevalidation) {
           this.refreshKanban(
             false,
             denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedBoardDataWas2") : projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"),
-            true
+            true,
+            parentAuthorization
           );
           this.refreshSchedule(
             false,
             denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedScheduleDataWas2") : projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"),
-            true
+            true,
+            parentAuthorization
           );
         }
       })
@@ -1580,7 +1583,7 @@ export class ProjectDetailFacade {
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
   }
 
-  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
+  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization?: Observable<boolean>): void {
     const projectId = this.projectId;
     if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (this.scheduleInteractionActive || this.scheduleCommandInFlight) {
@@ -1631,6 +1634,9 @@ export class ProjectDetailFacade {
       { withCredentials: true }
     ).pipe(
       map((dto) => ({ kind: 'success' as const, value: mapProjectGanttSnapshot(dto) })),
+      switchMap((result) => parentAuthorization
+        ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+        : of(result)),
       catchError((error: unknown) => of({ kind: 'error' as const, error }))
     ).subscribe((result) => {
       if (requestGeneration === this.scheduleRequestGeneration)
@@ -1830,7 +1836,7 @@ export class ProjectDetailFacade {
     this.taskListRefreshFeedback = null;
   }
 
-  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
+  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization?: Observable<boolean>): void {
     const projectId = this.projectId;
     if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (!this.flags.kanbanV1Enabled()) {
@@ -1871,6 +1877,9 @@ export class ProjectDetailFacade {
     this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { params, withCredentials: true })
       .pipe(
         map((dto) => ({ kind: 'success' as const, value: mapProjectKanbanSnapshot(dto) })),
+        switchMap((result) => parentAuthorization
+          ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+          : of(result)),
         catchError((error: unknown) => of({ kind: 'error' as const, error })),
         finalize(() => {
           if (this.kanbanRefreshGeneration === generation) {this.kanbanRefreshGeneration = null;}
@@ -1926,6 +1935,7 @@ export class ProjectDetailFacade {
       {return;}
 
     if (event.eventType === 'Security.AuthorizationStateChanged.v1') {
+      const wasOperational = this.projectOperational;
       this.authorizationGeneration++;
       this.loadGeneration++;
       this.initialLoadGeneration = null;
@@ -1971,7 +1981,11 @@ export class ProjectDetailFacade {
         }
         this.releaseRealtime();
         this.registerRealtime(projectId);
-        this.refreshProjectProjections(projectId, authorizationGeneration);
+        const parentAuthorization = this.revalidateProjectProjections(projectId, authorizationGeneration, !wasOperational);
+        if (wasOperational) {
+          this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true, parentAuthorization);
+          this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true, parentAuthorization);
+        }
       });
       return;
     }
@@ -2049,12 +2063,22 @@ export class ProjectDetailFacade {
       {this.queueTaskListRefresh();}
   }
 
+  private revalidateProjectProjections(projectId: string, authorizationGeneration: number, refreshOperationalViews: boolean): Observable<boolean> {
+    const authorization = new ReplaySubject<boolean>(1);
+    this.refreshProjectProjections(projectId, authorizationGeneration, refreshOperationalViews, () => {
+      authorization.next(false);
+      authorization.complete();
+    }, undefined, () => authorization.next(true));
+    return authorization;
+  }
+
   private refreshProjectProjections(
     projectId: string,
     authorizationGeneration: number,
     refreshOperationalViews = true,
     onSettled?: () => void,
-    isCurrent?: () => boolean
+    isCurrent?: () => boolean,
+    onAuthorized?: () => void
   ): void {
     const loadGeneration = this.loadGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
@@ -2156,6 +2180,7 @@ export class ProjectDetailFacade {
         ...projectFeedbackField("message", undefined)
       });
       this.taskListFollowUpRefresh(projectId);
+      onAuthorized?.();
       if (refreshOperationalViews) {
         this.refreshKanban(false, projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"));
         this.refreshSchedule(false, projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"));
