@@ -572,6 +572,58 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
   });
 
+  test('exposes the end of an oversized final member while retaining inner End maximum', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), list = panel.locator('ul');
+    const rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    await rows.last().locator('strong').evaluate(node => { node.textContent = Array.from({ length: 120 }, () => 'Synthetic final member').join(' '); });
+    expect(await rows.last().evaluate(row => row.getBoundingClientRect().height > row.closest('ul')!.clientHeight)).toBe(true);
+    await panel.locator('summary').scrollIntoViewIfNeeded(); await panel.locator('summary').focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    await page.keyboard.press('Home'); await page.keyboard.press('End');
+    const position = await list.evaluate(ul => ({ top: ul.scrollTop, max: ul.scrollHeight - ul.clientHeight }));
+    expect(position.top).toBe(position.max); expect(position.max).toBeGreaterThan(0);
+    await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    await expect(list).toBeFocused();
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('restores short-roster End through a real enclosing scrollport after authorized remount', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page); control.manager = false; control.readOnly = true;
+    await page.addStyleTag({ content: '.dm-page__group-details { height: 110px !important; max-height: 110px !important; min-height: 0 !important; overflow-y: auto !important; }' });
+    let hold = false, held = 0, release = () => {};
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route(`**/api/conversations/${groupId}`, async route => {
+      if (hold) { held++; await gate; }
+      await route.fallback();
+    });
+    await page.goto(`/app/dm/${groupId}`);
+    // Navigation replaces the document containing an earlier style tag.
+    await page.addStyleTag({ content: '.dm-page__group-details { height: 110px !important; max-height: 110px !important; min-height: 0 !important; overflow-y: auto !important; }' });
+    const panel = page.getByTestId('group-members-panel'), list = panel.locator('ul');
+    const last = panel.getByTestId('group-member-row').last();
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(3);
+    expect(await list.evaluate(ul => ul.scrollHeight <= ul.clientHeight)).toBe(true);
+    expect(await page.locator('.dm-page__group-details').evaluate(outer => outer.scrollHeight > outer.clientHeight)).toBe(true);
+    await list.focus(); await page.keyboard.press('End');
+    await expect(last.locator('small')).toBeInViewport({ ratio: 1 });
+    hold = true;
+    await page.getByTestId('manual-refresh').evaluate(button => (button as HTMLButtonElement).click());
+    try { await expect.poll(() => held).toBeGreaterThan(0); await expect(panel).toHaveCount(0); }
+    finally { release(); }
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(3);
+    await expect(list).toBeFocused();
+    const end = await list.evaluate(ul => ({ top: ul.scrollTop, max: Math.max(0, ul.scrollHeight - ul.clientHeight) }));
+    expect(end.top).toBe(end.max); expect(end.max).toBe(0);
+    await expect(last.locator('small')).toBeInViewport({ ratio: 1 });
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
   test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
