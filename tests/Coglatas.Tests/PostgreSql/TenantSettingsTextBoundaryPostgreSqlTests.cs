@@ -16,6 +16,30 @@ namespace Coglatas.Tests.PostgreSql;
 public sealed class TenantSettingsTextBoundaryPostgreSqlTests
 {
     [PostgreSqlFact]
+    public Task MalformedUtf16IsRejectedBeforeTrackedOrPersistedSettingsChange() =>
+        WithDatabaseAsync(async database =>
+        {
+            await using var fixture = await AdministrationFixture.CreateAsync(database);
+            var before = await SnapshotAsync(fixture.Db);
+            foreach (var value in new[] { "\uD800", "\uDC00", "x\uD800y", "x\uDC00y" })
+            {
+                foreach (var locale in new[] { true, false })
+                {
+                    var request = locale
+                        ? AdministrationFixture.SettingsRequest with { DefaultLocale = value }
+                        : AdministrationFixture.SettingsRequest with { TimeZone = value };
+                    var result = await fixture.Service.UpdateCurrentTenantSettingsAsync(request);
+                    Assert.False(result.IsSuccess);
+                    Assert.Equal("Locale and timezone text must be valid UTF-16.", result.Error);
+                    Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries(),
+                        e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
+                    await using var observed = fixture.OpenContext();
+                    Assert.Equal(before, await SnapshotAsync(observed));
+                }
+            }
+        });
+
+    [PostgreSqlFact]
     public Task OversizedLocaleAndTimeZoneAreRejectedBeforeTrackedOrPersistedSettingsChange() =>
         WithDatabaseAsync(async database =>
         {
