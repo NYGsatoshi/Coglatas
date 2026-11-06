@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "13655527a01b12afa122d7a5610d3dcb06bae220",
+  "testedMergeSha": "244e034b70d259dd812ce60afa31891b7b1e6087",
+  "runAttempt": 1,
+  "firstAttemptOutcome": "FAILED",
+  "failureClass": "PRE_TEST_CONTENT_POLICY_REJECTION",
+  "runs": [
+    {
+      "runId": 42135970655,
+      "workflow": ".github/workflows/legacy-name-guard.yml",
+      "jobId": 127624066595,
+      "jobName": "LegacyNameGuard",
+      "firstFailingStep": "Audit current checkout",
+      "findingPath": "docs/verification/ci-assurance-program/source-native-inventory.json",
+      "findingLine": 179,
+      "findingColumn": 191
+    },
+    {
+      "runId": 42135970643,
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": 127624066944,
+      "jobName": "CI preflight + route",
+      "firstFailingStep": "LegacyNameGuard"
+    }
+  ],
+  "additionalFailedJobs": [
+    {"jobId": 127624626659, "jobName": "build-test", "step": "Require successful build producer"},
+    {"jobId": 127624626787, "jobName": "frontend-test", "step": "Require successful frontend producer"},
+    {"jobId": 127624626974, "jobName": "security-scan", "step": "Require successful build producer"},
+    {"jobId": 127624627869, "jobName": "functional-fast", "step": "Enforce selected Functional evidence or explicit exemption"},
+    {"jobId": 127625320675, "jobName": "specification-contract", "step": "Report same-run specification-contract Advisory result"}
+  ],
+  "nativeProductExecutionCredit": "NONE",
+  "cause": "An external scanner app slug copied into the public API snapshot contains a content-policy-prohibited identifier.",
+  "correction": "Omit non-GitHub-Actions external app slugs from the public summary; retain app IDs, check IDs, original responses locally and all required GitHub Actions producer identities. No guard exception or threshold change.",
+  "resolution": "CORRECTION_REQUIRES_FRESH_EXACT_HEAD_NATIVE_QUALIFICATION",
+  "historicalOutcomeAfterCorrection": "FAILED_UNCHANGED"
+}
