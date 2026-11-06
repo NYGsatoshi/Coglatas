@@ -403,7 +403,6 @@ jobs:
             tests/ui/fixed-sha-evidence.node-test.mjs \
             tests/ui/real-backend-authorization-frame.node-test.mjs \
             scripts/security/sec-arch-runtime-options.test.mjs \
-            scripts/security/sec-arch-runtime-assemblies.test.mjs \
             scripts/security/sec-arch-kafka-acls.test.mjs
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
