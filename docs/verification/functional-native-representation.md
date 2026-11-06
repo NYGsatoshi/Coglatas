@@ -1,0 +1,45 @@
+# Original MJS coordinates in Functional coverage
+
+The existing Functional Node coverage producer runs synthetic Playwright
+reporter and observation controls as child processes. Several controls also
+import the same operational MJS helpers directly in Node. Playwright's default
+transpilation previously produced a second representation under the same source
+URL. The native Node mapper could combine those transformed and original ranges
+in an order-dependent way, even when the source map's original content matched
+Git. Sorting input files would select a result rather than fix collection.
+
+The generated Playwright configurations in the five affected Node control suites
+set `build.external` to `['**/*.mjs']`. This is the documented
+[Playwright transpilation setting](https://playwright.dev/docs/api/class-testconfig#test-config-build),
+not a coverage exclusion. Those files already run as native MJS in the parent
+controls. TypeScript fixtures still use the existing transpiler. Test bodies,
+assertions, intentional first-failure/retry controls, privacy checks, source
+scope, native reporters and the scanner's single existing import are preserved.
+No actual browser acceptance configuration or product module changes.
+
+Before scanner credentials, the producer verifies six affected helpers against
+their exact Git bytes. Every retained raw record for those URLs must use the
+original UTF-16 source extent and have no transformed source map. All six must
+be present; mixed representations or missing sources fail collection. The
+read-only verifier does not instrument itself, alter raw records, remap reports
+or filter findings. It retains a companion `representation.json` with the Git
+SHA, Node version, source identities, raw-file digests and original LCOV digest.
+The LCOV and companion receipt share the existing `sonar-node-coverage` artifact;
+the separately retained original raw files remain available for inspection.
+
+A bounded initial experiment on Main `7fb26c69` kept the complete existing
+Search Drawer control suite and its assertions. Both executions passed. The
+baseline had ten original records of 8,814 UTF-16 units and three transformed
+records of 35,949 units for one helper. With the generated configuration changed,
+all thirteen records used the original 8,814 units. Native LCOV retained all
+147 source lines while covered lines changed from 147 to 88. The lower result
+retains unexecuted callbacks instead of treating the earlier inflation as test
+coverage. Original reports and raw bytes from both executions are preserved.
+
+That focused result is not full-producer or Main qualification. The exact-head
+hosted producer must execute all existing suites, pass the six-source guard,
+retain the original raw/LCOV bytes, and pass the original required checks and
+official PR Gate. Independent order diagnostics and full source mapping are
+separate from repository test results. Only a newly evaluated resulting Main
+establishes its actual coverage, denominator and Gate; no local gains are added
+together, and no improvement is promised by correcting an inflated measurement.
