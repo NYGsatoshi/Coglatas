@@ -154,7 +154,9 @@ describe('ProjectDetailFacade initial response scope', () => {
   for (const deniedProjection of ['kanban', 'gantt'] as const) {
     for (const eventType of ['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const) {
       it.each([401, 403])(`keeps ${deniedProjection} denial through ${eventType} during navigation recovery after %s`, async (status) => {
-        TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'tasks.kanbanV1': true, 'tasks.ganttV1': true });
+        const flags = TestBed.inject(FrontendFeatureFlagsService);
+        vi.spyOn(flags, 'kanbanV1Enabled').mockReturnValue(true);
+        vi.spyOn(flags, 'ganttV1Enabled').mockReturnValue(true);
         facade.load('project-1');
         http.expectOne('/api/projects/project-1').flush(active);
         const oldTasks = http.expectOne('/api/projects/project-1/tasks');
