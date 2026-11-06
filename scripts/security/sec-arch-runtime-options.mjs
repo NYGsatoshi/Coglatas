@@ -2,6 +2,16 @@ import { isAbsolute, relative, resolve, dirname, basename } from 'node:path';
 import { mkdir, realpath } from 'node:fs/promises';
 import { fixtureArguments } from './sec-arch-kafka-acls.mjs';
 
+export function dotnetExecutionProfile(environment) {
+  const value = environment.DOTNET_PROCESSOR_COUNT;
+  if (value === undefined) return { requestedProcessorCountOverride: null };
+  // Record only this explicit non-secret control, never the process environment.
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value) ||
+      !Number.isSafeInteger(Number(value)) || Number(value) > 2147483647)
+    throw new Error('Runtime processor override must be a positive decimal Int32');
+  return { requestedProcessorCountOverride: Number(value) };
+}
+
 export function runtimeArguments(args) {
   const common = [];
   let privateDirectory;
