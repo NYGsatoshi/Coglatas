@@ -53,3 +53,12 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/quality/reviewed_qodana_correspondence.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/verify.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/r2_verify.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/nuget_dependency_snapshot.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/audit_sbom_component_inventory.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-mvp-a-final-checks.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/validate-functional-quarantine.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/finalize-functional-lane.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/api_k6.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/api_diagnostics.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/common.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/environment_class.py
