@@ -447,6 +447,7 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     });
     const control = await installGroupApi(page);
     control.manager = false; control.readOnly = true; control.longRoster = true;
+    control.persistedRosterShape = true;
     await page.goto(`/app/dm/${groupId}`);
     const panel = page.getByTestId('group-members-panel');
     const summary = panel.locator('summary');
@@ -620,7 +621,7 @@ async function installGroupApi(page: Page) {
   let releaseCreate = () => {};
   const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
   const control = { creates: [] as Record<string, unknown>[], sends: [] as Record<string, unknown>[], adds: [] as string[], removes: [] as string[],
-    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
+    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, persistedRosterShape: false, holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
   const workspaceMembers = [
     { userId: actor, displayName: 'Current participant', status: 1 },
     { userId: 'peer', displayName: 'Council peer', status: 1 },
@@ -637,7 +638,9 @@ async function installGroupApi(page: Page) {
   let messages = [{ id: 'group-root', workspaceId, conversationId: groupId, authorUserId: 'peer', authorDisplayName: 'Council peer', body: 'Protected Group body',
     createdAt: '2026-10-19T01:00:00Z', clientRequestId: 'original-group-key', isDeleted: false, version: 1 }];
   const detail = () => ({ id: groupId, workspaceId, type: 'Group', title, projectId: null, parentConversationId: null, rootConversationId: null,
-    isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member) => member.userId === actor
+    isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member, index) => control.persistedRosterShape
+      ? { ...member, displayName: `Synthetic roster participant ${String(index + 1).padStart(2, '0')}`, role: index === 1 ? 'Admin' : 'ReadOnly', canPost: index === 1, canManageMembers: index === 1, leftAt: null, removedAt: null }
+      : member).map((member) => member.userId === actor
       ? { ...member, role: control.readOnly ? 'ReadOnly' : control.manager ? 'Admin' : 'Member', canManageMembers: control.manager } : member) });
   await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: { token: 'csrf-group-ui', headerName: 'X-CSRF-Token' } }));
   await page.route('**/api/**', async (route) => {
