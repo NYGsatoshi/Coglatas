@@ -27,7 +27,8 @@ public sealed class TenantSettingsTextBoundaryPostgreSqlTests
                 var result = await fixture.Service.UpdateCurrentTenantSettingsAsync(request);
                 Assert.False(result.IsSuccess);
                 Assert.NotEmpty(result.Error!);
-                Assert.Empty(fixture.Db.ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted));
+                Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries(),
+                    e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
                 await using var observed = fixture.OpenContext();
                 Assert.Equal(before, await SnapshotAsync(observed));
             }
@@ -38,21 +39,25 @@ public sealed class TenantSettingsTextBoundaryPostgreSqlTests
         WithDatabaseAsync(async database =>
         {
             await using var fixture = await AdministrationFixture.CreateAsync(database);
-            var locale = new string('l', 20);
-            var zone = new string('z', 80);
-            var changed = await fixture.Service.UpdateCurrentTenantSettingsAsync(
-                AdministrationFixture.SettingsRequest with { DefaultLocale = " " + locale + " ", TimeZone = " " + zone + " " });
-            Assert.True(changed.IsSuccess, changed.Error);
-            Assert.Equal(locale, changed.Value!.DefaultLocale);
-            Assert.Equal(zone, changed.Value.TimeZone);
-            var omitted = await fixture.Service.UpdateCurrentTenantSettingsAsync(
-                AdministrationFixture.SettingsRequest with { DefaultLocale = null, TimeZone = null });
-            Assert.True(omitted.IsSuccess, omitted.Error);
-            await using var observed = fixture.OpenContext();
-            var actual = await observed.TenantSettings.SingleAsync();
-            Assert.Equal(locale, actual.DefaultLocale);
-            Assert.Equal(zone, actual.TimeZone);
-            Assert.Equal(2, await observed.AuditLogs.CountAsync(e => e.Action == "TenantSettingsChanged"));
+            foreach (var supplementary in new[] { false, true })
+            {
+                var locale = supplementary ? string.Concat(Enumerable.Repeat("\U0001F338", 20)) : new string('l', 20);
+                var zone = supplementary ? string.Concat(Enumerable.Repeat("\U0001F338", 80)) : new string('z', 80);
+                var changed = await fixture.Service.UpdateCurrentTenantSettingsAsync(
+                    AdministrationFixture.SettingsRequest with { DefaultLocale = " " + locale + " ", TimeZone = " " + zone + " " });
+                Assert.True(changed.IsSuccess, changed.Error);
+                Assert.Equal(locale, changed.Value!.DefaultLocale);
+                Assert.Equal(zone, changed.Value.TimeZone);
+                var omitted = await fixture.Service.UpdateCurrentTenantSettingsAsync(
+                    AdministrationFixture.SettingsRequest with { DefaultLocale = null, TimeZone = null });
+                Assert.True(omitted.IsSuccess, omitted.Error);
+                await using var observed = fixture.OpenContext();
+                var actual = await observed.TenantSettings.SingleAsync();
+                Assert.Equal(locale, actual.DefaultLocale);
+                Assert.Equal(zone, actual.TimeZone);
+            }
+            await using var audit = fixture.OpenContext();
+            Assert.Equal(4, await audit.AuditLogs.CountAsync(e => e.Action == "TenantSettingsChanged"));
         });
 
     [PostgreSqlFact]

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
@@ -362,6 +363,16 @@ public sealed class TenantAdministrationService(
         if (request.ThemeColor is { Length: > 40 })
         {
             return Result.Failure("ThemeColor must be 40 characters or fewer.");
+        }
+
+        if (request.DefaultLocale?.Trim().EnumerateRunes().Take(21).Count() > 20)
+        {
+            return Result.Failure("DefaultLocale must be 20 characters or fewer.");
+        }
+
+        if (request.TimeZone?.Trim().EnumerateRunes().Take(81).Count() > 80)
+        {
+            return Result.Failure("TimeZone must be 80 characters or fewer.");
         }
 
         if (request.StorageQuotaBytes is < 0 || request.UserLimit is < 0 || request.ProjectLimit is < 0 || request.FileUploadLimitBytes is < 0)
