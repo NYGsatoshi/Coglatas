@@ -47,6 +47,9 @@ Already dispatched reads are retained but cannot restore state after denial.
 Explicit Refresh and presentation changes also queue while a move is pending.
 The resulting current-authority read preserves the latest selected presentation
 and runs after the move succeeds or fails, never across its busy interval.
+A moved Task returning 404 also drains an already queued Board read. A still
+available Board can recover independently; a Board 404 retains not-found
+presentation and its current 401/403 still clears protected state.
 Transient failures retain their original
 behavior and can be recovered by an authorized initial result. This preserves
 the original denial mapping instead of inventing a new 400/404 policy.

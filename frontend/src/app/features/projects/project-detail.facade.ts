@@ -1100,6 +1100,7 @@ export class ProjectDetailFacade {
               reconciliationQueued: false
             }
           });
+          if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
           return;
         }
 
