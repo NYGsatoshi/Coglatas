@@ -2065,10 +2065,15 @@ export class ProjectDetailFacade {
 
   private revalidateProjectProjections(projectId: string, authorizationGeneration: number, refreshOperationalViews: boolean): Observable<boolean> {
     const authorization = new ReplaySubject<boolean>(1);
+    let authorized = false;
     this.refreshProjectProjections(projectId, authorizationGeneration, refreshOperationalViews, () => {
-      authorization.next(false);
+      if (!authorized) {authorization.next(false);}
       authorization.complete();
-    }, undefined, () => authorization.next(true));
+    }, undefined, () => {
+      authorized = true;
+      authorization.next(true);
+      authorization.complete();
+    });
     return authorization;
   }
 
