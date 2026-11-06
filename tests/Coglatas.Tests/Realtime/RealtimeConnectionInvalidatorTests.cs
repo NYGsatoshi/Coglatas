@@ -82,6 +82,10 @@ public sealed class RealtimeConnectionInvalidatorTests
         };
         await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User);
         fixture.AssertScopeRemoved();
+        foreach (var item in mixed)
+        {
+            Assert.DoesNotContain(item, fixture.Registry.GetForTarget(item.TenantId, item.SubscriptionType, item.ResourceId));
+        }
         Assert.Equal(fixture.Targets.Concat(mixed).Select(item => (item.ConnectionId, item.CanonicalGroupName)).Order(),
             fixture.Hub.GroupsRecorder.Removals.Order());
         Assert.Equal(fixture.Targets.Concat(mixed).Select(item => item.ConnectionId).Order(),
@@ -158,11 +162,11 @@ public sealed class RealtimeConnectionInvalidatorTests
             fixture.AssertScopeRemoved();
             Assert.False(invalidation.IsCompleted);
             Assert.Empty(fixture.Hub.ClientsRecorder.Sends);
-            await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User);
+            await fixture.Invalidator.InvalidateUserAsync(fixture.Tenant, fixture.User).WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Single(fixture.Hub.GroupsRecorder.Removals);
         }
         finally { release.TrySetResult(); }
-        await invalidation;
+        await invalidation.WaitAsync(TimeSpan.FromSeconds(5));
         fixture.AssertScopeRemoved();
         Assert.Equal(fixture.Targets.Count, fixture.Hub.ClientsRecorder.Sends.Count);
     }
