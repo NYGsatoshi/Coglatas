@@ -20,7 +20,7 @@ using Microsoft.Extensions.Options;
 
 namespace Coglatas.Tests.Tenancy;
 
-public sealed class TenantIsolationSecurityTests
+public sealed partial class TenantIsolationSecurityTests
 {
     [Fact]
     public async Task TenantContextsReturnOnlyTheirOwnResourceGraph()
