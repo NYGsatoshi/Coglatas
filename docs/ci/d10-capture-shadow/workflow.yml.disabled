@@ -1,0 +1,13 @@
+# INERT CALLER PROPOSAL. No workflow or publication is admitted.
+name: Playwright native capture Shadow
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+permissions:
+  contents: read
+  actions: read # Proposed cross-run input read; requires separate approval.
+jobs:
+  shadow:
+    if: ${{ false }} # Owner HOLD: do not remove without explicit admission.
+    name: Shadow Playwright native capture
+    uses: ./.github/workflows/playwright-native-capture-producer.yml
