@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "qualification": "CANONICAL_GIT_SOURCE_PRESERVATION_NOT_NATIVE_ARTIFACT_ATTESTATION",
+  "originalLedger": {
+    "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+    "path": "docs/verification/ci-assurance-program/gap-ledger.json",
+    "entryCount": 45,
+    "reference": "https://github.com/NYGsatoshi/Coglatas/blob/b34a0503ca0637634b3f492b69f3d3491c12c6d2/docs/verification/ci-assurance-program/gap-ledger.json"
+  },
+  "anchors": [
+    {
+      "path": "docs/verification/ci-assurance-program/actor-first-attempt.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "32ab6498710b0352c24dd0c28b5a433700349a74315d25eaaf392eeae08964aa",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/baseline.md",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "fd65ab36e428272cf3bc0b108f709483869dc3917db202bcfc939c9bd59c78d8",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/gap-ledger.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "1d14ff728b45d61d6a8baeddb624b400fa97f59a115e1eabbccee57bf761ed7b",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/inventory-first-attempt.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "f30e5d59755957aa896309bdad41f700762d0155a409eefacb0fdcf6929e1041",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/observations/api-operation-classification-42132259076.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "e9c422cdf6028992eb52e3a7536dbf2fbad83c1bd5654526d3cd2f397ac96731",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/observations/hub-method-classification.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "0d18849fac5746913549670bdf5268cb9ecd19c3680a5ead4846ba0393ae8eca",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/observations/live-governance-20261106.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "b03d09d6a70ef59d3d3c7032704828b3aecdff9bf10cb6ff21d52376254ea4d4",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/observations/sec05-native-42132259076.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "774b4fb6f4a220cf48d1b37753d7eb6ae402aff8a317822e9b5bb9387b353957",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/observations/sec05-native-42132259076.md",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "d0ed73ded1444ff093ebcad57625b641938117ff8ff36093e0471cdf8e57d94c",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/restler-admission-assessment.md",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "d3fa04b79ac2d8d2f0f0afa2b6131734b2ae2cd888ffeef7b366065194303fcf",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-program/source-native-inventory.json",
+      "sourceSha": "b34a0503ca0637634b3f492b69f3d3491c12c6d2",
+      "canonicalBlobSha256": "97df6b7cfb55893d2f711ac3c02252f0e6ef423f588c7dc7eed65f2beea33a0b",
+      "mode": "historical-source-only"
+    },
+    {
+      "path": "docs/verification/ci-assurance-continuation-20261106/capture-index.json",
+      "sourceSha": "1b01e4eede110660b96e2a3ab691f0dc0d2e196e",
+      "canonicalBlobSha256": "2330f8ae1183d2a4b198e0677bd620518b8383903090ee25d15d34caa5e2dda2",
+      "mode": "unchanged"
+    },
+    {
+      "path": "docs/verification/ci-assurance-continuation-20261106/governance-observation-v2.json",
+      "sourceSha": "1b01e4eede110660b96e2a3ab691f0dc0d2e196e",
+      "canonicalBlobSha256": "fe5ec73a2dbf7e9170f2ff1350d6975f7ba26b3350a543c7c2dc45980ab9a788",
+      "mode": "unchanged"
+    },
+    {
+      "path": "docs/verification/ci-assurance-continuation-20261106/native-refresh.json",
+      "sourceSha": "1b01e4eede110660b96e2a3ab691f0dc0d2e196e",
+      "canonicalBlobSha256": "6015839f7c4bf7ab1380ceeffb9b141bf4c0eeeb1436fbd8ef3bbd6da981f233",
+      "mode": "unchanged"
+    },
+    {
+      "path": "docs/verification/ci-assurance-continuation-20261106/README.md",
+      "sourceSha": "1b01e4eede110660b96e2a3ab691f0dc0d2e196e",
+      "canonicalBlobSha256": "a9555d62e038bdb8fabb23ae903776ca9d60d8c976aa63a7d2b316cef184f1f1",
+      "mode": "append-only"
+    }
+  ],
+  "historicalFailures": [
+    "42131490366/1",
+    "42164786876/1",
+    "42164786888/1"
+  ],
+  "unsuccessfulReviewAttempts": [
+    "payload_too_large",
+    "rate_limit",
+    "Wsl/Service/CreateInstance/MountDisk/HCS/ERROR_PATH_NOT_FOUND"
+  ],
+  "retentionLimits": "Remote artifacts may expire; canonical Git hashes do not guarantee perpetual artifact storage."
+}

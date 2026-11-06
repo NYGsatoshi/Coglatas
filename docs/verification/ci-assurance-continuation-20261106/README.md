@@ -179,3 +179,36 @@ establish default-branch activation while Main modification is prohibited.
 
 PR-N remains incomplete: the supplied contract is truncated, implementation
 slices are not all qualified, and governance/review holds remain unresolved.
+
+## Decision and PR-N recovery addendum
+
+The Owner has now supplied the exact approved [D01–D15 wording](approved-decisions.md),
+the [complete PR-N contract and exit criteria](pr-n-contract.md), and explicit
+authority to persist them in this existing Draft PR. The earlier missing-input
+statements above describe the original observation; those inputs are now
+recovered. Their recovery does not resolve governance, review, trusted Sonar
+import or PR-J–N acceptance, and grants no settings or integration authority.
+
+The [machine-readable contract](program-contract.json) and
+[independent state/HOLD register](program-status.json) preserve those boundaries.
+The [preservation manifest](evidence-preservation.json) pins the unchanged
+45-capability baseline and original source/run observations; this addendum
+retains the entire preceding README as an append-only historical record.
+
+The prescribed CodeRabbit CLI is available and authenticated in the existing
+`Ubuntu` distribution when selected explicitly with `wsl -d Ubuntu`. The default
+`Ubuntu-22.04` distribution still has its original missing-disk error. No disk,
+registration or default distribution was changed. Availability is not completed
+review; all failed attempts remain retained and no manual review is credited.
+
+Focused commands for this documentation/validation-contract slice:
+
+```powershell
+python docs/verification/ci-assurance-continuation-20261106/validate-contract.py --verify-preservation
+python docs/verification/ci-assurance-continuation-20261106/test-contract.py
+```
+
+These checks validate contract structure, references and source preservation.
+They do not authenticate native artifacts, implement the final cross-domain
+verifier or establish program acceptance. Current-source native CI and mandatory
+independent review require their own retained evidence and qualification.
