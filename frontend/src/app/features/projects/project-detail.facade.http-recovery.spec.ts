@@ -124,6 +124,32 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     return held;
   }
 
+  it('does not dispatch a cold Active projection before the first Workspace selection and reads a denied Board only once', async () => {
+    enableBoard(); detail.load('project-1');
+    http.expectOne('/api/projects/project-1').flush(active);
+    const premature = http.match(request => request.url.startsWith('/api/projects/project-1/'));
+    for (const request of premature) {
+      request.flush(request.request.url.endsWith('/kanban') ? snapshotDto()
+        : request.request.url.endsWith('/gantt') ? ganttSnapshotDto()
+        : request.request.url.endsWith('/tasks') ? { items: [] } : { members: [] });
+    }
+    selectFromHttp(); await settle();
+    http.expectOne('/api/projects/project-1').flush(active);
+    flushActiveCollections();
+    http.expectOne('/api/projects/project-1/kanban').flush(
+      { message: 'Current Board denied' }, { status: 403, statusText: 'Denied' },
+    );
+    http.expectOne('/api/projects/project-1').flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    expect(premature).toHaveLength(0);
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().kanban.status).toBe('permissionDenied');
+    expect(detail.view().kanban.snapshot).toBeNull();
+    http.expectNone(request => request.url.endsWith('/kanban') || request.url.endsWith('/gantt'));
+  });
+
   for (const projection of ['board', 'schedule'] as const) {
     it.each([401, 403])(`requires a fresh authorized parent and collections after initial ${projection} %s without retrying the projection`, async (status) => {
       const held = await holdInitialOperationalRead();
