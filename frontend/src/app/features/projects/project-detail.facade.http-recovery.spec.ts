@@ -325,7 +325,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     enableBoard(); flushWorkspace(); await settle();
     detail.load(projectId); navigation(); operational();
     TestBed.inject(FrontendFeatureFlagsService).setForTesting({ 'realtime.signalR': true });
-    await settle(); flushWorkspace(); await settle(); navigation(); operational(); await settle();
+    await settle(); navigation(); operational(); await settle();
     expect(realtime.connectionState()).toBe('Connected');
     detail.retryKanban();
     http.expectOne(request => request.url === `${path}/kanban`).flush(
@@ -338,9 +338,8 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     subscriptions.length = 0;
     transportStatuses.next('reconnecting'); transportStatuses.next('reconnected'); await settle();
     expect(subscriptions).toContainEqual({ subscriptionType: 'project', resourceId: projectId });
-    // Workspace's authoritative catch-up precedes the Project callback.
-    http.expectNone(request => request.url.startsWith(path));
-    flushWorkspace(); await settle();
+    // A same-scope reconnect reauthorizes the Project subscription, then reads
+    // current projections. It need not reload an unchanged Workspace directory.
     expect(detail.view().kanban.snapshot).toBeNull(); expect(detail.view().schedule.snapshot).toBeNull();
     navigation(); operational(); await settle();
     expect(realtime.connectionState()).toBe('Connected');
