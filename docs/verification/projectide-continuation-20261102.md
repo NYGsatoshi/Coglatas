@@ -1,5 +1,566 @@
 # ProjectIDE continuation audit — 2026-11-02
 
+### Corrected review and runtime checkpoint — 2026-11-06
+
+This is an immutable checkpoint of observed work, not completion of all 48 rows.
+Authenticated CodeRabbit CLI review of joint candidate
+`515db40fc5dd1630e4e492298d82344f6c5bbf8a` completed with three issues: one
+major Windows baseline-decoding issue, a minor parity path-filter omission and
+a minor unrecorded legacy processor override. The local report SHA-256 is
+`9ff31121717fb570d7bb3c75e5a81d1539d200c995c876cc46fde07d69a9bd93`.
+Its completed file inventory covers the Artifact Test, Receipt Product/Test,
+Acquisition Product/Test and fixture source. Scope mapping digest is
+`93d552784361dc63fc692cefe6a69885700072ba178e72e5e8a8dfe8a841a7b7`.
+Product and test source bytes match their mapped PR heads; shared Test/CI files
+are the explicit union of both mandatory lanes and complete test inventories.
+This does not claim a separate CLI execution at every PR head.
+
+- Artifact Test #1722 correction `f2320904` explicitly decodes Git output as
+  UTF-8 on both hosts and includes Domain canonicalization, SDK and retained
+  inventory inputs in workflow routing. A controlled Windows code-page-932
+  capture produces invalid JSON before the correction; UTF-8 capture preserves
+  all 979 identities and equals the original committed JSON.
+- Fixture follow-up #1741, `52228152`, rejects a defined legacy
+  `COMPlus_PROCESSOR_COUNT`, including simultaneous modern/legacy settings.
+  Its regression produces 17 PASS / one FAIL before the fix and 18 PASS after it,
+  without skips. An isolated actual Windows .NET 10.0.14 process confirms the
+  legacy override and decimal-ten parsing; the review's hexadecimal hypothesis
+  is not reproduced on this runtime. This is no effective CPU quota guarantee.
+- #1728 merged normally as `6afe5b130143ba4472117a945a90384b40591190`, parents
+  `efcbf142`, `17787984`. Its directly executed current-head runtime passes all
+  353 required cases with exact candidate/assembly/cleanup verified; report
+  SHA-256 `13e5497872164b1a483e28b935ebc0e056ac5c88d0bcb38146897972e6daf68a`.
+  All 28 successful CI checks completed before merge; eight routed skips are
+  recorded separately. The later legacy-override issue is handled by #1741.
+
+Joint `515db40f` passes a zero-warning Release solution build, 1,041 complete
+ProjectIDE cases, 12 architecture cases, 353 configured isolated runtime cases
+and 16 real isolated Kafka controls, all with no failures/skips. Its six actual
+.NET assembly bytes reconcile. Runtime requests processor override four; Core
+has no override. Runtime and Kafka report SHA-256 values are respectively
+`06d6f8490f7bd34bd6dd8bfc73fd232588136077017fa00f491253a5a48447f6`
+and `badced4c57a375eae62491aa3fa97a515dadbcbdfa5a9b72999fbed8547aaad6`.
+The diagnostic receipt digest is
+`4caceb5c84d060d207ef98dadba27f35f7de210bccb6166ca624642de2209194`.
+These results belong to that SHA, not subsequent corrected compositions.
+
+Updated Receipt Test `60bd0c1e` and Acquisition Test `b0620a72` have downloaded,
+independently reconciled Windows/Ubuntu parity, respectively 1,002/12 and
+1,018/12 passing identities per host. Exact SHA stamps, ZIP/TRX hashes and every
+retained baseline identity agree. Fresh private source/PostgreSQL observations
+at `515db40f` also reconcile all 114 objects and 101 model tables, with all five
+scope-loss controls rejecting. Detailed topology/classification remains private.
+
+At this checkpoint, the two Product PRs incorporate the latest integration
+fixture prerequisite and are rerunning new-head CI. Earlier cancelled producer
+runs retain their original failed dependent checks. Corrected Test/fixture and
+documentation review/CI remain pending; no failing or quota-limited attempt is
+called a successful review. Subsequent merge evidence belongs in the linked
+PR conversations with exact heads and merge commits.
+
+Private Spec Draft #301 retains its independent formal approval; its candidate
+contains the corrected diagnostic observations, with no Owner approval inferred
+from mechanical validation. #1144 remains BLOCKED, #1128 remains SUSPENDED /
+NOT_EVALUATED with no numerical/baseline credit or automatic reactivation, and
+production activation remains HOLD. Main and SecurityTestImplimation are never
+ProjectIDE merge targets. Unfinished engineering remains OPEN.
+
+### Authenticated review resumption and first ordinary merge — 2026-11-06
+
+The owner completed sign-in. Fresh CLI status is **authenticated** in the actual
+WSL Ubuntu execution context with CLI 0.9.2. Reviews use isolated native WSL Git
+checkouts because native Git cannot resolve Windows-format linked-worktree
+pointers. No authentication material is extracted or transferred. Earlier
+`not_authenticated` observations below are historical and are not current blockers.
+
+| PR / scope | Exact observation |
+| --- | --- |
+| #1721 Product | Ordinary merge `efcbf142b05d5ccbb2e0778bd52b6c011067c09e` into dedicated integration; parents `634ab304`, `a7fcf48f`; merge tree exactly matches reviewed Product `a7fcf48f` |
+| #1721 review | Actual CLI review at `2620e227`: one major / two minor issues; follow-up at `a7fcf48f`: one conditional minor issue; all reports completed |
+| Valid import issues | Unsupported headers now return Unsupported; exact capacity is inclusive. Regressions reproduce 39 PASS / six FAIL before the fix and pass after it |
+| External-body suggestion | Skipping unavailable external pins is declined as contrary to verified closure. Full present/missing nonempty chains stay Incomplete without publishing a prefix |
+| Conditional decoder concern | Existing CanonicalJson/SourceFields helpers already convert malformed JSON/missing members to FormatException. Six byte-recovery regressions pass without a broader catch |
+| #1722 Test | `c16981c5`: 51 artifact cases, full ProjectIDE 979, architecture 12; exact hosted Windows/Ubuntu parity independently reconciled; retargeted to dedicated integration; review pending |
+| #1728 fixture | Actual CLI review at `93e69ea2` reports zero issues. Exact standalone local runtime at that SHA passes all 353 required cases with candidate/assembly/cleanup verified |
+
+Product ordinary CI completed successfully before the #1721 merge. The tests
+preserve every 928 historical ProjectIDE identity and all 12 architecture
+identities; the retained integration inventory grows to 979 rather than dropping
+earlier cases. Standalone Test review remains separate from Product review.
+
+Retained report SHA-256:
+
+- Initial #1721 CLI review: `5052ec71ccc557dc533f5ca6395e46341714a639fc6d2605baae9108c6863a75`.
+- Corrected #1721 CLI review: `ed6cacd683399970b018a385b13f17ff7a19a1534b252392d9d8d91c70a197ee`.
+- #1728 CLI review: `92da98436ebc8a771d4a9e0b8c3529b7d8ddb21919c790f2373ac01863a38068`.
+- Independent regression patch: `c2012277f002edcdb18472b3958a66b5fd7a20248182549f72033eb1f0d839e2`.
+- #1728 standalone runtime report: `fb12ce3d85acf1e340efcbc9b5344e4bbb1d6ac19f02f04aeb117c81fe68fbc8`.
+
+Hosted Test run [42132170037](https://github.com/NYGsatoshi/Coglatas/actions/runs/42132170037)
+has 979/12 passing cases per host with no failures/skips. Downloaded Windows
+artifact 13464835421 ZIP digest is
+`ccc93a91834fc68cf7da90e307d26ebf0f092697ac56efe48a041f7f4a355702`;
+Ubuntu 13463038774 is
+`2356a7e8f7f008bee85f486f17517d5ad127a3af3135c1051c18206e5f54672c`.
+Both exact SHA stamps, TRX digests and full retained inventories reconcile.
+
+CLI review of #1722 did not run: the service reports all three included reviews
+used and a 38-minute wait, separately from successful authentication. Existing
+GitHub App review requests also returned rate limiting. No seat/billing/key
+configuration is changed, no manual review is called a CodeRabbit success, and
+independent test/evidence work continues while included capacity replenishes.
+
+The #1728 upstream-only head `17787984` has a byte-identical relative patch to
+reviewed `93e69ea2`: both patch digests are
+`b1675994deecfea4c815224a99c86854dc99049b767f99502bdc3d9570948eed`.
+Its new-head CI is separate; old-SHA runtime results are not relabelled as
+new-head execution. Proof and acquisition Product candidates incorporate the
+merged artifact correction and now target dedicated integration directly.
+
+This integrates only a provisional pure Domain foundation. Formal schema/trust/
+policy/mapping/activation decisions remain held; all unfinished engineering
+remains OPEN. Private Spec Draft #301 retains independent formal approval.
+#1144 remains BLOCKED, #1128 remains SUSPENDED, production activation remains
+HOLD, and no ProjectIDE change is merged into Main or SecurityTestImplimation.
+
+### Exact composed verification checkpoint — 2026-11-06
+
+Verification-only candidate `8ee1980e2921b24eb04da04b07ec52db8927d302` passes
+the configured local Windows checks below. It is not dedicated integration,
+production activation, formal Requirement Evidence or completion of all 48 rows.
+
+| Check | Executed result and scope |
+| --- | --- |
+| Release solution build, warnings as errors | Zero warnings / errors |
+| Complete ProjectIDE inventory | 1,026 PASS / zero FAIL / zero skipped; all 928 baseline identities retained |
+| Separate architecture project | 12 PASS / zero FAIL / zero skipped; all 12 baseline identities retained |
+| Configured isolated runtime | 353 PASS / zero FAIL / zero skipped; no missing required method identities; requested processor override four |
+| Pinned isolated Kafka | 16/16 actual broker controls PASS; clean exact candidate verified |
+| Node controls | 17 fixture controls and five independent artifact hash controls PASS |
+| Private current object reconciliation | All 114 objects and 101 model tables correspond; five scope-loss mutations rejected |
+
+The warnings-as-errors solution build retains exactly the same six .NET assembly
+bytes as the runtime receipt. Core executes with no processor override; runtime
+uses the explicitly recorded requested override four. These are separate local
+execution profiles, not measured CPU quota or a hardware/performance guarantee.
+All owned disposable PostgreSQL/Kafka containers are cleaned up. An earlier
+architecture command selected 11 backend-project checks; those pass separately
+and are not substituted for the intended 12-case architecture project.
+
+| Local retained artifact | SHA-256 |
+| --- | --- |
+| Runtime report | `a79f97c2e097acb5107b4d6e3e4b203d4b2984df6615fb2b5c402c0e22784b02` |
+| Runtime TRX | `4d4aa5cc9a0a8d1005ca98be4c2b269afec6dd6f7c59a8901ff05ebe2d09c162` |
+| Kafka report | `fb06be9fd9d96dc903ebe57aea6c6b2fb2a92d2e90aa39481c9238c788f00357` |
+| Composed diagnostic receipt | `333d214c5f82d02e64ca65be37c5630e6298bcdfc85eeb21daa5ede4a9d7cf74` |
+
+The full default-profile 17 failures and two-processor timeout below remain
+unchanged. One successful requested profile does not resolve their reliability
+gap, qualify trusted CI attestation, establish all-table/operation/bootstrap
+coverage or approve formal TMT/SPEC mapping, SQL/GRANTs or production RLS.
+The composed SHA has no hosted Ubuntu/Windows joint attestation; the separately
+reconciled hosted component candidates retain their own exact SHA scope.
+
+All eight public PRs currently have passing ordinary checks, including fixture
+Test #1728. The latter's 19:34 UTC explicit review request also returned rate
+limiting. Private Draft mechanical statuses are tracked by exact Spec head;
+at 19:49 UTC, some checks on `69099f62` remain queued/running. Earlier mechanical
+passes are neither current-head qualification nor Owner approval.
+No Product/Test/Docs PR from this batch is merged. Remaining migration,
+durable offline closure, complete trust/authorization/eligibility, redaction/
+retention, external-body/IR and environment/release engineering remains OPEN.
+Concrete registry/migration/trust/policy/mapping/activation approvals remain HOLD.
+`#1144` stays BLOCKED; `#1128` stays SUSPENDED / NOT_EVALUATED with no numerical
+or baseline qualification credit and no automatic reactivation.
+
+Final ref observation at 19:42:34 UTC: dedicated integration is still
+`634ab304af404a6eabe83b2a5111c773872d55ca`; SecurityTestImplimation is still
+`35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1`; private Spec Main is still
+`850a5d9376db11e75235cf55e03ebed4de9c0510`. Public Main is now
+`3a8b2d7fc54963991bca82156eccd8a4beb3f344` through the external 19:10:21 UTC
+merge of #1672 (parents `481b5577`, `7892d745`). That operational Node coverage
+merge was not performed by this task and is not incorporated into these
+ProjectIDE candidates. The original checkout remains clean on its unrelated
+`40a1d180` Test branch. This is a timestamped observation, not a promise about
+subsequent external ref movement.
+
+### Full runtime failures and environment-identity correction — 2026-11-06
+
+The configured broader isolated runtime runner at `6f0ceaeb` completed **336
+PASS / 17 FAIL / 0 skipped**, observing all 353 required cases with no missing
+method identities. It retained six-assembly byte reconciliation, exact candidate
+verification and owned cleanup. Twelve failures include role-dependency cleanup
+SQLSTATE `2BP01`; five include database read timeouts. These are observed failure
+mechanisms, not proof that the underlying security assertions all succeeded.
+Report SHA-256 is `bd98dee6403e317ac6165641cd20c3569e04349d8e378547dfc0291d06fd0057`;
+raw TRX SHA-256 is `db25b78eb88c2c5fb004e255c5f04c808c0c7af6aaa0257a289cdf7525b30ec8`.
+The detailed sanitized report is retained privately. The earlier 71-case bounded
+success does not qualify this full run.
+
+A separately labelled `DOTNET_PROCESSOR_COUNT=2` experiment at that same SHA
+exceeded the unchanged ten-minute execution deadline. It remains ERROR, with
+`timedOut=true`, no complete TRX/observation and UNVERIFIED dependency/candidate
+qualification; owned cleanup succeeded. Its report SHA-256 is
+`1602dc5e2403b36127b6f75905391d0e17ee23871d8a4a09f12f5626d80d38a2`.
+No passing subset is substituted for the missing complete result.
+
+[Fixture Test #1728](https://github.com/NYGsatoshi/Coglatas/pull/1728) fixes an
+observed reporting gap: the runtime environment hash omitted the inherited
+processor override. Candidate `93e69ea26d29ecbcb0b5f48b4acc71a3471e3c40` records
+only the explicit non-secret requested setting, rejects ambiguous values and
+retains all timeout/denial/cleanup controls. Seventeen Node controls pass.
+Requested settings do not establish measured quota or effective concurrency.
+Old receipts cannot prove the requested-profile equivalence; their original
+bytes and failures remain intact. This is a separate Test/tooling PR, with no
+Product authority, database policy, production or numerical activation.
+
+Verification-only `8ee1980e2921b24eb04da04b07ec52db8927d302` composes that fixture
+correction and the acquisition Test analyzer correction. Twenty-two Node controls
+(17 fixture and five hash controls) pass. A separately recorded four-processor
+runtime experiment uses this new exact candidate; it cannot inherit `6f0ceaeb`
+successes. Dedicated integration remains unchanged pending review. The normal
+19:12 UTC CodeRabbit retry on #1721 was still rate-limited; CLI agent status
+remains `not_authenticated`. No review or merge success is inferred.
+
+### Current component verification and retained suspension — 2026-11-06
+
+CodeRabbit's 18:19 UTC reply independently inspected corrected acquisition
+Product `25f97851` and explicitly verified the finding is addressed; it did not
+run the tests or inspect the separate Test commit. Its prerequisite of fresh
+exact-head CI now holds. This is scoped Product fix verification, not independent
+approval of the separate Test PR or a blanket review of the other batches.
+The reply belongs to [the original review thread](https://github.com/NYGsatoshi/Coglatas/pull/1726#discussion_r4484197793).
+
+Acquisition Test `2f1fc335281191ea69bd817a3f76b2a219df7fc9` now passes the
+current ordinary checks, including ReSharper. Its
+[hosted run 42087174522](https://github.com/NYGsatoshi/Coglatas/actions/runs/42087174522)
+passes Windows and Ubuntu with 1,003 ProjectIDE and 12 architecture cases per
+host. Downloaded artifacts 13443188542 (Windows) and 13444061086 (Ubuntu) have
+verified ZIP SHA-256 `d9888ad03c3461b35eeea34acc79b83968a08f35799fa2ef857a027d115ba317`
+and `c444b1155b0912bab3711da007de319e8178270a1ab4124fa5bac1fb74240093`.
+Both exact candidate stamps, TRX digests, complete inventories and all retained
+928/12 identities reconcile. No final independent approval is inferred.
+
+At verification-only composition `6f0ceaeb7baf8b738234fc931883fca6db295af2`,
+the existing pinned isolated Kafka fixture passes all 16 actual broker controls,
+including authenticated positives, real read/write/group/cluster denials, ACL
+mutations/restoration and replay/tenant-payload controls. The report verifies the
+clean candidate and owned cleanup; SHA-256 is
+`bf35586dd7dbea6e02167c23a245e8b4f2bab91a7530b15866aa91b618a51e44`.
+Its first run passed the individual controls but correctly returned UNVERIFIED
+after the reconciliation script created an untracked Python cache. That report
+is retained; the clean rerun is a separate observation. No product broker,
+consumer/Outbox equivalence, production network/TLS or trusted CI attestation is
+established by this local synthetic fixture.
+
+The same composition passes 71/71 existing PostgreSQL/API/SignalR/service cases
+with zero skips using the existing migrated-template option and two xUnit
+workers. Raw TRX SHA-256 is
+`c2a67e49fd0e45c1157a2dcb5bd0cb6660ae905324c1f5b04fe30c19ecc2646f`.
+The earlier default-parallel failures remain unresolved. Fresh model inventory
+and actual migrated PostgreSQL inventory tests pass one case each. A private
+candidate reconciles all 114 observed database objects, the 101 model tables,
+and the unchanged existing design categories; five missing/new/duplicate/
+identity-scope/tenant-column mutations are rejected. Detailed identities remain
+private. Identity agreement does not approve SQL/GRANTs, operations, bootstrap
+roles, production RLS or #1144 exit. Broader configured isolated runtime execution
+is tracked separately and cannot inherit these component successes.
+
+The committed-byte baseline audit retains 27 baseline files and two historical
+enrollments. Original campaign decisions remain two BASELINE_UNAVAILABLE and one
+BASELINE_CANDIDATE; the enrolled workflow's recorded failure stays a failure.
+No baseline was enrolled, resampled, promoted or rewritten. Local audit SHA-256:
+`34e9f4802cf26e50c4f5eb54d88c4c59539edae133061d4c60d2e56d5b6385f9`.
+API 13 scenarios x 6 metrics retain the 78-evaluation requirement; DB structural
+28 and Small/Medium nine each remain unchanged. Nine suspension tests, four
+approval-history tests and nine environment-class tests pass. Both exact-source
+assurance receipts remain SUSPENDED / NOT_EVALUATED with all acceptance and
+baseline qualification credit false and automatic reactivation false. This is
+inventory/governance verification, not a numerical campaign or SLA evidence.
+
+An additional external Main merge of #1720 at 18:22:57 UTC advanced Main to
+`481b557745c6dd9f1826e78408009d872388d8a8` (parents `8319300f` and `f7523e45`).
+It is unrelated runtime APT work, was not performed by this task and is not
+incorporated into these ProjectIDE candidates. The dedicated integration and
+SecurityTestImplimation observations remain `634ab304` and `35fa0b8b`.
+
+### Composed foundations and reviewed acquisition correction — 2026-11-06
+
+The verification-only branch `verify/projectide-foundations-20261106` composes
+the three separate Product/Test batches with ordinary merge commits at
+`6f0ceaeb7baf8b738234fc931883fca6db295af2`. It is not the dedicated integration
+branch, an activation, or a combined Product/Test ownership PR. Local Windows
+Release solution build passes with warnings as errors and zero warnings/errors;
+1,026 ProjectIDE cases and 12 architecture cases pass with zero failures/skips.
+Five Node hash controls and six inventory/ownership controls pass. Strict TRX
+reconciliation retains every 928/12 baseline identity. Local composed receipt
+SHA-256 is `408e29e51b3bfee2db19deffe6cd717369c7cdd5538fa50aae1b706cffcca127`.
+This composed SHA has no hosted cross-platform or all-adapter SEC-ARCH attestation.
+
+Downloaded hosted ZIPs, exact candidate stamps, both TRX digests, complete test
+inventories and retained baseline identities independently reconcile:
+
+| Test candidate | Hosted run | Windows / Ubuntu artifacts | Cases per host (ProjectIDE / architecture) |
+| --- | --- | --- | --- |
+| `4f5c2bcaa1db928469d92ec979f22017a1ca4cb8` | [42080367384](https://github.com/NYGsatoshi/Coglatas/actions/runs/42080367384) | 13441585122 / 13441070175 | 964 / 12 |
+| `b0e7d39556504acd4b1b3e233432337e442f4ea6` | [42083137656](https://github.com/NYGsatoshi/Coglatas/actions/runs/42083137656) | 13440499365 / 13441822374 | 987 / 12 |
+| `14ee3775e4f24e0cf436d0eb1aaf123e738f52b0` | [42084517646](https://github.com/NYGsatoshi/Coglatas/actions/runs/42084517646) | 13441723746 / 13441348758 | 1,003 / 12 |
+
+The corresponding ZIP SHA-256 pairs (Windows, Ubuntu) are:
+
+- Artifact: `da0982b917d0d79c89678509f7a2bd94e3081934b1bf8efb9e364c77a9e88478`, `069992c1714e7e20ecbd231b576a9abd9e2309f3f5c1e3622b807fd465c23050`.
+- Proof: `6bcacf639a45dc32378377c14c29d289410e9596a439af84065fe4661758d22f`, `7edd1437e07ad671964575a8da43d6e342a4092fb9912ad049b49443a42315e4`.
+- Acquisition: `6bc72d4089de0e0f635ced517a3e0272f2c3859a2adba3abc2f82516a830c8e6`, `29de7d27411adf4bab82406c7607a321198c53ed551680cf1529b914687156c2`.
+
+[CodeRabbit's acquisition review](https://github.com/NYGsatoshi/Coglatas/pull/1726#discussion_r4484197793)
+found a privacy issue: provider exceptions bypassed the post-read current-authority
+check. Product `25f978516fb17a11f0024ae63456fcdb12b16ea6` now rechecks authority
+before disclosing failed-read outcomes, passes the byte budget to the provider
+before construction, and caches the immutable canonical byte count. An independent
+regression added to the pre-fix `7308940b` composition fails as expected (Denied
+versus Failed); that original failure and patch SHA-256
+`792e9f0f379adcfd54e9ec3d6362d1468c4bcc3d4427c34293863b71c1a1cd02`
+are retained. Corrected acquisition tests pass 39/39, including six failed-read
+revocation controls. Resolving the review thread is not corrected-head approval.
+
+The three synthetic Unit fixtures measure 668, 16,027 and 1,500,667 canonical
+bytes for 0, 512 and 50,000 dimensions. The first two are Present and the last is
+Exhausted at the provisional 1,048,576-byte bound. These are fixture byte counts,
+not throughput, device qualification, production limits or numerical acceptance.
+The acquisition run above retains its six ReSharper warnings. Forward Test
+`2f1fc335281191ea69bd817a3f76b2a219df7fc9` preserves the assertions by recording
+provider arguments before asserting them and removing redundant casts; 39/39 pass
+locally and fresh full CI is pending. Earlier SHA results are not transferred.
+
+CodeRabbit's included allowance is one review per hour; other Product/Test review
+requests were rate-limited and the CLI remains unauthenticated. No protection,
+billing, review requirement or required check has changed. None of these seven
+PRs is merged. All engineering and formal approval gaps below remain open.
+
+### Subsequent executable batches and reconciliation — 2026-11-06
+
+The artifact Test candidate `c79880f45fb02b8b42823cac8929db1528de3764`
+passed [hosted Windows and Ubuntu parity](https://github.com/NYGsatoshi/Coglatas/actions/runs/42076326289):
+each has 964 ProjectIDE and 12 architecture cases, zero failed/skipped. Downloaded
+ZIPs independently match GitHub SHA-256:
+Windows `d2f199cfbd505b54342e024c381b29b939e9dbb4e5bea454b1c1a492eddbb9b2`,
+Ubuntu `2f649eb6dc6c42a3f0d0a464c923a3c5f46bb5fdbec0751d8d3cf523139cb0d5`.
+Decoded candidate stamps, full TRX/declared inventories and every retained
+928/12 baseline identity reconcile. Its later ReSharper failure identified a
+captured disposable callback and two redundant default arguments in new tests.
+The correction is a new forward Test commit and retains all assertions; fresh
+exact-head CI is required. Earlier host success is not final-head approval.
+
+[Proof Product #1724](https://github.com/NYGsatoshi/Coglatas/pull/1724) and
+[Proof Test #1725](https://github.com/NYGsatoshi/Coglatas/pull/1725) implement a
+synthetic DSSE/in-toto/RSA-PSS authentication experiment. It checks original
+signed bytes, full typed subject/input binding, expected Producer/workflow/run/
+source revision/environment and current registration/revocation twice. Key
+hints cannot establish authority. Successful proof remains diagnostic with
+`FormalEvidenceEligible=false`; no production OIDC/Sigstore root, registration,
+signing service or eligibility policy is activated. New proof cases pass 23/23;
+the combined 987-case inventory passed locally and in
+[both hosted environments](https://github.com/NYGsatoshi/Coglatas/actions/runs/42078881378)
+at Test `0a331cbb2e3f73ddc31211b40c953dd31f48f63b`. Subsequent callback-lifetime
+corrections have fresh CI pending. Work 16/17/18 is PARTIAL, with formal
+allowlist/roots and the remaining verifier/authorization/eligibility stages OPEN/HOLD.
+
+[Acquisition Product #1726](https://github.com/NYGsatoshi/Coglatas/pull/1726) and
+[Acquisition Test #1727](https://github.com/NYGsatoshi/Coglatas/pull/1727) add one
+named synthetic Unit source and an immutable separately hashed Unit body,
+reusing existing UnitDefinition semantics. It requires explicit capability,
+source allowlist, exact current actor/Source/Tenant/Project/Branch/revision and
+post-read current-authority recheck before disclosing body or absence. No URL
+or production provider is enabled. Scope/body/target substitution, revocation,
+cancellation, unsupported kind, source failure and byte exhaustion carry no
+successful body. New cases pass 23/23 and combined local inventory 987/987 at
+Test `9ed8768b9d69fe0323176e83089a957a3bbda4db`; final hosted/review checks remain
+pending after callback cleanup. Work 23/24 is PARTIAL for this Unit-only seam;
+Calendar/Document/Tenant Resource bodies, durable external-body import, complete
+transitive closure and external executable IR remain OPEN/HOLD.
+
+The existing security subset executes 71 cases on actual pinned PostgreSQL 18.6.
+Default-parallel Windows runs yielded 68 PASS / 3 FAIL and 60 PASS / 11 FAIL,
+with read/drop cleanup failures retained. A focused recheck passed 3/3. The same
+71-case subset passed 71/71 with existing migrated-template mode and
+`xUnit.MaxParallelThreads=2`, zero skips, without assertion/timeout changes.
+Docker reported 22 CPUs and 7,004,659,712 memory bytes. This bounded experiment
+does not resolve the default-parallel reliability gap or establish all-adapter
+coverage, product roles/policies/activation, SEC-ARCH exit or numerical assurance.
+The six inventory/ownership controls and suspension validator also pass.
+
+The private specification candidate includes the adopted directions, independently
+reviewable artifact syntax and synthetic proof/acquisition/environment packets.
+Schema draft 2020-12 self-validation and one positive/three rejection controls pass
+with isolated jsonschema 4.26.0. Formal allocation, trust/eligibility, mapping and
+activation approvals remain held. No private specification content is copied here.
+
+Normal review remains unavailable: explicit CodeRabbit requests on #1721/#1722
+and #1724/#1725 returned rate limiting, and the separate CLI login timed out.
+No independent approval or merge is claimed. Product/Test branches retain their
+explicit dependencies and will target only the dedicated integration after
+upstream qualification; no Required Check or protection is relaxed.
+
+External ref movement was observed: Main advanced from starting `0af698ee` to
+`8319300f11e5aca5216f31ca7a3dc1eb91bd9d99` through the already-existing
+Announcement Test PR #1694. This task did not merge or push it and did not
+incorporate it. Dedicated integration remains `634ab304`; SecurityTestImplimation
+remains `35fa0b8b`. The original checkout and its unrelated work are preserved.
+
+## Owner recommendation adoption execution — 2026-11-06
+
+This section records the new instruction and actual work separately from the
+historical continuation below. The owner adopts the recommended design directions
+for work numbers 1..48, including explicit HOLD/suspension directions. These are
+work numbers, not new formal Decision IDs. Reuse A-R2, IDE-START-01..08,
+SA-01..08 and existing canonical requirements; no registry is reallocated here.
+Formal schema/migration, trust/eligibility, mapping, disclosure and environment
+activation approvals remain specific gates. Incomplete engineering work stays
+OPEN; it is not relabelled HOLD merely because its eventual activation needs
+approval.
+
+### Starting observation and ownership
+
+Fresh GitHub observation and `git ls-remote` agreed:
+
+| Ref | Starting SHA |
+| --- | --- |
+| ProjectIDE dedicated integration | `634ab304af404a6eabe83b2a5111c773872d55ca` |
+| Main (observation only) | `0af698eeb16f40f929ce3ac94875dc437d3d7fd1` |
+| SecurityTestImplimation (observation only) | `35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1` |
+
+All 45 open PRs were enumerated in the complete first page (page size 100);
+none was an outstanding ProjectIDE PR. Reacquired required issues:
+#905/#798/#888, #1029/#1030/#1031/#1034/#1035/#1036,
+#1144/#1145–#1152/#1156–#1158, #842/#614/#1128, and #906.
+Current comments on #888/#798/#905/#1034/#1144 were read. The private Spec
+main/approved decision records and prototype allocation conflicts were audited
+in their authorized location. Private content is not reproduced here.
+The starting issue timestamps, all open PR head/base tuples and ref observations
+are retained locally outside the repository in `github-start.json`.
+
+The original checkout was clean on an unrelated Test branch and remains intact.
+New Product, Test and Docs worktrees start from the dedicated integration.
+The new instruction supersedes older ProjectIDE test-base wording: no ProjectIDE
+change targets Main or SecurityTestImplimation. Final Product/Test integration
+requires reviewed ordinary merge commits into the dedicated branch.
+
+### Executed first implementation batch
+
+[Product #1721](https://github.com/NYGsatoshi/Coglatas/pull/1721) adds four
+data-only prototype artifact roles, complete typed SHA-256 identities, exact
+Source pins, declared/actual/input/receipt bindings, original-buffer recovery
+and bounded atomic offline indexing. Source bodies and artifact entries publish
+together. Existing canonical v1 JSON/digest/context/input primitives are reused;
+existing Source/Input/Result golden bytes are unchanged.
+
+Prototype names use `coglatas.prototype.*` and independently versioned domains.
+They are neither formal registry allocations nor newly enabled compiler/host
+paths. Unknown semantic members remain hashed/preserved and Unsupported.
+Nonempty external bundles remain Incomplete without supported body contracts.
+Successful index publication is not acquisition, trust, eligible evidence,
+Requirement satisfaction or executable transitive closure.
+
+[Test/CI #1722](https://github.com/NYGsatoshi/Coglatas/pull/1722) owns only
+Test/CI changes relative to its Product base. It includes substitution,
+unknown/version recovery, exact-context/settings, missing/partial/denied states,
+receipt binding, atomic failure, cancellation/disposal, concurrent import and
+bounded-work controls, plus fixed .NET/Node hash vectors. Its supplemental CI
+uses the existing trusted hosted-runner labels and verifies retained test
+identities. Required Checks, runner trust registry and CODEOWNERS are unchanged.
+Retarget the Test PR to the dedicated branch only after Product integration.
+
+Local Windows candidate `e7824ad3de450784d7022b98ba5aa0ab6f983e79` passed
+Release solution build with warnings as errors (0 warnings/errors), 964 full
+ProjectIDE cases, 12 architecture cases, six inventory/ownership negative
+controls and five independent Node hash controls. Strict TRX reconciliation
+retains all 928 preexisting ProjectIDE and all 12 architecture identities.
+Later namespace/workflow-only corrections need their own exact-head checks.
+
+Retained unsuccessful attempts: initial new cases 32 PASS / 2 fixture FAIL
+(existing canonical UTC requires seven fractional digits); initial no-restore
+solution build lacked two fresh-worktree tool assets; new Windows CI requested
+an unavailable Python binary; initial supplemental runner routing failed the
+existing registry; Product ReSharper found namespace/path disagreement. Fixtures,
+restore, available interpreter selection, approved static runner labels and
+namespace ownership were corrected without weakening checks.
+
+CodeRabbit skipped automatic review on nondefault bases. Explicit review
+requests for both PRs returned rate limiting. CLI 0.9.2 was available in WSL but
+unauthenticated; its initiated browser flow timed out. These are review
+prerequisite failures, not completed independent review. No merge is qualified.
+
+An additional isolated PostgreSQL 18.6 run reuses existing RLS/SignalR/TLS
+fixtures on the pinned CI image. Its first run has real failures, including
+SQLSTATE `2BP01` during fixture cleanup; final totals/cause remain under
+investigation. Do not promote it to RLS or SEC-ARCH PASS. Existing hosted
+representative results do not waive a failed local candidate run or the full
+coverage/approval gates.
+
+### Work-number disposition (not completion claims)
+
+PARTIAL means implementation/candidate work exists but the row's complete
+acceptance criteria do not yet hold. OPEN work remains authorized to continue.
+HOLD identifies only the explicit concrete approval/activation boundary.
+
+| No. | Work | Implementation / next executable step | Explicit gate |
+| --- | --- | --- | --- |
+| 1 | Independent artifact schemas | PARTIAL: four prototype roles and private syntax candidate | Formal registry allocation HOLD |
+| 2 | Canonical encoding | PARTIAL: existing v1 reused; new fixed vectors and host CI | Final cross-host evidence OPEN |
+| 3 | Hash domains | PARTIAL: full type/schema/encoding domains and framing controls | Formal domain assignment HOLD |
+| 4 | Typed identity | PARTIAL: full tuple/index comparison and substitution controls | Formal identity wire allocation HOLD |
+| 5 | Source pin | PARTIAL: existing tagged context plus exact Source schema/digest | Complete new-context matrix OPEN |
+| 6 | Manifest entries | PARTIAL: keys/kinds/targets/scope/reference-binding checks | Final entry/body vocabulary HOLD |
+| 7 | Versioned reference mapping | OPEN: candidate mapping stays separate from v1 AST | Formal mapping/migration HOLD |
+| 8 | Input association | PARTIAL: frozen existing settings and atomic validation | Production compiler adapter OPEN/HOLD |
+| 9 | Actual materialization | PARTIAL: distinct observation states and declared binding | Typed acquired bodies OPEN |
+| 10 | Receipt payload | PARTIAL: acyclic exact input/set/source capture | Formal receipt format HOLD |
+| 11 | Tagged contexts | Existing v1 reused; new pin integration PARTIAL | Full Proposal/Scenario matrix OPEN |
+| 12 | Preserve unknown | PARTIAL: retained semantic bytes, Unsupported and digest propagation | All body boundaries OPEN |
+| 13 | Compatibility/migration | PARTIAL: old-reader rejection and original recovery | Full migration/origin/rollback OPEN; scope approval HOLD |
+| 14 | Offline bundles | PARTIAL: atomic in-memory content index and Source bodies | Durable container and complete body closure OPEN |
+| 15 | Independent result axes | Existing execution/coverage/verdict/freshness preserved | New trust/authorization axes and verifier OPEN |
+| 16 | Producer allowlist | PARTIAL: synthetic registration/revocation only; exact workflow/service proposal OPEN | Formal allowlist HOLD |
+| 17 | Attestation | PARTIAL: synthetic DSSE/in-toto/RSA-PSS and candidate comparison | Root/keys/rotation/revocation HOLD |
+| 18 | Independent verifier | PARTIAL: synthetic protected proof and exact run/input checks | Host authorization/eligibility and production proof stages OPEN |
+| 19 | Current authorization | OPEN: Acquire/View/Export/Apply host adapters and negatives | Important authorization changes HOLD |
+| 20 | Eligibility policy | OPEN: exact Requirement/target/run policy candidate | Policy Owner approval HOLD |
+| 21 | Redacted projection | OPEN: separate identity and leakage matrix | Disclosure review HOLD |
+| 22 | Retention/Pin | OPEN: synthetic bounded retention/Pin candidate | Production values/deletion activation HOLD |
+| 23 | Explicit acquisition | PARTIAL: Unit-only current capability/allowlist and failure privacy controls | Real destinations/identities/transmission HOLD |
+| 24 | Typed external bodies | PARTIAL: immutable synthetic Unit; other body contracts OPEN | Formal body contracts HOLD |
+| 25 | Verified closure | OPEN: complete frontier/version/body/trust matrix | Unverified closure cannot execute |
+| 26 | Supported IR | Existing local graph semantics preserved | External executable lowering HOLD |
+| 27 | TMT/SPEC mapping | Existing private draft reused; exact packet OPEN | Personal Owner approval HOLD |
+| 28 | Canonical traceability | Existing tools reused; complete reconciliation OPEN | Material security-contract changes HOLD |
+| 29 | All-table classification | PARTIAL: current 114-object/101-model private identity reconciliation and five scope-loss controls | Exact semantics/operations qualification OPEN; approval HOLD |
+| 30 | RLS roles/policies | Existing isolated fixtures reused; coverage OPEN | Product RLS activation HOLD |
+| 31 | Isolated adapter environments | Existing API/PG/SignalR/Kafka/TLS fixtures reused | Same-candidate complete execution OPEN |
+| 32 | Migration/runtime | Existing recovery/pool/context tests reused; failures retained | Product migration/activation HOLD |
+| 33 | Security disclosure | Protected originals and private work retained | Public projection review HOLD |
+| 34 | Security exceptions | No new exception requested or granted | Exact scoped Owner approval HOLD |
+| 35 | Advisory to Blocking | Existing #842/#614 gates retained | Qualification/review OPEN; promotion HOLD |
+| 36 | Security Enforce | Disabled/explicit Shadow boundary retained | Enforce activation HOLD |
+| 37 | SEC-ARCH reconciliation | OPEN: full exact-source/build/environment/run/artifact coverage | #1144 remains BLOCKED |
+| 38 | Parallel clients | Existing Angular and synthetic Windows ViewModel retained | Native UI/IME activation HOLD |
+| 39 | Project data stages | Synthetic only; full staged qualification OPEN | Pilot/Production data connection HOLD |
+| 40 | Infrastructure | Modular monolith and Compose retained; measured trigger packets OPEN | Production infrastructure HOLD |
+| 41 | Measured limits | PARTIAL: three Unit byte fixtures; existing Find References 4096/64/32 preserved | Full limit/device matrix OPEN; guarantees HOLD |
+| 42 | Solver/library | No extra dependency introduced; necessity review OPEN | Unneeded adoption not justified |
+| 43 | Distribution | Candidate audience/environment/update packet OPEN | Actual distribution approval HOLD |
+| 44 | Release GO | Exact release/security/recovery/operations packet OPEN | RELEASE_NO_GO |
+| 45 | Measurement environment | Existing baseline/runner inventory audit OPEN | Numerical campaigns remain suspended |
+| 46 | Reproducibility/statistics | Preparation OPEN, no qualification credit | Approved method required before resumption |
+| 47 | Baseline inventory | PARTIAL: 27 committed baseline files and historical campaign states audited; artifact/source replay remains OPEN | No automatic enrollment or failed-to-PASS conversion |
+| 48 | Suspension/resumption | Suspension policy validator returns `suspended` | Explicit reviewed exact-Main resumption HOLD |
+
+`#1128` remains `assuranceMode=SUSPENDED`,
+`numericalDecision=NOT_EVALUATED`, `numericalAcceptanceCredit=false`,
+`baselineQualificationCredit=false`, `automaticReactivation=false`.
+Preserve API 78, DB structural 28, Small 9 and Medium 9 requirements.
+This first batch does not complete the 48-item mission. Remaining OPEN rows
+must not be closed on the strength of a decision document or synthetic PASS.
+
 ## Manifest / Evidence / Resource continuation — 2026-11-03
 
 Phase A reacquired #1657/#1658/#1653/#1654 through GitHub PR metadata, review
