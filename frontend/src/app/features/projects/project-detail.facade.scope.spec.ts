@@ -144,7 +144,7 @@ describe('ProjectDetailFacade initial response scope', () => {
         for (const request of requests) {
           const url = request.request.url;
           if (!lateSuccess) request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
-            : url.endsWith('/tasks') ? { items: [] } : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
+            : url.endsWith('/tasks') ? taskRows : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
         }
       }
       const earlyBoard = facade.view().kanban.snapshot, earlySchedule = facade.view().schedule.snapshot;
@@ -155,7 +155,7 @@ describe('ProjectDetailFacade initial response scope', () => {
       if (lateSuccess) for (const request of extras) {
         const url = request.request.url;
         request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
-          : url.endsWith('/tasks') ? { items: [] } : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
+          : url.endsWith('/tasks') ? taskRows : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
       }
       const failedBoard = facade.view().kanban.snapshot, failedSchedule = facade.view().schedule.snapshot;
       const failedTasks = facade.view().tasks;

@@ -1747,18 +1747,25 @@ export class ProjectDetailFacade {
   }
 
   private queueTaskListRefresh(): void {
-    if (this.taskListRefreshPending || !this.projectId || !this.projectOperational)
+    const projectId = this.projectId;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    if (this.taskListRefreshPending || !projectId || !workspaceId || !this.projectOperational)
       {return;}
     this.taskListRefreshPending = true;
     queueMicrotask(() => {
+      if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {return;}
       this.taskListRefreshPending = false;
-      this.refreshTaskList();
+      if ((this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId)
+        {this.refreshTaskList();}
     });
   }
 
   private refreshTaskList(): void {
     const projectId = this.projectId;
-    if (!projectId || !this.projectOperational)
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    if (!projectId || !workspaceId || !this.projectOperational)
       {return;}
     if (this.taskListRefreshInFlight) {
       this.taskListRefreshAfterFlight = true;
@@ -1790,6 +1797,11 @@ export class ProjectDetailFacade {
     ).subscribe((result) => {
       if (flightGeneration === this.taskListRefreshFlightGeneration)
         {this.taskListRefreshInFlight = false;}
+      if ((this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId) {
+        if (flightGeneration === this.taskListRefreshFlightGeneration)
+          {this.taskListRefreshAfterFlight = false;}
+        return;
+      }
       if (this.projectId !== projectId ||
           loadGeneration !== this.loadGeneration ||
           authorizationGeneration !== this.authorizationGeneration) {
