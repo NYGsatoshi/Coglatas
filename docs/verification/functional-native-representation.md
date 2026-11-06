@@ -17,6 +17,14 @@ cases, assertions, intentional first-failure/retry controls, privacy checks, sou
 scope, native reporters and the scanner's single existing import are preserved.
 No actual browser acceptance configuration or product module changes.
 
+The existing native-mapping regression deliberately retains both transformed
+modes using `COGLATAS_TEST_FORCE_MJS_TRANSFORM=1` only in its nested Thread
+fixture invocation. That control already removes `NODE_V8_COVERAGE`, so its
+intentional invalid-coordinate report cannot contaminate producer raw input.
+Its original undefined-coordinate rejection, mapped report validation, source
+retention and covered/uncovered branch assertions remain unchanged. Ordinary
+Thread controls use native MJS; the six-source guard rejects transformed input.
+
 Before scanner credentials, the producer verifies six affected helpers against
 their exact Git bytes using the existing trusted Git executable. Every retained
 raw record for those URLs must have valid ranges within the original UTF-16

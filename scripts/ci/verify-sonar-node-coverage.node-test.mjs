@@ -72,6 +72,9 @@ await test('native mapping repairs actual Playwright transforms while retaining 
   const assertOwned = () => { assert.ok(directory.startsWith(tempRoot + sep)); assert.ok(directory.slice(tempRoot.length + 1).startsWith('coglatas-node-map-control-')); };
   assertOwned(); t.after(() => { assertOwned(); rmSync(directory, { recursive: true, force: true }); });
   const environment = { ...process.env }; delete environment.NODE_V8_COVERAGE; delete environment.NODE_OPTIONS; delete environment.NODE_TEST_CONTEXT;
+  // Keep both original transform modes as a negative/positive mapping control.
+  // This nested control has no NODE_V8_COVERAGE and cannot enter the producer's raw input.
+  environment.COGLATAS_TEST_FORCE_MJS_TRANSFORM = '1';
   const execute = mapped => {
     const output = join(directory, mapped ? 'mapped.lcov' : 'raw.lcov');
     const args = [...(mapped ? ['--enable-source-maps'] : []), '--test', '--experimental-test-coverage', '--test-coverage-exclude=**/*.node-test.mjs',
