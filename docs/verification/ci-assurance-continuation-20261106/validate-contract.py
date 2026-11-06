@@ -179,7 +179,12 @@ def validate_contract(folder: Path = HERE, root: Path = ROOT,
         if anchor['mode'] == 'unchanged':
             expected_oid = subprocess.run(['git', 'rev-parse', anchor['sourceSha'] + ':' + anchor['path']],
                                           cwd=root, capture_output=True, check=True).stdout.strip()
-            current_oid = subprocess.run(['git', 'hash-object', '--path=' + anchor['path'], anchor['path']],
+            # Canonical Git text identity must be stable for a Windows CRLF
+            # checkout inspected by Linux Git without the Windows global config.
+            # This per-command clean conversion respects path attributes and
+            # does not change source files, raw artifacts or repository settings.
+            current_oid = subprocess.run(['git', '-c', 'core.autocrlf=input', 'hash-object',
+                                          '--path=' + anchor['path'], anchor['path']],
                                          cwd=root, capture_output=True, check=True).stdout.strip()
             require(current_oid == expected_oid, 'Retained evidence bytes changed.')
         elif anchor['mode'] == 'append-only':
