@@ -14,6 +14,10 @@ denied projections between fresh parent and collection responses. Eight controls
 reproduce that ordering for Board/Gantt, 401/403 and Task/Project events. Ordinary
 events retain denial both during and after navigation recovery; explicit
 authorization invalidation still clears and revalidates operational projections.
+An ordinary Gantt follow-up queued before a 401/403 is also discarded. Queued
+continuations recheck current scope and denial before dispatch; explicit
+authorization revalidation still recovers. Separate 401/403 controls first
+reproduce the forbidden extra GET while the other 136 controls remain passing.
 
 The initial detail load captures the selected Workspace identity with its
 existing Project/load/authorization generations. It rechecks that identity

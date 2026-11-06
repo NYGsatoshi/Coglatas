@@ -1666,6 +1666,11 @@ export class ProjectDetailFacade {
   }
 
   private scheduleFollowUpRefresh(projectId: string): void {
+    if (this.state().status === 'permissionDenied' || this.state().schedule.status === 'permissionDenied') {
+      this.scheduleRefreshAfterFlight = false;
+      this.scheduleRefreshAfterFlightFeedback = undefined;
+      return;
+    }
     if (!this.scheduleRefreshAfterFlight ||
         this.scheduleRefreshInFlight ||
         this.projectId !== projectId)
@@ -1673,7 +1678,15 @@ export class ProjectDetailFacade {
     const feedback = this.scheduleRefreshAfterFlightFeedback;
     this.scheduleRefreshAfterFlight = false;
     this.scheduleRefreshAfterFlightFeedback = undefined;
-    queueMicrotask(() => this.refreshSchedule(true, feedback));
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    queueMicrotask(() => {
+      if (this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+          (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId &&
+          this.state().status !== 'permissionDenied' && this.state().schedule.status !== 'permissionDenied')
+        {this.refreshSchedule(true, feedback);}
+    });
   }
 
   private queueTaskListRefresh(): void {
@@ -1979,13 +1992,20 @@ export class ProjectDetailFacade {
         {refreshSchedule = false;}
     }
 
+    const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const ordinaryRefreshIsCurrent = () => this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && this.state().status !== 'permissionDenied';
     if (refreshKanban && (this.interactionActive || this.moveInFlight))
       {this.refreshKanban(false);}
     else if (refreshKanban && !this.refreshPending) {
       this.refreshPending = true;
       queueMicrotask(() => {
         this.refreshPending = false;
-        this.refreshKanban(true);
+        if (ordinaryRefreshIsCurrent() && this.state().kanban.status !== 'permissionDenied')
+          {this.refreshKanban(true);}
       });
     }
 
@@ -1995,7 +2015,8 @@ export class ProjectDetailFacade {
       this.scheduleRefreshPending = true;
       queueMicrotask(() => {
         this.scheduleRefreshPending = false;
-        this.refreshSchedule(true);
+        if (ordinaryRefreshIsCurrent() && this.state().schedule.status !== 'permissionDenied')
+          {this.refreshSchedule(true);}
       });
     }
 
