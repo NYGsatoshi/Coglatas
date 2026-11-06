@@ -147,6 +147,17 @@ stops analysis; `sonar.javascript.lcov.reportPaths` supplies that report to the
 scanner. Coverage instrumentation is opt-in; ordinary frontend test commands
 are unchanged. No production file is excluded to improve the metric.
 
+Before scanner credentials are injected, the job retains this exact LCOV file
+as the `sonar-frontend-coverage` artifact for seven days. The upload uses the
+same pinned artifact action as the other native reports and also runs after a
+failed collection; a missing file remains an error. Original report bytes,
+including zero-hit rows and branch counts, are uploaded without conversion or
+filtering. Use the provider's run, source SHA, attempt and artifact digest to
+bind a downloaded report before checking its full source mapping. An uploaded
+report from a failed job is diagnostic evidence, not successful coverage or a
+passing Quality Gate. This retention step adds no producer or scanner import
+and makes no coverage improvement claim.
+
 The reporter roots LCOV source paths at the repository, matching the scanner
 rather than Angular's working directory. The earlier V8 candidate `ab873953`
 failed its first hosted coverage run40724553982/1 before scanner begin: 1,917
