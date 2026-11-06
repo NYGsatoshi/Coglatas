@@ -317,9 +317,9 @@ public sealed class AnnouncementLegacyLifecycleContractTests
         // Exercise the service boundary independently of that constructor guard.
         var result = operation == "create"
             ? await fixture.Service.CreateAsync(new CreateAnnouncementRequest(null, null, null, "Valid", "Valid body",
-                PublishedAt: Fixture.Now, ExpiresAt: expires) with { Title = title, Body = body }, fixture.Token)
+                PublishedAt: Fixture.Now, ExpiresAt: expires) { Title = title, Body = body }, fixture.Token)
             : await fixture.Service.UpdateAsync(fixture.Announcement.Id,
-                new UpdateAnnouncementRequest(PublishedAt: Fixture.Now, ExpiresAt: expires) with { Title = title, Body = body }, fixture.Token);
+                new UpdateAnnouncementRequest(PublishedAt: Fixture.Now, ExpiresAt: expires) { Title = title, Body = body }, fixture.Token);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
