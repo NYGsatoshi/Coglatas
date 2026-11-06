@@ -371,26 +371,15 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     // away from zero. Include the summary when both fit so Shift+Tab keeps the
     // first member visible; an oversized row exposes its beginning instead.
     for (let outer = list.parentElement; outer; outer = outer.parentElement) {
-      const isRoot = outer === document.scrollingElement;
-      const style = getComputedStyle(outer);
       if (outer.clientHeight <= 0 || outer.scrollHeight <= outer.clientHeight ||
-          (!isRoot && !/(auto|scroll|hidden)/.test(style.overflowY))) continue;
-      const box = outer.getBoundingClientRect();
-      const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
-      const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
-      const scrollbar = Math.max(0, outer.offsetHeight - outer.clientHeight - borderTop - borderBottom);
-      // DOMRect retains fractional clipping edges; integer clientHeight does
-      // not. The inset also covers rounded scrollbar accounting. Document
-      // scrolling uses viewport coordinates, never the scrolled root rectangle.
-      const top = isRoot ? 1 : box.top + borderTop + 1;
-      const bottom = isRoot ? window.innerHeight - 1 : box.bottom - borderBottom - scrollbar - 1;
-      const height = bottom - top;
-      if (height <= 0) continue;
+          (outer !== document.scrollingElement && !/(auto|scroll|hidden)/.test(getComputedStyle(outer).overflowY))) continue;
+      const top = outer.getBoundingClientRect().top + outer.clientTop;
+      const bottom = top + outer.clientHeight;
       const row = firstRow.getBoundingClientRect();
       const heading = summary?.getBoundingClientRect();
       const start = Math.min(row.top, heading?.top ?? row.top);
       const end = Math.max(row.bottom, heading?.bottom ?? row.bottom);
-      const delta = end - start > height ? Math.floor(row.top - top)
+      const delta = end - start > outer.clientHeight ? Math.floor(row.top - top)
         : start < top ? Math.floor(start - top)
         : end > bottom ? Math.ceil(end - bottom) : 0;
       if (delta) outer.scrollBy({ top: delta, behavior: 'instant' });

@@ -131,7 +131,7 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     try {
       await Promise.resolve();
       expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
-      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 151, behavior: 'instant' });
+      expect(outer.scrollBy).toHaveBeenCalledWith({ top: 150, behavior: 'instant' });
     } finally { next.fixture.destroy(); outer.remove(); }
   });
 
@@ -148,7 +148,9 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     outer.getBoundingClientRect = () => ({ top: kind === 'document' ? -200 : 0,
       bottom: kind === 'document' ? 800 : 100.75 } as DOMRect);
     let scrolled = 0;
-    outer.scrollBy = vi.fn((options: ScrollToOptions) => { scrolled += options.top ?? 0; });
+    outer.scrollBy = vi.fn((options?: ScrollToOptions | number, y?: number) => {
+      scrolled += typeof options === 'number' ? y ?? 0 : options?.top ?? 0;
+    });
     next.firstRow.getBoundingClientRect = () => ({ top: (kind === 'document' ? 150 : 80) - scrolled,
       bottom: (kind === 'document' ? 200 : 100.9) - scrolled } as DOMRect);
     const summary = next.fixture.nativeElement.querySelector('summary') as HTMLElement;
