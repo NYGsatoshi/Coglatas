@@ -8,7 +8,7 @@ URL. The native Node mapper could combine those transformed and original ranges
 in an order-dependent way, even when the source map's original content matched
 Git. Sorting input files would select a result rather than fix collection.
 
-The generated Playwright configurations in the five affected Node control suites
+The generated Playwright configurations in the six affected Node control suites
 set `build.external` to `['**/*.mjs']`. This is the documented
 [Playwright transpilation setting](https://playwright.dev/docs/api/class-testconfig#test-config-build),
 not a coverage exclusion. Those files already run as native MJS in the parent
@@ -16,6 +16,11 @@ controls. TypeScript fixtures still use the existing transpiler. Existing test
 cases, assertions, intentional first-failure/retry controls, privacy checks, source
 scope, native reporters and the scanner's single existing import are preserved.
 No actual browser acceptance configuration or product module changes.
+
+The first expanded hosted execution passed all 388 tests but failed the guard:
+three Thread matrix child records still transformed four helpers. The matrix
+suite's generated configuration now uses the same native-MJS setting. Its valid,
+incomplete and intentional-failure controls and privacy assertions are preserved.
 
 The existing native-mapping regression deliberately retains both transformed
 modes using `COGLATAS_TEST_FORCE_MJS_TRANSFORM=1` only in its nested Thread
