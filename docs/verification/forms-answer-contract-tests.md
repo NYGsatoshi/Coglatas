@@ -4,7 +4,7 @@ This test-only extension covers the existing Application FormService under
 the Student Council pilot quality work in #615. It does not replace the
 previous Forms authority work in #1678 or change product behavior.
 
-The 41 added cases exercise typed text, Boolean, date, number and choice
+The 45 added cases exercise typed text, Boolean, date, number and choice
 normalization through SubmitResponseAsync; malformed or foreign/duplicate
 question admission; optional empty answers; inclusive open/close boundaries;
 and anonymous DTO masking with duplicate-response rejection. They inspect
@@ -32,3 +32,11 @@ additive Main Sonar improvement. Original report bytes remain unchanged.
 
 Specification baseline: 850a5d9376db11e75235cf55e03ebed4de9c0510.
 No Owner HOLD, finding disposition or Release GO is changed.
+
+Independent source inspection6674980499 found no blocking defect and proposed
+four test improvements. The follow-up retains every existing assertion, adds
+the exact expected validation error in all 16 invalid-answer cases, adds two
+dates crossing UTC day boundaries, verifies a non-anonymous identity control,
+and rejects a malformed later answer without staging the earlier valid answer.
+The expanded 54-case cohort requires a fresh committed-source execution; the
+initial 50-case results above remain historical evidence.

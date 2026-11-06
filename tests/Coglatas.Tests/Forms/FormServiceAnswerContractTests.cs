@@ -16,6 +16,8 @@ public sealed partial class FormServiceTests
     [InlineData(FormQuestionType.Boolean, "true", "{}", "true", null)]
     [InlineData(FormQuestionType.Date, "2026-06-07T09:15:00+09:00", null, "2026-06-07", null)]
     [InlineData(FormQuestionType.Date, null, "\"2026-06-07\"", "2026-06-07", null)]
+    [InlineData(FormQuestionType.Date, "2026-06-07T00:30:00+09:00", null, "2026-06-07", null)]
+    [InlineData(FormQuestionType.Date, "2026-06-07T23:30:00-09:00", null, "2026-06-07", null)]
     [InlineData(FormQuestionType.Number, "1,234.50", null, "1234.50", null)]
     [InlineData(FormQuestionType.Number, null, "-12.5", "-12.5", null)]
     [InlineData(FormQuestionType.SingleChoice, " A ", null, "A", null)]
@@ -47,24 +49,24 @@ public sealed partial class FormServiceTests
     }
 
     [Theory]
-    [InlineData(FormQuestionType.Boolean, "yes", null)]
-    [InlineData(FormQuestionType.Boolean, null, "1")]
-    [InlineData(FormQuestionType.Boolean, null, "{broken")]
-    [InlineData(FormQuestionType.Date, "not-a-date", null)]
-    [InlineData(FormQuestionType.Date, null, "23")]
-    [InlineData(FormQuestionType.Number, "NaN", null)]
-    [InlineData(FormQuestionType.Number, null, "\"12\"")]
-    [InlineData(FormQuestionType.Number, null, "1e10")]
-    [InlineData(FormQuestionType.SingleChoice, "a", null)]
-    [InlineData(FormQuestionType.SingleChoice, null, "{}")]
-    [InlineData(FormQuestionType.MultipleChoice, null, "[\"A\",2]")]
-    [InlineData(FormQuestionType.MultipleChoice, null, "[\"A\",\" \" ]")]
-    [InlineData(FormQuestionType.MultipleChoice, null, "[\"C\"]")]
-    [InlineData(FormQuestionType.MultipleChoice, null, "[]")]
-    [InlineData(FormQuestionType.MultipleChoice, "A", null)]
-    [InlineData(FormQuestionType.ShortText, null, "\"answer\"")]
+    [InlineData(FormQuestionType.Boolean, "yes", null, "must be true or false.")]
+    [InlineData(FormQuestionType.Boolean, null, "1", "must be true or false.")]
+    [InlineData(FormQuestionType.Boolean, null, "{broken", "must be true or false.")]
+    [InlineData(FormQuestionType.Date, "not-a-date", null, "must be a valid date.")]
+    [InlineData(FormQuestionType.Date, null, "23", "must be a valid date.")]
+    [InlineData(FormQuestionType.Number, "NaN", null, "must be a valid number.")]
+    [InlineData(FormQuestionType.Number, null, "\"12\"", "must be a valid number.")]
+    [InlineData(FormQuestionType.Number, null, "1e10", "must be a valid number.")]
+    [InlineData(FormQuestionType.SingleChoice, "a", null, "must match one of the configured options.")]
+    [InlineData(FormQuestionType.SingleChoice, null, "{}", "is required.")]
+    [InlineData(FormQuestionType.MultipleChoice, null, "[\"A\",2]", "must be a JSON array of strings.")]
+    [InlineData(FormQuestionType.MultipleChoice, null, "[\"A\",\" \" ]", "must be a JSON array of strings.")]
+    [InlineData(FormQuestionType.MultipleChoice, null, "[\"C\"]", "contains an option that is not configured.")]
+    [InlineData(FormQuestionType.MultipleChoice, null, "[]", "requires at least one selected option.")]
+    [InlineData(FormQuestionType.MultipleChoice, "A", null, "must be a JSON array of strings.")]
+    [InlineData(FormQuestionType.ShortText, null, "\"answer\"", "is required.")]
     public async Task InvalidTypedAnswersRejectBeforeResponseAuditOrSave(
-        FormQuestionType type, string? text, string? json)
+        FormQuestionType type, string? text, string? json, string expectedErrorSuffix)
     {
         var (fixture, form, question, _) = CreateAnswerFixture(type);
 
@@ -73,6 +75,10 @@ public sealed partial class FormServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
+        var expectedPrefix = expectedErrorSuffix is "is required." or "requires at least one selected option."
+            ? $"Question '{question.QuestionText}' "
+            : $"Answer for '{question.QuestionText}' ";
+        Assert.Equal(expectedPrefix + expectedErrorSuffix, result.Error);
         Assert.Empty(fixture.StoredResponses);
         Assert.Empty(form.Responses);
         Assert.Equal(0, fixture.AuditCalls);
@@ -160,6 +166,42 @@ public sealed partial class FormServiceTests
         Assert.Single(Assert.Single(fixture.StoredResponses).Answers);
         Assert.Equal(1, fixture.AuditCalls);
         Assert.Equal(1, fixture.SaveCalls);
+    }
+
+    [Fact]
+    public async Task IdentifiedSubmissionReturnsTheCurrentStoredRespondentIdentity()
+    {
+        var (fixture, form, question, member) = CreateAnswerFixture(FormQuestionType.ShortText);
+
+        var result = await fixture.Service.SubmitResponseAsync(form.Id,
+            new SubmitFormResponseRequest([new SubmitFormAnswerRequest(question.Id, "answer")]));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(member.Id, result.Value!.RespondentUserId);
+        Assert.Equal(member.DisplayName, result.Value.RespondentDisplayName);
+        Assert.Equal(member.Email, result.Value.RespondentEmail);
+        Assert.Equal(member.Id, Assert.Single(fixture.StoredResponses).RespondentUserId);
+        Assert.Equal(1, fixture.AuditCalls);
+        Assert.Equal(1, fixture.SaveCalls);
+    }
+
+    [Fact]
+    public async Task MalformedLaterAnswerRejectsWithoutStagingTheEarlierValidAnswer()
+    {
+        var (fixture, form, first, _) = CreateAnswerFixture(FormQuestionType.ShortText);
+        var second = fixture.AddQuestion(form, FormQuestionType.Boolean, isRequired: true);
+
+        var result = await fixture.Service.SubmitResponseAsync(form.Id, new SubmitFormResponseRequest([
+            new SubmitFormAnswerRequest(first.Id, "valid"),
+            new SubmitFormAnswerRequest(second.Id, "not-a-boolean")
+        ]));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal($"Answer for '{second.QuestionText}' must be true or false.", result.Error);
+        Assert.Empty(fixture.StoredResponses);
+        Assert.Empty(form.Responses);
+        Assert.Equal(0, fixture.AuditCalls);
+        Assert.Equal(0, fixture.SaveCalls);
     }
 
     private static (FormFixture Fixture, InternalForm Form, FormQuestion Question, User Member) CreateAnswerFixture(
