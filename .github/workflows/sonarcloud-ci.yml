@@ -329,13 +329,74 @@ jobs:
             scripts/ci/verify-sonar-node-coverage.node-test.mjs
           test -s artifacts/sonar-node/lcov.info
           node scripts/ci/verify-sonar-node-coverage.mjs artifacts/sonar-node/lcov.info
+          env -u NODE_V8_COVERAGE node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { execFileSync } from 'node:child_process';
+          import { createHash } from 'node:crypto';
+          import { readdirSync, realpathSync, writeFileSync } from 'node:fs';
+          import { pathToFileURL } from 'node:url';
+          import { resolve } from 'node:path';
+          import { readOwnedRepositoryText, trustedGitExecutable } from './scripts/ci/verify-sonar-node-coverage.mjs';
+          const root = realpathSync(process.cwd()), sha = process.env.GITHUB_SHA;
+          assert.match(sha ?? '', /^[a-f0-9]{40}$/);
+          const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+          const paths = ['tests/functional/fixtures/functional-diagnostics.mjs',
+            'tests/functional/fixtures/messaging-observation.mjs',
+            'tests/functional/helpers/thread-probe-diagnostics.mjs',
+            'tests/functional/helpers/thread-probe-observation.mjs',
+            'tests/ui/helpers/group-keyboard-observation.mjs',
+            'tests/ui/helpers/search-drawer-observation.mjs'];
+          const subjects = new Map(paths.map(path => {
+            const source = readOwnedRepositoryText(root, path);
+            const original = execFileSync(trustedGitExecutable(), ['show', sha + ':' + path]);
+            assert.ok(original.equals(Buffer.from(source)), 'Source differs from Git: ' + path);
+            return [pathToFileURL(resolve(root, path)).href,
+              { path, sourceSha256: digest(original), utf16Length: source.length, records: 0 }];
+          }));
+          const originals = [];
+          for (const name of readdirSync('artifacts/sonar-node/raw').filter(name => /^coverage-.*\.json$/.test(name))) {
+            const text = readOwnedRepositoryText(root, 'artifacts/sonar-node/raw/' + name);
+            const raw = JSON.parse(text);
+            originals.push({ name, sha256: digest(text) });
+            for (const script of raw.result) {
+              const subject = subjects.get(script.url);
+              if (!subject) continue;
+              assert.ok(!raw['source-map-cache']?.[script.url]?.data,
+                'Functional helper was transpiled: ' + subject.path);
+              const ranges = script.functions.flatMap(fn => fn.ranges);
+              assert.ok(ranges.length > 0);
+              for (const range of ranges) {
+                assert.ok(Number.isInteger(range.startOffset) && Number.isInteger(range.endOffset) &&
+                  range.startOffset >= 0 && range.startOffset <= range.endOffset && range.endOffset <= subject.utf16Length,
+                  'Raw range differs from Git: ' + subject.path);
+                assert.ok(Number.isSafeInteger(range.count) && range.count >= 0, 'Invalid native hit count: ' + subject.path);
+              }
+              const end = Math.max(...ranges.map(range => range.endOffset));
+              assert.equal(end, subject.utf16Length, 'Raw coordinates differ from Git: ' + subject.path);
+              subject.records++;
+            }
+          }
+          assert.ok(originals.length > 0);
+          for (const subject of subjects.values()) assert.ok(subject.records > 0, 'Missing native source: ' + subject.path);
+          const report = readOwnedRepositoryText(root, 'artifacts/sonar-node/lcov.info');
+          const reported = new Set(report.split(/\r?\n/).filter(row => row.startsWith('SF:'))
+            .map(row => pathToFileURL(resolve(root, row.slice(3))).href));
+          for (const [url, subject] of subjects) assert.ok(reported.has(url), 'Missing LCOV source: ' + subject.path);
+          writeFileSync('artifacts/sonar-node/representation.json', JSON.stringify({
+            sourceSha: sha, nodeVersion: process.version, reportSha256: digest(report),
+            subjects: [...subjects.values()], rawFiles: originals, originalBytesRewritten: false,
+          }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+          console.log('Functional helper native coordinates match Git: ' + subjects.size + ' subjects.');
+          JS
 
       - name: Retain measured Node regression coverage
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sonar-node-coverage
-          path: artifacts/sonar-node/lcov.info
+          path: |
+            artifacts/sonar-node/lcov.info
+            artifacts/sonar-node/representation.json
           if-no-files-found: error
           retention-days: 7
 
