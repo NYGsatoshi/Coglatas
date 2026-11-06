@@ -16,13 +16,26 @@ const SHA = /^[0-9a-f]{40}$/;
 const TEST_ID = /^[0-9a-f]{64}$/;
 const ALLOWED_COUNT = 456;
 
+/** Reject discovery using a fixed diagnostic code, without source or child output. */
 const deny = value => { throw new Error('DISCOVERY_REFUSED:' + value); };
 
+/** Extract literal specs only while the canonical full invocation remains unchanged. */
 export function extractStaticSpecFiles(text) {
   if (typeof text !== 'string' || !text.length || text.length > 20000)
     deny('BAD_SOURCE_FILE');
   const matches = [...text.matchAll(/^const staticSuiteFiles = \[\r?\n([\s\S]*?)^\];/gm)];
   if (matches.length !== 1) deny('STATIC_SELECTION_NOT_UNIQUE');
+  const invocations = [...text.matchAll(/^    const child = spawn\(process\.execPath, \[\r?\n([\s\S]*?)^    \], \{/gm)];
+  const expectedInvocation = [
+    "playwrightCli, 'test', ...staticSuiteFiles, ...playwrightArgs,",
+    '...staticPlaywrightWorkerArgs(process.env, playwrightArgs),',
+    '...staticPlaywrightShardArgs(process.env, playwrightArgs),',
+  ].join(' ');
+  if (invocations.length !== 1 ||
+      invocations[0][1].trim().replace(/\s+/g, ' ') !== expectedInvocation)
+    deny('STATIC_INVOCATION_DRIFT');
+  if ([...text.matchAll(/^const playwrightArgs = process\.argv\.slice\(2\);\r?$/gm)].length !== 1)
+    deny('PASSTHROUGH_CONTRACT_DRIFT');
   const lines = matches[0][1].trim().split(/\r?\n/);
   if (lines.length !== 24) deny('STATIC_SELECTION_SIZE');
   const seen = new Set();
@@ -37,6 +50,7 @@ export function extractStaticSpecFiles(text) {
   return paths;
 }
 
+/** Validate source-only metadata; this does not attest execution or producer ownership. */
 export function verifySourceDiscovery(data, expectedSha, expectedCount = ALLOWED_COUNT) {
   if (!data || typeof data !== 'object' || Array.isArray(data) ||
       !SHA.test(expectedSha)) deny('SCHEMA');
@@ -81,6 +95,7 @@ export function verifySourceDiscovery(data, expectedSha, expectedCount = ALLOWED
   };
 }
 
+/** Admit only the fixed Security PR trial and its exact checked-out revision. */
 function requireContext(env) {
   if (env.COGLATAS_SOURCE_DISCOVERY_TRIAL !== '1' ||
       env.GITHUB_EVENT_NAME !== 'pull_request' ||
@@ -97,6 +112,7 @@ function requireContext(env) {
       git.stdout.trim() !== env.GITHUB_SHA) deny('SOURCE_CHECKOUT_MISMATCH');
 }
 
+/** Open the root through no-follow directory descriptors, rejecting symlink ancestors. */
 function openPinnedRootDirectory(root) {
   // Linux CI only. Each component is opened relative to the previous stable
   // directory descriptor; no pathname-only lstat/open race is accepted.
@@ -116,6 +132,7 @@ function openPinnedRootDirectory(root) {
   }
 }
 
+/** Exclusively persist a previously validated roster under pinned Linux parent handles. */
 export function persistNonpublishingRoster(data, root = ROOT) {
   if (process.platform !== 'linux' ||
       !constants.O_NOFOLLOW || !constants.O_DIRECTORY)
@@ -144,6 +161,7 @@ export function persistNonpublishingRoster(data, root = ROOT) {
 }
 
 
+/** List the original source suite, validate its finite receipt, then write it locally. */
 export function runSourceDiscovery(env = process.env) {
   requireContext(env);
   const raw = readFileSync(path.join(ROOT, 'tests/ui/run-angular-playwright.mjs'), 'utf8');
@@ -209,6 +227,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       : undefined;
     const approved = new Set([
       'BAD_SOURCE_FILE', 'STATIC_SELECTION_NOT_UNIQUE', 'STATIC_SELECTION_SIZE',
+      'STATIC_INVOCATION_DRIFT', 'PASSTHROUGH_CONTRACT_DRIFT',
       'INVALID_STATIC_SELECTION', 'SCHEMA', 'UNTRUSTED_DISCOVERY',
       'UNEXPECTED_TEST_COUNT', 'NONCANONICAL_SOURCE_TESTS', 'SOURCE_DIGEST',
       'SKIP_BASELINE_DRIFT', 'DECLARED_SKIP_EXCEEDS_BASELINE',

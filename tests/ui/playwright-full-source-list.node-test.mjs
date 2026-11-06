@@ -53,6 +53,28 @@ test('duplicate source selectors, arbitrary JS and unknown test files are reject
   }
 });
 
+test('source discovery rejects filtered invocation and extra selectors while preserving argument helpers', () => {
+  const runner = readFileSync('tests/ui/run-angular-playwright.mjs', 'utf8');
+  assert.equal(extractStaticSpecFiles(runner).length, 24);
+  for (const changed of [
+    runner.replace('...staticSuiteFiles, ...playwrightArgs,',
+      '...staticSuiteFiles.filter(() => false), ...playwrightArgs,'),
+    runner.replace('...staticSuiteFiles, ...playwrightArgs,',
+      "...staticSuiteFiles, '--grep=partial', ...playwrightArgs,"),
+    runner.replace('...staticSuiteFiles, ...playwrightArgs,',
+      '...staticSuiteFiles, ...playwrightArgs.slice(0, 1),'),
+    runner.replace('...staticPlaywrightWorkerArgs(process.env, playwrightArgs),',
+      '...staticPlaywrightWorkerArgs(process.env, []),'),
+    runner.replace('...staticPlaywrightShardArgs(process.env, playwrightArgs),',
+      "'--project=chromium-desktop',"),
+    runner.replace('const playwrightArgs = process.argv.slice(2);',
+      "const playwrightArgs = ['--grep=partial'];"),
+  ]) {
+    assert.notEqual(changed, runner);
+    assert.throws(() => extractStaticSpecFiles(changed), /DISCOVERY_REFUSED/);
+  }
+});
+
 test('valid list reporter emits one source-only, privacy-safe discovery record', () => {
   const { reporter, stdout } = report();
   assert.equal(reporter.printsToStdio(), true);

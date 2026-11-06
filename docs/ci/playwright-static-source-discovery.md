@@ -92,3 +92,28 @@ created with `O_EXCL|O_NOFOLLOW` and permissions `0600`. This avoids
 a pathname-only `lstat` to `open` race involving symlink substitutions.
 Failures never echo the raw JSON/test names, and the local roster is not
 uploaded. This is not an independent GitHub producer or retry attestation.
+
+## Review follow-up: source list and protected invocation agreement
+
+Independent CodeRabbit review `5794325762` at head `64ba845f` identified a
+selection-drift gap: reading the unchanged file array did not reject a later
+filter or additional selector in the protected runner's invocation. The existing
+shard/worker guards covered their helper modes, not that source-call change.
+The new regression failed before repair and is retained as a local harness
+failure, separate from the earlier successful native run.
+
+Discovery now also requires the one canonical spawn argument sequence to pass
+the full `staticSuiteFiles`, original `playwrightArgs`, and both original bounded
+worker/shard helpers unchanged. The passthrough remains `process.argv.slice(2)`.
+Filtered arrays, extra grep/project selectors, altered passthrough and changed
+helper arguments reject with finite source-contract codes. This is a bounded
+literal-source contract, not a general JavaScript semantic verifier. Legitimate
+invocation changes need an explicit reviewed update to this contract.
+
+The original runner/configuration, supported passthrough/helper behavior and
+full browser suite remain untouched. Linux verification passed eleven discovery
+controls plus the existing four shard and seven worker controls (22 total).
+Function docstrings clarify the limited discovery/file/context contracts; the
+review service's default docstring-coverage result still requires a fresh check.
+The new head requires its own native source-list/full-suite execution and
+independent review; the old exact-head success does not qualify this repair.
