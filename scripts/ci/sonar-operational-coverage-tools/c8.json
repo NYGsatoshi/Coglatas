@@ -6,7 +6,10 @@
     "scripts/ci/verify-os-portability-results.mjs",
     "scripts/ci/compat-critical-contract.mjs",
     "tests/ui/fixed-sha-evidence.mjs",
-    "tests/ui/real-backend-authorization-frame.mjs"
+    "tests/ui/real-backend-authorization-frame.mjs",
+    "scripts/security/sec-arch-runtime-options.mjs",
+    "scripts/security/sec-arch-runtime-assemblies.mjs",
+    "scripts/security/sec-arch-kafka-acls.mjs"
   ],
   "exclude": ["**/node_modules/**"],
   "exclude-after-remap": false,
