@@ -1,0 +1,662 @@
+{
+  "schemaVersion": 1,
+  "observedFromUtc": "2026-11-06T04:41:52.384484+00:00",
+  "observedThroughUtc": "2026-11-06T04:43:16.728855+00:00",
+  "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "repository": "NYGsatoshi/Coglatas",
+  "sources": [
+    {
+      "path": "governance/policy.json",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "9d523c05dcbca8e64f62c19996b1dd4523205be28349461da5f51c5fc808a35f"
+    },
+    {
+      "path": "governance/required-checks.json",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "19c4ac15e8e5eb0ebc886fb3a8db141d87f0a0fd5a4f70ad2c7a1af897d6578e"
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "527d63a670bc046f875592f4f3c543513d3f666cec437b6effeadd5f490ee999"
+    },
+    {
+      "path": "governance/rulesets/01-public-main-owner-controlled.json",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "14cd55ce5b5f0dc7743e46f0416e4284177f09fdd1e3dd9116fcff3f6a7e62b8"
+    },
+    {
+      "path": "governance/rulesets/02-prreview-owner-bypass.json",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "b4b5940fb4029efda9d2e952bf3d6f3ecda6e87b536ea051a27fd91df3aea0b2"
+    },
+    {
+      "path": "governance/rulesets/03-owner-merge-authority.json",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "4357bb397479a760a918c0156d78282b81ee9589bb8386d302ae25a92af2c24c"
+    },
+    {
+      "path": "governance/rulesets/README.md",
+      "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+      "sha256": "c2bf642aa568defbddcf79983d47a8fb307ebf707698d2b0576ad5cd47f57bf5"
+    }
+  ],
+  "expectedRulesetIdentity": {
+    "idFromRegisteredDocumentation": 22302146,
+    "name": "Public Main Protection - Strict External Review",
+    "enforcement": "active",
+    "strict_required_status_checks_policy": true
+  },
+  "expectedControls": {
+    "GOV-RULESET-001": {
+      "target": "default-branch",
+      "ruleset_names": [
+        "Public Main Protection - Strict External Review",
+        "PRreview"
+      ],
+      "strict_required_status_checks": true,
+      "branch_deletion_allowed": false,
+      "non_fast_forward_allowed": false
+    },
+    "GOV-REVIEW-001": {
+      "pull_request_required": true,
+      "approvals_required": 0,
+      "codeowners_review_required": false,
+      "unattributed_changes_require_additional_approval": false,
+      "dismiss_stale_reviews_on_push": false,
+      "require_last_push_approval": false,
+      "required_review_thread_resolution": true,
+      "author_cannot_self_approve": true,
+      "minimum_distinct_codeowners": 1,
+      "external_pr_current_head_approval_required": true,
+      "external_pr_approval_reviewer": "@NYGsatoshi",
+      "external_approval_reviewer_must_be_codeowner": true,
+      "owner_authored_pr_external_approval_required": false,
+      "draft_pr_blocks": true,
+      "changes_requested_blocks": true,
+      "previous_head_approval_satisfies": false,
+      "codeowners_fallback_required": true,
+      "codeowners_required_explicit_patterns": [
+        "/.github/",
+        "/scripts/ci/",
+        "/governance/",
+        "/.npmrc",
+        "/global.json",
+        "/package.json",
+        "/package-lock.json",
+        "/Dockerfile",
+        "/docker-compose.yml",
+        "/deploy/",
+        "/COPYRIGHT.md",
+        "/CONTRIBUTING.md",
+        "/THIRD_PARTY_NOTICES.md",
+        "/.github/SECURITY.md",
+        "/docs/SECURITY.md",
+        "/docs/SECURITY_MODEL.md"
+      ],
+      "codeowners_sensitive_paths": [
+        ".github/CODEOWNERS",
+        ".github/workflows/ci.yml",
+        ".github/workflows/publication-readiness.yml",
+        ".github/workflows/external-pr-approval-evaluator.yml",
+        "scripts/ci/check-governance-review-status-invariants.py",
+        "scripts/ci/evaluate-governance-pr-review.py",
+        "governance/policy.json",
+        "governance/policy.schema.json",
+        "global.json",
+        "package.json",
+        "package-lock.json",
+        ".npmrc",
+        "Dockerfile",
+        "docker-compose.yml",
+        "deploy/gcp/README.md",
+        "COPYRIGHT.md",
+        "CONTRIBUTING.md",
+        "THIRD_PARTY_NOTICES.md",
+        ".github/SECURITY.md",
+        "docs/SECURITY.md",
+        "docs/SECURITY_MODEL.md"
+      ]
+    },
+    "GOV-BYPASS-001": {
+      "allowed_actors": [],
+      "normal_development_bypass_forbidden": true,
+      "user_always_bypass": "forbidden",
+      "break_glass_usage_evidence_required": true
+    }
+  },
+  "observedRulesets": [
+    {
+      "id": 24643016,
+      "name": "Coglatas Main Protection - Owner Only",
+      "target": "branch",
+      "source_type": "Repository",
+      "source": "NYGsatoshi/Coglatas",
+      "enforcement": "active",
+      "conditions": {
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "~DEFAULT_BRANCH"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": true,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "build-test",
+                "integration_id": 15368
+              },
+              {
+                "context": "frontend-test",
+                "integration_id": 15368
+              },
+              {
+                "context": "security-scan",
+                "integration_id": 15368
+              },
+              {
+                "context": "publication-readiness",
+                "integration_id": 15368
+              },
+              {
+                "context": "functional-fast",
+                "integration_id": 15368
+              },
+              {
+                "context": "performance-fast",
+                "integration_id": 15368
+              }
+            ]
+          }
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews_on_push": false,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": true,
+            "require_extra_approval_for_unattributed_changes": false,
+            "allowed_merge_methods": [
+              "merge",
+              "squash"
+            ]
+          }
+        }
+      ],
+      "node_id": "RRS_lACqUmVwb3NpdG9yec5LLRDAzgF4Bcg",
+      "created_at": "2026-10-07T19:16:02.864+09:00",
+      "updated_at": "2026-10-07T19:16:03.001+09:00",
+      "bypass_actors": [],
+      "current_user_can_bypass": "never",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/NYGsatoshi/Coglatas/rulesets/24643016"
+        },
+        "html": {
+          "href": "https://github.com/NYGsatoshi/Coglatas/rules/24643016"
+        }
+      },
+      "sixContextAppStrictParity": true
+    },
+    {
+      "id": 22302157,
+      "name": "PRreview",
+      "target": "branch",
+      "source_type": "Repository",
+      "source": "NYGsatoshi/Coglatas",
+      "enforcement": "disabled",
+      "conditions": {
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "~DEFAULT_BRANCH"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews_on_push": false,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": true,
+            "require_extra_approval_for_unattributed_changes": false,
+            "allowed_merge_methods": [
+              "merge",
+              "squash"
+            ]
+          }
+        }
+      ],
+      "node_id": "RRS_lACqUmVwb3NpdG9yec5LLRDAzgFUTc0",
+      "created_at": "2026-09-05T06:18:24.327+09:00",
+      "updated_at": "2026-10-07T19:16:25.986+09:00",
+      "bypass_actors": [],
+      "current_user_can_bypass": "never",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/NYGsatoshi/Coglatas/rulesets/22302157"
+        },
+        "html": {
+          "href": "https://github.com/NYGsatoshi/Coglatas/rules/22302157"
+        }
+      },
+      "sixContextAppStrictParity": false
+    },
+    {
+      "id": 22302146,
+      "name": "Public Main Protection - Strict External Review",
+      "target": "branch",
+      "source_type": "Repository",
+      "source": "NYGsatoshi/Coglatas",
+      "enforcement": "disabled",
+      "conditions": {
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "~DEFAULT_BRANCH"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": true,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "build-test",
+                "integration_id": 15368
+              },
+              {
+                "context": "frontend-test",
+                "integration_id": 15368
+              },
+              {
+                "context": "security-scan",
+                "integration_id": 15368
+              },
+              {
+                "context": "publication-readiness",
+                "integration_id": 15368
+              },
+              {
+                "context": "functional-fast",
+                "integration_id": 15368
+              },
+              {
+                "context": "performance-fast",
+                "integration_id": 15368
+              }
+            ]
+          }
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews_on_push": false,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": true,
+            "require_extra_approval_for_unattributed_changes": false,
+            "allowed_merge_methods": [
+              "merge",
+              "squash",
+              "rebase"
+            ]
+          }
+        }
+      ],
+      "node_id": "RRS_lACqUmVwb3NpdG9yec5LLRDAzgFUTcI",
+      "created_at": "2026-09-05T06:18:12.316+09:00",
+      "updated_at": "2026-10-07T19:16:18.049+09:00",
+      "bypass_actors": [],
+      "current_user_can_bypass": "never",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/NYGsatoshi/Coglatas/rulesets/22302146"
+        },
+        "html": {
+          "href": "https://github.com/NYGsatoshi/Coglatas/rules/22302146"
+        }
+      },
+      "sixContextAppStrictParity": true
+    }
+  ],
+  "securityBranch": {
+    "before": {
+      "name": "SecurityTestImplimation",
+      "commit": {
+        "sha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "node_id": "C_kwDOSy0QwNoAKDM4NjViMDlhMmQzZWEzY2I4MmY0NTBjNmQxOWVjNjQzZmZiYWUwMWY",
+        "commit": {
+          "author": {
+            "name": "Hirota Satoshi",
+            "email": "202610880@edu.nishiyamato.ed.jp",
+            "date": "2026-11-05T23:42:50Z"
+          },
+          "committer": {
+            "name": "GitHub",
+            "email": "noreply@github.com",
+            "date": "2026-11-05T23:42:50Z"
+          },
+          "message": "test(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
+          "tree": {
+            "sha": "7c7e86aaacc9306307ec14873305ee6585ae06c1",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/trees/7c7e86aaacc9306307ec14873305ee6585ae06c1"
+          },
+          "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq7RR6CRC1aQ7uu5UhlAAAxkgQAJdwdE/fZBtW7FRyYWr1SBta\ng2CzhgkqjZz6bnyjpKy4Y1Hl4hBUKrbrIGmcrOPXLNVBIzGNjMpQGy5oRylChu09\ngHuxF4/fuoPV5bwZ2Zahm3bmi25qL1nPTuKifkSK1qDw93zs/tZf57+6zrhFj9o4\ngK8uU70wS6zf4LopBgFTkEZB5sKF7eNEemKj0R/L8wbkJJx5ekhHXAerND6m0jGJ\nbOyucSiGHufYRiTq7N86MeyZ845etoqfaIdo+pnap5Wza8VRvocDp+XDgrweNr1x\nI6RgpsfnIJpGgyefshHkNyxlLUjoewSMG5n/LVotD+3qbkgyW/89eKe0hBdY9ukw\nguqSDvC2ObyfaUG2gTpXFO+hmF6lTiar2sEF6LJdwy3JtR87xHnLE6ZV0nMzfjbF\nrt4sKWUDQgEm273yxoRXpIhRfpPuY+Mmn+m5eTtE5ROV5eljohUXouu2e+it19Ej\nm/kxr21btapomKshFE9rVwCH3WtSHFbCToCNeJrzpj5uHQBkRvhLoUNMMM8jDmkz\nWKX5LlG1E8B4wUsYedQ7pBfILXoRZqYPXhY84H1zK0CY8u6Yh5oQddxlhQiS6cR6\nrbxEnb65xglPUwY3RYnVTRAmt5Oe0xs1l9LLDq2A6vpHBpUFl/an/Oif7fZwEIRH\nhUCvPhhSzQPTlIBgm8F1\n=zdGs\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree 7c7e86aaacc9306307ec14873305ee6585ae06c1\nparent 35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1\nparent 5f0db6d22e193330a4fd1c8f386b498100a92d67\nauthor Hirota Satoshi <202610880@edu.nishiyamato.ed.jp> 1793922170 +0530\ncommitter GitHub <noreply@github.com> 1793922170 +0530\n\ntest(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
+            "verified_at": "2026-11-05T23:42:50Z"
+          }
+        },
+        "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "comments_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f/comments",
+        "author": {
+          "login": "NYGsatoshi",
+          "id": 285141121,
+          "node_id": "U_kgDOEP7ogQ",
+          "avatar_url": "https://avatars.githubusercontent.com/u/285141121?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/NYGsatoshi",
+          "html_url": "https://github.com/NYGsatoshi",
+          "followers_url": "https://api.github.com/users/NYGsatoshi/followers",
+          "following_url": "https://api.github.com/users/NYGsatoshi/following{/other_user}",
+          "gists_url": "https://api.github.com/users/NYGsatoshi/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/NYGsatoshi/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/NYGsatoshi/subscriptions",
+          "organizations_url": "https://api.github.com/users/NYGsatoshi/orgs",
+          "repos_url": "https://api.github.com/users/NYGsatoshi/repos",
+          "events_url": "https://api.github.com/users/NYGsatoshi/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/NYGsatoshi/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "web-flow",
+          "id": 19864447,
+          "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+          "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/web-flow",
+          "html_url": "https://github.com/web-flow",
+          "followers_url": "https://api.github.com/users/web-flow/followers",
+          "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+          "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+          "organizations_url": "https://api.github.com/users/web-flow/orgs",
+          "repos_url": "https://api.github.com/users/web-flow/repos",
+          "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/web-flow/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
+            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1"
+          },
+          {
+            "sha": "5f0db6d22e193330a4fd1c8f386b498100a92d67",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/5f0db6d22e193330a4fd1c8f386b498100a92d67",
+            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/5f0db6d22e193330a4fd1c8f386b498100a92d67"
+          }
+        ]
+      },
+      "_links": {
+        "self": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation",
+        "html": "https://github.com/NYGsatoshi/Coglatas/tree/SecurityTestImplimation"
+      },
+      "protected": false,
+      "protection": {
+        "enabled": false,
+        "required_status_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "protection_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation/protection"
+    },
+    "after": {
+      "name": "SecurityTestImplimation",
+      "commit": {
+        "sha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "node_id": "C_kwDOSy0QwNoAKDM4NjViMDlhMmQzZWEzY2I4MmY0NTBjNmQxOWVjNjQzZmZiYWUwMWY",
+        "commit": {
+          "author": {
+            "name": "Hirota Satoshi",
+            "email": "202610880@edu.nishiyamato.ed.jp",
+            "date": "2026-11-05T23:42:50Z"
+          },
+          "committer": {
+            "name": "GitHub",
+            "email": "noreply@github.com",
+            "date": "2026-11-05T23:42:50Z"
+          },
+          "message": "test(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
+          "tree": {
+            "sha": "7c7e86aaacc9306307ec14873305ee6585ae06c1",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/trees/7c7e86aaacc9306307ec14873305ee6585ae06c1"
+          },
+          "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/git/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq7RR6CRC1aQ7uu5UhlAAAxkgQAJdwdE/fZBtW7FRyYWr1SBta\ng2CzhgkqjZz6bnyjpKy4Y1Hl4hBUKrbrIGmcrOPXLNVBIzGNjMpQGy5oRylChu09\ngHuxF4/fuoPV5bwZ2Zahm3bmi25qL1nPTuKifkSK1qDw93zs/tZf57+6zrhFj9o4\ngK8uU70wS6zf4LopBgFTkEZB5sKF7eNEemKj0R/L8wbkJJx5ekhHXAerND6m0jGJ\nbOyucSiGHufYRiTq7N86MeyZ845etoqfaIdo+pnap5Wza8VRvocDp+XDgrweNr1x\nI6RgpsfnIJpGgyefshHkNyxlLUjoewSMG5n/LVotD+3qbkgyW/89eKe0hBdY9ukw\nguqSDvC2ObyfaUG2gTpXFO+hmF6lTiar2sEF6LJdwy3JtR87xHnLE6ZV0nMzfjbF\nrt4sKWUDQgEm273yxoRXpIhRfpPuY+Mmn+m5eTtE5ROV5eljohUXouu2e+it19Ej\nm/kxr21btapomKshFE9rVwCH3WtSHFbCToCNeJrzpj5uHQBkRvhLoUNMMM8jDmkz\nWKX5LlG1E8B4wUsYedQ7pBfILXoRZqYPXhY84H1zK0CY8u6Yh5oQddxlhQiS6cR6\nrbxEnb65xglPUwY3RYnVTRAmt5Oe0xs1l9LLDq2A6vpHBpUFl/an/Oif7fZwEIRH\nhUCvPhhSzQPTlIBgm8F1\n=zdGs\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree 7c7e86aaacc9306307ec14873305ee6585ae06c1\nparent 35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1\nparent 5f0db6d22e193330a4fd1c8f386b498100a92d67\nauthor Hirota Satoshi <202610880@edu.nishiyamato.ed.jp> 1793922170 +0530\ncommitter GitHub <noreply@github.com> 1793922170 +0530\n\ntest(ci): prepare source-derived hashed Playwright shard receipts (#1716)\n\nOffline evidence preparation and negative controls only; no live shard, runner, artifact upload, or required-check modification. Independent reviewer finding fixed. Integrate into SecurityTestImplimation exclusively.",
+            "verified_at": "2026-11-05T23:42:50Z"
+          }
+        },
+        "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+        "comments_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/3865b09a2d3ea3cb82f450c6d19ec643ffbae01f/comments",
+        "author": {
+          "login": "NYGsatoshi",
+          "id": 285141121,
+          "node_id": "U_kgDOEP7ogQ",
+          "avatar_url": "https://avatars.githubusercontent.com/u/285141121?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/NYGsatoshi",
+          "html_url": "https://github.com/NYGsatoshi",
+          "followers_url": "https://api.github.com/users/NYGsatoshi/followers",
+          "following_url": "https://api.github.com/users/NYGsatoshi/following{/other_user}",
+          "gists_url": "https://api.github.com/users/NYGsatoshi/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/NYGsatoshi/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/NYGsatoshi/subscriptions",
+          "organizations_url": "https://api.github.com/users/NYGsatoshi/orgs",
+          "repos_url": "https://api.github.com/users/NYGsatoshi/repos",
+          "events_url": "https://api.github.com/users/NYGsatoshi/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/NYGsatoshi/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "web-flow",
+          "id": 19864447,
+          "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+          "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/web-flow",
+          "html_url": "https://github.com/web-flow",
+          "followers_url": "https://api.github.com/users/web-flow/followers",
+          "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+          "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+          "organizations_url": "https://api.github.com/users/web-flow/orgs",
+          "repos_url": "https://api.github.com/users/web-flow/repos",
+          "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/web-flow/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1",
+            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/35fa0b8b1e8dc1e6ff6c4deec8936b5fc28fabe1"
+          },
+          {
+            "sha": "5f0db6d22e193330a4fd1c8f386b498100a92d67",
+            "url": "https://api.github.com/repos/NYGsatoshi/Coglatas/commits/5f0db6d22e193330a4fd1c8f386b498100a92d67",
+            "html_url": "https://github.com/NYGsatoshi/Coglatas/commit/5f0db6d22e193330a4fd1c8f386b498100a92d67"
+          }
+        ]
+      },
+      "_links": {
+        "self": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation",
+        "html": "https://github.com/NYGsatoshi/Coglatas/tree/SecurityTestImplimation"
+      },
+      "protected": false,
+      "protection": {
+        "enabled": false,
+        "required_status_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "protection_url": "https://api.github.com/repos/NYGsatoshi/Coglatas/branches/SecurityTestImplimation/protection"
+    },
+    "effectiveRules": [],
+    "classicProtection": {
+      "message": "Branch not protected",
+      "documentation_url": "https://docs.github.com/rest/branches/branch-protection#get-branch-protection",
+      "status": "404"
+    }
+  },
+  "mainScopeReadOnly": {
+    "branchSha": "84352242e73206e1f95c2eb4ed46a50f2e58f159",
+    "effectiveRules": [
+      {
+        "type": "deletion",
+        "ruleset_source_type": "Repository",
+        "ruleset_source": "NYGsatoshi/Coglatas",
+        "ruleset_id": 24643016
+      },
+      {
+        "type": "non_fast_forward",
+        "ruleset_source_type": "Repository",
+        "ruleset_source": "NYGsatoshi/Coglatas",
+        "ruleset_id": 24643016
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "build-test",
+              "integration_id": 15368
+            },
+            {
+              "context": "frontend-test",
+              "integration_id": 15368
+            },
+            {
+              "context": "security-scan",
+              "integration_id": 15368
+            },
+            {
+              "context": "publication-readiness",
+              "integration_id": 15368
+            },
+            {
+              "context": "functional-fast",
+              "integration_id": 15368
+            },
+            {
+              "context": "performance-fast",
+              "integration_id": 15368
+            }
+          ]
+        },
+        "ruleset_source_type": "Repository",
+        "ruleset_source": "NYGsatoshi/Coglatas",
+        "ruleset_id": 24643016
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0,
+          "dismiss_stale_reviews_on_push": false,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": false,
+          "allowed_merge_methods": [
+            "merge",
+            "squash"
+          ]
+        },
+        "ruleset_source_type": "Repository",
+        "ruleset_source": "NYGsatoshi/Coglatas",
+        "ruleset_id": 24643016
+      }
+    ],
+    "classicProtection": {
+      "message": "Branch not protected",
+      "documentation_url": "https://docs.github.com/rest/branches/branch-protection#get-branch-protection",
+      "status": "404"
+    }
+  },
+  "status": {
+    "CHECK_TOPOLOGY_VALID": "VERIFIED_SIX_CONTEXT_APP_STRICT_PARITY_ON_DEFAULT_BRANCH",
+    "CHECK_EXECUTION_VALID": "PER_PR_EXACT_HEAD_EVALUATIONS_IN_NATIVE_REFRESH",
+    "RULESET_IDENTITY_MATCHED": false,
+    "RULESET_ENFORCEMENT_VALID": false,
+    "SECURITY_BRANCH_PROTECTION_VALID": false,
+    "INDEPENDENT_REVIEW_VALID": "NOT_ESTABLISHED",
+    "GOVERNANCE_IDENTITY_DRIFT": "OWNER_HOLD"
+  },
+  "qualification": "API_OBSERVATION_NOT_SIGNED_EXECUTION_OR_OWNER_APPROVAL"
+}
