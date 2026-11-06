@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--require-receipt-proof", action="store_true")
+    parser.add_argument("--require-acquisition", action="store_true")
     args = parser.parse_args()
     baseline = json.loads(args.baseline.read_text(encoding="utf-8-sig"))
     for lane, name in (("projectIde", "projectide"), ("architecture", "architecture")):
@@ -23,6 +24,8 @@ def main() -> None:
             raise ValueError("Prototype artifact regression inventory is incomplete")
         if lane == "projectIde" and args.require_receipt_proof and sum(".SyntheticReceiptAuthenticationTests." in identity for identity in actual) < 23:
             raise ValueError("Synthetic receipt proof inventory is incomplete")
+        if lane == "projectIde" and args.require_acquisition and sum(".SyntheticDependencyAcquisitionTests." in identity for identity in actual) < 39:
+            raise ValueError("Synthetic acquisition inventory is incomplete")
         (args.results / f"{name}-inventory.json").write_text(json.dumps(actual, indent=2) + "\n", encoding="utf-8")
         print(f"{lane}: {len(actual)} complete passing identities; retained baseline present")
 
