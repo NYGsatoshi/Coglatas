@@ -199,12 +199,13 @@ public sealed class RealtimeConnectionInvalidatorTests
     {
         public List<(string Connection, string Method, object?[] Arguments, CancellationToken Token)> Sends { get; } = [];
         public Func<string, string, object?[], CancellationToken, Task>? BeforeSend { get; set; }
+        private void RecordInvalidation(string connection) => trace.Add(("invalidate", connection));
         public IClientProxy Client(string connectionId) => new ClientProxy(this, connectionId);
         private sealed class ClientProxy(RecordingClients owner, string connection) : IClientProxy
         {
             public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
             {
-                owner.Sends.Add((connection, method, args, cancellationToken)); trace.Add(("invalidate", connection));
+                owner.Sends.Add((connection, method, args, cancellationToken)); owner.RecordInvalidation(connection);
                 return owner.BeforeSend?.Invoke(connection, method, args, cancellationToken) ?? Task.CompletedTask;
             }
         }
