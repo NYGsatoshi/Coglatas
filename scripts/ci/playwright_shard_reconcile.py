@@ -30,6 +30,13 @@ class InvalidEvidence(ValueError):
     """Evidence is untrusted, incomplete, inconsistent or outside its bounds."""
 
 
+class PrivateArgumentParser(argparse.ArgumentParser):
+    """Never echo rejected caller values through argparse diagnostics."""
+
+    def error(self, _message):
+        raise InvalidEvidence("INVALID_ARGUMENTS")
+
+
 def require(condition: bool, reason: str) -> None:
     if not condition:
         raise InvalidEvidence(reason)
@@ -204,7 +211,8 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = PrivateArgumentParser(prog="playwright-shard-reconcile", description=__doc__,
+                                   add_help=False, allow_abbrev=False)
     parser.add_argument("--roster", type=Path, required=True)
     parser.add_argument("--shard-one", type=Path, required=True)
     parser.add_argument("--shard-two", type=Path, required=True)
@@ -212,8 +220,12 @@ def main(argv=None):
     parser.add_argument("--run-id", type=int, required=True)
     parser.add_argument("--attempt", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args(argv)
     try:
+        values = sys.argv[1:] if argv is None else argv
+        if values in (["--help"], ["-h"]):
+            parser.print_help()
+            return 0
+        args = parser.parse_args(values)
         require(args.output.name == "playwright-shard-aggregate.json" and
                 args.output.parent == Path("artifacts/ci"), "OUTPUT_PATH")
         report = reconcile(read_json(args.roster),

@@ -6,6 +6,8 @@ import copy
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,6 +53,34 @@ def verify(roster, shards):
 
 
 class ShardEvidenceTests(unittest.TestCase):
+    def test_actual_cli_rejects_private_argument_values_without_echo_or_receipt(self):
+        canary = "SYNTHETIC_PRIVATE_ARGUMENT_CANARY"
+        with tempfile.TemporaryDirectory() as tmp:
+            args = ["--roster", "roster.json", "--shard-one", "one.json",
+                    "--shard-two", "two.json", "--source-sha", SHA,
+                    "--run-id", "12345", "--attempt", "1",
+                    "--output", "artifacts/ci/playwright-shard-aggregate.json"]
+            variants = [args + ["--unknown", canary],
+                        args[:9] + [canary] + args[10:],
+                        ["--roster", canary], ["--help", "--unknown", canary],
+                        ["--sou", canary], ["--attempt"]]
+            for values in variants:
+                with self.subTest(selection=variants.index(values)):
+                    child = subprocess.run([sys.executable, "-B", str(SCRIPT), *values],
+                                           cwd=tmp, capture_output=True, text=True, timeout=10)
+                    self.assertEqual(1, child.returncode)
+                    self.assertEqual("", child.stdout)
+                    self.assertEqual("Playwright shard reconciliation refused: INVALID_ARGUMENTS\n",
+                                     child.stderr)
+                    self.assertNotIn(canary, child.stdout + child.stderr)
+                    self.assertFalse((Path(tmp) / "artifacts").exists())
+            help_result = subprocess.run([sys.executable, "-B", str(SCRIPT), "--help"],
+                                         cwd=tmp, capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, help_result.returncode)
+            self.assertEqual("", help_result.stderr)
+            self.assertIn("playwright-shard-reconcile", help_result.stdout)
+            self.assertNotIn(str(SCRIPT), help_result.stdout)
+
     def test_valid_disjoint_roster_preserves_skips_and_sanitizes_output(self):
         roster, shards = fixtures()
         output = verify(roster, shards)
