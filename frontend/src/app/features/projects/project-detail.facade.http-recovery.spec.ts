@@ -189,7 +189,13 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     expect(detail.view().project).toBeUndefined();
     expect(history.touchProject).not.toHaveBeenCalled();
     const retry = workspaces.loadWorkspaces(true); selectFromHttp(); await retry; await settle();
-    http.expectOne('/api/projects/project-1').flush(draft);
+    // The first scoped load and the HTTP catch-up may overlap. Their response
+    // ownership, rather than an assumed parent request count, is the contract.
+    const parents = http.match('/api/projects/project-1');
+    expect(parents.length).toBeGreaterThan(0);
+    parents.at(-1)!.flush(draft);
+    for (const older of parents.slice(0, -1)) older.flush(
+      { message: 'Older parent denied' }, { status: 403, statusText: 'Denied' });
     expect(detail.view().status).toBe('ready');
     expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
   });
