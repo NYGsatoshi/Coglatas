@@ -1,0 +1,138 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { EMPTY, Subject } from 'rxjs';
+
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
+import { COGLATAS_REALTIME_TRANSPORT } from '../../core/realtime/realtime-transport';
+import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { COGLATAS_WORKSPACE_PREFERENCE_STORAGE } from '../../core/workspace/workspace-preference.service';
+import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
+import { WorkspacesFacade } from '../workspaces/workspaces.facade';
+import { ganttSnapshotDto } from './project-detail-gantt.test-data';
+import { ProjectDetailFacade } from './project-detail.facade';
+import { ProjectDto } from './projects.api';
+
+const draft: ProjectDto = {
+  id: 'project-1', workspaceId: 'workspace-1', groupId: null, ownerUserId: 'owner-1',
+  title: 'Authorized draft', description: null, status: 0, visibility: 1,
+  activationState: 1, activatedAtUtc: null, activationVersion: null, versionNo: 7,
+  startDate: null, endDate: null, uiPermissions: { canCreateTask: false, canActivate: true },
+};
+const active: ProjectDto = { ...draft, status: 1, activationState: 2,
+  activatedAtUtc: '2026-08-24T00:00:00Z', activationVersion: 1,
+  uiPermissions: { canCreateTask: true, canActivate: false } };
+const workspace = { id: 'workspace-1', name: 'Authorized Workspace', description: null,
+  icon: null, status: 0, createdAt: '2026-08-22T00:00:00Z', updatedAt: null,
+  currentUserRole: 'Owner', accessSource: 'WorkspaceMembership', canOpenWorkspace: true,
+  canOpenMembers: true, canOpenProjects: true, unreadAnnouncementCount: 0,
+  unreadConversationCount: 0, inProgressProjectCount: 0, runningProjectCount: 0,
+  needsReviewProjectCount: 0 };
+
+describe('Project detail through real HTTP-only Workspace recovery', () => {
+  let detail: ProjectDetailFacade;
+  let workspaces: WorkspacesFacade;
+  let realtime: RealtimeFacade;
+  let http: HttpTestingController;
+  let invalidations: Subject<void>;
+  const history = { touchProject: vi.fn() };
+  const start = vi.fn(async () => {});
+
+  beforeEach(() => {
+    history.touchProject.mockReset(); start.mockClear(); invalidations = new Subject<void>();
+    TestBed.configureTestingModule({ providers: [
+      provideHttpClient(), provideHttpClientTesting(),
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: {
+        getItem: () => null, setItem: () => {}, removeItem: () => {},
+      } },
+      { provide: COGLATAS_REALTIME_TRANSPORT, useValue: {
+        durableEvents$: EMPTY, authorizationInvalidations$: invalidations, statuses$: EMPTY,
+        start, stop: async () => {},
+        subscribe: async () => ({ allowed: true, code: 'Subscribed' }),
+        unsubscribe: async () => ({ allowed: true, code: 'Unsubscribed' }),
+      } },
+      { provide: ContinueWorkingHistoryService, useValue: history },
+    ] });
+    TestBed.inject(FrontendFeatureFlagsService).setForTesting({
+      'realtime.signalR': false, 'tasks.kanbanV1': false, 'tasks.ganttV1': false,
+    });
+    http = TestBed.inject(HttpTestingController);
+    workspaces = TestBed.inject(WorkspacesFacade);
+    realtime = TestBed.inject(RealtimeFacade);
+    detail = TestBed.inject(ProjectDetailFacade);
+  });
+
+  afterEach(() => {
+    detail.release(); http.verify(); TestBed.resetTestingModule();
+  });
+
+  function selectFromHttp() {
+    http.expectOne('/api/workspaces/capabilities').flush({ data: { canCreate: false } });
+    http.expectOne('/api/workspaces').flush([workspace]);
+    expect(TestBed.inject(ActiveWorkspaceFacade).activeWorkspace()?.id).toBe('workspace-1');
+  }
+
+  function flushActiveCollections() {
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+  }
+
+  async function settle() {
+    for (let count = 0; count < 5; count++) { TestBed.tick(); await Promise.resolve(); }
+  }
+
+  it.each(['draft', 'active'] as const)('loads a fresh %s after the actual initial Workspace HTTP selection', async (kind) => {
+    detail.load('project-1');
+    const old = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); old.flush(draft);
+    expect(detail.view().project).toBeUndefined();
+    await settle();
+    http.expectOne('/api/projects/project-1').flush(kind === 'draft' ? draft : active);
+    if (kind === 'active') flushActiveCollections();
+    expect(detail.view().status).toBe('ready');
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+    expect(start).not.toHaveBeenCalled();
+    expect(realtime.connectionState()).toBe('Degraded');
+  });
+
+  it('retains fresh HTTP fallback denial over an older initial success in the same scope', async () => {
+    detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    const recovered = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovered; await settle();
+    http.expectOne('/api/projects/project-1').flush(
+      { message: 'Fresh access denied' }, { status: 403, statusText: 'Forbidden' },
+    );
+    expect(detail.view().status).toBe('permissionDenied');
+    initial.flush(draft);
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+  });
+
+  it('does not revive a route released before the hydration effect', async () => {
+    detail.load('project-1'); const old = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); detail.release(); old.flush(draft); await settle();
+    http.expectNone('/api/projects/project-1');
+    expect(detail.view().project).toBeUndefined();
+    expect(history.touchProject).not.toHaveBeenCalled();
+  });
+
+  it('keeps the explicit same-Project reload instead of duplicating it during hydration', async () => {
+    detail.load('project-1'); const old = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); detail.load('project-1');
+    const current = http.expectOne('/api/projects/project-1');
+    await settle(); http.expectNone('/api/projects/project-1');
+    old.flush(draft); expect(history.touchProject).not.toHaveBeenCalled();
+    current.flush(draft);
+    expect(detail.view().project?.id).toBe('project-1');
+    expect(history.touchProject).toHaveBeenCalledOnce();
+  });
+});
