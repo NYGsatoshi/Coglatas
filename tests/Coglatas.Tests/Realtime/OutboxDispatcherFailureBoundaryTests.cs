@@ -108,6 +108,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         var before = DateTimeOffset.UtcNow;
         await fixture.DispatchAsync();
         var after = DateTimeOffset.UtcNow;
+        Assert.Single(fixture.Authorizer.Invocations);
         var failure = Assert.Single(fixture.Repository.Failures);
         Assert.True(failure.Retryable);
         Assert.NotNull(failure.NextAttempt);
@@ -148,6 +149,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         var token = new CancellationToken(canceled: true);
         fixture.FailAt("authorizer", new OperationCanceledException(token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.DispatchAsync(token));
+        Assert.Single(fixture.Authorizer.Invocations);
         Assert.Empty(fixture.Repository.Failures);
         Assert.Empty(fixture.Repository.Delivered);
         Assert.Empty(fixture.Hub.Sends);
@@ -160,6 +162,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         await using var fixture = new Fixture();
         fixture.FailAt("authorizer", new OperationCanceledException(new CancellationToken(canceled: true)));
         await fixture.DispatchAsync();
+        Assert.Single(fixture.Authorizer.Invocations);
         Assert.True(Assert.Single(fixture.Repository.Failures).Retryable);
         Assert.Empty(fixture.Repository.Delivered);
     }

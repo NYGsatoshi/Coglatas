@@ -24,6 +24,9 @@ recorded unexpected transport operations outside the dispatch exception handler.
 Authorizer arguments and send tokens are also recorded first and validated after
 the dispatch task completes or throws, so assertion failures cannot be mistaken
 for the injected retryable fault.
+The transient-stage and both cancellation controls additionally require exactly
+one recorded authorizer invocation outside dispatch, proving that execution
+reached the intended injected authorization fault rather than failing earlier.
 
 A transport send followed by lost delivery acknowledgement is deliberately
 recorded as retryable. These controls do not assert exactly-once delivery,
