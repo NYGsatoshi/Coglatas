@@ -1,0 +1,25 @@
+{
+  "status": "PROTOTYPE_ONLY",
+  "vectors": [
+    {
+      "domain": "coglatas.prototype.dependency-manifest/1/canonical/1",
+      "canonical": "{\"ordered\":[3,1,2],\"precise\":12345678901234567890.1234567890123456789,\"unicode\":\"é😀\"}",
+      "sha256": "c02814e94818ad8fbcb87f47c8216e18de3557b0cc463a6de220da13e0d01e10"
+    },
+    {
+      "domain": "coglatas.prototype.compiler-input-association/1/canonical/1",
+      "canonical": "{\"ordered\":[3,1,2],\"precise\":12345678901234567890.1234567890123456789,\"unicode\":\"é😀\"}",
+      "sha256": "6ecb73033195bff711e2de9a6eae8c6e14b293df099e7f2af81bf0990e855cd6"
+    },
+    {
+      "domain": "coglatas.prototype.materialization-set/1/canonical/1",
+      "canonical": "{\"ordered\":[3,1,2],\"precise\":12345678901234567890.1234567890123456789,\"unicode\":\"é😀\"}",
+      "sha256": "024d1bf374d81ea7c0ece5b3eb70399cb187c016da9e1aa330179945d4048a66"
+    },
+    {
+      "domain": "coglatas.prototype.materialization-receipt/1/canonical/1",
+      "canonical": "{\"ordered\":[3,1,2],\"precise\":12345678901234567890.1234567890123456789,\"unicode\":\"é😀\"}",
+      "sha256": "74632175e8b5511410d79758c6c37bf04d1ba5ca0f61a16a2bbca78b4e4349e9"
+    }
+  ]
+}
