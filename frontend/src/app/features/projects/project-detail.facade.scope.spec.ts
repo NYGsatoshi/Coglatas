@@ -82,7 +82,8 @@ describe('ProjectDetailFacade initial response scope', () => {
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
   }
 
-  it.each([true, false])('keeps ordinary events behind pending authorization collections with childFirst=%s', async (childFirst) => {
+  for (const type of ['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const) {
+  it.each([true, false])(`keeps ${type} behind pending authorization collections with childFirst=%s`, async (childFirst) => {
     enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
     emitCurrent('Security.AuthorizationStateChanged.v1'); await Promise.resolve();
     http.expectOne('/api/projects/project-1').flush(active);
@@ -91,7 +92,14 @@ describe('ProjectDetailFacade initial response scope', () => {
     const workload = http.expectOne('/api/projects/project-1/workload');
     const gatedBoard = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
     const gatedSchedule = http.expectOne('/api/projects/project-1/gantt');
-    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    emitCurrent(type); await Promise.resolve();
+    const extraParents = http.match('/api/projects/project-1');
+    for (const parent of extraParents) {
+      parent.flush(active);
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    }
     const bypass = http.match(request => request.url === '/api/projects/project-1/kanban' || request.url === '/api/projects/project-1/gantt');
     for (const task of http.match('/api/projects/project-1/tasks')) task.flush({ items: [] });
     const completeBypass = () => {
@@ -107,11 +115,42 @@ describe('ProjectDetailFacade initial response scope', () => {
     const laterBoard = facade.view().kanban.snapshot, laterSchedule = facade.view().schedule.snapshot;
     finishViews();
     expect(bypass).toHaveLength(0);
+    expect(extraParents).toHaveLength(0);
     expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
     expect(failedBoard).toBeNull(); expect(failedSchedule).toBeNull();
     expect(laterBoard).toBeNull(); expect(laterSchedule).toBeNull();
     expect(facade.view().status).toBe('ready');
   });
+  }
+
+  it.each(['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const)(
+    'keeps %s behind the initial authorized collection join', async (type) => {
+      enableViews(); facade.load('project-1'); http.expectOne('/api/projects/project-1').flush(active);
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      const workload = http.expectOne('/api/projects/project-1/workload');
+      const board = http.expectOne(request => request.url === '/api/projects/project-1/kanban');
+      const schedule = http.expectOne('/api/projects/project-1/gantt');
+      emitCurrent(type); await Promise.resolve();
+      const extras = [];
+      for (let round = 0; round < 3; round++) {
+        const requests = http.match(request => request.url.startsWith('/api/projects/project-1'));
+        extras.push(...requests);
+        for (const request of requests) {
+          const url = request.request.url;
+          request.flush(url.endsWith('/kanban') ? snapshotDto() : url.endsWith('/gantt') ? ganttSnapshotDto()
+            : url.endsWith('/tasks') ? { items: [] } : url.endsWith('/workload') || url.endsWith('/members') ? { members: [] } : active);
+        }
+      }
+      const earlyBoard = facade.view().kanban.snapshot, earlySchedule = facade.view().schedule.snapshot;
+      board.flush(snapshotDto()); schedule.flush(ganttSnapshotDto());
+      workload.flush({ message: 'Initial collections unavailable' }, { status: 503, statusText: 'Unavailable' });
+      facade.load('project-1'); finishNavigation(); finishViews();
+      expect(extras).toHaveLength(0);
+      expect(earlyBoard).toBeNull(); expect(earlySchedule).toBeNull();
+      expect(facade.view().status).toBe('ready');
+      expect(facade.view().kanban.snapshot).not.toBeNull();
+    });
 
   it('releases the old Schedule owner after activation reconciliation advances its response generation', async () => {
     enableViews(); facade.load('project-1'); http.expectOne('/api/projects/project-1').flush(draft);
