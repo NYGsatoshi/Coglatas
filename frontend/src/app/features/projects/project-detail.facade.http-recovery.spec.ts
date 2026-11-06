@@ -269,7 +269,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectOne('/api/projects/project-1/members');
     tasks.flush({ message: 'Initial Task load unavailable' }, { status: 503, statusText: 'Unavailable' });
     expect(detail.view().status).toBe('error');
-    expect(detail.view().project).toBeNull();
+    expect(detail.view().project).toBeUndefined();
     expect(detail.view().kanban.snapshot).toBeNull();
   });
 
