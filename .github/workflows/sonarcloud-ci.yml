@@ -156,6 +156,12 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Use repository npm without lifecycle scripts
+        run: npm install --global npm@11.17.0 --no-audit --no-fund --ignore-scripts
+
+      - name: Install locked portable verifier dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Restore and freshly build revision-stamped Windows binaries
         shell: pwsh
         run: |
