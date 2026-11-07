@@ -214,6 +214,46 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
   });
 
+  it.each(['draft', 'active'] as const)('retains newer Active recovery when an older initial %s load finishes last', async (kind) => {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    if (kind === 'active') initial.flush({ ...active, title: 'Older initial Active' });
+    const oldCollections = kind === 'active' ? {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+      workload: http.expectOne('/api/projects/project-1/workload'),
+      members: http.expectOne('/api/projects/project-1/members'),
+    } : null;
+    const recovery = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovery; await settle();
+    http.expectOne('/api/projects/project-1').flush({ ...active, title: 'Current recovered Active' });
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({
+      members: [{ userId: 'current-owner', displayName: 'Current Owner', assignedTaskCount: 2 }],
+    });
+    http.expectOne('/api/projects/project-1/members').flush([
+      { userId: 'current-owner', displayName: 'Current Owner', role: 'Owner' },
+    ]);
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    if (kind === 'draft') initial.flush({ ...draft, title: 'Older initial Draft' });
+    if (oldCollections) {
+      oldCollections.tasks.flush({ items: [] }); oldCollections.board.flush(snapshotDto());
+      oldCollections.schedule.flush(ganttSnapshotDto()); oldCollections.workload.flush({ members: [] });
+      oldCollections.members.flush([]);
+    }
+    expect(detail.view().project?.name).toBe('Current recovered Active');
+    expect(detail.view().project?.isOperational).toBe(true);
+    expect(detail.view().workload[0]?.assignedTaskCount).toBe(2);
+    expect(detail.view().members[0]?.displayName).toBe('Current Owner');
+    expect(detail.view().kanban.snapshot).not.toBeNull();
+    expect(detail.view().schedule.snapshot?.projectVersion).toBe(37);
+    http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+  });
+
   async function loadBoardWithHeldInitialCollections() {
     enableBoard(); detail.load('project-1');
     const cold = http.expectOne('/api/projects/project-1');
