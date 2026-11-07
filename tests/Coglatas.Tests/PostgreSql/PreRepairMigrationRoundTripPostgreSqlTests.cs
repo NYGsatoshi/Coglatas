@@ -51,7 +51,7 @@ public sealed class PreRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelper
                 Assert.Empty(await context.Database.GetAppliedMigrationsAsync());
                 Assert.Equal(migrations, await context.Database.GetPendingMigrationsAsync());
                 var rewound = await CatalogAsync(database);
-                Assert.Equal(new[] { "__EFMigrationsHistory" }, rewound.Tables);
+                Assert.Equal(["__EFMigrationsHistory"], rewound.Tables);
                 Assert.DoesNotContain("file_objects", rewound.Tables);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database, prefix[^1]);
