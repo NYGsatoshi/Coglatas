@@ -373,16 +373,18 @@ assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "fixtur
 repo="$tmp_root/owned-child-rename"
 init_repo "$repo" TestInfrastructure SecurityArchitecture PostgreSql
 printf 'retained process helper\n' > "$repo/tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown.cs"
+git -C "$repo" config diff.renames true
 base="$(commit_all "$repo" base)"
-# Retain the deleted old path even when a helper moves outside its original folder.
+# A scoped destination alone omits PostgreSQL owners when rename detection hides
+# the old helper path. Both specialized workflows already match this destination.
 [[ "$(realpath "$repo")" == "$tmp_root/"* ]] || exit 1
-git -C "$repo" mv tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown.cs tests/Coglatas.Tests/RenamedProcessShutdown.cs
+git -C "$repo" mv tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown.cs tests/Coglatas.Tests/SecurityArchitecture/RenamedProcessShutdown.cs
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
-if [[ "$(value_of "$output" backend_test_scope)" != full ]]; then
-  filter="$(value_of "$output" backend_test_filter)"
-  assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "renamed helper SEC-ARCH owners"
-  assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "renamed helper PostgreSQL HTTP owners"
-fi
+assert_eq scoped "$(value_of "$output" backend_test_scope)" "renamed helper remains concretely scoped"
+filter="$(value_of "$output" backend_test_filter)"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.TestInfrastructure' "renamed helper controls"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "renamed helper SEC-ARCH owners"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "renamed helper PostgreSQL HTTP owners"
 
 echo "route-main-ci-changes regression tests passed"
