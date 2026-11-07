@@ -43,3 +43,17 @@ bind that existing command recorder, while asserting no generic save and no
 tracking-clear calls. Denials check both recorders independently. The failed
 TRX, log, raw report and seven executed DLL/PDB pairs remain sealed separately;
 no production save path or existing Main assertion was changed.
+
+Source review identified evidence gaps in the initial recording controls. The
+expanded snapshots include membership ID, Tenant ID, parent/user identities,
+role, join time and audit timestamps; update checks preserve all recorded fields
+except the requested role. Fixtures seed nonempty parent Tenant identities and
+existing row timestamps. Recorded invalidations now retain Project, actor and
+change arguments, and every audit checks its actor and entity identity. Both
+generic save entry points and the command-save/clear entry points are counted.
+Only recorder instrumentation changes in the original fixture; its existing
+public tests and assertions remain unchanged.
+
+The recording Repository does not apply EF Tenant or audit stamping to newly
+added rows. The test preserves their observed staged identity on update; it does
+not infer a committed Tenant stamp or persisted timestamp from that snapshot.

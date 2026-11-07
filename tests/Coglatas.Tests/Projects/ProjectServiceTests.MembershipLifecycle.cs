@@ -16,12 +16,16 @@ public sealed partial class ProjectServiceTests
         var target = fixture.AddUser();
         fixture.Current.UserIdValue = actor.Id;
         fixture.AddProjectMember(actor.Id, actorRole);
+        SeedMembershipScope(fixture);
         var unrelated = new ProjectMember
         {
             ProjectId = Guid.NewGuid(), UserId = target.Id, User = target,
-            Role = ProjectRole.Owner, JoinedAt = fixture.Clock.UtcNow.AddDays(-1)
+            TenantId = Guid.NewGuid(), Role = ProjectRole.Owner,
+            JoinedAt = fixture.Clock.UtcNow.AddDays(-1),
+            CreatedAt = fixture.Clock.UtcNow.AddDays(-3), UpdatedAt = fixture.Clock.UtcNow.AddDays(-2)
         };
         fixture.Projects.Members.Add(unrelated);
+        var unrelatedBefore = MembershipRows(fixture).Single(row => row.ProjectId == unrelated.ProjectId);
 
         var added = await fixture.Service.AddMemberAsync(fixture.Project.Id, new(target.Id, ProjectRole.Viewer));
         Assert.True(added.IsSuccess);
@@ -30,11 +34,16 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(target.Email, added.Value.Email);
         Assert.Equal(ProjectRole.Viewer, added.Value.Role);
         Assert.Equal(fixture.Clock.UtcNow, added.Value.JoinedAt);
+        var addedRow = MembershipRows(fixture).Single(row => row.ProjectId == fixture.Project.Id && row.UserId == target.Id);
+        Assert.NotEqual(Guid.Empty, addedRow.Id);
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(1, fixture.Invalidations.ProjectChangedCount);
         var firstAudit = Assert.Single(fixture.Audit.Entries);
         Assert.Equal("ProjectMemberAdded", firstAudit.Action);
         Assert.Equal(fixture.Project.Id, firstAudit.EntityId);
+        Assert.Equal(actor.Id, firstAudit.ActorUserId);
+        Assert.Equal("Project", firstAudit.EntityType);
+        Assert.Equal((fixture.Project.Id, actor.Id, "memberChanged"), Assert.Single(fixture.Invalidations.ProjectChanges));
         var firstSignal = Assert.Single(fixture.AuthorizationChanges.Items);
         Assert.Equal((fixture.Project.TenantId, target.Id, "project", (Guid?)fixture.Project.Id, "membershipChanged"), firstSignal);
 
@@ -43,12 +52,16 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(2, listed.Value!.Count);
         Assert.Equal(added.Value, Assert.Single(listed.Value, member => member.UserId == target.Id));
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
+        Assert.Single(fixture.Invalidations.ProjectChanges);
 
         var updated = await fixture.Service.UpdateMemberAsync(fixture.Project.Id, target.Id, new(ProjectRole.Contributor));
         Assert.True(updated.IsSuccess);
         Assert.Equal(ProjectRole.Contributor, updated.Value!.Role);
         Assert.Equal(added.Value.JoinedAt, updated.Value.JoinedAt);
         Assert.Equal(target.Id, updated.Value.UserId);
+        var expectedUpdated = addedRow;
+        expectedUpdated.Role = ProjectRole.Contributor;
+        Assert.Equal(expectedUpdated, MembershipRows(fixture).Single(row => row.ProjectId == fixture.Project.Id && row.UserId == target.Id));
         Assert.Equal(2, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(2, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal("ProjectMemberUpdated", fixture.Audit.Entries[1].Action);
@@ -62,11 +75,21 @@ public sealed partial class ProjectServiceTests
         Assert.Same(unrelated, Assert.Single(fixture.Projects.Members, member => member.ProjectId == unrelated.ProjectId));
         Assert.Equal(ProjectRole.Owner, unrelated.Role);
         Assert.Equal(fixture.Clock.UtcNow.AddDays(-1), unrelated.JoinedAt);
+        Assert.Equal(unrelatedBefore, MembershipRows(fixture).Single(row => row.ProjectId == unrelated.ProjectId));
         Assert.Equal(3, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
         Assert.Equal(3, fixture.Invalidations.ProjectChangedCount);
-        Assert.Equal(new[] { "ProjectMemberAdded", "ProjectMemberUpdated", "ProjectMemberRemoved" }, fixture.Audit.Entries.Select(entry => entry.Action));
+        Assert.Equal(["ProjectMemberAdded", "ProjectMemberUpdated", "ProjectMemberRemoved"], fixture.Audit.Entries.Select(entry => entry.Action));
+        Assert.All(fixture.Audit.Entries, entry =>
+        {
+            Assert.Equal(actor.Id, entry.ActorUserId);
+            Assert.Equal(fixture.Project.Id, entry.EntityId);
+            Assert.Equal("Project", entry.EntityType);
+        });
+        Assert.Equal(3, fixture.Invalidations.ProjectChanges.Count);
+        Assert.All(fixture.Invalidations.ProjectChanges, change => Assert.Equal((fixture.Project.Id, actor.Id, "memberChanged"), change));
         Assert.Equal(3, fixture.AuthorizationChanges.Items.Count);
         Assert.Equal((fixture.Project.TenantId, target.Id, "project", (Guid?)fixture.Project.Id, "revoked"), fixture.AuthorizationChanges.Items[2]);
     }
@@ -95,6 +118,7 @@ public sealed partial class ProjectServiceTests
         fixture.Current.UserIdValue = actor.Id;
         fixture.AddProjectMember(actor.Id, ProjectRole.Owner);
         fixture.AddProjectMember(target.Id, ProjectRole.Viewer);
+        SeedMembershipScope(fixture);
         var workspaceMember = fixture.Workspaces.Members.Single(member => member.UserId == actor.Id);
         switch (scenario)
         {
@@ -137,6 +161,7 @@ public sealed partial class ProjectServiceTests
         var target = fixture.AddUser();
         fixture.Current.UserIdValue = actor.Id;
         fixture.AddProjectMember(actor.Id, ProjectRole.Owner);
+        SeedMembershipScope(fixture);
         var targetId = target.Id;
         var workspaceMember = fixture.Workspaces.Members.Single(member => member.UserId == target.Id);
         switch (scenario)
@@ -162,6 +187,7 @@ public sealed partial class ProjectServiceTests
         var actor = fixture.AddUser();
         fixture.Current.UserIdValue = actor.Id;
         fixture.AddProjectMember(actor.Id, ProjectRole.Owner);
+        SeedMembershipScope(fixture);
         var before = MembershipRows(fixture);
         var missing = Guid.NewGuid();
         Assert.False((await fixture.Service.UpdateMemberAsync(fixture.Project.Id, missing, new(ProjectRole.Manager))).IsSuccess);
@@ -180,6 +206,7 @@ public sealed partial class ProjectServiceTests
         var actor = fixture.AddUser();
         fixture.Current.UserIdValue = actor.Id;
         fixture.AddProjectMember(actor.Id, ProjectRole.Owner);
+        SeedMembershipScope(fixture);
         switch (scenario)
         {
             case "anonymous": fixture.Current.UserIdValue = null; break;
@@ -192,19 +219,39 @@ public sealed partial class ProjectServiceTests
         AssertMembershipDeniedWithoutSideEffects(fixture, before);
     }
 
-    private static (Guid ProjectId, Guid UserId, ProjectRole Role, DateTimeOffset JoinedAt)[] MembershipRows(ProjectFixture fixture) =>
+    private static void SeedMembershipScope(ProjectFixture fixture)
+    {
+        var tenantId = Guid.NewGuid();
+        fixture.Project.TenantId = tenantId;
+        fixture.Workspace.TenantId = tenantId;
+        foreach (var member in fixture.Workspaces.Members) member.TenantId = tenantId;
+        foreach (var member in fixture.Projects.Members)
+        {
+            member.TenantId = tenantId;
+            member.CreatedAt = fixture.Clock.UtcNow.AddDays(-3);
+            member.UpdatedAt = fixture.Clock.UtcNow.AddDays(-2);
+        }
+        Assert.NotEqual(Guid.Empty, fixture.Project.TenantId);
+    }
+
+    private static (Guid Id, Guid TenantId, Guid ProjectId, Guid UserId, ProjectRole Role,
+        DateTimeOffset JoinedAt, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt)[] MembershipRows(ProjectFixture fixture) =>
         fixture.Projects.Members.OrderBy(member => member.ProjectId).ThenBy(member => member.UserId)
-            .Select(member => (member.ProjectId, member.UserId, member.Role, member.JoinedAt)).ToArray();
+            .Select(member => (member.Id, member.TenantId, member.ProjectId, member.UserId, member.Role,
+                member.JoinedAt, member.CreatedAt, member.UpdatedAt)).ToArray();
 
     private static void AssertMembershipDeniedWithoutSideEffects(ProjectFixture fixture,
-        (Guid ProjectId, Guid UserId, ProjectRole Role, DateTimeOffset JoinedAt)[] before)
+        (Guid Id, Guid TenantId, Guid ProjectId, Guid UserId, ProjectRole Role,
+            DateTimeOffset JoinedAt, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt)[] before)
     {
         Assert.Equal(before, MembershipRows(fixture));
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.AuthorizationChanges.Items);
+        Assert.Empty(fixture.Invalidations.ProjectChanges);
         Assert.Equal(0, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
     }
 }
