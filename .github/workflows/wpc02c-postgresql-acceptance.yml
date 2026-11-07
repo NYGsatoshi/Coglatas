@@ -15,7 +15,7 @@ permissions:
 jobs:
   acceptance:
     name: WPC-02C PostgreSQL / PG18
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
 
     services:
