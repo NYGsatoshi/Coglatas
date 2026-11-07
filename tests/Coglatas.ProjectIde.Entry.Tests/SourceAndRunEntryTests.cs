@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.SecurityArchitecture;
 using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
