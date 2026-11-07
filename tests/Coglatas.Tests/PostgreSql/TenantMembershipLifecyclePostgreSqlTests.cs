@@ -360,9 +360,11 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
             await using var read = OpenContext();
             Assert.Equal(membershipCount, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
             var saved = await read.TenantUsers.IgnoreQueryFilters().SingleAsync(row => row.Id == TargetMembership.Id);
+            Assert.Equal(Owner.Tenant.Id, saved.TenantId);
+            Assert.Equal(Target.Id, saved.UserId);
             Assert.Equal(TenantUserRole.Member, saved.Role);
             Assert.Equal(TenantUserStatus.Active, saved.Status);
-            Assert.Equal(TargetMembership.JoinedAt, saved.JoinedAt);
+            Assert.Equal(Owner.Clock.UtcNow.AddDays(-30), saved.JoinedAt);
             Assert.Empty(await read.AuditLogs.IgnoreQueryFilters().ToListAsync());
             Assert.Empty(await read.OutboxEvents.IgnoreQueryFilters().ToListAsync());
             Assert.Empty(await read.SecurityEvents.IgnoreQueryFilters().ToListAsync());
