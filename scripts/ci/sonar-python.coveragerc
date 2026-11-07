@@ -3,6 +3,7 @@ branch = True
 parallel = True
 include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-sonar-dotnet-coverage.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-sonar-windows-coverage.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/required_check_contract.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/check-publication-readiness.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/github_action_pins.py

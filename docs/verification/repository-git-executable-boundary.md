@@ -111,3 +111,9 @@ This changes a local CLI executable-selection boundary. It is not evidence of an
 HTTP authorization compromise, a formal finding disposition, a waiver, Pilot
 acceptance or Release GO. Current-head checks, official PR Gate and independent
 review remain prerequisites for normal merge; resulting Main is measured again.
+
+Native Windows paths are also collected by the
+[supplemental Windows coverage producer](sonar-native-windows-coverage.md).
+Its raw report and independent source/provenance checks supplement the existing
+mandatory Linux producer. Local native successes do not replace the official
+PR Gate or resulting Main measurement.

@@ -1,0 +1,36 @@
+# Supplemental native Windows coverage
+
+The existing mandatory Linux backend OpenCover producer remains unchanged.
+The trusted push analysis additionally runs the existing portable .NET cohort
+on a fresh Windows runner, with the repository-pinned SDK and Coverlet collector.
+The Windows job has read-only contents permission and no analysis environment
+or Sonar token. Failure prevents the dependent analysis job from publishing.
+
+Coverlet emits its native deterministic Cobertura report. The artifact retains
+the original collector report and native VSTest attachment, original TRX, seven
+executed project DLL/PDB pairs and a source/run/attempt receipt. The one imported
+`verified.cobertura.xml` is byte-identical to the collector report. There is no
+XML rewriting, hit synthesis, zero-hit removal or duplicate report import.
+
+Producer verification compares deterministic C# source paths and bytes with the
+exact Git revision, validates source line bounds and native condition counts,
+and requires actual nonempty all-passed tests. It compares original project
+outputs with executed test-directory binaries and requires the full revision in
+each DLL. The Linux consumer repeats raw/source/TRX/binary digest checks against
+the expected SHA, tree, workflow run and attempt before analysis credentials.
+Git selection is an explicit absolute host executable outside the checkout.
+
+Known regex and OpenAPI compiler-generated virtual documents retain their
+original absolute `obj` filenames and ranges in the report and receipt. They
+are explicitly unmapped generated evidence, never Git-source coverage credit.
+All other nondeterministic or unmappable source paths fail verification.
+Neither the existing analysis scope nor its coverage exclusions are changed.
+
+This closes a collection/import gap for native Windows-only paths. It does not
+establish a PR Gate result or Main coverage gain by itself. The original #1778
+official Gate failure at `e8d5c1c6b9c199b1c16ba539ea56e9eeb87c1def`
+(New Coverage70.1%) remains retained. Qualification requires the actual hosted
+Windows artifact, independent review, official native parser/source mapping,
+the full denominator and resulting Main covered-line/condition measurements.
+Mixed-format results must not be estimated by adding local percentages.
+No security finding disposition or release acceptance is granted.
