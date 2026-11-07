@@ -182,5 +182,10 @@ public sealed class RepositoryLinuxMountTableTests
         Assert.False(table.IsWithinRepository("/work/repository", "/usr/bin/git"));
         Assert.Throws<IOException>(() => table.IsWithinRepository("/work/repository", "/sys/fs/cgroup/entry"));
         Assert.Throws<IOException>(() => table.IsWithinRepository("/sys/fs/cgroup", "/usr/bin/git"));
+        var mountedSubtree = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 /../../namespace /work/repository/control rw - " + type + " cgroup rw"]);
+        Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/usr/bin/git"));
+        Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/work/repository/control/entry"));
     }
 }
