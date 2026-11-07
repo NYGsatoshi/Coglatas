@@ -103,3 +103,12 @@ Keep component and deployment instructions beside their owning assets.
 Generated views and digest-bound evidence require their existing update
 procedures; adding navigation does not change those contracts.
 
+## Maintain documentation
+
+Before adding, splitting, moving, or archiving a page, read the
+[maintenance guide](DOCUMENTATION_MAINTENANCE.md), inspect its entry in the
+[document catalogue](catalog.yml), and check the
+[disposition and move ledger](DOCUMENTATION_MOVES.md).
+The catalogue records document roles and known dependencies; it does not
+change implementation, verification, or approval status. Keep generated
+views, evidence subjects, and CI-bound paths under their existing contracts.
