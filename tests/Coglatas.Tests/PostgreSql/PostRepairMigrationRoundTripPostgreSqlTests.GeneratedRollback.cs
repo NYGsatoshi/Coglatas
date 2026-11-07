@@ -51,7 +51,7 @@ public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests
                 Assert.Contains("DROP TABLE", script);
                 Assert.DoesNotContain("START TRANSACTION", script, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain("BEGIN TRANSACTION", script, StringComparison.OrdinalIgnoreCase);
-                Assert.Equal(2, script.Split(RetainedDropCommand, StringSplitOptions.None).Length);
+                Assert.Equal(2, script.Split(RetainedDropCommand).Length);
                 var previousPosition = -1;
                 foreach (var migration in migrations.Reverse())
                 {
@@ -81,7 +81,8 @@ public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests
                 // transaction commands, so the test explicitly rolls back its failure.
                 await using (var transaction = await connection.BeginTransactionAsync())
                 {
-                    await using var rollback = new NpgsqlCommand(script, connection, transaction) { CommandTimeout = 90 };
+                    await using var rollback = new NpgsqlCommand(script, connection, transaction);
+                    rollback.CommandTimeout = 90;
                     var dependency = await Assert.ThrowsAsync<PostgresException>(() => rollback.ExecuteNonQueryAsync());
                     Assert.Equal("2BP01", dependency.SqlState);
                     Assert.True(IsRetainedObjectRefusal(dependency), "Full rollback refused an unexpected dependency.");
