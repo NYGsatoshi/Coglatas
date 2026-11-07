@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Notifications;
 using Coglatas.Web.Notifications;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,28 +49,41 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         }
 
         Assert.True(worker.ExecuteTask!.IsCompleted);
+        Assert.False(worker.ExecuteTask.IsFaulted);
         Assert.Single(logger.Entries);
         Assert.Equal(1, scopes.Calls);
     }
 
     [Fact]
-    public async Task RequestedCancellationDuringCycleStopsWithoutAnErrorOrAnotherCycle()
+    public async Task StopDuringActiveCycleCancelsRepositoryAndPreventsLaterScopes()
     {
-        using var cancellation = new CancellationTokenSource();
-        var scopes = new ThrowingScopeFactory(new OperationCanceledException(cancellation.Token), cancellation.Cancel);
+        var gate = new CycleGate();
+        var services = new ServiceCollection();
+        services.AddScoped<ICurrentTenantAccessor, CurrentTenantService>();
+        services.AddScoped<ITaskDeadlineDigestRepository>(_ => new GatedTenantRepository(gate));
+        await using var provider = services.BuildServiceProvider();
+        var scopes = new CountingScopeFactory(provider.GetRequiredService<IServiceScopeFactory>());
         var logger = new RecordingLogger();
         using var worker = CreateWorker(scopes, logger);
-        await worker.StartAsync(cancellation.Token);
+        await worker.StartAsync(CancellationToken.None);
         try
         {
+            var observedToken = await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+            Assert.True(observedToken.CanBeCanceled);
+            Assert.False(observedToken.IsCancellationRequested);
             Assert.NotNull(worker.ExecuteTask);
-            await worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+            Assert.False(worker.ExecuteTask.IsCompleted);
+            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+            await gate.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+            Assert.True(observedToken.IsCancellationRequested);
             Assert.True(worker.ExecuteTask.IsCompletedSuccessfully);
             Assert.Equal(1, scopes.Calls);
+            Assert.Equal(1, gate.Calls);
             Assert.Empty(logger.Entries);
         }
         finally
         {
+            gate.Release.TrySetResult();
             await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         }
     }
@@ -140,4 +154,61 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
 
     private sealed record LogEntry(LogLevel Level, string Message, Exception? Exception,
         IReadOnlyDictionary<string, object?> Properties);
+
+    private sealed class CountingScopeFactory(IServiceScopeFactory inner) : IServiceScopeFactory
+    {
+        private int _calls;
+        public int Calls => Volatile.Read(ref _calls);
+        public IServiceScope CreateScope()
+        {
+            Interlocked.Increment(ref _calls);
+            return inner.CreateScope();
+        }
+    }
+
+    private sealed class CycleGate
+    {
+        public int Calls;
+        public TaskCompletionSource<CancellationToken> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Exited { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private sealed class GatedTenantRepository(CycleGate gate) : ITaskDeadlineDigestRepository
+    {
+        public async Task<IReadOnlyList<Guid>> ListActiveTenantIdsAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref gate.Calls);
+            gate.Entered.TrySetResult(cancellationToken);
+            try
+            {
+                await gate.Release.Task.WaitAsync(cancellationToken);
+                return [];
+            }
+            finally
+            {
+                gate.Exited.TrySetResult();
+            }
+        }
+
+        public Task<string?> GetTenantTimeZoneIdAsync(Guid tenantId, CancellationToken cancellationToken = default) => Unexpected<string?>();
+        public Task<IReadOnlyList<TaskDeadlineDigestScheduleCandidate>> ListScheduleCandidatesAsync(int page, int pageSize, CancellationToken cancellationToken = default) => Unexpected<IReadOnlyList<TaskDeadlineDigestScheduleCandidate>>();
+        public Task<int> UpsertSchedulesAsync(IReadOnlyCollection<TaskDeadlineDigestScheduleWrite> schedules, DateTimeOffset now, CancellationToken cancellationToken = default) => Unexpected<int>();
+        public Task<IReadOnlyList<TaskDeadlineDigestClaim>> ClaimDueAsync(string claimOwner, DateTimeOffset now, int batchSize, TimeSpan claimTimeout, CancellationToken cancellationToken = default) => Unexpected<IReadOnlyList<TaskDeadlineDigestClaim>>();
+        public Task<TaskDeadlineDigestClaim?> GetClaimedAsync(Guid jobId, Guid claimToken, bool forUpdate, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestClaim?>();
+        public Task<TaskDeadlineDigestClaim?> AcquireGenerationClaimFenceAsync(TaskDeadlineDigestClaim claim, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestClaim?>();
+        public Task<TaskDeadlineDigestCurrentContext?> GetCurrentContextAsync(Guid jobId, Guid claimToken, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestCurrentContext?>();
+        public Task<IReadOnlyList<TaskDeadlineDigestCandidate>> ListCurrentCandidatesAsync(Guid jobId, Guid claimToken, DateTimeOffset deadlineBeforeUtc, int page, int pageSize, CancellationToken cancellationToken = default) => Unexpected<IReadOnlyList<TaskDeadlineDigestCandidate>>();
+        public Task<TaskDeadlineDigestGenerationFenceOutcome> AcquireGenerationFenceAsync(TaskDeadlineDigestClaim claim, TaskDeadlineDigestCurrentContext? evaluatedContext, IReadOnlyCollection<TaskDeadlineDigestCandidate> evaluatedCandidates, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestGenerationFenceOutcome>();
+        public Task<ITaskDeadlineDigestTransaction> BeginGenerationTransactionAsync(CancellationToken cancellationToken = default) => Unexpected<ITaskDeadlineDigestTransaction>();
+        public Task<bool> MarkSucceededAsync(Guid jobId, Guid claimToken, Guid? notificationId, DateTimeOffset completedAt, CancellationToken cancellationToken = default) => Unexpected<bool>();
+        public Task<bool> DeferAsync(Guid jobId, Guid claimToken, DateTimeOffset scheduledForUtc, DateTimeOffset deferredAt, CancellationToken cancellationToken = default) => Unexpected<bool>();
+        public Task<bool> ReleaseFeatureDisabledClaimAsync(Guid jobId, Guid claimToken, DateTimeOffset releasedAt, CancellationToken cancellationToken = default) => Unexpected<bool>();
+        public Task<TaskDeadlineDigestTransition> MarkFailureAsync(Guid jobId, Guid claimToken, string errorCode, DateTimeOffset failedAt, DateTimeOffset nextAttemptAt, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestTransition>();
+        public Task<TaskDeadlineDigestRestartOutcome> RestartFailedAsync(Guid jobId, Guid actorUserId, string reason, DateTimeOffset requestedAt, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestRestartOutcome>();
+        public Task<TaskDeadlineDigestStoreDiagnostics> GetDiagnosticsAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Unexpected<TaskDeadlineDigestStoreDiagnostics>();
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Unexpected<int>();
+        public void ResetGenerationState() => throw new NotSupportedException("Only active Tenant enumeration is expected.");
+        private static Task<T> Unexpected<T>() => throw new NotSupportedException("Only active Tenant enumeration is expected.");
+    }
 }
