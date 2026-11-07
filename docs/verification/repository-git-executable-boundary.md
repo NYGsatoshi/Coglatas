@@ -26,6 +26,15 @@ The selected absolute directory retains the `git` invocation name, preserving
 trusted Unix multicall shims without restoring implicit command search. Native
 before/after controls distinguish executable aliases from a valid host shim.
 The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).
+Exposed OverlayFS upper/lower layers are also treated as repository backing
+storage, including nested overlays and mounted subtrees. The whole layer tree
+is excluded to cover redirected or metacopy paths. A Git installation inside
+such a backing layer is unsupported even if it lies outside the inspected
+subdirectory. For a candidate on another filesystem, unavailable or cyclic
+layer evidence fails closed rather than guessing a host identity. Git in the
+same overlay view outside the repository and independent host installations
+outside its layers remain eligible. Native controls retain the original
+exposed-upper execution and require exact host-Git blob bytes after correction.
 
 Host PATH installation directories and a stable host filesystem remain trusted
 inputs. The check is not an atomic executable-handle launch, a signature policy,

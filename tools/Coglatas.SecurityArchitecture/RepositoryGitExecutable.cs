@@ -13,7 +13,7 @@ internal static class RepositoryGitExecutable
         var windows = OperatingSystem.IsWindows();
         var windowsRoot = windows ? WindowsIdentity(repositoryRoot) : default;
         var root = windows ? string.Empty : PhysicalPath(repositoryRoot);
-        var mounts = OperatingSystem.IsLinux() ? new RepositoryLinuxMountTable(File.ReadLines("/proc/self/mountinfo")) : null;
+        var mounts = OperatingSystem.IsLinux() ? new RepositoryLinuxMountTable(File.ReadLines("/proc/self/mountinfo"), PhysicalPath) : null;
         foreach (var rawEntry in (searchPath ?? "").Split(Path.PathSeparator))
         {
             // Windows PATH commonly quotes installation paths containing spaces. Unix quotes are literal.

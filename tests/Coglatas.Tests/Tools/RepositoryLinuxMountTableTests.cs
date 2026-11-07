@@ -63,4 +63,51 @@ public sealed class RepositoryLinuxMountTableTests
         Assert.Throws<IOException>(() => stacked.IsWithinRepository("/work/repository", "/usr/bin/git"));
         Assert.Throws<IOException>(() => stacked.IsWithinRepository("/usr", "/work/repository/nested/git"));
     }
+
+    [Theory]
+    [InlineData("/layers/upper/repository/git", true)]
+    [InlineData("/layers/lower/repository/git", true)]
+    [InlineData("/upper-alias/repository/git", true)]
+    [InlineData("/layers/upper/redirected-old-name/git", true)]
+    [InlineData("/usr/bin/git", false)]
+    public void ExposedOverlayLayersAreNotIndependentHostInstallations(string candidate, bool inside)
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /merged rw - overlay overlay rw,lowerdir=/layers/lower,upperdir=/layers/upper,workdir=/layers/work",
+            "3 1 8:1 /layers/upper /upper-alias rw - ext4 /dev/sda rw"]);
+        Assert.Equal(inside, table.IsWithinRepository("/merged/repository", candidate));
+    }
+
+    [Fact]
+    public void MountedOverlaySubtreesAndNestedLayersKeepTheirBackingBoundary()
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /repository/mounted rw - overlay overlay rw,lowerdir=/nested-layer,upperdir=/upper,workdir=/work",
+            "3 1 0:73 / /nested-layer rw - overlay overlay rw,lowerdir=/actual/lower"]);
+        Assert.True(table.IsWithinRepository("/repository", "/actual/lower/git"));
+        Assert.False(table.IsWithinRepository("/repository", "/usr/bin/git"));
+    }
+
+    [Theory]
+    [InlineData("rw")]
+    [InlineData("rw,lowerdir=relative")]
+    public void UnprovableOverlayLayersFailClosedForOtherFilesystems(string options)
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /merged rw - overlay overlay " + options]);
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/merged/repository", "/usr/bin/git"));
+    }
+
+    [Fact]
+    public void InvisibleAndCyclicOverlayLayersFailClosed()
+    {
+        string[] lines = ["1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /merged rw - overlay overlay rw,lowerdir=/merged"];
+        Assert.Throws<IOException>(() => new RepositoryLinuxMountTable(lines).IsWithinRepository("/merged/repository", "/usr/bin/git"));
+        var invisible = new RepositoryLinuxMountTable(lines, _ => throw new IOException("Unavailable layer."));
+        Assert.Throws<IOException>(() => invisible.IsWithinRepository("/merged/repository", "/usr/bin/git"));
+    }
 }
