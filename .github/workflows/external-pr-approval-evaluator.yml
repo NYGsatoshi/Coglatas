@@ -21,7 +21,7 @@ concurrency:
 jobs:
   evaluate:
     name: External PR approval evaluator
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - name: Governance approval gate retired

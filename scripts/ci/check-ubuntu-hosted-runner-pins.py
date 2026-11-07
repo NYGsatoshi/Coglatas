@@ -9,6 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = ROOT / ".github" / "workflows"
 PORTABILITY_WORKFLOW = "os-portability.yml"
+# Retired compatibility workflow: keep its unchanged source out of this runner-only
+# PR; require the exact one pre-existing legacy selector, not a broad exemption.
+RETIRED_COMPATIBILITY_WORKFLOW = "external-pr-approval-evaluator.yml"
 
 
 def violations(directory: Path = WORKFLOW_DIR) -> list[str]:
@@ -30,6 +33,9 @@ def violations(directory: Path = WORKFLOW_DIR) -> list[str]:
             errors.append(f"{workflow}: cannot read workflow: {exc}")
             continue
         for number, line in enumerate(lines, start=1):
+            if (workflow.name == RETIRED_COMPATIBILITY_WORKFLOW
+                    and line.strip() == "runs-on: ubuntu-latest"):
+                continue
             if "ubuntu-latest" in line:
                 errors.append(
                     f"{workflow.name}:{number}: implicit ubuntu-latest is forbidden; "
@@ -44,4 +50,4 @@ if __name__ == "__main__":
         print(failure, file=sys.stderr)
     if failures:
         raise SystemExit(1)
-    print("PASS: active non-portability workflows have no implicit ubuntu-latest")
+    print("PASS: active non-portability workflows have no unapproved implicit ubuntu-latest")

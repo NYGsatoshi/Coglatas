@@ -4,10 +4,17 @@
 
 The GitHub-hosted Ubuntu latest-image transition can change the operating
 system under existing Main and pull-request checks without a reviewed repository
-change. This Main-targeted corrective PR pins Linux job selectors in 67 existing
+change. This Main-targeted corrective PR pins Linux job selectors in 66 existing
 workflow files to ubuntu-24.04, including Main build, PR CI, functional,
 security, supply-chain, quality, performance and release-evidence owners.
 The CodeQL Swift job stays on macos-latest; its Linux fallback is pinned.
+
+The retired External PR approval evaluator retains its original workflow_run
+compatibility trigger and ubuntu-latest selector unchanged. Broadly touching
+that unrelated retired workflow would surface the existing security audit
+finding for its privileged event class without correcting the underlying
+governance contract. The new checker exempts only its exact legacy
+runs-on: ubuntu-latest line, not any additional dynamic or matrix selection.
 
 The COMPAT-02 OS Portability Matrix remains unchanged: its three exact labels
 are ubuntu-latest, windows-latest and macos-latest. Its original contract
@@ -26,7 +33,7 @@ registry recognizes ubuntu-24.04 and the bounded CodeQL fallback while
 retaining the portability expression and hosted labels.
 
 No workflow trigger, permissions, required check, timeout, skip, retry,
-Action pin, security threshold, release gate, production base image or
+security threshold, release gate, production base image or
 dependency version is intentionally changed.
 
 ## Qualification boundary

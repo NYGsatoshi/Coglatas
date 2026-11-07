@@ -46,6 +46,18 @@ class UbuntuRunnerPinTests(unittest.TestCase):
             probe.write_text("jobs:\n  probe:\n    runs-on: ubuntu-26.04\n", encoding="utf-8")
             self.assertEqual([], guard.violations(Path(root)))
 
+    def test_exact_retired_compatibility_selector_is_narrowly_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            workflow = Path(root) / "external-pr-approval-evaluator.yml"
+            workflow.write_text("jobs:\n  evaluate:\n    runs-on: ubuntu-latest\n", encoding="utf-8")
+            self.assertEqual([], guard.violations(Path(root)))
+            workflow.write_text(
+                "jobs:\n  evaluate:\n    runs-on: ubuntu-latest\n"
+                "    strategy:\n      matrix:\n        os: [ubuntu-latest]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(1, len(guard.violations(Path(root))))
+
     def test_original_three_os_portability_contract_is_exempt(self) -> None:
         with tempfile.TemporaryDirectory() as root:
             portability = Path(root) / "os-portability.yml"
