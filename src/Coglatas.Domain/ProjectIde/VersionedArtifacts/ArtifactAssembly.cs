@@ -213,6 +213,8 @@ public sealed class PrototypeArtifactStore
                     ArtifactAssembly.RequireSameSource(artifact, manifest);
                     var declared = SourceFields.Array(manifest.Data.Value.GetProperty("payload"), "entries").EnumerateArray().ToArray();
                     var observed = SourceFields.Array(artifact.Data.Value.GetProperty("payload"), "entries").EnumerateArray().ToArray();
+                    if (SourceFields.String(artifact.Data.Value.GetProperty("payload"), "enumeration") != "completed" ||
+                        observed.Length != declared.Length) return ArtifactImportState.Incomplete;
                     foreach (var item in observed)
                     {
                         var key = SourceFields.String(item, "entryKey");
@@ -220,6 +222,8 @@ public sealed class PrototypeArtifactStore
                         if (expected.ValueKind == System.Text.Json.JsonValueKind.Undefined ||
                             !SourceJson.FromElement(expected.GetProperty("expected")).Equals(SourceJson.FromElement(item.GetProperty("expected"))))
                             throw new FormatException("Actual entry is not declared in the exact Manifest.");
+                        if (SourceFields.String(item, "state") != "present" ||
+                            SourceFields.String(expected, "coverageClaim") != "complete") return ArtifactImportState.Incomplete;
                     }
                 }
                 else if (identity.ArtifactType == PrototypeArtifactRegistry.MaterializationReceipt)
