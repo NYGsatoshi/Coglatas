@@ -239,6 +239,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     ]);
     http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
     http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
     if (kind === 'draft') initial.flush({ ...draft, title: 'Older initial Draft' });
     if (oldCollections) {
       oldCollections.tasks.flush({ items: [] }); oldCollections.board.flush(snapshotDto());
