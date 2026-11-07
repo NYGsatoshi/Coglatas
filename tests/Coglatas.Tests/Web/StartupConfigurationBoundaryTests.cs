@@ -78,8 +78,7 @@ public sealed class StartupConfigurationBoundaryTests
         var properties = Assert.IsAssignableFrom<IEnumerable<KeyValuePair<string, object?>>>(entry.State).ToArray();
         Assert.Equal(2, properties.Length);
         Assert.Contains(properties, property => property.Key == "Error" && Equals(property.Value, expected));
-        Assert.Contains(properties, property => property.Key == "{OriginalFormat}" &&
-            Equals(property.Value, "Configuration validation failed: {Error}"));
+        Assert.Contains(properties, property => property is { Key: "{OriginalFormat}", Value: "Configuration validation failed: {Error}" });
         foreach (var secret in new[] { fixture.DatabaseSecret, fixture.StorageSecret, suppliedDatabaseSecret, fixture.Files.SecretKey }.OfType<string>())
         {
             Assert.DoesNotContain(secret, exception.ToString(), StringComparison.Ordinal);
