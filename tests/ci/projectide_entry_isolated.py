@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 TEST_BASE = "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f"
 PRODUCT_BASE = "3aebedb3d975b04070262751d4dc0a187e0df89b"
@@ -81,6 +82,10 @@ def main() -> None:
                        testTree=git(repo, "rev-parse", args.test_head + "^{tree}"))
         sys.path.insert(0, str(target / "tests/ci"))
         from projectide_core_isolated import inventory
+        receipt["verification"]["inventoryNegativeControls"] = "Failed"
+        run([sys.executable, "-B", "-m", "unittest", "discover", "-s", "tests/ci", "-p", "test_projectide*isolated.py", "-v"],
+            target, output / "inventory-negative-controls.log")
+        receipt["verification"]["inventoryNegativeControls"] = "Passed"
         receipt["sdk"] = run(["dotnet", "--version"], target)
         if receipt["sdk"] != json.loads((target / "global.json").read_text())["sdk"]["version"]:
             raise ValueError("Repository SDK pin differs")
@@ -120,7 +125,9 @@ def main() -> None:
                     not any("Independent_reader_compat_vectors" in case for case in executed)):
                 raise ValueError("Existing reader compatibility cases did not run")
             (output / f"{name}-inventory.json").write_text(json.dumps(executed, indent=2) + "\n", encoding="utf-8")
-            receipt["verification"][name] = dict(total=len(executed), failed=0, skipped=0)
+            counters = ET.parse(output / f"{name}.trx").getroot().find("{*}ResultSummary/{*}Counters")
+            receipt["verification"][name] = dict(total=int(counters.get("total")),
+                failed=int(counters.get("failed", "0")), skipped=int(counters.get("notExecuted", "0")))
         run(["node", "--test", "tests/ci/projectide-artifact-vectors.test.mjs"], target, output / "node-vectors.log")
         receipt["verification"]["nodeVectors"] = "Passed"
         if git(target, "status", "--porcelain", "--untracked-files=no"):
