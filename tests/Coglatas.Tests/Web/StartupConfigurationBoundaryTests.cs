@@ -70,6 +70,12 @@ public sealed class StartupConfigurationBoundaryTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => fixture.Validator.StartAsync(CancellationToken.None));
 
+        AssertRejection(fixture, exception, expected, suppliedDatabaseSecret);
+    }
+
+    private static void AssertRejection(ValidationFixture fixture, InvalidOperationException exception,
+        string expected, string? suppliedDatabaseSecret = null)
+    {
         Assert.Equal("Coglatas Portal configuration validation failed: " + expected, exception.Message);
         var entry = Assert.Single(fixture.Log.Entries);
         Assert.Equal("Configuration validation failed: " + expected, entry.Message);
@@ -138,7 +144,7 @@ public sealed class StartupConfigurationBoundaryTests
             () => fixture.Validator.StartAsync(CancellationToken.None));
 
         Assert.Equal("Coglatas Portal configuration validation failed: " + expected, exception.Message);
-        Assert.Equal("Configuration validation failed: " + expected, Assert.Single(fixture.Log.Messages));
+        AssertRejection(fixture, exception, expected);
     }
 
     [Theory]
@@ -152,7 +158,7 @@ public sealed class StartupConfigurationBoundaryTests
             () => fixture.Validator.StartAsync(CancellationToken.None));
 
         Assert.Equal("Coglatas Portal configuration validation failed: " + expected, exception.Message);
-        Assert.Equal("Configuration validation failed: " + expected, Assert.Single(fixture.Log.Messages));
+        AssertRejection(fixture, exception, expected);
     }
 
     [Theory]
@@ -169,7 +175,7 @@ public sealed class StartupConfigurationBoundaryTests
             () => fixture.Validator.StartAsync(CancellationToken.None));
 
         Assert.Equal("Coglatas Portal configuration validation failed: " + expected, exception.Message);
-        Assert.Equal("Configuration validation failed: " + expected, Assert.Single(fixture.Log.Messages));
+        AssertRejection(fixture, exception, expected);
     }
 
     private sealed class ValidationFixture : IDisposable
