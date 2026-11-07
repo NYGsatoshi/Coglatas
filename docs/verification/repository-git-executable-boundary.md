@@ -34,6 +34,10 @@ entries; they preserve original unsafe observations and original output bytes.
 The local tool controls use the Tools namespace; the exact formal SEC-ARCH
 evidence catalogue and producer remain unchanged. Tool-only PR routing selects
 both owners, including when no test file changes, with a dedicated regression.
+Main push portability paths also include the tool directory, so a later tool-only
+change automatically runs Windows, macOS and Linux. The existing workflow
+contract rejects removal of that path or its Main branch trigger; the matrix,
+portable cohort and result thresholds remain unchanged.
 
 The initial candidate's Windows network-share rejection was independently
 identified and reproduced against an accessible localhost synthetic fixture.

@@ -86,6 +86,20 @@ test('runner registry binds the matrix to approved GitHub-hosted labels', async 
   assert.throws(() => validateRunnerRoutingRegistry(contract, missingExpression), /bounded portability runner expression/u);
 });
 
+test('workflow keeps native Git tool-only changes in the automatic Main OS matrix', async () => {
+  const contract = await loadOsPortabilityContract();
+  const workflow = await readFile(contract.workflow, 'utf8');
+  const allowlist = JSON.parse(await readFile('governance/github-actions-allowlist.json', 'utf8'));
+  assert.doesNotThrow(() => validateWorkflowText(contract, workflow, allowlist));
+
+  const omitted = workflow.replace(/^\s*- "tools\/Coglatas\.SecurityArchitecture\/\*\*"\r?\n/mu, '');
+  assert.notEqual(omitted, workflow);
+  assert.throws(() => validateWorkflowText(contract, omitted, allowlist), /Main push paths must include tools/u);
+  const otherBranch = workflow.replace('branches: ["main"]', 'branches: ["development"]');
+  assert.notEqual(otherBranch, workflow);
+  assert.throws(() => validateWorkflowText(contract, otherBranch, allowlist), /Main push paths must include tools/u);
+});
+
 test('npm version probe uses the Windows command shim through cmd.exe only on Windows', () => {
   assert.deepEqual(npmVersionCommand('win32'), {
     command: 'cmd.exe',
