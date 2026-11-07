@@ -33,6 +33,10 @@
     },
     "testClasses": [
       {
+        "path": "tests/Coglatas.Tests/SecurityArchitecture/RepositoryGitExecutableTests.cs",
+        "className": "RepositoryGitExecutableTests"
+      },
+      {
         "path": "tests/Coglatas.Tests/SkeletonTests.cs",
         "className": "SkeletonTests"
       },

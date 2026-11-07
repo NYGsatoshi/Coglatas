@@ -3,6 +3,7 @@ using Coglatas.SecurityArchitecture;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
+[Trait("Portability", "CrossPlatform")]
 public sealed class RepositoryGitExecutableTests
 {
     [Theory]
@@ -28,6 +29,44 @@ public sealed class RepositoryGitExecutableTests
         Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, entry));
         Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(fixture.Repository,
             entry + Path.PathSeparator + fixture.Installation));
+    }
+
+    [Fact]
+    public async Task ImmutableBlobUsesTheHostInstallationWithARepositoryExecutablePresent()
+    {
+        using var fixture = new Fixture();
+        var git = RepositoryGitExecutable.Resolve(fixture.Repository, Environment.GetEnvironmentVariable("PATH"));
+        var bytes = "Synthetic immutable source\n"u8.ToArray();
+        await File.WriteAllBytesAsync(Path.Combine(fixture.Repository, "source.txt"), bytes);
+        var hooks = Directory.CreateDirectory(Path.Combine(fixture.Root, "empty-hooks")).FullName;
+        await Git(git, fixture.Repository, "init", "--quiet");
+        await Git(git, fixture.Repository, "add", "source.txt");
+        await Git(git, fixture.Repository, "-c", "core.hooksPath=" + hooks, "-c", "commit.gpgsign=false",
+            "-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid",
+            "commit", "--quiet", "-m", "Synthetic immutable source");
+        var revision = (await Git(git, fixture.Repository, "rev-parse", "HEAD")).Trim();
+        fixture.Executable(fixture.Repository);
+
+        var reader = new RepositoryArtifactReader(fixture.Repository);
+        Assert.Equal(bytes, await reader.ReadAsync(new(revision, "source.txt", null, new('b', 64))));
+        Assert.Null(await reader.ReadAsync(new(revision, "missing.txt", null, new('b', 64))));
+    }
+
+    private static async Task<string> Git(string executable, string directory, params string[] arguments)
+    {
+        var info = new ProcessStartInfo(executable)
+        {
+            WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = true,
+            RedirectStandardError = true, CreateNoWindow = true
+        };
+        foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        using var process = Process.Start(info)!;
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        await error;
+        Assert.Equal(0, process.ExitCode);
+        return await output;
     }
 
     [Fact]
@@ -170,6 +209,9 @@ public sealed class RepositoryGitExecutableTests
             // Unlink aliases while their targets still exist; never recurse through a fixture alias.
             foreach (var directory in Directory.EnumerateDirectories(Root))
                 if (new DirectoryInfo(directory).LinkTarget is not null) Directory.Delete(directory);
+            // Git's immutable loose objects are read-only on Windows; clear only this owned fixture's files.
+            foreach (var file in Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories))
+                File.SetAttributes(file, FileAttributes.Normal);
             Directory.Delete(Root, recursive: true);
         }
     }

@@ -10,7 +10,9 @@ internal static class RepositoryGitExecutable
 {
     internal static string Resolve(string repositoryRoot, string? searchPath)
     {
-        var root = PhysicalPath(repositoryRoot);
+        var windows = OperatingSystem.IsWindows();
+        var windowsRoot = windows ? WindowsIdentity(repositoryRoot) : default;
+        var root = windows ? string.Empty : PhysicalPath(repositoryRoot);
         foreach (var rawEntry in (searchPath ?? "").Split(Path.PathSeparator))
         {
             // Windows PATH commonly quotes installation paths containing spaces. Unix quotes are literal.
@@ -21,12 +23,17 @@ internal static class RepositoryGitExecutable
             {
                 var candidate = Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git");
                 if (!File.Exists(candidate)) continue;
+                if (windows)
+                {
+                    var executable = WindowsExecutablePath(candidate);
+                    if (IsWithinWindowsRepository(executable, windowsRoot)) continue;
+                    return executable;
+                }
                 var physical = PhysicalPath(candidate);
-                var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
                 var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
-                if (physical.Equals(root, comparison) || physical.StartsWith(prefix, comparison)) continue;
-                if (!OperatingSystem.IsWindows() && Access(physical, 1) != 0) continue;
-                return OperatingSystem.IsWindows() ? WindowsExecutablePath(candidate, physical) : physical;
+                if (physical.Equals(root, StringComparison.Ordinal) || physical.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                if (Access(physical, 1) != 0) continue;
+                return physical;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or Win32Exception)
             {
@@ -39,36 +46,61 @@ internal static class RepositoryGitExecutable
     private static string PhysicalPath(string path)
     {
         if (path.Contains('\0')) throw new ArgumentException("Unsupported path.");
-        if (OperatingSystem.IsWindows())
-        {
-            using var handle = OpenWindowsPath(path);
-            // Volume GUID form gives the same comparison namespace across drive aliases and junctions.
-            return FinalWindowsPath(handle, 1);
-        }
         var pointer = RealPath(path, IntPtr.Zero);
         if (pointer == IntPtr.Zero) throw new IOException("Cannot resolve the physical path.");
         try { return Marshal.PtrToStringUTF8(pointer) ?? throw new IOException("Cannot resolve the physical path."); }
         finally { Free(pointer); }
     }
 
-    private static string WindowsExecutablePath(string candidate, string expectedPhysicalPath)
+    private static string WindowsExecutablePath(string candidate)
     {
         using var handle = OpenWindowsPath(candidate);
         var path = FinalWindowsPath(handle, 0);
         // Git for Windows' launcher must receive its ordinary absolute installation path.
         path = path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase) ? @"\\" + path[8..]
             : path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path[4..] : path;
-        if (!Path.IsPathFullyQualified(path) || !PhysicalPath(path).Equals(expectedPhysicalPath, StringComparison.OrdinalIgnoreCase))
+        if (!Path.IsPathFullyQualified(path) || !WindowsIdentity(path).Equals(WindowsIdentity(handle)))
             throw new IOException("Unsupported executable path.");
         return path;
+    }
+
+    private static bool IsWithinWindowsRepository(string executable, WindowsFileIdentity root)
+    {
+        // Compare actual ancestor identities, including local/UNC/mapped-drive aliases of the same directory.
+        for (string? path = executable; path is not null; path = Path.GetDirectoryName(path))
+            if (WindowsIdentity(path).Equals(root)) return true;
+        return false;
+    }
+
+    private static WindowsFileIdentity WindowsIdentity(string path)
+    {
+        if (path.Contains('\0')) throw new ArgumentException("Unsupported path.");
+        using var handle = OpenWindowsPath(path);
+        return WindowsIdentity(handle);
+    }
+
+    private static WindowsFileIdentity WindowsIdentity(SafeFileHandle handle)
+    {
+        if (!GetFileInformationByHandleEx(handle, 18, out var identity, 24))
+            throw new Win32Exception(Marshal.GetLastPInvokeError());
+        return identity;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowsFileIdentity
+    {
+        public ulong VolumeSerialNumber;
+        public ulong FileIdLow;
+        public ulong FileIdHigh;
     }
 
     private static SafeFileHandle OpenWindowsPath(string path)
     {
         var handle = CreateFile(Path.GetFullPath(path), 0, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
         if (!handle.IsInvalid) return handle;
+        var error = Marshal.GetLastPInvokeError();
         handle.Dispose();
-        throw new Win32Exception(Marshal.GetLastPInvokeError());
+        throw new Win32Exception(error);
     }
 
     private static string FinalWindowsPath(SafeFileHandle handle, uint flags)
@@ -92,6 +124,12 @@ internal static class RepositoryGitExecutable
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetFinalPathNameByHandle(SafeFileHandle handle, StringBuilder path, uint length, uint flags);
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int informationClass,
+        out WindowsFileIdentity information, uint size);
 
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [DllImport("libc", EntryPoint = "realpath", SetLastError = true)]
