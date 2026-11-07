@@ -124,6 +124,49 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     selectFromHttp(); cold.flush(draft); await settle(); flushBoard();
   }
 
+  it.each(['draft', 'active'] as const)('records a current %s visit once after initial transient failure', async (kind) => {
+    enableBoard(); detail.load('project-1');
+    const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    const initial = http.expectOne('/api/projects/project-1');
+    const recovery = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovery; await settle();
+    const current = http.expectOne('/api/projects/project-1');
+    initial.flush({ message: 'Initial temporary failure' }, { status: 503, statusText: 'Unavailable' });
+    expect(history.touchProject).not.toHaveBeenCalled();
+    current.flush(kind === 'active' ? active : draft);
+    if (kind === 'active') {
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush([]);
+      http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+      http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
+    }
+    expect(detail.view().status).toBe('ready');
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+    const later = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await later; await settle();
+    http.expectOne('/api/projects/project-1').flush(draft);
+    for (const request of http.match(request => request.url.startsWith('/api/projects/project-1/kanban') || request.url.endsWith('/gantt')))
+      request.flush(request.request.url.endsWith('/gantt') ? ganttSnapshotDto() : snapshotDto());
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+  });
+
+  it.each(['workspace', 'release'] as const)('discards the pending visit at a %s boundary after transient failure', async (boundary) => {
+    detail.load('project-1'); const cold = http.expectOne('/api/projects/project-1');
+    selectFromHttp(); cold.flush(draft); await settle();
+    http.expectOne('/api/projects/project-1').flush({ message: 'Initial temporary failure' }, { status: 503, statusText: 'Unavailable' });
+    const recovery = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await recovery; await settle();
+    const current = http.expectOne('/api/projects/project-1');
+    if (boundary === 'release') detail.release();
+    else TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-2', label: 'Replacement Workspace' });
+    current.flush(draft);
+    expect(history.touchProject).not.toHaveBeenCalled();
+    expect(detail.view().project).toBeUndefined();
+    http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+  });
+
   for (const failureFirst of [false, true]) {
     it.each([false, true])(`recovers a queued Schedule when overlapping catch-up fails with failureFirst=${failureFirst}, childFirst=%s`, async (childFirst) => {
       await mountBoard();

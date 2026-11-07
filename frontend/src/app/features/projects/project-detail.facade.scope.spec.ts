@@ -30,16 +30,21 @@ describe('ProjectDetailFacade initial response scope', () => {
   let workspace: ActiveWorkspaceFacade;
   let http: HttpTestingController;
   let events: Subject<DurableRealtimeEvent>;
+  let catchUp: ((context: { readonly deniedOwners: ReadonlySet<string> }) => void) | undefined;
   const history = { touchProject: vi.fn() };
 
   beforeEach(() => {
     history.touchProject.mockReset();
     events = new Subject<DurableRealtimeEvent>();
+    catchUp = undefined;
     TestBed.configureTestingModule({ providers: [
       provideHttpClient(), provideHttpClientTesting(),
       { provide: RealtimeFacade, useValue: {
         durableEvents$: events.asObservable(), connectionState: signal('Connected'),
-        registerSubscription: () => () => {}, registerCatchUp: () => () => {},
+        registerSubscription: () => () => {},
+        registerCatchUp: (_owner: string, callback: (context: { readonly deniedOwners: ReadonlySet<string> }) => void) => {
+          catchUp = callback; return () => {};
+        },
         registerProtectedStateClearer: () => () => {},
       } },
       { provide: FrontendFeatureFlagsService, useValue: {
@@ -81,6 +86,44 @@ describe('ProjectDetailFacade initial response scope', () => {
     http.expectOne(request => request.url === '/api/projects/project-1/kanban').flush(snapshotDto());
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
   }
+
+  it.each([false, true])('keeps buffered operational data out of a recovered Draft with childFirst=%s', async (childFirst) => {
+    enableViews(); facade.load('project-1');
+    const initial = http.expectOne('/api/projects/project-1');
+    expect(catchUp).toBeDefined(); catchUp!({ deniedOwners: new Set() });
+    const draftRecovery = http.expectOne('/api/projects/project-1');
+    initial.flush(active);
+    const original = {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne('/api/projects/project-1/kanban'),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+      workload: http.expectOne('/api/projects/project-1/workload'),
+      members: http.expectOne('/api/projects/project-1/members'),
+    };
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    const buffered = {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+    };
+    const flushBuffered = () => {
+      buffered.tasks.flush(taskRows); buffered.board.flush(snapshotDto()); buffered.schedule.flush(ganttSnapshotDto());
+    };
+    if (childFirst) flushBuffered();
+    draftRecovery.flush(draft);
+    if (!childFirst) flushBuffered();
+    original.tasks.flush(taskRows); original.board.flush(snapshotDto()); original.schedule.flush(ganttSnapshotDto());
+    original.workload.flush({ members: [] }); original.members.flush([]);
+    expect(facade.view().project?.isOperational).toBe(false);
+    expect(facade.view().tasks).toEqual([]);
+    expect(facade.view().kanban.snapshot).toBeNull(); expect(facade.view().schedule.snapshot).toBeNull();
+
+    catchUp!({ deniedOwners: new Set() }); finishNavigation(); finishViews();
+    expect(facade.view().project?.isOperational).toBe(true);
+    expect(facade.view().kanban.snapshot).not.toBeNull(); expect(facade.view().schedule.snapshot).not.toBeNull();
+    expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
+    http.expectNone(() => true);
+  });
 
   for (const inFlight of [false, true]) {
     it.each([401, 403])(`releases Task refresh ownership after schedule command %s with inFlight=${inFlight}`, async (status) => {
