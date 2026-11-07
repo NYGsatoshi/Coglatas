@@ -77,6 +77,18 @@ class InspectionEvidenceTests(unittest.TestCase):
             document = copy.deepcopy(self.document)
             document["runs"][0][key] = value
             mutations.append(document)
+        result = {"ruleId": "Warning", "message": {"text": "synthetic warning"}, "locations": [{
+            "physicalLocation": {"artifactLocation": {"uri": "tests/unchanged.cs"}, "region": {"startLine": 1}}}]}
+        for key, value in (("message", "invalid"), ("message", ["invalid"]), ("locations", [{}]),
+                           ("locations", [None]), ("locations", [{"physicalLocation": "invalid"}]),
+                           ("locations", [{"physicalLocation": {"artifactLocation": {"uri": "https://example.invalid/source"}}}]),
+                           ("locations", [{"physicalLocation": {"artifactLocation": {"uri": "tests/source.cs"},
+                                                               "region": {"startLine": "invalid"}}}])):
+            finding = copy.deepcopy(result)
+            finding[key] = value
+            document = copy.deepcopy(self.document)
+            document["runs"][0]["results"] = [finding]
+            mutations.append(document)
         for document in mutations:
             self.report.write_text(json.dumps(document))
             output = io.StringIO()
@@ -87,6 +99,17 @@ class InspectionEvidenceTests(unittest.TestCase):
         self.report.write_text("{broken")
         with redirect_stdout(io.StringIO()), patch("sys.argv", ["gate", str(self.report), str(changed)]):
             self.assertEqual(2, gate.main())
+
+    def test_valid_warning_in_unchanged_source_preserves_existing_threshold(self):
+        gate = quality.load_gate()
+        changed = self.root / "changed.nul"
+        changed.write_bytes(b"tests/changed.cs\0")
+        document = copy.deepcopy(self.document)
+        document["runs"][0]["results"] = [{"ruleId": "Warning", "message": {"text": "synthetic warning"},
+            "locations": [{"physicalLocation": {"artifactLocation": {"uri": "tests/unchanged.cs"}}}]}]
+        self.report.write_text(json.dumps(document))
+        with redirect_stdout(io.StringIO()), patch("sys.argv", ["gate", str(self.report), str(changed)]):
+            self.assertEqual(0, gate.main())
 
     def test_empty_probe_cannot_certify_changed_source_and_restores_original(self):
         from argparse import Namespace

@@ -96,17 +96,35 @@ def validate_sarif(sarif: dict) -> None:
     if not isinstance(runs, list) or not runs:
         raise ValueError("ReSharper SARIF contains no runs")
     for run in runs:
-        if not isinstance(run, dict) or run.get("tool", {}).get("driver", {}).get("name") != "InspectCode":
+        if not isinstance(run, dict):
+            raise ValueError("ReSharper SARIF contains an invalid run")
+        tool = run.get("tool")
+        if not isinstance(tool, dict) or not isinstance(tool.get("driver"), dict) or tool["driver"].get("name") != "InspectCode":
             raise ValueError("ReSharper SARIF has no InspectCode driver")
         invocations = run.get("invocations")
         if not isinstance(invocations, list) or not invocations or any(
-                invocation.get("executionSuccessful") is not True for invocation in invocations):
+                not isinstance(invocation, dict) or invocation.get("executionSuccessful") is not True for invocation in invocations):
             raise ValueError("ReSharper SARIF lacks successful invocation evidence")
         if not isinstance(run.get("results"), list):
             raise ValueError("ReSharper SARIF results are missing or invalid")
         for result in run["results"]:
-            if not isinstance(result, dict) or not result.get("ruleId") or not result.get("message") or not result.get("locations"):
+            if not isinstance(result, dict) or not isinstance(result.get("ruleId"), str) or not result["ruleId"]:
                 raise ValueError("ReSharper SARIF contains an incomplete result")
+            message = result.get("message")
+            if not isinstance(message, dict) or not any(isinstance(message.get(key), str) and message[key] for key in ("text", "markdown")):
+                raise ValueError("ReSharper SARIF contains an invalid result message")
+            locations = result.get("locations")
+            if not isinstance(locations, list) or not locations:
+                raise ValueError("ReSharper SARIF result has no physical file location")
+            for location in locations:
+                physical = location.get("physicalLocation") if isinstance(location, dict) else None
+                artifact = physical.get("artifactLocation") if isinstance(physical, dict) else None
+                if not isinstance(artifact, dict) or not isinstance(artifact.get("uri"), str) or not artifact["uri"]:
+                    raise ValueError("ReSharper SARIF result has no physical file URI")
+                region = physical.get("region", {})
+                if not isinstance(region, dict) or any(
+                        type(region.get(key, 1)) is not int or region.get(key, 1) < 1 for key in ("startLine", "startColumn")):
+                    raise ValueError("ReSharper SARIF result has an invalid source region")
 
 
 def main() -> int:
@@ -149,9 +167,14 @@ def main() -> int:
 
         for result in run.get("results") or []:
             total_results += 1
-            location = first_location(result, workspace)
+            try:
+                location = first_location(result, workspace)
+            except (ValueError, AttributeError) as error:
+                print(f"::error::{escape_message(str(error))}")
+                return 2
             if location is None:
-                continue
+                print("::error::ReSharper SARIF result cannot be bound to the inspected workspace.")
+                return 2
 
             path, line, column = location
             if path not in changed:
