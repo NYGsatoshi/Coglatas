@@ -63,14 +63,14 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         try
         {
             Assert.NotNull(worker.ExecuteTask);
-            await worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
+            await worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
             Assert.True(worker.ExecuteTask.IsCompletedSuccessfully);
             Assert.Equal(1, scopes.Calls);
             Assert.Empty(logger.Entries);
         }
         finally
         {
-            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         }
     }
 
@@ -87,14 +87,14 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         {
             Assert.NotNull(worker.ExecuteTask);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5)));
+                () => worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None));
             Assert.True(worker.ExecuteTask.IsCanceled);
             Assert.Equal(0, scopes.Calls);
             Assert.Empty(logger.Entries);
         }
         finally
         {
-            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            await worker.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         }
     }
 
