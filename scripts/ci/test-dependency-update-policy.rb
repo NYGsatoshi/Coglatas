@@ -89,17 +89,33 @@ def update_errors(config)
   errors << 'Renovate must generate lockfiles with the repository npm version' unless
     config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
 
+  # npm's lockfile-only updater can omit still-required transitive dependencies.
+  # Ensure the repair covers standalone overrides/majors and grouped patch updates.
+  npm_rebuild = find_rule.call('Regenerate npm lockfiles with full installation on every update')
+  errors << 'All npm updates require a full install and second lockfile pass' unless
+    npm_rebuild.is_a?(Hash) && npm_rebuild['matchManagers'] == ['npm'] &&
+    npm_rebuild['skipInstalls'] == false && npm_rebuild['postUpdateOptions'] == ['npmInstallTwice'] &&
+    !npm_rebuild.key?('matchUpdateTypes') && !npm_rebuild.key?('matchPackageNames') &&
+    !npm_rebuild.key?('enabled') && npm_rebuild['skipArtifactsUpdate'] != true
+
+  typescript = find_rule.call('Keep TypeScript in Angular 22 supported peer range')
+  errors << 'TypeScript 7 conflicts with Angular 22 build/compiler peer dependencies' unless
+    typescript.is_a?(Hash) && typescript['matchManagers'] == ['npm'] &&
+    typescript['matchPackageNames'] == ['typescript'] &&
+    typescript['allowedVersions'] == '/^6\\.0\\./' &&
+    !typescript.key?('enabled') && !typescript.key?('matchUpdateTypes')
+
   npm_updates = find_rule.call('Group compatible npm updates per review')
   errors << 'npm lockfile update must run twice to avoid incomplete npm ci artifacts' unless
     npm_updates.is_a?(Hash) && npm_updates['matchManagers'] == ['npm'] &&
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
-  angular_build = find_rule.call('Skip broken Angular build 22.2.5 optional peer tree')
-  errors << 'Only the proven broken Angular build patch may be excluded; future fixes must remain eligible' unless
+  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
+  errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
-    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular'] &&
-    angular_build['allowedVersions'] == '!/^22\\.2\\.5$/' &&
+    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular', '@angular/cli'] &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.[56]$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
 
   stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
@@ -239,12 +255,20 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
-  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '>=22' },
-  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '<22.2.5' },
-  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['matchPackageNames'] << '@angular/core' },
-  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['enabled'] = false },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
-  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
+  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
+  'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
+  'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
+  'only repair minor npm updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['matchUpdateTypes'] = ['minor', 'patch'] },
+  'skip npm lockfile artifacts entirely' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipArtifactsUpdate'] = true },
+  'allow unsupported TypeScript 7' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '>=6' },
+  'freeze TypeScript 6.0 fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '/^6\\.0\\.3$/' },
+  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
+  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
