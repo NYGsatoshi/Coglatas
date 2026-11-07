@@ -29,7 +29,8 @@ public sealed class RepositoryLinuxMountTableTests
     public void BindRootsAndBoundSubdirectoriesUseTheUnderlyingFilesystem(string candidate, bool inside)
     {
         var table = new RepositoryLinuxMountTable(Mounts);
-        Assert.Equal(inside, table.IsWithinRepository("/work/repository", candidate));
+        if (inside) Assert.True(table.IsWithinRepository("/work/repository", candidate));
+        else Assert.Throws<IOException>(() => table.IsWithinRepository("/work/repository", candidate));
         Assert.True(table.IsWithinRepository("/alias", "/work/repository/git"));
         Assert.True(table.IsWithinRepository("/work/repository/nested", "/child-alias/git"));
     }
@@ -129,5 +130,43 @@ public sealed class RepositoryLinuxMountTableTests
             "1 0 8:1 / / rw - ext4 /dev/sda rw",
             "2 1 0:72 / /repository rw - fuse.unclassified source rw"]);
         Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/usr/bin/git"));
+    }
+
+    [Theory]
+    [InlineData("9p")]
+    [InlineData("virtiofs")]
+    public void SeparateSharedFilesystemViewsCannotProveIndependentHostDirectories(string type)
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /repository rw - " + type + " export-one rw",
+            "3 1 0:73 / /alias rw - " + type + " export-two rw"]);
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/alias/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/alias", "/repository/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/usr/bin/git"));
+    }
+
+    [Fact]
+    public void SameExportBindViewRetainsAProvenSiblingDirectory()
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 /host/repository /repository rw - 9p export rw",
+            "3 1 0:72 /host/repository /alias rw - 9p export rw",
+            "4 1 0:72 /host/installation /installation rw - 9p export rw"]);
+        Assert.True(table.IsWithinRepository("/repository", "/alias/git"));
+        Assert.False(table.IsWithinRepository("/repository", "/installation/git"));
+    }
+
+    [Fact]
+    public void AncestorContainmentDoesNotRequireAnUnrelatedParentFilesystemToBeIndependent()
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 /host/repository /repository rw - 9p export rw",
+            "3 1 0:72 /host/repository /alias rw - 9p export rw"]);
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/"));
+        Assert.False(table.IsWithinRepository("/repository", "/", requireComparableViews: false));
+        Assert.True(table.IsWithinRepository("/repository", "/alias", requireComparableViews: false));
     }
 }

@@ -16,6 +16,11 @@ with the executable's actual ancestor identities using the volume serial and
 without requiring a volume GUID for network shares. The ordinary absolute
 Windows launch path is reopened and checked against the original file identity.
 Unresolvable entries fail closed; another explicit usable host entry may follow.
+The original PATH directory ancestry is checked before trusting its resolved
+target. A directory or file link supplied inside an inspected repository cannot
+choose a different host executable. Traceability commands supply both inspected
+roots to both Readers, so the specification read cannot select implementation
+repository executables, or conversely.
 
 Linux automatic selection maps physical paths through `/proc/self/mountinfo`
 for ordinary filesystem and bind-mount views, including mounted repository
@@ -23,6 +28,9 @@ subtrees. Missing, malformed or ambiguous mappings fail closed. It does not
 infer an OverlayFS layer identity from a reported pathname: an overmount can
 hide the directory still held by OverlayFS. Overlay cross-filesystem selection
 and unclassified providers therefore require an operator-selected installation.
+Separate 9p or virtiofs views also require explicit operator trust: different
+anonymous device identities do not prove that two exports represent different
+host content. A bind view of the same export retains its device/root mapping.
 The same overlay view outside the repository remains eligible automatically.
 Both the physical PATH directory and executable target are checked, and the
 selected directory retains the `git` invocation name for Unix multicall shims.
@@ -35,7 +43,8 @@ repository and its filesystem-provider metadata. Never populate it from source
 declarations, repository configuration or untrusted artifact input. The selected
 host installation and a stable host filesystem are the operator's trust inputs;
 this mode does not claim to infer every opaque alias. Direct repository paths
-and resolvable repository aliases still reject. Empty, relative, unavailable or
+and symbolic-link aliases resolving to an inspected root reject; opaque bind
+aliases remain part of the operator's installation trust decision. Empty, relative, unavailable or
 non-executable configuration fails without falling back to PATH. Existing blob
 arguments, size/time limits, output privacy and sanitized error handling remain
 unchanged. Linux container callers inspecting a bind-mounted repository may

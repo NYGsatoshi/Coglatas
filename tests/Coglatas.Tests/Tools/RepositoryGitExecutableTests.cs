@@ -161,6 +161,32 @@ public sealed class RepositoryGitExecutableTests
     }
 
     [Fact]
+    public void EveryInspectedRepositoryIsExcludedForEachReader()
+    {
+        using var fixture = new Fixture();
+        var other = Directory.CreateDirectory(Path.Combine(fixture.Root, "other-input-repository")).FullName;
+        var otherExecutable = fixture.Executable(other);
+        Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, other, null, [other]));
+        Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(fixture.Repository,
+            other + Path.PathSeparator + fixture.Installation, null, [other]));
+        Assert.ThrowsAny<IOException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, fixture.Installation, otherExecutable, [other]));
+        Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(other, fixture.Installation, fixture.TrustedExecutable, [fixture.Repository]));
+    }
+
+    [Fact]
+    public void RepositoryDirectoryLinkCannotChooseAHostInstallation()
+    {
+        using var fixture = new Fixture();
+        var link = Path.Combine(fixture.Repository, "host-link");
+        LinkDirectory(link, fixture.Installation);
+        Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, link));
+        Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(fixture.Repository,
+            link + Path.PathSeparator + fixture.Installation));
+        Assert.ThrowsAny<IOException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, fixture.Installation,
+            Path.Combine(link, OperatingSystem.IsWindows() ? "git.exe" : "git")));
+    }
+
+    [Fact]
     public void HostInstallationSurvivesNativeLinkParentTraversal()
     {
         using var fixture = new Fixture();
@@ -309,12 +335,18 @@ public sealed class RepositoryGitExecutableTests
         public void Dispose()
         {
             // Unlink aliases while their targets still exist; never recurse through a fixture alias.
-            foreach (var directory in Directory.EnumerateDirectories(Root))
-                if (new DirectoryInfo(directory).LinkTarget is not null) Directory.Delete(directory);
+            RemoveDirectoryLinks(Root);
             // Git's immutable loose objects are read-only on Windows; clear only this owned fixture's files.
             foreach (var file in Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories))
                 File.SetAttributes(file, FileAttributes.Normal);
             Directory.Delete(Root, recursive: true);
+        }
+
+        private static void RemoveDirectoryLinks(string parent)
+        {
+            foreach (var directory in Directory.EnumerateDirectories(parent))
+                if (new DirectoryInfo(directory).LinkTarget is not null) Directory.Delete(directory);
+                else RemoveDirectoryLinks(directory);
         }
     }
 }

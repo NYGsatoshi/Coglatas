@@ -20,20 +20,22 @@ internal sealed class RepositoryLinuxMountTable
         }
     }
 
-    internal bool IsWithinRepository(string repository, string path)
+    internal bool IsWithinRepository(string repository, string path, bool requireComparableViews = true)
     {
         var root = Locate(repository);
         var candidate = Locate(path);
         if (root.Device == candidate.Device && AtOrBelow(candidate.Path, root.Path)) return true;
-        RequireComparableViews(root.Mount, candidate.Mount);
         // The inspected tree can itself contain mounted filesystems; aliases of those subtrees are also inside it.
         foreach (var mount in _mounts)
         {
             if (!AtOrBelow(mount.Point, repository)) continue;
             var subtree = Locate(mount.Point);
             if (subtree.Device == candidate.Device && AtOrBelow(candidate.Path, subtree.Path)) return true;
-            RequireComparableViews(subtree.Mount, candidate.Mount);
         }
+        if (!requireComparableViews) return false;
+        RequireComparableViews(root.Mount, candidate.Mount);
+        foreach (var mount in _mounts.Where(mount => AtOrBelow(mount.Point, repository)))
+            RequireComparableViews(Locate(mount.Point).Mount, candidate.Mount);
         return false;
     }
 
@@ -41,6 +43,8 @@ internal sealed class RepositoryLinuxMountTable
     {
         // Option pathnames cannot identify the layers held by OverlayFS after namespace changes.
         if (repository.Type == "overlay" && candidate.Type == "overlay" && repository.Device == candidate.Device) return;
+        if ((repository.Type is "9p" or "virtiofs" || candidate.Type is "9p" or "virtiofs") && repository.Device != candidate.Device)
+            throw new IOException("Automatic Git selection cannot establish independence of separate shared filesystem views.");
         if (IsTransparent(repository.Type) && IsTransparent(candidate.Type)) return;
         throw new IOException("Automatic Git selection cannot establish this filesystem boundary. Configure a trusted Git installation.");
     }

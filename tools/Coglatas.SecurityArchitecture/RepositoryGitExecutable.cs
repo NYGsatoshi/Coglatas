@@ -10,11 +10,13 @@ internal static class RepositoryGitExecutable
 {
     internal const string TrustedExecutableEnvironmentVariable = "COGLATAS_TRUSTED_GIT_EXECUTABLE";
 
-    internal static string Resolve(string repositoryRoot, string? searchPath, string? trustedExecutable = null)
+    internal static string Resolve(string repositoryRoot, string? searchPath, string? trustedExecutable = null,
+        IReadOnlyCollection<string>? inspectedRepositories = null)
     {
         var windows = OperatingSystem.IsWindows();
-        var windowsRoot = windows ? WindowsIdentity(repositoryRoot) : default;
-        var root = windows ? string.Empty : PhysicalPath(repositoryRoot);
+        var repositories = new[] { repositoryRoot }.Concat(inspectedRepositories ?? []).Distinct(StringComparer.Ordinal).ToArray();
+        var windowsRoots = windows ? repositories.Select(WindowsIdentity).ToArray() : [];
+        var roots = windows ? [] : repositories.Select(PhysicalPath).ToArray();
         if (trustedExecutable is not null)
         {
             // Only the invoking operator supplies this trust input; never derive it from repository declarations.
@@ -24,15 +26,20 @@ internal static class RepositoryGitExecutable
             if (windows)
             {
                 if (!File.Exists(trustedExecutable)) throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
+                var configuredDirectory = Path.GetDirectoryName(trustedExecutable)!;
+                if (HasWindowsRepositoryAncestor(configuredDirectory, windowsRoots) ||
+                    HasWindowsRepositoryAncestor(WindowsExecutablePath(configuredDirectory), windowsRoots))
+                    throw new FileNotFoundException("The configured Git installation is inside an inspected repository.");
                 var executable = WindowsExecutablePath(trustedExecutable);
-                if (IsWithinWindowsRepository(executable, windowsRoot))
+                if (HasWindowsRepositoryAncestor(executable, windowsRoots))
                     throw new FileNotFoundException("The configured Git installation is inside the inspected repository.");
                 return executable;
             }
             var directory = PhysicalPath(Path.GetDirectoryName(trustedExecutable)!);
             var selected = Path.Combine(directory, Path.GetFileName(trustedExecutable));
             var physical = PhysicalPath(selected);
-            if (!File.Exists(physical) || IsWithinUnixRepository(directory, root) || IsWithinUnixRepository(physical, root) || Access(physical, 1) != 0)
+            if (!File.Exists(physical) || HasUnixRepositoryAncestor(Path.GetDirectoryName(trustedExecutable)!, roots, null) ||
+                roots.Any(root => IsWithinUnixRepository(physical, root)) || Access(physical, 1) != 0)
                 throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
             return selected;
         }
@@ -48,9 +55,11 @@ internal static class RepositoryGitExecutable
                 var candidate = Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git");
                 if (windows)
                 {
+                    if (HasWindowsRepositoryAncestor(entry, windowsRoots) ||
+                        HasWindowsRepositoryAncestor(WindowsExecutablePath(entry), windowsRoots)) continue;
                     if (!File.Exists(candidate)) continue;
                     var executable = WindowsExecutablePath(candidate);
-                    if (IsWithinWindowsRepository(executable, windowsRoot)) continue;
+                    if (HasWindowsRepositoryAncestor(executable, windowsRoots)) continue;
                     return executable;
                 }
                 // Resolve the directory physically but retain the Git invocation name for trusted multicall shims.
@@ -58,8 +67,8 @@ internal static class RepositoryGitExecutable
                 candidate = Path.Combine(directory, "git");
                 var physical = PhysicalPath(candidate);
                 if (!File.Exists(physical)) continue;
-                if (IsWithinUnixRepository(directory, root) || IsWithinUnixRepository(physical, root)) continue;
-                if (mounts is not null && (mounts.IsWithinRepository(root, directory) || mounts.IsWithinRepository(root, physical))) continue;
+                if (HasUnixRepositoryAncestor(entry, roots, mounts) || roots.Any(root => IsWithinUnixRepository(physical, root))) continue;
+                if (mounts is not null && roots.Any(root => mounts.IsWithinRepository(root, physical))) continue;
                 if (Access(physical, 1) != 0) continue;
                 return candidate;
             }
@@ -69,6 +78,22 @@ internal static class RepositoryGitExecutable
             }
         }
         throw new FileNotFoundException("No supported Git installation is available outside the inspected repository.");
+    }
+
+    private static bool HasWindowsRepositoryAncestor(string path, WindowsFileIdentity[] roots) =>
+        roots.Any(root => IsWithinWindowsRepository(path, root));
+
+    private static bool HasUnixRepositoryAncestor(string entry, string[] roots, RepositoryLinuxMountTable? mounts)
+    {
+        // Inspect the original path's ancestry as well as its final target: an input repository can supply a link.
+        for (string? path = entry; path is not null; path = Path.GetDirectoryName(path))
+        {
+            var physical = PhysicalPath(path);
+            if (roots.Any(root => IsWithinUnixRepository(physical, root))) return true;
+            if (mounts is not null && roots.Any(root => mounts.IsWithinRepository(root, physical,
+                    requireComparableViews: path == entry))) return true;
+        }
+        return false;
     }
 
     private static bool IsWithinUnixRepository(string path, string root) =>
