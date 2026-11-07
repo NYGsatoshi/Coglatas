@@ -7,6 +7,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
@@ -15,6 +16,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
@@ -96,12 +98,15 @@ jobs:
       - name: Test Sonar .NET coverage evidence validation
         run: python3 scripts/ci/test-sonar-dotnet-coverage.py
 
+      - name: Test workflow tool HTTPS transport
+        run: python3 -B scripts/ci/test-workflow-tool-https.py
+
       - name: Install checksum-pinned actionlint
         shell: bash
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/actionlint.tar.gz"
-          curl --fail --silent --show-error --location             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"             --output "$archive"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https'             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"             --output "$archive"
           printf '%s  %s\n' "$ACTIONLINT_SHA256" "$archive" | sha256sum --check -
           tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -version
@@ -125,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/zizmor.tar.gz"
-          curl --fail --silent --show-error --location             "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"             --output "$archive"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https'             "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"             --output "$archive"
           printf '%s  %s\n' "$ZIZMOR_SHA256" "$archive" | sha256sum --check -
           tar -xzf "$archive" -C "$RUNNER_TEMP" zizmor
           "$RUNNER_TEMP/zizmor" --version
