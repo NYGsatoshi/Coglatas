@@ -16,7 +16,9 @@ internal sealed class RepositoryLinuxMountTable
             if (separator < 6 || fields.Length != separator + 4 || fields[2].Split(':') is not [var major, var minor] ||
                 !uint.TryParse(major, out _) || !uint.TryParse(minor, out _))
                 throw new IOException("Cannot establish the Linux mount boundary.");
-            _mounts.Add(new Mount(fields[2], DecodePath(fields[3]), DecodePath(fields[4]), fields[separator + 1]));
+            var type = fields[separator + 1];
+            _mounts.Add(new Mount(fields[2], DecodePath(fields[3], namespaceRoot: type is "cgroup" or "cgroup2"),
+                DecodePath(fields[4]), type));
         }
     }
 
@@ -63,7 +65,8 @@ internal sealed class RepositoryLinuxMountTable
             if (!seen.Add(mount.Point)) throw new IOException("Cannot establish the Linux mount boundary.");
             if (selected is null || mount.Point.Length > selected.Point.Length) selected = mount;
         }
-        if (selected is null) throw new IOException("Cannot establish the Linux mount boundary.");
+        if (selected is null || HasRelativeSegments(selected.Root))
+            throw new IOException("Cannot establish the Linux mount boundary.");
         var relative = path[selected.Point.Length..].TrimStart('/');
         var mapped = selected.Root.TrimEnd('/') + (relative.Length == 0 ? "" : "/" + relative);
         return (selected.Device, mapped.Length == 0 ? "/" : mapped, selected);
@@ -73,7 +76,9 @@ internal sealed class RepositoryLinuxMountTable
         path.Equals(parent, StringComparison.Ordinal) ||
         path.StartsWith(parent.EndsWith('/') ? parent : parent + '/', StringComparison.Ordinal);
 
-    private static string DecodePath(string encoded)
+    private static bool HasRelativeSegments(string path) => path.Split('/').Any(part => part is "." or "..");
+
+    private static string DecodePath(string encoded, bool namespaceRoot = false)
     {
         var result = new StringBuilder();
         for (var i = 0; i < encoded.Length; i++)
@@ -88,7 +93,8 @@ internal sealed class RepositoryLinuxMountTable
             i += 3;
         }
         var path = result.ToString();
-        if (!path.StartsWith('/') || path.Contains('\0') || path.Split('/').Any(part => part is "." or ".."))
+        // Cgroup namespace roots may contain '/..'; retain that opaque metadata without mapping it to host paths.
+        if (!path.StartsWith('/') || path.Contains('\0') || (!namespaceRoot && HasRelativeSegments(path)))
             throw new IOException("Cannot establish the Linux mount boundary.");
         return path.Length > 1 ? path.TrimEnd('/') : path;
     }

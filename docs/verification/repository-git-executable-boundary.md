@@ -42,6 +42,12 @@ independence; an opaque alias cannot hide repository control behind a host
 entry and a host final target. Ancestor directories without links still use
 containment checks. Windows retains the checked physical installation directory
 and the selected invocation filename for linked multicall installations.
+Cgroup namespace roots can contain `/..` in otherwise valid mount metadata,
+as documented in [cgroup_namespaces(7)](https://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html).
+That opaque root is retained for an unrelated cgroup mount without normalizing
+it into a host path. Selecting such a mount for a repository, executable or
+mounted repository subtree still rejects the unprovable mapping. Noncanonical
+roots of ordinary executable filesystems and noncanonical mount points reject.
 Both the physical PATH directory and executable target are checked, and the
 selected directory retains the `git` invocation name for Unix multicall shims.
 The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).

@@ -169,4 +169,18 @@ public sealed class RepositoryLinuxMountTableTests
         Assert.False(table.IsWithinRepository("/repository", "/", requireComparableViews: false));
         Assert.True(table.IsWithinRepository("/repository", "/alias", requireComparableViews: false));
     }
+
+    [Theory]
+    [InlineData("cgroup")]
+    [InlineData("cgroup2")]
+    public void NamespaceRelativeCgroupRootsDoNotInvalidateUnrelatedExecutableFilesystems(string type)
+    {
+        // cgroup_namespaces(7) documents a mount root containing '/..' after namespace creation.
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 /../../namespace /sys/fs/cgroup rw - " + type + " cgroup rw"]);
+        Assert.False(table.IsWithinRepository("/work/repository", "/usr/bin/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/work/repository", "/sys/fs/cgroup/entry"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/sys/fs/cgroup", "/usr/bin/git"));
+    }
 }
