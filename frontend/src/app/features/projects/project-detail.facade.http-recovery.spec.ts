@@ -207,7 +207,7 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     );
     olderBoard.flush(snapshotDto()); olderSchedule.flush(ganttSnapshotDto()); await settle();
     for (const read of http.match('/api/projects/project-1/gantt')) read.flush({ ...ganttSnapshotDto(), projectVersion: 37 });
-    expect(detail.view().project?.title).toBe('Current Active view');
+    expect(detail.view().project?.name).toBe('Current Active view');
     expect(detail.view().status).toBe('ready');
     expect(detail.view().kanban.snapshot).not.toBeNull();
     expect(detail.view().schedule.snapshot?.projectVersion).toBe(37);
