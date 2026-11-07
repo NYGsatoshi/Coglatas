@@ -212,3 +212,13 @@ same-Workspace label refresh still proceeds. Additional controls hold nonempty
 Task responses across initial collection failure and inspect state before
 recovery. The resulting four-file cohort has 234 passing controls. This is
 client lifecycle evidence with HTTP doubles, not server isolation acceptance.
+
+A later independent review identified Task refresh ownership left behind by a
+Schedule command denial. Four added controls reproduced both queued and held
+Task refresh failures on 401 and 403, while the preceding 234 controls passed.
+The Schedule denial now resets Task refresh ownership when it advances the
+authorization generation, using the same reset as the other authority changes.
+Stale callbacks still return before dispatch and cannot release a newer flight.
+The controls require a fresh Task retry and its coalesced follow-up to succeed
+while the denied Schedule remains empty. The initial test-authoring compile
+failure and the four original runtime failures remain retained separately.

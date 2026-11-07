@@ -971,6 +971,7 @@ export class ProjectDetailFacade {
 
     if (error.httpStatus === 401 || error.httpStatus === 403) {
       this.authorizationGeneration++;
+      this.resetTaskListRefreshState();
       const moveWasInFlight = this.moveInFlight;
       this.moveInFlight = false;
       this.scheduleRequestGeneration++;
