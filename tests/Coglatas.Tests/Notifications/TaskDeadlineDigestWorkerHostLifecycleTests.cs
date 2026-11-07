@@ -120,7 +120,7 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         public DateTimeOffset UtcNow => new(2026, 11, 7, 0, 0, 0, TimeSpan.Zero);
     }
 
-    private sealed class ThrowingScopeFactory(Exception failure, Action? beforeThrow = null) : IServiceScopeFactory
+    private sealed class ThrowingScopeFactory(Exception failure) : IServiceScopeFactory
     {
         private int _calls;
         public int Calls => Volatile.Read(ref _calls);
@@ -128,7 +128,6 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         public IServiceScope CreateScope()
         {
             Interlocked.Increment(ref _calls);
-            beforeThrow?.Invoke();
             throw failure;
         }
     }
