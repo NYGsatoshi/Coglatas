@@ -131,7 +131,10 @@ Login lockout is implemented for existing accounts. Generic responses must be pr
 - First-user/PlatformAdmin bootstrap is startup-seed based and must be explicitly enabled and operationally controlled.
 - Invite registration does not create tenant/workspace membership.
 - `Features:*` and most `Platform:*` appsettings switches are not runtime authorization gates.
-- Forwarded-header handling for production reverse proxies is not configured.
+- Forwarded-header handling is implemented with explicit opt-in and trusted proxy
+  IP/CIDR boundaries. Each target deployment still requires recorded TLS/proxy
+  verification; see the [on-prem reverse-proxy boundary](SECURITY_MODEL.md#on-prem-reverse-proxy-boundary)
+  and [KI-006](KNOWN_ISSUES.md#ki-006-reverse-proxy-https-behavior-still-requires-deployment-specific-verification).
 - Production object storage adapter is not implemented.
 - PostgreSQL-backed search isolation tests are enforced in CI through `POSTGRES_TEST_CONNECTION_STRING`.
 - Full tenant restore is not implemented.

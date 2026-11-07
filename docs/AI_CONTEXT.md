@@ -2,6 +2,42 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+## What to read by task
+
+Always start with:
+
+- [docs/AI_CONTEXT.md](AI_CONTEXT.md)
+- [docs/KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+- [docs/CODING_RULES.md](CODING_RULES.md)
+
+Then add:
+
+- Backend controllers, services, validation, files, or business logic: [docs/BACKEND_LOGIC_AUDIT.md](BACKEND_LOGIC_AUDIT.md)
+- Architecture or module boundaries: [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+- Local work: [docs/DEVELOPMENT.md](DEVELOPMENT.md)
+- Deployment/configuration: [docs/DEPLOYMENT.md](DEPLOYMENT.md)
+- Auth, authorization, tenancy, secrets, files: [docs/SECURITY_MODEL.md](SECURITY_MODEL.md)
+- Schema, migrations, persistence: [docs/DATABASE.md](DATABASE.md)
+- Test changes or verification claims: [docs/TESTING.md](TESTING.md)
+- Detailed entity fields: [docs/DATA_MODEL.md](DATA_MODEL.md)
+- API conventions: [docs/API_CONTRACTS.md](API_CONTRACTS.md)
+- Active Workspace selection/context header:
+  [docs/verification/ws-02-workspace-context-header.md](verification/ws-02-workspace-context-header.md)
+- Workspace creation dialog/API/retry integration:
+  [docs/verification/ws-03-workspace-create.md](verification/ws-03-workspace-create.md)
+- PR07-C deadline-digest implementation/evidence:
+  [docs/decisions/task-v1-pr07-c-deadline-digest-decisions.md](decisions/task-v1-pr07-c-deadline-digest-decisions.md) and
+  [docs/verification/task-v1-pr07-c-deadline-digest.md](verification/task-v1-pr07-c-deadline-digest.md)
+- Canonical Gantt implementation/evidence:
+  [docs/TASK_V1_PR06.md](TASK_V1_PR06.md) and
+  [docs/verification/task-v1-pr06-gantt.md](verification/task-v1-pr06-gantt.md)
+- Operations and recovery: [docs/OPERATIONS.md](OPERATIONS.md)
+- Intended future scope: [docs/ROADMAP.md](ROADMAP.md)
+
+Only read `docs/archive/` when historical decisions or earlier claims are relevant. Start at [docs/archive/README.md](archive/README.md).
+
+## Implementation and verification notes
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.
@@ -506,40 +542,6 @@ unavailable. Links selection is an explicit synthetic-data preview only, with
 no production search or relationship API. No pending specification is adopted.
 See `docs/verification/p1-local-draft-links-workbench.md` for scope, exact code
 pin, 42 focused local test results, build evidence and unexecuted quality gates.
-
-## What to read by task
-
-Always start with:
-
-- `docs/AI_CONTEXT.md`
-- `docs/KNOWN_ISSUES.md`
-- `docs/CODING_RULES.md`
-
-Then add:
-
-- Backend controllers, services, validation, files, or business logic: `docs/BACKEND_LOGIC_AUDIT.md`
-- Architecture or module boundaries: `docs/ARCHITECTURE.md`
-- Local work: `docs/DEVELOPMENT.md`
-- Deployment/configuration: `docs/DEPLOYMENT.md`
-- Auth, authorization, tenancy, secrets, files: `docs/SECURITY_MODEL.md`
-- Schema, migrations, persistence: `docs/DATABASE.md`
-- Test changes or verification claims: `docs/TESTING.md`
-- Detailed entity fields: `docs/DATA_MODEL.md`
-- API conventions: `docs/API_CONTRACTS.md`
-- Active Workspace selection/context header:
-  `docs/verification/ws-02-workspace-context-header.md`
-- Workspace creation dialog/API/retry integration:
-  `docs/verification/ws-03-workspace-create.md`
-- PR07-C deadline-digest implementation/evidence:
-  `docs/decisions/task-v1-pr07-c-deadline-digest-decisions.md` and
-  `docs/verification/task-v1-pr07-c-deadline-digest.md`
-- Canonical Gantt implementation/evidence:
-  `docs/TASK_V1_PR06.md` and
-  `docs/verification/task-v1-pr06-gantt.md`
-- Operations and recovery: `docs/OPERATIONS.md`
-- Intended future scope: `docs/ROADMAP.md`
-
-Only read `docs/archive/` when historical decisions or earlier claims are relevant. Start at `docs/archive/README.md`.
 
 ## Rules for future audits
 

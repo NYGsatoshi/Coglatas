@@ -304,6 +304,15 @@ Start with:
 
 Archived documents are historical evidence, not current project truth.
 
+### Specification access
+
+Product requirements are maintained in
+[Coglatas-Spec](https://github.com/NYGsatoshi/Coglatas-Spec), an access-restricted
+repository for authorized reviewers. Public implementation and verification
+records must preserve the applicable decision identifiers without copying
+private specification content. A proposal in that repository is not evidence
+that the behavior is approved, implemented, or qualified in this repository.
+
 ## Status language
 
 Project documentation uses these terms consistently:
