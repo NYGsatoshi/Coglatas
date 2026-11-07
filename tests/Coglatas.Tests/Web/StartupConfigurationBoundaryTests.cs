@@ -181,7 +181,7 @@ public sealed class StartupConfigurationBoundaryTests
             }).Build();
             SetDatabaseSecret(DatabaseSecret);
             Files.SecretKey = StorageSecret;
-            var collection = new ServiceCollection();
+            var collection = new ServiceCollection().AddLogging();
             if (antiforgery) collection.AddAntiforgery();
             services = collection.BuildServiceProvider();
             var csrf = new CsrfProtectionState();

@@ -26,3 +26,8 @@ The first native build stopped with CS1736 because the new fixture used the
 runtime `Environments.Production` field as an optional-parameter constant.
 The fixture now defaults a nullable input inside its constructor. The original
 failed build log is retained; no tests executed in that first attempt.
+The next run passed the nine original controls and one new missing-services
+control, but 33 new controls failed because the test provider omitted the
+logging dependency required to resolve real antiforgery services. The positive
+controls and exact rejection assertions exposed this setup error. The fixture
+now registers logging; neither the validator nor assertions were weakened.
