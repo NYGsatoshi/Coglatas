@@ -82,12 +82,12 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
         Assert.Equal(3, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal(["ProjectMemberAdded", "ProjectMemberUpdated", "ProjectMemberRemoved"], fixture.Audit.Entries.Select(entry => entry.Action));
-        Assert.All(fixture.Audit.Entries, entry =>
+        foreach (var entry in fixture.Audit.Entries)
         {
             Assert.Equal(actor.Id, entry.ActorUserId);
             Assert.Equal(fixture.Project.Id, entry.EntityId);
             Assert.Equal("Project", entry.EntityType);
-        });
+        }
         Assert.Equal(3, fixture.Invalidations.ProjectChanges.Count);
         Assert.All(fixture.Invalidations.ProjectChanges, change => Assert.Equal((fixture.Project.Id, actor.Id, "memberChanged"), change));
         Assert.Equal(3, fixture.AuthorizationChanges.Items.Count);

@@ -57,3 +57,10 @@ public tests and assertions remain unchanged.
 The recording Repository does not apply EF Tenant or audit stamping to newly
 added rows. The test preserves their observed staged identity on update; it does
 not infer a committed Tenant stamp or persisted timestamp from that snapshot.
+
+At `98a6883058dbe62cea5f02ccb02dfa75455e36df`, native controls passed,
+but the first hosted PR CI attempt failed its ReSharper fast lane on
+`ParameterOnlyUsedForPreconditionCheck.Local` in the new audit assertion lambda.
+An explicit iteration retains every actor/entity assertion and the existing
+three-action assertion, without changing any quality policy. The original
+failed job `128455442711` and SARIF archive remain retained separately.
