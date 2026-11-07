@@ -62,3 +62,25 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/api_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/common.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/environment_class.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/announcement-diagnostic.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/assurance_policy.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/collect-environment.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-compare.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-probe.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db_class_baselines.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db_gate.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db_probe_import.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/diagnostic_json.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/diagnostic_recovery.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-announcement-diagnostic.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-fetch-evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-github-preflight.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local-runtime-preflight.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_api_samples.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_evidence.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_runner.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_support.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/performance-local.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/preflight.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/verify-samples.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/warmup.py
