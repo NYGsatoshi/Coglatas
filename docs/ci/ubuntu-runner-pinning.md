@@ -16,6 +16,12 @@ finding for its privileged event class without correcting the underlying
 governance contract. The new checker exempts only its exact legacy
 runs-on: ubuntu-latest line, not any additional dynamic or matrix selection.
 
+The canonical PR CI PostgreSQL owner is explicitly pinned to ubuntu-24.04.
+The COMPAT-02 contract verifies that this owner still directly provides an
+official, tagged or digest-pinned PostgreSQL service. Its negative controls
+reject ubuntu-latest, ubuntu-26.04 and Windows as substitutes for this
+canonical Linux-owned integration lane.
+
 The COMPAT-02 OS Portability Matrix remains unchanged: its three exact labels
 are ubuntu-latest, windows-latest and macos-latest. Its original contract
 continues to validate the matrix. Draft PR #1560 remains the separate,
