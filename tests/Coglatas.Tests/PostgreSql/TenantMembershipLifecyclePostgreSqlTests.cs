@@ -375,7 +375,7 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
             var sessions = await read.Sessions.AsNoTracking().Where(row => row.UserId == Target.Id).ToListAsync();
             Assert.Equal(3, sessions.Count);
             foreach (var original in TargetSessions)
-                Assert.Equal(revoked ? Owner.Clock.UtcNow : (DateTimeOffset?)null, sessions.Single(row => row.Id == original.Id).RevokedAt);
+                Assert.Equal(revoked ? Owner.Clock.UtcNow : null, sessions.Single(row => row.Id == original.Id).RevokedAt);
             Assert.Equal(Owner.Clock.UtcNow.AddDays(-1), sessions.Single(row => row.Id == OldRevokedSession.Id).RevokedAt);
             Assert.Null((await read.Sessions.AsNoTracking().SingleAsync(row => row.Id == ActorSession.Id)).RevokedAt);
         }

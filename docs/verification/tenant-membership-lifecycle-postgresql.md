@@ -36,6 +36,9 @@ used the existing `MarkDeleted` API; no product entity or contract changed.
 An initial build-only invocation lacked the new output directory's restore
 assets and did not execute tests. Current-head hosted checks, independent
 review, original PR Gate and resulting Main measurements remain separate.
+The first0de5 PR ReSharper run rejected one redundant nullable cast in the
+session assertion. Its removal preserves the same revocation timestamp/null
+expectations; the original failed run and annotation remain retained.
 
 This is synthetic service/persistence evidence. It does not prove HTTP cookie
 handling, realtime delivery, dispatcher execution, application-role/all-table
