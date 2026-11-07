@@ -30,7 +30,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(target.Email, added.Value.Email);
         Assert.Equal(ProjectRole.Viewer, added.Value.Role);
         Assert.Equal(fixture.Clock.UtcNow, added.Value.JoinedAt);
-        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(1, fixture.Invalidations.ProjectChangedCount);
         var firstAudit = Assert.Single(fixture.Audit.Entries);
         Assert.Equal("ProjectMemberAdded", firstAudit.Action);
@@ -42,14 +42,14 @@ public sealed partial class ProjectServiceTests
         Assert.True(listed.IsSuccess);
         Assert.Equal(2, listed.Value!.Count);
         Assert.Equal(added.Value, Assert.Single(listed.Value, member => member.UserId == target.Id));
-        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
 
         var updated = await fixture.Service.UpdateMemberAsync(fixture.Project.Id, target.Id, new(ProjectRole.Contributor));
         Assert.True(updated.IsSuccess);
         Assert.Equal(ProjectRole.Contributor, updated.Value!.Role);
         Assert.Equal(added.Value.JoinedAt, updated.Value.JoinedAt);
         Assert.Equal(target.Id, updated.Value.UserId);
-        Assert.Equal(2, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(2, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(2, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal("ProjectMemberUpdated", fixture.Audit.Entries[1].Action);
         Assert.Equal(fixture.Project.Id, fixture.Audit.Entries[1].EntityId);
@@ -62,7 +62,9 @@ public sealed partial class ProjectServiceTests
         Assert.Same(unrelated, Assert.Single(fixture.Projects.Members, member => member.ProjectId == unrelated.ProjectId));
         Assert.Equal(ProjectRole.Owner, unrelated.Role);
         Assert.Equal(fixture.Clock.UtcNow.AddDays(-1), unrelated.JoinedAt);
-        Assert.Equal(3, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(3, fixture.CommandUnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Equal(3, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal(new[] { "ProjectMemberAdded", "ProjectMemberUpdated", "ProjectMemberRemoved" }, fixture.Audit.Entries.Select(entry => entry.Action));
         Assert.Equal(3, fixture.AuthorizationChanges.Items.Count);
@@ -202,5 +204,7 @@ public sealed partial class ProjectServiceTests
         Assert.Empty(fixture.AuthorizationChanges.Items);
         Assert.Equal(0, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
     }
 }
