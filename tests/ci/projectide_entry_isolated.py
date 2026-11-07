@@ -17,10 +17,25 @@ REUSED_HEAD = "0d4d4bea6cd8bebed9165e43148c8eec98953fe1"
 TEST_PATHS = ("tests/Coglatas.ProjectIde.Entry.Tests/", "tests/ci/projectide_entry_isolated.py",
               ".github/workflows/projectide-entry-isolated.yml", ".github/workflows/resharper_pr.yml",
               "scripts/quality/projectide_entry_resharper.py", "scripts/quality/check-resharper-pr-sarif.py",
-              "tests/ci/test_projectide_entry_resharper.py")
+              "tests/ci/test_projectide_entry_resharper.py", "tests/ci/test_projectide_entry_isolated.py")
 REUSED_PATHS = ("tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs",
                 "tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json",
                 "tests/ci/projectide-artifact-vectors.test.mjs")
+
+
+def require_retained_entry_identities(executed: list[str], baseline: dict) -> None:
+    """A passing replacement with the same count cannot erase a retained case."""
+    if not isinstance(baseline, dict):
+        raise ValueError("Retained independent entry identity baseline is invalid")
+    expected = baseline.get("cases")
+    if (type(baseline.get("schemaVersion")) is not int or baseline["schemaVersion"] != 1 or
+            baseline.get("sourceTestHead") != "b15b167209bb83b4e3a57d5205be81e90137231e" or
+            not isinstance(expected, list) or len(expected) != 45 or
+            any(not isinstance(case, str) or not case.startswith("Coglatas.Tests.ProjectIde.Entry.") for case in expected) or
+            len(set(expected)) != len(expected)):
+        raise ValueError("Retained independent entry identity baseline is invalid")
+    if len(executed) != len(set(executed)) or not set(expected).issubset(executed):
+        raise ValueError("A retained independent entry test identity was lost or duplicated")
 
 
 def run(args: list[str], cwd: Path, log: Path | None = None) -> str:
@@ -121,8 +136,10 @@ def main() -> None:
                 raise ValueError("Discovery and actual results differ")
             if name in baseline and not set(baseline[name]).issubset(executed):
                 raise ValueError("A retained test identity was lost")
-            if name == "entry" and len(executed) < 45:
-                raise ValueError("Independent entry test inventory shrank")
+            if name == "entry":
+                entry_baseline = json.loads((target / "tests/Coglatas.ProjectIde.Entry.Tests/retained-test-identities.v1.json")
+                                            .read_text(encoding="utf-8"))
+                require_retained_entry_identities(executed, entry_baseline)
             if name == "projectIde" and (len(executed) < 1043 or
                     not any("Independent_reader_compat_vectors" in case for case in executed)):
                 raise ValueError("Existing reader compatibility cases did not run")
