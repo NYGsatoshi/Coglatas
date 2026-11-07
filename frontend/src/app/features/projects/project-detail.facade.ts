@@ -150,6 +150,7 @@ export class ProjectDetailFacade {
   private projectId: string | null = null;
   private initialLoadWorkspaceId: string | null = null;
   private projectOperational = false;
+  private operationalProjectionGeneration = 0;
   private realtimeCleanups: (() => void)[] = [];
   private refreshPending = false;
   private draftProjectRefreshInFlight = false;
@@ -1047,6 +1048,7 @@ export class ProjectDetailFacade {
       {return;}
 
     this.moveInFlight = true;
+    const operationalGeneration = this.operationalProjectionGeneration;
     const refreshWasInFlight = this.kanbanRefreshGeneration === this.kanbanRequestGeneration;
     this.kanbanRequestGeneration++;
     const projectId = this.projectId;
@@ -1082,7 +1084,8 @@ export class ProjectDetailFacade {
         catchError((error: unknown) => of({ kind: 'error' as const, error }))
       )
       .subscribe((result) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            operationalGeneration !== this.operationalProjectionGeneration) {
           if (result.kind === 'success') {this.reconcileCompletedStaleMove(projectId);}
           return;
         }
@@ -1372,7 +1375,7 @@ export class ProjectDetailFacade {
       }
 
       if (result.kind === 'draft') {
-        this.projectOperational = false;
+        this.invalidateOperationalProjections();
         if (!committed)
           {this.activationNotice = null;}
         const activation = this.activationForAuthorizedProjection(
@@ -1750,8 +1753,10 @@ export class ProjectDetailFacade {
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const operationalGeneration = this.operationalProjectionGeneration;
     queueMicrotask(() => {
-      if (this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      if (operationalGeneration === this.operationalProjectionGeneration &&
+          this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
           (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId &&
           this.state().status !== 'permissionDenied' && this.state().schedule.status !== 'permissionDenied')
         {this.refreshSchedule(true, feedback);}
@@ -1763,11 +1768,13 @@ export class ProjectDetailFacade {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const operationalGeneration = this.operationalProjectionGeneration;
     if (this.taskListRefreshPending || !projectId || !workspaceId || !this.projectOperational)
       {return;}
     this.taskListRefreshPending = true;
     queueMicrotask(() => {
-      if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {return;}
+      if (operationalGeneration !== this.operationalProjectionGeneration ||
+          !this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {return;}
       this.taskListRefreshPending = false;
       if ((this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId)
         {this.refreshTaskList();}
@@ -1786,6 +1793,7 @@ export class ProjectDetailFacade {
 
     const requestGeneration = ++this.taskListRequestGeneration;
     const flightGeneration = ++this.taskListRefreshFlightGeneration;
+    const operationalGeneration = this.operationalProjectionGeneration;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
     const parentAuthorization = this.initialProjectionAuthorization;
@@ -1816,7 +1824,8 @@ export class ProjectDetailFacade {
       }
       if (this.projectId !== projectId ||
           loadGeneration !== this.loadGeneration ||
-          authorizationGeneration !== this.authorizationGeneration) {
+          authorizationGeneration !== this.authorizationGeneration ||
+          operationalGeneration !== this.operationalProjectionGeneration) {
         this.taskListFollowUpRefresh(projectId);
         return;
       }
@@ -1888,6 +1897,29 @@ export class ProjectDetailFacade {
     this.taskListAppliedGeneration = 0;
     this.taskListRefreshFailureGeneration = 0;
     this.taskListRefreshFeedback = null;
+  }
+
+  private invalidateOperationalProjections(): void {
+    // Draft ends the operational lifetime without replacing current authority.
+    // Reader denials still revalidate authority, but old data and command
+    // rollbacks cannot populate this Draft or a later Active projection.
+    this.projectOperational = false;
+    this.operationalProjectionGeneration++;
+    this.kanbanRequestGeneration++;
+    this.scheduleRequestGeneration++;
+    this.scheduleCommandGeneration++;
+    this.moveInFlight = false;
+    this.interactionActive = false;
+    this.kanbanRefreshGeneration = null;
+    this.refreshPending = false;
+    this.scheduleCommandInFlight = false;
+    this.scheduleInteractionActive = false;
+    this.scheduleRefreshPending = false;
+    this.scheduleRefreshInFlight = false;
+    this.scheduleRefreshOwner = null;
+    this.scheduleRefreshAfterFlight = false;
+    this.scheduleRefreshAfterFlightFeedback = undefined;
+    this.resetTaskListRefreshState();
   }
 
   private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization: Observable<boolean> | undefined = this.initialProjectionAuthorization ?? undefined): void {
@@ -2093,11 +2125,13 @@ export class ProjectDetailFacade {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     const ordinaryRefreshIsCurrent = () => this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && this.state().status !== 'permissionDenied';
+    const operationalGeneration = this.operationalProjectionGeneration;
     if (refreshKanban && (this.interactionActive || this.moveInFlight))
       {this.refreshKanban(false);}
     else if (refreshKanban && !this.refreshPending) {
       this.refreshPending = true;
       queueMicrotask(() => {
+        if (operationalGeneration !== this.operationalProjectionGeneration) {return;}
         this.refreshPending = false;
         if (ordinaryRefreshIsCurrent() && this.state().kanban.status !== 'permissionDenied')
           {this.refreshKanban(true);}
@@ -2109,6 +2143,7 @@ export class ProjectDetailFacade {
     else if (refreshSchedule && !this.scheduleRefreshPending) {
       this.scheduleRefreshPending = true;
       queueMicrotask(() => {
+        if (operationalGeneration !== this.operationalProjectionGeneration) {return;}
         this.scheduleRefreshPending = false;
         if (ordinaryRefreshIsCurrent() && this.state().schedule.status !== 'permissionDenied')
           {this.refreshSchedule(true);}
@@ -2223,7 +2258,7 @@ export class ProjectDetailFacade {
       if (taskListRequestGeneration < this.projectProjectionAppliedGeneration) {return;}
       this.projectProjectionAppliedGeneration = taskListRequestGeneration;
       if (result.kind === 'draft') {
-        this.projectOperational = false;
+        this.invalidateOperationalProjections();
         const previousActivation = this.state().activation;
         const fallbackActivation: ProjectActivationViewModel =
           previousActivation.status === 'permissionDenied'
