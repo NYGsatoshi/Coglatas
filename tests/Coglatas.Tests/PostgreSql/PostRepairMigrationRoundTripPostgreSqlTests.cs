@@ -47,6 +47,7 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
                 Assert.NotEmpty(original.Columns);
                 Assert.NotEmpty(original.Constraints);
                 Assert.NotEmpty(original.Indexes);
+                Assert.Equal(original.Columns.Count, original.PhysicalColumnOrdinals.Count);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database, RetainedRepairBoundary);
                 Assert.Equal(retained, await context.Database.GetAppliedMigrationsAsync());
@@ -56,6 +57,7 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
                 Assert.Equal(boundaryCatalog.Columns, reverted.Columns);
                 Assert.Equal(boundaryCatalog.Constraints, reverted.Constraints);
                 Assert.Equal(boundaryCatalog.Indexes, reverted.Indexes);
+                Assert.Equal(reverted.Columns.Count, reverted.PhysicalColumnOrdinals.Count);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
                 Assert.Equal(migrations, await context.Database.GetAppliedMigrationsAsync());
@@ -66,9 +68,13 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
                 Assert.Equal(original.Columns, reapplied.Columns);
                 Assert.Equal(original.Constraints, reapplied.Constraints);
                 Assert.Equal(original.Indexes, reapplied.Indexes);
+                Assert.Equal(reapplied.Columns.Count, reapplied.PhysicalColumnOrdinals.Count);
                 output.WriteLine("Actual migrations: {0}; latest tables: {1}; columns: {2}; constraints: {3}; indexes: {4}. Both later-migration Up passes and their intervening Down pass executed on the same disposable database, retaining the historical repair boundary.",
                     migrations.Length, original.Tables.Count, original.Columns.Count,
                     original.Constraints.Count, original.Indexes.Count);
+                output.WriteLine("Physical ordinal identities (retained as separate observations, not logical column contracts): boundary={0}; latest={1}.",
+                    boundaryCatalog.PhysicalColumnOrdinals.SequenceEqual(reverted.PhysicalColumnOrdinals),
+                    original.PhysicalColumnOrdinals.SequenceEqual(reapplied.PhysicalColumnOrdinals));
             });
     }
 
@@ -82,12 +88,12 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
                 WHERE schemaname = 'public' ORDER BY tablename;
                 """),
             await RowsAsync(connection, """
-                SELECT jsonb_build_array(table_name, column_name, ordinal_position,
+                SELECT jsonb_build_array(table_name, column_name,
                     data_type, udt_schema, udt_name, is_nullable, column_default,
                     character_maximum_length, numeric_precision, numeric_scale,
                     is_identity, identity_generation, is_generated, generation_expression)::text
                 FROM information_schema.columns
-                WHERE table_schema = 'public' ORDER BY table_name, ordinal_position;
+                WHERE table_schema = 'public' ORDER BY table_name, column_name;
                 """),
             await RowsAsync(connection, """
                 SELECT jsonb_build_array(c.relname, k.conname, k.contype,
@@ -102,6 +108,11 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
                 SELECT jsonb_build_array(tablename, indexname, indexdef)::text
                 FROM pg_catalog.pg_indexes
                 WHERE schemaname = 'public' ORDER BY tablename, indexname;
+                """),
+            await RowsAsync(connection, """
+                SELECT jsonb_build_array(table_name, column_name, ordinal_position)::text
+                FROM information_schema.columns
+                WHERE table_schema = 'public' ORDER BY table_name, column_name;
                 """));
     }
 
@@ -115,5 +126,6 @@ public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelpe
     }
 
     private sealed record Catalog(IReadOnlyList<string> Tables, IReadOnlyList<string> Columns,
-        IReadOnlyList<string> Constraints, IReadOnlyList<string> Indexes);
+        IReadOnlyList<string> Constraints, IReadOnlyList<string> Indexes,
+        IReadOnlyList<string> PhysicalColumnOrdinals);
 }
