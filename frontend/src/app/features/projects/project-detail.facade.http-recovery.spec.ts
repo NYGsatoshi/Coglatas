@@ -130,12 +130,12 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
       const first = workspaces.loadWorkspaces(true);
       selectFromHttp(); await first; await settle();
       const olderParent = http.expectOne('/api/projects/project-1');
-      const olderBoard = http.expectOne('/api/projects/project-1/kanban');
+      const olderBoard = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
       const olderSchedule = http.expectOne('/api/projects/project-1/gantt');
       const second = workspaces.loadWorkspaces(true);
       selectFromHttp(); await second; await settle();
       const currentParent = http.expectOne('/api/projects/project-1');
-      http.expectOne('/api/projects/project-1/kanban').flush(snapshotDto());
+      http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
       const failOlderParent = () => olderParent.flush(
         { message: 'Older catch-up unavailable' }, { status: 503, statusText: 'Unavailable' },
       );
