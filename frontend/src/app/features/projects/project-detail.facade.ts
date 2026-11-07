@@ -176,6 +176,7 @@ export class ProjectDetailFacade {
   private taskListRequestGeneration = 0;
   private taskListAppliedGeneration = 0;
   private taskListRefreshPending = false;
+  private projectProjectionAppliedGeneration = 0;
   private taskListRefreshInFlight = false;
   private taskListRefreshAfterFlight = false;
   private taskListRefreshFlightGeneration = 0;
@@ -1657,6 +1658,9 @@ export class ProjectDetailFacade {
         if (requestGeneration === this.scheduleRefreshOwner) {
           this.scheduleRefreshInFlight = false;
           this.scheduleRefreshOwner = null;
+          if (this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+              (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && this.state().status === 'ready')
+            {this.scheduleFollowUpRefresh(projectId);}
         }
       })
     ).subscribe((result) => {
@@ -2191,12 +2195,15 @@ export class ProjectDetailFacade {
         const failure = this.failure(result.error);
         if (failure.status === 'permissionDenied')
           {this.clearProtectedProjectionsForDeniedSubscription();}
+        else if (taskListRequestGeneration < this.projectProjectionAppliedGeneration)
+          {return;}
         else if (this.state().status === 'permissionDenied' || this.state().kanban.status === 'permissionDenied' ||
                  this.state().schedule.status === 'permissionDenied')
           {return;}
         this.state.set(failure);
         return;
       }
+      this.projectProjectionAppliedGeneration = Math.max(this.projectProjectionAppliedGeneration, taskListRequestGeneration);
       if (result.kind === 'draft') {
         this.projectOperational = false;
         const previousActivation = this.state().activation;
@@ -2242,6 +2249,7 @@ export class ProjectDetailFacade {
         this.refreshKanban(false, projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"));
         this.refreshSchedule(false, projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"));
       }
+      else {this.scheduleFollowUpRefresh(projectId);}
     });
   }
 
