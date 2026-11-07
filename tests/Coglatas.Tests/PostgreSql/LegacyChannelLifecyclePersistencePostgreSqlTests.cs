@@ -120,13 +120,16 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
                     Assert.Equal(SecurityCiFixtureSeed.TenantAMemberEmail, added.Email);
                     Assert.False(string.IsNullOrWhiteSpace(added.DisplayName));
                 }
+                // PostgreSQL stores microseconds; the immediate DTO can retain 100ns .NET ticks.
+                Assert.Equal(TimeSpan.Zero, added.JoinedAt.Offset);
+                var persistedJoinedAt = new DateTimeOffset(added.JoinedAt.Ticks - added.JoinedAt.Ticks % 10, TimeSpan.Zero);
                 using (var response = await owner.GetAsync(route + "/members"))
                 {
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                     var listed = await response.Content.ReadFromJsonAsync<List<ChannelMemberResponse>>();
                     Assert.NotNull(listed);
                     Assert.Equal(2, listed.Count);
-                    Assert.Equal(added, Assert.Single(listed, row => row.UserId == target.UserId));
+                    Assert.Equal(added with { JoinedAt = persistedJoinedAt }, Assert.Single(listed, row => row.UserId == target.UserId));
                 }
                 await using (var verify = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
@@ -134,7 +137,7 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
                         .SingleAsync(row => row.ChannelId == created.Id && row.UserId == target.UserId);
                     Assert.Equal(tenantId, stored.TenantId);
                     Assert.Equal(added.Role, stored.Role);
-                    Assert.Equal(added.JoinedAt, stored.JoinedAt);
+                    Assert.Equal(persistedJoinedAt, stored.JoinedAt);
                 }
                 using (var response = await member.GetAsync(route))
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
