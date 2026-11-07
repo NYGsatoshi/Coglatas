@@ -85,7 +85,7 @@ describe('ProjectDetailFacade initial response scope', () => {
   for (const inFlight of [false, true]) {
     it.each([401, 403])(`releases Task refresh ownership after schedule command %s with inFlight=${inFlight}`, async (status) => {
       enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
-      facade.applyGanttEdit({ kind: 'progress', taskId: 'task-1', progressPercent: 40, expectedVersion: 3 });
+      facade.applyGanttEdit({ kind: 'progress', taskId: 'task-1', progressPercent: 40, expectedVersion: 3, source: 'form' });
       const command = http.expectOne('/api/tasks/task-1/progress');
       facade.retryTaskList();
       if (inFlight) await Promise.resolve();
