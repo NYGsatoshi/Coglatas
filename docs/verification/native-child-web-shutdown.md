@@ -36,6 +36,16 @@ unclassified methods in the reserved SecurityArchitecture namespace. Their
 relocation preserves every test body and the strict catalogue/classification
 rules. They do not acquire formal SEC-ARCH verifier or acceptance credit.
 
+Changes to this shared helper or its controls select TestInfrastructure,
+SecurityArchitecture and PostgreSql backend scopes. Both specialized SEC-17
+workflow path filters also include the helper and controls, so future helper-only
+edits retain their dependent HTTP/transport validation. These are added execution
+routes; formal catalogue rules, owners, required checks and thresholds remain.
+
+The retained force-stop fallback still uses numeric PIDs and has a pre-existing
+PID reuse race. The pidfd TERM path does not establish identity safety for that
+fallback or graceful descendant cleanup.
+
 Qualification must compare exact-source before/after actual HTTP tests on the
 same pinned Linux SDK/PostgreSQL and original native collector. Report bytes,
 source ranges, zeros, executed DLL/PDB identities and the raw imported report

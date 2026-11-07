@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tests/Coglatas.Tests/SecurityArchitecture/**'
+      - 'tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown*.cs'
       - 'scripts/ci/sec17_deep_execution.py'
       - 'scripts/ci/test_sec17_deep_execution.py'
       - 'scripts/ci/sec_arch_evidence.py'

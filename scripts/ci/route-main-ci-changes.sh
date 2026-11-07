@@ -425,6 +425,13 @@ while IFS= read -r path; do
       backend=true
       backend_pr07d=true
       ;;
+    tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown*.cs)
+      # This shared process helper is used by the actual Web fixture across
+      # both the formal SEC-ARCH suite and PostgreSQL HTTP/transport owners.
+      add_backend_scope "TestInfrastructure"
+      add_backend_scope "SecurityArchitecture"
+      add_backend_scope "PostgreSql"
+      ;;
     tests/Coglatas.Tests/*)
       mark_backend_test_file "$path"
       ;;
