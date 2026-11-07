@@ -44,7 +44,7 @@ RUN --mount=type=secret,id=syncfusion_license,required=true \
     ! grep -R -F -q -- "$SYNCFUSION_LICENSE" dist || { echo "Syncfusion license material was found in frontend build output." >&2; exit 1; }; \
     unset SYNCFUSION_LICENSE
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e AS build
 WORKDIR /src
 
 COPY Coglatas.slnx ./
@@ -65,7 +65,7 @@ RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sha
     dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --force && \
     dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14@sha256:1a48394b6f29d3a32c79d9edecd4abda0ecbe8776d567dbfc4590ed6979c740c AS runtime
 WORKDIR /app
 RUN apt-get -o Acquire::Retries=0 update \
     && apt-get -o Acquire::Retries=0 install -y --no-install-recommends --only-upgrade \
