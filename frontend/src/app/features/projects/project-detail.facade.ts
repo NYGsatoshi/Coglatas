@@ -1086,7 +1086,7 @@ export class ProjectDetailFacade {
       .subscribe((result) => {
         if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
             operationalGeneration !== this.operationalProjectionGeneration) {
-          if (result.kind === 'success') {this.reconcileCompletedStaleMove(projectId);}
+          if (result.kind === 'success') {this.reconcileCompletedStaleKanbanCommand(projectId);}
           return;
         }
         this.moveInFlight = false;
@@ -1161,7 +1161,7 @@ export class ProjectDetailFacade {
       });
   }
 
-  private reconcileCompletedStaleMove(projectId: string | null): void {
+  private reconcileCompletedStaleKanbanCommand(projectId: string | null): void {
     if (!projectId || this.projectId !== projectId ||
         (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId ||
         this.state().kanban.status === 'permissionDenied')
@@ -1182,7 +1182,10 @@ export class ProjectDetailFacade {
     const snapshot = current.kanban.snapshot;
     if (!snapshot?.canConfigure || current.kanban.busyTaskId) {return;}
     const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const operationalGeneration = this.operationalProjectionGeneration;
     const request: UpdateProjectKanbanConfigRequestDto = {
       expectedBoardVersion: snapshot.boardVersion,
       defaultSwimlane: swimlaneApiValue(defaultSwimlane),
@@ -1200,8 +1203,12 @@ export class ProjectDetailFacade {
       )
       .subscribe((result) => {
         const latest = this.state();
-        if (this.projectId !== projectId || this.authorizationGeneration !== authorizationGeneration)
-          {return;}
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId ||
+            operationalGeneration !== this.operationalProjectionGeneration) {
+          if (result.kind === 'success') {this.reconcileCompletedStaleKanbanCommand(projectId);}
+          return;
+        }
         if (result.kind === 'success') {
           this.selectedSwimlane = result.value.snapshot.selectedSwimlane;
           this.state.set({
