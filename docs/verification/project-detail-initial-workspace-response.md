@@ -278,3 +278,11 @@ failure is retained separately from the isolated six-failure reproduction.
 The fixture now always resets TestBed after verifying outstanding requests.
 History assertions use a service spy and prove invocation identity and order,
 not actual Continue Working persistence.
+
+Board configuration callbacks share that operational boundary and also retain
+their load and Workspace identities. Six additional controls reproduced late
+success, conflict and unavailable responses restoring a Board snapshot or
+status after Draft and after later Active recovery, with 266 controls passing.
+Discarded successful moves and configuration changes reconcile their committed
+effects through current HTTP authority; stale responses never supply the new
+snapshot. Current configuration request/error semantics remain unchanged.
