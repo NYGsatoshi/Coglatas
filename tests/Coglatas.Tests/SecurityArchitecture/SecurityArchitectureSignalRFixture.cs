@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
@@ -247,8 +248,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
         {
             if (_server.Id != 0 && !_server.HasExited)
             {
-                _server.Kill(entireProcessTree: true);
-                await _server.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                await StopOwnedServerAsync();
             }
         }
         catch (InvalidOperationException) { /* Process may not have started or may have exited. */ }
@@ -261,6 +261,45 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
                 !Path.GetFileName(_directory).StartsWith("coglatas-sec-arch-realtime-", StringComparison.Ordinal))
                 throw new InvalidOperationException("Synthetic cleanup path escaped the temporary root.");
             Directory.Delete(_directory, recursive: true);
+        }
+    }
+
+    private async Task StopOwnedServerAsync()
+    {
+        // Let the real Linux host complete shutdown and native instrumentation
+        // flush before collection. Other platforms retain the existing fallback.
+        if (OperatingSystem.IsLinux() && File.Exists("/bin/kill"))
+        {
+            var start = new ProcessStartInfo("/bin/kill")
+            {
+                UseShellExecute = false, CreateNoWindow = true
+            };
+            start.ArgumentList.Add("--signal");
+            start.ArgumentList.Add("TERM");
+            start.ArgumentList.Add("--");
+            start.ArgumentList.Add(_server.Id.ToString(CultureInfo.InvariantCulture));
+            try
+            {
+                using var signal = Process.Start(start);
+                if (signal is not null)
+                {
+                    await signal.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+                    if (signal.ExitCode == 0)
+                    {
+                        await _server.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                        return;
+                    }
+                }
+            }
+            catch (Exception error) when (error is System.ComponentModel.Win32Exception or TimeoutException or InvalidOperationException)
+            {
+                // Cleanup still owns the same child and retains its bounded kill fallback.
+            }
+        }
+        if (!_server.HasExited)
+        {
+            _server.Kill(entireProcessTree: true);
+            await _server.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
         }
     }
 }
