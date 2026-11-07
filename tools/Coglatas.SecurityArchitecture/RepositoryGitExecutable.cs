@@ -23,7 +23,7 @@ internal static class RepositoryGitExecutable
                 if (!File.Exists(candidate)) continue;
                 var physical = PhysicalPath(candidate);
                 var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-                var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
+                var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
                 if (physical.Equals(root, comparison) || physical.StartsWith(prefix, comparison)) continue;
                 if (!OperatingSystem.IsWindows() && Access(physical, 1) != 0) continue;
                 return OperatingSystem.IsWindows() ? WindowsExecutablePath(candidate, physical) : physical;

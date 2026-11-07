@@ -39,6 +39,14 @@ public sealed class RepositoryGitExecutableTests
     }
 
     [Fact]
+    public void FileSystemRootDoesNotLoseItsContainmentSeparator()
+    {
+        using var fixture = new Fixture();
+        var root = Path.GetPathRoot(fixture.Repository)!;
+        Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(root, fixture.Installation));
+    }
+
+    [Fact]
     public void OrdinaryRelativeRepositoryRootRetainsTheHostInstallation()
     {
         using var fixture = new Fixture();
