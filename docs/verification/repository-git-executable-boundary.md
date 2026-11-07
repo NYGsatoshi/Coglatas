@@ -32,6 +32,11 @@ Separate 9p or virtiofs views also require explicit operator trust: different
 anonymous device identities do not prove that two exports represent different
 host content. A bind view of the same export retains its device/root mapping.
 The same overlay view outside the repository remains eligible automatically.
+Every directory and executable link is expanded one component at a time before
+checking its next target. A host entry cannot delegate its executable choice
+through an intermediate link inside either inspected repository, even when the
+final target is outside both roots. Legitimate host link chains and multicall
+shims still retain the Git invocation name.
 Both the physical PATH directory and executable target are checked, and the
 selected directory retains the `git` invocation name for Unix multicall shims.
 The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).

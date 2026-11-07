@@ -10,8 +10,9 @@ namespace Coglatas.Tests.Tools;
 public sealed class RepositoryGitCliBoundaryTests
 {
     public static IEnumerable<object[]> Cases => new[] { "cross-repository" }
+        .Concat(!OperatingSystem.IsWindows() ? new[] { "host-file-link-chain" } : [])
         .Concat(OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("CI") == "true"
-            ? new[] { "repository-file-link" } : []).Select(kind => new object[] { kind });
+            ? new[] { "repository-file-link", "host-file-link-chain" } : []).Select(kind => new object[] { kind });
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -51,7 +52,17 @@ public sealed class RepositoryGitCliBoundaryTests
         Assert.False(File.Exists(fixture.Marker));
 
         var hostile = kind == "cross-repository" ? fixture.Implementation : fixture.Specification;
-        await fixture.AddMarkerExecutable(hostile, kind == "repository-file-link");
+        if (kind == "host-file-link-chain")
+        {
+            var target = Directory.CreateDirectory(Path.Combine(fixture.Root, "host-target")).FullName;
+            hostile = Directory.CreateDirectory(Path.Combine(fixture.Root, "host-entry")).FullName;
+            await fixture.AddMarkerExecutable(target, false);
+            var name = OperatingSystem.IsWindows() ? "git.exe" : "git";
+            var choice = Path.Combine(fixture.Implementation, "executable-choice");
+            File.CreateSymbolicLink(choice, Path.Combine(target, name));
+            File.CreateSymbolicLink(Path.Combine(hostile, name), choice);
+        }
+        else await fixture.AddMarkerExecutable(hostile, kind == "repository-file-link");
         var result = await fixture.Cli(arguments, hostile + Path.PathSeparator + hostPath);
         Assert.False(File.Exists(fixture.Marker));
         Assert.Equal(0, result.ExitCode);

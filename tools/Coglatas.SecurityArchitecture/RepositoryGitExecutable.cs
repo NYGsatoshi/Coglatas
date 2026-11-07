@@ -26,6 +26,7 @@ internal static class RepositoryGitExecutable
             if (windows)
             {
                 if (!File.Exists(trustedExecutable)) throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
+                ValidateLinkChain(trustedExecutable, windowsRoots, roots, null);
                 var configuredDirectory = Path.GetDirectoryName(trustedExecutable)!;
                 if (HasWindowsRepositoryAncestor(configuredDirectory, windowsRoots) ||
                     HasWindowsRepositoryAncestor(WindowsExecutablePath(configuredDirectory), windowsRoots))
@@ -37,6 +38,7 @@ internal static class RepositoryGitExecutable
             }
             var directory = PhysicalPath(Path.GetDirectoryName(trustedExecutable)!);
             var selected = Path.Combine(directory, Path.GetFileName(trustedExecutable));
+            ValidateLinkChain(trustedExecutable, windowsRoots, roots, null);
             var physical = PhysicalPath(selected);
             if (!File.Exists(physical) || HasUnixRepositoryAncestor(Path.GetDirectoryName(trustedExecutable)!, roots, null) ||
                 roots.Any(root => IsWithinUnixRepository(physical, root)) || Access(physical, 1) != 0)
@@ -55,6 +57,7 @@ internal static class RepositoryGitExecutable
                 var candidate = Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git");
                 if (windows)
                 {
+                    ValidateLinkChain(candidate, windowsRoots, roots, null);
                     if (HasWindowsRepositoryAncestor(entry, windowsRoots) ||
                         HasWindowsRepositoryAncestor(WindowsExecutablePath(entry), windowsRoots)) continue;
                     if (!File.Exists(candidate)) continue;
@@ -67,6 +70,7 @@ internal static class RepositoryGitExecutable
                 candidate = Path.Combine(directory, "git");
                 var physical = PhysicalPath(candidate);
                 if (!File.Exists(physical)) continue;
+                ValidateLinkChain(Path.Combine(entry, "git"), windowsRoots, roots, mounts);
                 if (HasUnixRepositoryAncestor(entry, roots, mounts) || roots.Any(root => IsWithinUnixRepository(physical, root))) continue;
                 if (mounts is not null && roots.Any(root => mounts.IsWithinRepository(root, physical))) continue;
                 if (Access(physical, 1) != 0) continue;
@@ -82,6 +86,48 @@ internal static class RepositoryGitExecutable
 
     private static bool HasWindowsRepositoryAncestor(string path, WindowsFileIdentity[] roots) =>
         roots.Any(root => IsWithinWindowsRepository(path, root));
+
+    private static void ValidateLinkChain(string path, WindowsFileIdentity[] windowsRoots,
+        string[] roots, RepositoryLinuxMountTable? mounts)
+    {
+        if (OperatingSystem.IsWindows()) path = Path.GetFullPath(path);
+        var cursor = Path.GetPathRoot(path)!;
+        var pending = new Queue<string>(PathComponents(path[cursor.Length..]));
+        var followedLinks = 0;
+        while (pending.TryDequeue(out var component))
+        {
+            if (component is "" or ".") continue;
+            if (component == "..")
+            {
+                cursor = Path.GetDirectoryName(cursor) ?? cursor;
+                continue;
+            }
+            var candidate = Path.Combine(cursor, component);
+            var inside = OperatingSystem.IsWindows()
+                ? HasWindowsRepositoryAncestor(candidate, windowsRoots)
+                : roots.Any(root => IsWithinUnixRepository(PhysicalPath(candidate), root) ||
+                    mounts?.IsWithinRepository(root, PhysicalPath(candidate), requireComparableViews: false) == true);
+            if (inside) throw new IOException("The Git installation link chain enters an inspected repository.");
+            FileSystemInfo info = (File.GetAttributes(candidate) & FileAttributes.Directory) != 0
+                ? new DirectoryInfo(candidate) : new FileInfo(candidate);
+            if (info.LinkTarget is not { } target)
+            {
+                cursor = candidate;
+                continue;
+            }
+            if (++followedLinks > 40 || target.Contains('\0')) throw new IOException("Unsupported Git installation link chain.");
+            if (Path.IsPathFullyQualified(target))
+            {
+                cursor = Path.GetPathRoot(target)!;
+                target = target[cursor.Length..];
+            }
+            // Expand one link at a time before normalizing '..'; intermediate repository links are inputs too.
+            pending = new Queue<string>(PathComponents(target).Concat(pending));
+        }
+    }
+
+    private static string[] PathComponents(string path) =>
+        path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
 
     private static bool HasUnixRepositoryAncestor(string entry, string[] roots, RepositoryLinuxMountTable? mounts)
     {

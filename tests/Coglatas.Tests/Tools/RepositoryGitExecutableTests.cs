@@ -187,6 +187,21 @@ public sealed class RepositoryGitExecutableTests
     }
 
     [Fact]
+    public void HostDirectoryChainCannotDelegateInstallationChoiceToARepositoryLink()
+    {
+        using var fixture = new Fixture();
+        var choice = Path.Combine(fixture.Repository, "installation-choice");
+        var entry = Path.Combine(fixture.Root, "host-directory-chain");
+        LinkDirectory(choice, fixture.Installation);
+        LinkDirectory(entry, choice);
+        Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, entry));
+        Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(fixture.Repository,
+            entry + Path.PathSeparator + fixture.Installation));
+        Assert.ThrowsAny<IOException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, null,
+            Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git")));
+    }
+
+    [Fact]
     public void HostInstallationSurvivesNativeLinkParentTraversal()
     {
         using var fixture = new Fixture();
