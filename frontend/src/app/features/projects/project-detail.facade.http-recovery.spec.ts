@@ -124,6 +124,40 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     selectFromHttp(); cold.flush(draft); await settle(); flushBoard();
   }
 
+  for (const failureFirst of [false, true]) {
+    it.each([false, true])(`recovers a queued Schedule when overlapping catch-up fails with failureFirst=${failureFirst}, childFirst=%s`, async (childFirst) => {
+      await mountBoard();
+      const first = workspaces.loadWorkspaces(true);
+      selectFromHttp(); await first; await settle();
+      const olderParent = http.expectOne('/api/projects/project-1');
+      const olderBoard = http.expectOne('/api/projects/project-1/kanban');
+      const olderSchedule = http.expectOne('/api/projects/project-1/gantt');
+      const second = workspaces.loadWorkspaces(true);
+      selectFromHttp(); await second; await settle();
+      const currentParent = http.expectOne('/api/projects/project-1');
+      http.expectOne('/api/projects/project-1/kanban').flush(snapshotDto());
+      const failOlderParent = () => olderParent.flush(
+        { message: 'Older catch-up unavailable' }, { status: 503, statusText: 'Unavailable' },
+      );
+      if (childFirst) olderSchedule.flush(ganttSnapshotDto());
+      if (failureFirst) failOlderParent();
+      currentParent.flush(active);
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+      http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+      if (!failureFirst) failOlderParent();
+      olderBoard.flush(snapshotDto());
+      if (!childFirst) olderSchedule.flush(ganttSnapshotDto());
+      await settle();
+      const followUps = http.match('/api/projects/project-1/gantt');
+      for (const read of followUps) read.flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+      expect(followUps).toHaveLength(1);
+      expect(detail.view().status).toBe('ready');
+      expect(detail.view().schedule.snapshot?.projectVersion).toBe(37);
+      http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+    });
+  }
+
   async function loadBoardWithHeldInitialCollections() {
     enableBoard(); detail.load('project-1');
     const cold = http.expectOne('/api/projects/project-1');
