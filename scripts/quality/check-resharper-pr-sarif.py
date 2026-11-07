@@ -88,6 +88,27 @@ def first_location(result: dict, workspace: Path) -> tuple[str, int, int] | None
     return None
 
 
+def validate_sarif(sarif: dict) -> None:
+    """Reject absent, malformed or unsuccessful inspection output."""
+    if not isinstance(sarif, dict) or sarif.get("version") != "2.1.0":
+        raise ValueError("Invalid ReSharper SARIF version")
+    runs = sarif.get("runs")
+    if not isinstance(runs, list) or not runs:
+        raise ValueError("ReSharper SARIF contains no runs")
+    for run in runs:
+        if not isinstance(run, dict) or run.get("tool", {}).get("driver", {}).get("name") != "InspectCode":
+            raise ValueError("ReSharper SARIF has no InspectCode driver")
+        invocations = run.get("invocations")
+        if not isinstance(invocations, list) or not invocations or any(
+                invocation.get("executionSuccessful") is not True for invocation in invocations):
+            raise ValueError("ReSharper SARIF lacks successful invocation evidence")
+        if not isinstance(run.get("results"), list):
+            raise ValueError("ReSharper SARIF results are missing or invalid")
+        for result in run["results"]:
+            if not isinstance(result, dict) or not result.get("ruleId") or not result.get("message") or not result.get("locations"):
+                raise ValueError("ReSharper SARIF contains an incomplete result")
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         usage()
@@ -105,6 +126,8 @@ def main() -> int:
 
     with sarif_path.open("r", encoding="utf-8") as handle:
         sarif = json.load(handle)
+
+    validate_sarif(sarif)
 
     runs = sarif.get("runs")
     if not isinstance(runs, list) or not runs:

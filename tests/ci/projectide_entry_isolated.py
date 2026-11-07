@@ -15,7 +15,9 @@ PRODUCT_BASE = "3aebedb3d975b04070262751d4dc0a187e0df89b"
 REUSED_BASE = "b3de1eb90c85a17a02367c7f25522b5266547286"
 REUSED_HEAD = "0d4d4bea6cd8bebed9165e43148c8eec98953fe1"
 TEST_PATHS = ("tests/Coglatas.ProjectIde.Entry.Tests/", "tests/ci/projectide_entry_isolated.py",
-              ".github/workflows/projectide-entry-isolated.yml")
+              ".github/workflows/projectide-entry-isolated.yml", ".github/workflows/resharper_pr.yml",
+              "scripts/quality/projectide_entry_resharper.py", "scripts/quality/check-resharper-pr-sarif.py",
+              "tests/ci/test_projectide_entry_resharper.py")
 REUSED_PATHS = ("tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs",
                 "tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json",
                 "tests/ci/projectide-artifact-vectors.test.mjs")
