@@ -60,7 +60,7 @@ internal static class RepositoryGitExecutable
         // Git for Windows' launcher must receive its ordinary absolute installation path.
         path = path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase) ? @"\\" + path[8..]
             : path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path[4..] : path;
-        if (!Path.IsPathFullyQualified(path) || !WindowsIdentity(path).Equals(WindowsIdentity(handle)))
+        if (!Path.IsPathFullyQualified(path) || !SameWindowsIdentity(WindowsIdentity(path), WindowsIdentity(handle)))
             throw new IOException("Unsupported executable path.");
         return path;
     }
@@ -69,7 +69,7 @@ internal static class RepositoryGitExecutable
     {
         // Compare actual ancestor identities, including local/UNC/mapped-drive aliases of the same directory.
         for (string? path = executable; path is not null; path = Path.GetDirectoryName(path))
-            if (WindowsIdentity(path).Equals(root)) return true;
+            if (SameWindowsIdentity(WindowsIdentity(path), root)) return true;
         return false;
     }
 
@@ -86,6 +86,10 @@ internal static class RepositoryGitExecutable
             throw new Win32Exception(Marshal.GetLastPInvokeError());
         return identity;
     }
+
+    private static bool SameWindowsIdentity(WindowsFileIdentity first, WindowsFileIdentity second) =>
+        first.VolumeSerialNumber == second.VolumeSerialNumber && first.FileIdLow == second.FileIdLow &&
+        first.FileIdHigh == second.FileIdHigh;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct WindowsFileIdentity

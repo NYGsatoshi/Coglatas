@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Coglatas.SecurityArchitecture;
 
-namespace Coglatas.Tests.SecurityArchitecture;
+namespace Coglatas.Tests.Tools;
 
 [Trait("Portability", "CrossPlatform")]
 public sealed class RepositoryGitExecutableTests
