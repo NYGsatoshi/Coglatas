@@ -441,8 +441,9 @@ public sealed class FormService(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
         var allResponses = await forms.ListResponsesAsync(form.Id, cancellationToken);
+        var offset = (long)(page - 1) * pageSize;
         var items = allResponses
-            .Skip((page - 1) * pageSize)
+            .Skip((int)Math.Min(offset, allResponses.Count))
             .Take(pageSize)
             .Select(response => ToResponse(response, form, revealRespondent: !form.IsAnonymous))
             .ToList();
