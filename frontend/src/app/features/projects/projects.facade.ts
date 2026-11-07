@@ -535,6 +535,10 @@ export class ProjectsFacade {
     this.projectsRequest = this.fetchProjectList(workspaceId)
       .pipe(
         switchMap((projects) => {
+          // Scope teardown effects can lag this response. Recheck before any
+          // old Project identity can dispatch a follow-up Task request.
+          if (!this.isAuthorizationCurrent(generation) ||
+              this.activeWorkspace.activeWorkspace()?.id !== workspaceId) {return EMPTY;}
           if (projects.length === 0) {
             return of({
               projects,
