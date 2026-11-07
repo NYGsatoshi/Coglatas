@@ -54,6 +54,30 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.verify_report(self.report, self.root)
 
+    def test_deterministic_paths_bind_to_checkout_without_rewriting_native_bytes(self) -> None:
+        self.write_report()
+        document = ET.parse(self.report)
+        document.find("./Modules/Module/Files/File").set("fullPath", "/_/src/App/Logic.cs")
+        document.write(self.report, encoding="utf-8")
+        original = self.report.read_bytes()
+        result = MODULE.verify_report(self.report, self.root)
+        self.assertEqual(result["productionFiles"], 1)
+        self.assertEqual(result["sequencePoints"], 2)
+        self.assertEqual(result["visitedSequencePoints"], 1)
+        self.assertEqual(self.report.read_bytes(), original)
+
+    def test_deterministic_paths_reject_aliases_missing_sources_and_test_credit(self) -> None:
+        for path in ("/_/src/../App/Logic.cs", "/_/src//App/Logic.cs",
+                     "/_/src/App/Missing.cs", "/_/tests/PassingTests.cs",
+                     "/_/src/App/obj/Generated.cs", "/_/src/App/Logic.cs/../Logic.cs"):
+            with self.subTest(path=path):
+                self.write_report()
+                document = ET.parse(self.report)
+                document.find("./Modules/Module/Files/File").set("fullPath", path)
+                document.write(self.report, encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    MODULE.verify_report(self.report, self.root)
+
     def test_all_unvisited_points_fail(self) -> None:
         self.write_report(visits="0")
         with self.assertRaises(ValueError):
