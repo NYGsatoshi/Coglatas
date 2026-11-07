@@ -140,6 +140,159 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
         }
     }
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task RemovalRetainsMembershipAndForeignRowsWhileRevokingCurrentUserSessions()
+    {
+        foreach (var status in new[] { TenantUserStatus.Active, TenantUserStatus.Suspended, TenantUserStatus.Left })
+        {
+            await RunAsync("remove-" + status, async fixture =>
+            {
+                fixture.TargetMembership.Status = status;
+                await fixture.Db.SaveChangesAsync();
+                var result = await fixture.Service.RemoveCurrentTenantUserAsync(fixture.Target.Id);
+
+                Assert.True(result.IsSuccess, result.Error);
+                await using var read = fixture.OpenContext();
+                var saved = await read.TenantUsers.SingleAsync(row => row.Id == fixture.TargetMembership.Id);
+                Assert.Equal(TenantUserStatus.Left, saved.Status);
+                Assert.Equal(TenantUserRole.Member, saved.Role);
+                Assert.Equal(fixture.TargetMembership.JoinedAt, saved.JoinedAt);
+                Assert.Equal(fixture.Owner.Tenant.Id, saved.TenantId);
+                var audit = await read.AuditLogs.SingleAsync(row => row.EntityType == "TenantUser");
+                Assert.Equal("TenantUserRemoved", audit.Action);
+                Assert.Equal(saved.Id, audit.EntityId);
+                Assert.Equal(fixture.Owner.Actor.Id, audit.ActorUserId);
+                Assert.Equal(fixture.Owner.Tenant.Id, audit.TenantId);
+                using var membershipMetadata = JsonDocument.Parse(audit.MetadataJson!);
+                Assert.Equal(fixture.Target.Id, membershipMetadata.RootElement.GetProperty("targetUserId").GetGuid());
+                var revoked = await read.AuditLogs.SingleAsync(row => row.EntityType == "Session");
+                Assert.Equal("SessionRevoked", revoked.Action);
+                Assert.Equal(fixture.Owner.Actor.Id, revoked.ActorUserId);
+                using var sessionMetadata = JsonDocument.Parse(revoked.MetadataJson!);
+                Assert.Equal("TenantMembershipRemoved", sessionMetadata.RootElement.GetProperty("reason").GetString());
+                Assert.Equal(2, sessionMetadata.RootElement.GetProperty("count").GetInt32());
+                await fixture.AssertInvalidationAsync(read, "revoked");
+                await fixture.AssertSessionsAsync(read, revoked: true);
+                await fixture.AssertForeignMembershipAsync(read);
+            });
+        }
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task UnavailableOrNonCurrentManagersCannotReadOrMutateMemberships()
+    {
+        foreach (var scenario in new[] { "unavailable", "platform-scope", "anonymous", "missing-actor",
+                     "member", "invited", "suspended-membership", "archived-membership", "left-membership", "missing-membership",
+                     "suspended-account", "archived-account", "deleted-account", "suspended-tenant", "archived-tenant",
+                     "deleted-tenant", "deleted-status", "foreign-scope" })
+        {
+            await RunAsync("denied-" + scenario, async fixture =>
+            {
+                switch (scenario)
+                {
+                    case "unavailable": fixture.Owner.CurrentTenant.Clear(); break;
+                    case "platform-scope": fixture.Owner.CurrentTenant.SetPlatformScope(); break;
+                    case "anonymous": fixture.Owner.CurrentUser.IsAuthenticated = false; break;
+                    case "missing-actor": fixture.Owner.CurrentUser.UserId = null; break;
+                    case "member": fixture.Owner.Membership.Role = TenantUserRole.Member; break;
+                    case "invited": fixture.Owner.Membership.Status = TenantUserStatus.Invited; break;
+                    case "suspended-membership": fixture.Owner.Membership.Status = TenantUserStatus.Suspended; break;
+                    case "archived-membership": fixture.Owner.Membership.Status = TenantUserStatus.Archived; break;
+                    case "left-membership": fixture.Owner.Membership.Status = TenantUserStatus.Left; break;
+                    case "missing-membership": fixture.Db.TenantUsers.Remove(fixture.Owner.Membership); break;
+                    case "suspended-account": fixture.Owner.Actor.Status = UserStatus.Suspended; break;
+                    case "archived-account": fixture.Owner.Actor.Status = UserStatus.Archived; break;
+                    case "deleted-account": fixture.Owner.Actor.MarkDeleted(fixture.Owner.Clock.UtcNow); break;
+                    case "suspended-tenant": fixture.Owner.Tenant.Status = TenantStatus.Suspended; break;
+                    case "archived-tenant": fixture.Owner.Tenant.Status = TenantStatus.Archived; break;
+                    case "deleted-tenant": fixture.Owner.Tenant.MarkDeleted(fixture.Owner.Clock.UtcNow); break;
+                    case "deleted-status": fixture.Owner.Tenant.Status = TenantStatus.Deleted; break;
+                    case "foreign-scope": fixture.Owner.CurrentTenant.SetTenant(fixture.Foreign.Id, fixture.Foreign.Slug); break;
+                }
+                await fixture.Db.SaveChangesAsync();
+                var beforeCount = await fixture.Db.TenantUsers.IgnoreQueryFilters().CountAsync();
+                var expected = scenario is "unavailable" or "platform-scope" ? "ValidationFailed"
+                    : scenario is "anonymous" or "missing-actor" ? "AuthenticationRequired" : "Forbidden";
+                var list = await fixture.Service.ListCurrentTenantUsersAsync();
+                var add = await fixture.Service.AddCurrentTenantUserAsync(new AddTenantUserRequest(fixture.Target.Id, TenantUserRole.Owner));
+                var update = await fixture.Service.UpdateCurrentTenantUserAsync(fixture.Target.Id, new UpdateTenantUserRequest(TenantUserRole.Owner, TenantUserStatus.Left));
+                var remove = await fixture.Service.RemoveCurrentTenantUserAsync(fixture.Target.Id);
+                foreach (var result in new[] { (list.IsSuccess, list.ErrorDetail), (add.IsSuccess, add.ErrorDetail),
+                             (update.IsSuccess, update.ErrorDetail), (remove.IsSuccess, remove.ErrorDetail) })
+                {
+                    Assert.False(result.IsSuccess);
+                    Assert.Equal(expected, result.ErrorDetail!.Code);
+                }
+                Assert.Null(list.Value);
+                Assert.Null(add.Value);
+                Assert.Null(update.Value);
+                fixture.Owner.CurrentTenant.SetTenant(fixture.Owner.Tenant.Id, fixture.Owner.Tenant.Slug);
+                await using var read = fixture.OpenContext();
+                Assert.Equal(beforeCount, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
+                var saved = await read.TenantUsers.SingleAsync(row => row.Id == fixture.TargetMembership.Id);
+                Assert.Equal(TenantUserRole.Member, saved.Role);
+                Assert.Equal(TenantUserStatus.Active, saved.Status);
+                Assert.Equal(fixture.TargetMembership.JoinedAt, saved.JoinedAt);
+                Assert.Empty(await read.AuditLogs.ToListAsync());
+                Assert.Empty(await read.OutboxEvents.ToListAsync());
+                await fixture.AssertSessionsAsync(read, revoked: false);
+                await fixture.AssertForeignMembershipAsync(read);
+            });
+        }
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task InvalidTargetsAndCurrentTenantListingPreserveMembershipSessionAuditAndOutboxState()
+    {
+        foreach (var scenario in new[] { "add-missing", "add-deleted", "add-active", "update-missing", "remove-missing", "list" })
+        {
+            await RunAsync(scenario, async fixture =>
+            {
+                if (scenario == "add-deleted") fixture.Target.MarkDeleted(fixture.Owner.Clock.UtcNow);
+                await fixture.Db.SaveChangesAsync();
+                if (scenario == "list")
+                {
+                    var result = await fixture.Service.ListCurrentTenantUsersAsync();
+                    Assert.True(result.IsSuccess, result.Error);
+                    Assert.Equal(new[] { fixture.Owner.Actor.Id, fixture.Target.Id }.Order(), result.Value!.Select(row => row.UserId).Order());
+                    Assert.All(result.Value!, row => Assert.Equal(fixture.Owner.Tenant.Id, row.TenantId));
+                }
+                else if (scenario.StartsWith("add-", StringComparison.Ordinal))
+                {
+                    var target = scenario == "add-missing" ? Guid.NewGuid() : fixture.Target.Id;
+                    var result = await fixture.Service.AddCurrentTenantUserAsync(new AddTenantUserRequest(target, TenantUserRole.Owner));
+                    Assert.False(result.IsSuccess);
+                    Assert.Equal(scenario == "add-active" ? "User is already an active member of this tenant." : "User not found.", result.Error);
+                    Assert.Null(result.Value);
+                }
+                else if (scenario == "update-missing")
+                {
+                    var result = await fixture.Service.UpdateCurrentTenantUserAsync(Guid.NewGuid(), new UpdateTenantUserRequest(TenantUserRole.Owner, TenantUserStatus.Left));
+                    Assert.False(result.IsSuccess);
+                    Assert.Equal("Tenant user not found.", result.Error);
+                }
+                else
+                {
+                    var result = await fixture.Service.RemoveCurrentTenantUserAsync(Guid.NewGuid());
+                    Assert.False(result.IsSuccess);
+                    Assert.Equal("Tenant user not found.", result.Error);
+                }
+                await using var read = fixture.OpenContext();
+                var saved = await read.TenantUsers.SingleAsync(row => row.Id == fixture.TargetMembership.Id);
+                Assert.Equal(TenantUserRole.Member, saved.Role);
+                Assert.Equal(TenantUserStatus.Active, saved.Status);
+                Assert.Equal(3, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
+                Assert.Empty(await read.AuditLogs.ToListAsync());
+                Assert.Empty(await read.OutboxEvents.ToListAsync());
+                await fixture.AssertSessionsAsync(read, revoked: false);
+                await fixture.AssertForeignMembershipAsync(read);
+            });
+        }
+    }
+
     private Task RunAsync(string scenario, Func<MembershipFixture, Task> verify) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
