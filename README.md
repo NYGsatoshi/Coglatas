@@ -281,6 +281,10 @@ of the relevant release/security gates.
 
 ## Documentation
 
+Use the [documentation map](docs/README.md) to choose a guide by task. Browse
+source-bound records through the [verification index](docs/verification/README.md)
+and retained artifacts through the [evidence index](docs/evidence/README.md).
+
 Start with:
 
 - [AI context](docs/AI_CONTEXT.md)
