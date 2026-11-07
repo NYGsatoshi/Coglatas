@@ -107,7 +107,7 @@ internal static class RepositoryGitExecutable
                 ? HasWindowsRepositoryAncestor(candidate, windowsRoots)
                 : roots.Any(root => IsWithinUnixRepository(PhysicalPath(candidate), root) ||
                     mounts?.IsWithinRepository(root, PhysicalPath(candidate), requireComparableViews: false) == true);
-            if (inside) throw new IOException("The Git installation link chain enters an inspected repository.");
+            if (inside) throw new FileNotFoundException("The Git installation link chain enters an inspected repository.");
             FileSystemInfo info = (File.GetAttributes(candidate) & FileAttributes.Directory) != 0
                 ? new DirectoryInfo(candidate) : new FileInfo(candidate);
             if (info.LinkTarget is not { } target)

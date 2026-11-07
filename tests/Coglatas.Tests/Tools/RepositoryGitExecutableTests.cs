@@ -197,7 +197,7 @@ public sealed class RepositoryGitExecutableTests
         Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, entry));
         Assert.Equal(fixture.TrustedExecutable, RepositoryGitExecutable.Resolve(fixture.Repository,
             entry + Path.PathSeparator + fixture.Installation));
-        Assert.ThrowsAny<IOException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, null,
+        Assert.Throws<FileNotFoundException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, null,
             Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git")));
     }
 
