@@ -286,3 +286,10 @@ status after Draft and after later Active recovery, with 266 controls passing.
 Discarded successful moves and configuration changes reconcile their committed
 effects through current HTTP authority; stale responses never supply the new
 snapshot. Current configuration request/error semantics remain unchanged.
+
+Committed reconciliation also preserves an admitted Draft while the original
+initial join is pending. Two controls reproduced a stale successful move or
+configuration restarting that initial load over the recovered Draft, with 272
+controls passing. The helper now checks the current ready Draft before deciding
+whether to restart an unfinished initial load. Fresh Active reconciliation and
+the existing current denial handling retain their separate paths.
