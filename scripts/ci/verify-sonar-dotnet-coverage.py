@@ -17,7 +17,17 @@ def _production_file_ids(module: ET.Element, root: Path) -> dict[str, str]:
     """Map actual production source IDs without crediting tests or generated files."""
     files = {}
     for item in module.findall("./Files/File"):
-        path = Path(item.attrib["fullPath"])
+        original = item.attrib["fullPath"]
+        if original.startswith("/_/"):
+            # The deterministic PDB prefix is a source identity, not a host
+            # directory. Bind it to this checkout without changing report bytes.
+            relative = original[3:]
+            if (not relative or "\\" in relative or ":" in relative
+                    or any(part in ("", ".", "..") for part in relative.split("/"))):
+                raise ValueError("Invalid deterministic source path")
+            path = root / relative
+        else:
+            path = Path(original)
         path = (root / path).resolve()
         relative = path.relative_to(root.resolve())
         # Tests/tools can be measured but cannot satisfy production coverage.

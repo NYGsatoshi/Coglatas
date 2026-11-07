@@ -1,6 +1,13 @@
 # Supplemental native Windows coverage
 
-The existing mandatory Linux backend OpenCover producer remains unchanged.
+The existing mandatory Linux backend OpenCover cohort and original native report
+remain required. Production assemblies use deterministic source paths so the
+scanner can bind both platform reports to its source mapping. The test project
+is then rebuilt without dependencies and with physical source paths, because
+existing HTTP, SignalR and worker evidence recorders read and hash their actual
+`CallerFilePath` source. Production assemblies are not rebuilt by that step.
+The Linux verifier maps the exact `/_/` source prefix to the current checkout,
+rejects noncanonical paths, and preserves report bytes and zero-hit points.
 The trusted push analysis additionally runs the existing portable .NET cohort
 on a fresh Windows runner, with the repository-pinned SDK and Coverlet collector.
 The Windows job has read-only contents permission and no analysis environment
@@ -30,7 +37,7 @@ are explicitly unmapped generated evidence, never Git-source coverage credit.
 All other nondeterministic or unmappable source paths fail verification.
 Neither the existing analysis scope nor its coverage exclusions are changed.
 
-This closes a collection/import gap for native Windows-only paths. It does not
+This adds a candidate collection/import path for native Windows-only branches. It does not
 establish a PR Gate result or Main coverage gain by itself. The original #1778
 official Gate failure at `e8d5c1c6b9c199b1c16ba539ea56e9eeb87c1def`
 (New Coverage70.1%) remains retained. Qualification requires the actual hosted

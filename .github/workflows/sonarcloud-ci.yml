@@ -768,6 +768,15 @@ jobs:
       - name: Build inside the SonarScanner begin/end interval
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m -p:ContinuousIntegrationBuild=true -p:DeterministicSourcePaths=true
 
+      - name: Preserve physical caller source paths in the test assembly
+        # Recorders hash the actual caller source; production binaries retain
+        # their deterministic paths and are not rebuilt by this project build.
+        run: >-
+          dotnet build tests/Coglatas.Tests/Coglatas.Tests.csproj
+          --configuration Release --no-restore --no-incremental --no-dependencies
+          --disable-build-servers -m:1
+          -p:ContinuousIntegrationBuild=false -p:DeterministicSourcePaths=false
+
       - name: Apply migrations to the isolated coverage database
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
