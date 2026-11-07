@@ -69,6 +69,40 @@ public sealed class RepositoryGitExecutableTests
         return await output;
     }
 
+    public static IEnumerable<object[]> HostInvocationCases => (OperatingSystem.IsWindows()
+        ? new[] { "ordinary" } : ["ordinary", "shim"]).Select(kind => new object[] { kind });
+
+    [Theory]
+    [MemberData(nameof(HostInvocationCases))]
+    public async Task HostInvocationNamePreservesExactImmutableBlobBytes(string kind)
+    {
+        using var fixture = new Fixture();
+        var git = RepositoryGitExecutable.Resolve(fixture.Repository, Environment.GetEnvironmentVariable("PATH"));
+        const string text = "Synthetic invocation-name source\n";
+        await File.WriteAllTextAsync(Path.Combine(fixture.Repository, "source.txt"), text);
+        await Git(git, fixture.Repository, "init", "--quiet");
+        await Git(git, fixture.Repository, "add", "source.txt");
+        var hooks = Directory.CreateDirectory(Path.Combine(fixture.Root, "empty-hooks")).FullName;
+        await Git(git, fixture.Repository, "-c", "core.hooksPath=" + hooks, "-c", "commit.gpgsign=false",
+            "-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid",
+            "commit", "--quiet", "-m", "Synthetic invocation fixture");
+        var revision = (await Git(git, fixture.Repository, "rev-parse", "HEAD")).Trim();
+        var entry = Path.GetDirectoryName(git)!;
+        if (kind == "shim")
+        {
+            var shim = Path.Combine(fixture.Root, "multicall");
+            var quoted = "'" + git.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+            await File.WriteAllTextAsync(shim, $"#!/bin/sh\ncase \"$0\" in\n */git) exec {quoted} \"$@\" ;;\n *) exit 41 ;;\nesac\n");
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(shim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.Delete(fixture.TrustedExecutable);
+            File.CreateSymbolicLink(Path.Combine(fixture.Installation, "git"), shim);
+            entry = fixture.Installation;
+        }
+        var selected = RepositoryGitExecutable.Resolve(fixture.Repository, entry);
+        Assert.Equal(OperatingSystem.IsWindows() ? "git.exe" : "git", Path.GetFileName(selected));
+        Assert.Equal(text, await Git(selected, fixture.Repository, "cat-file", "blob", revision + ":source.txt"));
+    }
+
     [Fact]
     public void NullSearchPathDoesNotEnableImplicitSearch()
     {
@@ -140,7 +174,7 @@ public sealed class RepositoryGitExecutableTests
     }
 
     public static IEnumerable<object[]> NativeLinkCases => (OperatingSystem.IsWindows()
-        ? new[] { "directory", "root", "dotdot" } : ["directory", "file", "root", "dotdot"])
+        ? new[] { "directory", "root", "dotdot" } : ["directory", "file", "root", "dotdot", "repository-entry-to-host"])
         .Select(kind => new object[] { kind });
 
     [Theory]
@@ -152,7 +186,13 @@ public sealed class RepositoryGitExecutableTests
         var alias = Path.Combine(fixture.Root, "alias");
         var root = fixture.Repository;
         string entry;
-        if (kind == "file")
+        if (kind == "repository-entry-to-host")
+        {
+            File.Delete(malicious);
+            File.CreateSymbolicLink(malicious, fixture.TrustedExecutable);
+            entry = fixture.Repository;
+        }
+        else if (kind == "file")
         {
             Directory.CreateDirectory(alias);
             File.CreateSymbolicLink(Path.Combine(alias, "git"), malicious);

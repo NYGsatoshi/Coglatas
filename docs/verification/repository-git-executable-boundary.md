@@ -17,6 +17,16 @@ without requiring a volume GUID for network shares. The ordinary absolute
 Windows launch path is reopened and checked against the original file identity.
 Unresolvable entries fail closed; another explicit usable host entry may follow.
 
+On Linux, physical paths are also mapped through `/proc/self/mountinfo` to the
+underlying filesystem device and mount root. Repository root binds, bound
+subdirectories and aliases of mounted repository subtrees cannot become host
+installations. Missing, malformed or ambiguous stacked mount mappings fail
+closed. Both the physical PATH directory and executable target are checked.
+The selected absolute directory retains the `git` invocation name, preserving
+trusted Unix multicall shims without restoring implicit command search. Native
+before/after controls distinguish executable aliases from a valid host shim.
+The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).
+
 Host PATH installation directories and a stable host filesystem remain trusted
 inputs. The check is not an atomic executable-handle launch, a signature policy,
 or protection against an attacker replacing a trusted installation concurrently.

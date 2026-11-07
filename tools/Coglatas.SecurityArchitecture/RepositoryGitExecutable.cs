@@ -13,6 +13,7 @@ internal static class RepositoryGitExecutable
         var windows = OperatingSystem.IsWindows();
         var windowsRoot = windows ? WindowsIdentity(repositoryRoot) : default;
         var root = windows ? string.Empty : PhysicalPath(repositoryRoot);
+        var mounts = OperatingSystem.IsLinux() ? new RepositoryLinuxMountTable(File.ReadLines("/proc/self/mountinfo")) : null;
         foreach (var rawEntry in (searchPath ?? "").Split(Path.PathSeparator))
         {
             // Windows PATH commonly quotes installation paths containing spaces. Unix quotes are literal.
@@ -29,12 +30,17 @@ internal static class RepositoryGitExecutable
                     if (IsWithinWindowsRepository(executable, windowsRoot)) continue;
                     return executable;
                 }
+                // Resolve the directory physically but retain the Git invocation name for trusted multicall shims.
+                var directory = PhysicalPath(entry);
+                candidate = Path.Combine(directory, "git");
                 var physical = PhysicalPath(candidate);
                 if (!File.Exists(physical)) continue;
                 var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
-                if (physical.Equals(root, StringComparison.Ordinal) || physical.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                if (directory.Equals(root, StringComparison.Ordinal) || directory.StartsWith(prefix, StringComparison.Ordinal) ||
+                    physical.Equals(root, StringComparison.Ordinal) || physical.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                if (mounts is not null && (mounts.IsWithinRepository(root, directory) || mounts.IsWithinRepository(root, physical))) continue;
                 if (Access(physical, 1) != 0) continue;
-                return physical;
+                return candidate;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or Win32Exception)
             {
