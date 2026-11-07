@@ -776,6 +776,18 @@ jobs:
           mkdir -p artifacts/sonar-dotnet
           cp "$mapping" artifacts/sonar-dotnet/deterministic-source-roots.original
           sha256sum artifacts/sonar-dotnet/deterministic-source-roots.original
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet/pre-test-rebuild')
+          folder.mkdir()
+          record = {'sourceSha': os.environ['GITHUB_SHA'],
+                    'artifacts': verifier.assemblies(verifier.ROOT, folder, os.environ['GITHUB_SHA'], True)}
+          (folder / 'outputs.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
 
       - name: Preserve physical caller source paths in the test assembly
         # Recorders hash the actual caller source; production binaries retain
@@ -824,6 +836,29 @@ jobs:
           bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
             --minimum-total 1 --label "Sonar .NET coverage suite"
           python3 scripts/ci/verify-sonar-dotnet-coverage.py
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet')
+          before = json.loads((folder / 'pre-test-rebuild/outputs.json').read_bytes())
+          if before['sourceSha'] != os.environ['GITHUB_SHA']:
+              raise ValueError('Pre-rebuild source revision differs')
+          executed = folder / 'executed-binaries'
+          executed.mkdir()
+          after = verifier.assemblies(verifier.ROOT, executed, os.environ['GITHUB_SHA'], True)
+          for name, digest in before['artifacts'].items():
+              if name not in ('assemblies/Coglatas.Tests.dll', 'assemblies/Coglatas.Tests.pdb') and after[name] != digest:
+                  raise ValueError('Test-only rebuild or collection changed a production binary')
+          record = {'sourceSha': os.environ['GITHUB_SHA'], 'runId': os.environ['GITHUB_RUN_ID'],
+                    'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'executedArtifacts': after,
+                    'trxSha256': verifier.digest((folder / 'backend-tests.trx').read_bytes()),
+                    'sourceMappingSha256': verifier.digest((folder / 'deterministic-source-roots.original').read_bytes()),
+                    'productionBinariesUnchanged': True}
+          (folder / 'binary-provenance.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
 
       - name: Retain .NET coverage and source receipt
         if: always()
@@ -835,6 +870,10 @@ jobs:
             artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
             artifacts/sonar-dotnet/*-source-roots.original
+            artifacts/sonar-dotnet/backend-tests.trx
+            artifacts/sonar-dotnet/binary-provenance.json
+            artifacts/sonar-dotnet/pre-test-rebuild/
+            artifacts/sonar-dotnet/executed-binaries/
             artifacts/sonar-python/coverage.xml
           if-no-files-found: error
           retention-days: 7

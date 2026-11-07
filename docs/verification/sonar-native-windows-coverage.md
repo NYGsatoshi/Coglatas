@@ -13,6 +13,12 @@ instrumentation of production modules. The workflow restores the byte-identical
 original build mapping before collection and compares it again afterward. Both
 original metadata files remain in the artifact. This restores an actual native
 instrumentation input; no collected report, path, hit or condition is rewritten.
+The artifact also retains the original Linux TRX, pre-rebuild outputs and the
+seven executed DLL/PDB pairs. Existing native binary checks compare each project
+output with its test-directory copy and require the full source revision. All
+six production pairs must remain unchanged across the test-only rebuild and
+collection. The sidecar binds their digests, original mapping and TRX to the
+source/run/attempt; the changed test assembly is retained separately.
 The Linux verifier maps the exact `/_/` source prefix to the current checkout,
 rejects noncanonical paths, and preserves report bytes and zero-hit points.
 The trusted push analysis additionally runs the existing portable .NET cohort
