@@ -1,103 +1,72 @@
-name: SEC-17 bounded deep backend
+name: Diagnostic only - native Node 26 original-input replay
 
 on:
-  pull_request:
-    paths:
-      - 'tests/Coglatas.Tests/SecurityArchitecture/**'
-      - 'scripts/ci/sec17_deep_execution.py'
-      - 'scripts/ci/test_sec17_deep_execution.py'
-      - 'scripts/ci/sec_arch_evidence.py'
-      - 'scripts/ci/sec_arch_assembly_binding.py'
-      - '.github/workflows/sec17-deep.yml'
-      - 'src/Coglatas.Application/Messaging/**'
-      - 'src/Coglatas.Infrastructure/Realtime/**'
-      - 'src/Coglatas.Web/Realtime/**'
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      product_sha:
+        description: Exact Product Main source SHA to inspect
+        required: true
+        type: string
+      sonar_run_id:
+        description: Completed original Main Sonar workflow run
+        required: true
+        type: string
 
 permissions:
   contents: read
-
-concurrency:
-  group: sec17-deep-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  actions: read
 
 jobs:
-  bounded-deep:
-    name: SEC-17 bounded reconnect and concurrent scope transitions
+  native-replay:
+    name: Diagnostic only - no coverage import or promotion
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
-        env:
-          POSTGRES_DB: coglatas_ci
-          POSTGRES_USER: coglatas_ci
-          POSTGRES_PASSWORD: coglatas_ci_password
-          POSTGRES_INITDB_ARGS: >-
-            --set=log_error_verbosity=terse
-            --set=log_min_error_statement=panic
-            --set=log_parameter_max_length=0
-            --set=log_parameter_max_length_on_error=0
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U coglatas_ci -d coglatas_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 15
     env:
-      ASPNETCORE_ENVIRONMENT: Test
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-      COGLATAS_TEST_USE_MIGRATED_TEMPLATE: "true"
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
-      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      PRODUCT_SHA: ${{ inputs.product_sha }}
+      SONAR_RUN_ID: ${{ inputs.sonar_run_id }}
     steps:
-      - name: Checkout exact execution revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Validate immutable diagnostic target
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCT_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$SONAR_RUN_ID" =~ ^[0-9]+$ ]]
+      - name: Checkout diagnostic code only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Enforce public workflow boundary
-        run: python3 -B scripts/ci/check-publication-readiness.py
-      - name: Test exact deep execution false-green and byte-binding controls
-        run: |
-          python3 -B scripts/ci/test_sec17_deep_execution.py
-          python3 -B scripts/ci/test_sec_arch_evidence.py
-      - name: Verify PostgreSQL diagnostic privacy
+          path: diagnostic
+      - name: Checkout exact Product source separately
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.product_sha }}
+          persist-credentials: false
+          path: product
+      - name: Verify provider originals and archive exact LF source
         env:
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-        run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
-      - name: Set up .NET SDK
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
-      - name: Restore, build and stamp exact candidate
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B diagnostic/scripts/verification/native-node26-diagnostic/fetch-original-inputs.py
+      - name: Replay original raw inputs in pinned native Node 26
         run: |
-          dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
-          dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
-          mkdir -p artifacts/ci
-          git rev-parse HEAD > artifacts/ci/dotnet-build-sha
-      - name: Execute only the separate bounded deep owner
-        run: >-
-          dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj
-          --configuration Release --no-build --no-restore --disable-build-servers -m:1
-          --filter "FullyQualifiedName=Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRDeepChurnTests.ConcurrentIndependentDirectScopeTransitionsReauthorizeEveryBoundedReconnectCycle"
-          --logger "trx;LogFileName=sec17-deep.trx"
-          --results-directory artifacts/sec17-deep
-      - name: Require exact native deep execution and capture bounded evidence
+          set -euo pipefail
+          docker run --rm --cpus 2 --memory 3g --network none \
+            --env PRODUCT_SHA \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/inputs,target=/input,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/diagnostic/scripts/verification/native-node26-diagnostic,target=/code,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/outputs,target=/output" \
+            node:26@sha256:438603bbb5cda404b9416f0b5c8026f61501ab911760d861ec28c36b5d675725 \
+            bash -euc '
+              mkdir -p /home/runner/work/Coglatas/Coglatas
+              tar -xf /input/source.tar -C /home/runner/work/Coglatas/Coglatas
+              cd /home/runner/work/Coglatas/Coglatas
+              node /code/verify-subjects.mjs "$PWD" /input/node/representation.json
+              node --expose-internals /code/functional-representation-order-proof.cjs "$PWD" /input/raw /output/current-hosted-native-order.original.json "$PRODUCT_SHA"
+              node /code/compare-functional-native-replay-node26.mjs /output/current-hosted /input/node /input/raw v26.13.0
+            '
+      - name: Preserve diagnostic outputs separately
         if: always()
-        run: >-
-          python3 -B scripts/ci/sec17_deep_execution.py
-          --candidate-sha "$GITHUB_SHA"
-          --trx artifacts/sec17-deep/sec17-deep.trx
-          --output artifacts/sec17-deep/execution.json
-      - name: Upload deep execution evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: sec17-bounded-deep-execution
-          path: artifacts/sec17-deep/execution.json
+          name: native-node26-replay-${{ inputs.product_sha }}-${{ github.run_attempt }}
+          path: outputs/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
