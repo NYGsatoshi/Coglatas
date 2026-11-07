@@ -79,6 +79,8 @@ RUN apt-get -o Acquire::Retries=0 update \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/storage/uploads
 COPY --from=build /app/publish .
+RUN chown -R 1000:1000 /app
+USER 1000
 ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "exec dotnet Coglatas.Web.dll --urls http://0.0.0.0:${PORT:-8080}"]
