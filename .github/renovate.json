@@ -146,6 +146,80 @@
       ]
     },
     {
+      "description": "Keep Playwright npm updates tied to the reviewed browser image",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@playwright/test"
+      ],
+      "matchFileNames": [
+        "package.json"
+      ],
+      "allowedVersions": "1.64.1"
+    },
+    {
+      "description": "Hold malformed npm minimatch override updates for lockfile repair",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "minimatch"
+      ],
+      "matchFileNames": [
+        "coglatas-frontend/package.json",
+        "scripts/ci/sonar-operational-coverage-tools/package.json"
+      ],
+      "allowedVersions": "11.0.4"
+    },
+    {
+      "description": "Hold Sonar glob updates that cannot produce installable locks",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "glob"
+      ],
+      "matchFileNames": [
+        "scripts/ci/sonar-operational-coverage-tools/package.json"
+      ],
+      "allowedVersions": "14.0.3"
+    },
+    {
+      "description": "Separate ANG22 reviewed packages from routine npm updates",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@angular/animations",
+        "@angular/build",
+        "@angular/cdk",
+        "@angular/cli",
+        "@angular/common",
+        "@angular/compiler",
+        "@angular/compiler-cli",
+        "@angular/core",
+        "@angular/forms",
+        "@angular/platform-browser",
+        "@angular/platform-browser-dynamic",
+        "@angular/router",
+        "@angular-devkit/architect",
+        "@angular-devkit/build-angular",
+        "@angular-devkit/core",
+        "@lucide/angular",
+        "@storybook/angular",
+        "storybook",
+        "@vitest/coverage-istanbul",
+        "vitest"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "dependencyDashboardApproval": true,
+      "groupName": "ANG22 reviewed dependency candidates"
+    },
+    {
       "description": "Group compatible NuGet updates per review",
       "matchManagers": [
         "nuget"
