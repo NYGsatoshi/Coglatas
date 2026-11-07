@@ -158,6 +158,7 @@ public sealed class EntryContractTests
     {
         var input = Input(); var manifest = Manifest(input.Source); var association = ArtifactAssembly.Associate(input, manifest);
         var actual = Actual(manifest, enumeration); var receipt = Receipt(association, actual); var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Incomplete, store.Import(actual.Identity, Bodies(manifest, actual), [input.Source]));
         Assert.Equal(ArtifactImportState.Incomplete, store.Import(receipt.Identity, Bodies(manifest, association, actual, receipt), [input.Source]));
         Assert.Equal(0, store.Count); Assert.Equal(0, store.SourceCount);
         Assert.Equal(ArtifactImportState.Incomplete, store.ImportContainer(receipt.Identity, "interrupted",
