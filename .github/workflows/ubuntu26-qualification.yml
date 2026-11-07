@@ -1,0 +1,150 @@
+name: Ubuntu 26.04 Migration Qualification
+
+# Experimental comparison only; does not replace the required Main CI gates.
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/ubuntu26-qualification.yml"
+      - "governance/workflow-trust-policy.json"
+      - "tests/ci/ubuntu26-qualification.node-test.mjs"
+      - "docs/ci/ubuntu26-qualification.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ubuntu26-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    name: Ubuntu qualification (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    # Every possible output is a registered GitHub-hosted label.
+    # Bounded expression also avoids actionlint 1.7.12's stale runner-label table.
+    runs-on: ${{ (matrix.os == 'ubuntu-26.04' && 'ubuntu-26.04') || 'ubuntu-24.04' }}
+    timeout-minutes: 75
+    env:
+      ASPNETCORE_ENVIRONMENT: Test
+      CI: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_MULTILEVEL_LOOKUP: "0"
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: "1"
+      NODE_OPTIONS: --max-old-space-size=4096
+      TZ: UTC
+
+    steps:
+      - name: Checkout unprivileged PR merge revision
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pinned .NET SDK
+        id: setup_dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up Node.js 24
+        id: setup_node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Use exact repository npm without lifecycle scripts
+        id: npm_toolchain
+        run: npm install --global npm@11.17.0 --no-audit --no-fund --ignore-scripts
+
+      - name: Install root dependencies without lifecycle scripts
+        id: root_dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Validate qualification controls and existing OS contract
+        id: contract
+        run: |
+          node --test tests/ci/ubuntu26-qualification.node-test.mjs tests/ci/os-portability-contract.node-test.mjs
+          node scripts/ci/os-portability-contract.mjs --runtime
+
+      - name: Install Angular dependencies without lifecycle scripts
+        id: frontend_dependencies
+        run: npm --prefix frontend ci --ignore-scripts --no-audit --no-fund
+
+      - name: Restore .NET solution
+        id: dotnet_restore
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
+
+      - name: Build .NET solution
+        id: dotnet_build
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
+
+      - name: Run portable .NET tests
+        id: dotnet_tests
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=os-portability.trx" --results-directory artifacts/os-portability
+
+      - name: Fail on absent or incomplete portable .NET results
+        id: dotnet_results
+        run: node scripts/ci/verify-os-portability-results.mjs --contract scripts/ci/os-portability.contract.json --trx artifacts/os-portability/os-portability.trx
+
+      - name: Build production Angular frontend
+        id: frontend_build
+        run: npm --prefix frontend run build
+
+      - name: Run Angular unit tests
+        id: frontend_tests
+        run: npm --prefix frontend test
+
+      - name: Run frontend architecture checks
+        id: frontend_helpers
+        run: npm --prefix frontend run test:architecture
+
+      - name: Verify COMPAT-04 browser discovery without launching browsers
+        id: compat_critical
+        run: node scripts/ci/verify-compat-critical.mjs --profile os-portability --project chromium-desktop
+
+      - name: Probe hosted Docker engine and Compose availability
+        id: docker_smoke
+        run: |
+          docker info --format '{{.ServerVersion}}'
+          docker compose version
+
+      - name: Write sanitized per-runner evidence
+        if: always()
+        env:
+          PORTABILITY_MATRIX_OS: ${{ matrix.os }}
+          PORTABILITY_RUNNER_OS: ${{ runner.os }}
+          PORTABILITY_RUNNER_ARCH: ${{ runner.arch }}
+          PORTABILITY_STEP_CHECKOUT: ${{ steps.checkout.outcome }}
+          PORTABILITY_STEP_SETUP_DOTNET: ${{ steps.setup_dotnet.outcome }}
+          PORTABILITY_STEP_SETUP_NODE: ${{ steps.setup_node.outcome }}
+          PORTABILITY_STEP_NPM_TOOLCHAIN: ${{ steps.npm_toolchain.outcome }}
+          PORTABILITY_STEP_ROOT_DEPENDENCIES: ${{ steps.root_dependencies.outcome }}
+          PORTABILITY_STEP_CONTRACT: ${{ steps.contract.outcome }}
+          PORTABILITY_STEP_FRONTEND_DEPENDENCIES: ${{ steps.frontend_dependencies.outcome }}
+          PORTABILITY_STEP_DOTNET_RESTORE: ${{ steps.dotnet_restore.outcome }}
+          PORTABILITY_STEP_DOTNET_BUILD: ${{ steps.dotnet_build.outcome }}
+          PORTABILITY_STEP_DOTNET_TESTS: ${{ steps.dotnet_tests.outcome }}
+          PORTABILITY_STEP_DOTNET_RESULTS: ${{ steps.dotnet_results.outcome }}
+          PORTABILITY_STEP_FRONTEND_BUILD: ${{ steps.frontend_build.outcome }}
+          PORTABILITY_STEP_FRONTEND_TESTS: ${{ steps.frontend_tests.outcome }}
+          PORTABILITY_STEP_FRONTEND_HELPERS: ${{ steps.frontend_helpers.outcome }}
+          PORTABILITY_STEP_COMPAT_CRITICAL: ${{ steps.compat_critical.outcome }}
+        run: node scripts/ci/write-os-portability-evidence.mjs --output artifacts/ubuntu26-qualification/evidence.json
+
+      - name: Upload immutable-run comparison evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ubuntu26-qualification-${{ matrix.os }}-${{ github.run_attempt }}
+          path: |
+            artifacts/os-portability
+            artifacts/ubuntu26-qualification/evidence.json
+          if-no-files-found: error
+          retention-days: 14
