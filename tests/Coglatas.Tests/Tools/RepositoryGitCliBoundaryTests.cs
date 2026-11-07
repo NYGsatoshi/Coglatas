@@ -64,7 +64,7 @@ public sealed class RepositoryGitCliBoundaryTests
             File.CreateSymbolicLink(Path.Combine(hostile, name), choice);
         }
         else await fixture.AddMarkerExecutable(hostile, kind == "repository-file-link");
-        var result = await fixture.Cli(arguments, hostile + Path.PathSeparator + hostPath);
+        var result = await fixture.Cli(arguments, kind == "host-multicall-link" ? hostile : hostile + Path.PathSeparator + hostPath);
         Assert.False(File.Exists(fixture.Marker));
         Assert.Equal(0, result.ExitCode);
         var report = ContractJson.Read<SpecValidationResult>(result.Output);
