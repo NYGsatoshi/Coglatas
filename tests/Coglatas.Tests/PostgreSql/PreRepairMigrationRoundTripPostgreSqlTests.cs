@@ -28,6 +28,7 @@ public sealed class PreRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelper
                 var prefix = migrations.Take(repairIndex).ToArray();
                 var later = migrations.Skip(repairIndex).ToArray();
                 Assert.Empty(await context.Database.GetAppliedMigrationsAsync());
+                Assert.Equal(migrations, await context.Database.GetPendingMigrationsAsync());
                 Assert.Empty((await CatalogAsync(database)).Tables);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database, prefix[^1]);
@@ -37,6 +38,11 @@ public sealed class PreRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelper
                 Assert.Contains("file_objects", original.Tables);
                 Assert.DoesNotContain("tenant_settings", original.Tables);
                 Assert.DoesNotContain("export_jobs", original.Tables);
+                Assert.DoesNotContain("api_tokens", original.Tables);
+                Assert.DoesNotContain("integration_accounts", original.Tables);
+                Assert.DoesNotContain("subscriptions", original.Tables);
+                Assert.DoesNotContain("usage_records", original.Tables);
+                Assert.DoesNotContain("webhook_endpoints", original.Tables);
                 Assert.NotEmpty(original.Columns);
                 Assert.NotEmpty(original.Constraints);
                 Assert.NotEmpty(original.Indexes);
