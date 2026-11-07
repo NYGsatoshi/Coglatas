@@ -129,6 +129,11 @@ class WindowsCoverageTests(unittest.TestCase):
         self.assertEqual(len(result["sources"]), 1)
         self.assertEqual(result["lineEntries"], 2)
         self.assertEqual(result["unmappedGeneratedSources"][filename.decode()], [{"number": "3", "hits": "0"}])
+        deterministic = generated.replace(b'C:/runner/', b'/_/')
+        mapped = MODULE.verify_report(REPORT.replace(b'</classes>', deterministic + b'</classes>'), self.sources.__getitem__)
+        self.assertEqual(mapped["sources"], result["sources"])
+        self.assertEqual(mapped["lineEntries"], result["lineEntries"])
+        self.assertEqual(len(mapped["unmappedGeneratedSources"]), 1)
         with self.assertRaisesRegex(ValueError, "Nondeterministic"):
             MODULE.verify_report(REPORT.replace(b'</classes>', generated.replace(b'RegexGenerator.g.cs', b'Handwritten.cs') + b'</classes>'), self.sources.__getitem__)
 

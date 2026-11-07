@@ -109,7 +109,7 @@ def verify_report(raw: bytes, source) -> dict:
     sources, lines, conditions, generated = {}, {}, {}, {}
     for item in document.findall("./packages/package/classes/class"):
         filename = item.attrib["filename"]
-        if not filename.startswith("/_/"):
+        if not filename.startswith("/_/") or "/obj/" in filename:
             # These compiler-generated virtual documents also occur in the
             # unchanged Linux report. Retain their original bytes and ranges,
             # but never credit them as mapped Git production source.
@@ -118,7 +118,7 @@ def verify_report(raw: bytes, source) -> dict:
                 r"System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs",
                 r"Microsoft.AspNetCore.OpenApi.SourceGenerators/Microsoft.AspNetCore.OpenApi.SourceGenerators.XmlCommentGenerator/OpenApiXmlCommentSupport.generated.cs",
             )
-            pattern = (r"[A-Za-z]:/[^\x00]+/(?:(?:src|tools)/Coglatas\.[A-Za-z.]+/obj/Release/net10\.0"
+            pattern = (r"(?:[A-Za-z]:/[^\x00]+/|/_/)(?:(?:src|tools)/Coglatas\.[A-Za-z.]+/obj/Release/net10\.0"
                        r"|obj/Coglatas\.[A-Za-z.]+/release)/(?:"
                        + "|".join(re.escape(x) for x in generators) + r")")
             if not re.fullmatch(pattern, normalized) or "/../" in normalized or "/./" in normalized:
