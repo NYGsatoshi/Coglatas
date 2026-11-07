@@ -239,16 +239,21 @@ describe('ProjectDetailFacade initial response scope', () => {
       targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard' });
     const pending = http.expectOne(command === 'configuration'
       ? '/api/projects/project-1/kanban/config' : '/api/tasks/task-1/kanban-move');
-    catchUp!({ deniedOwners: new Set() }); http.expectOne('/api/projects/project-1').flush(draft);
+    catchUp!({ deniedOwners: new Set() });
+    const draftParent = http.expectOne('/api/projects/project-1');
+    const recoveryReads = http.match(request => request.url === '/api/projects/project-1/kanban' ||
+      request.url === '/api/projects/project-1/gantt');
+    draftParent.flush(draft);
+    for (const read of recoveryReads) read.flush(read.request.url.endsWith('/gantt') ? ganttSnapshotDto() : snapshotDto());
     const admitted = facade.view().project;
     pending.flush({ snapshot: snapshotDto(), focusTaskId: null, warnings: [] });
     expect(facade.view().status).toBe('ready');
-    expect(facade.view().project).toBe(admitted);
+    expect(facade.view().project).toEqual(admitted);
     expect(facade.view().kanban.snapshot).toBeNull();
     http.expectNone(() => true);
     initial.tasks.flush(taskRows); initial.board.flush(snapshotDto()); initial.schedule.flush(ganttSnapshotDto());
     initial.workload.flush({ members: [] }); initial.members.flush([]);
-    expect(facade.view().status).toBe('ready'); expect(facade.view().project).toBe(admitted);
+    expect(facade.view().status).toBe('ready'); expect(facade.view().project).toEqual(admitted);
     expect(facade.view().kanban.snapshot).toBeNull(); http.expectNone(() => true);
   });
 
