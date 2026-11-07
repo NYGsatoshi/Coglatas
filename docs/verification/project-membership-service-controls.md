@@ -27,3 +27,10 @@ coverage/import scope, quality budget or deployment behavior is changed.
 Native execution, exact source identity, hosted checks, independent review and
 the original PR Gate must be recorded separately. Main coverage changes require
 measurement on the resulting Main; local coverage is not an additive credit.
+
+The initial authoring commit `7037b97362d91be997be8ae11896a2995fcf78d6`
+failed compilation with two `CS0117` and two `CS0200` errors: Workspace membership
+uses `Pending`, and soft deletion uses `MarkDeleted`. No test ran at that commit.
+The original build log is retained with SHA256
+`f68e0ab4493e63bb4c00c4a825c3bd7a08061aa2157b3cb408ee9bcd04e0dcd4`.
+Correcting those calls preserves the denial assertions and production behavior.

@@ -1,4 +1,3 @@
-using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 
@@ -74,7 +73,7 @@ public sealed partial class ProjectServiceTests
     [InlineData("anonymous")]
     [InlineData("empty-actor")]
     [InlineData("missing-workspace-member")]
-    [InlineData("invited-workspace-member")]
+    [InlineData("pending-workspace-member")]
     [InlineData("suspended-workspace-member")]
     [InlineData("readonly-workspace-member")]
     [InlineData("archived-workspace")]
@@ -100,13 +99,13 @@ public sealed partial class ProjectServiceTests
             case "anonymous": fixture.Current.UserIdValue = null; break;
             case "empty-actor": fixture.Current.UserIdValue = Guid.Empty; break;
             case "missing-workspace-member": fixture.Workspaces.Members.Remove(workspaceMember); break;
-            case "invited-workspace-member": workspaceMember.Status = MembershipStatus.Invited; break;
+            case "pending-workspace-member": workspaceMember.Status = MembershipStatus.Pending; break;
             case "suspended-workspace-member": workspaceMember.Status = MembershipStatus.Suspended; break;
             case "readonly-workspace-member": workspaceMember.Role = WorkspaceRole.ReadOnly; break;
             case "archived-workspace": fixture.Workspace.Status = WorkspaceStatus.Archived; break;
-            case "deleted-workspace": fixture.Workspace.DeletedAt = fixture.Clock.UtcNow; break;
+            case "deleted-workspace": fixture.Workspace.MarkDeleted(fixture.Clock.UtcNow); break;
             case "deleted-project": fixture.Project.Status = ProjectStatus.Deleted; break;
-            case "soft-deleted-project": fixture.Project.DeletedAt = fixture.Clock.UtcNow; break;
+            case "soft-deleted-project": fixture.Project.MarkDeleted(fixture.Clock.UtcNow); break;
             case "missing-project": fixture.Projects.ProjectItems.Remove(fixture.Project.Id); break;
             case "project-viewer": fixture.Projects.Members.Single(member => member.UserId == actor.Id).Role = ProjectRole.Viewer; break;
             case "project-contributor": fixture.Projects.Members.Single(member => member.UserId == actor.Id).Role = ProjectRole.Contributor; break;
@@ -124,7 +123,7 @@ public sealed partial class ProjectServiceTests
     [Theory]
     [InlineData("missing-user")]
     [InlineData("missing-workspace-member")]
-    [InlineData("invited-workspace-member")]
+    [InlineData("pending-workspace-member")]
     [InlineData("suspended-workspace-member")]
     [InlineData("missing-group-member")]
     [InlineData("duplicate-project-member")]
@@ -142,7 +141,7 @@ public sealed partial class ProjectServiceTests
         {
             case "missing-user": targetId = Guid.NewGuid(); break;
             case "missing-workspace-member": fixture.Workspaces.Members.Remove(workspaceMember); break;
-            case "invited-workspace-member": workspaceMember.Status = MembershipStatus.Invited; break;
+            case "pending-workspace-member": workspaceMember.Status = MembershipStatus.Pending; break;
             case "suspended-workspace-member": workspaceMember.Status = MembershipStatus.Suspended; break;
             case "missing-group-member": fixture.Project.GroupId = fixture.AddGroup(actor.Id, GroupRole.Owner).Id; break;
             case "duplicate-project-member": fixture.AddProjectMember(target.Id, ProjectRole.Viewer); break;
