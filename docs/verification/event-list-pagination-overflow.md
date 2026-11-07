@@ -16,15 +16,22 @@ DTO projection, and the existing read-only path remain unchanged. The controller
 still forwards `EventListQuery` to the same service contract. The production
 repository orders by `StartsAt`, then `Title`; no ordering change is introduced.
 
-Thirteen new cases use the actual Application service and existing repository,
-identity and authority doubles. Four large-page cases reproduce negative, zero
+Fourteen new cases use the actual Application service and existing repository,
+identity and authority doubles. The original thirteen cases remain unchanged.
+Four large-page cases reproduce negative, zero
 and positive wraps. Six ordinary cases retain first/middle/final/empty pages,
 page/size clamps, visible order, dates, titles and attendance counts. A foreign
-Workspace event is interleaved in candidate order. An unauthenticated control
+Workspace ID with a missing parent is interleaved in candidate order. An unauthenticated control
 retains the existing failure, and two empty-list controls distinguish no
 candidates from existing events hidden from an authenticated nonmember. Event
 and attendance collection counts remain unchanged. The original test class gains
 only `partial`; its existing test bodies, assertions and doubles are unchanged.
+
+A separate fourteenth case registers an existing active foreign Workspace and
+its administrator membership. It verifies that the ordinary viewer has no
+membership there, then checks the authorized total and second page across that
+interleaved foreign event. The missing-parent fixture and its original immutable
+failure evidence are retained separately from this existing-parent control.
 
 The immutable test-only revision's four failures and nine passing controls are
 retained separately from repaired native execution. Source/binary/native-report
