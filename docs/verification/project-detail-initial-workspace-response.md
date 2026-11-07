@@ -249,3 +249,9 @@ recovery, with the preceding 246 controls passing. They also retain the newer
 workload, members and operational snapshots. Initial authorization denials still
 take precedence, and an initial success remains eligible after a newer transient
 failure that applied no successful projection.
+
+The first current recovery that admits a pending route records its Continue
+Working visit exactly once. That side effect follows current admitted state,
+including when recovery wins before the initial response; discarded initial
+callbacks cannot supply the history identity. Two history assertions exposed
+the otherwise lost visit after initial-response ordering was strengthened.

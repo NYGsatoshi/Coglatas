@@ -342,10 +342,6 @@ export class ProjectDetailFacade {
             view.activation
           )
         });
-        const appliedProject = this.state().project;
-        if (appliedProject) {
-          this.continueWorkingHistory.touchProject(appliedProject.id, appliedProject.workspaceId);
-        }
         this.settleInitialProjectionAuthorization(true);
       }
     });
@@ -2119,6 +2115,9 @@ export class ProjectDetailFacade {
   private settleInitialProjectionAuthorization(authorized: boolean): void {
     const pending = this.initialProjectionAuthorization;
     this.initialProjectionAuthorization = null;
+    const project = this.state().project;
+    if (authorized && pending && project)
+      {this.continueWorkingHistory.touchProject(project.id, project.workspaceId);}
     pending?.next(authorized);
     pending?.complete();
   }
@@ -2224,6 +2223,7 @@ export class ProjectDetailFacade {
             fallbackActivation
           )
         });
+        this.settleInitialProjectionAuthorization(true);
         return;
       }
       const current = this.state();
