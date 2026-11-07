@@ -1,7 +1,9 @@
 """False-green controls for ordinary Independent Test inspection evidence."""
 import copy
 import importlib.util
+import io
 import json
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -64,6 +66,27 @@ class InspectionEvidenceTests(unittest.TestCase):
         self.validate(document)
         with patch("sys.argv", ["gate", str(self.report), str(changed)]):
             self.assertEqual(1, gate.main())
+
+    def test_malformed_or_unbound_reports_return_a_formatted_report_error(self):
+        gate = quality.load_gate()
+        changed = self.root / "changed.nul"
+        changed.write_bytes(b"tests/Coglatas.ProjectIde.Entry.Tests/EntryContractTests.cs\0")
+        mutations = [None, {"version": "2.1.0", "runs": [{"tool": None}]}]
+        for key, value in (("invocations", [None]), ("results", [{"ruleId": "UnboundWarning",
+                           "message": {"text": "cannot establish changed-file scope"}}])):
+            document = copy.deepcopy(self.document)
+            document["runs"][0][key] = value
+            mutations.append(document)
+        for document in mutations:
+            self.report.write_text(json.dumps(document))
+            output = io.StringIO()
+            with self.subTest(document=document), redirect_stdout(output), \
+                    patch("sys.argv", ["gate", str(self.report), str(changed)]):
+                self.assertEqual(2, gate.main())
+            self.assertTrue(output.getvalue().startswith("::error::"))
+        self.report.write_text("{broken")
+        with redirect_stdout(io.StringIO()), patch("sys.argv", ["gate", str(self.report), str(changed)]):
+            self.assertEqual(2, gate.main())
 
     def test_empty_probe_cannot_certify_changed_source_and_restores_original(self):
         from argparse import Namespace

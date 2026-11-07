@@ -124,10 +124,13 @@ def main() -> int:
 
     changed = read_changed_files(changed_path)
 
-    with sarif_path.open("r", encoding="utf-8") as handle:
-        sarif = json.load(handle)
-
-    validate_sarif(sarif)
+    try:
+        with sarif_path.open("r", encoding="utf-8") as handle:
+            sarif = json.load(handle)
+        validate_sarif(sarif)
+    except (ValueError, AttributeError) as error:
+        print(f"::error::{escape_message(str(error))}")
+        return 2
 
     runs = sarif.get("runs")
     if not isinstance(runs, list) or not runs:

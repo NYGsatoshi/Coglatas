@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
-from projectide_entry_isolated import require_retained_entry_identities
+from projectide_entry_isolated import TEST_PATHS, require_retained_entry_identities
 
 BASELINE = Path(__file__).resolve().parents[1] / "Coglatas.ProjectIde.Entry.Tests/retained-test-identities.v1.json"
 
@@ -17,6 +17,15 @@ class EntryIdentityRetentionTests(unittest.TestCase):
     def test_exact_retained_cases_and_additional_cases_are_accepted(self):
         require_retained_entry_identities(self.cases, self.baseline)
         require_retained_entry_identities(self.cases + ["Coglatas.Tests.ProjectIde.Entry.Additional.Case"], self.baseline)
+
+    def test_every_owned_path_triggers_the_composition_workflow(self):
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / ".github/workflows/projectide-entry-isolated.yml").read_text(encoding="utf-8")
+        block = workflow.split("    paths:\n", 1)[1].split("\npermissions:", 1)[0]
+        triggers = {line.strip()[2:] for line in block.splitlines() if line.strip().startswith("- ")}
+        for path in TEST_PATHS:
+            with self.subTest(path=path):
+                self.assertIn(path + "**" if path.endswith("/") else path, triggers)
 
     def test_same_count_passing_replacement_cannot_hide_a_lost_identity(self):
         replaced = self.cases[:-1] + ["Coglatas.Tests.ProjectIde.Entry.Replacement.Case"]

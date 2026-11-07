@@ -5,6 +5,11 @@ on:
     paths:
       - tests/Coglatas.ProjectIde.Entry.Tests/**
       - tests/ci/projectide_entry_isolated.py
+      - tests/ci/test_projectide_entry_isolated.py
+      - tests/ci/test_projectide_entry_resharper.py
+      - scripts/quality/projectide_entry_resharper.py
+      - scripts/quality/check-resharper-pr-sarif.py
+      - .github/workflows/resharper_pr.yml
       - .github/workflows/projectide-entry-isolated.yml
 
 permissions:
