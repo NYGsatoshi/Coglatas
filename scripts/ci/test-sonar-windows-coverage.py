@@ -2,9 +2,13 @@
 """Mutation controls for supplemental native Windows coverage provenance."""
 
 import importlib.util
+import io
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -177,6 +181,46 @@ class WindowsCoverageTests(unittest.TestCase):
             MODULE.git_reader(self.root, executable, SHA)
         with self.assertRaisesRegex(ValueError, "absolute host Git"):
             MODULE.git_reader(self.root, Path("git"), SHA)
+
+    def test_cli_receipts_bind_actual_git_tree_bytes_and_expected_provider_identity(self):
+        executable = Path(shutil.which("git")).resolve()
+        def git(*args):
+            return subprocess.check_output([str(executable), *args], cwd=self.root,
+                                           stderr=subprocess.PIPE).decode().strip()
+        git("init", "--quiet")
+        git("config", "core.autocrlf", "false")
+        git("config", "user.name", "Synthetic coverage control")
+        git("config", "user.email", "coverage-control@example.invalid")
+        for path, data in self.sources.items():
+            destination = self.root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+        git("add", "tools/Example.cs", "tests/Coglatas.Tests/Coglatas.Tests.csproj")
+        git("commit", "--quiet", "-m", "Create synthetic source identity fixture")
+        actual_sha = git("rev-parse", "HEAD")
+        for path in self.root.glob("**/bin/Release/net10.0/*"):
+            path.write_bytes(path.read_bytes().replace(SHA.encode(), actual_sha.encode()))
+        def cli(mode, sha=actual_sha, run="123", attempt="1"):
+            arguments = ["verify-sonar-windows-coverage.py", mode, "--folder", str(self.folder),
+                         "--git", str(executable), "--sha", sha, "--run", run, "--attempt", attempt]
+            with patch.object(MODULE, "ROOT", self.root), patch("sys.argv", arguments), redirect_stdout(io.StringIO()) as stream:
+                MODULE.main()
+                return json.loads(stream.getvalue())
+        result = cli("capture")
+        self.assertEqual(result["sourceSha"], actual_sha)
+        self.assertEqual(result["treeSha"], git("rev-parse", "HEAD^{tree}"))
+        self.assertEqual(result, cli("consume"))
+        with self.assertRaisesRegex(ValueError, "Checkout differs"):
+            cli("consume", sha=SHA)
+        for run, attempt in (("124", "1"), ("123", "2")):
+            with self.subTest(run=run, attempt=attempt), self.assertRaisesRegex(ValueError, "receipt"):
+                cli("consume", run=run, attempt=attempt)
+        for run, attempt in (("0", "1"), ("123", "0"), ("123x", "1")):
+            with self.subTest(run=run, attempt=attempt), self.assertRaisesRegex(ValueError, "provider"):
+                cli("consume", run=run, attempt=attempt)
+        (self.root / "tools/Example.cs").write_bytes(b"changed checkout source\n")
+        with self.assertRaisesRegex(ValueError, "source bytes differ"):
+            cli("consume")
 
 
 if __name__ == "__main__":
