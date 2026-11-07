@@ -24,5 +24,5 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
+          node-version: '26'
       - run: node --test tests/ci/test_restore_data_dependency_advisor.mjs
