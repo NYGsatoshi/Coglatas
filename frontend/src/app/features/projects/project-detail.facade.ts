@@ -1166,6 +1166,7 @@ export class ProjectDetailFacade {
         (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId ||
         this.state().kanban.status === 'permissionDenied')
       {return;}
+    if (this.state().status === 'ready' && this.state().project?.isOperational === false) {return;}
     if (!this.moveInFlight && this.initialLoadGeneration === this.loadGeneration) {
       this.load(projectId);
       return;
