@@ -29,6 +29,13 @@ The initial `/bin/kill` candidate's native coverage observations are retained
 historically. Independent review identified PID reuse and a potentially delayed
 helper after timeout; those observations do not qualify this revised source.
 
+The generic process cleanup helper and its new tests belong to TestInfrastructure,
+outside the formal SEC-ARCH test catalogue. The initial pidfd candidate's 326
+hosted tests passed, but evidence capture correctly rejected its three new
+unclassified methods in the reserved SecurityArchitecture namespace. Their
+relocation preserves every test body and the strict catalogue/classification
+rules. They do not acquire formal SEC-ARCH verifier or acceptance credit.
+
 Qualification must compare exact-source before/after actual HTTP tests on the
 same pinned Linux SDK/PostgreSQL and original native collector. Report bytes,
 source ranges, zeros, executed DLL/PDB identities and the raw imported report

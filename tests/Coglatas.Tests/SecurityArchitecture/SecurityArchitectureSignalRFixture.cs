@@ -11,6 +11,7 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Coglatas.Tests.PostgreSql;
+using Coglatas.Tests.TestInfrastructure;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

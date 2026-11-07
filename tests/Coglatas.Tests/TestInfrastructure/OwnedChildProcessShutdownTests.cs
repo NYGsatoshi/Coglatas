@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Coglatas.Tests.SecurityArchitecture;
+namespace Coglatas.Tests.TestInfrastructure;
 
 public sealed class OwnedChildProcessShutdownTests
 {

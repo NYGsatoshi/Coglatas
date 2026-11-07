@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace Coglatas.Tests.SecurityArchitecture;
+namespace Coglatas.Tests.TestInfrastructure;
 
 // Only accepts the original Process returned by Process.Start for our own child.
 internal static class OwnedChildProcessShutdown
