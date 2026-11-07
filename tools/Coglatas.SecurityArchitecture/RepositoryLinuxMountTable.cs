@@ -17,7 +17,7 @@ internal sealed class RepositoryLinuxMountTable
                 !uint.TryParse(major, out _) || !uint.TryParse(minor, out _))
                 throw new IOException("Cannot establish the Linux mount boundary.");
             var type = fields[separator + 1];
-            _mounts.Add(new Mount(fields[2], DecodePath(fields[3], namespaceRoot: type is "cgroup" or "cgroup2"),
+            _mounts.Add(new Mount(fields[2], DecodePath(fields[3], opaqueRoot: type is "cgroup" or "cgroup2" or "nsfs"),
                 DecodePath(fields[4]), type));
         }
     }
@@ -65,7 +65,7 @@ internal sealed class RepositoryLinuxMountTable
             if (!seen.Add(mount.Point)) throw new IOException("Cannot establish the Linux mount boundary.");
             if (selected is null || mount.Point.Length > selected.Point.Length) selected = mount;
         }
-        if (selected is null || HasRelativeSegments(selected.Root))
+        if (selected is null || selected.Type == "nsfs" || !selected.Root.StartsWith('/') || HasRelativeSegments(selected.Root))
             throw new IOException("Cannot establish the Linux mount boundary.");
         var relative = path[selected.Point.Length..].TrimStart('/');
         var mapped = selected.Root.TrimEnd('/') + (relative.Length == 0 ? "" : "/" + relative);
@@ -78,7 +78,7 @@ internal sealed class RepositoryLinuxMountTable
 
     private static bool HasRelativeSegments(string path) => path.Split('/').Any(part => part is "." or "..");
 
-    private static string DecodePath(string encoded, bool namespaceRoot = false)
+    private static string DecodePath(string encoded, bool opaqueRoot = false)
     {
         var result = new StringBuilder();
         for (var i = 0; i < encoded.Length; i++)
@@ -93,10 +93,10 @@ internal sealed class RepositoryLinuxMountTable
             i += 3;
         }
         var path = result.ToString();
-        // Cgroup namespace roots may contain '/..'; retain that opaque metadata without mapping it to host paths.
-        if (!path.StartsWith('/') || path.Contains('\0') || (!namespaceRoot && HasRelativeSegments(path)))
+        // Namespace roots can be '/..' or an nsfs object name. Retain opaque metadata, never map it to host paths.
+        if (path.Contains('\0') || (!opaqueRoot && (!path.StartsWith('/') || HasRelativeSegments(path))))
             throw new IOException("Cannot establish the Linux mount boundary.");
-        return path.Length > 1 ? path.TrimEnd('/') : path;
+        return !opaqueRoot && path.Length > 1 ? path.TrimEnd('/') : path;
     }
 
     private sealed record Mount(string Device, string Root, string Point, string Type);
