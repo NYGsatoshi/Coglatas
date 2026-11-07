@@ -71,7 +71,7 @@ public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests
                             parent_id integer REFERENCES rollback_unrelated_parent(id));
                         DROP TABLE rollback_unrelated_parent;
                         """, connection, unrelatedTransaction);
-                    var otherDependency = await Assert.ThrowsAsync<PostgresException>(() => unrelated.ExecuteNonQueryAsync());
+                    var otherDependency = await Assert.ThrowsAsync<PostgresException>(unrelated.ExecuteNonQueryAsync);
                     Assert.Equal("2BP01", otherDependency.SqlState);
                     Assert.False(IsRetainedObjectRefusal(otherDependency));
                     await unrelatedTransaction.RollbackAsync();
@@ -83,11 +83,11 @@ public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests
                 {
                     await using var rollback = new NpgsqlCommand(script, connection, transaction);
                     rollback.CommandTimeout = 90;
-                    var dependency = await Assert.ThrowsAsync<PostgresException>(() => rollback.ExecuteNonQueryAsync());
+                    var dependency = await Assert.ThrowsAsync<PostgresException>(rollback.ExecuteNonQueryAsync);
                     Assert.Equal("2BP01", dependency.SqlState);
                     Assert.True(IsRetainedObjectRefusal(dependency), "Full rollback refused an unexpected dependency.");
                     await using var aborted = new NpgsqlCommand("SELECT 1", connection, transaction);
-                    var failedTransaction = await Assert.ThrowsAsync<PostgresException>(() => aborted.ExecuteScalarAsync());
+                    var failedTransaction = await Assert.ThrowsAsync<PostgresException>(aborted.ExecuteScalarAsync);
                     Assert.Equal("25P02", failedTransaction.SqlState);
                     await transaction.RollbackAsync();
                 }
@@ -110,9 +110,12 @@ public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests
             });
 
     private static bool IsRetainedObjectRefusal(PostgresException error) =>
-        error.SqlState == "2BP01" &&
-        error.MessageText == "cannot drop table file_objects because other objects depend on it" &&
-        error.Detail is { } detail &&
+        error is
+        {
+            SqlState: "2BP01",
+            MessageText: "cannot drop table file_objects because other objects depend on it",
+            Detail: { } detail
+        } &&
         detail.Contains("constraint FK_tenant_settings_file_objects_LogoFileId on table tenant_settings depends on table file_objects", StringComparison.Ordinal) &&
         detail.Contains("constraint FK_export_jobs_file_objects_FileObjectId on table export_jobs depends on table file_objects", StringComparison.Ordinal);
 }
