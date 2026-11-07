@@ -6,6 +6,13 @@ scanner can bind both platform reports to its source mapping. The test project
 is then rebuilt without dependencies and with physical source paths, because
 existing HTTP, SignalR and worker evidence recorders read and hash their actual
 `CallerFilePath` source. Production assemblies are not rebuilt by that step.
+Before the test-only rebuild, the original native Coverlet source-root mapping
+is retained. The rebuild generates physical reference mappings despite leaving
+deterministic production PDBs intact; using that replacement mapping prevents
+instrumentation of production modules. The workflow restores the byte-identical
+original build mapping before collection and compares it again afterward. Both
+original metadata files remain in the artifact. This restores an actual native
+instrumentation input; no collected report, path, hit or condition is rewritten.
 The Linux verifier maps the exact `/_/` source prefix to the current checkout,
 rejects noncanonical paths, and preserves report bytes and zero-hit points.
 The trusted push analysis additionally runs the existing portable .NET cohort

@@ -768,6 +768,15 @@ jobs:
       - name: Build inside the SonarScanner begin/end interval
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m -p:ContinuousIntegrationBuild=true -p:DeterministicSourcePaths=true
 
+      - name: Retain original deterministic production source mapping
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          test -s "$mapping"
+          mkdir -p artifacts/sonar-dotnet
+          cp "$mapping" artifacts/sonar-dotnet/deterministic-source-roots.original
+          sha256sum artifacts/sonar-dotnet/deterministic-source-roots.original
+
       - name: Preserve physical caller source paths in the test assembly
         # Recorders hash the actual caller source; production binaries retain
         # their deterministic paths and are not rebuilt by this project build.
@@ -776,6 +785,17 @@ jobs:
           --configuration Release --no-restore --no-incremental --no-dependencies
           --disable-build-servers -m:1
           -p:ContinuousIntegrationBuild=false -p:DeterministicSourcePaths=false
+
+      - name: Restore original production mapping for native instrumentation
+        # The test-only build regenerates reference maps with physical paths.
+        # Production PDBs still use the original deterministic paths. Restore
+        # their unmodified build metadata, never edit collected report paths.
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          cp "$mapping" artifacts/sonar-dotnet/physical-test-source-roots.original
+          cp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
 
       - name: Apply migrations to the isolated coverage database
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
@@ -798,6 +818,9 @@ jobs:
 
       - name: Verify executed tests and production coverage before publication
         run: |
+          set -euo pipefail
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original \
+            tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
           bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
             --minimum-total 1 --label "Sonar .NET coverage suite"
           python3 scripts/ci/verify-sonar-dotnet-coverage.py
@@ -811,6 +834,7 @@ jobs:
             artifacts/sonar-dotnet/**/coverage.opencover.xml
             artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
+            artifacts/sonar-dotnet/*-source-roots.original
             artifacts/sonar-python/coverage.xml
           if-no-files-found: error
           retention-days: 7
