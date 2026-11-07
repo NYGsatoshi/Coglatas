@@ -86,7 +86,9 @@ public sealed class TaskDeadlineDigestWorkerHostLifecycleTests
         try
         {
             Assert.NotNull(worker.ExecuteTask);
-            await worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => worker.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.True(worker.ExecuteTask.IsCanceled);
             Assert.Equal(0, scopes.Calls);
             Assert.Empty(logger.Entries);
         }
