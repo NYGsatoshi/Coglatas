@@ -241,3 +241,11 @@ successful and transient-error parent results now retain the applied Project
 projection order. Current authorization denials remain authoritative regardless
 of that success order. The initial new test's DTO/view-model name mismatch is
 retained as a separate compile failure, not a runtime reproduction.
+
+Initial successful Project responses use the same applied projection order as
+catch-ups, before changing operational state or applying joined collections.
+Two controls reproduced a late initial Draft and Active load replacing a newer
+recovery, with the preceding 246 controls passing. They also retain the newer
+workload, members and operational snapshots. Initial authorization denials still
+take precedence, and an initial success remains eligible after a newer transient
+failure that applied no successful projection.

@@ -269,6 +269,8 @@ export class ProjectDetailFacade {
       switchMap((project) => {
         if (!loadIsCurrent())
           {return EMPTY;}
+        if (initialTaskListRequestGeneration < this.projectProjectionAppliedGeneration)
+          {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         this.projectOperational = record.isOperational === true;
         if (!record.isOperational)
@@ -307,6 +309,8 @@ export class ProjectDetailFacade {
           this.state.set(view);
           return;
         }
+        if (initialTaskListRequestGeneration < this.projectProjectionAppliedGeneration) {return;}
+        this.projectProjectionAppliedGeneration = initialTaskListRequestGeneration;
         this.projectOperational = view.project?.isOperational === true;
 
         // A later request that failed must not make a valid initial response
