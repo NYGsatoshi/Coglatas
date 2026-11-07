@@ -255,7 +255,7 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Assert.NotEqual(CancellationToken.None, token);
             Repository.Token = token;
             var method = typeof(OutboxDispatcher).GetMethod("DispatchBatchAsync", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?? throw Unexpected();
+                ?? throw new InvalidOperationException("OutboxDispatcher.DispatchBatchAsync was not found. Update this reflection lookup.");
             try {await Assert.IsAssignableFrom<Task>(method.Invoke(_dispatcher, [token]));}
             finally
             {
