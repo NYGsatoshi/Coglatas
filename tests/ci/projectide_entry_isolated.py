@@ -126,8 +126,12 @@ def main() -> None:
                 raise ValueError("Existing reader compatibility cases did not run")
             (output / f"{name}-inventory.json").write_text(json.dumps(executed, indent=2) + "\n", encoding="utf-8")
             counters = ET.parse(output / f"{name}.trx").getroot().find("{*}ResultSummary/{*}Counters")
-            receipt["verification"][name] = dict(total=int(counters.get("total")),
-                failed=int(counters.get("failed", "0")), skipped=int(counters.get("notExecuted", "0")))
+            if counters is None:
+                raise ValueError("TRX result summary counters missing")
+            counts = {key: int(counters.get(key, "0")) for key in ("total", "passed", "failed", "notExecuted")}
+            if counts["total"] <= 0 or counts["passed"] != counts["total"] or counts["failed"] or counts["notExecuted"]:
+                raise ValueError("TRX reports unsuccessful or unexecuted tests")
+            receipt["verification"][name] = counts
         run(["node", "--test", "tests/ci/projectide-artifact-vectors.test.mjs"], target, output / "node-vectors.log")
         receipt["verification"]["nodeVectors"] = "Passed"
         if git(target, "status", "--porcelain", "--untracked-files=no"):
