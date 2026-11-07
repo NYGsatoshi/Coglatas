@@ -2,9 +2,12 @@
 
 These five PostgreSQL Facts exercise41 internal scenarios through the real
 Tenant service, repositories, session service, database audit logger, unit of
-work, authorization publisher and transactional outbox. Each scenario creates
-an isolated database from the existing migrated PostgreSQL18.6 template and
-asserts the actual Npgsql provider. Connection absence cannot qualify the run.
+work, authorization publisher and transactional outbox. Each scenario uses the
+existing isolated migrated-database helper. It migrates a fresh database by
+default and can clone a migrated template when explicitly enabled. The tests
+assert Npgsql; PostgreSQL18.6 and the opt-in template are properties of the
+retained local run environment, not guarantees of every execution. Connection
+absence cannot qualify the run.
 
 The cohort covers new membership and reactivation from Invited, Suspended,
 Archived and Left; role/status changes, reactivation and existing no-op behavior;
@@ -18,8 +21,12 @@ Assertions read a separate database context. They verify membership identity,
 role/status and join metadata; scoped audit actions and payload; the native
 durable authorization envelope and user routing; pending outbox rows; session
 revocation timestamps/counts and pre-existing revoked/actor sessions; and an
-unchanged foreign-Tenant membership. Rejected operations create no audit,
-outbox, membership or session changes. Session revocation remains the existing
+unchanged foreign-Tenant membership. Each rejected management operation is
+followed by an unfiltered separate-context check of persisted audit, outbox,
+security-event, membership and session state, without replacing its request
+Tenant scope. Invalid-target cases also inspect unfiltered event rows. This
+checks persisted state, not absence of physical SQL write statements.
+Session revocation remains the existing
 user-wide operation; these tests do not invent Tenant-local session semantics.
 
 Local native source `a39475dd155f2c3a3279d92b39f50288c25a9393` executed5/5 Facts,

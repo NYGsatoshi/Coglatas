@@ -216,9 +216,13 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
                 var expected = scenario is "unavailable" or "platform-scope" ? "ValidationFailed"
                     : scenario is "anonymous" or "missing-actor" ? "AuthenticationRequired" : "Forbidden";
                 var list = await fixture.Service.ListCurrentTenantUsersAsync();
+                await fixture.AssertRejectedStateAsync(beforeCount);
                 var add = await fixture.Service.AddCurrentTenantUserAsync(new AddTenantUserRequest(fixture.Target.Id, TenantUserRole.Owner));
+                await fixture.AssertRejectedStateAsync(beforeCount);
                 var update = await fixture.Service.UpdateCurrentTenantUserAsync(fixture.Target.Id, new UpdateTenantUserRequest(TenantUserRole.Owner, TenantUserStatus.Left));
+                await fixture.AssertRejectedStateAsync(beforeCount);
                 var remove = await fixture.Service.RemoveCurrentTenantUserAsync(fixture.Target.Id);
+                await fixture.AssertRejectedStateAsync(beforeCount);
                 foreach (var result in new[] { (list.IsSuccess, list.ErrorDetail), (add.IsSuccess, add.ErrorDetail),
                              (update.IsSuccess, update.ErrorDetail), (remove.IsSuccess, remove.ErrorDetail) })
                 {
@@ -228,17 +232,6 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
                 Assert.Null(list.Value);
                 Assert.Null(add.Value);
                 Assert.Null(update.Value);
-                fixture.Owner.CurrentTenant.SetTenant(fixture.Owner.Tenant.Id, fixture.Owner.Tenant.Slug);
-                await using var read = fixture.OpenContext();
-                Assert.Equal(beforeCount, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
-                var saved = await read.TenantUsers.SingleAsync(row => row.Id == fixture.TargetMembership.Id);
-                Assert.Equal(TenantUserRole.Member, saved.Role);
-                Assert.Equal(TenantUserStatus.Active, saved.Status);
-                Assert.Equal(fixture.TargetMembership.JoinedAt, saved.JoinedAt);
-                Assert.Empty(await read.AuditLogs.ToListAsync());
-                Assert.Empty(await read.OutboxEvents.ToListAsync());
-                await fixture.AssertSessionsAsync(read, revoked: false);
-                await fixture.AssertForeignMembershipAsync(read);
             });
         }
     }
@@ -285,8 +278,9 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
                 Assert.Equal(TenantUserRole.Member, saved.Role);
                 Assert.Equal(TenantUserStatus.Active, saved.Status);
                 Assert.Equal(3, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
-                Assert.Empty(await read.AuditLogs.ToListAsync());
-                Assert.Empty(await read.OutboxEvents.ToListAsync());
+                Assert.Empty(await read.AuditLogs.IgnoreQueryFilters().ToListAsync());
+                Assert.Empty(await read.OutboxEvents.IgnoreQueryFilters().ToListAsync());
+                Assert.Empty(await read.SecurityEvents.IgnoreQueryFilters().ToListAsync());
                 await fixture.AssertSessionsAsync(read, revoked: false);
                 await fixture.AssertForeignMembershipAsync(read);
             });
@@ -360,6 +354,22 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
         public AppDbContext OpenContext() => Owner.OpenContext();
         public ValueTask DisposeAsync() => Owner.DisposeAsync();
 
+        public async Task AssertRejectedStateAsync(int membershipCount)
+        {
+            // Inspect every Tenant without replacing the denied request scope.
+            await using var read = OpenContext();
+            Assert.Equal(membershipCount, await read.TenantUsers.IgnoreQueryFilters().CountAsync());
+            var saved = await read.TenantUsers.IgnoreQueryFilters().SingleAsync(row => row.Id == TargetMembership.Id);
+            Assert.Equal(TenantUserRole.Member, saved.Role);
+            Assert.Equal(TenantUserStatus.Active, saved.Status);
+            Assert.Equal(TargetMembership.JoinedAt, saved.JoinedAt);
+            Assert.Empty(await read.AuditLogs.IgnoreQueryFilters().ToListAsync());
+            Assert.Empty(await read.OutboxEvents.IgnoreQueryFilters().ToListAsync());
+            Assert.Empty(await read.SecurityEvents.IgnoreQueryFilters().ToListAsync());
+            await AssertSessionsAsync(read, revoked: false);
+            await AssertForeignMembershipAsync(read);
+        }
+
         public async Task AssertForeignMembershipAsync(AppDbContext read)
         {
             var foreign = await read.TenantUsers.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == ForeignMembership.Id);
@@ -372,12 +382,12 @@ public sealed class TenantMembershipLifecyclePostgreSqlTests(ITestOutputHelper o
 
         public async Task AssertSessionsAsync(AppDbContext read, bool revoked)
         {
-            var sessions = await read.Sessions.AsNoTracking().Where(row => row.UserId == Target.Id).ToListAsync();
+            var sessions = await read.Sessions.IgnoreQueryFilters().AsNoTracking().Where(row => row.UserId == Target.Id).ToListAsync();
             Assert.Equal(3, sessions.Count);
             foreach (var original in TargetSessions)
                 Assert.Equal(revoked ? Owner.Clock.UtcNow : null, sessions.Single(row => row.Id == original.Id).RevokedAt);
             Assert.Equal(Owner.Clock.UtcNow.AddDays(-1), sessions.Single(row => row.Id == OldRevokedSession.Id).RevokedAt);
-            Assert.Null((await read.Sessions.AsNoTracking().SingleAsync(row => row.Id == ActorSession.Id)).RevokedAt);
+            Assert.Null((await read.Sessions.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == ActorSession.Id)).RevokedAt);
         }
 
         public async Task AssertInvalidationAsync(AppDbContext read, string change)
