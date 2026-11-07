@@ -223,6 +223,35 @@ describe('ProjectDetailFacade initial response scope', () => {
     });
   }
 
+  it.each(['move', 'configuration'] as const)('preserves a recovered Draft when stale %s succeeds before the initial join finishes', (command) => {
+    enableViews(); facade.load('project-1');
+    http.expectOne('/api/projects/project-1').flush(active);
+    const initial = {
+      tasks: http.expectOne('/api/projects/project-1/tasks'),
+      board: http.expectOne('/api/projects/project-1/kanban'),
+      schedule: http.expectOne('/api/projects/project-1/gantt'),
+      workload: http.expectOne('/api/projects/project-1/workload'),
+      members: http.expectOne('/api/projects/project-1/members'),
+    };
+    catchUp!({ deniedOwners: new Set() }); finishNavigation(); finishViews();
+    if (command === 'configuration') facade.updateKanbanConfig('priority', facade.view().kanban.snapshot!.columns);
+    else facade.moveTask({ item: facade.view().kanban.snapshot!.cards[0], targetStatus: 'stage-done',
+      targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard' });
+    const pending = http.expectOne(command === 'configuration'
+      ? '/api/projects/project-1/kanban/config' : '/api/tasks/task-1/kanban-move');
+    catchUp!({ deniedOwners: new Set() }); http.expectOne('/api/projects/project-1').flush(draft);
+    const admitted = facade.view().project;
+    pending.flush({ snapshot: snapshotDto(), focusTaskId: null, warnings: [] });
+    expect(facade.view().status).toBe('ready');
+    expect(facade.view().project).toBe(admitted);
+    expect(facade.view().kanban.snapshot).toBeNull();
+    http.expectNone(() => true);
+    initial.tasks.flush(taskRows); initial.board.flush(snapshotDto()); initial.schedule.flush(ganttSnapshotDto());
+    initial.workload.flush({ members: [] }); initial.members.flush([]);
+    expect(facade.view().status).toBe('ready'); expect(facade.view().project).toBe(admitted);
+    expect(facade.view().kanban.snapshot).toBeNull(); http.expectNone(() => true);
+  });
+
   it.each([false, true])('keeps buffered operational data out of a recovered Draft with childFirst=%s', async (childFirst) => {
     enableViews(); facade.load('project-1');
     const initial = http.expectOne('/api/projects/project-1');
