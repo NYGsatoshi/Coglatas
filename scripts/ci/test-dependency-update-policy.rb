@@ -124,8 +124,15 @@ end
 
 def image_errors(source, sdk_version)
   errors = []
+  sdk_reference = %r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}
+  pinned_sdk = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}
+  dockerfile = source.fetch('Dockerfile', nil) || (ROOT / 'Dockerfile').read
+  canonical = pinned_sdk.match(dockerfile.scan(sdk_reference).first.to_s)
+  errors << 'Dockerfile: canonical SDK image must match global.json and use an immutable digest' unless
+    canonical && canonical[1] == sdk_version
   candidates = [
     'Dockerfile', 'docker-compose.yml',
+    'scripts/ci/run-synthetic-logical-recovery.mjs', 'scripts/ci/synthetic-logical-recovery-receipt.mjs',
     *Dir.glob(ROOT.join('infra/docker/*.Dockerfile').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('infra/compose/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('deploy/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s }
@@ -136,11 +143,13 @@ def image_errors(source, sdk_version)
     next unless path.file?
     contents = source.fetch(name, nil) || path.read
     next unless contents.include?('mcr.microsoft.com/dotnet/sdk:')
-    contents.scan(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}).each do |reference|
+    contents.scan(sdk_reference).each do |reference|
       matches += 1
-      match = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}.match(reference)
+      match = pinned_sdk.match(reference)
       if !match || match[1] != sdk_version
         errors << "#{name}: SDK image must match global.json #{sdk_version} and use an immutable digest"
+      elsif canonical && match[2] != canonical[2]
+        errors << "#{name}: SDK image digest must match the canonical Dockerfile SDK image"
       end
     end
   end
@@ -260,6 +269,15 @@ bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 
+%w[infra/compose/performance/pr.yml scripts/ci/synthetic-logical-recovery-receipt.mjs].each do |path|
+  original = (ROOT / path).read
+  changed = original.sub(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}) do |reference|
+    reference.sub(/@sha256:[a-f0-9]{64}/, "@sha256:#{'0' * 64}")
+  end
+  abort("SDK digest mutation did not change its selected carrier: #{path}") if changed == original
+  abort("Guard missed same-version SDK digest drift: #{path}") if image_errors({ path => changed }, sdk_version).empty?
+end
+
 bad_node_major = {
   'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
 }
@@ -269,4 +287,4 @@ bad_node_digest = {
 }
 abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
 
-puts "Mend-hosted Renovate policy, SDK/image parity, Vite and Node LTS: PASS (#{mutations.length + 7} negative controls)"
+puts "Mend-hosted Renovate policy, SDK/image parity, Vite and Node LTS: PASS (#{mutations.length + 9} negative controls)"
