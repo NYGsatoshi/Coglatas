@@ -24,7 +24,8 @@ REPORT = b'''<coverage><sources/><packages><package><classes>
 <line number="2" hits="0"/>
 </lines></class></classes></package></packages></coverage>'''
 TRX = b'''<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
-<Results><UnitTestResult outcome="Passed"/></Results>
+<Results><UnitTestResult outcome="Passed" testId="synthetic-unit"/></Results>
+<TestDefinitions><UnitTest id="synthetic-unit"><TestMethod codeBase="@ASSEMBLY@"/></UnitTest></TestDefinitions>
 <ResultSummary><Counters total="1" executed="1" passed="1" failed="0" notExecuted="0"/></ResultSummary>
 </TestRun>'''
 PROJECT = b'<PackageReference Include="coverlet.collector" Version="10.1.0" />'
@@ -40,7 +41,8 @@ class WindowsCoverageTests(unittest.TestCase):
         self.primary = self.folder / GUID / "coverage.cobertura.xml"
         self.primary.parent.mkdir()
         self.primary.write_bytes(REPORT)
-        (self.folder / "windows-tests.trx").write_bytes(TRX)
+        self.assembly_path = str(self.root / "tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll")
+        (self.folder / "windows-tests.trx").write_bytes(TRX.replace(b"@ASSEMBLY@", self.assembly_path.encode()))
         self.sources = {"tools/Example.cs": b"one\ntwo\n",
                         "tests/Coglatas.Tests/Coglatas.Tests.csproj": PROJECT}
         for name, project in MODULE.ASSEMBLIES.items():
@@ -129,6 +131,15 @@ class WindowsCoverageTests(unittest.TestCase):
         self.assertEqual(result["unmappedGeneratedSources"][filename.decode()], [{"number": "3", "hits": "0"}])
         with self.assertRaisesRegex(ValueError, "Nondeterministic"):
             MODULE.verify_report(REPORT.replace(b'</classes>', generated.replace(b'RegexGenerator.g.cs', b'Handwritten.cs') + b'</classes>'), self.sources.__getitem__)
+
+    def test_trx_must_bind_the_executed_binary_and_case_definitions(self):
+        raw = (self.folder / "windows-tests.trx").read_bytes()
+        self.assertEqual(MODULE.verify_trx(raw, self.assembly_path), 1)
+        for mutated in (raw.replace(b'codeBase="', b'codeBase="other-'),
+                        raw.replace(b'id="synthetic-unit"', b'id="wrong-unit"'),
+                        raw.replace(b'<TestMethod ', b'<MissingMethod ')):
+            with self.subTest(mutated=mutated), self.assertRaises(ValueError):
+                MODULE.verify_trx(mutated, self.assembly_path)
 
     def test_manifest_publication_raw_source_and_assembly_tampering_are_rejected(self):
         self.qualify(True)

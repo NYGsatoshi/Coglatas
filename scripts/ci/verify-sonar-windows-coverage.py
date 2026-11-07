@@ -74,7 +74,7 @@ def native_report(folder: Path) -> tuple[str, list[str]]:
     return selected, copies
 
 
-def verify_trx(raw: bytes) -> int:
+def verify_trx(raw: bytes, expected_assembly: str | None = None) -> int:
     document = parse_xml(raw)
     ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
     counters = document.find("./t:ResultSummary/t:Counters", ns)
@@ -86,6 +86,19 @@ def verify_trx(raw: bytes) -> int:
         raise ValueError("TRX execution accounting differs")
     if any(int(counters.get(key, "0")) for key in ("failed", "notExecuted", "aborted", "error", "timeout")):
         raise ValueError("Incomplete Windows tests")
+    if expected_assembly is not None:
+        definitions = document.findall("./t:TestDefinitions/t:UnitTest", ns)
+        if (not definitions or {item.get("id") for item in definitions}
+                != {item.get("testId") for item in cases}):
+            raise ValueError("TRX definitions do not identify executed tests")
+        expected = expected_assembly.replace("\\", "/")
+        for definition in definitions:
+            method = definition.find("./t:TestMethod", ns)
+            actual = method.get("codeBase", "").replace("\\", "/") if method is not None else ""
+            # Windows paths are insensitive to case; POSIX unit fixtures are not.
+            if ((actual.lower() != expected.lower()) if re.match(r"[A-Za-z]:/", expected)
+                    else actual != expected):
+                raise ValueError("TRX references a different executed test assembly")
     return count
 
 
@@ -215,13 +228,21 @@ def qualify(root: Path, folder: Path, executable: Path, sha: str, run: str,
     raw = owned_bytes(folder, report)
     measured = verify_report(raw, source)
     trx = owned_bytes(folder, "windows-tests.trx")
-    count = verify_trx(trx)
+    saved = None if capture else json.loads(owned_bytes(folder, "receipt.json"))
+    producer_root = str(root) if capture else saved["producerCheckoutRoot"]
+    if (not isinstance(producer_root, str) or "\0" in producer_root
+            or ".." in producer_root.replace("\\", "/").split("/")
+            or not re.match(r"(?:[A-Za-z]:[/\\]|/)", producer_root)):
+        raise ValueError("Invalid producer checkout identity")
+    expected_assembly = producer_root.rstrip("/\\") + "/tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll"
+    count = verify_trx(trx, expected_assembly)
     project = source("tests/Coglatas.Tests/Coglatas.Tests.csproj")
     if b'Include="coverlet.collector" Version="10.1.0"' not in project:
         raise ValueError("Unexpected native collector version")
     receipt = {"schemaVersion": 1, "sourceSha": sha, "treeSha": tree,
                "runId": run, "attempt": attempt, "platform": "Windows",
                "collectorVersion": "10.1.0", "filter": "Portability=CrossPlatform",
+               "producerCheckoutRoot": producer_root,
                "collectorReport": report, "identicalVSTestCopies": copies,
                "reportSha256": digest(raw), "trxSha256": digest(trx),
                "passedTests": count, "coverage": measured,
@@ -235,7 +256,6 @@ def qualify(root: Path, folder: Path, executable: Path, sha: str, run: str,
             json.dump(receipt, stream, indent=2, sort_keys=True)
             stream.write("\n")
     else:
-        saved = json.loads(owned_bytes(folder, "receipt.json"))
         if saved != receipt or owned_bytes(folder, publication.name) != raw:
             raise ValueError("Producer receipt or publication bytes differ")
     return receipt

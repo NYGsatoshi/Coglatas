@@ -181,8 +181,8 @@ jobs:
         run: |
           node scripts/ci/verify-os-portability-results.mjs --contract scripts/ci/os-portability.contract.json --trx artifacts/sonar-windows/windows-tests.trx
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $hostGit = (Get-Command git.exe -CommandType Application).Source
-          python -B scripts/ci/verify-sonar-windows-coverage.py capture --folder artifacts/sonar-windows --git $hostGit --sha $env:GITHUB_SHA --run $env:GITHUB_RUN_ID --attempt $env:GITHUB_RUN_ATTEMPT
+          $hostGit = (Get-Command git.exe -CommandType Application -All | Select-Object -First 1).Source
+          python -B scripts/ci/verify-sonar-windows-coverage.py capture --folder artifacts/sonar-windows --git "$hostGit" --sha $env:GITHUB_SHA --run $env:GITHUB_RUN_ID --attempt $env:GITHUB_RUN_ATTEMPT
           exit $LASTEXITCODE
 
       - name: Retain original native Windows report and binary provenance
