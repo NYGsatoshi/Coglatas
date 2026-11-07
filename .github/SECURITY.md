@@ -1,7 +1,9 @@
 # Security policy
 
 >[!IMPORTANT]
->The frontend is being migrated from Angular, JavaScript, and TypeScript to an Avalonia-based frontend using C# and XAML.
+>Angular Web in `frontend/` is a maintained product client. Avalonia Desktop is a separate planned client,
+>subject to the existing security, platform, and release qualifications. See the
+>[frontend platform policy](../docs/frontend/platform-policy.md).
 >Security reports for frontend code that is still present on the current `main` branch or in an explicitly supported deployment
 >remain in scope until that code is removed or explicitly declared unsupported.
 >Once legacy frontend code has been removed or declared unsupported, reports that apply only to that retired code may be closed

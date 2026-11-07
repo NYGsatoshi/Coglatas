@@ -9,7 +9,9 @@ Last verified: 2026-06-18.
 - Node.js 26 LTS for the Angular workspace and CI-equivalent UI test workflow.
 - Docker/Compose for the recommended PostgreSQL-only mode, optional full-container development, and Linux Playwright parity.
 
-The repository pins `dotnet-ef` 10.0.8 in both `dotnet-tools.json` and `.config/dotnet-tools.json`.
+The repository pins `dotnet-ef` in [dotnet-tools.json](../dotnet-tools.json) and
+[.config/dotnet-tools.json](../.config/dotnet-tools.json). Use `dotnet tool restore`
+below to restore the pinned local tool version.
 
 ## Restore and build
 

@@ -1,5 +1,11 @@
 # CoglatasFrontend
 
+> [!NOTE]
+> This directory is an inactive legacy Angular scaffold. The maintained Web client
+> lives in [`frontend/`](../frontend/README.md). Use the
+> [development guide](../docs/DEVELOPMENT.md) for current application commands.
+> The generated CLI instructions below describe this scaffold only.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.4.
 
 ## Development server
