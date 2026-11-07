@@ -255,3 +255,12 @@ Working visit exactly once. That side effect follows current admitted state,
 including when recovery wins before the initial response; discarded initial
 callbacks cannot supply the history identity. Two history assertions exposed
 the otherwise lost visit after initial-response ordering was strengthened.
+
+Route visit intent is separate from operational-response authorization. A Draft
+recovery settles buffered operational responses as false, while recording only
+the current admitted route visit. A transient failure can clear that response
+gate without discarding the route's pending visit; a successful current recovery
+records it once. Release discards the visit intent and its Workspace identity.
+Four controls reproduced Draft buffer admission and the lost visit after an
+initial transient failure, with 250 passing controls. Companion release and
+Workspace replacement controls preserve the intent boundary.

@@ -177,6 +177,8 @@ export class ProjectDetailFacade {
   private taskListAppliedGeneration = 0;
   private taskListRefreshPending = false;
   private projectProjectionAppliedGeneration = 0;
+  private projectVisitPending = false;
+  private projectVisitWorkspaceId: string | null = null;
   private taskListRefreshInFlight = false;
   private taskListRefreshAfterFlight = false;
   private taskListRefreshFlightGeneration = 0;
@@ -244,6 +246,8 @@ export class ProjectDetailFacade {
     const authorizationGeneration = this.authorizationGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.initialLoadWorkspaceId = workspaceId;
+    this.projectVisitPending = true;
+    this.projectVisitWorkspaceId = workspaceId;
     const loadIsCurrent = () =>
       workspaceId !== null && this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
       (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
@@ -342,7 +346,8 @@ export class ProjectDetailFacade {
             view.activation
           )
         });
-        this.settleInitialProjectionAuthorization(true);
+        this.recordProjectVisit();
+        this.settleInitialProjectionAuthorization(view.project?.isOperational === true);
       }
     });
   }
@@ -1235,6 +1240,8 @@ export class ProjectDetailFacade {
 
   release(): void {
     this.settleInitialProjectionAuthorization(false);
+    this.projectVisitPending = false;
+    this.projectVisitWorkspaceId = null;
     this.releaseRealtime();
     this.projectId = null;
     this.projectOperational = false;
@@ -2115,11 +2122,18 @@ export class ProjectDetailFacade {
   private settleInitialProjectionAuthorization(authorized: boolean): void {
     const pending = this.initialProjectionAuthorization;
     this.initialProjectionAuthorization = null;
-    const project = this.state().project;
-    if (authorized && pending && project)
-      {this.continueWorkingHistory.touchProject(project.id, project.workspaceId);}
     pending?.next(authorized);
     pending?.complete();
+  }
+
+  private recordProjectVisit(): void {
+    const current = this.state();
+    const project = current.project;
+    if (!this.projectVisitPending || current.status !== 'ready' || !project || project.id !== this.projectId ||
+        !this.projectVisitWorkspaceId || this.activeWorkspace.activeWorkspace()?.id !== this.projectVisitWorkspaceId ||
+        (project.workspaceId && project.workspaceId !== this.projectVisitWorkspaceId)) {return;}
+    this.projectVisitPending = false;
+    this.continueWorkingHistory.touchProject(project.id, project.workspaceId);
   }
 
   private revalidateProjectProjections(projectId: string, authorizationGeneration: number, refreshOperationalViews: boolean): Observable<boolean> {
@@ -2223,7 +2237,8 @@ export class ProjectDetailFacade {
             fallbackActivation
           )
         });
-        this.settleInitialProjectionAuthorization(true);
+        this.recordProjectVisit();
+        this.settleInitialProjectionAuthorization(false);
         return;
       }
       const current = this.state();
@@ -2248,6 +2263,7 @@ export class ProjectDetailFacade {
         ...projectFeedbackField("message", undefined)
       });
       this.taskListFollowUpRefresh(projectId);
+      this.recordProjectVisit();
       this.settleInitialProjectionAuthorization(true);
       onAuthorized?.();
       if (refreshOperationalViews) {

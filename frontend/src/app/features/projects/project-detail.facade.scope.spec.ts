@@ -118,7 +118,9 @@ describe('ProjectDetailFacade initial response scope', () => {
     expect(facade.view().tasks).toEqual([]);
     expect(facade.view().kanban.snapshot).toBeNull(); expect(facade.view().schedule.snapshot).toBeNull();
 
-    catchUp!({ deniedOwners: new Set() }); finishNavigation(); finishViews();
+    catchUp!({ deniedOwners: new Set() }); finishNavigation();
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
     expect(facade.view().project?.isOperational).toBe(true);
     expect(facade.view().kanban.snapshot).not.toBeNull(); expect(facade.view().schedule.snapshot).not.toBeNull();
     expect(history.touchProject).toHaveBeenCalledExactlyOnceWith('project-1', 'workspace-1');
