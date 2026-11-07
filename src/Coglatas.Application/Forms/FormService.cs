@@ -42,8 +42,9 @@ public sealed class FormService(
             }
         }
 
+        var offset = (long)(page - 1) * pageSize;
         var items = visible
-            .Skip((page - 1) * pageSize)
+            .Skip((int)Math.Min(offset, visible.Count))
             .Take(pageSize)
             .Select(ToListItem)
             .ToList();
