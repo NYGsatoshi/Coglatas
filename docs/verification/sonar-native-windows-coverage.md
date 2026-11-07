@@ -19,6 +19,10 @@ outputs with executed test-directory binaries and requires the full revision in
 each DLL. The Linux consumer repeats raw/source/TRX/binary digest checks against
 the expected SHA, tree, workflow run and attempt before analysis credentials.
 Git selection is an explicit absolute host executable outside the checkout.
+This CI verifier requires a direct installation file: original entries and all
+parent components reject repository containment, symlinks and junctions before
+resolution. It launches the checked canonical file. This bounded CI policy
+does not change the separate C# CLI's host-alias compatibility contract.
 
 Known regex and OpenAPI compiler-generated virtual documents retain their
 original absolute `obj` filenames and ranges in the report and receipt. They

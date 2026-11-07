@@ -173,15 +173,29 @@ def verify_report(raw: bytes, source) -> dict:
 def git_reader(root: Path, executable: Path, sha: str):
     if not executable.is_absolute() or not executable.is_file():
         raise ValueError("Explicit absolute host Git executable required")
-    try:
-        executable.resolve().relative_to(root.resolve())
-    except ValueError:
-        pass
-    else:
+    boundaries = {root.absolute(), root.resolve()}
+    # This CI verifier accepts a direct installed file, not a linked Git entry.
+    # Check every original component before resolving, so a repository link or
+    # intermediate alias cannot delegate selection to an outside target.
+    for location in (executable, *executable.parents):
+        for boundary in boundaries:
+            try:
+                location.relative_to(boundary)
+            except ValueError:
+                continue
+            raise ValueError("Repository-local Git is not trusted")
+        if location.is_symlink() or getattr(location, "is_junction", lambda: False)():
+            raise ValueError("Linked Git selection requires a direct host installation path")
+    selected = executable.resolve(strict=True)
+    for boundary in boundaries:
+        try:
+            selected.relative_to(boundary)
+        except ValueError:
+            continue
         raise ValueError("Repository-local Git is not trusted")
 
     def git(*args):
-        return subprocess.check_output([str(executable), *args], cwd=root, timeout=30)
+        return subprocess.check_output([str(selected), *args], cwd=root, timeout=30)
 
     if git("rev-parse", "HEAD").decode().strip() != sha:
         raise ValueError("Checkout differs from expected source SHA")

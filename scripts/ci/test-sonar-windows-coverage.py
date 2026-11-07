@@ -4,6 +4,7 @@
 import importlib.util
 import io
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -237,6 +238,24 @@ class WindowsCoverageTests(unittest.TestCase):
         (self.root / "tools/Example.cs").write_bytes(b"changed checkout source\n")
         with self.assertRaisesRegex(ValueError, "source bytes differ"):
             cli("consume")
+
+    @unittest.skipIf(os.name == "nt", "Real file-link fixture runs in the canonical Linux consumer controls; no local Windows privilege changes")
+    def test_repository_git_links_and_intermediate_aliases_cannot_select_an_outside_target(self):
+        host = Path(shutil.which("git")).resolve()
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        external = Path(outside.name)
+        repository_entry = self.root / "git-link"
+        repository_entry.symlink_to(host)
+        external_entry = external / "git-link"
+        external_entry.symlink_to(repository_entry)
+        directory_alias = external / "repository-alias"
+        directory_alias.symlink_to(self.root, target_is_directory=True)
+        for entry in (repository_entry, external_entry, directory_alias / "git-link"):
+            with self.subTest(entry=entry), patch.object(MODULE.subprocess, "check_output", return_value=(SHA + "\n").encode()) as process:
+                with self.assertRaises(ValueError):
+                    MODULE.git_reader(self.root, entry, SHA)
+                process.assert_not_called()
 
 
 if __name__ == "__main__":
