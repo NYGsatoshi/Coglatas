@@ -70,11 +70,11 @@ public sealed class StartupConfigurationBoundaryTests
         Assert.Equal("Configuration validation failed: " + expected, Assert.Single(fixture.Log.Messages));
         Assert.DoesNotContain(fixture.DatabaseSecret, exception.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain(fixture.StorageSecret, exception.ToString(), StringComparison.Ordinal);
-        Assert.All(fixture.Log.Messages, message =>
+        foreach (var message in fixture.Log.Messages)
         {
             Assert.DoesNotContain(fixture.DatabaseSecret, message, StringComparison.Ordinal);
             Assert.DoesNotContain(fixture.StorageSecret, message, StringComparison.Ordinal);
-        });
+        }
     }
 
     [Theory]
@@ -158,7 +158,7 @@ public sealed class StartupConfigurationBoundaryTests
 
     private sealed class ValidationFixture : IDisposable
     {
-        private readonly ServiceProvider services;
+        private readonly ServiceProvider _services;
         public TenancyOptions Tenancy { get; } = new();
         public FileStorageOptions Files { get; } = new()
         {
@@ -183,11 +183,11 @@ public sealed class StartupConfigurationBoundaryTests
             Files.SecretKey = StorageSecret;
             var collection = new ServiceCollection().AddLogging();
             if (antiforgery) collection.AddAntiforgery();
-            services = collection.BuildServiceProvider();
+            _services = collection.BuildServiceProvider();
             var csrf = new CsrfProtectionState();
             if (middleware) csrf.MarkMiddlewareActive();
             Validator = new StartupConfigurationValidator(Options.Create(Tenancy), Options.Create(Files),
-                Options.Create(Security), Options.Create(Platform), Configuration, services, csrf,
+                Options.Create(Security), Options.Create(Platform), Configuration, _services, csrf,
                 new TestEnvironment(environment ?? Environments.Production), Log);
         }
 
@@ -197,7 +197,7 @@ public sealed class StartupConfigurationBoundaryTests
             Configuration["ConnectionStrings:DefaultConnection"] = connection.ConnectionString;
         }
 
-        public void Dispose() => services.Dispose();
+        public void Dispose() => _services.Dispose();
     }
 
     private sealed class RecordingLog : ILogger<StartupConfigurationValidator>

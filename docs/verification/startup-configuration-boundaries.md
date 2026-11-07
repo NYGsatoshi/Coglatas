@@ -31,3 +31,6 @@ control, but 33 new controls failed because the test provider omitted the
 logging dependency required to resolve real antiforgery services. The positive
 controls and exact rejection assertions exposed this setup error. The fixture
 now registers logging; neither the validator nor assertions were weakened.
+The subsequent 43-test cohort passed. Local naming and assertion-lambda
+inspection notes were addressed with the private-field convention and an
+equivalent explicit loop; neither diagnostics nor assertions were suppressed.
