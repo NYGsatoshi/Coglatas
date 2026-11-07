@@ -28,13 +28,14 @@ internal static class RepositoryGitExecutable
                 if (!File.Exists(trustedExecutable)) throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
                 ValidateLinkChain(trustedExecutable, windowsRoots, roots, null);
                 var configuredDirectory = Path.GetDirectoryName(trustedExecutable)!;
+                var configuredHostDirectory = WindowsExecutablePath(configuredDirectory);
                 if (HasWindowsRepositoryAncestor(configuredDirectory, windowsRoots) ||
-                    HasWindowsRepositoryAncestor(WindowsExecutablePath(configuredDirectory), windowsRoots))
+                    HasWindowsRepositoryAncestor(configuredHostDirectory, windowsRoots))
                     throw new FileNotFoundException("The configured Git installation is inside an inspected repository.");
                 var executable = WindowsExecutablePath(trustedExecutable);
                 if (HasWindowsRepositoryAncestor(executable, windowsRoots))
                     throw new FileNotFoundException("The configured Git installation is inside the inspected repository.");
-                return executable;
+                return Path.Combine(configuredHostDirectory, Path.GetFileName(trustedExecutable));
             }
             var directory = PhysicalPath(Path.GetDirectoryName(trustedExecutable)!);
             var selected = Path.Combine(directory, Path.GetFileName(trustedExecutable));
@@ -58,12 +59,13 @@ internal static class RepositoryGitExecutable
                 if (windows)
                 {
                     ValidateLinkChain(candidate, windowsRoots, roots, null);
+                    var windowsDirectory = WindowsExecutablePath(entry);
                     if (HasWindowsRepositoryAncestor(entry, windowsRoots) ||
-                        HasWindowsRepositoryAncestor(WindowsExecutablePath(entry), windowsRoots)) continue;
+                        HasWindowsRepositoryAncestor(windowsDirectory, windowsRoots)) continue;
                     if (!File.Exists(candidate)) continue;
                     var executable = WindowsExecutablePath(candidate);
                     if (HasWindowsRepositoryAncestor(executable, windowsRoots)) continue;
-                    return executable;
+                    return Path.Combine(windowsDirectory, "git.exe");
                 }
                 // Resolve the directory physically but retain the Git invocation name for trusted multicall shims.
                 var directory = PhysicalPath(entry);
@@ -115,6 +117,9 @@ internal static class RepositoryGitExecutable
                 cursor = candidate;
                 continue;
             }
+            // A link's own location is an input, even when its final target is on a known host view.
+            if (mounts is not null && roots.Any(root => mounts.IsWithinRepository(root, candidate)))
+                throw new FileNotFoundException("The Git installation link chain enters an inspected repository.");
             if (++followedLinks > 40 || target.Contains('\0')) throw new IOException("Unsupported Git installation link chain.");
             if (Path.IsPathFullyQualified(target))
             {

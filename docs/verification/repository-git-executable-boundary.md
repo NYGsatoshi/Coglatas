@@ -37,6 +37,11 @@ checking its next target. A host entry cannot delegate its executable choice
 through an intermediate link inside either inspected repository, even when the
 final target is outside both roots. Legitimate host link chains and multicall
 shims still retain the Git invocation name.
+Each intermediate link location must also establish automatic filesystem
+independence; an opaque alias cannot hide repository control behind a host
+entry and a host final target. Ancestor directories without links still use
+containment checks. Windows retains the checked physical installation directory
+and the selected invocation filename for linked multicall installations.
 Both the physical PATH directory and executable target are checked, and the
 selected directory retains the `git` invocation name for Unix multicall shims.
 The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).

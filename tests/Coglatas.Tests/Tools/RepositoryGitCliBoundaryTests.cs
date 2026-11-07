@@ -12,7 +12,7 @@ public sealed class RepositoryGitCliBoundaryTests
     public static IEnumerable<object[]> Cases => new[] { "cross-repository" }
         .Concat(!OperatingSystem.IsWindows() ? new[] { "host-file-link-chain" } : [])
         .Concat(OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("CI") == "true"
-            ? new[] { "repository-file-link", "host-file-link-chain" } : []).Select(kind => new object[] { kind });
+            ? new[] { "repository-file-link", "host-file-link-chain", "host-multicall-link" } : []).Select(kind => new object[] { kind });
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -52,7 +52,8 @@ public sealed class RepositoryGitCliBoundaryTests
         Assert.False(File.Exists(fixture.Marker));
 
         var hostile = kind == "cross-repository" ? fixture.Implementation : fixture.Specification;
-        if (kind == "host-file-link-chain")
+        if (kind == "host-multicall-link") hostile = await fixture.AddMulticallInstallation(git);
+        else if (kind == "host-file-link-chain")
         {
             var target = Directory.CreateDirectory(Path.Combine(fixture.Root, "host-target")).FullName;
             hostile = Directory.CreateDirectory(Path.Combine(fixture.Root, "host-entry")).FullName;
@@ -71,6 +72,13 @@ public sealed class RepositoryGitCliBoundaryTests
         Assert.False(report.NormativeReady);
         Assert.DoesNotContain(statement, result.Output, StringComparison.Ordinal);
         Assert.DoesNotContain(fixture.Root, result.Output, StringComparison.Ordinal);
+        if (kind == "host-multicall-link")
+        {
+            var configured = await fixture.Cli(arguments, hostPath, Path.Combine(hostile, "git.exe"));
+            Assert.Equal(0, configured.ExitCode);
+            Assert.True(ContractJson.Read<SpecValidationResult>(configured.Output).Valid);
+            Assert.False(File.Exists(fixture.Marker));
+        }
     }
 
     private sealed class Fixture : IDisposable
@@ -129,7 +137,25 @@ public sealed class RepositoryGitCliBoundaryTests
             }
         }
 
-        public Task<(int ExitCode, string Output)> Cli(string[] arguments, string search)
+        public async Task<string> AddMulticallInstallation(string git)
+        {
+            var directory = Directory.CreateDirectory(Path.Combine(Root, "host-multicall")).FullName;
+            var node = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
+                .Select(entry => entry.Trim('"')).Where(Path.IsPathFullyQualified)
+                .Select(entry => Path.Combine(entry, "node.exe")).First(File.Exists);
+            var target = Path.Combine(directory, "multicall.exe");
+            File.Copy(node, target);
+            File.CreateSymbolicLink(Path.Combine(directory, "git.exe"), target);
+            var script = "if(require('node:path').basename(process.argv0).toLowerCase()!=='git.exe')process.exit(41);" +
+                "const r=require('node:child_process').spawnSync(" + JsonSerializer.Serialize(git) +
+                ",['cat-file',...process.argv.slice(2)],{env:process.env});" +
+                "if(r.stdout)process.stdout.write(r.stdout);process.exit(r.status??1);\n";
+            await File.WriteAllTextAsync(Path.Combine(Specification, "cat-file"), script);
+            await File.WriteAllTextAsync(Path.Combine(Implementation, "cat-file"), script);
+            return directory;
+        }
+
+        public Task<(int ExitCode, string Output)> Cli(string[] arguments, string search, string? trustedExecutable = null)
         {
             var host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? Path.GetFullPath(Path.Combine(
                 RuntimeEnvironment.GetRuntimeDirectory(), "..", "..", "..", OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"));
@@ -152,6 +178,8 @@ public sealed class RepositoryGitCliBoundaryTests
                 if (Environment.GetEnvironmentVariable(key) is { } value) info.Environment[key] = value;
             info.Environment["PATH"] = search;
             info.Environment["COGLATAS_SYNTHETIC_EXEC_MARKER"] = Marker;
+            if (trustedExecutable is not null)
+                info.Environment[RepositoryGitExecutable.TrustedExecutableEnvironmentVariable] = trustedExecutable;
             return Execute(info);
         }
 
