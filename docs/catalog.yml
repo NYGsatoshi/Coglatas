@@ -1,0 +1,3360 @@
+# Documentation metadata only; not implementation, execution, or approval authority.
+# See DOCUMENTATION_MAINTENANCE.md for field semantics and DOCUMENTATION_MOVES.md for disposition.
+version: 1
+scope:
+  repository: NYGsatoshi/Coglatas
+  base_commit: f4a8c7577a757a68cd5472cab548b78534229e69
+  base_tree: cb018ff3990a6773643b9729efd70e383b6428b6
+  file_suffix: .md
+  tracked_markdown_at_base: 473
+  markdown_added_by_this_change:
+  - docs/DOCUMENTATION_MAINTENANCE.md
+  - docs/DOCUMENTATION_MOVES.md
+  expected_markdown_count: 475
+  excluded_formats:
+  - .mdx
+documents:
+- path: .github/CI_CACHE_STRATEGY.md
+  kind: guide
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: Describes persistent self-hosted runner caches; reconcile with the explicit historical-only
+    warning in docs/ci/self-hosted-runner-pool.md before reusing its instructions.
+- path: .github/ISSUE_TEMPLATE/engineering-task.md
+  kind: guide
+  domain: governance
+  lifecycle: active
+  classification_basis: GitHub task template requests authority, evidence, scope, acceptance and English-only
+    project records; its template role is current, not task approval.
+  integrity:
+  - fixed-path-consumer
+- path: .github/SECURITY.md
+  kind: guide
+  domain: security
+  lifecycle: active
+  classification_basis: Defines private vulnerability reporting, permitted testing and supported scope; the integrated
+    correction separates maintained Angular Web from planned Avalonia Desktop.
+  integrity:
+  - fixed-path-consumer
+- path: .github/copilot-instructions.md
+  kind: contract
+  domain: governance
+  lifecycle: active
+  classification_basis: Tool-discovered instructions delegate to AGENTS, contribution terms and project-language
+    policy while preserving existing decisions and evidence.
+  integrity:
+  - fixed-path-consumer
+- path: .github/pull_request_template.md
+  kind: guide
+  domain: governance
+  lifecycle: active
+  classification_basis: GitHub PR template asks for scope, acceptance, security impact, sanitized specification
+    references and verification evidence.
+  integrity:
+  - fixed-path-consumer
+- path: AGENTS.md
+  kind: contract
+  domain: governance
+  lifecycle: active
+  classification_basis: Repository-wide agent instructions explicitly define language, authority order, implementation
+    discipline and verification qualifications.
+  canonical_for: Repository-wide agent instructions and documentation authority order
+  integrity:
+  - fixed-path-consumer
+- path: CONTRIBUTING.md
+  kind: guide
+  domain: governance
+  lifecycle: active
+  classification_basis: States authorized-contributor boundaries, maintained frontend ownership, English project
+    language and private security reporting.
+  integrity:
+  - fixed-path-consumer
+- path: COPYRIGHT.md
+  kind: reference
+  domain: governance
+  lifecycle: active
+  classification_basis: Repository-owned source-availability notice distinguishes public visibility from permission
+    to reuse the material.
+  integrity:
+  - fixed-path-consumer
+- path: README.dev-docker.md
+  kind: entrance
+  domain: development
+  lifecycle: active
+  classification_basis: Explicit compatibility pointer says the contributor guide now lives in README.dev-env.md
+    and summarizes the supported development modes.
+- path: README.dev-env.md
+  kind: guide
+  domain: development
+  lifecycle: active
+  classification_basis: Defines the PostgreSQL-only host workflow, optional full Docker stack and Linux screenshot-parity
+    mode.
+  canonical_for: Local development mode selection
+- path: README.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Public project entrance distinguishes current implementation from planned Project IDE/Desktop
+    scope and now links documentation indexes and specification access conditions.
+  canonical_for: Public repository entrance and product scope
+  integrity:
+  - fixed-path-consumer
+- path: SECURITY.md
+  kind: entrance
+  domain: security
+  lifecycle: active
+  classification_basis: Stable short reporting policy defines private reporting and supported current-main scope;
+    docs/SECURITY.md identifies this as the reporting entrance.
+  integrity:
+  - fixed-path-consumer
+- path: THIRD_PARTY_NOTICES.md
+  kind: reference
+  domain: governance
+  lifecycle: active
+  classification_basis: Separates third-party licensing, including Syncfusion, from repository-owned source terms
+    and forbids publishing license secrets.
+  integrity:
+  - fixed-path-consumer
+- path: coglatas-frontend/README.md
+  kind: entrance
+  domain: frontend
+  lifecycle: active
+  classification_basis: Integrated notice explicitly identifies an inactive legacy scaffold, retains its generated
+    CLI instructions and redirects current work to frontend/ and the development guide.
+- path: deploy/gcp/README.md
+  kind: guide
+  domain: operations
+  lifecycle: active
+  classification_basis: Describes a bounded single-VM development deployment and explicitly requires additional
+    review before production use.
+  integrity:
+  - fixed-path-consumer
+- path: deploy/sakura/README.md
+  kind: guide
+  domain: operations
+  lifecycle: active
+  classification_basis: Identifies deploy/sakura/deploy.sh as the canonical deployment entrypoint and explains
+    persistent edge-mode selection.
+- path: deploy/sakura/student-council-intake-policy.md
+  kind: guide
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: Combines current intake configuration instructions with source-bound synthetic evidence
+    and TARGET UNQUALIFIED/NO_GO limits; preserve those limits when separating roles.
+- path: deploy/sakura/student-council-pilot.md
+  kind: guide
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: Combines pilot qualification and recovery procedures with retained failed restore evidence
+    and approval conditions; preparing the guide is explicitly not target execution.
+  related_assets:
+  - deploy/sakura/student-council-pilot-qualification.json
+- path: docs/AI_CONTEXT.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Explicit primary agent entry with task routes and authority rules; detailed implementation,
+    candidate and historical notes retain their own stated scope.
+  canonical_for: Agent task routing and implementation-status context
+- path: docs/API_CONTRACTS.md
+  kind: contract
+  domain: api
+  lifecycle: active
+  classification_basis: Explicit active API convention guide describes intended contracts and separately warns
+    about implementation inconsistencies; its role does not prove endpoint conformance.
+  canonical_for: General API conventions, with explicit implementation qualifications
+- path: docs/ARCHITECTURE.md
+  kind: reference
+  domain: architecture
+  lifecycle: active
+  classification_basis: Describes module ownership, request pipeline and implementation boundaries with explicit
+    audit dates and components not present.
+- path: docs/AUTHORIZATION_MATRIX.md
+  kind: reference
+  domain: security
+  lifecycle: active
+  classification_basis: Defines expected resource authorization and maps documented roles to current implementation
+    role names.
+- path: docs/BACKEND_LOGIC_AUDIT.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Read-only audit states its 2026-06-19 scope and findings; remaining applicability and
+    unresolved obligations require reconciliation rather than retirement by date.
+- path: docs/CODING_RULES.md
+  kind: contract
+  domain: development
+  lifecycle: active
+  classification_basis: Repository engineering rules cover dependency direction, source language, security, persistence,
+    testing and documentation maintenance.
+  canonical_for: Repository engineering rules
+- path: docs/CONTINUOUS_INTEGRATION.md
+  kind: guide
+  domain: ci
+  lifecycle: active
+  classification_basis: Declares GitHub Actions canonical, retires Azure Pipelines and requires applicable current-head
+    checks before merging.
+- path: docs/DATABASE.md
+  kind: reference
+  domain: data
+  lifecycle: active
+  classification_basis: Defines schema sources of truth, migration workflow and database qualifications; distinguishes
+    the human field inventory from implementation authority.
+  canonical_for: Human-readable database operational rules and schema-source navigation
+- path: docs/DATA_MODEL.md
+  kind: reference
+  domain: data
+  lifecycle: needs-review
+  classification_basis: Opening audit note says this long-form inventory can lag implementation and defers schema
+    authority to DATABASE, AppDbContext, configurations and the snapshot.
+- path: docs/DEPLOYMENT.md
+  kind: guide
+  domain: operations
+  lifecycle: active
+  classification_basis: Describes supported deployment profiles, configuration and readiness limitations and explicitly
+    disclaims production certification.
+- path: docs/DEVELOPMENT.md
+  kind: guide
+  domain: development
+  lifecycle: active
+  classification_basis: Maintained setup and verification guide now refers to both tool manifests and dotnet tool
+    restore instead of duplicating a fixed tool version.
+  canonical_for: Common local setup, build and verification guidance
+- path: docs/DOCUMENTATION_MAINTENANCE.md
+  kind: guide
+  domain: documentation
+  lifecycle: active
+  classification_basis: Defines catalogue interpretation and organization procedures without changing source authority,
+    approval state, or existing evidence contracts.
+- path: docs/DOCUMENTATION_MOVES.md
+  kind: reference
+  domain: documentation
+  lifecycle: active
+  classification_basis: Records documentation disposition, protected dependencies, branch scope and unfinished
+    work; no physical move is performed by the initial catalogue change.
+- path: docs/FRONTEND_I18N.md
+  kind: guide
+  domain: frontend
+  lifecycle: active
+  classification_basis: Identifies the active Angular runtime locale layer, supported locales and rules for adding
+    UI text; rejects new locale sources in generated hosted output.
+- path: docs/KNOWN_ISSUES.md
+  kind: reference
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Consolidates current limitations with exact-Main qualification and retained failure records;
+    reconcile each issue before separating history from effective restrictions.
+- path: docs/LEGACY_NAME_GUARD.md
+  kind: contract
+  domain: governance
+  lifecycle: active
+  classification_basis: Explains the executable naming guard, its invocation and explicit preservation policy
+    without exempting the guard or its own documentation.
+- path: docs/OPERATIONS.md
+  kind: guide
+  domain: operations
+  lifecycle: active
+  classification_basis: Explicit active runbook owns smoke, backup, restore and incident procedures and retains
+    readiness and bootstrap limitations.
+  canonical_for: Smoke, backup, restore and incident procedures
+- path: docs/PROJECT_LANGUAGE.md
+  kind: contract
+  domain: governance
+  lifecycle: active
+  classification_basis: Owner decision LANG-01/#965 establishes one canonical engineering language and bounded
+    evidence/localization preservation exceptions.
+  source_ref: https://github.com/NYGsatoshi/Coglatas/issues/965
+  canonical_for: Canonical project-language policy and preservation exceptions
+- path: docs/PUBLICATION_RUNBOOK.md
+  kind: guide
+  domain: release
+  lifecycle: active
+  classification_basis: Maintains the manual and automated cutover checklist; it requires completion of blocking
+    gates rather than declaring visibility or release approval.
+  integrity:
+  - fixed-path-consumer
+- path: docs/README.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Human documentation routes with the existing source authority order and separate candidate/evidence
+    qualifications.
+- path: docs/ROADMAP.md
+  kind: reference
+  domain: documentation
+  lifecycle: active
+  classification_basis: Explicit active source for intended scope and deferred work; implementation status is
+    delegated to AI_CONTEXT and KNOWN_ISSUES.
+  canonical_for: Intended scope and deferred-work direction
+- path: docs/SECURITY.md
+  kind: guide
+  domain: security
+  lifecycle: active
+  classification_basis: Explicit active engineering security guide routes audited status to SECURITY_MODEL and
+    open mismatches to KNOWN_ISSUES; integrated proxy guidance distinguishes implementation from host qualification.
+  canonical_for: Engineering security guidance entrance
+  integrity:
+  - fixed-path-consumer
+- path: docs/SECURITY_MODEL.md
+  kind: reference
+  domain: security
+  lifecycle: active
+  classification_basis: Explicitly separates implemented security controls from intended policy and retains partial/candidate
+    boundaries and audit qualifications.
+  integrity:
+  - fixed-path-consumer
+- path: docs/SECURITY_RULES.md
+  kind: contract
+  domain: security
+  lifecycle: active
+  classification_basis: Defines normative authentication, authorization, tenancy, disclosure and audit rules with
+    implementation-role mappings.
+  canonical_for: Normative engineering security and authorization rules
+- path: docs/SYNCFUSION_LICENSE_RUNBOOK.md
+  kind: guide
+  domain: frontend
+  lifecycle: active
+  classification_basis: Documents the adopted build-time license activation method, trusted execution boundaries,
+    rotation and prohibited secret handling.
+- path: docs/TASK_V1_PR01_COMPATIBILITY.md
+  kind: contract
+  domain: tasks
+  lifecycle: active
+  classification_basis: Defines additive Task migration, legacy compatibility and rollback limits; disabling a
+    feature does not undo migrated schema or canonical writes.
+- path: docs/TASK_V1_PR02.md
+  kind: contract
+  domain: tasks
+  lifecycle: active
+  classification_basis: Defines the authoritative Task command service, concurrency, assignment/review authorization
+    and current Task/File access boundaries.
+- path: docs/TASK_V1_PR04.md
+  kind: contract
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: Defines canonical My Tasks paging and saved filters but retains staged PR05 rollout wording;
+    separate the maintained projection contract from rollout history before reuse.
+- path: docs/TASK_V1_PR05.md
+  kind: contract
+  domain: tasks
+  lifecycle: active
+  classification_basis: Defines the canonical Project Kanban contract, persistence, authorization and frontend
+    behavior while preserving its specification and evidence boundaries.
+- path: docs/TASK_V1_PR06.md
+  kind: contract
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: Combines the temporary approved Gantt snapshot contract with expressly retained incomplete
+    merge-time and candidate evidence; preserve both states during any split.
+- path: docs/TASK_V1_PR07_PLAN.md
+  kind: reference
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: Sequential plan mixes accepted A/B/C commits, an active D branch and blocked E scope;
+    current disposition requires per-stage reconciliation.
+- path: docs/TESTING.md
+  kind: guide
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: Combines test-layer instructions, effective qualifications, a historical verification
+    snapshot and many scoped evidence additions; do not collapse their execution claims.
+  integrity:
+  - fixed-path-consumer
+- path: docs/architecture/coglatas-ui-interaction-state-transition-engine.md
+  kind: contract
+  domain: architecture
+  lifecycle: active
+  classification_basis: Explicit implementation/architecture contract for AV-MIG-42/#814 defines renderer-independent
+    Pure C# interaction semantics.
+- path: docs/archive/README.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Maintained archive entrance explicitly separates historical status/plans/reports from
+    superseded specifications and links current authority.
+- path: docs/archive/old-specs/BACKUP_RESTORE.md
+  kind: guide
+  domain: operations
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this backup and restore design under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/CONFIGURATION.md
+  kind: reference
+  domain: operations
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this deployment configuration under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/DATA_LIFECYCLE.md
+  kind: contract
+  domain: data
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this data lifecycle rules under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/DECISIONS.md
+  kind: decision
+  domain: architecture
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this stack and architecture decisions under Superseded
+    specifications and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/ENVIRONMENT_VARIABLES.md
+  kind: reference
+  domain: operations
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this environment variable inventory under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/INTEGRATIONS.md
+  kind: reference
+  domain: architecture
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this integration foundation scope under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/LIMITATIONS.md
+  kind: reference
+  domain: documentation
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this release limitation inventory under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/MIGRATIONS.md
+  kind: guide
+  domain: data
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this database migration commands under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/PERFORMANCE_NOTES.md
+  kind: reference
+  domain: performance
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this performance assumptions under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/PILOT_OPERATION_MANUAL.md
+  kind: guide
+  domain: operations
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this pilot operating procedure under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/SAAS_ONPREM.md
+  kind: reference
+  domain: operations
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this SaaS and on-premise modes under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/SCHOOL_EXPLANATION.md
+  kind: reference
+  domain: documentation
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this school-facing product explanation under Superseded
+    specifications and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/SMOKE_TEST.md
+  kind: guide
+  domain: ci
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this smoke procedure under Superseded specifications and
+    limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/TENANCY.md
+  kind: reference
+  domain: security
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this tenancy model under Superseded specifications and
+    limits it to design history; no single exact successor is asserted.
+- path: docs/archive/old-specs/TENANT_ISOLATION_TESTS.md
+  kind: reference
+  domain: security
+  lifecycle: superseded
+  classification_basis: Archive index explicitly lists this tenant-isolation test coverage under Superseded specifications
+    and limits it to design history; no single exact successor is asserted.
+- path: docs/archive/plans/FINAL_ACCEPTANCE_TEST_PLAN.md
+  kind: guide
+  domain: release
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: acceptance plan; unchecked and
+    manual criteria are not execution evidence; original outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/IMPLEMENTATION_PLAN.md
+  kind: reference
+  domain: documentation
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: phased implementation plan; original
+    outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/MIGRATION_TEST_PLAN.md
+  kind: guide
+  domain: data
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: pre-tenant PostgreSQL migration
+    rehearsal plan; original outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/MVP_SCOPE.md
+  kind: reference
+  domain: documentation
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: original MVP scope; original
+    outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/PRODUCTION_CHECKLIST.md
+  kind: guide
+  domain: operations
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: production checklist; original
+    outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/RELEASE_CHECKLIST.md
+  kind: report
+  domain: release
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: release checklist with retained
+    checked and unchecked evidence; original outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/RISK_REGISTER.md
+  kind: reference
+  domain: documentation
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: risk register and ownership suggestions;
+    original outcomes and unresolved items remain intact.'
+- path: docs/archive/plans/SPRINT_PLAN.md
+  kind: reference
+  domain: documentation
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: bounded June-July sprint plan;
+    original outcomes and unresolved items remain intact.'
+- path: docs/archive/reports/CODE_REVIEW_REPORT.md
+  kind: report
+  domain: quality
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: point-in-time source review;
+    original outcomes and unresolved items remain intact.'
+- path: docs/archive/reports/GITHUB_ISSUES.md
+  kind: reference
+  domain: documentation
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: historical issue proposals, not
+    live issue state; original outcomes and unresolved items remain intact.'
+- path: docs/archive/reports/TECH_DEBT.md
+  kind: report
+  domain: quality
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: historical technical-debt findings;
+    original outcomes and unresolved items remain intact.'
+- path: docs/archive/status/DEMO_SCRIPT.md
+  kind: guide
+  domain: operations
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: demo procedure with explicitly
+    unproven seed assumptions; original outcomes and unresolved items remain intact.'
+- path: docs/archive/status/HANDOFF_GUIDE.md
+  kind: guide
+  domain: operations
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: handoff outline whose unsupported
+    assumptions are called out by the archive index; original outcomes and unresolved items remain intact.'
+- path: docs/archive/status/PILOT_STATUS.md
+  kind: report
+  domain: release
+  lifecycle: historical
+  classification_basis: 'Archive index explicitly classifies this as historical: pilot snapshot with retained
+    partial startup and database failure; original outcomes and unresolved items remain intact.'
+- path: docs/audit/mvp-a-final-release-audit.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: Bounded 2026-07-04 audit recommends only an MVP-A release candidate and excludes unrestricted
+    production or school-data use; present applicability is not established here.
+- path: docs/audit/publication-readiness-2026-09-03.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: Base-commit publication audit records BLOCKED manual cutover gates; the record does not
+    establish that those gates later completed.
+  source_ref: NYGsatoshi/Coglatas@2b9adeacd5aaf31ebcdc2972976e7e81f3373755
+- path: docs/ci/compat-critical-suite.md
+  kind: contract
+  domain: ci
+  lifecycle: active
+  classification_basis: Defines the reusable compatibility selection and maintenance contract and delegates machine
+    selection to compat-critical.contract.json.
+  canonical_for: Human explanation of the machine-owned critical compatibility selection contract
+  related_assets:
+  - scripts/ci/compat-critical.contract.json
+  integrity:
+  - fixed-path-consumer
+- path: docs/ci/dependency-update-fastlane.md
+  kind: guide
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: Still describes a Dependabot-only update policy; reconcile its bot, schedule and grouping
+    statements against current configuration before treating them as current.
+- path: docs/ci/functional-compose-harness.md
+  kind: guide
+  domain: ci
+  lifecycle: active
+  classification_basis: Documents the canonical real-backend Functional command, deterministic fixture, lifecycle
+    and sanitized failure diagnostics.
+  canonical_for: Functional Compose command, lifecycle and diagnostic interpretation
+  integrity:
+  - fixed-path-consumer
+- path: docs/ci/github-action-pinning.md
+  kind: contract
+  domain: ci
+  lifecycle: active
+  classification_basis: 'Defines immutable Action pins and the protected-workflow allowlist/update process under
+    Issue #627.'
+- path: docs/ci/main-build-artifacts.md
+  kind: reference
+  domain: ci
+  lifecycle: active
+  classification_basis: Explains the trusted main-only artifact hub, producer fan-out, build reuse, scheduling
+    and secret/trust boundaries.
+- path: docs/ci/os-portability.md
+  kind: contract
+  domain: platform
+  lifecycle: active
+  classification_basis: Defines bounded Ubuntu/Windows/macOS toolchain portability and explicitly distinguishes
+    it from production deployment support.
+- path: docs/ci/qodana-packet-verification.md
+  kind: guide
+  domain: quality
+  lifecycle: active
+  classification_basis: Documents source-pinned baseline/candidate packet execution while preserving frozen helper
+    digests, findings and acceptance limits.
+  integrity:
+  - fixed-path-consumer
+- path: docs/ci/qodana-reconciliation.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Read-only frozen-inventory reconciliation retains original and replay fingerprints, held
+    packets and separate runtime failure; current maintenance disposition is not explicit.
+  source_ref: NYGsatoshi/Coglatas@2f1b9b711901a84bc425b1a4ce82eff76477e3d7
+  related_assets:
+  - docs/ci/qodana-retained-correspondences.json
+- path: docs/ci/query-contract-proposal.md
+  kind: contract
+  domain: api
+  lifecycle: candidate
+  classification_basis: Explicitly pending owner confirmation; proposed OpenAPI metadata and the companion patch
+    are not applied application code.
+  source_ref: NYGsatoshi/Coglatas@2f1b9b711901a84bc425b1a4ce82eff76477e3d7
+  related_assets:
+  - docs/ci/query-boolean-proposal.patch
+- path: docs/ci/self-hosted-runner-pool.md
+  kind: guide
+  domain: ci
+  lifecycle: historical
+  classification_basis: Opening warning explicitly deprecates this guide for the public configuration and retains
+    it only as historical private-operation context.
+- path: docs/contracts/audit-actionable-summary-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: 'Explicit canonical Issue #353 contract owns authorized Audit summary counts, drill-down
+    and disclosure boundaries.'
+  canonical_for: 'Issue #353 Audit actionable summary'
+- path: docs/contracts/audit-claims-evidence-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: 'Explicit canonical Issue #340 contract binds Claims and Evidence to immutable ArtifactVersion
+    ownership and current authorization.'
+  canonical_for: 'Issue #340 ArtifactVersion Claims and Evidence'
+- path: docs/contracts/audit-filter-view-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: Explicit active Audit filter/saved-view contract leaves authorization, filtering, paging
+    and counts server-owned.
+  canonical_for: Audit query filters and saved views
+- path: docs/contracts/audit-finding-structured-decision-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: 'Issue #376 contract separates append-only structured reviewer decisions from finding
+    triage and comments.'
+- path: docs/contracts/audit-findings-triage-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: 'Issue #372 defines canonical Finding identity and a triage queue without changing the
+    immutable claims/evidence graph.'
+- path: docs/contracts/audit-source-provenance-v1.md
+  kind: contract
+  domain: audit
+  lifecycle: active
+  classification_basis: 'Explicit canonical additive Issue #358 contract extends source provenance while preserving
+    ArtifactVersion ownership and authorization.'
+  canonical_for: 'Issue #358 additive Audit source provenance'
+- path: docs/contracts/file-batch-selection-v1.md
+  kind: contract
+  domain: files
+  lifecycle: active
+  classification_basis: 'Issue #348 defines bounded actor/scope-bound selection snapshots and reauthorized non-atomic
+    batch deletion.'
+- path: docs/contracts/message-advanced-filters-v1.md
+  kind: contract
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Header explicitly labels the Issue #367 advanced-filter extension an implementation candidate;
+    no promotion is inferred from its presence on this branch.'
+- path: docs/contracts/message-search-filters-v1.md
+  kind: contract
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Header explicitly labels the Issue #359 contract an implementation candidate; only advanced-filter
+    exclusions are separately stated to be superseded.'
+- path: docs/contracts/task-progress-activity.md
+  kind: contract
+  domain: tasks
+  lifecycle: active
+  classification_basis: 'Defines separate current phase, durable execution state and historical Activity authorities
+    for Issues #369/#370.'
+- path: docs/contracts/workspace-search-v1.md
+  kind: contract
+  domain: workspaces
+  lifecycle: active
+  classification_basis: 'Explicit active Issues #329/#341 contract defines the authorized Workspace search scope
+    and Files facet extension.'
+  canonical_for: 'Issues #329/#341 Workspace Search and Files facets'
+- path: docs/decisions/issue-334-needs-attention-lifecycle.md
+  kind: decision
+  domain: workspaces
+  lifecycle: active
+  classification_basis: Explicit Accepted decision derives Needs attention from authoritative workflow state rather
+    than notification-read state.
+- path: docs/decisions/issue-339-task-context-summary.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: 'Explicit implementation contract derives the Task context summary from the stated Issue
+    #357 source-policy authority.'
+- path: docs/decisions/issue-357-task-execution-scope.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit canonical current-release decision retains approved scope and identifies the
+    separately superseded provider-none portion.
+- path: docs/decisions/issue-461-first-party-project-files-runtime-v1.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit canonical contest runtime decision defines the sole provider and its server-owned
+    execution boundary.
+- path: docs/decisions/issue-462-task-execution-materialization.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit canonical implementation decision governs authorized Project Files materialization
+    and durable provenance.
+- path: docs/decisions/issue-463-durable-task-execution-results.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit canonical contest result decision separates durable Task execution results from
+    Audit claims/evidence.
+- path: docs/decisions/task-v1-pr07-c-deadline-digest-decisions.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit Resolved/Approved record defines digest relevance, zero-candidate outcomes and
+    restart accounting without changing their distinct acceptance meanings.
+- path: docs/decisions/task-v1-pr07-owner-decisions.md
+  kind: decision
+  domain: tasks
+  lifecycle: active
+  classification_basis: Explicit Resolved record synchronizes PR07 owner decisions to the identified specification
+    merge and forbids reopening them without a later canonical change.
+- path: docs/demo-dataset.md
+  kind: guide
+  domain: development
+  lifecycle: active
+  classification_basis: Documents a deterministic Test-only synthetic dataset with explicit environment/opt-in
+    boundaries and no production seed or restore claim.
+- path: docs/evidence/README.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Navigation for 17 retained evidence records and associated frontend logs, preserving original
+    baseline/failure scope.
+- path: docs/evidence/frontend-v0.4-pr02-syncfusion-license-activation.md
+  kind: evidence
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Retains local negative controls and static implementation evidence while real-secret activation
+    and protected image qualification remain separately required.
+- path: docs/evidence/mvp-a/a-01-baseline-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired build/test/environment failure record preserves original failures, fixes and remaining
+    verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-01-build-test-baseline.md
+- path: docs/evidence/mvp-a/a-01-build-test-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound build/test/environment baseline retains Result: Blocked; record lifecycle
+    requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@8a3e52268437824b3b4d12cb729f87f570b777aa
+  related_assets:
+  - docs/evidence/mvp-a/a-01-baseline-failure-log.md
+- path: docs/evidence/mvp-a/a-02-health-check-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound health and dependency readiness baseline retains Result: Blocked; record
+    lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@be65c83fa35019c637228b7149cb0e56d82a1ac8
+  related_assets:
+  - docs/evidence/mvp-a/a-02-health-check-failure-log.md
+- path: docs/evidence/mvp-a/a-02-health-check-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired health and dependency readiness failure record preserves original failures, fixes
+    and remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-02-health-check-baseline.md
+- path: docs/evidence/mvp-a/a-03-application-smoke-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound application smoke and runtime dependencies baseline retains Result: Blocked;
+    record lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@d20589a6d237e3c7c0fbbefb8040861bfd4b7506
+  related_assets:
+  - docs/evidence/mvp-a/a-03-smoke-failure-log.md
+- path: docs/evidence/mvp-a/a-03-smoke-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired application smoke and runtime dependencies failure record preserves original failures,
+    fixes and remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-03-application-smoke-baseline.md
+- path: docs/evidence/mvp-a/a-04-authz-boundary-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound authorization and private-data boundaries baseline retains Result: Needs
+    verification; record lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@e013561b04b8a15c239e5d04663c5b71ffa7a0cd
+  related_assets:
+  - docs/evidence/mvp-a/a-04-authz-boundary-failure-log.md
+- path: docs/evidence/mvp-a/a-04-authz-boundary-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired authorization and private-data boundaries failure record preserves original failures,
+    fixes and remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-04-authz-boundary-baseline.md
+- path: docs/evidence/mvp-a/a-05-sensitive-data-boundary-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound sensitive-data and error disclosure baseline retains Result: Needs verification;
+    record lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@88a13b308ba3ab69fa380ba35135d6e50f80f919
+  related_assets:
+  - docs/evidence/mvp-a/a-05-sensitive-data-boundary-failure-log.md
+- path: docs/evidence/mvp-a/a-05-sensitive-data-boundary-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired sensitive-data and error disclosure failure record preserves original failures,
+    fixes and remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-05-sensitive-data-boundary-baseline.md
+- path: docs/evidence/mvp-a/a-07-file-boundary-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound files, attachments and grants baseline retains Result: Needs verification;
+    record lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@69a694adc2d45e2e680274d37974dd581405e8c9
+  related_assets:
+  - docs/evidence/mvp-a/a-07-file-boundary-failure-log.md
+- path: docs/evidence/mvp-a/a-07-file-boundary-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired files, attachments and grants failure record preserves original failures, fixes
+    and remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-07-file-boundary-baseline.md
+- path: docs/evidence/mvp-a/a-08-communication-boundary-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound communication authorization baseline retains Result: Needs verification;
+    record lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@98731d440ad73d67133f3ca33c80f342ef7cbe61
+  related_assets:
+  - docs/evidence/mvp-a/a-08-communication-boundary-failure-log.md
+- path: docs/evidence/mvp-a/a-08-communication-boundary-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired communication authorization failure record preserves original failures, fixes and
+    remaining verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-08-communication-boundary-baseline.md
+- path: docs/evidence/mvp-a/a-09-audit-security-baseline.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: 'Source-bound audit/security logging baseline retains Result: Needs verification; record
+    lifecycle requires review and does not resolve that outcome or grant release approval.'
+  source_ref: NYGsatoshi/Coglatas@9a317c7449453d79fb9d41e4f81e70ba0aae2d87
+  related_assets:
+  - docs/evidence/mvp-a/a-09-audit-security-failure-log.md
+- path: docs/evidence/mvp-a/a-09-audit-security-failure-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Paired audit/security logging failure record preserves original failures, fixes and remaining
+    verification limits; no later resolution or archive disposition is inferred.
+  related_assets:
+  - docs/evidence/mvp-a/a-09-audit-security-baseline.md
+- path: docs/frontend/api-binding-verification.md
+  kind: reference
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Explicit maintained binding record contains merged rows, implementation candidates and
+    later corrections; preserve row-level status and verify current applicability before restructuring.
+- path: docs/frontend/p0-angular-final-verification.md
+  kind: evidence
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Bounded Angular verification retains Conditional Go and a Docker/Linux screenshot blocker;
+    later acceptance cannot be inferred from its date or title.
+  related_assets:
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/01-root-npm-ci.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/02-frontend-npm-ci.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/03-frontend-build-rerun-unsandboxed.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/03-frontend-build.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/04-frontend-test-rerun-unsandboxed.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/04-frontend-test.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/05-frontend-build-storybook-rerun-unsandboxed.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/05-frontend-build-storybook.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/06-root-angular-playwright.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/07-backend-dotnet-test-rerun-unsandboxed.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/07-backend-dotnet-test.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/08-ag-grid-enterprise-scan.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/09-ag-grid-wrapper-scan.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/10-search-route-scan.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/11-csrf-storage-scan.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/12-screenshot-baseline-scan.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/13-frontend-build-after-csrf-fix.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/14-frontend-test-after-csrf-fix.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/14b-frontend-test-after-csrf-fix-rerun.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/15-frontend-build-storybook-after-csrf-fix.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/16-root-angular-playwright-after-csrf-fix.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/17-frontend-build-for-screenshot-baselines.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/17b-frontend-build-for-screenshot-baselines-unsandboxed.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/17c-frontend-build-for-screenshot-baselines-clean-exit.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/18-screenshot-baseline-update.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/18b-screenshot-baseline-update-after-mobile-tightening.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/19-screenshot-regression.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/20-root-angular-playwright-with-screenshot-baselines.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/21-screenshot-baseline-file-list.log
+  - docs/evidence/mvp-a/frontend-final-2026-07-03/22-git-diff-check.log
+- path: docs/frontend/platform-policy.md
+  kind: contract
+  domain: frontend
+  lifecycle: active
+  classification_basis: Owner-direction clarification explicitly maintains Angular Web and separately plans qualified
+    Avalonia Desktop without granting new feature/security approval.
+  source_ref: https://github.com/NYGsatoshi/Coglatas/pull/1234
+  canonical_for: Web/Desktop frontend ownership clarification
+- path: docs/frontend/syncfusion-adapter-foundation.md
+  kind: reference
+  domain: frontend
+  lifecycle: candidate
+  classification_basis: Header retains PENDING_VENDOR_CONFIRMATION for package adoption despite implemented activation
+    and fallback contracts; vendor implementation remains deferred.
+- path: docs/migration/avalonia/angular-frontend-inventory.md
+  kind: reference
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Combines a pinned Angular inventory, future target map and a current Web-owner addendum;
+    platform qualification and migration completion remain separately bounded.
+  source_ref: NYGsatoshi/Coglatas@4e6a10903a5a472ca89f833aba993a29e1b2cf73
+  related_assets:
+  - docs/migration/avalonia/angular-feature-freeze-matrix.json
+  - docs/migration/avalonia/angular-frontend-inventory.json
+  - docs/migration/avalonia/angular-persisted-state-inventory.json
+  - docs/migration/avalonia/angular-target-surface-map-v5.8.1.json
+  integrity:
+  - fixed-path-consumer
+- path: docs/migration/avalonia/backend-contract-boundary.md
+  kind: contract
+  domain: api
+  lifecycle: active
+  classification_basis: 'Explicit Issue #766 migration-boundary contract defines client-independent HTTP semantics
+    and machine sentinel inventory, not Avalonia implementation acceptance.'
+  related_assets:
+  - docs/migration/avalonia/p0-api-boundary.json
+  integrity:
+  - fixed-path-consumer
+- path: docs/migration/coglatas-naming-unification.md
+  kind: reference
+  domain: governance
+  lifecycle: needs-review
+  classification_basis: Mixes coordinated naming/rollout instructions, source contracts and historical evidence
+    preservation; stated administration and review prerequisites need current reconciliation.
+- path: docs/migration/github-repository-transfer.md
+  kind: guide
+  domain: governance
+  lifecycle: needs-review
+  classification_basis: One-time transfer runbook retains pre/post-transfer actions and a four-check inventory;
+    do not reuse it as current governance without checking later policy.
+- path: docs/quality/dotnet-native-quality.md
+  kind: reference
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Describes an initial .NET-first quality stage with deferred platform/test migrations;
+    reconcile stage-specific language with current Web/Desktop ownership and tooling.
+- path: docs/quality/duplication-audit-2026-09-26.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Pinned pre-edit audit distinguishes pairwise clone counts from product metrics and records
+    deferred follow-up work; later disposition is not established here.
+  source_ref: NYGsatoshi/Coglatas@165907995c06e29ad275212ee9206c38983898b1
+- path: docs/quality/project-ide-slice1-qodana-1075.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Exact-Main 43-finding disposition preserves local evidence and pending hosted/post-merge
+    qualification; the catalogue cannot close Issue #1075.'
+  source_ref: NYGsatoshi/Coglatas@3a453597a83434e549668c5b7095f58d0c9f7cd8
+- path: docs/quality/qodana-project-model.md
+  kind: reference
+  domain: quality
+  lifecycle: active
+  classification_basis: Defines canonical analysis roots, toolchain, profiles, bootstrap and current Community/Cloud
+    quality boundaries.
+- path: docs/quality/static-analysis-strategy.md
+  kind: reference
+  domain: quality
+  lifecycle: active
+  classification_basis: Maintains responsibilities and explicit current enforcement/suspension policies while
+    retaining source-bound history and owner-direction qualifications.
+- path: docs/security/http-browser-security-baseline.md
+  kind: reference
+  domain: security
+  lifecycle: active
+  classification_basis: Explicit operator/reviewer map delegates runtime authority to HttpSecurityPolicy and typed
+    options rather than creating a second implementation source.
+- path: docs/security/sbom-supply-chain.md
+  kind: contract
+  domain: security
+  lifecycle: active
+  classification_basis: Defines isolated PR-safe source and trusted licensed-image SBOM lanes, evidence identity
+    and final-candidate requirements.
+- path: docs/security/sbom-vulnerability-gate.md
+  kind: contract
+  domain: security
+  lifecycle: active
+  classification_basis: Defines digest-bound trusted-image vulnerability evaluation, scanner disagreement, exception
+    and freshness contracts without replacing standalone gates.
+- path: docs/sonar-pilot-intake-coverage-20261029.md
+  kind: evidence
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Pinned native-coverage instrumentation record distinguishes local measurement from official
+    Sonar and retains UNQUALIFIED target status.
+  source_ref: NYGsatoshi/Coglatas@2b52a6355844ef4aae33c58e2016336f361bf24d
+- path: docs/sonar-release-image-graph-coverage-20261029.md
+  kind: evidence
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Pinned image-graph coverage evidence preserves historical warnings, required hosted qualification
+    and RELEASE_NO_GO.
+  source_ref: NYGsatoshi/Coglatas@7ee07ac0166f540282b62dca94a359585d4a5779
+- path: docs/sonar-runtime-image-coverage-20261029.md
+  kind: evidence
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Pinned runtime-image coverage evidence uses synthetic controls and explicitly requires
+    independent hosted/exact-Main qualification.
+  source_ref: NYGsatoshi/Coglatas@653760b17ebf15f7a3b8921bd7ab5d7cfbce2f0c
+- path: docs/u22/README.md
+  kind: entrance
+  domain: submission
+  lifecycle: active
+  classification_basis: Explicit entrance for the bounded U-22 2026 preparation package directs final identity
+    to its annotated tag/release, not current product-wide completion.
+- path: docs/u22/architecture-summary.md
+  kind: reference
+  domain: submission
+  lifecycle: needs-review
+  classification_basis: Describes the bounded submission architecture and policy-only execution boundary; its
+    applicability to later Main requires scope review.
+- path: docs/u22/demo-data.md
+  kind: guide
+  domain: submission
+  lifecycle: active
+  classification_basis: Explicit deterministic Test-only presentation fixture guide owns the U-22 overlay and
+    opt-in boundary, not production seeding.
+- path: docs/u22/demo-script.md
+  kind: guide
+  domain: submission
+  lifecycle: active
+  classification_basis: Explicitly limited to rehearsal against the frozen submission SHA and truthful disclosure
+    of synthetic fixture Activity.
+- path: docs/u22/implementation-summary.md
+  kind: reference
+  domain: submission
+  lifecycle: needs-review
+  classification_basis: Submission summary retains foundation-only execution claims and open-issue boundaries;
+    it cannot be used as a current Main implementation matrix without reconciliation.
+- path: docs/u22/install-or-access-instructions.md
+  kind: guide
+  domain: submission
+  lifecycle: needs-review
+  classification_basis: Bounded contributor/demo instructions retain a Node.js 24.15 prerequisite; reconcile with
+    pinned manifests when used outside the submission baseline.
+- path: docs/u22/known-limitations.md
+  kind: reference
+  domain: submission
+  lifecycle: needs-review
+  classification_basis: 'Explicit submission limitation record retains policy-only runtime and open Issue #357/#369/#410
+    claims; later product state is outside its established scope.'
+- path: docs/u22/oss-and-third-party-inventory.md
+  kind: reference
+  domain: submission
+  lifecycle: active
+  classification_basis: Explicit submission-preparation inventory requires regeneration on the frozen SHA and
+    disclaims a complete SBOM or legal determination.
+- path: docs/u22/submission-checklist.md
+  kind: report
+  domain: submission
+  lifecycle: needs-review
+  classification_basis: Records final evidence complete while assigning final identity to a post-merge tag/release;
+    later freeze identity and maintenance disposition are not established by the text alone.
+- path: docs/verification/README.md
+  kind: entrance
+  domain: documentation
+  lifecycle: active
+  classification_basis: Topic navigation for the 295 original verification records, distinguishing reusable contracts,
+    source-bound results, and candidates.
+- path: docs/verification/acceptance-image-receipt-retention-20261019.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: Retained failed audit preserves an incomplete four-receipt audit despite job SUCCESS;
+    Repair scope and Verification and qualification limits mix implementation changes with source-bound observations.
+  source_ref: 'base: NYGsatoshi/Coglatas@780f8c94e29c1568328a661621afb8279e17714b'
+- path: docs/verification/acceptance-prebuilt-image-reuse-20261019.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The independent Main audit records a provenance gap in Main run 39147128487,
+    attempt 1, real-backend job 117733942233. The producer image was restored correctly, but..." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'base: NYGsatoshi/Coglatas@a7c0b9cb658f41fddfcf8cefb13ee984c400c14b'
+- path: docs/verification/admin-lifecycle-contract-tests.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The additional AdminService tests use the existing repository, clock,
+    audit, authorization-change and unit-of-work doubles. Original assertions remain unchanged. One..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/admin-profile-validation-order.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "An administrative profile patch can contain a valid display name and
+    an invalid or duplicate email. Previously the service assigned the display name to the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/advanced-search-drawer-lifecycle-diagnostics-20261026.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: REVIEW_ONLY diagnostic candidate for Issue #1413. This does not
+    repair or establish the cause of the observed browser failure. Student Council remains..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/ang22-06-third-party-pins-20261019.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Dependabot grouped update moves six dependencies covered by the existing
+    ANG22-06 regression contract. Previous immutable expected versions caused frontend-test to..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/angular-22-official-migrations.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This record covers ANG22-05 (#663) on top of the Angular 22 / TypeScript
+    6 / NgRx 22 dependency baseline." This implementation/verification record needs a maintenance and successor
+    review.'
+- path: docs/verification/angular-225-optional-peer-tree-20261029.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Current non-held Renovate PR #1441, HEAD3ea22b79e2fe65e658707246c76df0508c68f4f0,
+    failed first PR CI40776148150/1. Active frontend producer123126131178 and npm install..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/announcement-current-authority.md
+  kind: report
+  domain: announcements
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Audience options and scope authorization evaluate the existing permissions
+    of the supplied actor against persisted state. A missing, inactive or soft-deleted account..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/announcement-legacy-lifecycle.md
+  kind: report
+  domain: announcements
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Current-source independent inspection6674828994 found no blocking regression
+    and identified a reader-binding assertion gap. The list projection cases now also assert the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/artifact-upload-compensation.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: Upload save outcome and compensation boundary describes the current adapter contract alongside
+    Historical compensation qualification; the mixed record needs maintenance/successor review.
+- path: docs/verification/audit-grid-native-bounds-20261029.md
+  kind: report
+  domain: audit
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main f33a6ee5bc5b977b228b7fc84b37a89c343547df uses Playwright boundingBox()
+    top/bottom properties that do not exist. Both nullish fallbacks make the non-overlap..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/audit-pagination-security-main-repair.md
+  kind: report
+  domain: audit
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Current status: normally merged and exact-Main qualified; #1119 is closed.
+    The original failure and intermediate pending checkpoints below are retained." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/auth-actor-replacement.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Auth/Realtime repair now has a fixed browser consumer for its canonical
+    PR runtime and for the resulting Main runtime. Both use the same run''s existing artifact..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/auth-session-read-boundary.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "An auth read admitted before a terminal/local session clear could finish
+    later and restore the old user, capabilities or tenant projection. An old 401 probe could also..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/canonical-realtime-resolver-boundaries.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Two PostgreSQL regressions extend the existing canonical completion suite
+    without changing production authorization, its fixtures, or any existing assertion." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/channel-create-refresh-click-reliability-20261025.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Source scope: Product Main 7fa8f7217bc71251e90842df6d1035f49d2bd9b2 +
+    this isolated candidate. Pilot RELEASE NO_GO / SEC-ARCH/RLS and staging Owner HOLD BOTH." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/ci-postgresql-diagnostic-privacy.md
+  kind: report
+  domain: ci
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate; hosted startup/probe and exact-candidate
+    CI evidence required." Retain its explicit candidate/review-only document scope; this does not determine current
+    PR or approval state.'
+- path: docs/verification/composer-comparator-20261026.md
+  kind: evidence
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: Disposition explicitly marks the compared Product candidate OWNER_HOLD/REVIEW_ONLY and
+    the diagnostic NEVER MERGE; this source-bound comparison grants no integration or release approval.
+- path: docs/verification/composer-fill-generation-chronology-20261025.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: The opening Disposition is TEST-ONLY / DRAFT REVIEW / NO RELEASE GO; the record preserves
+    the original failure and proposes bounded chronology instrumentation.
+- path: docs/verification/composer-input-lifecycle-observation-20261025.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: The opening Scope is synthetic test instrumentation only / unmerged / RELEASE NO_GO; later
+    sections describe a bounded observation amendment and its evidence limits.
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/current-web-wave-inventory-20261019.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: The Home addendum distinguishes a newer source-bound inventory from the retained Historical
+    three-route checkpoint and historical inventory authority; document-level disposition needs review.
+  related_assets:
+  - docs/verification/current-web-wave-inventory-20261019.json
+- path: docs/verification/dependabot-alert-remediation-20260801.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The connected GitHub API used for this remediation does not expose the
+    repository Security tab''s individual Dependabot alert records. The current vulnerable dependency..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/dependency-security-automation-20261026.md
+  kind: guide
+  domain: security
+  lifecycle: needs-review
+  classification_basis: Reusable dependency rules still prescribe a Node 24 Docker baseline while the integrated
+    .github/renovate.json explicitly retains approved Node 26 LTS; source-bound verification appendices require
+    separate interpretation. Reconcile the maintained guidance without rewriting its earlier evidence.
+- path: docs/verification/direct-dialog-routine-catchup.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "A supported same-scope inbox refresh could close an already open conversation-create
+    dialog. The registered Messaging catch-up callback changes the page to loading; the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/dormant-storybook-root-directory.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The dormant workspace Storybook compiler includes .storybook/preview.ts
+    and source stories but inherited the application''s src root directory. Its owning build-storybook..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/existing-python-controls-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The common native Python coverage producer now registers six complete
+    existing suites for Functional evidence, NuGet snapshots, SBOM inventory and API normalization,..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/fci06-fresh-request-correlation.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR #1327''s original Functional collaboration run 39932755002 remains
+    FAIL. At test merge 5017b0e9ca342ea943988a5fda636efb2b2c00d8, the restricted Thread probe expected..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/file-upload-commit-outcomes.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "File and Artifact uploads retain newly stored bytes when persistence
+    has committed or its final outcome is unknown. An exception is not evidence that metadata failed to..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/files-download-failure-feedback.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Malformed UTF-8 filename* parameters previously threw in the HTTP success
+    callback, leaving the download operation pending. Decode failures now use the ordinary filename..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/files-interrupted-storage.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "LocalFileStorageService.SaveAsync previously created or truncated the
+    canonical storage key before copying the input. An interrupted input could leave partial bytes..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/files-paging-and-feedback.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Files supplies an authorized server page to the shared grid. Its outer
+    Previous and Next controls remain responsible for inventory and search pagination. Files opts out..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/files-row-input-lifecycle-20261029.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Baseline Main 38b598f89a4bb705396df2e7bc269d547e4aacd4. This adds focused
+    Angular component/template regression tests for existing server-projected download states...." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'baseline: NYGsatoshi/Coglatas@38b598f89a4bb705396df2e7bc269d547e4aacd4'
+- path: docs/verification/files-upload-cancellation-state.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is an isolated adapter repair while the production Files upload
+    surface remains disabled. Cancelling a pending upload previously kept canUpload=false because..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/files-upload-retry-state.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The adapter removed failed uploads from its active-subscription map,
+    while Retry looked only in that map. Retrying a failed transfer therefore emitted no request. Keep..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/files-upload-ui-preparation.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Files page reuses the existing shared CoglatasFileUploader selection,
+    drop, single-file queue and Cancel/Retry presentation. It does not introduce another uploader..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/form-parent-authority.md
+  kind: report
+  domain: forms
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The implemented InternalForm questionnaire service uses its stored Workspace,
+    Group or Project identity. Group and Project parents are resolved through the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/forms-answer-contract-tests.md
+  kind: report
+  domain: forms
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This test-only extension covers the existing Application FormService
+    under the Student Council pilot quality work in #615. It does not replace the previous Forms..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/functional-ci/authorized-thread-projection-diagnostics.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR #1483 HEAD ab87395323d7b27e660e7c83a49d58ec1191b72c, actual tested
+    merge f8cc5f818c252e7a667a3ea38435a5daefd7a89a (identical full tree), 40724559009/1 / job..." This implementation/verification
+    record needs a maintenance and successor review.'
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-ci/fci05-files-owner.md
+  kind: reference
+  domain: ci
+  lifecycle: active
+  classification_basis: The opening names canonical owner FUNC-FILE-002; the intake-contract and lifecycle sections
+    define reusable owner responsibilities, separately from the recorded verification status.
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-ci/functional-execution-evidence.md
+  kind: guide
+  domain: ci
+  lifecycle: active
+  classification_basis: Artifact-only execution, owner selection, scheduling, and metadata sections describe reusable
+    exact-candidate execution guidance; configured topology is explicitly not runtime evidence.
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-ci/functional-gate-topology.md
+  kind: contract
+  domain: ci
+  lifecycle: active
+  classification_basis: The opening Status explicitly identifies this as canonical gate ownership/topology for
+    FCI-01; current topology and migration targets remain distinct.
+  canonical_for: Functional CI gate ownership and topology (FCI-01)
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-ci/functional-journey-matrix.md
+  kind: reference
+  domain: ci
+  lifecycle: active
+  classification_basis: The opening Status explicitly identifies the canonical P0/P1 journey inventory; Reading
+    the matrix separates executable owners, target gates, and historical CI outcomes.
+  canonical_for: Functional CI P0/P1 journey inventory (FCI-01)
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-ci/functional-test-policy.md
+  kind: contract
+  domain: ci
+  lifecycle: active
+  classification_basis: The opening Status explicitly identifies canonical Functional CI policy; coverage, result-state,
+    quarantine, ownership, and runtime-budget definitions are normative document content.
+  canonical_for: Functional CI coverage and result-state definitions (FCI-01)
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/functional-native-representation.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing Functional Node coverage producer runs synthetic Playwright
+    reporter and observation controls as child processes. Several controls also import the same..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/governance-required-checks.md
+  kind: contract
+  domain: governance
+  lifecycle: active
+  classification_basis: The opening defines the three-layer required-check contract and names governance/policy.json
+    and governance/required-checks.json as its authorities.
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/group-keyboard-evidence-retention.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR #1345 candidate 76c1ea83edd217ae96d28945048eaf1fcbd1ff61, tested merge
+    a5d0c24beb5f4c82028d798068dcd43713d804be (identical tree), retained a first Chromium-mobile..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/group-keyboard-lifecycle-diagnostics-20261026.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: REVIEW_ONLY diagnostic candidate for Issue #1346. This adds evidence,
+    not a scrolling correction or a causal declaration. Student Council remains RELEASE_NO_GO;..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/group-roster-boundary-keys-20261026.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #1346 remains open. Its retained first-attempt mobile Home failures,
+    later retry successes and UNKNOWN historical initiating cause are unchanged. The earlier..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/group-roster-home-outer-scroll.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main 1dcb3244bf2d8e2c6a620bda800eaad6975431d5 first-attempt CI 42251339047/1,
+    job 128008837766, retains the UI07 Mobile failure at HOME_FIRST_NAME_VISIBILITY. Its..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/group-roster-viewport-reauthorization-20261028.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: Opening Status is Draft / REVIEW_ONLY; the later Sonar admission section records a separate
+    owner-direction update, so earlier proposed restrictions must not be normalized as current policy.
+- path: docs/verification/issue-134-notification-readstate-closure.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Scope decision audits the closed legacy #134 boundary and explicitly distinguishes SUPERSEDED
+    feedback scope from implemented requirements; this is not blanket document supersession.'
+  source_ref: 'audit baseline: NYGsatoshi/Coglatas@42b8e9e88b2474ed778ef07dcd0dc6d052b8b706'
+- path: docs/verification/issue-527-invite-acceptance.md
+  kind: report
+  domain: identity
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate in PR #539. Hosted CI and PostgreSQL
+    execution remain the merge gate until the PR checks complete." Retain its explicit candidate/review-only document
+    scope; this does not determine current PR or approval state.'
+- path: docs/verification/legacy-channel-post-mutation-persistence-20261024.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Option A implementation candidate / source review + exact-head
+    CI required / Pilot RELEASE NO_GO." Retain its explicit candidate/review-only document scope; this does not
+    determine current PR or approval state.'
+- path: docs/verification/logical-recovery-schema-stability-20261101.md
+  kind: report
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is a bounded schema repair within the existing logical backup strategy.
+    It does not qualify full Recovery, a target, rollback operations, or release. Held #1379 is..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/lucide-164-compatible-update-20261029.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Provider candidate67724f1fab8cab2f5d92cf51641b89d798761c59 has parent
+    Main1e34061d6c930c39ef1686a0f37c5cdbadd87e7a. Its actual diff consists only of..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/mbj02-named-postgresql-receipt-20261026.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "At Main 0eb156a773f8763b4fe7e1c14acead1fd4806560, the MBJ-02 runner executes
+    Scope=Issue527 but does not invoke the required-name TRX verifier. The licensed workflow..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/message-action-feedback-catchup.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Prerequisite Main qualification repair for the pre-Avalonia Security
+    Foundation. Audited Main: 6843daf7165f0ce281fbe0300dc132bfbe3586be." This implementation/verification record
+    needs a maintenance and successor review.'
+- path: docs/verification/message-catchup-settlement-race.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR #1108 remains relevant on Main 746286446c978bdcbd220393d70aff6839dd1b3d.
+    This defect is independently demonstrated and is separate from #1113''s Task execution-scope..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/message-normalized-load-denials.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The production authentication interceptor returns FrontendApiError.httpStatus.
+    Two Conversation detail/message GET callbacks still forwarded error.status. During..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/message-search-mobile-focus.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #1356 records a first-attempt Chromium-mobile failure at Main f6feb88754473455e04553c911fc6380895f2e52:
+    the advanced-filter drawer was absent after keyboard..." This implementation/verification record needs a maintenance
+    and successor review.'
+- path: docs/verification/message-send-confirmation-recovery.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "An own root MessageCreated event can arrive before or after an uncertain
+    Message POST transport failure. Previously, the timeline could show the confirmed Message while..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/milestone-validation-order.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The compatibility ProjectService.UpdateMilestoneAsync previously assigned
+    the trimmed title before validating the requested status and the final date/status combination...." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/mobile-group-entry-readiness-20261029.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Mainfac295cc867e6bc796971e2fba55745d08aa2962 native Mobile MVP0 run40861079628/1,
+    job123404176758, fails at the immediate Workspace switcher GUID assertion in..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/mobile-mvp0-group-dm-20261029.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Tracks #1513. Base Main: 13574a971b10cf10a41716141cfe821fb6f68c04." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/mvp-a/frontend-accessibility-checklist.md
+  kind: guide
+  domain: mvp-a
+  lifecycle: active
+  classification_basis: The opening directs readers to use this accessibility checklist with specified desktop
+    and narrow/device surfaces; its sections contain reusable interaction checks.
+- path: docs/verification/mvp-a/frontend-ci-stages.md
+  kind: guide
+  domain: mvp-a
+  lifecycle: active
+  classification_basis: The opening explicitly limits this guide to frontend CI stages and screenshot handling,
+    deferring Functional taxonomy and gate ownership to FCI-01.
+- path: docs/verification/mvp-a/mvp-a-environment-notes.md
+  kind: report
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Environment notes contain multiple named A-01 through A-08 refreshes and Important Limitations;
+    their dated execution contexts do not establish archival disposition.
+- path: docs/verification/mvp-a/mvp-a-evidence-log.md
+  kind: evidence
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: The opening defines Pass/Partial/Failed/Blocked/Missing/Needs verification and records
+    named A-series evidence refreshes; no result or archival disposition is inferred by this catalogue.
+- path: docs/verification/mvp-a/mvp-a-implementation-verification-report.md
+  kind: report
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: Summary explicitly says MVP-A verification is incomplete and preserves later bounded refreshes;
+    document lifecycle requires reconciliation of remaining obligations rather than a date-based archive decision.
+- path: docs/verification/mvp-a/mvp-a-p0-blockers.md
+  kind: report
+  domain: mvp-a
+  lifecycle: needs-review
+  classification_basis: P0-001 and P0-002 retain explicit Open/blocked states and later evidence refresh notes;
+    their current obligation/successor relationship requires review.
+- path: docs/verification/my-tasks-saved-filters.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #346 implementation candidate with local storage, facade,
+    component, production-build, architecture, and representative mocked-browser verification..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/node-test-promise-ownership.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Sonar''s current Main analysis reports 193 S9383 findings on unused completion
+    promises returned by Node''s test-registration API. For these source-bound calls, Node''s..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/node24-production-image-e7add2a-20261029.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR#1506 changes only the root Dockerfile frontend-deps base from the
+    approved Node24 digestd862bb5d082c5ae0210ac07e8c0344cb8cf7bef6d78e9b8c50c179da923108ea..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/node26-lts-candidate-20261030.md
+  kind: report
+  domain: platform
+  lifecycle: candidate
+  classification_basis: Isolation and provenance explicitly calls this a Draft, test-only migration candidate
+    targeting main without merge permission; vendor compatibility is distinguished from runtime acceptance.
+- path: docs/verification/npm-compatible-qualification-20261029.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This continues existing non-held PR #1441 and the ANG22-06 exact-version
+    compatibility contract. Provider-generated manifests/lockfiles are unchanged by the maintainer..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/npm-compatible-renovate-20261031.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Existing Renovate PR #1569 proposed only the following five manifest/lockfile
+    paths: coglatas-frontend/package-lock.json, frontend/package.json,..." This implementation/verification record
+    needs a maintenance and successor review.'
+- path: docs/verification/p0-announcement-mobile-details.md
+  kind: report
+  domain: announcements
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #385 implementation candidate. This record distinguishes
+    local mocked-browser and focused Angular evidence from the real-backend browser smoke, which..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-announcement-publish-confirmation.md
+  kind: report
+  domain: announcements
+  lifecycle: candidate
+  classification_basis: Opening Status identifies an implementation candidate and supersedes only the earlier
+    immediate-only confirmation note; the local-preview contract remains separate.
+- path: docs/verification/p0-audit-filters-saved-views.md
+  kind: report
+  domain: audit
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #344 implementation candidate (2026-08-30)" Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-audit-sensitive-metadata.md
+  kind: report
+  domain: audit
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate; exact-head CI and merge required."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-continue-working.md
+  kind: report
+  domain: frontend
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #330 implementation candidate. Local focused Angular, production
+    build, architecture, and built-browser verification is recorded here. Exact PR CI, review,..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-files-contextual-actions.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #345 uses the existing Workspace file inventory and single-file
+    DELETE contract." This implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/p0-files-inspector-tabs.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #356 uses the existing server-authorized Workspace file inventory
+    and short-lived preview grant flow. It changes presentation only; it adds no file metadata,..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/p0-files-search-filter-chips.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #341 extends the merged Workspace File search contract without
+    creating a second File authorization boundary." This implementation/verification record needs a maintenance
+    and successor review.'
+- path: docs/verification/p0-files-sharing-state.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #360 gives direct Workspace attachments a persisted, server-owned
+    sharing policy and explicit per-file grants. It does not add public links, email-address..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/p0-message-actions.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Status: implemented through the existing Message, canonical thread, and
+    participant-private saved Message contracts." This implementation/verification record needs a maintenance
+    and successor review.'
+- path: docs/verification/p0-project-create-activation.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: Opening Status distinguishes completed local implementation evidence from pending provider-backed,
+    real-backend, hosted, and merge evidence; document-level maintenance disposition is not established.
+- path: docs/verification/p0-public-https-golden-path.md
+  kind: guide
+  domain: operations
+  lifecycle: active
+  classification_basis: Status calls this a repeatable deployment-gate implementation; Fixture contract, Assertions,
+    and Release invocation provide reusable instructions while requiring target execution evidence.
+- path: docs/verification/p0-report-evidence-inspector.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #373 implements the Option A contract: an immutable structured
+    Report document belongs one-to-one to an ArtifactVersion. Sections contain bounded plain text and..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/p0-research-plan.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "A Research Plan is a Task-owned, server-authorized aggregate. Its content
+    is represented by append-only immutable revisions; editing, adding, deleting, or reordering..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/p0-task-brief.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #350 implementation candidate. Focused local backend, Angular,
+    production-build, EF model/provider-translation, mocked browser, and full local suite gates..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-task-create.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #410 implementation candidate. This record covers the server-authorized
+    Project-aware create surface only. Local backend, TypeScript, production-build, and..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-task-execution-scope-completion.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'The record combines a contract-under-test summary with an explicit #461 supersession
+    of the earlier provider-none completion scope; preserve section-level scope instead of marking the entire
+    record superseded.'
+- path: docs/verification/p0-task-execution-scope-foundation.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: candidate evidence only; this foundation intentionally does not
+    close Issue #357." Retain its explicit candidate/review-only document scope; this does not determine current
+    PR or approval state.'
+- path: docs/verification/p0-task-progress-activity.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #369 implementation candidate, rebased onto current main
+    at 55a3f084341266de7175bf66e5c7ed881613d6fd (#420, announcement editor accessibility). Current..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-task-quality-checklist.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #354 implementation candidate. This is a bounded browser
+    review inside the maintained canonical Project-to-Task-create flow. It does not add a Task state,..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-task-state-list.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #342 implementation candidate. Local backend, Angular,
+    build, Storybook, architecture, and focused browser gates are complete. Real-backend,..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p0-workspace-sharing-header.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "At Workspace scope, External is a server-owned aggregate of distinct
+    active users who hold a ProjectMember resource grant beneath the active Workspace but do not hold an..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p1-announcement-live-preview-actions.md
+  kind: report
+  domain: announcements
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This change completes the local Announcement preview contract introduced
+    by PR #439." This implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/p1-announcement-local-preview.md
+  kind: report
+  domain: announcements
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: bounded, non-closing local preview candidate. This record covers
+    only the existing Announcement editor''s current-tab presentation. It does not add a new..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p1-audit-ui-accessibility.md
+  kind: report
+  domain: audit
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Status: merged non-closing slice; Issue #386 remains open." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/p1-local-draft-links-workbench.md
+  kind: report
+  domain: frontend
+  lifecycle: candidate
+  classification_basis: Opening Status records a locally verified slice as REVIEW_READY while production Draft
+    synchronization and Links remain BLOCKED_BY_OWNER; document candidate status grants no server integration
+    approval.
+- path: docs/verification/p1-message-search-filters.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate on feat/359-message-search-filters."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p1-message-thread-context.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: candidate implementation on feat/362-message-thread-context."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p1-research-plan-diff-impact.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #366 extends the existing server-owned immutable Research Plan
+    revision model from #364; it does not introduce a second plan source of truth or a second execution..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/p1-task-context-summary.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: local candidate evidence; exact-head CI pending" Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p2-audit-load-retry.md
+  kind: report
+  domain: audit
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: completion candidate; exact-head CI required before closing."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p2-message-advanced-filters.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate on feat/367-message-advanced-filters."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/p2-message-follow-ups.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #368 saved Message follow-up verification" This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/p4-isolated-environment-owner-packet-20261018.md
+  kind: decision
+  domain: operations
+  lifecycle: candidate
+  classification_basis: Decision ID ENV-P4-ISOLATION-20261018 and opening Status require an owner decision; Contract
+    binding points to the companion manifest that binds this exact subject path and Git-byte SHA-256.
+  source_ref: 'decision: ENV-P4-ISOLATION-20261018'
+  integrity:
+  - fixed-path-consumer
+  - immutable-evidence
+  related_assets:
+  - docs/verification/assets/p4-isolated-environment-review-20261018.json
+- path: docs/verification/perf05-api-bb9-source-audit.md
+  kind: report
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Audited source: bb9e339f118e4cef58a4804ce4ccaa188325e0b9. Fresh GitHub
+    audit on 2026-10-07 confirms Main 5d2ccd260353608b47e7aeb0951f5c85c227aa76, PR #1106 open/unmerged..." This
+    implementation/verification record needs a maintenance and successor review.'
+  source_ref: 'audited source: NYGsatoshi/Coglatas@bb9e339f118e4cef58a4804ce4ccaa188325e0b9'
+- path: docs/verification/perf05-api-clock-precision.md
+  kind: report
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Candidate #1116 head b1e316d51dd0b7a65825ee0d4ff714a5f3f5ef07, run 37647010295/1,
+    produced 76 PASS, one REGRESSION and one UNSTABLE. The measured synthetic merge was..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/perf05-environment-class-enrollment.md
+  kind: evidence
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: The opening identifies preserved first-attempt archives and measured source 32a17bde8f7f21ab8670265ae75d21ed081e27b9;
+    existing enrollment evidence is not a new measurement or archival decision.
+  source_ref: 'measured source: NYGsatoshi/Coglatas@32a17bde8f7f21ab8670265ae75d21ed081e27b9'
+- path: docs/verification/perf05-medium-main32-assignment-declaration.md
+  kind: decision
+  domain: performance
+  lifecycle: candidate
+  classification_basis: The opening says NOT approval, no measurement authorized, and zero successor captures;
+    the prospective declaration must stay open/unmerged until exact campaign/digest authorization.
+  source_ref: 'campaign: perf05-medium-20261007-main32-amd9v45-assignment-v1'
+- path: docs/verification/perf05-medium-main32-declaration.md
+  kind: decision
+  domain: performance
+  lifecycle: candidate
+  classification_basis: The declaration preserves fixed premeasurement authorization but explicitly awaits normal
+    review/merge and revalidation before capture; it is not baseline approval or a transferable current authorization.
+  source_ref: 'campaign: perf05-medium-20261006-main32-intel8370c-publicdigest'
+- path: docs/verification/perf05-medium-zero-capture-recovery-declaration.md
+  kind: decision
+  domain: performance
+  lifecycle: candidate
+  classification_basis: Fixed pending identity records pending authorization and zero captures/enrollment; the
+    declaration expressly remains Draft/Open pending exact ID/digest approval.
+  source_ref: 'campaign: perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1'
+- path: docs/verification/perf05-public-digest-schema.md
+  kind: reference
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: The schema description retains schema-1 identities and historical evidence while adding
+    schema-2 naming; Small declaration disposition is a separate source-bound decision history.
+- path: docs/verification/perf05-small-main32-declaration.md
+  kind: decision
+  domain: performance
+  lifecycle: candidate
+  classification_basis: Supersession and unchanged bounds calls this a proposed declaration and preserves earlier
+    rejected publication history; exact premeasurement approval does not confer baseline promotion or current
+    capture authority.
+  source_ref: 'campaign: perf05-small-20261006-main32-amd7763-publicdigest'
+- path: docs/verification/performance-db-producer-prerequisite.md
+  kind: report
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Scheduled PostgreSQL structural performance 40407561459/1 targeted d743341ec4d772da5eafed16b9f5d211f46e52f6.
+    Routing job 121869158199 failed in producer resolution at..." This implementation/verification record needs
+    a maintenance and successor review.'
+- path: docs/verification/performance-structural-main-integration.md
+  kind: report
+  domain: performance
+  lifecycle: candidate
+  classification_basis: The opening says this record describes an implementation candidate and preserves indefinite
+    numerical suspension; hosted PR and exact-Main acceptance remain separate.
+- path: docs/verification/pilot-channel-create-reauthorization-20261025.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Scope: isolated Angular regression only / release NO_GO / Owner HOLD
+    BOTH." This implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/pilot-expanded-image-preview.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Scope: an optional large image surface on the existing Angular Files
+    page. The existing inspector remains the default. No file or authorization contract is added by this..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/pilot-file-image-viewport.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The ready, grant-backed image renderer in the existing Files inspector
+    provides Fit, 100%, Rotate, Zoom out, and Zoom in. This bounded presentation implements the image..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/pilot-files-download-operation-lifetime-20261026.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: Opening Status is IMPLEMENTED_NOT_VERIFIED for hosted qualification; the record documents
+    a bounded Files lifetime correction and local evidence without changing release or owner holds.
+- path: docs/verification/pilot-first-live-message.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "An authorized conversation with no initial Messages has status: empty.
+    Previously, a current scoped Messaging.MessageCreated.v1 event appended its confirmed Message..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/pilot-messaging-create-identity-boundary-20261024.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: Opening Status explicitly limits the work to an implementation review branch with exact-head
+    CI pending and RELEASE NO_GO; later receipts are source-specific checkpoints.
+- path: docs/verification/pilot-roster-sonar-integration-20261028.md
+  kind: report
+  domain: ci
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Draft / REVIEW_ONLY. STUDENT_COUNCIL_PILOT = RELEASE_NO_GO."
+    Retain its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/pilot-sec16-sec17-integration-20261024.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: The opening records a new test-only prevention revision and pending exact-head CI; Latest
+    integration retains prior source evidence separately from the amended test blobs.
+- path: docs/verification/pilot-sec16-thread-combined-20261024.md
+  kind: report
+  domain: release
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: REVIEW CANDIDATE / NEW COMBINED HEAD NOT YET QUALIFIED / RELEASE
+    NO_GO. This is not an authorization to admit student accounts or deploy to a school HTTPS target." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/platform/dotnet-sdk-10.0.302-upgrade.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: Status records updated implementation with hosted verification pending; configuration
+    and acceptance sections require exact-head evidence instead of claiming a passing upgrade.
+- path: docs/verification/platform/dotnet-sdk-10.0.402-upgrade.md
+  kind: report
+  domain: platform
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Coordinated .NET SDK 10.0.402 upgrade — candidate" Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/pre-avalonia-licensed-scope-refresh.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Exact Main 0c25009f9241d2c035dac8b14083746d3ce68dca, Main CI 37608948643/1,
+    job 112752436419, failed FUNC-TASK-001 / STEP-06. Its awaited request is PUT..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/private-playwright-output-20261030.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "An absolute XDG_CACHE_HOME is respected; otherwise the location is below
+    the user''s .cache. Verification uses synthetic HOME/XDG paths only. The new Linux setup requires..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/procon-onprem-compose-migration.md
+  kind: report
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Status: migration service verified locally; full production-profile app
+    startup still requires the licensed frontend build secret and the intended TLS proxy." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/procon-onprem-reverse-proxy-topology.md
+  kind: contract
+  domain: operations
+  lifecycle: active
+  classification_basis: The opening explicitly describes the supported generic on-prem contract; operator configuration,
+    proxy behavior, and verification procedure do not qualify a particular host.
+- path: docs/verification/project-comment-current-authority.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Legacy PATCH and DELETE on /api/comments/{id} now recheck the active,
+    undeleted account, stored comment identity, undeleted parent, and current authorization before..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/project-detail-initial-workspace-response.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The required browser regression exposed a missing navigation recovery
+    after an initial Board/Gantt denial. Protected data is still cleared immediately, but a new parent..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/project-ide-core-slice-1.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Coglatas.Domain.ProjectIde reuses the existing dependency-free .NET 10
+    Domain project. No project reference, NuGet dependency, API DTO, EF entity, migration, database,..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/project-overview-scope-dispatch.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "ProjectsFacade.loadProjects already rejected results from an old authorization
+    generation or Workspace before applying state. Its preceding switchMap could nevertheless..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/quality-evidence-native-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The canonical Sonar Python producer also executes the existing Qodana
+    reconciliation and packet-verification unit suites. Their four operational subjects join the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/rate-limit-privacy-trace-fixture-20261031.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main 0f389fa58db815baa92c6e9889036ce4b26655df ran CI 41136029384/1. Backend
+    job 124340290565 reported 2,638 passed, 1 failed, 2,639 total; architecture reported 12..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/readonly-roster-compose-observations.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The retained quality89ee roster attempt41153391617 failed before readiness,
+    fixture or browser qualification. Its captured inventories were empty and its structural..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/readonly-roster-qualification-finally-20261029.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Sonar issue AaGCW6T8P2m4IR12Ggtw, typescript:S1143, Open / High Reliability,
+    reports the guarded throw in tests/ui/readonly-roster-real.browser.ts at baseline line466...." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/real-backend-compose-cleanup-exit.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #1601 corrects a qualification false success: the generic Compose
+    adapter previously returned a successful scenario''s zero exit even when its scoped down command..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/real-backend-mobile-acceptance.md
+  kind: report
+  domain: ci
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate based on Main 4ae574ab567f003b91ce2e467f0fd3681880b918.
+    Exact-candidate protected runtime qualification is required; discovery and..." Retain its explicit candidate/review-only
+    document scope; this does not determine current PR or approval state.'
+- path: docs/verification/real-backend-p0-authorization-handoff.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: Failure evidence and Exact-Main qualification preserve the initial failed source and a
+    later fixed source separately; the final result supersedes pending checkpoints, not historical outcomes.
+- path: docs/verification/realtime-actor-boundary.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The one browser-owned Realtime transport previously followed authentication
+    and Tenant identity but did not observe the authenticated user identity. Replacing an..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/realtime-connection-invalidation-tests.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The production RealtimeConnectionInvalidator removes registry subscriptions
+    for the selected Tenant/User before awaiting external group cleanup and sends an empty..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/realtime-outbox-failure-boundaries.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The added controls exercise the existing dispatcher batch through the
+    same private-method test entry used by the original Task V1 suppression controls. Production..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/realtime-outbox-postgresql-claims.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This test-only work under #615 adds real PostgreSQL repository controls
+    for separately locked claims, stale claim rejection, Tenant-filtered updates, persisted..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/renovate-ci-remediation-20261027.md
+  kind: report
+  domain: platform
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The following diagnoses use the failed GitHub Actions jobs on the current
+    Renovate candidate heads. This PR does not edit or push to any renovate/* branch, approve a..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/runtime-image-identity.md
+  kind: contract
+  domain: ci
+  lifecycle: active
+  classification_basis: Supported content binding and Consumer continuity define reusable image-identity acceptance
+    requirements, with separate tooling/runtime provenance.
+- path: docs/verification/sdk-image-digest-coordination.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Main SDK digest update left four Compose references and the synthetic
+    logical-recovery runner/receipt validator on a different image digest with the same10.0.403..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/search-opener-render-readiness-20261026.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR #1427 source e7f32f4bc407b85d05baa76819b047dac06fd816, tested merge
+    04cb51106ea7991908ff27dc97e1c7bec8d6da41, run 40277486775/1, frontend job 121424350214, reported..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/search-routine-presentation-20261026.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Issue #1413 remains open; the historical hosted initiating cause remains
+    UNKNOWN. The already merged #1427 opener-render readiness correction is independent from this..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec04-caller-main-controls-20261029.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Add ten main-path tests to the existing twenty SEC-04 caller controls.
+    Production caller, policies, native acceptance parsers, workflow, scanner..." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'baseline: NYGsatoshi/Coglatas@a36d5978818edf6f1d96ce07152120016265f749'
+- path: docs/verification/sec04-deep-execution.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The former manual sec04-schemathesis-deep.yml job only validated Compose
+    configuration. That check established topology, not scanner execution. Issue #574 requires the..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec06-historical-attribution-disposition.md
+  kind: decision
+  domain: security
+  lifecycle: candidate
+  classification_basis: Recommended disposition is HISTORICAL_ATTRIBUTION_NON_RECONSTRUCTIBLE and expressly requires
+    security-owner acceptance; this is a proposed finding disposition, not a false-positive or closure decision.
+  source_ref: 'original finding source: NYGsatoshi/Coglatas@143d9b29139b425fb5d7de2db4782aaa8fae720a'
+- path: docs/verification/sec08-finding-policy-preparation.md
+  kind: guide
+  domain: security
+  lifecycle: candidate
+  classification_basis: Opening Status is NOT_ACTIVATED with an UNREVIEWED inventory and zero real exceptions;
+    the bounded CLI instructions do not activate a gate or grant a finding disposition.
+- path: docs/verification/sec14-native-browser-controls.md
+  kind: guide
+  domain: security
+  lifecycle: active
+  classification_basis: Execution and evidence provides a reproducible isolated native-browser procedure and required
+    positive/negative controls; its opening excludes product and release acceptance.
+- path: docs/verification/sec14-native-main-observation.md
+  kind: reference
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This additive Advisory consumer addresses a concrete provenance gap in
+    existing SEC-04 Schemathesis and SEC-06 ZAP metadata. Those native formats contain tool, role and..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sec14-release-evidence-consistency.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This mechanical continuation strengthens the existing release-evidence
+    helper. It does not qualify #614 or claim a release, signature, attestation or personal owner..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec14-release-image-graph.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The version-1 Advisory implementation at 17dbd0bc5b8f1212495eaa8e55ee3add36e2e542
+    treated Docker .Id as the image configuration digest. A test-owned image on the current..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec14-same-subject-advisory.md
+  kind: guide
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This additive continuation starts from mechanical release-consistency
+    commit 1294426bf3d442bd099fb574ab09e2d970cc1ab8. It records a reviewable subset of Issue #614; it..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sec16-attachment-grant-scope-20261024.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Tracks #1349. Source baseline: Main fe60f94197296fcee064ba0272429429d8a6cdc2.
+    Status: candidate verification in progress; full SEC-16 incomplete; release NO_GO. This..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+  source_ref: 'baseline: NYGsatoshi/Coglatas@fe60f94197296fcee064ba0272429429d8a6cdc2'
+- path: docs/verification/sec16-file-download-grant-p0.md
+  kind: report
+  domain: files
+  lifecycle: historical
+  classification_basis: The opening Current status explicitly says its bounded merged scope is preserved as historical
+    candidate evidence and directs residual work to separate follow-ups; this does not establish full SEC-16 acceptance.
+- path: docs/verification/sec16-grant-http-lifecycle.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "This candidate addresses selected residual acceptance in #1328 after
+    #1325''s bounded File grant subset. It does not complete #689/#1328, security architecture, RLS,..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/sec16-history-current-authority.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: The opening binds this test-only dependency to a reviewed Draft predecessor rather than
+    resulting Main; it explicitly limits its evidence to native initial version 1.
+- path: docs/verification/sec16-placement-retained-credentials.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: The opening is a NOT_EXECUTED preparation checkpoint under local resource HOLD; Proposed
+    controls and required exact-source execution remain prospective.
+  source_ref: 'preparation base: NYGsatoshi/Coglatas@0c5f9baace186940f948758b1731fd3ec891c2f3'
+- path: docs/verification/sec16-readonly-retained-credentials.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Two explicit facts in FileReadOnlyRetainedCredentialHostedHttpTests.cs
+    cover the FileObject and Attachment grant/delete route families. The original fifteen lifecycle,..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sec16-residual-traceability-20261023.md
+  kind: reference
+  domain: files
+  lifecycle: needs-review
+  classification_basis: The opening separates current residual work and route/control reconciliation from historical
+    source/evidence snapshots, with full SEC-16 and finding-policy work incomplete.
+- path: docs/verification/sec16-selection-scope-retained-handle.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This bounded follow-up addresses the current file batch selection contract
+    and the residual obligations recorded under #614, #1328 and #1349. Closed issue lifecycle..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec16-sharing-policy-retained-credentials.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This bounded test-only follow-up to #1349 uses the current contract.
+    It does not claim that sharing-policy PUT previously lacked tests. Existing InMemory,..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sec17-bounded-deep-reconnect.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This separate backend owner adds representative synthetic deep coverage
+    for Issue #690 beyond the existing sequential event/route catalogue:" This implementation/verification record
+    needs a maintenance and successor review.'
+- path: docs/verification/sec17-file-sharing-policy-transport.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "This separate, stacked candidate covers a direct Workspace File''s current
+    read audience changing through the existing sharing API. It does not modify or reuse held..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/sec17-group-session-churn.md
+  kind: report
+  domain: realtime
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This test-only slice extends the current Main contract for Issue #690.
+    It does not approve SEC-ARCH mappings, RLS activation, held private-channel changes in PR #1326,..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sec17-readonly-thread-reconnect-20261027.md
+  kind: report
+  domain: realtime
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "This test-only candidate extends current role-change verification for
+    #690. It is independent of held #1326, #1399 and #1406. Their code and dispositions remain..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/security-architecture-fixtures.md
+  kind: guide
+  domain: security
+  lifecycle: needs-review
+  classification_basis: The opening limits the file to reviewed public status and synthetic test instructions;
+    Local execution and numerous source-specific verification sections coexist with explicit open SEC-ARCH/RLS
+    gates.
+- path: docs/verification/security-architecture-kafka-launcher.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The fixture retains its pinned Kafka 4.1.2 image, isolated network, non-root
+    owner-only client files, exact ACL inventory, 16 broker controls and existing command..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-architecture-kafka.md
+  kind: guide
+  domain: security
+  lifecycle: needs-review
+  classification_basis: The first section is a pending Linux ownership repair, followed by reusable isolation/execution
+    instructions and evidence limits; mixed guidance and candidate status need document-level reconciliation.
+- path: docs/verification/security-architecture-phase2-integration.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This integration combines contract-preserving implementation and isolated
+    verification. It does not approve normative mappings, security exceptions, database authority..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-architecture-pr-producer-sidecar.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing .NET build producer packages reusable Release outputs and
+    their internal artifacts/ci/dotnet-build-sha stamp. Its original PR artifact upload published only..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/security-architecture-preflight.md
+  kind: contract
+  domain: security
+  lifecycle: needs-review
+  classification_basis: Effective Required exit evidence and Owner gates coexist with a five-assembly implementation
+    walkthrough; security-architecture-six-assembly-binding.md defines version 2 six-assembly scope and treats
+    version 1 as historical. Reconcile the mixed guidance while preserving BLOCKED/Advisory and separate owner
+    gates.
+- path: docs/verification/security-architecture-registry-quality-repair.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Exact Main 88733966c44ee86eba823ebc9d6508b2f4c3088e failed the full Qodana
+    Cloud rule-debt ratchet in run 38000589444, attempt 1. The original SARIF artifact 11649768543..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-architecture-rls-recovery.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Tracks the migration/data-preservation slice of #1148/#1156 through #1158.
+    SecurityArchitectureRlsRecoveryTests uses current migrated synthetic rows and the existing..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-architecture-six-assembly-binding.md
+  kind: reference
+  domain: security
+  lifecycle: active
+  classification_basis: The assembly table and version-compatibility paragraphs define version-2 six-assembly
+    receipt bindings while preserving historical version-1 evidence and its limitations.
+- path: docs/verification/security-architecture-wave1.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Scope: #1145/#1146, reusing #835/#836 infrastructure and the existing
+    Advisory #841/#1152 integration. This implementation does not close those broader issues or qualify..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/security-build-context-private-inputs.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The root .dockerignore excludes .tmp/ and artifacts/. These directories
+    can contain local execution evidence and preparation files that the source-image builds do not..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-disclosure-input-attribution.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is an independent Main qualification repair before Security Foundation
+    #1117-#1122. No foundation implementation or acceptance item is completed by it." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-foundation-binding.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is the completed #1118 binding slice, originally based on qualified
+    Main de577d5e3534f510a61dfc746c0162c604eb1e8f. #1117 is closed with normal-merge and exact-Main..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-foundation-domain-contracts.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This implements the #1117 contract slice. Binding, coordinator, durable
+    storage, ProjectIDE integration and authorized reads remain separate #1118-#1122 work. No..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-foundation-evaluation.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The #1119 implementation started from qualified exact Main a271599a9cca2f2d3c4ad1f99c4648f17a3b060f.
+    #1117 and #1118 are closed with normal-merge, acceptance and..." This implementation/verification record needs
+    a maintenance and successor review.'
+- path: docs/verification/security-foundation-persistence.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: 'Opening Status records completed #1120 exact-Main qualification while subsequent sections
+    retain earlier pending checkpoints and a quality failure; one historical PASS is not a current-source result.'
+- path: docs/verification/security-foundation-pre-avalonia.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: Final qualification points to an immutable external result record, while the remaining
+    sections map narrow Disabled/Shadow foundation evidence and retained governance limits.
+- path: docs/verification/security-foundation-shadow-integration.md
+  kind: report
+  domain: project-ide
+  lifecycle: needs-review
+  classification_basis: Opening Integration status is SEAM_ONLY and production compiler integration is NOT_INTEGRATED;
+    the verification checkpoint does not change the prerequisite or approval boundary.
+- path: docs/verification/security-main-boolean-query-repair.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Prerequisite to #1117–#1122. Audited Main: ad0740f60798618a5d08c043ccab7a35b62f6dd0."
+    This implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/security-operational-node-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing canonical operational Node producer also executes three
+    unchanged offline security-helper suites. They exercise runtime argument boundaries, synthetic..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/security-workspace-icon-attribution-20261029.md
+  kind: report
+  domain: security
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Main 55a17da2b4ebdbe6f5df84909fa0d2f78ef7ff3c, CI 40852143497/1, Security
+    job 123375998593: security-core and ZAP exit0, Schemathesis exit1. Deep alpha-owner..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/socket-sca-locked-install-20261101.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing optional trusted-Main workflow resolved its Python CLI dependencies
+    at execution time. Bind the existing tool to reviewed wheel bytes instead:..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-acceptance-image-receipt-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This change adds only the exact tracked operational CLI scripts/ci/verify-acceptance-image-reuse.py
+    to the existing Python measurement include list. Sonar source/rule..." This implementation/verification record
+    needs a maintenance and successor review.'
+- path: docs/verification/sonar-angular-config-json-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main f33a6ee5bc5b977b228b7fc84b37a89c343547df native40932774535/1/job123655328825
+    completed successfully, while officialGate123672831070 failed65.1%/D/E. Its IaCJSON..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-announcement-pragma-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is a bounded analyzer compatibility workaround for #1496. It changes
+    the order of two existing lint aliases; all executable bytes, the three disabled rule IDs,..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-dotnet-coverage-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The trusted push scanner imported Angular LCOV but only built C#. Its
+    separate Main CI Cobertura report was not imported into Sonar. The scanner now runs the existing..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sonar-existing-regression-coverage-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Mainada8979037d6d45d0805113fb18a020a5ced50b0''s official Gate123203859675
+    remains FAIL35.6% New Code / ReliabilityD / SecurityE despite actual .NET import565files. Public..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sonar-native-node-source-maps-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main47f0e5058c3e82cfdc83b4cc501bad84ebf1c0e7 Sonar40824288315/1 completed,
+    but official Gate123291104969 failed47.5%/D/E. The scanner''s six JS/TS coverage..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-node-record-validation-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Extract the unchanged per-record DA/FN/BRDA syntax, original-line bounds,
+    branch totals and hit/uncovered counters into a private validateRecordRows helper. Keep record..." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'base: NYGsatoshi/Coglatas@0ea944a4602e9484392c8f2592752ffd98f34c5c'
+- path: docs/verification/sonar-node-test-classification-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main47f has44 tracked *.node-test.mjs files: frontend/scripts6,scripts/ci1,
+    tests/ci1,tests/diagnostics1,tests/functional17,tests/ui18. Every one imports node:test; none..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-operational-c8-20261101.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing 41 source-inventory and npm-audit controls run unchanged.
+    Their original native LCOV and raw V8 remain retained, with native LCOV diagnostic only. A..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-operational-coverage-20261101.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: The record preserves IMPLEMENTATION_IN_PROGRESS / RELEASE_NO_GO, original native coverage,
+    an exact source-bound official gate failure, and a separate resulting-Main checkpoint.
+- path: docs/verification/sonar-pilot-helper-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "A separate pre-credential native Node cohort selects the existing thirteen-case
+    student-council-pilot-helpers.node-test.mjs suite. Its operational helpers validate exact..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-privacy-probe-coverage.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The existing pre-credential Python coverage loop now also runs the unchanged
+    test-postgres-log-privacy.py and test-functional-setup-failure-probe.py suites. Only their..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-python-unit-classification-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Base Main0ea944a4602e9484392c8f2592752ffd98f34c5c. Official Main new
+    coverage 56.8%/ReliabilityD/SecurityE remains FAIL. The existing test-*.py and Node test coverage..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/sonar-restore-advisor-coverage-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main baseline aabae9c7db4ddadda99db42d0cdebe81e5a893a9; tracking #615
+    / #1507. Add the existing 23-control offline advisor suite to native Node measurement. Its..." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'baseline: NYGsatoshi/Coglatas@aabae9c7db4ddadda99db42d0cdebe81e5a893a9'
+- path: docs/verification/sonar-sec17-execution-coverage-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Baseline Main 38b598f89a4bb705396df2e7bc269d547e4aacd4; tracking #615
+    / #1507. Add the existing test_sec17_deep_execution.py and test_sec17_file_policy_execution.py..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/sonar-surrogate-ast-20261029.md
+  kind: report
+  domain: quality
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "This candidate changes two existing invalid member-search test strings
+    from escaped surrogate literals to runtime construction. The complete eight-input matrix has..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/sonar-zap-db-ci-measurement.md
+  kind: report
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The pre-credential Python coverage loop adds only the existing nineteen-case
+    ZAP attribution suite and twenty-six-case DB-CI suite. The rooted include list adds their..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/specification-contract-advisory.md
+  kind: guide
+  domain: security
+  lifecycle: active
+  classification_basis: The opening and Commands and qualification sections explain the non-required specification-contract
+    Advisory adapter and its evidence/authentication prerequisites.
+- path: docs/verification/specification-contract-registry.md
+  kind: reference
+  domain: security
+  lifecycle: active
+  classification_basis: The schema, identity/authority, approval-reference, and execution sections document the
+    registry interfaces; canonical allocation and owner-approved mappings remain explicitly pending.
+- path: docs/verification/startup-configuration-boundaries.md
+  kind: report
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The focused tests invoke the actual StartupConfigurationValidator.StartAsync
+    with locally constructed options, configuration and real antiforgery registration. The..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/string-order-test-support.md
+  kind: report
+  domain: ci
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Group keyboard and Search drawer Node tests now import one comparison
+    function from tests/ui/test-support/code-unit-order.mjs. Its body is copied exactly from their..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/student-council-channel-thread.md
+  kind: report
+  domain: release
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation candidate; release acceptance remains unverified.
+    Base: Product Main 6f940987f8df746736b6df5ea7371ab698028f5e." Retain its explicit candidate/review-only document
+    scope; this does not determine current PR or approval state.'
+- path: docs/verification/student-council-dm-group-boundary.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "ConversationType.Group exists as enum value 7, but ConversationService.IsSupportedMvpType
+    permits only DirectMessage, ProjectChannel, and legacy Thread. Both generic..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/student-council-explicit-read.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The current DM, Group DM and Channel headers provide an explicit Mark
+    as read command through the existing participant-private read endpoint. The frontend supplies the..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/student-council-files-preview.md
+  kind: report
+  domain: release
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "The connected live Penpot file was CoglatasUI, 52a5041f-08a1-80f1-8008-c5a09f8b5f61.
+    The following boards were inspected through the Penpot API and exported to PNG..." Retain its explicit candidate/review-only
+    document scope; this does not determine current PR or approval state.'
+- path: docs/verification/student-council-group-dm-ui.md
+  kind: report
+  domain: release
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: frontend implementation candidate. This document does not qualify
+    the backend, activate Group support on Main, or authorize pilot accounts. Integrate only with..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/student-council-home-g04.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Read-only recovery on 2026-10-20 within 14:52:36–15:09:07 UTC returned
+    the current G04 structure, generated styles and actual 1536×1024 PNG from CoglatasUI revision 442...." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/student-council-main381-messaging-diagnostics.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The fresh Main 3816908c6a1bae3cb79128af9f9dd3c6633cf50f run 39377066283/1
+    failed its Fast collaboration owner FUNC-MSG-001 in job 118478691254. The MSG-THREAD step..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/student-council-mobile-header-polish.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The follow-up retains the revision-441 CoglatasUI tokens and existing
+    controls recorded in student-council-penpot-traceability.md. The relevant approved sources remain..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/student-council-owner-decisions-20261026.md
+  kind: decision
+  domain: release
+  lifecycle: candidate
+  classification_basis: The opening explicitly records no approval; five separate owner decisions are presented
+    against a source-bound matrix while RELEASE_NO_GO remains.
+  related_assets:
+  - docs/verification/student-council-readiness.json
+- path: docs/verification/student-council-penpot-traceability.md
+  kind: evidence
+  domain: release
+  lifecycle: needs-review
+  classification_basis: Live priority-board source recovery supersedes only the old Home reference, while Historical
+    traceability checkpoints remain retained; original PNG and design/source identities require preservation.
+- path: docs/verification/student-council-pilot-scope.md
+  kind: reference
+  domain: release
+  lifecycle: needs-review
+  classification_basis: Current integration checkpoint and Feature contract coexist with explicitly historical
+    checkpoints and continuing release holds; the document needs responsibility/successor review.
+- path: docs/verification/student-council-readiness-20261026.md
+  kind: evidence
+  domain: release
+  lifecycle: needs-review
+  classification_basis: The opening identifies source-bound readiness and a timestamped JSON snapshot, expressly
+    excluding owner approval, deployment, RLS, school accounts, and school-data authorization.
+  related_assets:
+  - docs/verification/student-council-readiness.json
+- path: docs/verification/student-council-release-gate.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: Source-bound baseline observed records one dated Main attempt; subsequent chronological
+    sections preserve older outcomes and effective owner/release conditions, so the whole file is not marked historical.
+  related_assets:
+  - docs/verification/student-council-readiness.json
+- path: docs/verification/student-council-release-readiness-20261023.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: The opening and later checkpoints explicitly qualify individual SHAs while preserving
+    historical blockers and effective owner gates; document-level lifecycle needs separate review.
+  related_assets:
+  - docs/verification/assets/p4-isolated-environment-review-20261018.json
+- path: docs/verification/student-council-workspace-container-polish.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Independent review of the 960px open-notifications capture found word
+    fragments in the Workspace attention title. The Dashboard''s available width was 424px, while its..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/student-council-workspace-member-management.md
+  kind: report
+  domain: release
+  lifecycle: candidate
+  classification_basis: Opening Implementation status explicitly says candidate, not qualified for school-user
+    use; prior bounded contract authorization is separate from acceptance.
+- path: docs/verification/student-council-workspace-membership-scope.md
+  kind: report
+  domain: release
+  lifecycle: needs-review
+  classification_basis: The opening calls the original audit historical but adds a later read-only-detail implementation
+    checkpoint and pending management contract; the mixed document needs review.
+- path: docs/verification/synthetic-logical-recovery.md
+  kind: guide
+  domain: operations
+  lifecycle: needs-review
+  classification_basis: Invocation and authority explains a synthetic recovery harness while source-bound qualification
+    and retained failures remain separate; the opening excludes production recovery and release authority.
+- path: docs/verification/synthetic-restore-dependency-advisor.md
+  kind: reference
+  domain: operations
+  lifecycle: candidate
+  classification_basis: The opening explicitly calls this a review-only diagnostic with no database access, commands,
+    schema change, or release authorization; it addresses only prospective FK ordering.
+  integrity:
+  - fixed-path-consumer
+- path: docs/verification/task-deadline-worker-host-lifecycle.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Existing Worker tests exercise one processing cycle. These additional
+    controls start and stop the actual BackgroundService, with a controlled scope-acquisition failure..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/task-denial-project-refresh-regression.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The Task detail facade now preserves an authoritative safe denial while
+    the Task view remains mounted. A denied Task read cancels older Project collection requests and..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/task-intervention-service-controls.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The focused service controls exercise the existing Stop and Correct Direction
+    commands without changing product behavior. They retain the distinction between stopping a..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/task-v1-pr03c-detail-contract.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The commit that finalizes this document necessarily follows the acceptance
+    code head. That commit is documentation-only. The PR body records its exact SHA and the final..." This implementation/verification
+    record needs a maintenance and successor review.'
+  source_ref: 'acceptance code head: NYGsatoshi/Coglatas@a9b66e6c067a363d9846330f82751257a61c309c'
+- path: docs/verification/task-v1-pr04-my-tasks.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "All counts below exclude the two intentionally obsolete legacy-static
+    Playwright skips, which are not PR04 acceptance tests." This implementation/verification record needs a maintenance
+    and successor review.'
+  source_ref: 'final implementation head: NYGsatoshi/Coglatas@b00ae6562a3946b47047464d109b139a20978c4d'
+- path: docs/verification/task-v1-pr05-kanban.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: Candidate identity and Review and finalization state describe a source-bound PR05 candidate;
+    the final candidate identity is delegated to the Draft PR rather than self-certified here.
+- path: docs/verification/task-v1-pr06-gantt.md
+  kind: report
+  domain: tasks
+  lifecycle: active
+  classification_basis: The opening explicitly calls this the living implementation and verification ledger; the
+    current contract, owner decisions, and retained historical checkpoints require separate interpretation.
+- path: docs/verification/task-v1-pr07-a-foundation.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "PR07-A was merged and accepted as PR #274 at c5627eb09ecf19d66146eacdbc3e938c0a1c8563.
+    Same-sha post-merge main workflow runs passed: CI 30724803612, Code Quality..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/task-v1-pr07-b-immediate-notifications.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: Status expressly keeps PR07-B an unmerged Draft and directs final-head evidence to the
+    PR; it states that this document is not merge authorization.
+- path: docs/verification/task-v1-pr07-c-deadline-digest.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Status records a remediation checkpoint and explicitly omits final-head result claims;
+    PR #277 is stated to remain Draft/unmerged during that work.'
+- path: docs/verification/task-v1-pr07-ci-acceptance-gate.md
+  kind: report
+  domain: tasks
+  lifecycle: candidate
+  classification_basis: 'Stacked PR identity explicitly labels #276 Draft and names its prerequisite base; Final
+    evidence belongs to the specific stacked acceptance-gate candidate.'
+- path: docs/verification/task-v1-pr07-d-authorized-delivery-angular.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "CurrentAuthorizationTargetResolver is the shared current-state boundary
+    for notification opening and dispatch authorization. It resolves only safe outcome metadata. It..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/task-v1-pr07-gap-audit.md
+  kind: report
+  domain: tasks
+  lifecycle: historical
+  classification_basis: Current implementation status explicitly retains the NO-GO baseline classifications as
+    historical audit evidence for 491d17db3701b7fb26010db8c0590eac7d24bd78 and separately records the resolved
+    owner-decision gate.
+  source_ref: 'audit baseline: NYGsatoshi/Coglatas@491d17db3701b7fb26010db8c0590eac7d24bd78'
+- path: docs/verification/tenant-membership-lifecycle-postgresql.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "These five PostgreSQL Facts exercise41 internal scenarios through the
+    real Tenant service, repositories, session service, database audit logger, unit of work,..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/tenant-platform-profile-validation.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "A combined platform Tenant patch previously staged its name or display
+    name on the repository-owned object before rejecting a duplicate primary domain. Three unchanged..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/tenant-settings-text-limits.md
+  kind: report
+  domain: identity
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main741 first-attempt Security runtime failed its alpha-owner Schemathesis
+    fuzzing case maqXLt, seed715069838, on PATCH /api/tenant/settings with vendor JSON. An..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/thread-authorized-catchup-order-20261024.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: TEST-ONLY / DRAFT / UNMERGED / NOT_YET_HOSTED_VERIFIED." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/thread-catchup-completion-coordination-20261026.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: Opening Status is IMPLEMENTED_NOT_VERIFIED for hosted qualification; controlled local
+    coordination evidence is explicitly not proof of the historical hosted initiating cause.
+- path: docs/verification/thread-catchup-local-intent.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Related investigation: #1365, #1360 and #611." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/thread-denial-preaction-interleaving-20261027.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is a bounded source-specific regression control, not a change to
+    the canonical MSG-THREAD-DENIAL owner or a release gate exception." This implementation/verification record
+    needs a maintenance and successor review.'
+- path: docs/verification/thread-held-response-investigation.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This independent test-only investigation starts from reviewed integration
+    6d4f1c35f4464f1e3229d69658282b609a498c98. It does not modify product source, the canonical..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/thread-native-navigation-catchup-gap-20261026.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: IMPLEMENTED_NOT_VERIFIED production candidate, with the immutable
+    baseline reproduction retained below. Hosted qualification is still required. The Student..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/thread-observation-budget-20261029.md
+  kind: report
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The regression reconstructs that closed26-event sequence. Before repair
+    it fails24!=26. New producer observations explicitly carry schemaVersion3 and a 32-event bound...." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/trivy-canonical-database-source.md
+  kind: report
+  domain: security
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Main 03dcbbfde03dd3364e637ee8fee92d2545b5e7c1, run 40269319731/1, failed
+    its first Main Security attempt in job 121399429565. Trivy 0.65.0 pulled successfully, but its..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/web-ci-reliability-20261018.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Attempt 1 reached terminal failure at 2026-10-18T00:14:40Z before the
+    targeted rerun. Its failure remains evidence. GitHub''s attempt-2 jobs response also carries forward..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/web-files-folder-reliability-20261018.md
+  kind: report
+  domain: files
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "FileFolderStore previously retained the old Workspace folder names and
+    root version while loading a different Workspace. Its file and folder move finalizers..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/web-frontend-wave-20261019.md
+  kind: report
+  domain: frontend
+  lifecycle: candidate
+  classification_basis: Status at assembly is REVIEW_READY subject to exact-head checks; the source/workstream
+    sections limit the record to a bounded local frontend wave and retain owner decisions.
+- path: docs/verification/web-integration-qa-20261018.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Scope: existing-contract Angular Files and Dedicated Thread Workspace.
+    Related: #1244, #1239, #1242, and the separate #481 release gate. This record is synthetic..." This implementation/verification
+    record needs a maintenance and successor review.'
+  related_assets:
+  - docs/verification/assets/web-integration-20261018.json
+- path: docs/verification/web-p1-independent-audit-20261018.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "In the mounted Message composer, membership/eligible-mention changes
+    need not change the draft text or destroy the component. The currently selected mention identity..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/web-p2-files-contract-matrix-20261018.md
+  kind: reference
+  domain: files
+  lifecycle: needs-review
+  classification_basis: Scope calls this a non-authorizing source-confirmed API/interaction matrix; future proposals
+    retain strict constraints, and no API/schema/permission/release approval is granted.
+- path: docs/verification/web-p2-thread-contract-matrix-20261018.md
+  kind: reference
+  domain: messaging
+  lifecycle: needs-review
+  classification_basis: Current execution update records selected owner options and retains the original pre-selection
+    matrix as such; the mixed reference needs review before extracting a current contract.
+- path: docs/verification/web-p2-thread-workspace-20261018.md
+  kind: report
+  domain: messaging
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "The current execution instruction explicitly selected THREAD-01 A (canonical
+    Message threads), THREAD-02 A (session-memory tab placement) and THREAD-03 A (existing..." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/web-penpot-communication-audit.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Opening Status describes partial recovered presentation and explicitly retains the original
+    blocked audit as history; the full document still contains active limitations and later continuations.
+- path: docs/verification/web-penpot-files-audit.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Initial design evidence is explicitly superseded only for design access by the recovered-source
+    continuation; original source inventory and verification remain historical components of a mixed record.
+- path: docs/verification/web-penpot-integration-audit.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Opening Status is PARTIAL_IMPLEMENTATION, with bounded localization/presentation and separately
+    recorded local/hosted results; full design and real-backend acceptance are not inferred.
+  related_assets:
+  - docs/verification/penpot-rev339-source-inventory.json
+- path: docs/verification/web-penpot-projects-audit.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Evidence boundary and recovered-design continuation retain a formerly blocked source audit
+    alongside later implementation and remaining ownership; a single lifecycle disposition needs review.
+- path: docs/verification/web-penpot-shell-audit.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Current status is Partial with recovered native design evidence; Historical initial audit
+    and later corrections remain separate source-bound checkpoints.
+- path: docs/verification/web-penpot-visual-comparison.md
+  kind: evidence
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Source and capture provenance binds the original revision-339 export and JSON inventory
+    to unmodified source PNGs and separate before/after captures; this is evidence, not renewed acceptance.
+  related_assets:
+  - docs/verification/assets/penpot-rev339/dm-after.png
+  - docs/verification/assets/penpot-rev339/dm-before.png
+  - docs/verification/assets/penpot-rev339/dm-reference.png
+  - docs/verification/assets/penpot-rev339/files-after.png
+  - docs/verification/assets/penpot-rev339/files-before.png
+  - docs/verification/assets/penpot-rev339/files-reference.png
+  - docs/verification/assets/penpot-rev339/login-after.png
+  - docs/verification/assets/penpot-rev339/login-before.png
+  - docs/verification/assets/penpot-rev339/login-reference.png
+  - docs/verification/assets/penpot-rev339/my-tasks-after.png
+  - docs/verification/assets/penpot-rev339/my-tasks-before.png
+  - docs/verification/assets/penpot-rev339/my-tasks-reference.png
+  - docs/verification/assets/penpot-rev339/report-after.png
+  - docs/verification/assets/penpot-rev339/report-before.png
+  - docs/verification/assets/penpot-rev339/report-reference.png
+  - docs/verification/penpot-rev339-source-inventory.json
+- path: docs/verification/web-pr1234-postmerge-main-ci.md
+  kind: evidence
+  domain: frontend
+  lifecycle: historical
+  classification_basis: 'The final paragraph explicitly calls this historical, immutable-run-specific CI evidence
+    for the PR #1234 merge, and prohibits transferring the result to later commits.'
+  source_ref: 'verified merge: NYGsatoshi/Coglatas@2718fb59952341a6a6f2ccfb2670a1ce9933ca62'
+- path: docs/verification/web-wave-local-starred-files-20261019.md
+  kind: report
+  domain: files
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "Agent C implementation baseline: Product Main 9b44d631df88cdc2f15a45b6278b3e1b2552a8df.
+    This work uses the existing Angular 22.2.2 Files page and existing FileObject..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/webwave-independent-quality-20261019.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "This is Agent D''s independent review and synthetic-browser evidence.
+    It grants no specification, security architecture, deployment, or merge approval." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/webwave-runtime-boundaries-20261019.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: Opening Status separates locally verified implementation from pending hosted review/CI
+    and retained SEC-ARCH BLOCKED; the record does not grant any policy or activation approval.
+- path: docs/verification/webwave-ui-foundation-20261019.md
+  kind: report
+  domain: frontend
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "SonarCloud check 117713818392 failed on original head c3dab4d7 because
+    repeated directory locale keys produced 5.4% new-code duplication (limit 3%). The repair keeps the..." This
+    implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/workspace-channel-directory.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: implementation and regression-test candidate in draft PR #1303.
+    Not a school-user release decision. Existing pilot NO_GO and held workstreams persist." Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/workspace-member-detail-catchup-20261026.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: Opening Status is IMPLEMENTED_NOT_VERIFIED for hosted qualification; the first-attempt
+    failure, independently demonstrated mechanism, local validation, and release holds are separate.
+- path: docs/verification/workspace-member-management-options.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The backend adds two management previews beside the ordinary member directory:"
+    This implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/workspace-search-ime-escape-20261029.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: 'Opening scope: "The document Ctrl+K handler already ignored active composition and legacy
+    keyCode229. The search form''s Escape binding called unconditional result dismissal without..." This implementation/verification
+    record needs a maintenance and successor review.'
+- path: docs/verification/wpc-01-workspace-project-creation-foundation.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: final merge-readiness remediation candidate" Retain its explicit
+    candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/wpc-final01-integration-audit.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Corrected integration candidate; merge requires current-head
+    CI evidence Audit date: 2026-08-22 Implementation repository: NYGsatoshi/Coglatas\ Implementation..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/wpc-final02-migration-legacy-audit.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: Opening Status limits implementation completeness to the audit branch and leaves PostgreSQL
+    acceptance pending; Audited baselines and Merge gate retain the candidate scope.
+- path: docs/verification/wpc-final03-security-no-go-audit.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: Decision is CONDITIONAL NO-GO and the opening expressly keeps the PR Draft pending final-head
+    checks and current-main recheck; no auto-merge authorization is given.
+- path: docs/verification/ws-01-announcement-parent-scope-hardening.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening Status limits the recorded PostgreSQL verification to Draft PR #403; Identity
+    and merge state must not be inferred as current integration or release approval.'
+- path: docs/verification/ws-01-workspace-dashboard-backend-projection.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening Status limits completion to Draft PR #403 and keeps the repository merge gate
+    NO-GO until final-head checks; Remaining merge gates are preserved.'
+- path: docs/verification/ws-02-workspace-context-header.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #328 implementation candidate, locally verified before
+    commit. Provider-backed PostgreSQL execution, hosted checks, and merge state are not claimed by this..." Retain
+    its explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/ws-03-workspace-create.md
+  kind: report
+  domain: workspaces
+  lifecycle: candidate
+  classification_basis: 'Opening scope: "Status: Issue #408 implementation candidate with local frontend, backend,
+    and pinned-Linux mocked-browser verification complete. Provider-backed, real-backend browser,..." Retain its
+    explicit candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: frontend/README.md
+  kind: entrance
+  domain: frontend
+  lifecycle: active
+  classification_basis: Explicit maintained Angular Web workspace entrance directs development and dependency
+    governance and distinguishes the inactive legacy scaffold.
+  canonical_for: Maintained Angular Web workspace entrance
+- path: governance/controls.md
+  kind: generated-view
+  domain: governance
+  lifecycle: active
+  classification_basis: Header and validator identify a generated view of governance/policy.json; complete-text
+    drift is rejected and the matrix is not an independent policy source.
+  integrity:
+  - fixed-path-consumer
+  - generated
+  related_assets:
+  - governance/policy.json
+  - scripts/ci/validate-governance-policy.py
+- path: governance/gov-02-live-migration.md
+  kind: guide
+  domain: governance
+  lifecycle: needs-review
+  classification_basis: One-time migration still requires signature protection although current policy sets signatures
+    optional; retain original steps pending reconciliation with subsequent governance decisions.
+- path: governance/rulesets/README.md
+  kind: guide
+  domain: governance
+  lifecycle: needs-review
+  classification_basis: Describes owner-always bypass import payloads while governance/policy.json forbids normal-development/always
+    bypass; the catalogue cannot resolve that policy inconsistency.
+- path: performance/API-DIAGNOSTICS.md
+  kind: reference
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: Combines retained UNSTABLE/UNKNOWN variance evidence with a prospective diagnostic cohort;
+    current suspension and separate execution authorization remain controlling.
+- path: performance/API-K6.md
+  kind: guide
+  domain: performance
+  lifecycle: active
+  classification_basis: Documents the bounded API benchmark and explicitly separates current suspension from historical
+    active CI mode and non-SLO budgets.
+  related_assets:
+  - performance/api-k6.json
+- path: performance/ASSURANCE-SUSPENSION.md
+  kind: contract
+  domain: performance
+  lifecycle: active
+  classification_basis: Explicit indefinite owner-confirmed policy suspends numerical assurance, retains failures
+    and defines separate reauthorization requirements.
+  source_ref: https://github.com/NYGsatoshi/Coglatas/issues/1128
+  canonical_for: Indefinite numerical-performance assurance suspension and reauthorization boundary
+- path: performance/BASELINE_CAMPAIGNS.md
+  kind: contract
+  domain: performance
+  lifecycle: active
+  classification_basis: Maintains prospective campaign governance while explicitly identifying immutable legacy
+    exact-environment declarations and separately governed active eligibility.
+- path: performance/DB.md
+  kind: contract
+  domain: performance
+  lifecycle: active
+  classification_basis: Current-policy notice keeps structural PostgreSQL checks blocking while numerical duration
+    assurance remains indefinitely suspended and historical adapters stay qualified.
+- path: performance/DIAGNOSTIC-ZERO-MEASUREMENT-RECOVERY.md
+  kind: decision
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: Authorizes one exact diagnostic replacement and retains original failed evidence; applicability
+    is limited to that source/run and does not grant general reruns or acceptance.
+- path: performance/ENVIRONMENT_ASSIGNMENT_TRANSITION_PROPOSAL.md
+  kind: decision
+  domain: performance
+  lifecycle: needs-review
+  classification_basis: Records owner-approved rule implementation with Main-rollout and separate campaign authorization
+    still required; reconcile later eligibility policy without rewriting that decision history.
+  source_ref: https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-6016721971
+- path: performance/ENVIRONMENT_COMPATIBILITY.md
+  kind: contract
+  domain: performance
+  lifecycle: active
+  classification_basis: Defines EnvironmentClass compatibility and immutable historical replay/enrollment boundaries;
+    it does not itself reactivate suspended numerical assurance.
+  related_assets:
+  - performance/environment-class-baselines.json
+- path: performance/LOCAL-BENCHMARKS.md
+  kind: reference
+  domain: performance
+  lifecycle: candidate
+  classification_basis: Explicit staged, non-acceptance local-evidence proposal has no signer, EnvironmentClass,
+    baseline or campaign approval and zero required-check credit.
+  related_assets:
+  - performance/local-policy.json
+- path: performance/README.md
+  kind: entrance
+  domain: performance
+  lifecycle: active
+  classification_basis: Versioned Performance CI entrance explicitly foregrounds indefinite numerical-assurance
+    suspension and distinguishes it from structural validation.
+  canonical_for: Performance CI contracts and assurance-boundary entrance
+- path: performance/RESULTS.md
+  kind: contract
+  domain: performance
+  lifecycle: active
+  classification_basis: Defines the single performance comparator, source/environment inputs, bounded reruns and
+    approval requirements; current assurance suspension remains separate.
+  related_assets:
+  - performance/budgets.json
+  - performance/comparison-policy.json
+  - performance/environment.json
+  - performance/scenarios.json
+- path: performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/README.md
+  kind: evidence
+  domain: performance
+  lifecycle: historical
+  classification_basis: Explicit retained rejected campaign keeps ENVIRONMENT_MISMATCH/BASELINE_UNAVAILABLE and
+    all three ineligible groups; validators preserve original Git paths and bytes.
+  source_ref: NYGsatoshi/Coglatas@32a17bde8f7f21ab8670265ae75d21ed081e27b9
+  integrity:
+  - fixed-path-consumer
+  - immutable-evidence
+  related_assets:
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/archive-metadata.json
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/campaign-result.json
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/declaration.json
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/independent-replay.json
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/manifest.json
+  - performance/baseline-campaigns/evidence/perf05-medium-20261006-main32-intel8370c-publicdigest/raw-groups.json
+- path: performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/README.md
+  kind: evidence
+  domain: performance
+  lifecycle: historical
+  classification_basis: Retained source-bound campaign review preserves original capture, approval provenance
+    and historical proposal state; validators preserve original Git paths and bytes.
+  source_ref: NYGsatoshi/Coglatas@32a17bde8f7f21ab8670265ae75d21ed081e27b9
+  integrity:
+  - fixed-path-consumer
+  - immutable-evidence
+  related_assets:
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/archive-metadata.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/campaign-result.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/announcement.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/conversation.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/conversation.messages.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/file.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/notification.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/project.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/task.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/task.my-tasks.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/class-proposed-baselines/workspace.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/declaration.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/environment-class-qualification.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/environment-class-review.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/independent-replay.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/manifest.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/owner-promotion-approval.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/announcement.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/conversation.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/conversation.messages.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/file.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/notification.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/project.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/task.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/task.my-tasks.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/proposed-baselines/workspace.list.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/raw-groups.json
+  - performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/target-fingerprint.json
+- path: tests/functional/README.md
+  kind: guide
+  domain: ci
+  lifecycle: active
+  classification_basis: Explicit canonical home for real Functional Playwright coverage describes ownership, metadata,
+    diagnostics and incremental migration without renaming old tests wholesale.
+  canonical_for: Real Functional Playwright directory ownership and authoring conventions
+- path: tools/Coglatas.SecurityArchitecture/README.md
+  kind: guide
+  domain: security
+  lifecycle: active
+  classification_basis: Documents typed contract tool commands and distinguishes structural validation from owner
+    approval, execution attestation and runtime acceptance.
+- path: tools/frontend-inspections/README.md
+  kind: guide
+  domain: quality
+  lifecycle: needs-review
+  classification_basis: Tool guide describes enforced frontend debt ceilings, while static-analysis-strategy explicitly
+    says CI enforcement is suspended; reconcile tool capability with actual workflow policy.
