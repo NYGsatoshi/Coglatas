@@ -48,6 +48,16 @@ That opaque root is retained for an unrelated cgroup mount without normalizing
 it into a host path. Selecting such a mount for a repository, executable or
 mounted repository subtree still rejects the unprovable mapping. Noncanonical
 roots of ordinary executable filesystems and noncanonical mount points reject.
+
+Namespace-object bind mounts use `nsfs` object names such as `net:[123]`,
+as emitted by the [kernel namespace filesystem](https://github.com/torvalds/linux/blob/master/fs/nsfs.c).
+These names are retained as opaque metadata. Unrelated namespace mounts do not
+invalidate an otherwise comparable host installation. An `nsfs` mount selected
+for a repository, executable or repository subtree always rejects, including a
+root spelled `/`; it never becomes a filesystem identity mapping. A private
+container reproduction bound its own network namespace and demonstrated the
+previous host-Git rejection. The historical hosted CI mount roots were not
+captured, so this reproduction does not establish their initiating cause.
 Both the physical PATH directory and executable target are checked, and the
 selected directory retains the `git` invocation name for Unix multicall shims.
 The mount fields follow the [Linux mountinfo specification](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).
