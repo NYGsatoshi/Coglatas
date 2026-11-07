@@ -87,6 +87,83 @@ describe('ProjectDetailFacade initial response scope', () => {
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
   }
 
+  function beginDelayedDraftRecovery() {
+    enableViews(); facade.load('project-1');
+    const initial = http.expectOne('/api/projects/project-1');
+    expect(catchUp).toBeDefined(); catchUp!({ deniedOwners: new Set() });
+    const draftRecovery = http.expectOne('/api/projects/project-1');
+    initial.flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush([]);
+    finishViews();
+    return draftRecovery;
+  }
+
+  function recoverActiveViews() {
+    catchUp!({ deniedOwners: new Set() }); finishNavigation();
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    http.expectOne('/api/projects/project-1/gantt').flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+  }
+
+  it.each([false, true])('discards ungated operational replies after Draft with afterActiveRecovery=%s', async (afterActiveRecovery) => {
+    const draftRecovery = beginDelayedDraftRecovery();
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    const tasks = http.expectOne('/api/projects/project-1/tasks');
+    const board = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
+    const schedule = http.expectOne('/api/projects/project-1/gantt');
+    draftRecovery.flush(draft);
+    if (afterActiveRecovery) recoverActiveViews();
+    const currentBoard = facade.view().kanban.snapshot, currentSchedule = facade.view().schedule.snapshot;
+    tasks.flush(taskRows); board.flush(snapshotDto()); schedule.flush(ganttSnapshotDto());
+    expect(facade.view().tasks).toEqual([]);
+    expect(facade.view().kanban.snapshot).toBe(currentBoard);
+    expect(facade.view().schedule.snapshot).toBe(currentSchedule);
+    if (!afterActiveRecovery) recoverActiveViews();
+    expect(facade.view().project?.isOperational).toBe(true);
+    expect(facade.view().schedule.snapshot?.projectVersion).toBe(37);
+    http.expectNone(() => true);
+  });
+
+  for (const projection of ['board', 'schedule'] as const) {
+    it.each([401, 403])(`honors current ${projection} %s after Draft invalidates data reads`, async (status) => {
+      const draftRecovery = beginDelayedDraftRecovery();
+      emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+      const tasks = http.expectOne('/api/projects/project-1/tasks');
+      const board = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
+      const schedule = http.expectOne('/api/projects/project-1/gantt');
+      draftRecovery.flush(draft);
+      (projection === 'board' ? board : schedule).flush({ message: 'Current access denied' }, { status, statusText: 'Denied' });
+      (projection === 'board' ? schedule : board).flush(projection === 'board' ? ganttSnapshotDto() : snapshotDto());
+      tasks.flush(taskRows);
+      http.expectOne('/api/projects/project-1').flush({ message: 'Current access denied' }, { status, statusText: 'Denied' });
+      expect(facade.view().status).toBe('permissionDenied');
+      expect(facade.view().kanban.snapshot).toBeNull(); expect(facade.view().schedule.snapshot).toBeNull();
+      http.expectNone(() => true);
+    });
+  }
+
+  for (const command of ['move', 'schedule'] as const) {
+    it.each([false, true])(`discards old ${command} rollback after Draft with afterActiveRecovery=%s`, (afterActiveRecovery) => {
+      const draftRecovery = beginDelayedDraftRecovery();
+      if (command === 'move') facade.moveTask({
+        item: facade.view().kanban.snapshot!.cards[0], targetStatus: 'stage-done',
+        targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard',
+      });
+      else facade.applyGanttEdit({ kind: 'progress', taskId: 'task-1', progressPercent: 40, expectedVersion: 3, source: 'form' });
+      const pending = http.expectOne(command === 'move' ? '/api/tasks/task-1/kanban-move' : '/api/tasks/task-1/progress');
+      draftRecovery.flush(draft);
+      if (afterActiveRecovery) recoverActiveViews();
+      const currentBoard = facade.view().kanban.snapshot, currentSchedule = facade.view().schedule.snapshot;
+      pending.flush({ message: 'Old operation unavailable' }, { status: 503, statusText: 'Unavailable' });
+      expect(facade.view().kanban.snapshot).toBe(currentBoard);
+      expect(facade.view().schedule.snapshot).toBe(currentSchedule);
+      if (!afterActiveRecovery) recoverActiveViews();
+      expect(facade.view().project?.isOperational).toBe(true);
+      http.expectNone(() => true);
+    });
+  }
+
   it.each([false, true])('keeps buffered operational data out of a recovered Draft with childFirst=%s', async (childFirst) => {
     enableViews(); facade.load('project-1');
     const initial = http.expectOne('/api/projects/project-1');
