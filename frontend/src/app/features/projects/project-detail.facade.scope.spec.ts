@@ -82,6 +82,35 @@ describe('ProjectDetailFacade initial response scope', () => {
     http.expectOne('/api/projects/project-1/gantt').flush(ganttSnapshotDto());
   }
 
+  for (const inFlight of [false, true]) {
+    it.each([401, 403])(`releases Task refresh ownership after schedule command %s with inFlight=${inFlight}`, async (status) => {
+      enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
+      facade.applyGanttEdit({ kind: 'progress', taskId: 'task-1', progressPercent: 40, expectedVersion: 3 });
+      const command = http.expectOne('/api/tasks/task-1/progress');
+      facade.retryTaskList();
+      if (inFlight) await Promise.resolve();
+      const oldRequests = http.match('/api/projects/project-1/tasks');
+      expect(oldRequests).toHaveLength(inFlight ? 1 : 0);
+      command.flush({ message: 'Schedule authority changed' }, { status, statusText: 'Denied' });
+      await Promise.resolve();
+      http.expectNone('/api/projects/project-1/tasks');
+      expect(facade.view().schedule.status).toBe('permissionDenied');
+      expect(facade.view().schedule.snapshot).toBeNull();
+
+      facade.retryTaskList(); await Promise.resolve();
+      const current = http.expectOne('/api/projects/project-1/tasks');
+      for (const old of oldRequests) old.flush({ items: [] });
+      facade.retryTaskList(); await Promise.resolve();
+      http.expectNone('/api/projects/project-1/tasks');
+      current.flush({ items: [] }); await Promise.resolve();
+      http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      expect(facade.view().status).toBe('ready');
+      expect(facade.view().schedule.status).toBe('permissionDenied');
+      expect(facade.view().schedule.snapshot).toBeNull();
+      http.expectNone('/api/projects/project-1/gantt');
+    });
+  }
+
   for (const type of ['Projects.TaskChanged.v1', 'Projects.ProjectChanged.v1'] as const) {
   it.each([true, false])(`keeps ${type} behind pending authorization collections with childFirst=%s`, async (childFirst) => {
     enableViews(); facade.load('project-1'); finishNavigation(); finishViews();
