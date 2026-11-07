@@ -1,0 +1,135 @@
+name: Experimental .NET 11 RC3 compatibility
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - ".github/workflows/dotnet11-rc3-compat.yml"
+      - "global.json"
+      - ".config/dotnet-tools.json"
+      - "dotnet-tools.json"
+      - "Coglatas.slnx"
+      - "src/**"
+      - "tests/Coglatas.Tests/**"
+      - "tests/Coglatas.Architecture.Tests/**"
+      - "tools/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dotnet11-rc3-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  migration-smoke:
+    # Explicit experiment guard; this PR never changes the release gate.
+    if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      ASPNETCORE_ENVIRONMENT: Test
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_MULTILEVEL_LOOKUP: "0"
+      TZ: UTC
+    steps:
+      - name: Checkout isolated migration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install exact RC3 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Attest .NET 11 SDK and project graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(dotnet --version)" = "11.0.100-rc.3.26522.148"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          sdk = json.loads(Path("global.json").read_text())["sdk"]
+          assert sdk == {"version": "11.0.100-rc.3.26522.148", "rollForward": "disable", "allowPrerelease": True}, sdk
+          projects = sorted([*Path("src").rglob("*.csproj"), *Path("tests").rglob("*.csproj"), *Path("tools").rglob("*.csproj")])
+          assert len(projects) >= 9, projects
+          for project in projects:
+              root = ET.parse(project).getroot()
+              frameworks = [e.text for e in root.iter("TargetFramework")]
+              assert frameworks == ["net11.0"], (str(project), frameworks)
+          print("RC3 SDK, exact prerelease policy and project targets verified:", len(projects))
+          PY
+          dotnet --info
+
+      - name: Restore RC3 dependency graph
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+
+      - name: Inventory RC3 OpenAPI build-tool payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$HOME/.nuget/packages/microsoft.extensions.apidescription.server/11.0.0-rc.3.26522.148"
+          test -d "$package"
+          echo "RC3 ApiDescription tool and build files:"
+          find "$package" -maxdepth 4 -type f -printf '%P\n' | grep -E '\.(dll|targets|runtimeconfig\.json)$' | sort | head -75
+
+      - name: Compile full backend and test graph
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
+
+      - name: Regression - notification local time must reject 24:00
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "FullyQualifiedName~TaskNotificationPreferencesRejectInvalidTimesAndProvideSafeConcurrencyRetryMetadata" --logger "trx;LogFileName=dotnet11-notification-time.trx" --results-directory artifacts/dotnet11
+
+      - name: Test portable backend regressions
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=dotnet11-portable.trx" --results-directory artifacts/dotnet11
+
+      - name: Set up reviewed Node 24 for strict TRX evidence parser
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Restore root parser dependencies without install scripts
+        run: |
+          npm install --global npm@11.17.0 --no-audit --no-fund --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Reject false-green portable test results
+        run: |
+          node scripts/ci/verify-os-portability-results.mjs --contract scripts/ci/os-portability.contract.json --trx artifacts/dotnet11/dotnet11-portable.trx
+
+      - name: Test architecture contracts
+        run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --logger "trx;LogFileName=dotnet11-architecture.trx" --results-directory artifacts/dotnet11
+
+      - name: Publish migration test receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dotnet11-rc3-compat-${{ github.run_attempt }}
+          path: artifacts/dotnet11
+          if-no-files-found: warn
+          retention-days: 14
+
+  container-pin-discovery:
+    # Resolve real registry digests before any pinned production-like Dockerfiles change.
+    if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Inspect RC3 OCI manifest digests without pulling or executing images
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in \
+            mcr.microsoft.com/dotnet/sdk:11.0.100-rc.3 \
+            mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.3; do
+            metadata="$(docker buildx imagetools inspect "$image")"
+            digest="$(printf '%s\n' "$metadata" | awk '$1 == "Digest:" { print $2; exit }')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Invalid OCI manifest digest for $image" >&2; exit 1; }
+            echo "$image@$digest"
+          done

@@ -217,7 +217,7 @@ public sealed class SecurityArchitectureApiInventoryTests
         // The inspection's pre-start provider alone omits those operations.
         Assert.Equal(producerDigest, Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(webAssembly))));
         foreach (var argument in new[] { tool, "--assembly", webAssembly,
-            "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v10.0",
+            "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v11.0",
             "--output", directory, "--project", "Coglatas.Web", "--assets-file", assetsPath,
             "--platform", "AnyCPU", "--file-name", "composed-host-openapi", "--openapi-version", "OpenApi3_1" })
             start.ArgumentList.Add(argument);

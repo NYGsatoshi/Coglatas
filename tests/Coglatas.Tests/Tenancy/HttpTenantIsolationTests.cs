@@ -2122,7 +2122,15 @@ public sealed class HttpTenantIsolationTests
         var data = app.Data;
         var path = $"/api/me/workspaces/{data.WorkspaceA.Id:D}/task-notification-preferences";
 
-        foreach (var invalid in new[] { "00:01", "23:59", "24:00" })
+        // Exercise every reject branch of the strict HH:mm wire contract.
+        // Do not omit requests or loosen the 400/error-code assertion.
+        foreach (var invalid in new[]
+                 {
+                     "", "0:00", "000:00", "00-00",
+                     "a0:00", "0a:00", "00:a0", "00:0a",
+                     "24:00", "99:00", "00:46", "00:59",
+                     "00:01", "23:59"
+                 })
         {
             using var content = JsonContent($$"""{"deadlineDigestLocalTime":"{{invalid}}","expectedVersion":1}""");
             using var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, path, HttpMethod.Patch, content);

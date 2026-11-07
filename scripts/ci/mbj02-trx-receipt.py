@@ -13,7 +13,7 @@ import time
 import xml.etree.ElementTree as ET
 
 NS = '{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}'
-ASSEMBLY = 'tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll'
+ASSEMBLY = 'tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests.dll'
 MANIFEST = 'scripts/ci/mbj02-issue527-required-tests.txt'
 TRX = 'mbj02-issue527-postgresql.trx'
 COUNTERS = ('total executed passed failed error timeout aborted inconclusive '

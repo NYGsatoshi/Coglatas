@@ -224,6 +224,7 @@ jobs:
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
+            tests/ci/test_performance_environment.py \     
             tests/ci/test_release_supply_chain.py \
             tests/ci/test_release_main_security_evidence.py \
             tests/ci/test_release_browser_evidence.py \
@@ -317,6 +318,8 @@ jobs:
             tests/ui/group-keyboard-observation.node-test.mjs \
             tests/ui/search-drawer-observation.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
+            scripts/ci/verify-sonar-node-coverage.node-test.mjs \
+            scripts/ci/dotnet-sdk-policy.node-test.mjs\
             tests/ci/synthetic-logical-recovery.node-test.mjs \
             tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs \
             tests/ci/synthetic-logical-recovery-probe.node-test.mjs \
