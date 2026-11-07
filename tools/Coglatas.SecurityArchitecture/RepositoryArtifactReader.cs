@@ -19,7 +19,8 @@ public sealed partial class RepositoryArtifactReader(string repositoryRoot)
     public async Task<byte[]?> ReadAsync(SpecSource source)
     {
         if (!RevisionPattern().IsMatch(source.Revision) || !IsSafePath(source.Path)) return null;
-        var executable = RepositoryGitExecutable.Resolve(repositoryRoot, Environment.GetEnvironmentVariable("PATH"));
+        var executable = RepositoryGitExecutable.Resolve(repositoryRoot, Environment.GetEnvironmentVariable("PATH"),
+            Environment.GetEnvironmentVariable(RepositoryGitExecutable.TrustedExecutableEnvironmentVariable));
         var info = new ProcessStartInfo(executable)
         {
             WorkingDirectory = repositoryRoot, UseShellExecute = false,

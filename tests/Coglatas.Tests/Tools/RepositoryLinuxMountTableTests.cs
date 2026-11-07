@@ -65,18 +65,18 @@ public sealed class RepositoryLinuxMountTableTests
     }
 
     [Theory]
-    [InlineData("/layers/upper/repository/git", true)]
-    [InlineData("/layers/lower/repository/git", true)]
-    [InlineData("/upper-alias/repository/git", true)]
-    [InlineData("/layers/upper/redirected-old-name/git", true)]
-    [InlineData("/usr/bin/git", false)]
-    public void ExposedOverlayLayersAreNotIndependentHostInstallations(string candidate, bool inside)
+    [InlineData("/layers/upper/repository/git")]
+    [InlineData("/layers/lower/repository/git")]
+    [InlineData("/upper-alias/repository/git")]
+    [InlineData("/layers/upper/redirected-old-name/git")]
+    [InlineData("/usr/bin/git")]
+    public void OverlayCrossFilesystemSelectionRequiresAnOperatorTrustedInstallation(string candidate)
     {
         var table = new RepositoryLinuxMountTable([
             "1 0 8:1 / / rw - ext4 /dev/sda rw",
             "2 1 0:72 / /merged rw - overlay overlay rw,lowerdir=/layers/lower,upperdir=/layers/upper,workdir=/layers/work",
             "3 1 8:1 /layers/upper /upper-alias rw - ext4 /dev/sda rw"]);
-        Assert.Equal(inside, table.IsWithinRepository("/merged/repository", candidate));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/merged/repository", candidate));
     }
 
     [Fact]
@@ -86,8 +86,8 @@ public sealed class RepositoryLinuxMountTableTests
             "1 0 8:1 / / rw - ext4 /dev/sda rw",
             "2 1 0:72 / /repository/mounted rw - overlay overlay rw,lowerdir=/nested-layer,upperdir=/upper,workdir=/work",
             "3 1 0:73 / /nested-layer rw - overlay overlay rw,lowerdir=/actual/lower"]);
-        Assert.True(table.IsWithinRepository("/repository", "/actual/lower/git"));
-        Assert.False(table.IsWithinRepository("/repository", "/usr/bin/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/actual/lower/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/usr/bin/git"));
     }
 
     [Theory]
@@ -107,7 +107,27 @@ public sealed class RepositoryLinuxMountTableTests
         string[] lines = ["1 0 8:1 / / rw - ext4 /dev/sda rw",
             "2 1 0:72 / /merged rw - overlay overlay rw,lowerdir=/merged"];
         Assert.Throws<IOException>(() => new RepositoryLinuxMountTable(lines).IsWithinRepository("/merged/repository", "/usr/bin/git"));
-        var invisible = new RepositoryLinuxMountTable(lines, _ => throw new IOException("Unavailable layer."));
-        Assert.Throws<IOException>(() => invisible.IsWithinRepository("/merged/repository", "/usr/bin/git"));
+        Assert.False(new RepositoryLinuxMountTable(lines).IsWithinRepository("/merged/repository", "/merged/host/git"));
+    }
+
+    [Fact]
+    public void HiddenLayerAndReverseOverlayAliasesDoNotUseReportedOptionPathsAsIdentity()
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /merged rw - overlay overlay rw,lowerdir=/layers/lower,upperdir=/layers/upper",
+            "3 1 0:73 / /layers rw - tmpfs tmpfs rw",
+            "4 1 8:1 /layers/upper /exposed rw - ext4 /dev/sda rw"]);
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/merged/repository", "/exposed/repository/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/real/repository", "/merged/repository/git"));
+    }
+
+    [Fact]
+    public void UnclassifiedProvidersDoNotBecomeAutomaticHostInstallations()
+    {
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:72 / /repository rw - fuse.unclassified source rw"]);
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/repository", "/usr/bin/git"));
     }
 }

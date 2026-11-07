@@ -112,6 +112,55 @@ public sealed class RepositoryGitExecutableTests
     }
 
     [Fact]
+    public void OperatorSelectedAbsoluteInstallationDoesNotSearchTheRepositoryOrPath()
+    {
+        using var fixture = new Fixture();
+        fixture.Executable(fixture.Repository);
+        Assert.Equal(fixture.TrustedExecutable,
+            RepositoryGitExecutable.Resolve(fixture.Repository, fixture.Repository, fixture.TrustedExecutable));
+        Assert.Equal(fixture.TrustedExecutable,
+            RepositoryGitExecutable.Resolve(fixture.Repository, null, fixture.TrustedExecutable));
+    }
+
+    public static IEnumerable<object[]> InvalidOperatorCases => new[]
+        { "empty", "relative", "missing", "directory", "root", "embedded-null", "repository", "repository-alias" }
+        .Concat(OperatingSystem.IsWindows() ? [] : new[] { "not-executable" }).Select(kind => new object[] { kind });
+
+    [Theory]
+    [MemberData(nameof(InvalidOperatorCases))]
+    public void InvalidOperatorConfigurationDoesNotFallBackToAnotherPath(string kind)
+    {
+        using var fixture = new Fixture();
+        var repositoryExecutable = fixture.Executable(fixture.Repository);
+        var alias = Path.Combine(fixture.Root, "repository-alias");
+        if (kind == "repository-alias") LinkDirectory(alias, fixture.Repository);
+        if (kind == "not-executable" && !OperatingSystem.IsWindows())
+            File.SetUnixFileMode(fixture.TrustedExecutable, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        var configured = kind switch
+        {
+            "empty" => "", "relative" => "git", "missing" => Path.Combine(fixture.Root, "missing-git"),
+            "directory" => fixture.Installation, "root" => Path.GetPathRoot(fixture.Root)!,
+            "embedded-null" => fixture.TrustedExecutable + "\0ignored", "repository" => repositoryExecutable,
+            "not-executable" => fixture.TrustedExecutable,
+            _ => Path.Combine(alias, OperatingSystem.IsWindows() ? "git.exe" : "git")
+        };
+        Assert.ThrowsAny<IOException>(() => RepositoryGitExecutable.Resolve(fixture.Repository, fixture.Installation, configured));
+    }
+
+    [Fact]
+    public void OperatorSelectedInstallationRetainsNativeParentTraversal()
+    {
+        using var fixture = new Fixture();
+        var nested = Directory.CreateDirectory(Path.Combine(fixture.Installation, "nested")).FullName;
+        var alias = Path.Combine(fixture.Root, "installation-alias");
+        LinkDirectory(alias, nested);
+        var configured = alias + Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar + "git" +
+            (OperatingSystem.IsWindows() ? ".exe" : "");
+        var expected = OperatingSystem.IsWindows() ? fixture.Executable(fixture.Root) : fixture.TrustedExecutable;
+        Assert.Equal(expected, RepositoryGitExecutable.Resolve(fixture.Repository, null, configured));
+    }
+
+    [Fact]
     public void HostInstallationSurvivesNativeLinkParentTraversal()
     {
         using var fixture = new Fixture();

@@ -6,11 +6,9 @@ namespace Coglatas.SecurityArchitecture;
 internal sealed class RepositoryLinuxMountTable
 {
     private readonly List<Mount> _mounts = [];
-    private readonly Func<string, string> _physicalPath;
 
-    internal RepositoryLinuxMountTable(IEnumerable<string> lines, Func<string, string>? physicalPath = null)
+    internal RepositoryLinuxMountTable(IEnumerable<string> lines)
     {
-        _physicalPath = physicalPath ?? (path => path);
         foreach (var line in lines)
         {
             var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -18,7 +16,7 @@ internal sealed class RepositoryLinuxMountTable
             if (separator < 6 || fields.Length != separator + 4 || fields[2].Split(':') is not [var major, var minor] ||
                 !uint.TryParse(major, out _) || !uint.TryParse(minor, out _))
                 throw new IOException("Cannot establish the Linux mount boundary.");
-            _mounts.Add(new Mount(fields[2], DecodePath(fields[3]), DecodePath(fields[4]), fields[separator + 1], fields[separator + 3]));
+            _mounts.Add(new Mount(fields[2], DecodePath(fields[3]), DecodePath(fields[4]), fields[separator + 1]));
         }
     }
 
@@ -27,39 +25,28 @@ internal sealed class RepositoryLinuxMountTable
         var root = Locate(repository);
         var candidate = Locate(path);
         if (root.Device == candidate.Device && AtOrBelow(candidate.Path, root.Path)) return true;
-        if (InsideOverlayLayers(root.Mount, candidate, [])) return true;
+        RequireComparableViews(root.Mount, candidate.Mount);
         // The inspected tree can itself contain mounted filesystems; aliases of those subtrees are also inside it.
         foreach (var mount in _mounts)
         {
             if (!AtOrBelow(mount.Point, repository)) continue;
             var subtree = Locate(mount.Point);
             if (subtree.Device == candidate.Device && AtOrBelow(candidate.Path, subtree.Path)) return true;
-            if (InsideOverlayLayers(subtree.Mount, candidate, [])) return true;
+            RequireComparableViews(subtree.Mount, candidate.Mount);
         }
         return false;
     }
 
-    private bool InsideOverlayLayers(Mount mount, (string Device, string Path, Mount Mount) candidate, HashSet<Mount> visited)
+    private static void RequireComparableViews(Mount repository, Mount candidate)
     {
-        if (mount.Type != "overlay" || mount.Device == candidate.Device) return false;
-        if (!visited.Add(mount)) throw new IOException("Cannot establish the Linux overlay boundary.");
-        var layers = mount.Options.Split(',').Where(option => option.StartsWith("lowerdir=", StringComparison.Ordinal) ||
-            option.StartsWith("upperdir=", StringComparison.Ordinal)).ToArray();
-        if (!layers.Any(option => option.StartsWith("lowerdir=", StringComparison.Ordinal)))
-            throw new IOException("Cannot establish the Linux overlay boundary.");
-        foreach (var option in layers)
-        {
-            foreach (var encoded in option[(option.IndexOf('=') + 1)..].Split(':', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var layer = Locate(_physicalPath(DecodePath(encoded)));
-                // Treat the entire backing layer as untrusted, including redirected/metacopy subtrees.
-                if (layer.Device == candidate.Device && AtOrBelow(candidate.Path, layer.Path)) return true;
-                if (InsideOverlayLayers(layer.Mount, candidate, visited)) return true;
-            }
-        }
-        visited.Remove(mount);
-        return false;
+        // Option pathnames cannot identify the layers held by OverlayFS after namespace changes.
+        if (repository.Type == "overlay" && candidate.Type == "overlay" && repository.Device == candidate.Device) return;
+        if (IsTransparent(repository.Type) && IsTransparent(candidate.Type)) return;
+        throw new IOException("Automatic Git selection cannot establish this filesystem boundary. Configure a trusted Git installation.");
     }
+
+    private static bool IsTransparent(string type) => type is
+        "ext2" or "ext3" or "ext4" or "xfs" or "btrfs" or "tmpfs" or "9p" or "virtiofs" or "vfat" or "exfat" or "ntfs3";
 
     private (string Device, string Path, Mount Mount) Locate(string path)
     {
@@ -102,5 +89,5 @@ internal sealed class RepositoryLinuxMountTable
         return path.Length > 1 ? path.TrimEnd('/') : path;
     }
 
-    private sealed record Mount(string Device, string Root, string Point, string Type, string Options);
+    private sealed record Mount(string Device, string Root, string Point, string Type);
 }

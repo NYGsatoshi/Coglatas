@@ -5,15 +5,38 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Coglatas.SecurityArchitecture;
 
-/// <summary>Selects Git from explicit host installation directories, never from the inspected repository.</summary>
+/// <summary>Selects host Git with automatic repository checks or explicit operator trust configuration.</summary>
 internal static class RepositoryGitExecutable
 {
-    internal static string Resolve(string repositoryRoot, string? searchPath)
+    internal const string TrustedExecutableEnvironmentVariable = "COGLATAS_TRUSTED_GIT_EXECUTABLE";
+
+    internal static string Resolve(string repositoryRoot, string? searchPath, string? trustedExecutable = null)
     {
         var windows = OperatingSystem.IsWindows();
         var windowsRoot = windows ? WindowsIdentity(repositoryRoot) : default;
         var root = windows ? string.Empty : PhysicalPath(repositoryRoot);
-        var mounts = OperatingSystem.IsLinux() ? new RepositoryLinuxMountTable(File.ReadLines("/proc/self/mountinfo"), PhysicalPath) : null;
+        if (trustedExecutable is not null)
+        {
+            // Only the invoking operator supplies this trust input; never derive it from repository declarations.
+            if (trustedExecutable.Contains('\0') || !Path.IsPathFullyQualified(trustedExecutable) ||
+                string.IsNullOrEmpty(Path.GetFileName(trustedExecutable)))
+                throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
+            if (windows)
+            {
+                if (!File.Exists(trustedExecutable)) throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
+                var executable = WindowsExecutablePath(trustedExecutable);
+                if (IsWithinWindowsRepository(executable, windowsRoot))
+                    throw new FileNotFoundException("The configured Git installation is inside the inspected repository.");
+                return executable;
+            }
+            var directory = PhysicalPath(Path.GetDirectoryName(trustedExecutable)!);
+            var selected = Path.Combine(directory, Path.GetFileName(trustedExecutable));
+            var physical = PhysicalPath(selected);
+            if (!File.Exists(physical) || IsWithinUnixRepository(directory, root) || IsWithinUnixRepository(physical, root) || Access(physical, 1) != 0)
+                throw new FileNotFoundException("The configured trusted Git installation is unavailable.");
+            return selected;
+        }
+        var mounts = OperatingSystem.IsLinux() ? new RepositoryLinuxMountTable(File.ReadLines("/proc/self/mountinfo")) : null;
         foreach (var rawEntry in (searchPath ?? "").Split(Path.PathSeparator))
         {
             // Windows PATH commonly quotes installation paths containing spaces. Unix quotes are literal.
@@ -35,9 +58,7 @@ internal static class RepositoryGitExecutable
                 candidate = Path.Combine(directory, "git");
                 var physical = PhysicalPath(candidate);
                 if (!File.Exists(physical)) continue;
-                var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
-                if (directory.Equals(root, StringComparison.Ordinal) || directory.StartsWith(prefix, StringComparison.Ordinal) ||
-                    physical.Equals(root, StringComparison.Ordinal) || physical.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                if (IsWithinUnixRepository(directory, root) || IsWithinUnixRepository(physical, root)) continue;
                 if (mounts is not null && (mounts.IsWithinRepository(root, directory) || mounts.IsWithinRepository(root, physical))) continue;
                 if (Access(physical, 1) != 0) continue;
                 return candidate;
@@ -49,6 +70,10 @@ internal static class RepositoryGitExecutable
         }
         throw new FileNotFoundException("No supported Git installation is available outside the inspected repository.");
     }
+
+    private static bool IsWithinUnixRepository(string path, string root) =>
+        path.Equals(root, StringComparison.Ordinal) || path.StartsWith(
+            root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     private static string PhysicalPath(string path)
     {
