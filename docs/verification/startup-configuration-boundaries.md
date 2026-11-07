@@ -21,3 +21,8 @@ Recovery, physical-device acceptance and Owner Release GO remain separate.
 Native results, original source/run/attempt/digest bindings, independent review,
 current required CI and the original PR Quality Gate must be recorded before
 normal expected-HEAD merge. Local coverage is not an additive Main forecast.
+
+The first native build stopped with CS1736 because the new fixture used the
+runtime `Environments.Production` field as an optional-parameter constant.
+The fixture now defaults a nullable input inside its constructor. The original
+failed build log is retained; no tests executed in that first attempt.

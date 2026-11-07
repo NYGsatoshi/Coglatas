@@ -173,7 +173,7 @@ public sealed class StartupConfigurationBoundaryTests
         public string DatabaseSecret { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         public string StorageSecret { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
-        public ValidationFixture(string environment = Environments.Production, bool middleware = true, bool antiforgery = true)
+        public ValidationFixture(string? environment = null, bool middleware = true, bool antiforgery = true)
         {
             Configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -188,7 +188,7 @@ public sealed class StartupConfigurationBoundaryTests
             if (middleware) csrf.MarkMiddlewareActive();
             Validator = new StartupConfigurationValidator(Options.Create(Tenancy), Options.Create(Files),
                 Options.Create(Security), Options.Create(Platform), Configuration, services, csrf,
-                new TestEnvironment(environment), Log);
+                new TestEnvironment(environment ?? Environments.Production), Log);
         }
 
         public void SetDatabaseSecret(string value)
