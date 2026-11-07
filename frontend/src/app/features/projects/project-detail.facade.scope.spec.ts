@@ -198,6 +198,31 @@ describe('ProjectDetailFacade initial response scope', () => {
     });
   }
 
+  for (const outcome of ['success', 409, 503] as const) {
+    it.each([false, true])(`discards old Board configuration ${outcome} after Draft with afterActiveRecovery=%s`, async (afterActiveRecovery) => {
+      const draftRecovery = beginDelayedDraftRecovery();
+      facade.updateKanbanConfig('priority', facade.view().kanban.snapshot!.columns);
+      const config = http.expectOne('/api/projects/project-1/kanban/config');
+      draftRecovery.flush(draft);
+      if (afterActiveRecovery) recoverActiveViews();
+      const currentBoard = facade.view().kanban.snapshot;
+      const currentStatus = facade.view().kanban.status;
+      if (outcome === 'success') config.flush({ snapshot: snapshotDto(), focusTaskId: null, warnings: [] });
+      else config.flush({ message: 'Old configuration failed' }, { status: outcome, statusText: 'Unavailable' });
+      expect(facade.view().kanban.snapshot).toBe(currentBoard);
+      expect(facade.view().kanban.status).toBe(currentStatus);
+      if (outcome === 'success' && afterActiveRecovery) {
+        // A completed command is reconciled only through current HTTP authority.
+        http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+        await Promise.resolve();
+        http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+      }
+      if (!afterActiveRecovery) recoverActiveViews();
+      expect(facade.view().project?.isOperational).toBe(true);
+      http.expectNone(() => true);
+    });
+  }
+
   it.each([false, true])('keeps buffered operational data out of a recovered Draft with childFirst=%s', async (childFirst) => {
     enableViews(); facade.load('project-1');
     const initial = http.expectOne('/api/projects/project-1');
