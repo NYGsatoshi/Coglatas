@@ -25,3 +25,15 @@ RLS, source/import scope, baseline, threshold or budget is changed. Native exact
 source execution, independent review, hosted checks and the original PR Gate are
 separate requirements. Coverage changes require resulting-Main measurement and
 are not inferred from SQL generation or local test counts.
+
+Independent review found that SQLSTATE alone could accept the wrong dependency
+failure. A no-rebuild diagnostic execution of the original exact-source binaries
+on the same pinned PostgreSQL image observed `DROP TABLE IF EXISTS file_objects`
+refused because of `FK_tenant_settings_file_objects_LogoFileId` and
+`FK_export_jobs_file_objects_FileObjectId`. The strengthened control requires that
+unique generated command, the exact dropped-table diagnostic and both dependency
+identities. Error detail is enabled only on the owned disposable test connection.
+A separate real temporary parent/child dependency failure has the same `2BP01`
+but must fail that classifier; its test-owned transaction is also rolled back.
+This binds the current refusal without claiming equivalence to an earlier run's
+initiating cause or changing any migration or dependency behavior.
