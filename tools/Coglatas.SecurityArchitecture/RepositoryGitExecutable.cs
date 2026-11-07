@@ -22,14 +22,15 @@ internal static class RepositoryGitExecutable
             try
             {
                 var candidate = Path.Combine(entry, OperatingSystem.IsWindows() ? "git.exe" : "git");
-                if (!File.Exists(candidate)) continue;
                 if (windows)
                 {
+                    if (!File.Exists(candidate)) continue;
                     var executable = WindowsExecutablePath(candidate);
                     if (IsWithinWindowsRepository(executable, windowsRoot)) continue;
                     return executable;
                 }
                 var physical = PhysicalPath(candidate);
+                if (!File.Exists(physical)) continue;
                 var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
                 if (physical.Equals(root, StringComparison.Ordinal) || physical.StartsWith(prefix, StringComparison.Ordinal)) continue;
                 if (Access(physical, 1) != 0) continue;

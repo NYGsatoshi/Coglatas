@@ -78,6 +78,19 @@ public sealed class RepositoryGitExecutableTests
     }
 
     [Fact]
+    public void HostInstallationSurvivesNativeLinkParentTraversal()
+    {
+        using var fixture = new Fixture();
+        var nested = Directory.CreateDirectory(Path.Combine(fixture.Installation, "nested")).FullName;
+        var alias = Path.Combine(fixture.Root, "installation-alias");
+        LinkDirectory(alias, nested);
+        var entry = alias + Path.DirectorySeparatorChar + "..";
+        // Ordinary Windows paths normalize parents lexically; Unix resolves the link first.
+        var expected = OperatingSystem.IsWindows() ? fixture.Executable(fixture.Root) : fixture.TrustedExecutable;
+        Assert.Equal(expected, RepositoryGitExecutable.Resolve(fixture.Repository, entry));
+    }
+
+    [Fact]
     public void FileSystemRootDoesNotLoseItsContainmentSeparator()
     {
         using var fixture = new Fixture();
