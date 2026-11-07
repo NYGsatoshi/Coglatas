@@ -31,6 +31,9 @@ with a repository-local executable present. Existing registry/history/traceabili
 and oversize-blob tests remain unchanged. Separate isolated-process reproductions
 exercise actual Reader invocation under hostile current directories and PATH
 entries; they preserve original unsafe observations and original output bytes.
+The local tool controls use the Tools namespace; the exact formal SEC-ARCH
+evidence catalogue and producer remain unchanged. Tool-only PR routing selects
+both owners, including when no test file changes, with a dedicated regression.
 
 The initial candidate's Windows network-share rejection was independently
 identified and reproduced against an accessible localhost synthetic fixture.
