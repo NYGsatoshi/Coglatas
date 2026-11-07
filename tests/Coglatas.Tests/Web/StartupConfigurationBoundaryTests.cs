@@ -47,6 +47,7 @@ public sealed class StartupConfigurationBoundaryTests
     public async Task ProductionRejectsAnUnsafeSettingWithoutDisclosingGeneratedSecrets(string scenario, string expected)
     {
         using var fixture = new ValidationFixture();
+        var suppliedDatabaseSecret = fixture.DatabaseSecret;
         switch (scenario)
         {
             case "cookie": fixture.Security.CookieSecurePolicy = CookieSecurePolicy.SameAsRequest; break;
@@ -57,7 +58,10 @@ public sealed class StartupConfigurationBoundaryTests
             case "connection-missing": fixture.Configuration["ConnectionStrings:DefaultConnection"] = null; break;
             case "connection-invalid": fixture.Configuration["ConnectionStrings:DefaultConnection"] = "malformed"; break;
             case "connection-no-secret": fixture.Configuration["ConnectionStrings:DefaultConnection"] = "Host=synthetic.invalid"; break;
-            case "connection-short": fixture.SetDatabaseSecret(fixture.DatabaseSecret[..11]); break;
+            case "connection-short":
+                suppliedDatabaseSecret = fixture.DatabaseSecret[..11];
+                fixture.SetDatabaseSecret(suppliedDatabaseSecret);
+                break;
             case "storage-no-secret": fixture.Files.SecretKey = null; break;
             case "storage-short": fixture.Files.SecretKey = fixture.StorageSecret[..11]; break;
             default: throw new ArgumentOutOfRangeException(nameof(scenario));
@@ -67,13 +71,26 @@ public sealed class StartupConfigurationBoundaryTests
             () => fixture.Validator.StartAsync(CancellationToken.None));
 
         Assert.Equal("Coglatas Portal configuration validation failed: " + expected, exception.Message);
-        Assert.Equal("Configuration validation failed: " + expected, Assert.Single(fixture.Log.Messages));
-        Assert.DoesNotContain(fixture.DatabaseSecret, exception.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain(fixture.StorageSecret, exception.ToString(), StringComparison.Ordinal);
-        foreach (var message in fixture.Log.Messages)
+        var entry = Assert.Single(fixture.Log.Entries);
+        Assert.Equal("Configuration validation failed: " + expected, entry.Message);
+        Assert.Equal(LogLevel.Error, entry.Level);
+        Assert.Null(entry.Exception);
+        var properties = Assert.IsAssignableFrom<IEnumerable<KeyValuePair<string, object?>>>(entry.State).ToArray();
+        Assert.Equal(2, properties.Length);
+        Assert.Contains(properties, property => property.Key == "Error" && Equals(property.Value, expected));
+        Assert.Contains(properties, property => property.Key == "{OriginalFormat}" &&
+            Equals(property.Value, "Configuration validation failed: {Error}"));
+        foreach (var secret in new[] { fixture.DatabaseSecret, fixture.StorageSecret, suppliedDatabaseSecret, fixture.Files.SecretKey }.OfType<string>())
         {
-            Assert.DoesNotContain(fixture.DatabaseSecret, message, StringComparison.Ordinal);
-            Assert.DoesNotContain(fixture.StorageSecret, message, StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, exception.ToString(), StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, entry.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, entry.Exception?.ToString() ?? string.Empty, StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, entry.State?.ToString() ?? string.Empty, StringComparison.Ordinal);
+            foreach (var property in properties)
+            {
+                Assert.DoesNotContain(secret, property.Key, StringComparison.Ordinal);
+                Assert.DoesNotContain(secret, property.Value?.ToString() ?? string.Empty, StringComparison.Ordinal);
+            }
         }
     }
 
@@ -202,12 +219,15 @@ public sealed class StartupConfigurationBoundaryTests
 
     private sealed class RecordingLog : ILogger<StartupConfigurationValidator>
     {
-        public List<string> Messages { get; } = [];
+        public List<LogEntry> Entries { get; } = [];
+        public IEnumerable<string> Messages => Entries.Select(entry => entry.Message);
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => Messages.Add(formatter(state, exception));
+            Func<TState, Exception?, string> formatter) => Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception, state));
     }
+
+    private sealed record LogEntry(LogLevel Level, string Message, Exception? Exception, object? State);
 
     private sealed class TestEnvironment(string environment) : IWebHostEnvironment
     {
