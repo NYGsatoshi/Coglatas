@@ -264,3 +264,17 @@ records it once. Release discards the visit intent and its Workspace identity.
 Four controls reproduced Draft buffer admission and the lost visit after an
 initial transient failure, with 250 passing controls. Companion release and
 Workspace replacement controls preserve the intent boundary.
+
+An admitted Draft ends the previous operational lifetime, including when the
+initial authorization buffer has already completed. Held ordinary Task, Board
+and Schedule data and command rollbacks cannot repopulate that Draft or a later
+Active view. Refresh ownership and pending callbacks are invalidated together;
+old finalizers cannot release a new flight. Current Board and Schedule 401/403
+responses still follow the existing authority revalidation path. Six added
+controls failed with 258 passing before the repair. Two further controls check
+queued callbacks and a fresh Task flight across Draft-to-Active recovery.
+The first run's fixture teardown failure cascaded into later tests; that raw
+failure is retained separately from the isolated six-failure reproduction.
+The fixture now always resets TestBed after verifying outstanding requests.
+History assertions use a service spy and prove invocation identity and order,
+not actual Continue Working persistence.
