@@ -38,3 +38,18 @@ executed DLL/PDB pairs are retained: receipt SHA256
 `6501afcf71d0ce36e12d5845a6c3638096afdb932d3ed861f03a41c8ab39e4cf`,
 source archive
 `111fa574b31bbc529536c58aa5e15af500a5a69ee14ec5a7f3a99f1e841acbea`.
+
+Independent source review identified two evidence gaps after that correction:
+instant equality does not require a UTC offset, and selected snapshot fields
+could miss deletion metadata or audits with new/null Channel identities. The
+expanded control explicitly checks the offsets of the immediate, listed and
+stored timestamps. Snapshots include deletion actor/reason and every AuditLog
+scalar property; denial audit queries are independent of the returned Channel
+IDs and include every Channel audit in the dedicated fixture. Sibling retention
+keeps its separate identity scope. Separate queries remain non-atomic.
+
+The actual Web fixture runs a child process. The parent-process raw report at
+`97ee1eff7904bb3f66547a63406ae68a7df6c46e` contains 237 ChannelService
+sequence points with zero visits, despite the successful HTTP control. This
+report receives no Channel coverage credit; no child hits are synthesized or
+inserted. Functional persistence evidence and canonical coverage remain separate.

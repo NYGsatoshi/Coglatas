@@ -106,7 +106,16 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
                 }
                 await AssertDeniedWithoutChangesAsync(database, groupId, () => member.GetAsync(route));
                 using (var response = await owner.GetAsync(route))
+                {
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                    var viewed = await response.Content.ReadFromJsonAsync<ChannelResponse>();
+                    Assert.NotNull(viewed);
+                    Assert.Equal(created.Id, viewed.Id);
+                    Assert.Equal(groupId, viewed.GroupId);
+                    Assert.Equal("Synthetic Private Council", viewed.Name);
+                    Assert.Equal("updated description", viewed.Description);
+                    Assert.Equal(ChannelType.Confidential, viewed.ChannelType);
+                }
 
                 var target = new AddChannelMemberRequest(SecurityCiFixtureSeed.TenantAMemberUserId, ChannelRole.ReadOnly);
                 ChannelMemberResponse added;
@@ -129,7 +138,9 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
                     var listed = await response.Content.ReadFromJsonAsync<List<ChannelMemberResponse>>();
                     Assert.NotNull(listed);
                     Assert.Equal(2, listed.Count);
-                    Assert.Equal(added with { JoinedAt = persistedJoinedAt }, Assert.Single(listed, row => row.UserId == target.UserId));
+                    var listedMember = Assert.Single(listed, row => row.UserId == target.UserId);
+                    Assert.Equal(TimeSpan.Zero, listedMember.JoinedAt.Offset);
+                    Assert.Equal(added with { JoinedAt = persistedJoinedAt }, listedMember);
                 }
                 await using (var verify = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
@@ -137,10 +148,19 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
                         .SingleAsync(row => row.ChannelId == created.Id && row.UserId == target.UserId);
                     Assert.Equal(tenantId, stored.TenantId);
                     Assert.Equal(added.Role, stored.Role);
+                    Assert.Equal(TimeSpan.Zero, stored.JoinedAt.Offset);
                     Assert.Equal(persistedJoinedAt, stored.JoinedAt);
                 }
                 using (var response = await member.GetAsync(route))
+                {
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                    var viewed = await response.Content.ReadFromJsonAsync<ChannelResponse>();
+                    Assert.NotNull(viewed);
+                    Assert.Equal(created.Id, viewed.Id);
+                    Assert.Equal(groupId, viewed.GroupId);
+                    Assert.Equal("Synthetic Private Council", viewed.Name);
+                    Assert.Equal(ChannelType.Confidential, viewed.ChannelType);
+                }
                 await AssertDeniedWithoutChangesAsync(database, groupId, () => owner.PostAsJsonAsync(route + "/members", target));
                 await AssertDeniedWithoutChangesAsync(database, groupId, () => owner.PostAsJsonAsync(route + "/members",
                     new AddChannelMemberRequest(Guid.NewGuid(), ChannelRole.Member)));
@@ -211,7 +231,8 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
             .OrderBy(row => row.Id).Select(row => new
             {
                 row.Id, row.TenantId, row.WorkspaceId, row.GroupId, row.Name, row.Slug, row.Description,
-                row.Type, row.Status, row.CreatedByUserId, row.CreatedAt, row.UpdatedAt, row.DeletedAt
+                row.Type, row.Status, row.CreatedByUserId, row.CreatedAt, row.UpdatedAt,
+                row.DeletedAt, row.DeletedByUserId, row.DeleteReason
             }).ToListAsync();
         var ids = channels.Select(row => row.Id).ToArray();
         var members = await verify.ChannelMembers.AsNoTracking().Where(row => ids.Contains(row.ChannelId))
@@ -219,11 +240,16 @@ public sealed class LegacyChannelLifecyclePersistencePostgreSqlTests
             { row.Id, row.TenantId, row.ChannelId, row.UserId, row.Role, row.JoinedAt, row.CreatedAt, row.UpdatedAt }).ToListAsync();
         var posts = await verify.Posts.AsNoTracking().Where(row => ids.Contains(row.ChannelId))
             .OrderBy(row => row.Id).Select(row => new
-            { row.Id, row.TenantId, row.ChannelId, row.AuthorUserId, row.Body, row.EditedAt, row.PinnedAt, row.PinnedByUserId, row.CreatedAt, row.UpdatedAt, row.DeletedAt }).ToListAsync();
+            { row.Id, row.TenantId, row.ChannelId, row.AuthorUserId, row.Body, row.EditedAt, row.PinnedAt, row.PinnedByUserId,
+                row.CreatedAt, row.UpdatedAt, row.DeletedAt, row.DeletedByUserId, row.DeleteReason }).ToListAsync();
+        // Denials inspect every Channel audit in this owned fixture, including new/null
+        // entity IDs. Sibling retention remains explicitly scoped to that sibling.
         var audits = await verify.AuditLogs.AsNoTracking()
-            .Where(row => row.EntityType == "Channel" && row.EntityId.HasValue && ids.Contains(row.EntityId.Value))
+            .Where(row => row.EntityType == "Channel" && (!channelId.HasValue || row.EntityId == channelId.Value))
             .OrderBy(row => row.Id).Select(row => new
-            { row.Id, row.TenantId, row.ActorUserId, row.Action, row.EntityType, row.EntityId, row.Summary, row.MetadataJson, row.CreatedAt }).ToListAsync();
+            { row.Id, row.TenantId, row.ActorUserId, row.Action, row.EntityType, row.EntityId,
+                row.WorkspaceId, row.GroupId, row.ProjectId, row.IpAddress, row.UserAgent,
+                row.Summary, row.MetadataJson, row.CorrelationId, row.CreatedAt }).ToListAsync();
         return JsonSerializer.Serialize(new { channels, members, posts, audits });
     }
 }
