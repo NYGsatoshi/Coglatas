@@ -59,7 +59,8 @@ describe('ProjectDetailFacade initial response scope', () => {
   });
 
   afterEach(() => {
-    facade.release(); http.verify(); TestBed.resetTestingModule();
+    try { facade.release(); http.verify(); }
+    finally { TestBed.resetTestingModule(); }
   });
 
   function enableViews() {
