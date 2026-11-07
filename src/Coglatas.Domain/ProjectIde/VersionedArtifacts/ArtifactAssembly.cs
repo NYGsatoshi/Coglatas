@@ -78,6 +78,7 @@ public sealed class PrototypeArtifactStore
     private readonly object _sync = new();
     private Dictionary<ArtifactIdentity, PrototypeArtifact> _artifacts = [];
     private Dictionary<string, ProjectSource> _sources = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PrototypeOfflineContainer> _containers = new(StringComparer.Ordinal);
     public int Count { get { lock (_sync) return _artifacts.Count; } }
     public int SourceCount { get { lock (_sync) return _sources.Count; } }
 
@@ -90,6 +91,29 @@ public sealed class PrototypeArtifactStore
     {
         ArgumentNullException.ThrowIfNull(pin);
         lock (_sync) return _sources.GetValueOrDefault(pin.Data.CanonicalText);
+    }
+
+    public PrototypeOfflineContainer? FindContainer(string origin)
+    {
+        lock (_sync) return _containers.GetValueOrDefault(origin);
+    }
+
+    /// <summary>Publishes complete supported content and its exact original container together.</summary>
+    public ArtifactImportState ImportContainer(ArtifactIdentity root, string origin, ReadOnlySpan<byte> bytes,
+        CancellationToken cancellationToken = default, int maximumArtifacts = 4096, long maximumBytes = 16_777_216)
+    {
+        var read = PrototypeOfflineContainer.Read(root, origin, bytes, cancellationToken, maximumArtifacts, maximumBytes);
+        if (read.Container is not { } container) return read.State;
+        lock (_sync)
+        {
+            if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
+            if (_containers.TryGetValue(origin, out var existing) &&
+                (existing.Root != root || !existing.RecoverOriginalBytes().AsSpan().SequenceEqual(container.RecoverOriginalBytes())))
+                throw new FormatException("An origin label cannot replace a different original container.");
+            var state = Import(root, container.ArtifactBuffers, container.Sources, cancellationToken, maximumArtifacts, maximumBytes);
+            if (state == ArtifactImportState.Imported) _containers.TryAdd(origin, container);
+            return state;
+        }
     }
 
     public ArtifactImportState Import(ArtifactIdentity root, IEnumerable<ReadOnlyMemory<byte>> buffers,
@@ -206,7 +230,8 @@ public sealed class PrototypeArtifactStore
                     if (association is null || actual is null) return ArtifactImportState.Incomplete;
                     var manifest = Resolve(candidate, association.Data.Value.GetProperty("payload"), "dependencyManifest");
                     if (manifest is null) return ArtifactImportState.Incomplete;
-                    _ = ArtifactAssembly.BindReceipt(artifact, association, manifest, actual);
+                    if (!ArtifactAssembly.BindReceipt(artifact, association, manifest, actual))
+                        return ArtifactImportState.Incomplete;
                 }
             }
             if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
