@@ -188,4 +188,27 @@ public sealed class RepositoryLinuxMountTableTests
         Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/usr/bin/git"));
         Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/work/repository/control/entry"));
     }
+
+    [Theory]
+    [InlineData("net:[4026532708]")]
+    [InlineData("mnt:[4026532709]")]
+    [InlineData("cgroup:[4026532710]")]
+    [InlineData("/")]
+    public void NamespaceObjectMountsRemainOpaqueWithoutRejectingUnrelatedHostGit(string root)
+    {
+        // nsfs dentries use a namespace object name, rather than a filesystem-root pathname.
+        var table = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:4 " + root + " /run/netns/synthetic rw - nsfs nsfs rw"]);
+        Assert.False(table.IsWithinRepository("/work/repository", "/usr/bin/git"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/work/repository", "/run/netns/synthetic"));
+        Assert.Throws<IOException>(() => table.IsWithinRepository("/run/netns/synthetic", "/usr/bin/git"));
+        var mountedSubtree = new RepositoryLinuxMountTable([
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "2 1 0:4 " + root + " /work/repository/control rw - nsfs nsfs rw"]);
+        Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/usr/bin/git"));
+        Assert.Throws<IOException>(() => mountedSubtree.IsWithinRepository("/work/repository", "/work/repository/control"));
+        Assert.Throws<IOException>(() => new RepositoryLinuxMountTable([
+            "1 0 0:4 " + root + " relative rw - nsfs nsfs rw"]));
+    }
 }
