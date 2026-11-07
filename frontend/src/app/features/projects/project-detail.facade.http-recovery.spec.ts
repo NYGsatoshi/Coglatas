@@ -181,6 +181,39 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
   });
 
+  it.each(['draft', 'active'] as const)('retains newer Active recovery when an older successful %s catch-up finishes last', async (kind) => {
+    await mountBoard();
+    const first = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await first; await settle();
+    const olderParent = http.expectOne('/api/projects/project-1');
+    const olderBoard = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
+    const olderSchedule = http.expectOne('/api/projects/project-1/gantt');
+    if (kind === 'active') olderParent.flush({ ...active, title: 'Older Active view' });
+    const olderCollections = kind === 'active' ? [
+      http.expectOne('/api/projects/project-1/tasks'),
+      http.expectOne('/api/projects/project-1/workload'),
+      http.expectOne('/api/projects/project-1/members'),
+    ] : [];
+    const second = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await second; await settle();
+    http.expectOne('/api/projects/project-1').flush({ ...active, title: 'Current Active view' });
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    if (kind === 'draft') olderParent.flush({ ...draft, title: 'Older Draft view' });
+    for (const collection of olderCollections) collection.flush(
+      collection.request.url.endsWith('/tasks') ? { items: [] } : { members: [] },
+    );
+    olderBoard.flush(snapshotDto()); olderSchedule.flush(ganttSnapshotDto()); await settle();
+    for (const read of http.match('/api/projects/project-1/gantt')) read.flush({ ...ganttSnapshotDto(), projectVersion: 37 });
+    expect(detail.view().project?.title).toBe('Current Active view');
+    expect(detail.view().status).toBe('ready');
+    expect(detail.view().kanban.snapshot).not.toBeNull();
+    expect(detail.view().schedule.snapshot?.projectVersion).toBe(37);
+    http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+  });
+
   async function loadBoardWithHeldInitialCollections() {
     enableBoard(); detail.load('project-1');
     const cold = http.expectOne('/api/projects/project-1');
