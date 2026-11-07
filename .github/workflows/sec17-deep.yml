@@ -6,6 +6,7 @@ on:
       - 'tests/Coglatas.Tests/SecurityArchitecture/**'
       - 'scripts/ci/sec17_deep_execution.py'
       - 'scripts/ci/test_sec17_deep_execution.py'
+      - 'scripts/ci/test_sec_arch_evidence.py'
       - 'scripts/ci/sec_arch_evidence.py'
       - 'scripts/ci/sec_arch_assembly_binding.py'
       - '.github/workflows/sec17-deep.yml'
