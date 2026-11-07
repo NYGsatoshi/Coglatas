@@ -222,3 +222,15 @@ Stale callbacks still return before dispatch and cannot release a newer flight.
 The controls require a fresh Task retry and its coalesced follow-up to succeed
 while the denied Schedule remains empty. The initial test-authoring compile
 failure and the four original runtime failures remain retained separately.
+
+Overlapping catch-ups require independent ownership for failed parent gates and
+successful current recovery. Four additional controls reproduced a missing
+Schedule follow-up with either parent order and either child-response order;
+the preceding 238 controls passed. A discarded Schedule response now releases
+only its own flight and resumes queued work after current ready authority.
+Successful parent recovery also resumes a queued follow-up whose previous
+flight already completed. Older transient parent failures cannot replace a
+newer applied parent projection. Current 401/403 responses still clear protected
+state, including an older request completing after a newer success. The first
+new fixture's Board query mismatch is retained as an authoring failure, separate
+from the four subsequent runtime failures. Original test bodies remain intact.

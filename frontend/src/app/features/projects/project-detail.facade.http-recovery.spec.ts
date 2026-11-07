@@ -158,6 +158,29 @@ describe('Project detail through real HTTP-only Workspace recovery', () => {
     });
   }
 
+  it.each([401, 403])('honors current %s from an older catch-up after a newer catch-up succeeds', async (status) => {
+    await mountBoard();
+    const first = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await first; await settle();
+    const olderParent = http.expectOne('/api/projects/project-1');
+    const olderBoard = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
+    const olderSchedule = http.expectOne('/api/projects/project-1/gantt');
+    const second = workspaces.loadWorkspaces(true);
+    selectFromHttp(); await second; await settle();
+    http.expectOne('/api/projects/project-1').flush(active);
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    http.expectOne('/api/projects/project-1/workload').flush({ members: [] });
+    http.expectOne('/api/projects/project-1/members').flush({ members: [] });
+    http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban')).flush(snapshotDto());
+    expect(detail.view().status).toBe('ready');
+    olderParent.flush({ message: 'Current authority denied' }, { status, statusText: 'Denied' });
+    olderBoard.flush(snapshotDto()); olderSchedule.flush(ganttSnapshotDto()); await settle();
+    expect(detail.view().status).toBe('permissionDenied');
+    expect(detail.view().kanban.snapshot).toBeNull();
+    expect(detail.view().schedule.snapshot).toBeNull();
+    http.expectNone(request => request.url.startsWith('/api/projects/project-1'));
+  });
+
   async function loadBoardWithHeldInitialCollections() {
     enableBoard(); detail.load('project-1');
     const cold = http.expectOne('/api/projects/project-1');
