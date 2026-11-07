@@ -64,7 +64,7 @@ if [[ -z "$base_sha" || "$base_sha" == "$zero_sha" || -z "$head_sha" ]] || \
 fi
 
 changed_file_list="${RUNNER_TEMP:-/tmp}/ci-changed-files.txt"
-if ! git diff --name-only "$base_sha" "$head_sha" > "$changed_file_list"; then
+if ! git diff --no-renames --name-only "$base_sha" "$head_sha" > "$changed_file_list"; then
   route_all
   exit 0
 fi
@@ -425,7 +425,7 @@ while IFS= read -r path; do
       backend=true
       backend_pr07d=true
       ;;
-    tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown*.cs)
+    tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRFixture.cs|tests/Coglatas.Tests/TestInfrastructure/*.cs)
       # This shared process helper is used by the actual Web fixture across
       # both the formal SEC-ARCH suite and PostgreSQL HTTP/transport owners.
       add_backend_scope "TestInfrastructure"

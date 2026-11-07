@@ -36,11 +36,14 @@ unclassified methods in the reserved SecurityArchitecture namespace. Their
 relocation preserves every test body and the strict catalogue/classification
 rules. They do not acquire formal SEC-ARCH verifier or acceptance credit.
 
-Changes to this shared helper or its controls select TestInfrastructure,
-SecurityArchitecture and PostgreSql backend scopes. Both specialized SEC-17
-workflow path filters also include the helper and controls, so future helper-only
-edits retain their dependent HTTP/transport validation. These are added execution
-routes; formal catalogue rules, owners, required checks and thresholds remain.
+Changes to this shared fixture or TestInfrastructure C# files select
+TestInfrastructure, SecurityArchitecture and PostgreSql backend scopes. The router
+retains both old and new paths for renames, so moving the helper cannot lose the
+old dependency route. Both specialized SEC-17 workflow path filters include the
+TestInfrastructure folder. Helper/control edits, fixture-only edits and a helper
+move outside its original folder have routing regressions. These are added
+execution routes; formal catalogue rules, owners, required checks and thresholds
+remain.
 
 The retained force-stop fallback still uses numeric PIDs and has a pre-existing
 PID reuse race. The pidfd TERM path does not establish identity safety for that
