@@ -234,3 +234,10 @@ newer applied parent projection. Current 401/403 responses still clear protected
 state, including an older request completing after a newer success. The first
 new fixture's Board query mismatch is retained as an authoring failure, separate
 from the four subsequent runtime failures. Original test bodies remain intact.
+
+Two further controls reproduced older successful Draft and Active catch-ups
+replacing a newer Active view, with the preceding 244 controls passing. Both
+successful and transient-error parent results now retain the applied Project
+projection order. Current authorization denials remain authoritative regardless
+of that success order. The initial new test's DTO/view-model name mismatch is
+retained as a separate compile failure, not a runtime reproduction.

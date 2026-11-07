@@ -2203,7 +2203,8 @@ export class ProjectDetailFacade {
         this.state.set(failure);
         return;
       }
-      this.projectProjectionAppliedGeneration = Math.max(this.projectProjectionAppliedGeneration, taskListRequestGeneration);
+      if (taskListRequestGeneration < this.projectProjectionAppliedGeneration) {return;}
+      this.projectProjectionAppliedGeneration = taskListRequestGeneration;
       if (result.kind === 'draft') {
         this.projectOperational = false;
         const previousActivation = this.state().activation;
