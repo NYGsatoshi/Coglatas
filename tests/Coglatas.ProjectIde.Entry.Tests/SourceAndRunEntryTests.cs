@@ -79,7 +79,7 @@ public sealed class SourceAndRunEntryTests
         {
             entityId = Id(8), documentId = Id(4), kind = "coglatas.requirement", schemaVersion = 1,
             payload = new { target, condition = new { kind = "coglatas.literal", value = new
-                { type = new { kind = "coglatas.boolean", nullable = false }, state = "coglatas.known", value = true } }, evidenceKind = "coglatas.model-proof" }
+                { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = true } }, evidenceKind = "coglatas.model-proof" }
         } }));
         source = ProjectSource.Create(source.Context, source.Documents, declarations);
         var input = Input(settings, source); var location = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context, entityId: EntityId.Parse(Id(8)));

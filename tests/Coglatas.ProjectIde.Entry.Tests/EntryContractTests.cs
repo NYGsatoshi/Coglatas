@@ -22,7 +22,7 @@ public sealed class EntryContractTests
         {
             compilerInput = association.Identity.Data.Value, actualSet = actual.Identity.Data.Value,
             producerClaim = new { kind = producer, identity = "synthetic-producer" },
-            captureContext = new { runId = "run-one", capturedAtUtc = "2026-11-07T00:00:00Z" },
+            captureContext = new { runId = "run-one", capturedAtUtc = "2026-11-07T00:00:00.0000000Z" },
             execution, coverage, provenance = new[] { "synthetic-origin" }
         }));
     // Independent framing writer: no Product encoder or framing helper is used.
