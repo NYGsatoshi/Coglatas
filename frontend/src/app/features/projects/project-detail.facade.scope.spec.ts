@@ -144,6 +144,39 @@ describe('ProjectDetailFacade initial response scope', () => {
     });
   }
 
+  it('drops pre-Draft queued refreshes without taking a later Active refresh owner', async () => {
+    const draftRecovery = beginDelayedDraftRecovery();
+    emitCurrent('Projects.TaskChanged.v1');
+    draftRecovery.flush(draft);
+    recoverActiveViews();
+    await Promise.resolve();
+    http.expectNone(() => true);
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    finishViews();
+    http.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+    expect(facade.view().schedule.snapshot).not.toBeNull();
+    http.expectNone(() => true);
+  });
+
+  it('keeps a new Task refresh owned when a pre-Draft Task reply settles', async () => {
+    const draftRecovery = beginDelayedDraftRecovery();
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    const oldTasks = http.expectOne('/api/projects/project-1/tasks');
+    const oldBoard = http.expectOne(request => request.url.startsWith('/api/projects/project-1/kanban'));
+    const oldSchedule = http.expectOne('/api/projects/project-1/gantt');
+    draftRecovery.flush(draft); recoverActiveViews();
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve();
+    const currentTasks = http.expectOne('/api/projects/project-1/tasks'); finishViews();
+    oldTasks.flush(taskRows); oldBoard.flush(snapshotDto()); oldSchedule.flush(ganttSnapshotDto());
+    expect(facade.view().tasks).toEqual([]);
+    emitCurrent('Projects.TaskChanged.v1'); await Promise.resolve(); finishViews();
+    http.expectNone('/api/projects/project-1/tasks');
+    currentTasks.flush({ items: [] }); await Promise.resolve();
+    http.expectOne('/api/projects/project-1/tasks').flush(taskRows);
+    expect(facade.view().tasks[0]?.id).toBe('task-1');
+    http.expectNone(() => true);
+  });
+
   for (const command of ['move', 'schedule'] as const) {
     it.each([false, true])(`discards old ${command} rollback after Draft with afterActiveRecovery=%s`, (afterActiveRecovery) => {
       const draftRecovery = beginDelayedDraftRecovery();
