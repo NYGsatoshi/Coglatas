@@ -31,15 +31,15 @@ class EntryIdentityRetentionTests(unittest.TestCase):
     def test_future_internal_projectide_prs_are_not_limited_to_promoted_branch(self):
         root = Path(__file__).resolve().parents[2]
         workflow = (root / ".github/workflows/projectide-entry-isolated.yml").read_text(encoding="utf-8")
-        self.assertIn("on:\\n  pull_request:", workflow)
-        blocks = re.findall(r"(?m)^    if: >-\\n((?:      [^\\n]*\\n)+)", workflow)
+        self.assertIn("on:\n  pull_request:", workflow)
+        blocks = re.findall(r"(?m)^    if: >-\n((?:      [^\n]*\n)+)", workflow)
         self.assertEqual(2, len(blocks), "Both Windows and Ubuntu jobs must be gated consistently")
         for condition in blocks:
             with self.subTest(condition=condition):
                 self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", condition)
                 self.assertIn("github.base_ref == 'projectide/integration-20261031'", condition)
                 self.assertNotIn("github.head_ref", condition)
-        trigger_block = workflow.split("    paths:\\n", 1)[1].split("\\npermissions:", 1)[0]
+        trigger_block = workflow.split("    paths:\n", 1)[1].split("\npermissions:", 1)[0]
         triggers = {line.strip()[2:] for line in trigger_block.splitlines()
                     if line.strip().startswith("- ")}
         for owned_source in (
