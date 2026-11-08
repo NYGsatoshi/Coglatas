@@ -93,8 +93,10 @@ cache with a controlled response selecting 2.27.3, executes the production warm
 source with both transfers failing, and checks that no 2.27.4 executable or marker
 exists. It then invokes the unchanged action's normal resolver without a `tools`
 override and asserts its actual selected version/path outputs and CLI execution.
-The unchanged pinned `lib/init-entry.js` runs on Node 24 in a child process so
-both components can share this isolated cache without attempting to overwrite
+The unchanged pinned `lib/init-entry.js` runs on the pinned official GitHub Script
+action's Node 24 runtime in a child process, retaining the repository's Node 26
+setup policy and all original policy assertions. This lets
+both components share this isolated cache without attempting to overwrite
 GitHub's reserved runner variables. The official action checkout is commit-bound
 and unmodified; input defaults are copied from that pinned manifest. Its actual
 entrypoint outputs supply the selected version/path assertions. This is component
