@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -39,6 +38,17 @@ def git(cwd: Path, *args: str) -> str:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def original_git_blob(repo: Path, revision: str, path: str) -> bytes:
+    """Read committed raw bytes instead of OS-dependent checkout line endings."""
+    result = subprocess.run(
+        ["git", "-c", "core.autocrlf=false", "show", f"{revision}:{path}"],
+        cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    if result.returncode or not result.stdout:
+        raise ValueError(f"Exact independent test Git blob unavailable: {path}")
+    return result.stdout
 
 
 def main() -> None:
@@ -74,11 +84,21 @@ def main() -> None:
             if not source.is_file() or output.exists():
                 raise ValueError(f"Missing independent source or unexpected destination: {original}")
             output.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, output)
-            if sha256(source) != sha256(output):
-                raise ValueError("Source bytes changed in test composition")
-            hashes[destination] = {"source": original, "sha256": sha256(output)}
+            canonical_bytes = original_git_blob(ROOT, test_head, original)
+            source_blob = git(ROOT, "rev-parse", f"{test_head}:{original}")
+            output.write_bytes(canonical_bytes)
+            if sha256(output) != hashlib.sha256(canonical_bytes).hexdigest():
+                raise ValueError("Committed source bytes changed in test composition")
+            hashes[destination] = {
+                "source": original, "gitBlob": source_blob, "sha256": sha256(output),
+            }
         git(target, "add", "--", *SOURCES.values())
+        for destination, identity in hashes.items():
+            # Enforce index blob equality as well as the raw byte SHA-256.
+            # Working-copy CRLF conversion must not masquerade as source parity.
+            staged_blob = git(target, "rev-parse", f":{destination}")
+            if staged_blob != identity["gitBlob"]:
+                raise ValueError(f"Staged test Git blob diverges from original: {destination}")
         record.update(
             composedTree=git(target, "write-tree"),
             originalProductTree=git(target, "rev-parse", "HEAD^{tree}"),
