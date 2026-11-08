@@ -182,14 +182,37 @@ export const sameContext = (a: RevisionContext, b: RevisionContext): boolean =>
 export const sameDigest = (a: Digest, b: Digest): boolean =>
   a.algorithm === b.algorithm && a.value === b.value;
 
-/** View policy only: zero findings alone says nothing about completeness. */
+/** Bounded presentation of Core compiler axes, not trusted evidence or eligibility. */
+export type LocalEvidenceState =
+  | 'not-loaded'
+  | 'stale'
+  | 'not-executed'
+  | 'partial-coverage'
+  | 'missing-evidence'
+  | 'not-passed'
+  | 'complete-local-pass';
+
+export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
+  if (!value) return 'not-loaded';
+  const result = value.result;
+  // Recheck exact source/input context even when a caller bypasses preview loading.
+  if (value.freshness !== 'Current' ||
+      !sameContext(value.context, value.desiredContext) ||
+      result.compilerInputId !== value.inputId ||
+      !sameDigest(result.inputDigest, value.inputDigest) ||
+      !sameDigest(result.boundInputStamp.inputDigest, value.inputDigest) ||
+      !sameDigest(result.boundInputStamp.sourceDigest, value.sourceDigest) ||
+      !sameContext(result.boundInputStamp.sourceContext, value.context)) {
+    return 'stale';
+  }
+  if (result.execution !== 'coglatas.completed') return 'not-executed';
+  if (result.coverage !== 'coglatas.complete') return 'partial-coverage';
+  if (!result.evidenceComplete) return 'missing-evidence';
+  if (result.verdict !== 'coglatas.pass') return 'not-passed';
+  return 'complete-local-pass';
+}
+
+/** A local fixture PASS is never Producer trust, current access or Evidence Eligibility. */
 export function hasCompleteCurrentPass(value: PreviewCase): boolean {
-  return (
-    value.freshness === 'Current' &&
-    sameContext(value.context, value.desiredContext) &&
-    value.result.execution === 'coglatas.completed' &&
-    value.result.coverage === 'coglatas.complete' &&
-    value.result.verdict === 'coglatas.pass' &&
-    value.result.evidenceComplete
-  );
+  return assessLocalEvidence(value) === 'complete-local-pass';
 }
