@@ -139,6 +139,10 @@ Further implementation requires a refreshed PR-overlap check.
 | DOC-M14 | [Dependency security automation](verification/dependency-security-automation-20261026.md) | Retain active guide and dated evidence; DOC-05 scope reconciled | The reusable Node Docker constraint follows [Renovate configuration](../.github/renovate.json). Keep original audit runtimes and outcomes within their dated scope; require fresh execution evidence for bot, scanner or runtime qualification. |
 | DOC-M15 | [SEC-ARCH preflight](verification/security-architecture-preflight.md) | Retain active contract; DOC-05 scope reconciled | The walkthrough now follows [versioned assembly binding](verification/security-architecture-six-assembly-binding.md). Preserve version 1 evidence, all fifteen exit conditions, BLOCKED/Advisory, unresolved mappings and separate owner decisions when updating the contract. |
 
+| DOC-M16 | [Acceptance prebuilt-image reuse](verification/acceptance-prebuilt-image-reuse-20261019.md) | Retain historical repair/report; DOC-06 classified | Preserve original provenance-gap audit, bounded local controls and pending candidate checks. The later receipt-retention failure confirms this is not a current completeness attestation; current v1/v2 requirements remain in [runtime image identity](verification/runtime-image-identity.md). |
+| DOC-M17 | [Acceptance image receipt retention](verification/acceptance-image-receipt-retention-20261019.md) | Retain failed historical audit; DOC-06 classified | Keep Main 39150862060/1's three-of-four receipt failure and original repair evidence; distinguish classic schema v1 from conditional proof-bound v2 only by referencing current Main validator and active runtime identity contract. Do not upgrade either audit to a current hosted PASS. |
+| DOC-M18 | [Real-backend P0 authorization handoff](verification/real-backend-p0-authorization-handoff.md) | Retain historical handoff log; DOC-06 classified | The final exact-Main 37838083775/1 qualification closes the documented candidate chronology but not independent dependency/release gates. Current Test-only probe scope belongs to [security model](SECURITY_MODEL.md) and implementation. |
+
 ## Branch and PR coordination
 
 Maintain document ownership across `docs/integration-20261107`, `main`,
@@ -201,6 +205,29 @@ documentation.
 still owns changes to `docs/ci/dependency-update-fastlane.md` and
 `docs/ci/github-action-pinning.md`. Keep those guides with that workstream.
 Recheck branch and overlapping PR identities before publishing a later batch.
+
+### DOC-06 coordination snapshot: 2026-11-09 JST
+
+| Owning branch | Observed commit |
+| --- | --- |
+| `docs/integration-20261107` | `6f6cc7495921887c5c14ce043f03e8412666919c` |
+| `main` | `508f5a565b4bf6d6942163fb1447eaff9b241ecb` |
+| `SecurityTestImplimation` | `1dc64c38390208e45c4496c685cd4c37de00607c` |
+| `projectide/integration-20261031` | `aeee28f04529a232518281cd83811aa5cfaf57e8` |
+
+All changed-file pages were inspected for 56 open PRs. None directly edits
+the three DOC-06 report paths, this catalogue or this ledger. Separate
+unmerged source proposals touch image reuse or its licensed workflow:
+[#1599](https://github.com/NYGsatoshi/Coglatas/pull/1599),
+[#1633](https://github.com/NYGsatoshi/Coglatas/pull/1633),
+[#1502](https://github.com/NYGsatoshi/Coglatas/pull/1502) and
+[#1456](https://github.com/NYGsatoshi/Coglatas/pull/1456). Their proposed
+behavior is not adopted as documentation authority. The current source
+comparison for classic schema v1 and conditional binding schema v2 uses
+the inspected `508f5a565b4bf6d6942163fb1447eaff9b241ecb` Main verifier, shell helper,
+licensed acceptance workflow and existing active runtime-image-identity
+contract. This is classification/navigation only, not a physical move,
+archive admission, replay qualification or approval change.
 
 ### Pending Main synchronization
 

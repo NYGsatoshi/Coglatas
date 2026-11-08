@@ -4,6 +4,30 @@ Date: 2026-10-19
 
 Base: `780f8c94e29c1568328a661621afb8279e17714b`
 
+## Status of this record and current contract references
+
+This is the dated October 19, 2026 audit and repair report, not a current hosted
+acceptance result. The three-of-four-receipts finding in Main run
+[39150862060/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39150862060)
+remains a failed completeness audit despite that job's successful conclusion.
+The original four-field description under **Repair scope** is the historical
+classic schema v1 contract; its original local verification results and
+unperformed hosted checks retain their dated qualification boundary.
+
+At independently inspected Main `508f5a565b4bf6d6942163fb1447eaff9b241ecb`, the
+[receipt verifier](../../scripts/ci/verify-acceptance-image-reuse.py) and
+[licensed acceptance workflow](../../.github/workflows/licensed-real-backend-acceptance.yml)
+still reset and verify exactly four named receipts in
+`artifacts/acceptance-image-reuse/`. The classic producer/engine identity
+path accepts schema v1 with four fields. When the separately verified
+cross-image-store binding is supplied, schema v2 additionally requires
+`engineImageId` and `bindingSha256` and revalidates the identity proof.
+The authoritative maintained distinction is recorded in
+[runtime image identity](runtime-image-identity.md), not by treating this
+historical audit as current-source execution evidence. No pilot, production
+recovery, release or independent owner approval follows from this update.
+
+
 ## Retained failed audit
 
 Main [run 39150862060](https://github.com/NYGsatoshi/Coglatas/actions/runs/39150862060),

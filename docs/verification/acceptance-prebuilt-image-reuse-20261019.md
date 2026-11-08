@@ -4,6 +4,20 @@ Date: 2026-10-19
 Base: `a7c0b9cb658f41fddfcf8cefb13ee984c400c14b`
 Scope: MVP-A AuthZ and MBJ-01/02/03 isolated acceptance wrappers.
 
+## Historical report boundary
+
+This document records the October 19, 2026 producer-image-reuse repair and
+its bounded local controls. The later
+[receipt-retention audit](acceptance-image-receipt-retention-20261019.md)
+explicitly identifies this earlier implementation record as historical and
+retains a failed four-receipt Main audit. The four-field receipt description
+below refers to the original classic schema v1; the active
+[runtime-image identity contract](runtime-image-identity.md) now distinguishes
+classic schema v1 from proof-bound schema v2 in the inspected Main source.
+Original pending hosted checks below are candidate-time statements, not
+claims of new qualification or release readiness. No old failure is relabeled.
+
+
 ## Observed problem
 
 The [independent Main audit](https://github.com/NYGsatoshi/Coglatas/pull/1255#pullrequestreview-5564029666)
