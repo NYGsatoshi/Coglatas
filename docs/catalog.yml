@@ -3,8 +3,8 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: 74ab2a603b499fcd9319046bb21664f5f9b33aa3
-  base_tree: 87048dcc5eabbc45a3a65686e7418e80680ec108
+  base_commit: 6f6cc7495921887c5c14ce043f03e8412666919c
+  base_tree: 9269a49ee6f765eaa51920ca2a11d1d18d2fff14
   file_suffix: .md
   tracked_markdown_at_base: 475
   markdown_added_by_this_change: []
@@ -1133,17 +1133,18 @@ documents:
 - path: docs/verification/acceptance-image-receipt-retention-20261019.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: Retained failed audit preserves an incomplete four-receipt audit despite job SUCCESS;
-    Repair scope and Verification and qualification limits mix implementation changes with source-bound observations.
+  lifecycle: historical
+  classification_basis: Dated failed three-of-four-receipt Main audit and bounded October 19 repair/verification record. The
+    current schema v1/v2 image-identity contract is maintained in runtime-image-identity.md and the checked
+    Main validator, not this historical audit.
   source_ref: 'base: NYGsatoshi/Coglatas@780f8c94e29c1568328a661621afb8279e17714b'
 - path: docs/verification/acceptance-prebuilt-image-reuse-20261019.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: 'Opening scope: "The independent Main audit records a provenance gap in Main run 39147128487,
-    attempt 1, real-backend job 117733942233. The producer image was restored correctly, but..." This implementation/verification
-    record needs a maintenance and successor review.'
+  lifecycle: historical
+  classification_basis: The later receipt-retention audit explicitly identifies this original October 19 producer-image reuse
+    implementation report as historical. Its local harness results and pending hosted checks remain
+    source-bound; the current schema v1/v2 requirements are maintained elsewhere.
   source_ref: 'base: NYGsatoshi/Coglatas@a7c0b9cb658f41fddfcf8cefb13ee984c400c14b'
 - path: docs/verification/admin-lifecycle-contract-tests.md
   kind: report
@@ -2141,9 +2142,10 @@ documents:
 - path: docs/verification/real-backend-p0-authorization-handoff.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: Failure evidence and Exact-Main qualification preserve the initial failed source and a
-    later fixed source separately; the final result supersedes pending checkpoints, not historical outcomes.
+  lifecycle: historical
+  classification_basis: Source-bound P0 failure and repair chronology closes with October 8 exact-Main qualification
+    37838083775/1. Interim pending statements are historical; the current Test-only authorization-outbox
+    policy is owned by SECURITY_MODEL.md and implementation.
 - path: docs/verification/realtime-actor-boundary.md
   kind: report
   domain: realtime

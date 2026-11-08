@@ -1,5 +1,19 @@
 # Real-backend P0 authorization fixture handoff
 
+## Historical report boundary
+
+This is a source-bound account of the original P0 fixture handoff failures,
+subsequent repair attempts and the October 8, 2026 exact-Main completion
+recorded at the end of this file. Its intermediate "pending" statements
+describe prior candidate heads; they do not override exact-Main run
+[37838083775/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/37838083775)
+or qualify any later head. The current test-only authorization queue probe
+is governed by [the security model](../SECURITY_MODEL.md) and checked-in
+implementation, not by this historical report. The separate dependency
+updater failure and any independent approval/release restrictions remain
+outside this fixture qualification.
+
+
 ## Failure evidence
 
 Security binding PR #1134 normally merged as
