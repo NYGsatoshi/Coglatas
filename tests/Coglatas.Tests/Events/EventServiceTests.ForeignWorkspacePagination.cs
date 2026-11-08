@@ -10,9 +10,9 @@ public sealed partial class EventServiceTests
     public async Task ListPaginationExcludesAnExistingForeignWorkspaceBeforePaging()
     {
         var (fixture, visible) = CreateEventPaginationFixture();
-        var hidden = Assert.Single(fixture.Events.Items.Where(item => item.WorkspaceId != fixture.Workspace.Id));
-        var actor = Assert.Single(fixture.Workspaces.Members.Where(member => member.UserId == fixture.Current.UserIdValue));
-        var administrator = Assert.Single(fixture.Workspaces.Members.Where(member => member.UserId == hidden.CreatedByUserId));
+        var hidden = Assert.Single(fixture.Events.Items, item => item.WorkspaceId != fixture.Workspace.Id);
+        var actor = Assert.Single(fixture.Workspaces.Members, member => member.UserId == fixture.Current.UserIdValue);
+        var administrator = Assert.Single(fixture.Workspaces.Members, member => member.UserId == hidden.CreatedByUserId);
         var foreign = new Workspace
         {
             Name = "Existing foreign Workspace", Slug = "existing-foreign-workspace",
