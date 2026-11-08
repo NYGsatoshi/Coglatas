@@ -1,4 +1,4 @@
-import { isPreviewCaseShape } from './projectide-preview.validation';
+import { hasUniquePreviewIdentities, isPreviewCaseShape } from './projectide-preview.validation';
 
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
 declare const identity: unique symbol;
@@ -196,7 +196,7 @@ export type LocalEvidenceState =
 
 export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
   if (!value) return 'not-loaded';
-  if (!isPreviewCaseShape(value)) return 'missing-evidence';
+  if (!isPreviewCaseShape(value) || !hasUniquePreviewIdentities(value)) return 'missing-evidence';
   const result = value.result;
   const manifest = value.manifest['manifest'] as Record<string, unknown> | null | undefined;
   const manifestContext = manifest?.['sourceContext'] as RevisionContext | null | undefined;
@@ -217,15 +217,25 @@ export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceSta
     return 'stale';
   }
   if (result.execution !== 'coglatas.completed') return 'not-executed';
-  if (result.coverage !== 'coglatas.complete' ||
+  const settings = manifest?.['settings'] as {
+    sourceCoverage?: string;
+    rules?: readonly { ruleId: string; version: number; required: boolean }[];
+  } | null | undefined;
+  const required = Array.isArray(settings?.rules) ? settings.rules.filter((rule) => rule?.required === true) : [];
+  const outcomes = required.map((rule) => result.rules.find((outcome) =>
+    outcome.ruleId === rule.ruleId && outcome.version === rule.version));
+  if (result.coverage !== 'coglatas.complete' || settings?.sourceCoverage !== 'coglatas.complete' ||
+      required.length === 0 || outcomes.some((rule) => !rule ||
+        rule.execution !== 'coglatas.completed' || rule.coverage !== 'coglatas.complete') ||
       [...value.declarations, ...value.relations].some((record) => record.status !== 'Decoded') ||
       (value.semanticInspection && (!value.semanticInspection.bindingComplete ||
         value.semanticInspection.symbols.some((symbol) => symbol.status !== 'Decoded') ||
         value.semanticInspection.references.some((reference) => reference.state !== 'Resolved')))) {
     return 'partial-coverage';
   }
-  if (result.evidenceComplete !== true) return 'missing-evidence';
-  if (result.verdict !== 'coglatas.pass') return 'not-passed';
+  if (result.evidenceComplete !== true || outcomes.some((rule) => rule?.evidence.kind === 'coglatas.missing') ||
+      result.diagnostics.some((diagnostic) => diagnostic.evidence.kind === 'coglatas.missing')) return 'missing-evidence';
+  if (result.verdict !== 'coglatas.pass' || outcomes.some((rule) => rule?.verdict !== 'coglatas.pass')) return 'not-passed';
   return 'complete-local-pass';
 }
 
