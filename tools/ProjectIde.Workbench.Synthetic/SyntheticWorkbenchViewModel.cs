@@ -34,6 +34,26 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         Inspection?.Inspect(diagnostic.Location) is { } symbol &&
         Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
     public IReadOnlyList<CompilerDiagnostic> Problems => Result?.Diagnostics ?? Array.Empty<CompilerDiagnostic>();
+
+    /// <summary>
+    /// Local compiler evidence display only. A complete PASS is never Producer trust,
+    /// current authorization, Evidence Eligibility or an operational approval.
+    /// </summary>
+    public string LocalEvidenceState
+    {
+        get
+        {
+            if (_disposed || State != "Ready" || Result is not { } result ||
+                _desired is null || Source is null) return "not-loaded";
+            if (!result.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+                !result.Input.Source.Data.Equals(Source.Data)) return "stale";
+            if (result.Execution != CompilerExecutionState.Completed) return "not-executed";
+            if (result.Coverage != CompilerCoverage.Complete) return "partial-coverage";
+            if (!result.EvidenceComplete) return "missing-evidence";
+            return result.Verdict == CompilerVerdict.Pass ? "complete-local-pass" : "not-passed";
+        }
+    }
+    public bool HasCompleteLocalPass => LocalEvidenceState == "complete-local-pass";
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void BeginSynthetic(CompilerHostRequest desired)
