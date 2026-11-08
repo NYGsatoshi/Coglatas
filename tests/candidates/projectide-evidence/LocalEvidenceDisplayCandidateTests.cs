@@ -59,13 +59,13 @@ public sealed class LocalEvidenceDisplayCandidateTests
         {
             view.BeginSynthetic(request);
             var invalidated = false;
-            view.PropertyChanged += (_, _) =>
+            view.PropertyChanged += (sender, _) =>
             {
-                if (invalidated || !view.HasCompleteLocalPass) return;
+                if (sender is not SyntheticWorkbenchViewModel current || invalidated || !current.HasCompleteLocalPass) return;
                 invalidated = true;
-                if (operation == "dispose") view.Dispose();
-                else if (operation == "reselect") view.BeginSynthetic(new(new(Input(source: Source(11))), 11));
-                else view.Reset();
+                if (operation == "dispose") current.Dispose();
+                else if (operation == "reselect") current.BeginSynthetic(new(new(Input(source: Source(11))), 11));
+                else current.Reset();
             };
             Assert.False(view.TryAccept(await Host(input).CompileAsync(request)));
             Assert.True(invalidated);
