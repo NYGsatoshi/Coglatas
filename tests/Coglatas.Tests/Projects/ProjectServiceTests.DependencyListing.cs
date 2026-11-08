@@ -42,6 +42,8 @@ public sealed partial class ProjectServiceTests
         };
         fixture.Dependencies.AddRange([legacy, canonical]);
         var dates = (predecessor.PlannedStartDate, predecessor.PlannedEndDate, successor.PlannedStartDate, successor.PlannedEndDate);
+        var canonicalFields = (canonical.ProjectId, canonical.PredecessorTaskItemId, canonical.SuccessorTaskItemId, canonical.DependencyType);
+        var legacyFields = (legacy.ProjectId, legacy.PredecessorTaskItemId, legacy.SuccessorTaskItemId, legacy.DependencyType);
 
         var result = await fixture.Service.ListDependenciesAsync(predecessor.Id);
 
@@ -65,6 +67,8 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(7, successor.VersionNo);
         Assert.Same(legacy, fixture.Dependencies[0]);
         Assert.Same(canonical, fixture.Dependencies[1]);
+        Assert.Equal(canonicalFields, (canonical.ProjectId, canonical.PredecessorTaskItemId, canonical.SuccessorTaskItemId, canonical.DependencyType));
+        Assert.Equal(legacyFields, (legacy.ProjectId, legacy.PredecessorTaskItemId, legacy.SuccessorTaskItemId, legacy.DependencyType));
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
