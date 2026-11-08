@@ -60,8 +60,12 @@ Instead, warm the action's normal runner tool cache with the official combined
 `da3e952c7fe978a0b6b93e75d9cbabbdf8535667ca0810bd4b2ae37bc840ffee`.
 Only the combined bundle is suitable for the normal shared-version cache.
 Verification precedes extraction; the completion marker follows the actual CLI
-version check. Existing complete entries are retained and incomplete entries
-are refused. No existing cache entry is deleted or replaced.
+version check. Existing complete entries are retained. Incomplete entries remain
+untouched and the original selector proceeds. If both optional warm transfer
+routes fail, no bundle is extracted or marked complete, and the original selector
+and acquisition proceed. A detected integrity mismatch still fails before
+extraction or execution. No existing cache entry is deleted or replaced by the
+new warm step; the pinned action retains its own original cache cleanup behavior.
 
 The original action inputs and selector remain unchanged: its normal version
 resolution happens before lookup, and it can use this ordinary cache entry only
@@ -77,3 +81,11 @@ All four language/build-mode entries, action pins, queries, analysis categories,
 permissions and enforcement remain unchanged. All four actual current analyses
 and original SARIF must qualify the final HEAD. Cache preparation alone is not
 analysis or security acceptance.
+
+The acquisition workflow adds a separate read-only initialization control. It
+prepares the pinned action's actual different bundled default 2.27.3, executes
+the production warm-step source with both transfers returning failure in an
+isolated cache fixture, checks that no 2.27.4 executable/completion marker exists,
+then runs the unchanged pinned action's original selector with its supported
+`linked` input for that different bundled default. This is a controlled selector
+test, without analysis, SARIF publication or a product-workflow version override.
