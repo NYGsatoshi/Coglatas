@@ -175,7 +175,21 @@ jobs:
           print(f"projects_path={projects_path}")
           PY
 
+      - name: Test exact composition and SARIF false-green controls
+        run: python3 -B -m unittest discover -s tests/ci -p test_projectide_entry_resharper.py -v
+
+      - name: Prepare exact independent project composition when selected
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          python3 -B scripts/quality/projectide_entry_resharper.py prepare \
+            --projects "${{ steps.scope.outputs.projects_path }}" \
+            --changed "${{ steps.scope.outputs.changed_files_path }}" \
+            --worktree "$RUNNER_TEMP/resharper-composition" --report "$RUNNER_TEMP/resharper"
+
       - name: Restore NuGet packages for ReSharper project model
+        working-directory: ${{ env.RESHARPER_ROOT }}
         shell: bash
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
 
@@ -190,6 +204,7 @@ jobs:
           echo "RESHARPER_JB=$tool_dir/jb" >> "$GITHUB_ENV"
 
       - name: Run ReSharper InspectCode against shared build outputs
+        working-directory: ${{ env.RESHARPER_ROOT }}
         shell: bash
         run: |
           set -euo pipefail
@@ -222,6 +237,10 @@ jobs:
 
           "$RESHARPER_JB" "${args[@]}"
 
+      - name: Verify independent inspection scope and complete SARIF
+        shell: bash
+        run: python3 -B scripts/quality/projectide_entry_resharper.py verify --report "$RUNNER_TEMP/resharper" --projects "${{ steps.scope.outputs.projects_path }}"
+
       - name: Gate changed files on ReSharper findings
         shell: bash
         run: |
@@ -234,6 +253,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: resharper-pr-sarif
-          path: ${{ runner.temp }}/resharper/inspectcode.sarif.json
-          if-no-files-found: warn
-          retention-days: 7
+          path: ${{ runner.temp }}/resharper
+          if-no-files-found: error
+          retention-days: 14
