@@ -32,6 +32,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(2, fixture.Projects.Milestones.Count);
         Assert.Same(task, Assert.Single(fixture.Projects.Tasks).Value);
         Assert.Equal(milestone.Id, task.MilestoneId);
+        Assert.Null(task.DeletedAt);
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
@@ -83,6 +84,7 @@ public sealed partial class ProjectServiceTests
             case "soft-deleted-project": fixture.Project.MarkDeleted(fixture.Clock.UtcNow); break;
         }
         var expectedProjectId = milestone.ProjectId;
+        var expectedRows = fixture.Projects.Milestones.ToDictionary(pair => pair.Key, pair => pair.Value);
 
         var result = await fixture.Service.DeleteMilestoneAsync(milestone.Id);
 
@@ -92,6 +94,9 @@ public sealed partial class ProjectServiceTests
         Assert.Equal("Retain candidate", milestone.Name);
         Assert.Equal(10, milestone.SortOrder);
         Assert.Equal(expectedProjectId, milestone.ProjectId);
+        Assert.Equal(expectedRows.Count, fixture.Projects.Milestones.Count);
+        foreach (var row in expectedRows)
+            Assert.Same(row.Value, fixture.Projects.Milestones[row.Key]);
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
