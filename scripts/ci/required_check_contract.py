@@ -747,6 +747,8 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             overall = "fail"
             gates.append(gate)
             continue
+        if any(state in PENDING and (started := _time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is not None and started > current for candidate, state in zip(valid, states)):
+            raise RuntimeError("GitHub pending timeout clock is in the future")
         if any(state in PENDING and ((started := _time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is None or current - started > dt.timedelta(minutes=item["timeout_minutes"])) for candidate, state in zip(valid, states)):
             gate["reason"] = "pending-timeout"
             overall = "fail"

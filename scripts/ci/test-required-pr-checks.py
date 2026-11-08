@@ -1189,6 +1189,19 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                         self.assertIn("future", report["error"])
 
 
+    def test_status_timeout_clock_cannot_be_future_dated_independently(self) -> None:
+        for field in ("created_at", "started_at"):
+            with self.subTest(field=field):
+                registry, api = self.commit_status_api()
+                status = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]["statuses"][0]
+                past = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=2)).isoformat()
+                status.update(state="pending", updated_at=past, created_at=past)
+                status[field] = "9999-12-31T23:59:59Z"
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertIn("future", report["error"])
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

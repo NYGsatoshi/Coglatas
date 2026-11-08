@@ -85,6 +85,8 @@ time. Permitted future clock skew is explicitly zero seconds; future completion
 or pending clocks fail as malformed evidence instead of hiding a rejection or
 extending a timeout. Existing completion-time ordering and ID tie-breaking for
 settled results remain unchanged; no later-start precedence rule is introduced.
+The pending timeout's selected start/creation clock is validated independently
+of the ordering clock, including commit statuses with a past `updated_at`.
 
 ### PR merge checks and Main candidate obligations
 
