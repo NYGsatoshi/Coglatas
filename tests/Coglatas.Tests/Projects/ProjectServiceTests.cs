@@ -2582,6 +2582,7 @@ public sealed partial class ProjectServiceTests
         public int TaskChangedCount { get; private set; }
         public int TaskAssignmentChangedCount { get; private set; }
         public int ProjectChangedCount { get; private set; }
+        public List<(Guid ProjectId, Guid ActorUserId, string Change)> ProjectChanges { get; } = [];
         public List<string> TaskAssignmentChanges { get; } = [];
 
         public Task TaskChangedAsync(
@@ -2611,6 +2612,7 @@ public sealed partial class ProjectServiceTests
         public Task ProjectChangedAsync(Project project, Guid actorUserId, string change, CancellationToken cancellationToken = default)
         {
             ProjectChangedCount++;
+            ProjectChanges.Add((project.Id, actorUserId, change));
             return Task.CompletedTask;
         }
         public Task AnnouncementChangedAsync(Announcement announcement, Guid actorUserId, string change, IEnumerable<Guid> audienceUserIds, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -2633,7 +2635,12 @@ public sealed partial class ProjectServiceTests
         public TaskCommandSaveOutcome Outcome { get; set; } = new(TaskCommandSaveResult.Saved);
         public int SaveCount { get; private set; }
         public int ClearCount { get; private set; }
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
+        public int GenericSaveCount { get; private set; }
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            GenericSaveCount++;
+            return Task.FromResult(1);
+        }
         public Task<TaskCommandSaveOutcome> SaveTaskCommandAsync(CancellationToken cancellationToken = default)
         {
             SaveCount++;

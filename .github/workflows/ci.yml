@@ -13,7 +13,7 @@ permissions:
 jobs:
   changes:
     name: CI preflight + route
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       backend: ${{ steps.route.outputs.backend }}
@@ -124,7 +124,7 @@ jobs:
   dotnet-build:
     name: .NET build producer
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       built: ${{ steps.scope.outputs.built }}
@@ -256,7 +256,7 @@ jobs:
     name: PR Functional runtime from shared artifacts
     needs: [changes, dotnet-build, frontend-build]
     if: needs.changes.outputs.functional == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout tested PR merge revision
@@ -306,7 +306,7 @@ jobs:
     name: PR same-document actor replacement
     needs: [changes, functional-runtime]
     if: needs.changes.outputs.functional == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout actual producer merge revision
@@ -357,7 +357,7 @@ jobs:
     name: functional-fast
     needs: [changes, functional-runtime, functional-run]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Enforce selected Functional evidence or explicit exemption
@@ -391,7 +391,7 @@ jobs:
     name: build-test
     if: ${{ always() }}
     needs: dotnet-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     services:
@@ -655,7 +655,7 @@ jobs:
     # Non-required Advisory consumer. It is not a dependency of any existing required context.
     needs: build-test
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout exact Advisory consumer revision
@@ -681,7 +681,7 @@ jobs:
   frontend-build:
     name: Frontend build producer
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       frontend: ${{ needs.changes.outputs.frontend }}
@@ -767,7 +767,7 @@ jobs:
     name: frontend-test
     if: ${{ always() }}
     needs: frontend-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -918,7 +918,7 @@ jobs:
     name: security-scan
     if: ${{ always() }}
     needs: dotnet-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     env:
