@@ -10,6 +10,7 @@ on:
       - scripts/quality/projectide_entry_resharper.py
       - scripts/quality/check-resharper-pr-sarif.py
       - .github/workflows/resharper_pr.yml
+      - Coglatas.slnx
       - .github/workflows/projectide-entry-isolated.yml
 
 permissions:
@@ -21,17 +22,15 @@ concurrency:
 
 jobs:
   ubuntu:
-    name: Pure Core entry (ubuntu-latest)
+    name: Promoted Entry current tree (ubuntu-latest)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.base_ref == 'SecurityTestImplimation' &&
-      github.head_ref == 'test/projectide-pure-core-entry-20261107'
+      github.base_ref == 'projectide/integration-20261031' &&
+      github.head_ref == 'test/projectide-entry-scoped-promotion-20261108'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 94ed17f8d22c0d9bb2ed2bdd149a5c8357b654f3
-      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Checkout exact independent Test candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -54,7 +53,7 @@ jobs:
       - name: Compose and verify exact pure candidates without runtime adapters
         shell: pwsh
         run: |
-          python -B tests/ci/projectide_entry_isolated.py --product-head $env:PRODUCT_HEAD --test-head $env:TEST_HEAD --worktree "${{ runner.temp }}/entry-combined" --evidence "${{ runner.temp }}/entry-evidence"
+          python -B tests/ci/projectide_entry_isolated.py --integrated --worktree "${{ runner.temp }}/entry-combined" --evidence "${{ runner.temp }}/entry-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Pure Core candidate verification failed' }
       - name: Retain exact identities, discovery, TRX and original failures
         if: always()
@@ -65,17 +64,15 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Pure Core entry (windows-latest)
+    name: Promoted Entry current tree (windows-latest)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.base_ref == 'SecurityTestImplimation' &&
-      github.head_ref == 'test/projectide-pure-core-entry-20261107'
+      github.base_ref == 'projectide/integration-20261031' &&
+      github.head_ref == 'test/projectide-entry-scoped-promotion-20261108'
     runs-on: windows-latest
     timeout-minutes: 25
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 94ed17f8d22c0d9bb2ed2bdd149a5c8357b654f3
-      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Checkout exact independent Test candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -98,7 +95,7 @@ jobs:
       - name: Compose and verify exact pure candidates without runtime adapters
         shell: pwsh
         run: |
-          python -B tests/ci/projectide_entry_isolated.py --product-head $env:PRODUCT_HEAD --test-head $env:TEST_HEAD --worktree "${{ runner.temp }}/entry-combined" --evidence "${{ runner.temp }}/entry-evidence"
+          python -B tests/ci/projectide_entry_isolated.py --integrated --worktree "${{ runner.temp }}/entry-combined" --evidence "${{ runner.temp }}/entry-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Pure Core candidate verification failed' }
       - name: Retain exact identities, discovery, TRX and original failures
         if: always()
