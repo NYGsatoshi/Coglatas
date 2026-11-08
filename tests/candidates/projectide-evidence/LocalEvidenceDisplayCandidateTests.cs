@@ -8,6 +8,21 @@ namespace Coglatas.Tests.ProjectIde;
 /// <summary>Independent candidate tests; copied only into an exact Product composition.</summary>
 public sealed class LocalEvidenceDisplayCandidateTests
 {
+    [Fact]
+    public async Task ResourceExhaustionHasANonExecutedDisplayEvenWhenTheHostReturnsAResult()
+    {
+        var settings = Settings();
+        settings["executionProfile"]!["maximumOperations"] = 1;
+        var input = Input(settings);
+        var request = new CompilerHostRequest(new(input), 10);
+        using var view = new SyntheticWorkbenchViewModel();
+        view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await Host(input).CompileAsync(request)));
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, view.Result!.Execution);
+        Assert.Equal("not-executed", view.LocalEvidenceState);
+        Assert.False(view.HasCompleteLocalPass);
+    }
+
     [Theory]
     [InlineData("pass", "complete-local-pass")]
     [InlineData("fail", "not-passed")]

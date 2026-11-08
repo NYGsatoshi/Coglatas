@@ -123,7 +123,7 @@ def main() -> None:
                   ("total", "passed", "failed", "notExecuted", "skipped")}
         results = ET.parse(result_file).getroot().findall("{*}Results/{*}UnitTestResult")
         names = [item.get("testName") for item in results]
-        if len(names) != 17 or len(set(names)) != 17:
+        if len(names) != 18 or len(set(names)) != 18:
             raise ValueError("Compiled xUnit result identities are incomplete or duplicated")
         discovery = execute(["dotnet", "test", project, "-c", "Release", "--no-build",
                              "--list-tests", "--filter", "FullyQualifiedName~LocalEvidenceDisplayCandidateTests"],
@@ -131,7 +131,7 @@ def main() -> None:
         if any(name not in discovery for name in names):
             raise ValueError("TRX identity absent from compiled discovery")
         record["compiledXunitIdentities"] = sorted(names)
-        if counts["total"] != 17 or counts["passed"] != 17 or any(
+        if counts["total"] != 18 or counts["passed"] != 18 or any(
                 counts[key] != 0 for key in ("failed", "notExecuted", "skipped")):
             raise ValueError(f"Independent xUnit identities or outcomes incorrect: {counts}")
         record["xunit"] = counts
