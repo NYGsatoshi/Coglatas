@@ -59,6 +59,44 @@ def prepare(args) -> None:
     from projectide_entry_isolated import (PRODUCT_BASE, TEST_BASE, TEST_PATHS, REUSED_BASE,
                                            REUSED_HEAD, REUSED_PATHS, git, owned_commits)
     selected = args.projects.read_text().splitlines()
+    # Once the independent Entry project belongs to the reviewed integration solution,
+    # inspect that exact checkout rather than cherry-picking an older test branch.
+    # Preserve the historical isolated-composition path below for the original PR.
+    import xml.etree.ElementTree as ET
+    installed = {
+        element.get("Path")
+        for element in ET.parse(ROOT / "Coglatas.slnx").iter("Project")
+    }
+    if PROJECT in installed:
+        gate = load_gate()
+        changed = gate.read_changed_files(args.changed)
+        owned = (
+            "tests/Coglatas.ProjectIde.Entry.Tests/",
+            "scripts/quality/projectide_entry_resharper.py",
+            "scripts/quality/check-resharper-pr-sarif.py",
+            ".github/workflows/resharper_pr.yml",
+            "Coglatas.slnx",
+        )
+        entry_touched = any(path.startswith(owned[0]) or path in owned[1:] for path in changed)
+        if entry_touched:
+            source_paths = sorted(path for path in changed
+                                  if path.startswith(owned[0]) and path.endswith(".cs"))
+            if not source_paths:
+                source_paths = [
+                    "tests/Coglatas.ProjectIde.Entry.Tests/EntryContractTests.cs",
+                    "tests/Coglatas.ProjectIde.Entry.Tests/SourceAndRunEntryTests.cs",
+                ]
+            if any(not (ROOT / path).is_file() for path in source_paths):
+                raise ValueError("Integrated Entry source absent from checked-out project")
+            candidate = git(ROOT, "rev-parse", "HEAD")
+            receipt = dict(compositionCommit=candidate, integratedEntry=True,
+                           projects=selected,
+                           changedCompiledSources={path: digest(ROOT / path) for path in source_paths})
+            (args.report / "composition.json").write_text(json.dumps(receipt, indent=2) + "\n",
+                                                            encoding="utf-8")
+        with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:
+            output.write(f"RESHARPER_ROOT={ROOT}\\n")
+        return
     if "Coglatas.ProjectIde.Entry.Tests" not in selected:
         # All unrelated PRs retain the existing shared-build inspection path.
         with Path(os.environ["GITHUB_ENV"]).open("a") as output:
