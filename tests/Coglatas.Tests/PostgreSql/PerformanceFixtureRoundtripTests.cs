@@ -117,7 +117,9 @@ public sealed class PerformanceFixtureRoundtripTests
             }
             using var first = JsonDocument.Parse(await File.ReadAllBytesAsync(evidencePath));
             AssertEvidence(first.RootElement, PerformanceCiFixtureSeed.FixtureVersion, profile, manifestHash);
-            var identities = first.RootElement.GetProperty("identities").GetRawText();
+            Dictionary<string, string> identities;
+            await using (var observer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
+                identities = await ReadPersistedIdentitiesAsync(observer, first.RootElement);
             for (var repetition = 0; repetition < 2; repetition++)
             {
                 var previousBytes = await File.ReadAllBytesAsync(evidencePath);
@@ -127,18 +129,28 @@ public sealed class PerformanceFixtureRoundtripTests
                 await AssertCountsAsync(context, expectedCounts);
                 Assert.Equal(expectedCounts.GetProperty("messages").GetInt32(),
                     await context.Messages.IgnoreQueryFilters().Select(message => message.CreatedAt).Distinct().CountAsync());
-                Assert.Equal(expectedFocus.GetProperty("workspaceFiles").GetInt32(), await context.Attachments.IgnoreQueryFilters().CountAsync());
                 Assert.False(await context.Tenants.IgnoreQueryFilters().AnyAsync(tenant => tenant.Name == "Must be removed by rebuild"));
                 var actual = await File.ReadAllBytesAsync(evidencePath);
                 using var evidence = JsonDocument.Parse(actual);
                 AssertEvidence(evidence.RootElement, PerformanceCiFixtureSeed.DbFixtureVersion, profile, manifestHash);
-                Assert.Equal(identities, evidence.RootElement.GetProperty("identities").GetRawText());
+                var persisted = await ReadPersistedIdentitiesAsync(context, evidence.RootElement);
+                Assert.Equal(identities.OrderBy(item => item.Key), persisted.OrderBy(item => item.Key));
+                var workspace = Guid.Parse(persisted["workspaceId"]);
+                var attachments = await context.Attachments.IgnoreQueryFilters().AsNoTracking().ToListAsync();
+                Assert.Equal(expectedFocus.GetProperty("workspaceFiles").GetInt32(), attachments.Count);
+                foreach (var attachment in attachments)
+                {
+                    Assert.Equal(workspace, attachment.WorkspaceId);
+                    Assert.Equal(workspace, attachment.OwnerId);
+                    Assert.Equal(Coglatas.Domain.Enums.AttachmentOwnerType.Workspace, attachment.OwnerType);
+                }
+                var fileIds = attachments.Select(attachment => attachment.FileObjectId).ToArray();
+                Assert.Equal(attachments.Count, await context.FileObjects.IgnoreQueryFilters().CountAsync(file => fileIds.Contains(file.Id)));
                 if (repetition == 1) Assert.Equal(previousBytes, actual);
                 var tenantRow = await context.Tenants.IgnoreQueryFilters().SingleAsync();
                 Assert.Equal("perf-small", tenantRow.Slug);
                 var operatorRow = await context.Users.SingleAsync(user => user.Email == "perf-small-operator@example.test");
                 Assert.True(new Pbkdf2PasswordHasher().VerifyPassword(operatorRow.PasswordHash, password));
-                var workspace = Guid.Parse(evidence.RootElement.GetProperty("identities").GetProperty("workspaceId").GetString()!);
                 Assert.Equal(expectedFocus.GetProperty("workspaceProjects").GetInt32(),
                     await context.Projects.IgnoreQueryFilters().CountAsync(project => project.WorkspaceId == workspace));
             }
@@ -149,6 +161,50 @@ public sealed class PerformanceFixtureRoundtripTests
             File.Delete(evidencePath);
             Directory.Delete(directory);
         }
+    }
+
+    private static async Task<Dictionary<string, string>> ReadPersistedIdentitiesAsync(AppDbContext context, JsonElement evidence)
+    {
+        var reported = JsonSerializer.Deserialize<Dictionary<string, string>>(evidence.GetProperty("identities").GetRawText())!;
+        var tenant = await context.Tenants.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Slug == reported["tenantSlug"]);
+        var actor = await context.Users.AsNoTracking().SingleAsync(row => row.Email == reported["operatorEmail"]);
+        var workspaceId = Guid.Parse(reported["workspaceId"]);
+        var workspace = await context.Workspaces.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == workspaceId);
+        var taskListId = Guid.Parse(reported["taskListProjectId"]);
+        var taskList = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == taskListId);
+        var ganttId = Guid.Parse(reported["ganttProjectId"]);
+        var gantt = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == ganttId);
+        var kanbanId = Guid.Parse(reported["kanbanProjectId"]);
+        var kanban = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == kanbanId);
+        var conversationId = Guid.Parse(reported["conversationId"]);
+        var conversation = await context.Conversations.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == conversationId);
+        var taskId = Guid.Parse(reported["taskId"]);
+        var task = await context.TaskItems.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == taskId);
+        Assert.Equal(tenant.Id, workspace.TenantId);
+        Assert.Equal(tenant.Id, task.TenantId);
+        Assert.Equal(tenant.Id, conversation.TenantId);
+        Assert.Equal(workspace.Id, conversation.WorkspaceId);
+        Assert.Equal(taskList.Id, task.ProjectId);
+        foreach (var project in new[] { taskList, gantt, kanban })
+        {
+            Assert.Equal(workspace.Id, project.WorkspaceId);
+            Assert.Equal(tenant.Id, project.TenantId);
+        }
+        var persisted = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["tenantSlug"] = tenant.Slug,
+            ["operatorEmail"] = actor.Email,
+            ["workspaceId"] = workspace.Id.ToString("D"),
+            ["taskListProjectId"] = taskList.Id.ToString("D"),
+            ["ganttProjectId"] = gantt.Id.ToString("D"),
+            ["kanbanProjectId"] = kanban.Id.ToString("D"),
+            ["conversationId"] = conversation.Id.ToString("D"),
+            ["taskId"] = task.Id.ToString("D")
+        };
+        var normalized = reported.ToDictionary(item => item.Key, item => item.Key.EndsWith("Id", StringComparison.Ordinal)
+            ? Guid.Parse(item.Value).ToString("D") : item.Value, StringComparer.Ordinal);
+        Assert.Equal(normalized.OrderBy(item => item.Key), persisted.OrderBy(item => item.Key));
+        return persisted;
     }
 
     private static async Task AssertCountsAsync(AppDbContext context, JsonElement expected)
@@ -192,10 +248,13 @@ public sealed class PerformanceFixtureRoundtripTests
 
     private static string FindManifest([CallerFilePath] string sourcePath = "")
     {
-        for (var directory = new FileInfo(sourcePath).Directory; directory is not null; directory = directory.Parent)
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory, Path.GetDirectoryName(sourcePath)! })
         {
-            var manifest = Path.Combine(directory.FullName, "performance", "datasets.json");
-            if (File.Exists(manifest) && File.Exists(Path.Combine(directory.FullName, "Coglatas.slnx"))) return manifest;
+            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
+            {
+                var manifest = Path.Combine(directory.FullName, "performance", "datasets.json");
+                if (File.Exists(manifest) && File.Exists(Path.Combine(directory.FullName, "Coglatas.slnx"))) return manifest;
+            }
         }
         throw new FileNotFoundException("Tracked performance dataset manifest was not found.");
     }

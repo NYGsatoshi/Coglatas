@@ -3,8 +3,10 @@
 These tests exercise the existing performance fixture producer with the tracked
 small dataset. They retain its fixed dedicated database name and local-host
 restrictions. A fresh CREATE must succeed before the test owns any cleanup;
-an existing database is neither adopted nor dropped. Cleanup does not terminate
-other connections. No deployment, production database or performance threshold
+an existing database is neither adopted nor dropped. Dedicated-database cleanup
+does not terminate other connections. The different-database rejection retains
+the existing temporary helper's forced cleanup for its own unique database.
+No deployment, production database or performance threshold
 operation is included.
 
 Connection-free cases reject non-PostgreSQL and invalid target combinations.
@@ -17,6 +19,13 @@ identities, distinct message cursor timestamps, Workspace attachments, real
 password verification, original manifest bytes and deterministic generated
 fixture evidence. Each rebuild uses committed persistence and fresh EF queries;
 this does not establish all-table RLS or external storage bytes.
+
+After v1 and each v2 rebuild, no-tracking reads bind the reported Tenant, actor,
+Workspace, three Project references, Conversation and Task to persisted rows.
+Identity comparisons normalize UUIDs and compare dictionaries rather than JSON
+formatting. The attachment checks include Workspace ownership and persisted
+FileObject links. Manifest discovery checks the consumer working directory and
+artifact directory before falling back to the compile-time source path.
 
 These are functional fixture correctness controls. They do not approve numeric
 performance, representative hardware, deployment, full recovery, physical-device
