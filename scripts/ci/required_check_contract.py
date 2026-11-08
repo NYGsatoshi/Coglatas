@@ -583,7 +583,7 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
         errors.append("live required-check ruleset must be active")
     ref = live.get("conditions", {}).get("ref_name", {}) if isinstance(live.get("conditions"), dict) else {}
     included = ref.get("include") if isinstance(ref, dict) else None
-    if not isinstance(included, list) or "~DEFAULT_BRANCH" not in included:
+    if not isinstance(included, list) or not all(isinstance(value, str) and value for value in included) or "~DEFAULT_BRANCH" not in included:
         errors.append("live required-check ruleset must include ~DEFAULT_BRANCH")
     excluded = ref.get("exclude") if isinstance(ref, dict) else None
     if not isinstance(excluded, list) or excluded:
@@ -610,6 +610,9 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
             continue
         context = value["context"]
         integration = value.get("integration_id")
+        if integration is not None and (not isinstance(integration, int) or isinstance(integration, bool)):
+            errors.append(f"live required status check at index {i} has malformed integration_id")
+            continue
         actual.append((context, integration))
         counts[context] = counts.get(context, 0) + 1
     for context, count in counts.items():
@@ -834,6 +837,8 @@ def _run_id(url: Any) -> int | None:
 
 
 def _enrich(api: Any, repository: str, candidate: dict[str, Any], url_key: str, cache: dict[int, dict[str, Any]]) -> None:
+    for key in ("workflow", "workflow_event", "workflow_head_sha", "workflow_head_branch"):
+        candidate.pop(key, None)
     run_id = _run_id(candidate.get(url_key))
     if run_id is None:
         return
@@ -888,10 +893,6 @@ def evaluate_live_pr(api: Any, repository: str, pr_number: int, registry: dict[s
     ruleset_errors = live_ruleset_errors(registry, _ruleset(api, repository, registry))
     checks = _pages(api, f"repos/{repository}/commits/{sha}/check-runs?filter=latest&per_page=100", "check_runs")
     statuses = _pages(api, f"repos/{repository}/commits/{sha}/statuses?per_page=100", None)
-    for candidate in checks:
-        candidate.setdefault("head_sha", sha)
-    for candidate in statuses:
-        candidate.setdefault("sha", sha)
     contexts = {x["context"] for x in exact_entries(registry)}
     cache = {}
     for candidate in checks:

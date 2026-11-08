@@ -36,6 +36,14 @@ exclusions requires separate verified matching behavior; this validator must not
 infer protection from the include marker alone. Existing empty exclusions retain
 their behavior, and no live ruleset is modified by this check.
 
+Workflow metadata is populated only from a resolved Actions run, never from
+additional fields in a check/status response. The requested endpoint does not
+fill missing check/status head identity. Included reference entries and required
+integration identities are type-checked before use; malformed data returns a
+normal failure instead of an unhashable-value exception or numeric coercion.
+These are evidence-validation checks, not a live ruleset migration. The named
+registered ruleset must still pass the separate active-protection contract.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

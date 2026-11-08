@@ -812,6 +812,54 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                 self.assertTrue(any("empty exclusion array" in error for error in report["live_ruleset"]["errors"]))
 
 
+    def test_unresolved_run_cannot_retain_check_supplied_metadata(self) -> None:
+        for url in (None, "missing", "https://github.com/Coglatas/Coglatas/checks/1"):
+            with self.subTest(url=url):
+                api = self.complete_live_api()
+                check = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"][0]
+                if url == "missing":
+                    del check["details_url"]
+                else:
+                    check["details_url"] = url
+                report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+                gate = next(row for row in report["exact_head"]["gates"] if row["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("producer-drift", gate["reason"])
+                self.assertEqual(["workflow-producer-drift"], gate["producer_errors"])
+                self.assertNotIn("repos/Coglatas/Coglatas/actions/runs/1001", api.calls)
+
+    def test_missing_check_head_is_not_filled_from_requested_endpoint(self) -> None:
+        api = self.complete_live_api()
+        check = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"][0]
+        del check["head_sha"]
+        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+        gate = next(row for row in report["exact_head"]["gates"] if row["context"] == "build-test")
+        self.assertEqual("fail", report["decision"])
+        self.assertEqual("previous-head-only", gate["reason"])
+        self.assertEqual("fail", gate["decision"])
+
+    def test_cli_reports_malformed_integration_identity_as_json_failure(self) -> None:
+        for integration in ([], {}, "15368", 15368.0, True):
+            with self.subTest(integration=integration):
+                api = self.complete_live_api()
+                api.responses["repos/Coglatas/Coglatas/rulesets/123"]["rules"][0]["parameters"]["required_status_checks"][0]["integration_id"] = integration
+                output = io.StringIO()
+                with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi", return_value=api), mock.patch.object(required.os.sys, "stdout", output):
+                    exit_code = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--json"])
+                report = json.loads(output.getvalue())
+                self.assertEqual(1, exit_code)
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("pass", report["exact_head"]["decision"])
+                self.assertTrue(any("malformed integration_id" in error for error in report["live_ruleset"]["errors"]))
+
+    def test_default_branch_marker_cannot_hide_malformed_include_entries(self) -> None:
+        for entry in (None, [], ""):
+            with self.subTest(entry=entry):
+                live = self.live_ruleset()
+                live["conditions"]["ref_name"]["include"].append(entry)
+                self.assertTrue(any("include ~DEFAULT_BRANCH" in error for error in guard.live_ruleset_errors(REGISTRY, live)))
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 
