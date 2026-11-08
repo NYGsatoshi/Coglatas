@@ -37,3 +37,8 @@ jobs:
         run: |
           command -v qodana
           qodana --version
+      - name: Verify successful fallback with the authenticated release bytes
+        shell: bash
+        run: |
+          python3 -B scripts/ci/test_install_qodana_cli.py \
+            --verified-archive "$(dirname "$(command -v qodana)")/qodana-linux.tar.gz"

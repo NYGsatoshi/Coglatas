@@ -25,6 +25,10 @@ modes, build artifact lineage, assertions and coverage contracts are unchanged.
 
 The non-required, read-only Linux acquisition workflow executes refusal controls,
 downloads the actual authenticated release and runs its native version command.
+It separately injects an API transfer failure and supplies the already authenticated
+archive on the browser fallback, then checks actual installation/version execution
+and binary identity. That control tests fallback logic without claiming a second
+real network transfer or adding a production URL/hash override.
 That proves acquisition only. Protected PR checks and independent source review
 must still complete, followed by both full Qodana scans on the resulting Main.
 No Sonar coverage improvement, Security disposition or release approval is implied.
