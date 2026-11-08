@@ -178,18 +178,37 @@ is manually dispatched and checks UTF-8, NUL bytes, and conflict markers. It
 does not establish link, anchor, catalogue, or move integrity. Local checks for
 a particular documentation PR must report their actual scope separately.
 
-DOC-04 will implement the focused reference/catalogue checker on
-`SecurityTestImplimation`, following the existing test-work branch policy.
-Before substantial physical movement, qualify the checker with deliberate
-broken targets, wrong case, missing/duplicate entries, invalid anchors, and
-protected-byte mutations. Include reference-style and fragment-only links,
-duplicate heading slugs, Unicode names, explicit anchors, and complete asset
-bundles. Exact source-scoped historical exceptions must remain visible.
+DOC-04 implements the focused
+[committed-tree checker](https://github.com/NYGsatoshi/Coglatas/blob/78206c0ecf9b934d302ece7a6fd502b314363ece/scripts/ci/documentation_integrity.py)
+on `SecurityTestImplimation`, normally integrated through
+[PR #1811](https://github.com/NYGsatoshi/Coglatas/pull/1811). Its
+[operating guide](https://github.com/NYGsatoshi/Coglatas/blob/78206c0ecf9b934d302ece7a6fd502b314363ece/docs/ci/documentation-integrity.md)
+defines dependency installation, the `check` and narrower `links` modes,
+supported syntax, and source-bound reporting. The qualified implementation
+uses an externally selected trusted baseline; candidate catalogue metadata
+cannot remove an established protection obligation.
+
+The [recorded qualification](DOCUMENTATION_MOVES.md#doc-04-validation-checkpoint)
+passed 48 independent controls, including deliberate broken targets, wrong
+case, catalogue errors, reference/fragment links, duplicate and custom
+anchors, Unicode boundaries, complete asset bundles, and protected-byte or
+metadata-removal mutations. The complete pinned DOC-03 corpus passed without
+historical-link suppressions. Unsupported local addressing fails visibly;
+the checker does not silently waive historical defects or rewrite evidence.
+
+Before a physical move, run the qualified checker in full `check` mode against
+the move's own committed candidate and an independently selected trusted
+ancestor. Record both identities and actual results in the implementing PR.
+The initial pinned-corpus result does not qualify a later tree. Catalogue
+provenance remains descriptive, and generated or substantive evidence changes
+still require their owning validation. The implementation workflow qualifies
+checker changes on the test branch; it is not an automatic gate for every
+documentation PR. A broader workflow promotion requires its own scoped change.
 
 External/private URL reachability is separate from local repository integrity.
 Keep existing required checks and routing unchanged during this work. In
 particular, `docs/catalog.yml` is outside the Main router's ordinary
 `docs/*.md`, `docs/*.rst`, and `docs/*.txt` exemption; classify its CI execution
-according to the actual router result. Installing a checker is a scoped
-promotion, not a reason to merge unrelated test-branch changes.
+according to the actual router result. Promote only reviewed checker changes
+when needed; do not merge unrelated test-branch changes with documentation work.
 
