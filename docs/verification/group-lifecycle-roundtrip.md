@@ -23,6 +23,12 @@ policy. Successful type/status values are now asserted through a full workflow;
 the original fourteen validation cases and separate PostgreSQL partial remain
 unchanged.
 
+The original parent is read from the persisted Subject row before the workflow
+and must be non-null. This preserves the parent-identity assertion while keeping
+the validation fixture's original-parent property private after its Qodana repair.
+PR qualification does not qualify the repair's resulting Main; exact Main CI,
+both full Qodana inventories and official Sonar are required separately.
+
 The candidate depends on the independently reviewed Group validation repair.
 Native execution, current protected checks and the original Gate, independent
 review and exact resulting-Main qualification remain required. Source coverage

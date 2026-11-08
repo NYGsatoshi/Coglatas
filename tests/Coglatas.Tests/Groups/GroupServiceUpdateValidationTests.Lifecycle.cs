@@ -24,6 +24,10 @@ public sealed partial class GroupServiceUpdateValidationTests
     {
         await using var fixture = await Fixture.CreateAsync(connection);
         var transaction = fixture.Context.Database.CurrentTransaction;
+        var originalParentId = await fixture.Context.Groups.AsNoTracking()
+            .Where(group => group.Id == fixture.Subject.Id)
+            .Select(group => group.ParentGroupId).SingleAsync();
+        Assert.NotNull(originalParentId);
         var suffix = Guid.NewGuid().ToString("N");
         var participant = new User
         {
@@ -48,13 +52,13 @@ public sealed partial class GroupServiceUpdateValidationTests
         await fixture.Context.SaveChangesAsync();
 
         var created = await fixture.Service.CreateAsync(fixture.Workspace.Id,
-            new CreateGroupRequest(fixture.OldParent.Id, " Lifecycle group ", " Before ", GroupType.Team));
+            new CreateGroupRequest(originalParentId, " Lifecycle group ", " Before ", GroupType.Team));
         Assert.True(created.IsSuccess);
         Assert.NotNull(created.Value);
         var groupId = created.Value.Id;
         Assert.NotEqual(fixture.Subject.Id, groupId);
         Assert.Equal(fixture.Workspace.Id, created.Value.WorkspaceId);
-        Assert.Equal(fixture.OldParent.Id, created.Value.ParentGroupId);
+        Assert.Equal(originalParentId, created.Value.ParentGroupId);
         Assert.Equal("Lifecycle group", created.Value.Name);
         Assert.Equal("Before", created.Value.Description);
         Assert.Equal(GroupType.Team, created.Value.GroupType);
