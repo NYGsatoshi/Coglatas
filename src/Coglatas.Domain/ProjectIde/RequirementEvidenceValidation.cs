@@ -6,11 +6,14 @@ public sealed record RequirementEvidenceClaim
     public ProjectLocation Requirement { get; }
     public PlanEntityReference Target { get; }
     public CompilerResult Result { get; }
+    public string? RunId { get; }
 
-    public RequirementEvidenceClaim(ProjectLocation requirement, PlanEntityReference target, CompilerResult result)
+    public RequirementEvidenceClaim(ProjectLocation requirement, PlanEntityReference target, CompilerResult result, string? runId = null)
     {
         ArgumentNullException.ThrowIfNull(requirement); ArgumentNullException.ThrowIfNull(target); ArgumentNullException.ThrowIfNull(result);
-        Requirement = requirement; Target = target; Result = result;
+        if (runId is not null && (runId.Length is < 1 or > 256 || runId.Any(char.IsControl)))
+            throw new ArgumentException("A run claim must be a bounded opaque identity.", nameof(runId));
+        Requirement = requirement; Target = target; Result = result; RunId = runId;
     }
 }
 
@@ -42,9 +45,11 @@ public static class RequirementEvidenceValidator
 {
     /// <summary>No ambient IO, current authority lookup, receipt fabrication or eligibility policy.</summary>
     public static RequirementEvidenceAssessment Assess(CompilerInputManifest input, ProjectLocation requirement,
-        IEnumerable<RequirementEvidenceClaim?>? claims = null, CancellationToken cancellationToken = default)
+        IEnumerable<RequirementEvidenceClaim?>? claims = null, CancellationToken cancellationToken = default, string? expectedRunId = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(requirement);
+        if (expectedRunId is not null && (expectedRunId.Length is < 1 or > 256 || expectedRunId.Any(char.IsControl)))
+            throw new ArgumentException("A desired run must be a bounded opaque identity.", nameof(expectedRunId));
         if (!input.Rules.Any(rule => rule.RuleId == CoreCompilerRules.Requirements && rule.Version == 1 && rule.Required))
             throw new ArgumentException("Evidence assessment requires the locked Requirement rule baseline.", nameof(input));
         var source = input.Source;
@@ -121,6 +126,11 @@ public static class RequirementEvidenceValidator
                 if (!identities.Add(claim.Result.ResultId)) Add("coglatas.evidence.duplicate", RelationFindingState.Invalid);
                 if (!claim.Requirement.Equals(requirement)) Add("coglatas.evidence.requirement-identity-mismatch", RelationFindingState.Invalid);
                 if (!claim.Target.Data.Equals(declared.Target.Data)) Add("coglatas.evidence.target-mismatch", RelationFindingState.Invalid);
+                if (expectedRunId is not null && claim.RunId != expectedRunId)
+                {
+                    if (claim.RunId is null) Add("coglatas.evidence.run-unavailable", RelationFindingState.Unknown);
+                    else { stale = true; Add("coglatas.evidence.run-mismatch", RelationFindingState.Invalid); }
+                }
                 if (!claim.Result.Input.InputDigest.Equals(input.InputDigest) || !claim.Result.Input.Data.Equals(input.Data))
                 { stale = true; Add("coglatas.evidence.input-mismatch", RelationFindingState.Invalid); }
                 var outcome = claim.Result.RuleOutcomes.SingleOrDefault(item => item.RuleId == CoreCompilerRules.Requirements && item.Version == 1);
@@ -143,7 +153,8 @@ public static class RequirementEvidenceValidator
                     Add("coglatas.evidence.claim-not-passed", RelationFindingState.Unknown);
             }
             cancellationToken.ThrowIfCancellationRequested();
-            freshness = stale ? CompilerFreshness.Stale : observed.Count == 0 ? CompilerFreshness.Undetermined : CompilerFreshness.Current;
+            freshness = stale ? CompilerFreshness.Stale : observed.Count == 0 ||
+                (expectedRunId is not null && observed.Any(claim => claim.RunId is null)) ? CompilerFreshness.Undetermined : CompilerFreshness.Current;
             if (identities.Count > 1) Add("coglatas.evidence.ambiguous", RelationFindingState.Invalid);
             if (observed.Count == 0) Add("coglatas.evidence.missing", RelationFindingState.Unknown);
         }
