@@ -32,6 +32,16 @@ formatting. The attachment checks include Workspace ownership and persisted
 FileObject links. Manifest discovery checks the consumer working directory and
 artifact directory before falling back to the compile-time source path.
 
+The rejection control snapshots all existing Tenant identities and labels before
+the attempted seed, including rows created by migrations. It reloads the
+sentinel by its own identity and verifies the complete snapshot afterward.
+Generated fixture JSON is read as UTF-8 text so the producer's existing BOM is
+accepted; original bytes remain intact for deterministic-byte and manifest
+checks. The first hosted execution at `2bb6de72` failed both PostgreSQL controls
+on an unqualified single-Tenant query and BOM parsing respectively. Its original
+run `42460630425/1` and separate redundant-qualifier inspection failure remain
+historical failures. These corrections require fresh execution at the new HEAD.
+
 These are functional fixture correctness controls. They do not approve numeric
 performance, representative hardware, deployment, full recovery, physical-device
 acceptance or Release GO. Existing test bodies, source scope, producer policies,

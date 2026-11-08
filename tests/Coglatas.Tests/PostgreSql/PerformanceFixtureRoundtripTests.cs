@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -51,13 +52,17 @@ public sealed class PerformanceFixtureRoundtripTests
                 var sentinel = new Tenant { Name = "Do not truncate", DisplayName = "Sentinel", Slug = Guid.NewGuid().ToString("N") };
                 context.Tenants.Add(sentinel);
                 await context.SaveChangesAsync();
+                var tenantsBefore = await context.Tenants.AsNoTracking().OrderBy(tenant => tenant.Id)
+                    .Select(tenant => new { tenant.Id, tenant.Name, tenant.DisplayName, tenant.Slug }).ToArrayAsync();
                 var migrations = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
                 var error = await Assert.ThrowsAsync<InvalidOperationException>(() => PerformanceCiFixtureSeed.SeedAsync(
                     context, new Pbkdf2PasswordHasher(), "not-read.json", "small", Guid.NewGuid().ToString("N"), "not-written.json"));
                 Assert.StartsWith("PERF-02 refuses database target", error.Message);
                 context.ChangeTracker.Clear();
-                Assert.Equal("Do not truncate", (await context.Tenants.SingleAsync()).Name);
-                Assert.Equal(sentinel.Id, (await context.Tenants.SingleAsync()).Id);
+                Assert.Equal("Do not truncate", (await context.Tenants.AsNoTracking().SingleAsync(tenant => tenant.Id == sentinel.Id)).Name);
+                Assert.Equal(sentinel.Id, (await context.Tenants.AsNoTracking().SingleAsync(tenant => tenant.Id == sentinel.Id)).Id);
+                Assert.Equal(tenantsBefore, await context.Tenants.AsNoTracking().OrderBy(tenant => tenant.Id)
+                    .Select(tenant => new { tenant.Id, tenant.Name, tenant.DisplayName, tenant.Slug }).ToArrayAsync());
                 Assert.Equal(migrations, (await context.Database.GetAppliedMigrationsAsync()).ToArray());
             });
     }
@@ -115,7 +120,7 @@ public sealed class PerformanceFixtureRoundtripTests
                 context.Tenants.Add(new Tenant { Name = "Must be removed by rebuild", DisplayName = "Sentinel", Slug = Guid.NewGuid().ToString("N") });
                 await context.SaveChangesAsync();
             }
-            using var first = JsonDocument.Parse(await File.ReadAllBytesAsync(evidencePath));
+            using var first = JsonDocument.Parse(await File.ReadAllTextAsync(evidencePath));
             AssertEvidence(first.RootElement, PerformanceCiFixtureSeed.FixtureVersion, profile, manifestHash);
             Dictionary<string, string> identities;
             await using (var observer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
@@ -131,7 +136,7 @@ public sealed class PerformanceFixtureRoundtripTests
                     await context.Messages.IgnoreQueryFilters().Select(message => message.CreatedAt).Distinct().CountAsync());
                 Assert.False(await context.Tenants.IgnoreQueryFilters().AnyAsync(tenant => tenant.Name == "Must be removed by rebuild"));
                 var actual = await File.ReadAllBytesAsync(evidencePath);
-                using var evidence = JsonDocument.Parse(actual);
+                using var evidence = JsonDocument.Parse(await File.ReadAllTextAsync(evidencePath));
                 AssertEvidence(evidence.RootElement, PerformanceCiFixtureSeed.DbFixtureVersion, profile, manifestHash);
                 var persisted = await ReadPersistedIdentitiesAsync(context, evidence.RootElement);
                 Assert.Equal(identities.OrderBy(item => item.Key), persisted.OrderBy(item => item.Key));
@@ -142,7 +147,7 @@ public sealed class PerformanceFixtureRoundtripTests
                 {
                     Assert.Equal(workspace, attachment.WorkspaceId);
                     Assert.Equal(workspace, attachment.OwnerId);
-                    Assert.Equal(Coglatas.Domain.Enums.AttachmentOwnerType.Workspace, attachment.OwnerType);
+                    Assert.Equal(AttachmentOwnerType.Workspace, attachment.OwnerType);
                 }
                 var fileIds = attachments.Select(attachment => attachment.FileObjectId).ToArray();
                 Assert.Equal(attachments.Count, await context.FileObjects.IgnoreQueryFilters().CountAsync(file => fileIds.Contains(file.Id)));
