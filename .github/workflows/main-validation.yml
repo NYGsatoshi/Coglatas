@@ -9,7 +9,7 @@ permissions:
 jobs:
   main-backend-test:
     name: Main Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     services:
@@ -212,7 +212,7 @@ jobs:
 
   main-frontend-test:
     name: Main Frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -302,7 +302,7 @@ jobs:
 
   main-security-test:
     name: Main Security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     env:

@@ -19,7 +19,7 @@ permissions:
 jobs:
   sec04-schemathesis-deep:
     name: SEC-04 Schemathesis deep
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
 
     env:

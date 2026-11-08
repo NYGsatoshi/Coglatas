@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   compat-critical-preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -134,7 +134,7 @@ jobs:
     if: inputs.reuse_main_frontend_artifact == true
     needs: compat-critical-preflight
     name: compat-${{ matrix.engine }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
