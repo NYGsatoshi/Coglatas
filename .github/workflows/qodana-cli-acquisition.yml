@@ -50,8 +50,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      RUNNER_TOOL_CACHE: ${{ runner.temp }}/codeql-selector-control-tools
-      CODEQL_ACTION_TEMP: ${{ runner.temp }}/codeql-selector-control-action
+      RUNNER_TOOL_CACHE: /tmp/codeql-selector-control-tools-${{ github.run_id }}-${{ github.run_attempt }}
+      CODEQL_ACTION_TEMP: /tmp/codeql-selector-control-action-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$RUNNER_TOOL_CACHE" = "$RUNNER_TEMP/codeql-selector-control-tools"
+          test "$RUNNER_TOOL_CACHE" = "/tmp/codeql-selector-control-tools-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           mkdir -p "$CODEQL_ACTION_TEMP"
           printf '%s\n' '{"default_codeql_version_2_27_3_enabled":true}' > "$CODEQL_ACTION_TEMP/cached-feature-flags.json"
           cache="$RUNNER_TOOL_CACHE/CodeQL/2.27.3/x64"
