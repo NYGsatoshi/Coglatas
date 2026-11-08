@@ -873,8 +873,10 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         registry = registry_for_contexts("build-test")
         item = registry["checks"][0]
         item["kind"] = "commit-status"
-        item["producer"] = {"type": "trusted-workflow-status", "creator_login": "github-actions[bot]"}
-        item["trigger"] = {"mode": "trusted-workflow", "events": ["workflow_run"]}
+        item["producer"] = {"type": "github-actions-status", "creator_login": "github-actions[bot]", "workflow_path_required": True}
+        item["trigger"] = {"mode": "trusted-default-branch", "events": ["workflow_run"], "source_workflow": "PR CI"}
+        item["prerequisites"] = []
+        item.pop("conditional_prerequisites", None)
         item["ruleset_integration_id"] = None
         _, statuses = self.success_evidence(registry)
         status = statuses[0]
@@ -893,9 +895,24 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         })
         return registry, api
 
+    def run_validated_fake_cli(self, registry: dict[str, Any], api: FakeApi) -> tuple[int, dict[str, Any]]:
+        policy = json.loads(required.POLICY_PATH.read_text(encoding="utf-8"))
+        control = next(value for value in policy["controls"] if value["id"] == "GOV-CHECKS-001")
+        control["expected"]["required"] = [{key: item[key] for key in ("kind", "workflow", "job", "context")} for item in registry["checks"]]
+        with tempfile.TemporaryDirectory(prefix="required-status-contract-") as folder:
+            registry_path, policy_path = Path(folder) / "registry.json", Path(folder) / "policy.json"
+            registry_path.write_text(json.dumps(registry), encoding="utf-8")
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            self.assertEqual(registry, required.load_required_check_registry(registry_path, policy_path))
+            output = io.StringIO()
+            with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi", return_value=api), mock.patch.object(required.os.sys, "stdout", output):
+                code = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--registry", str(registry_path), "--policy", str(policy_path), "--json"])
+            return code, json.loads(output.getvalue())
+
     def test_github_shaped_commit_status_uses_verified_combined_head(self) -> None:
         registry, api = self.commit_status_api()
-        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, registry, now=NOW)
+        code, report = self.run_validated_fake_cli(registry, api)
+        self.assertEqual(0, code)
         self.assertEqual("pass", report["decision"])
         self.assertIn(f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100", api.calls)
         self.assertNotIn(f"repos/Coglatas/Coglatas/commits/{HEAD}/statuses?per_page=100", api.calls)
@@ -930,6 +947,66 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         api.responses[path + "&page=2"] = {"sha": OLD_HEAD, "total_count": 101, "statuses": []}
         with self.assertRaisesRegex(RuntimeError, "head identity"):
             guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, registry, now=NOW)
+
+
+    def test_malformed_page_entries_fail_through_validated_cli(self) -> None:
+        for kind in ("check-runs", "statuses"):
+            with self.subTest(kind=kind):
+                if kind == "check-runs":
+                    registry, api = REGISTRY, self.complete_live_api()
+                    page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                    page["check_runs"] += [copy.deepcopy(page["check_runs"][0])] * 93 + [None]
+                else:
+                    registry, api = self.commit_status_api()
+                    page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]
+                    page["statuses"] = page["statuses"] * 99 + [None]
+                page["total_count"] = 101
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertEqual("fail", report["decision"])
+                self.assertIn("page entries", report["error"])
+
+    def test_short_page_cannot_hide_later_combined_status_head_drift(self) -> None:
+        registry, api = self.commit_status_api()
+        path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
+        api.responses[path]["total_count"] = 2
+        api.responses[path + "&page=2"] = {"sha": OLD_HEAD, "total_count": 2, "statuses": []}
+        code, report = self.run_validated_fake_cli(registry, api)
+        self.assertEqual(1, code)
+        self.assertIn("head identity", report["error"])
+        self.assertIn(path + "&page=2", api.calls)
+
+    def test_invalid_or_incomplete_pagination_totals_fail_as_json(self) -> None:
+        for total in (None, "missing", True, -1, "1", 0, 2):
+            with self.subTest(total=total):
+                registry, api = self.commit_status_api()
+                path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
+                if total == "missing":
+                    del api.responses[path]["total_count"]
+                else:
+                    api.responses[path]["total_count"] = total
+                api.responses[path + "&page=2"] = {"sha": HEAD, "total_count": total, "statuses": []}
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertIn("pagination", report["error"])
+
+    def test_commit_status_missing_creator_fails_closed_without_identity_inference(self) -> None:
+        registry, api = self.commit_status_api()
+        del api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]["statuses"][0]["creator"]
+        code, report = self.run_validated_fake_cli(registry, api)
+        self.assertEqual(1, code)
+        self.assertEqual(["status-creator-drift"], report["exact_head"]["gates"][0]["producer_errors"])
+
+
+    def test_combined_status_total_cannot_change_between_pages(self) -> None:
+        registry, api = self.commit_status_api()
+        path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
+        api.responses[path]["statuses"] *= 100
+        api.responses[path]["total_count"] = 101
+        api.responses[path + "&page=2"] = {"sha": HEAD, "total_count": 100, "statuses": []}
+        code, report = self.run_validated_fake_cli(registry, api)
+        self.assertEqual(1, code)
+        self.assertIn("pagination", report["error"])
 
 
 class BackendDatabaseBootstrapTests(unittest.TestCase):

@@ -53,6 +53,13 @@ per-status identity is rejected. This preserves commit-status support without
 assuming the requested endpoint alone proves the returned identity. See
 [GitHub's commit-status API](https://docs.github.com/en/rest/commits/statuses#get-the-combined-status-for-a-specific-reference).
 
+Paginated evidence rejects non-object entries rather than silently discarding
+them. When a total is supplied, every declared entry must be collected; a short
+page alone cannot stop collection. Malformed or inconsistent totals fail closed.
+Controlled commit-status fixtures exercise the real registry loader and CLI,
+but do not establish live producer compatibility: absent creator identity still
+fails the registered producer contract. No live commit-status gate is activated.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

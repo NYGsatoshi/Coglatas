@@ -867,6 +867,7 @@ def _ruleset(api: Any, repository: str, registry: dict[str, Any]) -> dict[str, A
 def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | None = None) -> list[dict[str, Any]]:
     out = []
     page = 1
+    declared_total = None
     while True:
         payload = api.get(path if page == 1 else f"{path}&page={page}")
         if expected_head_sha is not None and (not isinstance(payload, dict) or payload.get("sha") != expected_head_sha):
@@ -874,7 +875,9 @@ def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | Non
         batch = payload.get(key) if key and isinstance(payload, dict) else payload
         if not isinstance(batch, list):
             raise RuntimeError("GitHub paginated response is malformed")
-        values = [dict(x) for x in batch if isinstance(x, dict)]
+        if any(not isinstance(value, dict) for value in batch):
+            raise RuntimeError("GitHub pagination page entries must be objects")
+        values = [dict(x) for x in batch]
         if expected_head_sha is not None:
             for value in values:
                 if "sha" in value and value["sha"] != expected_head_sha:
@@ -882,7 +885,17 @@ def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | Non
                 value["sha"] = expected_head_sha
         out.extend(values)
         total = payload.get("total_count") if isinstance(payload, dict) else None
-        if len(values) < 100 or (isinstance(total, int) and len(out) >= total):
+        if (key is not None or total is not None) and (not isinstance(total, int) or isinstance(total, bool) or total < 0):
+            raise RuntimeError("GitHub pagination total_count is malformed")
+        if isinstance(total, int):
+            if declared_total is not None and total != declared_total:
+                raise RuntimeError("GitHub pagination total_count changed between pages")
+            declared_total = total
+            if len(out) > total or (not values and len(out) < total):
+                raise RuntimeError("GitHub pagination total_count is inconsistent with returned entries")
+            if len(out) == total:
+                return out
+        elif len(values) < 100:
             return out
         page += 1
         if page > 100:
