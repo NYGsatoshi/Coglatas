@@ -49,3 +49,15 @@ release URLs. Both original SHA-256 values, versions, Python controls, lint
 commands and enforcement decisions remain unchanged. Both transfer routes are
 bounded and require HTTPS redirects. No credential or lint suppression is added.
 This independently scoped repair does not promote or merge PR #1676.
+
+Python CodeQL initialization also repeatedly failed on the original bundle's
+browser release route. The pinned CodeQL action supports a local bundle tarball.
+Only Python now acquires the same original 2.27.4 Linux bundle (fixed public asset
+`692239340`) through the official API, verifies SHA-256
+`d862cb11aff035988f178703b69751be072f2aa7e76616f16bb725a207b50b7d`
+before publishing its local archive path, and delegates extraction/initialization
+to that unchanged action. The original URL is a bounded HTTPS fallback. Other
+languages retain their default tool resolution. All four language/build-mode
+entries, action pins, queries, analysis categories, permissions and enforcement
+remain unchanged. Actual Python analysis and original SARIF must qualify the
+final HEAD; local-archive telemetry alone is not execution evidence.
