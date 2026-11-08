@@ -3,13 +3,11 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: f4a8c7577a757a68cd5472cab548b78534229e69
-  base_tree: cb018ff3990a6773643b9729efd70e383b6428b6
+  base_commit: 74ab2a603b499fcd9319046bb21664f5f9b33aa3
+  base_tree: 87048dcc5eabbc45a3a65686e7418e80680ec108
   file_suffix: .md
-  tracked_markdown_at_base: 473
-  markdown_added_by_this_change:
-  - docs/DOCUMENTATION_MAINTENANCE.md
-  - docs/DOCUMENTATION_MOVES.md
+  tracked_markdown_at_base: 475
+  markdown_added_by_this_change: []
   expected_markdown_count: 475
   excluded_formats:
   - .mdx
@@ -17,9 +15,9 @@ documents:
 - path: .github/CI_CACHE_STRATEGY.md
   kind: guide
   domain: ci
-  lifecycle: needs-review
-  classification_basis: Describes persistent self-hosted runner caches; reconcile with the explicit historical-only
-    warning in docs/ci/self-hosted-runner-pool.md before reusing its instructions.
+  lifecycle: active
+  classification_basis: Maintained guidance for cache paths and host/container lifetimes; distinguishes checked-in
+    GitHub-hosted CI from historical private self-hosted operation without assuming cross-job disk persistence.
 - path: .github/ISSUE_TEMPLATE/engineering-task.md
   kind: guide
   domain: governance
@@ -1296,10 +1294,10 @@ documents:
 - path: docs/verification/dependency-security-automation-20261026.md
   kind: guide
   domain: security
-  lifecycle: needs-review
-  classification_basis: Reusable dependency rules still prescribe a Node 24 Docker baseline while the integrated
-    .github/renovate.json explicitly retains approved Node 26 LTS; source-bound verification appendices require
-    separate interpretation. Reconcile the maintained guidance without rewriting its earlier evidence.
+  lifecycle: active
+  classification_basis: Maintained dependency-update and scanning constraints aligned with the configured Node 26
+    Docker baseline; distinguishes reusable guidance from dated onboarding and audit observations without granting
+    new runtime, provider-execution or release qualification.
 - path: docs/verification/direct-dialog-routine-catchup.md
   kind: report
   domain: messaging
@@ -2396,11 +2394,10 @@ documents:
 - path: docs/verification/security-architecture-preflight.md
   kind: contract
   domain: security
-  lifecycle: needs-review
-  classification_basis: Effective Required exit evidence and Owner gates coexist with a five-assembly implementation
-    walkthrough; security-architecture-six-assembly-binding.md defines version 2 six-assembly scope and treats
-    version 1 as historical. Reconcile the mixed guidance while preserving BLOCKED/Advisory and separate owner
-    gates.
+  lifecycle: active
+  classification_basis: Maintained fifteen-condition pre-Avalonia exit contract and version-aware reconciliation
+    guide; distinguishes version 2 six-assembly binding from retained historical version 1 evidence while preserving
+    BLOCKED/Advisory and separate owner gates.
 - path: docs/verification/security-architecture-registry-quality-repair.md
   kind: report
   domain: security
