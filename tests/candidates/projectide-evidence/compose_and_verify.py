@@ -107,11 +107,15 @@ def main() -> None:
         record["xunit"] = counts
 
         frontend = target / "frontend"
-        execute(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"],
+        # Python subprocess on Windows cannot resolve npm's .cmd shim by the
+        # extensionless Unix name. Do not use shell=True or bypass tool policy.
+        npm = "npm.cmd" if os.name == "nt" else "npm"
+        record["npmExecutable"] = npm
+        execute([npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund"],
                 frontend, evidence / "npm-install.log")
         report_path = evidence / "vitest-results.json"
         try:
-            execute(["npm", "exec", "--", "vitest", "run",
+            execute([npm, "exec", "--", "vitest", "run",
                      "src/app/features/projectide/projectide-evidence-display.candidate.spec.ts",
                      "--config", "vitest.config.ts", "--reporter=json",
                      "--outputFile=" + str(report_path)], frontend, evidence / "vitest.log")
