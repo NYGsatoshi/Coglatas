@@ -56,6 +56,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Set up the repository's approved Node toolchain for the component control
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
       - name: Fetch the unchanged pinned action component
         id: action_source
         shell: bash
@@ -122,29 +126,19 @@ jobs:
           test ! -e "$CODEQL_SELECTOR_CACHE/CodeQL/2.27.4/x64/codeql/codeql"
       - name: Run the normal original resolver with the controlled feature response
         id: control_init
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9 / node24 action runtime
+        shell: bash
         env:
           PINNED_ACTION_PATH: ${{ steps.action_source.outputs.path }}
-        with:
-          script: |
-            const assert = require('node:assert/strict');
-            const { execFileSync, spawnSync } = require('node:child_process');
-            const { join } = require('node:path');
-            const action = process.env.PINNED_ACTION_PATH;
-            assert.equal(execFileSync('git', ['-C', action, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-              '9b3254085494b55a0f7c4c2b3d2d52cc712ce370');
-            assert.equal(process.versions.node.split('.')[0], '24');
-            // Keep repository Node26 setup policy intact; use the original action runtime major.
-            // Inputs match the pinned init manifest defaults and this control's language.
-            const result = spawnSync(process.execPath, [join(action, 'lib/init-entry.js')], {
-              stdio: 'inherit',
-              env: { ...process.env, RUNNER_TOOL_CACHE: process.env.CODEQL_SELECTOR_CACHE,
-                INPUT_TOKEN: core.getInput('github-token', { required: true }),
-                INPUT_LANGUAGES: 'actions', 'INPUT_BUILD-MODE': 'none',
-                'INPUT_ANALYSIS-KINDS': 'code-scanning', INPUT_DEBUG: 'false', INPUT_MATRIX: '{}' },
-            });
-            if (result.error) throw result.error;
-            assert.equal(result.status, 0, 'Original normal resolver component must initialize successfully.');
+          CONTROL_CODEQL_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git -C "$PINNED_ACTION_PATH" rev-parse HEAD)" = '9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
+          test "$(node -p 'process.versions.node.split(".")[0]')" = '26'
+          # Component test on repository Node26; production action runtimes qualify separately.
+          # Inputs match the pinned init manifest defaults and this control's language.
+          env RUNNER_TOOL_CACHE="$CODEQL_SELECTOR_CACHE" INPUT_TOKEN="$CONTROL_CODEQL_TOKEN" \
+            INPUT_LANGUAGES=actions 'INPUT_BUILD-MODE=none' 'INPUT_ANALYSIS-KINDS=code-scanning' \
+            INPUT_DEBUG=false 'INPUT_MATRIX={}' node "$PINNED_ACTION_PATH/lib/init-entry.js"
       - name: Verify the different selected CLI remains available
         shell: bash
         env:
