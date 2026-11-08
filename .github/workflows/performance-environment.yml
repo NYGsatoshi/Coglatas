@@ -33,7 +33,7 @@ permissions:
 jobs:
   environment-smoke:
     name: performance-environment-${{ inputs.profile || 'small' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 90
     env:

@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       should_scan: ${{ steps.resolve.outputs.should_scan }}
@@ -123,7 +123,7 @@ jobs:
     needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     services:
       postgres:

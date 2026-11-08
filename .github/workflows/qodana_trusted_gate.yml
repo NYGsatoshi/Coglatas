@@ -14,7 +14,7 @@ permissions:
 jobs:
   qodana-dotnet-community:
     name: Qodana Community / .NET
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
