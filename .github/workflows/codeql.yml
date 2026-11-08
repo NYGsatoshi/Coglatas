@@ -96,30 +96,42 @@ jobs:
     # - name: Setup runtime (example)
     #   uses: actions/setup-example@v1
 
-    - name: Acquire the original pinned Python CodeQL bundle
-      if: matrix.language == 'python'
-      id: python_bundle
+    - name: Warm the normal CodeQL cache with the verified stable bundle
       shell: bash
       run: |
         set -euo pipefail
-        bundle_dir="$(mktemp -d "$RUNNER_TEMP/codeql-python-2.27.4.XXXXXXXX")"
-        archive="$bundle_dir/codeql-bundle-python-linux64.tar.zst"
+        # Preserve the action's feature-flag/overlay-aware version selection.
+        # A normal cache entry is used only if that resolver selects 2.27.4.
+        cache="$RUNNER_TOOL_CACHE/CodeQL/2.27.4/x64"
+        if [[ -d "$cache" && -f "$cache.complete" ]]; then
+          echo 'Retaining the existing normal CodeQL cache entry.'
+          exit 0
+        fi
+        if [[ -e "$cache" || -e "$cache.complete" ]]; then
+          echo '::error::Refusing to replace an incomplete CodeQL cache entry.'
+          exit 1
+        fi
+        bundle_dir="$(mktemp -d "$RUNNER_TEMP/codeql-stable-2.27.4.XXXXXXXX")"
+        archive="$bundle_dir/codeql-bundle-linux64.tar.zst"
         if ! curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
           --connect-timeout 20 --max-time 180 --retry 3 --retry-delay 5 --retry-max-time 240 \
           --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' \
-          'https://api.github.com/repos/github/codeql-action/releases/assets/692239340' --output "$archive"; then
+          'https://api.github.com/repos/github/codeql-action/releases/assets/692235033' --output "$archive"; then
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
             --connect-timeout 20 --max-time 180 --retry 3 --retry-delay 5 --retry-max-time 240 \
-            'https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.4/codeql-bundle-python-linux64.tar.zst' --output "$archive"
+            'https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.4/codeql-bundle-linux64.tar.zst' --output "$archive"
         fi
-        printf '%s  %s\n' 'd862cb11aff035988f178703b69751be072f2aa7e76616f16bb725a207b50b7d' "$archive" | sha256sum --check -
-        echo "archive=$archive" >> "$GITHUB_OUTPUT"
+        printf '%s  %s\n' 'da3e952c7fe978a0b6b93e75d9cbabbdf8535667ca0810bd4b2ae37bc840ffee' "$archive" | sha256sum --check -
+        mkdir -p "$(dirname "$cache")"
+        mkdir "$cache"
+        tar --zstd --extract --file "$archive" --directory "$cache" --no-same-owner
+        test "$("$cache/codeql/codeql" version --format=terse)" = '2.27.4'
+        touch "$cache.complete"
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
       with:
-        tools: ${{ steps.python_bundle.outputs.archive }}
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
         # If you wish to specify custom queries, you can do so here or in a config file.

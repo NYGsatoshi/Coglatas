@@ -50,14 +50,30 @@ commands and enforcement decisions remain unchanged. Both transfer routes are
 bounded and require HTTPS redirects. No credential or lint suppression is added.
 This independently scoped repair does not promote or merge PR #1676.
 
-Python CodeQL initialization also repeatedly failed on the original bundle's
-browser release route. The pinned CodeQL action supports a local bundle tarball.
-Only Python now acquires the same original 2.27.4 Linux bundle (fixed public asset
-`692239340`) through the official API, verifies SHA-256
-`d862cb11aff035988f178703b69751be072f2aa7e76616f16bb725a207b50b7d`
-before publishing its local archive path, and delegates extraction/initialization
-to that unchanged action. The original URL is a bounded HTTPS fallback. Other
-languages retain their default tool resolution. All four language/build-mode
-entries, action pins, queries, analysis categories, permissions and enforcement
-remain unchanged. Actual Python analysis and original SARIF must qualify the
-final HEAD; local-archive telemetry alone is not execution evidence.
+CodeQL initialization also repeatedly failed on the original bundle browser
+release routes. A local Python archive override at historical HEAD `a6780a99`
+passed actual Python analysis, but source review identified that it bypassed the
+original feature-flag/overlay-aware version selector. That approach is withdrawn.
+
+Instead, warm the action's normal runner tool cache with the official combined
+2.27.4 Linux bundle (public asset `692235033`), SHA-256
+`da3e952c7fe978a0b6b93e75d9cbabbdf8535667ca0810bd4b2ae37bc840ffee`.
+Only the combined bundle is suitable for the normal shared-version cache.
+Verification precedes extraction; the completion marker follows the actual CLI
+version check. Existing complete entries are retained and incomplete entries
+are refused. No existing cache entry is deleted or replaced.
+
+The original action inputs and selector remain unchanged: its normal version
+resolution happens before lookup, and it can use this ordinary cache entry only
+when it selects 2.27.4. It can still select its bundled default, feature-flag
+update/rollback or overlay-compatible version; a different selected version takes
+its original acquisition path. No `tools` override, pinned-version alias, feature
+flag, action mutation or global environment override is added. This is runner
+cache preparation, not an independent version-selection policy. Future original
+version changes require fresh transport qualification; the cached version must
+never override them.
+
+All four language/build-mode entries, action pins, queries, analysis categories,
+permissions and enforcement remain unchanged. All four actual current analyses
+and original SARIF must qualify the final HEAD. Cache preparation alone is not
+analysis or security acceptance.
