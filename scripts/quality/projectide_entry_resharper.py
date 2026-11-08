@@ -95,7 +95,7 @@ def prepare(args) -> None:
             (args.report / "composition.json").write_text(json.dumps(receipt, indent=2) + "\n",
                                                             encoding="utf-8")
         with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:
-            output.write(f"RESHARPER_ROOT={ROOT}\\n")
+            output.write(f"RESHARPER_ROOT={ROOT}\n")
         return
     if "Coglatas.ProjectIde.Entry.Tests" not in selected:
         # All unrelated PRs retain the existing shared-build inspection path.
