@@ -110,10 +110,18 @@ describe('AnnouncementEditorComponent content links', () => {
     fixture.detectChanges();
     fixture.componentInstance.saveDraft();
     fixture.detectChanges();
+    await fixture.whenStable();
+    await nextRenderTick();
+
+    const url = host.querySelector<HTMLInputElement>(
+      '[data-testid="announcement-editor-attachment-url"]',
+    );
 
     expect(host.querySelector('[data-testid="announcement-attachment-url-error"]')?.textContent).toContain(
       'URLを入力してください',
     );
+    expect(url?.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(url);
     expect(fixture.componentInstance.publicationReviewOpen()).toBe(false);
   });
 });
