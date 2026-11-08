@@ -67,8 +67,15 @@ public sealed partial class GroupServiceUpdateValidationTests
         Assert.Equal(fixture.User.Id, created.Value.CreatedByUserId);
 
         var storedCreated = await fixture.Context.Groups.AsNoTracking().SingleAsync(group => group.Id == groupId);
+        Assert.Equal(fixture.Workspace.Id, storedCreated.WorkspaceId);
+        Assert.Equal(originalParentId, storedCreated.ParentGroupId);
         Assert.Equal("Lifecycle group", storedCreated.Name);
+        Assert.Equal("lifecycle-group", storedCreated.Slug);
+        Assert.Equal("Before", storedCreated.Description);
         Assert.Equal(GroupType.Team, storedCreated.GroupType);
+        Assert.Equal(GroupStatus.Active, storedCreated.Status);
+        Assert.Equal(fixture.User.Id, storedCreated.CreatedByUserId);
+        Assert.Null(storedCreated.DeletedAt);
         var creator = await fixture.Context.GroupMembers.AsNoTracking().SingleAsync(member => member.GroupId == groupId);
         Assert.Equal(fixture.User.Id, creator.UserId);
         Assert.Equal(GroupRole.Owner, creator.Role);
@@ -84,9 +91,11 @@ public sealed partial class GroupServiceUpdateValidationTests
         Assert.Equal(fixture.NewParent.Id, updated.Value.ParentGroupId);
         var storedUpdated = await fixture.Context.Groups.AsNoTracking().SingleAsync(group => group.Id == groupId);
         Assert.Equal("Lifecycle renamed", storedUpdated.Name);
+        Assert.Equal("lifecycle-renamed", storedUpdated.Slug);
         Assert.Equal(fixture.NewParent.Id, storedUpdated.ParentGroupId);
         Assert.Equal(GroupType.Club, storedUpdated.GroupType);
         Assert.Equal("After", storedUpdated.Description);
+        Assert.Equal(GroupStatus.Active, storedUpdated.Status);
 
         var added = await fixture.Service.AddMemberAsync(groupId,
             new AddGroupMemberRequest(participant.Id, GroupRole.Member));
@@ -99,6 +108,7 @@ public sealed partial class GroupServiceUpdateValidationTests
         var storedAdded = await fixture.Context.GroupMembers.AsNoTracking().SingleAsync(row =>
             row.GroupId == groupId && row.UserId == participant.Id);
         Assert.Equal(GroupRole.Member, storedAdded.Role);
+        Assert.Equal(new FixedClock().UtcNow, storedAdded.JoinedAt);
         var member = await fixture.Context.GroupMembers.SingleAsync(row =>
             row.GroupId == groupId && row.UserId == participant.Id);
         var historicalJoin = new FixedClock().UtcNow.AddDays(-3);

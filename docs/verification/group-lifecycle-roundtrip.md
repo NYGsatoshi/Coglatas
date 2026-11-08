@@ -9,6 +9,11 @@ seven service-save calls and the separately ordered audit-action list. The tests
 do not assert per-operation audit/save interleaving. No-tracking reads before
 later writes check that creation, metadata, each membership transition and
 archival were persisted, so a later operation cannot mask an unsaved change.
+Creation reloads also check the original parent, description, slug, Workspace,
+creator, active status and absence of deletion before update can replace fields.
+The update slug/status and newly added membership timestamp are checked before
+later operations. This addresses source review `6719302558`; all prior response
+and persistence assertions remain.
 A PostgreSQL variant requires the existing
 migrated temporary database and preserves the caller-owned fixture transaction
 until fixture rollback. The scenario database is dropped by the existing helper;
