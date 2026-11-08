@@ -5,7 +5,11 @@ parent/name/type/description, adds and changes a participant, retains the existi
 ReadOnly membership history after removal, and archives/restores the Group.
 Repository reads reload persisted rows, verify Workspace list filtering and a
 sibling Workspace control, preserve a historical join timestamp, and check the
-seven service-save/audit calls. A PostgreSQL variant requires the existing
+seven service-save calls and the separately ordered audit-action list. The tests
+do not assert per-operation audit/save interleaving. No-tracking reads before
+later writes check that creation, metadata, each membership transition and
+archival were persisted, so a later operation cannot mask an unsaved change.
+A PostgreSQL variant requires the existing
 migrated temporary database and preserves the caller-owned fixture transaction
 until fixture rollback. The scenario database is dropped by the existing helper;
 successful migration templates can remain for job reuse.
