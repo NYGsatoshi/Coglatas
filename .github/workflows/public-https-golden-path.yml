@@ -11,7 +11,7 @@ jobs:
     # The protected environment owns all fixture values. It must be approved
     # after deployment and configured with the dedicated synthetic account.
     environment: public-https-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
       group: coglatas-public-https-deployment-gate
