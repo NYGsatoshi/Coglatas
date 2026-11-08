@@ -50,6 +50,7 @@ import {
           <h2 id="message-thread-heading">{{ i18n.translate('messaging.thread.title') }}</h2>
         </div>
         <button
+          #closeControl
           type="button"
           class="thread__close"
           data-testid="thread-close"
@@ -167,6 +168,7 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
   readonly i18n = injectMessagingI18n();
   @ViewChild('panel') private panel?: ElementRef<HTMLElement>;
   @ViewChild('backControl') private backControl?: ElementRef<HTMLButtonElement>;
+  @ViewChild('closeControl') private closeControl?: ElementRef<HTMLButtonElement>;
   @ViewChild('replyDraft') private replyDraft?: ElementRef<HTMLTextAreaElement>;
   @Input({ required: true }) thread!: MessagingThreadViewModel;
   @Input() canPost = false;
@@ -180,7 +182,7 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
 
   composing = false;
   private focusedKey: string | null = null;
-  private focusBackAfterRootDeletion = false;
+  private restoreHeaderFocus: 'back' | 'close' | null = null;
   private focusedMessageId: string | null = null;
 
   get canReply(): boolean {
@@ -247,23 +249,38 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
     }
     const previous = threadChange.previousValue as MessagingThreadViewModel;
     const current = threadChange.currentValue as MessagingThreadViewModel;
+    if (previous.rootMessageId !== current.rootMessageId) {
+      return;
+    }
+    // Keep explicit header focus through the loading -> ready template update:
+    // jsdom 31 and browsers may otherwise hand it back to the panel.
+    if (previous.status === 'loading' && current.status === 'ready') {
+      if (document.activeElement === this.backControl?.nativeElement) {
+        this.restoreHeaderFocus = 'back';
+      } else if (document.activeElement === this.closeControl?.nativeElement) {
+        this.restoreHeaderFocus = 'close';
+      }
+    }
     if (
-      previous.rootMessageId === current.rootMessageId &&
       previous.rootMessage?.isDeleted !== true &&
       current.rootMessage?.isDeleted === true &&
       this.replyDraft?.nativeElement === document.activeElement
     ) {
-      // Disabling a focused textarea moves browser focus to BODY. Capture the
-      // deletion transition before Angular applies `disabled`, then keep focus
-      // on a stable control inside the still-open thread panel.
-      this.focusBackAfterRootDeletion = true;
+      // Move focus before Angular disables the textarea. Deferred focus is
+      // insufficient when the runtime retains the disabled node as active.
+      this.backControl?.nativeElement.focus();
     }
   }
 
   ngAfterViewChecked(): void {
-    if (this.focusBackAfterRootDeletion) {
-      this.focusBackAfterRootDeletion = false;
-      queueMicrotask(() => this.backControl?.nativeElement.focus());
+    if (this.restoreHeaderFocus) {
+      const control = this.restoreHeaderFocus === 'back'
+        ? this.backControl?.nativeElement
+        : this.closeControl?.nativeElement;
+      this.restoreHeaderFocus = null;
+      if (control?.isConnected && document.activeElement !== control) {
+        control.focus();
+      }
     }
     const key = this.thread.status === 'closed'
       ? null
