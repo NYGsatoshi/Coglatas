@@ -752,6 +752,42 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         self.assertEqual("fail", report["decision"])
         self.assertEqual("controlled unavailable evidence", report["error"])
 
+    def test_missing_run_head_identity_cannot_supply_current_head_success(self) -> None:
+        for missing in (False, True):
+            with self.subTest(field_missing=missing):
+                api = self.complete_live_api()
+                run = api.responses["repos/Coglatas/Coglatas/actions/runs/1001"]
+                if missing:
+                    del run["head_sha"]
+                else:
+                    run["head_sha"] = None
+                report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+                gate = next(row for row in report["exact_head"]["gates"] if row["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("producer-drift", gate["reason"])
+                self.assertEqual(["workflow-run-head-drift"], gate["producer_errors"])
+
+    def test_cli_reports_malformed_ref_conditions_from_real_evaluator_as_json_failure(self) -> None:
+        for conditions in (
+            None,
+            {"ref_name": None},
+            {"ref_name": []},
+            {"ref_name": {"include": None}},
+            {"ref_name": {"include": "~DEFAULT_BRANCH"}},
+        ):
+            with self.subTest(conditions=conditions):
+                api = self.complete_live_api()
+                api.responses["repos/Coglatas/Coglatas/rulesets/123"]["conditions"] = conditions
+                output = io.StringIO()
+                with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi", return_value=api), mock.patch.object(required.os.sys, "stdout", output):
+                    exit_code = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--json"])
+                report = json.loads(output.getvalue())
+                self.assertEqual(1, exit_code)
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("pass", report["exact_head"]["decision"])
+                self.assertEqual("fail", report["live_ruleset"]["decision"])
+                self.assertTrue(any("include ~DEFAULT_BRANCH" in error for error in report["live_ruleset"]["errors"]))
+
 
 
 class BackendDatabaseBootstrapTests(unittest.TestCase):

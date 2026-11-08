@@ -582,7 +582,8 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
     if live.get("enforcement") != "active":
         errors.append("live required-check ruleset must be active")
     ref = live.get("conditions", {}).get("ref_name", {}) if isinstance(live.get("conditions"), dict) else {}
-    if "~DEFAULT_BRANCH" not in ref.get("include", []):
+    included = ref.get("include") if isinstance(ref, dict) else None
+    if not isinstance(included, list) or "~DEFAULT_BRANCH" not in included:
         errors.append("live required-check ruleset must include ~DEFAULT_BRANCH")
     rules = live.get("rules")
     if not isinstance(rules, list):
@@ -644,7 +645,7 @@ def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, b
         return "workflow-producer-drift"
     producer = item["producer"]
     if item["kind"] == "workflow-job":
-        if candidate.get("workflow_head_sha") not in {None, sha}:
+        if candidate.get("workflow_head_sha") != sha:
             return "workflow-run-head-drift"
         app = candidate.get("app")
         if not isinstance(app, dict) or app.get("id") != producer["integration_id"] or app.get("slug") != producer["app_slug"]:

@@ -20,6 +20,14 @@ A required gate passes only on `success` from the registered producer on the aut
 
 For GitHub Actions check runs, the evaluator requires the registered GitHub App integration and resolves the Actions run referenced by `details_url` back to the registered workflow path and `pull_request` event. The registry contains ordinary GitHub Actions check runs: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, and `performance-fast`. New contexts must be proven on a current PR head and added to the live ruleset before this migration is considered complete; a registry change alone does not establish active protection.
 
+The resolved Actions run must also identify the authoritative current head SHA;
+missing or null run identity cannot borrow a successful check's claimed identity.
+Live ruleset reference conditions must be an object with an array of included
+references. Malformed nested conditions are reported as ruleset failures in the
+normal JSON/exit-code result, rather than escaping as attribute/type exceptions.
+These checks preserve the registered contexts, producers, conclusions and timeout
+rules; they do not activate a new gate or change live GitHub protection.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.
