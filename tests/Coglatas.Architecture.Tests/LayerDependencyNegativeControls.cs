@@ -20,7 +20,7 @@ public sealed class LayerDependencyNegativeControls
             .LoadAssemblies(typeof(LayerDependencyNegativeControls).Assembly)
             .Build();
 
-        var forbidden = new (Type Source, Type Target)[]
+        var forbidden = new (System.Type Source, System.Type Target)[]
         {
             (typeof(DomainLikeFixture), typeof(ApplicationMarker)),
             (typeof(DomainLikeFixture), typeof(InfrastructureMarker)),
