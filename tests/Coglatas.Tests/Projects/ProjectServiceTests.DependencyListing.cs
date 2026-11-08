@@ -56,12 +56,12 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(canonical.CreatedAt, current.CreatedAt);
         Assert.Equal(7, current.Version);
         Assert.Equal(editable, current.Editable);
-        Assert.Contains(current.Warnings, warning => warning.Code == "DEPENDENCY_VIOLATION" && !warning.Blocking);
+        Assert.Contains(current.Warnings, warning => warning is { Code: "DEPENDENCY_VIOLATION", Blocking: false });
         var readOnly = Assert.Single(result.Value, item => item.Id == legacy.Id);
         Assert.Equal(TaskDependencyType.StartToStart, readOnly.DependencyType);
         Assert.Equal(7, readOnly.Version);
         Assert.False(readOnly.Editable);
-        Assert.Contains(readOnly.Warnings, warning => warning.Code == "LEGACY_DEPENDENCY_TYPE" && !warning.Blocking);
+        Assert.Contains(readOnly.Warnings, warning => warning is { Code: "LEGACY_DEPENDENCY_TYPE", Blocking: false });
         Assert.Equal(dates, (predecessor.PlannedStartDate, predecessor.PlannedEndDate, successor.PlannedStartDate, successor.PlannedEndDate));
         Assert.Equal(3, predecessor.VersionNo);
         Assert.Equal(7, successor.VersionNo);
