@@ -46,9 +46,9 @@ public sealed class CanonicalNotificationFilterPostgreSqlTests
         var tasks = new[] { projects[0], projects[0], projects[1] }.Select((project, index) => new TaskItem
         {
             TenantId = project.TenantId, WorkspaceId = project.WorkspaceId, ProjectId = project.Id,
-            Title = $"Notification task {index}", CreatedByUserId = users[0].Id, SortKey = (index + 1) * 1024,
-            DeletedAt = index == 1 ? now : null
+            Title = $"Notification task {index}", CreatedByUserId = users[0].Id, SortKey = (index + 1) * 1024
         }).ToArray();
+        tasks[1].MarkDeleted(now);
         Notification Notice(Guid tenant, Guid user, string kind, Guid? target) => new()
         {
             TenantId = tenant, UserId = user, RelatedEntityType = kind, RelatedEntityId = target,
