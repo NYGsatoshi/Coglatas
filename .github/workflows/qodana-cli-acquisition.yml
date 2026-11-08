@@ -1,0 +1,39 @@
+name: Qodana CLI Acquisition
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qodana-cli-acquisition.yml
+      - .github/workflows/qodana_trusted_gate.yml
+      - scripts/ci/install-qodana-cli.sh
+      - scripts/ci/test_install_qodana_cli.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/qodana-cli-acquisition.yml
+      - .github/workflows/qodana_trusted_gate.yml
+      - scripts/ci/install-qodana-cli.sh
+      - scripts/ci/test_install_qodana_cli.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-cli:
+    name: Verify pinned Qodana CLI acquisition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run native refusal controls
+        run: python3 -B scripts/ci/test_install_qodana_cli.py
+      - name: Acquire and verify the original pinned release
+        run: bash scripts/ci/install-qodana-cli.sh
+      - name: Execute the installed CLI on Linux
+        shell: bash
+        run: |
+          command -v qodana
+          qodana --version

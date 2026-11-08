@@ -1,0 +1,25 @@
+# Qodana pinned CLI acquisition
+
+Main `3d1f17f2b0cc2d9f1d8d24b7e50de17ea744cabd`, CI
+`42465305779` attempts 1, 2 and 3 failed Community initialization with HTTP 504
+while the pinned action downloaded its CLI. No Community inspection inventory
+was produced. These failures remain failures. Cloud's independent full scan
+passed; it does not substitute for Community's missing result.
+
+The Community workflow installs the same official Linux x86_64 CLI 2026.2.2
+using bounded HTTPS transfers, then uses the pinned action's supported
+`use-installed-cli` input. The archive SHA-256 remains
+`b1fc01fb5825f4c6382f9cedcfe97d4a8eeaaddc9f5384a3b5870ca63e231c6f`,
+matching the original pinned action. Verification precedes extraction and
+execution. Each installation uses a fresh runner temporary directory; nothing
+is promoted to a global cache. Failed acquisition or verification fails the job.
+
+External PRs restore this executable from the immutable PR base alongside the
+existing Qodana policy. Action/image pins, inspection budgets, full/PR scan
+modes, build artifact lineage, assertions and coverage contracts are unchanged.
+
+The non-required, read-only Linux acquisition workflow executes refusal controls,
+downloads the actual authenticated release and runs its native version command.
+That proves acquisition only. Protected PR checks and independent source review
+must still complete, followed by both full Qodana scans on the resulting Main.
+No Sonar coverage improvement, Security disposition or release approval is implied.
