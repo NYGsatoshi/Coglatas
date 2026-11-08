@@ -110,6 +110,7 @@
           <app-inline-loading [label]="t('Loading Project Kanban')" />
         } @else if (vm.kanban.status === 'permissionDenied') {
           <app-permission-denied [title]="t('Project Kanban is not available.')" />
+          <button type="button" data-testid="project-board-denied-retry" (click)="retryKanban()">{{ t('Retry board') }}</button>
         } @else if (vm.kanban.status === 'notFound') {
           <app-empty-state [title]="t('Project board not found')" [message]="t('The Project or its board is no longer available.')" />
         } @else if (vm.kanban.status === 'error' && !vm.kanban.snapshot) {

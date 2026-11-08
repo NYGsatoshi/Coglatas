@@ -24,7 +24,7 @@ jobs:
       - name: Prepare pinned Node toolchain
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
+          node-version: '26'
       - name: Install policy-pinned npm
         run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
       - name: Restore root and frontend dependency graphs under existing install policy

@@ -71,10 +71,10 @@ def update_errors(config)
     sdk['matchFileNames'] == ['global.json', '**/global.json'] && sdk['matchUpdateTypes'] == ['major'] &&
     sdk['dependencyDashboardApproval'] == true && sdk['enabled'] != false
 
-  node = find_rule.call('Retain approved Node 24 LTS for container images')
+  node = find_rule.call('Retain approved Node 26 LTS for container images')
   errors << 'Docker Node LTS major boundary is missing or broadened' unless node.is_a?(Hash) &&
     node['matchDatasources'] == ['docker'] && node['matchPackageNames'] == ['node'] &&
-    node['allowedVersions'] == '/^24([.-]|$)/'
+    node['allowedVersions'] == '/^26([.-]|$)/'
   playwright = find_rule.call('Playwright Docker image must match the root Playwright lockfile')
   errors << 'Playwright image cannot update independently from its npm lockfile' unless
     playwright.is_a?(Hash) && playwright['enabled'] == false &&
@@ -89,18 +89,40 @@ def update_errors(config)
   errors << 'Renovate must generate lockfiles with the repository npm version' unless
     config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
 
+  # npm's lockfile-only updater can omit still-required transitive dependencies.
+  # Ensure the repair covers standalone overrides/majors and grouped patch updates.
+  npm_rebuild = find_rule.call('Regenerate npm lockfiles with full installation on every update')
+  errors << 'All npm updates require a full install and second lockfile pass' unless
+    npm_rebuild.is_a?(Hash) && npm_rebuild['matchManagers'] == ['npm'] &&
+    npm_rebuild['skipInstalls'] == false && npm_rebuild['postUpdateOptions'] == ['npmInstallTwice'] &&
+    !npm_rebuild.key?('matchUpdateTypes') && !npm_rebuild.key?('matchPackageNames') &&
+    !npm_rebuild.key?('enabled') && npm_rebuild['skipArtifactsUpdate'] != true
+
+  typescript = find_rule.call('Keep TypeScript in Angular 22 supported peer range')
+  errors << 'TypeScript 7 conflicts with Angular 22 build/compiler peer dependencies' unless
+    typescript.is_a?(Hash) && typescript['matchManagers'] == ['npm'] &&
+    typescript['matchPackageNames'] == ['typescript'] &&
+    typescript['allowedVersions'] == '/^6\\.0\\./' &&
+    !typescript.key?('enabled') && !typescript.key?('matchUpdateTypes')
+
   npm_updates = find_rule.call('Group compatible npm updates per review')
   errors << 'npm lockfile update must run twice to avoid incomplete npm ci artifacts' unless
     npm_updates.is_a?(Hash) && npm_updates['matchManagers'] == ['npm'] &&
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
-  angular_build = find_rule.call('Skip broken Angular build 22.2.5 optional peer tree')
-  errors << 'Only the proven broken Angular build patch may be excluded; future fixes must remain eligible' unless
+  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
+  errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
-    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular'] &&
-    angular_build['allowedVersions'] == '!/^22\\.2\\.5$/' &&
+    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular', '@angular/cli'] &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.[56]$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
+
+  stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
+  errors << 'Stylelint 18 cannot be proposed until the SCSS preset supports its peer dependency' unless
+    stylelint.is_a?(Hash) && stylelint['matchManagers'] == ['npm'] &&
+    stylelint['matchPackageNames'] == ['stylelint'] && stylelint['allowedVersions'] == '/^17\./' &&
+    !stylelint.key?('enabled')
 
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
   errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
@@ -118,8 +140,15 @@ end
 
 def image_errors(source, sdk_version)
   errors = []
+  sdk_reference = %r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}
+  pinned_sdk = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}
+  dockerfile = source.fetch('Dockerfile', nil) || (ROOT / 'Dockerfile').read
+  canonical = pinned_sdk.match(dockerfile.scan(sdk_reference).first.to_s)
+  errors << 'Dockerfile: canonical SDK image must match global.json and use an immutable digest' unless
+    canonical && canonical[1] == sdk_version
   candidates = [
     'Dockerfile', 'docker-compose.yml',
+    'scripts/ci/run-synthetic-logical-recovery.mjs', 'scripts/ci/synthetic-logical-recovery-receipt.mjs',
     *Dir.glob(ROOT.join('infra/docker/*.Dockerfile').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('infra/compose/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('deploy/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s }
@@ -130,11 +159,13 @@ def image_errors(source, sdk_version)
     next unless path.file?
     contents = source.fetch(name, nil) || path.read
     next unless contents.include?('mcr.microsoft.com/dotnet/sdk:')
-    contents.scan(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}).each do |reference|
+    contents.scan(sdk_reference).each do |reference|
       matches += 1
-      match = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}.match(reference)
+      match = pinned_sdk.match(reference)
       if !match || match[1] != sdk_version
         errors << "#{name}: SDK image must match global.json #{sdk_version} and use an immutable digest"
+      elsif canonical && match[2] != canonical[2]
+        errors << "#{name}: SDK image digest must match the canonical Dockerfile SDK image"
       end
     end
   end
@@ -142,11 +173,24 @@ def image_errors(source, sdk_version)
   errors
 end
 
+# Keep the Vite security floor without a global override that conflicts when
+# Renovate installs a direct Vite version temporarily during lockfile updates.
+def vite_override_errors(sources)
+  %w[frontend/package.json coglatas-frontend/package.json].filter_map do |path|
+    manifest = JSON.parse(sources.fetch(path, nil) || (ROOT / path).read)
+    overrides = manifest.fetch('overrides', {})
+    unless overrides.is_a?(Hash) && overrides['vite@<8.3.5'] == '^8.3.5' &&
+           !overrides.key?('vite')
+      "#{path}: Vite must have a conditional security floor, not a global override"
+    end
+  end
+end
+
 # The production build and development images must stay on an owner-approved
 # Node LTS major. Renovate digest updates within that major remain allowed.
 NODE_LTS_DOCKER_IMAGES = {
-  'Dockerfile' => /\AFROM node:24@sha256:[0-9a-f]{64} AS frontend-deps\z/,
-  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:24-alpine@sha256:[0-9a-f]{64}\z/
+  'Dockerfile' => /\AFROM node:26@sha256:[0-9a-f]{64} AS frontend-deps\z/,
+  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:26-alpine@sha256:[0-9a-f]{64}\z/
 }.freeze
 
 def node_lts_image_errors(sources)
@@ -158,7 +202,7 @@ def node_lts_image_errors(sources)
     text = sources.fetch(name, nil) || path.read
     node_references = text.lines.map(&:strip).select { |line| line.start_with?('FROM node:') }
     if node_references.length != 1 || !expected.match?(node_references.first)
-      "#{name}: the only Node base image must be immutable SHA-pinned Node 24 LTS"
+      "#{name}: the only Node base image must be immutable SHA-pinned Node 26 LTS"
     end
   end
 end
@@ -185,7 +229,7 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
-errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({})
+errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -195,13 +239,15 @@ mutations = {
   'unbounded PRs' => ->(x) { x['prConcurrentLimit'] = 0 },
   'bypass major approval' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep major upgrades individually approved' }['dependencyDashboardApproval'] = false },
   'disable SDK proposals' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Require dashboard approval for SDK major migration proposals' }['enabled'] = false },
-  'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
+  'unreviewed Node 28' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 26 LTS for container images' }['allowedVersions'] = '/^28/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
   're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
   'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
+  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['allowedVersions'] = '>=17' },
+  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['enabled'] = false },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
@@ -209,25 +255,55 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
-  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '>=22' },
-  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '<22.2.5' },
-  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['matchPackageNames'] << '@angular/core' },
-  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['enabled'] = false },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
-  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
+  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
+  'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
+  'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
+  'only repair minor npm updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['matchUpdateTypes'] = ['minor', 'patch'] },
+  'skip npm lockfile artifacts entirely' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipArtifactsUpdate'] = true },
+  'allow unsupported TypeScript 7' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '>=6' },
+  'freeze TypeScript 6.0 fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '/^6\\.0\\.3$/' },
+  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
+  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
   change.call(copy)
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
+%w[frontend/package.json coglatas-frontend/package.json].each do |path|
+  original = JSON.parse((ROOT / path).read)
+  global_override = JSON.parse(JSON.generate(original))
+  global_override['overrides']['vite'] = '^8.3.5'
+  abort("Guard missed global Vite override: #{path}") if
+    vite_override_errors(path => JSON.generate(global_override)).empty?
+
+  removed_floor = JSON.parse(JSON.generate(original))
+  removed_floor['overrides'].delete('vite@<8.3.5')
+  abort("Guard missed removed Vite security floor: #{path}") if
+    vite_override_errors(path => JSON.generate(removed_floor)).empty?
+end
+
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
   /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 
+%w[infra/compose/performance/pr.yml scripts/ci/synthetic-logical-recovery-receipt.mjs].each do |path|
+  original = (ROOT / path).read
+  changed = original.sub(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}) do |reference|
+    reference.sub(/@sha256:[a-f0-9]{64}/, "@sha256:#{'0' * 64}")
+  end
+  abort("SDK digest mutation did not change its selected carrier: #{path}") if changed == original
+  abort("Guard missed same-version SDK digest drift: #{path}") if image_errors({ path => changed }, sdk_version).empty?
+end
+
 bad_node_major = {
-  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
+  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:26@sha256:/, 'FROM node:28@sha256:')
 }
 abort('Guard missed unreviewed Node major') if node_lts_image_errors(bad_node_major).empty?
 bad_node_digest = {
@@ -235,4 +311,4 @@ bad_node_digest = {
 }
 abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
 
-puts "Mend-hosted Renovate policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 3} negative controls)"
+puts "Mend-hosted Renovate policy, SDK/image parity, Vite and Node LTS: PASS (#{mutations.length + 9} negative controls)"

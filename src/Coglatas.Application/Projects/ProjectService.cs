@@ -539,8 +539,6 @@ public sealed class ProjectService(
             {
                 return Result<MilestoneResponse>.Failure("Milestone title is required.");
             }
-
-            milestone.Name = request.Title.Trim();
         }
 
         if (request.Status.HasValue && request.Status.Value is not (MilestoneStatus.NotStarted or MilestoneStatus.InProgress or MilestoneStatus.Completed))
@@ -556,6 +554,11 @@ public sealed class ProjectService(
             return Result<MilestoneResponse>.Failure(new ApplicationErrorDetail(
                 "MILESTONE_DATE_REQUIRED",
                 "Milestone date is required before progress can become active or completed."));
+        }
+
+        if (request.Title is not null)
+        {
+            milestone.Name = request.Title.Trim();
         }
 
         milestone.Description = request.Description?.Trim() ?? milestone.Description;
