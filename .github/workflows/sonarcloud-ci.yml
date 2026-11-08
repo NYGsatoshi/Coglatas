@@ -261,8 +261,12 @@ jobs:
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
           done
+          mkdir -p artifacts/sonar-python/native-shards
+          cp -- "$COVERAGE_FILE".* artifacts/sonar-python/native-shards/
           python3 -B -m coverage combine
+          cp -- "$COVERAGE_FILE" artifacts/sonar-python/coverage.native.data
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
+          python3 -B -m coverage json -o artifacts/sonar-python/coverage.native.json
 
       - name: Set up repository frontend Node version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -715,6 +719,9 @@ jobs:
             artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
             artifacts/sonar-python/coverage.xml
+            artifacts/sonar-python/coverage.native.json
+            artifacts/sonar-python/coverage.native.data
+            artifacts/sonar-python/native-shards/*
           if-no-files-found: error
           retention-days: 7
 

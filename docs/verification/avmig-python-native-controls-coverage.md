@@ -6,6 +6,11 @@ Two additional existing operational Python modules are measured: the boundary
 CLI and its shared verifier. The one canonical producer and report import,
 pinned coverage wheel, branch/parallel collection, subprocess bootstrap,
 original source paths, zero-hit ranges and line/branch accounting remain.
+Before the normal combine, original per-process data shards are copied into
+the existing evidence artifact. The unmodified combined database and native
+coverage JSON are retained there alongside the original XML. These additional
+exports are not additional collectors or scanner imports and precede analysis
+credentials. No report values are rewritten.
 
 The include registry and its exact-equality control expand together. Existing
 entries and assertion logic remain unchanged. No test body becomes a measured
