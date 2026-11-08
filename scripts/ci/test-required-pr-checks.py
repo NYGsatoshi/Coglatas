@@ -1111,6 +1111,55 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                 self.assertIn("ordering timestamp", report["error"])
 
 
+    def test_check_conclusions_cannot_masquerade_as_lifecycle_status(self) -> None:
+        for status in ("success", "failure", "cancelled"):
+            with self.subTest(status=status):
+                api = self.complete_live_api()
+                check = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"][0]
+                check.update(status=status, conclusion=None, started_at="2026-09-04T05:00:00Z")
+                code, report = self.run_validated_fake_cli(REGISTRY, api)
+                self.assertEqual(1, code)
+                self.assertEqual("unknown-state", report["exact_head"]["gates"][0]["reason"])
+
+    def test_overlapping_pending_check_cannot_hide_behind_completed_success(self) -> None:
+        for reverse in (False, True):
+            with self.subTest(reverse=reverse):
+                api = self.complete_live_api()
+                page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                now = dt.datetime.now(dt.timezone.utc)
+                build = page["check_runs"][0]
+                build.update(started_at=(now - dt.timedelta(seconds=30)).isoformat(), completed_at=(now - dt.timedelta(seconds=5)).isoformat())
+                page["check_runs"].append({**build, "id": 999, "status": "in_progress", "conclusion": None, "started_at": (now - dt.timedelta(seconds=10)).isoformat(), "completed_at": None})
+                page["total_count"] += 1
+                if reverse:
+                    page["check_runs"].reverse()
+                code, report = self.run_validated_fake_cli(REGISTRY, api)
+                self.assertEqual(2, code)
+                self.assertEqual("pending", report["decision"])
+                self.assertEqual("current-head-pending", report["exact_head"]["gates"][0]["reason"])
+
+    def test_expired_pending_check_cannot_hide_behind_success_or_fresh_pending(self) -> None:
+        api = self.complete_live_api()
+        page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+        build = page["check_runs"][0]
+        now = dt.datetime.now(dt.timezone.utc)
+        for identity, age in ((999, 1), (1000, 100000)):
+            page["check_runs"].append({**build, "id": identity, "status": "in_progress", "conclusion": None, "completed_at": None, "started_at": (now - dt.timedelta(minutes=age)).isoformat()})
+        page["total_count"] += 2
+        code, report = self.run_validated_fake_cli(REGISTRY, api)
+        self.assertEqual(1, code)
+        self.assertEqual("pending-timeout", report["exact_head"]["gates"][0]["reason"])
+
+    def test_malformed_trusted_status_run_event_fails_as_producer_drift(self) -> None:
+        for event in ([], {}):
+            with self.subTest(event=event):
+                registry, api = self.commit_status_api()
+                api.responses["repos/Coglatas/Coglatas/actions/runs/2001"]["event"] = event
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertEqual(["trusted-status-event-drift"], report["exact_head"]["gates"][0]["producer_errors"])
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

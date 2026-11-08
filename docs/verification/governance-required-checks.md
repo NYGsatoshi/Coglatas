@@ -75,6 +75,11 @@ retains the existing timeout failure. Unknown states fail before ordering.
 Completion cannot fall back to an earlier start time. Context names are checked
 before membership tests, and UTC normalization overflow is malformed evidence.
 
+A conclusion cannot replace a check's lifecycle status. Producer-valid pending
+work prevents PASS while it remains unsettled, even when another check completed
+later than its start. Every pending candidate must remain within the registered
+timeout; one expired candidate fails the gate. The timeout values are unchanged.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

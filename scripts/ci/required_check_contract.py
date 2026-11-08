@@ -662,7 +662,7 @@ def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, b
         creator = candidate.get("creator")
         if not isinstance(creator, dict) or creator.get("login") != producer["creator_login"]:
             return "status-creator-drift"
-        if candidate.get("workflow_event") not in set(item["trigger"]["events"]):
+        if not isinstance(candidate.get("workflow_event"), str) or candidate["workflow_event"] not in set(item["trigger"]["events"]):
             return "trusted-status-event-drift"
         if base_ref is not None and candidate.get("workflow_head_branch") != base_ref:
             return "trusted-status-ref-drift"
@@ -677,7 +677,10 @@ def _state(item: dict[str, Any], candidate: dict[str, Any]) -> str:
     status = candidate.get("status")
     if not isinstance(status, str) or (candidate.get("conclusion") is not None and not isinstance(candidate["conclusion"], str)):
         raise RuntimeError("GitHub check-run state is malformed")
-    return str(status) if status in PENDING or status != "completed" else str(candidate.get("conclusion") or "unknown")
+    if status != "completed":
+        return status if status in PENDING else "unknown"
+    conclusion = candidate.get("conclusion")
+    return conclusion if conclusion in REJECTED | {"success"} else "unknown"
 
 
 def _stamp(candidate: dict[str, Any], kind: str) -> dt.datetime:
@@ -744,12 +747,15 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             overall = "fail"
             gates.append(gate)
             continue
-        if any(state in PENDING and (_time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is None for candidate, state in zip(valid, states)):
+        if any(state in PENDING and ((started := _time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is None or current - started > dt.timedelta(minutes=item["timeout_minutes"])) for candidate, state in zip(valid, states)):
             gate["reason"] = "pending-timeout"
             overall = "fail"
             gates.append(gate)
             continue
-        selected = sorted(valid, key=lambda c: (_stamp(c, item["kind"]), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
+        for candidate in valid:
+            _stamp(candidate, item["kind"])
+        unsettled = [candidate for candidate, state in zip(valid, states) if state in PENDING]
+        selected = sorted(unsettled or valid, key=lambda c: (_stamp(c, item["kind"]), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
         state = _state(item, selected)
         gate["observed_state"] = state
         if state == "success":
