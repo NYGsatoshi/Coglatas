@@ -116,6 +116,7 @@
               <p>{{ t('ide.partial') }}</p>
             }
           } @else {
+            <p data-testid="ide-evidence-status">{{ t('ide.evidenceStatus') }}: {{ evidenceMessage() }}</p>
             <p>{{ t('ide.notRun') }}</p>
           }
         </section>

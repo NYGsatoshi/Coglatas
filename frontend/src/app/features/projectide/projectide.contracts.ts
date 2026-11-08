@@ -1,3 +1,5 @@
+import { isPreviewCaseShape } from './projectide-preview.validation';
+
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
 declare const identity: unique symbol;
 export type Identity<K extends string> = string & { readonly [identity]: K };
@@ -194,9 +196,18 @@ export type LocalEvidenceState =
 
 export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
   if (!value) return 'not-loaded';
+  if (!isPreviewCaseShape(value)) return 'missing-evidence';
   const result = value.result;
+  const manifest = value.manifest['manifest'] as Record<string, unknown> | null | undefined;
+  const manifestContext = manifest?.['sourceContext'] as RevisionContext | null | undefined;
+  const manifestSourceDigest = manifest?.['sourceDigest'] as Digest | null | undefined;
+  const envelopeDigest = value.manifest['inputDigest'] as Digest | null | undefined;
   // Recheck exact source/input context even when a caller bypasses preview loading.
   if (value.freshness !== 'Current' ||
+      value.manifest['compilerInputId'] !== value.inputId ||
+      !envelopeDigest || !sameDigest(envelopeDigest, value.inputDigest) ||
+      !manifestSourceDigest || !sameDigest(manifestSourceDigest, value.sourceDigest) ||
+      !manifestContext?.branch || !sameContext(manifestContext, value.context) ||
       !sameContext(value.context, value.desiredContext) ||
       result.compilerInputId !== value.inputId ||
       !sameDigest(result.inputDigest, value.inputDigest) ||
@@ -206,8 +217,14 @@ export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceSta
     return 'stale';
   }
   if (result.execution !== 'coglatas.completed') return 'not-executed';
-  if (result.coverage !== 'coglatas.complete') return 'partial-coverage';
-  if (!result.evidenceComplete) return 'missing-evidence';
+  if (result.coverage !== 'coglatas.complete' ||
+      [...value.declarations, ...value.relations].some((record) => record.status !== 'Decoded') ||
+      (value.semanticInspection && (!value.semanticInspection.bindingComplete ||
+        value.semanticInspection.symbols.some((symbol) => symbol.status !== 'Decoded') ||
+        value.semanticInspection.references.some((reference) => reference.state !== 'Resolved')))) {
+    return 'partial-coverage';
+  }
+  if (result.evidenceComplete !== true) return 'missing-evidence';
   if (result.verdict !== 'coglatas.pass') return 'not-passed';
   return 'complete-local-pass';
 }

@@ -70,7 +70,10 @@ export class ProjectIdeWorkbenchComponent {
           .includes(this.search().toLowerCase()),
     ),
   );
-  readonly evidenceState = computed(() => assessLocalEvidence(this.store.result()));
+  readonly evidenceState = computed(() => {
+    const result = this.store.result();
+    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result);
+  });
   readonly completePass = computed(() => this.evidenceState() === 'complete-local-pass');
   readonly evidenceMessage = computed(() => {
     const keys = {
