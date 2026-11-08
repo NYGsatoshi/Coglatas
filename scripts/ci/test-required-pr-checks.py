@@ -1040,6 +1040,40 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                 self.assertIn("duplicate or invalid entry ID", report["error"])
 
 
+    def test_unordered_rejection_cannot_hide_behind_timestamped_success(self) -> None:
+        for timestamp in (None, "invalid", []):
+            with self.subTest(timestamp=timestamp):
+                api = self.complete_live_api()
+                page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                rejection = {**page["check_runs"][0], "id": 999, "conclusion": "failure"}
+                for key in ("completed_at", "updated_at", "started_at", "created_at"):
+                    rejection.pop(key, None)
+                    if timestamp is not None:
+                        rejection[key] = timestamp
+                page["check_runs"].append(rejection)
+                page["total_count"] += 1
+                code, report = self.run_validated_fake_cli(REGISTRY, api)
+                self.assertEqual(1, code)
+                self.assertIn("ordering timestamp", report["error"])
+
+    def test_malformed_state_returns_json_failure_before_selection(self) -> None:
+        for kind in ("check-runs", "statuses"):
+            for state in ([], {}, True):
+                with self.subTest(kind=kind, state=state):
+                    if kind == "check-runs":
+                        registry, api = REGISTRY, self.complete_live_api()
+                        page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                        page["check_runs"].append({**page["check_runs"][0], "id": 999, "status": state})
+                    else:
+                        registry, api = self.commit_status_api()
+                        page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]
+                        page["statuses"].append({**page["statuses"][0], "id": 999, "state": state})
+                    page["total_count"] += 1
+                    code, report = self.run_validated_fake_cli(registry, api)
+                    self.assertEqual(1, code)
+                    self.assertIn("state", report["error"])
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

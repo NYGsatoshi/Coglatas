@@ -64,6 +64,11 @@ Every collected check/status has a distinct positive integer provider ID;
 duplicates within or across pages cannot satisfy the declared total. This does
 not establish completeness beyond GitHub's documented endpoint retention limits.
 
+Producer-valid current-head candidates must have usable ordering timestamps and
+well-typed state fields before selection. An unorderable rejection cannot sort
+behind a success by receiving a minimum timestamp; malformed states produce the
+normal JSON failure result without a broad exception handler.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

@@ -671,8 +671,12 @@ def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, b
 
 def _state(item: dict[str, Any], candidate: dict[str, Any]) -> str:
     if item["kind"] == "commit-status":
+        if candidate.get("state") is not None and not isinstance(candidate["state"], str):
+            raise RuntimeError("GitHub commit status state is malformed")
         return str(candidate.get("state") or "unknown")
     status = candidate.get("status")
+    if not isinstance(status, str) or (candidate.get("conclusion") is not None and not isinstance(candidate["conclusion"], str)):
+        raise RuntimeError("GitHub check-run state is malformed")
     return str(status) if status in PENDING or status != "completed" else str(candidate.get("conclusion") or "unknown")
 
 
@@ -681,7 +685,7 @@ def _stamp(candidate: dict[str, Any]) -> dt.datetime:
         parsed = _time(candidate.get(key))
         if parsed:
             return parsed
-    return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    raise RuntimeError("GitHub evidence ordering timestamp is missing or invalid")
 
 
 def exact_entries(registry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -710,7 +714,12 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
         producer_errors = []
         for candidate in current_candidates:
             error = _producer_error(item, candidate, head_sha, trusted_base_ref)
-            valid.append(candidate) if error is None else producer_errors.append(error)
+            if error is None:
+                _state(item, candidate)
+                _stamp(candidate)
+                valid.append(candidate)
+            else:
+                producer_errors.append(error)
         gate = {
             "gate_id": item["gate_id"],
             "source_gate_id": item.get("source_gate_id", item["gate_id"]),
