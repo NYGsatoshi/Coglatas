@@ -640,12 +640,12 @@ def _time(value: Any) -> dt.datetime | None:
     return (parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)).astimezone(dt.timezone.utc)
 
 
-def _head(candidate: dict[str, Any], sha: str) -> bool:
-    return candidate.get("head_sha", candidate.get("sha")) == sha
+def _head(candidate: dict[str, Any], sha: str, kind: str) -> bool:
+    return candidate.get("head_sha" if kind == "workflow-job" else "sha") == sha
 
 
 def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, base_ref: str | None) -> str | None:
-    if not _head(candidate, sha):
+    if not _head(candidate, sha, item["kind"]):
         return "non-current-head"
     if candidate.get("workflow") != item["workflow"]:
         return "workflow-producer-drift"
@@ -705,7 +705,7 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
         source = runs if item["kind"] == "workflow-job" else status_values
         key = "name" if item["kind"] == "workflow-job" else "context"
         candidates = [x for x in source if x.get(key) == item["context"]]
-        current_candidates = [x for x in candidates if _head(x, head_sha)]
+        current_candidates = [x for x in candidates if _head(x, head_sha, item["kind"])]
         valid = []
         producer_errors = []
         for candidate in current_candidates:
@@ -864,15 +864,22 @@ def _ruleset(api: Any, repository: str, registry: dict[str, Any]) -> dict[str, A
     return live
 
 
-def _pages(api: Any, path: str, key: str | None) -> list[dict[str, Any]]:
+def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | None = None) -> list[dict[str, Any]]:
     out = []
     page = 1
     while True:
         payload = api.get(path if page == 1 else f"{path}&page={page}")
+        if expected_head_sha is not None and (not isinstance(payload, dict) or payload.get("sha") != expected_head_sha):
+            raise RuntimeError("GitHub combined status head identity is missing or mismatched")
         batch = payload.get(key) if key and isinstance(payload, dict) else payload
         if not isinstance(batch, list):
             raise RuntimeError("GitHub paginated response is malformed")
         values = [dict(x) for x in batch if isinstance(x, dict)]
+        if expected_head_sha is not None:
+            for value in values:
+                if "sha" in value and value["sha"] != expected_head_sha:
+                    raise RuntimeError("GitHub commit status head identity conflicts with its combined response")
+                value["sha"] = expected_head_sha
         out.extend(values)
         total = payload.get("total_count") if isinstance(payload, dict) else None
         if len(values) < 100 or (isinstance(total, int) and len(out) >= total):
@@ -892,7 +899,10 @@ def evaluate_live_pr(api: Any, repository: str, pr_number: int, registry: dict[s
         raise RuntimeError("Pull Request API response is missing authoritative head/base")
     ruleset_errors = live_ruleset_errors(registry, _ruleset(api, repository, registry))
     checks = _pages(api, f"repos/{repository}/commits/{sha}/check-runs?filter=latest&per_page=100", "check_runs")
-    statuses = _pages(api, f"repos/{repository}/commits/{sha}/statuses?per_page=100", None)
+    if any(item["kind"] == "commit-status" for item in exact_entries(registry)):
+        statuses = _pages(api, f"repos/{repository}/commits/{sha}/status?per_page=100", "statuses", expected_head_sha=sha)
+    else:
+        statuses = _pages(api, f"repos/{repository}/commits/{sha}/statuses?per_page=100", None)
     contexts = {x["context"] for x in exact_entries(registry)}
     cache = {}
     for candidate in checks:

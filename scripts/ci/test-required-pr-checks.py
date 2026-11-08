@@ -860,6 +860,78 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                 self.assertTrue(any("include ~DEFAULT_BRANCH" in error for error in guard.live_ruleset_errors(REGISTRY, live)))
 
 
+    def test_check_run_cannot_use_commit_status_sha_field(self) -> None:
+        api = self.complete_live_api()
+        check = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"][0]
+        del check["head_sha"]
+        check["sha"] = HEAD
+        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+        self.assertEqual("fail", report["decision"])
+        self.assertEqual("previous-head-only", report["exact_head"]["gates"][0]["reason"])
+
+    def commit_status_api(self) -> tuple[dict[str, Any], FakeApi]:
+        registry = registry_for_contexts("build-test")
+        item = registry["checks"][0]
+        item["kind"] = "commit-status"
+        item["producer"] = {"type": "trusted-workflow-status", "creator_login": "github-actions[bot]"}
+        item["trigger"] = {"mode": "trusted-workflow", "events": ["workflow_run"]}
+        item["ruleset_integration_id"] = None
+        _, statuses = self.success_evidence(registry)
+        status = statuses[0]
+        for key in ("sha", "workflow", "workflow_event", "workflow_head_branch"):
+            del status[key]
+        status["target_url"] = "https://github.com/Coglatas/Coglatas/actions/runs/2001"
+        prefix = "repos/Coglatas/Coglatas"
+        api = FakeApi({
+            f"{prefix}/pulls/42": {"state": "open", "head": {"sha": HEAD}, "base": {"ref": "main"}},
+            f"{prefix}/rulesets": [{"id": 123, "name": registry["ruleset"]["name"]}],
+            f"{prefix}/rulesets/123": self.live_ruleset(registry),
+            f"{prefix}/commits/{HEAD}/check-runs?filter=latest&per_page=100": {"total_count": 0, "check_runs": []},
+            f"{prefix}/commits/{HEAD}/statuses?per_page=100": statuses,
+            f"{prefix}/commits/{HEAD}/status?per_page=100": {"sha": HEAD, "total_count": 1, "statuses": statuses},
+            f"{prefix}/actions/runs/2001": {"path": item["workflow"], "event": "workflow_run", "head_sha": OLD_HEAD, "head_branch": "main"},
+        })
+        return registry, api
+
+    def test_github_shaped_commit_status_uses_verified_combined_head(self) -> None:
+        registry, api = self.commit_status_api()
+        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, registry, now=NOW)
+        self.assertEqual("pass", report["decision"])
+        self.assertIn(f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100", api.calls)
+        self.assertNotIn(f"repos/Coglatas/Coglatas/commits/{HEAD}/statuses?per_page=100", api.calls)
+
+    def test_commit_status_combined_identity_missing_wrong_or_conflicting_fails(self) -> None:
+        for kind in ("missing", "null", "previous", "conflicting"):
+            with self.subTest(kind=kind):
+                registry, api = self.commit_status_api()
+                combined = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]
+                if kind == "missing":
+                    del combined["sha"]
+                elif kind == "conflicting":
+                    combined["statuses"][0]["sha"] = OLD_HEAD
+                else:
+                    combined["sha"] = None if kind == "null" else OLD_HEAD
+                with self.assertRaisesRegex(RuntimeError, "head identity"):
+                    guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, registry, now=NOW)
+
+    def test_commit_status_cannot_use_check_run_head_field(self) -> None:
+        registry, _ = self.commit_status_api()
+        _, statuses = self.success_evidence(registry, head=OLD_HEAD)
+        statuses[0]["head_sha"] = HEAD
+        report = guard.exact_head_report(registry, HEAD, [], statuses, now=NOW, trusted_base_ref="main")
+        self.assertEqual("fail", report["decision"])
+
+    def test_combined_status_page_two_must_retain_authoritative_head(self) -> None:
+        registry, api = self.commit_status_api()
+        path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
+        combined = api.responses[path]
+        combined["statuses"] *= 100
+        combined["total_count"] = 101
+        api.responses[path + "&page=2"] = {"sha": OLD_HEAD, "total_count": 101, "statuses": []}
+        with self.assertRaisesRegex(RuntimeError, "head identity"):
+            guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, registry, now=NOW)
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

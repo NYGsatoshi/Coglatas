@@ -44,6 +44,15 @@ normal failure instead of an unhashable-value exception or numeric coercion.
 These are evidence-validation checks, not a live ruleset migration. The named
 registered ruleset must still pass the separate active-protection contract.
 
+Identity fields remain specific to the evidence kind: check runs require
+`head_sha`, while commit statuses use `sha`. The current six registered gates
+are check runs. For a registry containing a commit-status gate, the evaluator
+uses GitHub's combined-status endpoint and validates its top-level `sha` on
+every page before binding statuses that lack their own SHA. A conflicting
+per-status identity is rejected. This preserves commit-status support without
+assuming the requested endpoint alone proves the returned identity. See
+[GitHub's commit-status API](https://docs.github.com/en/rest/commits/statuses#get-the-combined-status-for-a-specific-reference).
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.
