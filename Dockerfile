@@ -49,6 +49,7 @@ WORKDIR /src
 
 COPY Coglatas.slnx ./
 COPY src/Coglatas.Domain/Coglatas.Domain.csproj src/Coglatas.Domain/
+COPY src/Coglatas.UI.Core/Coglatas.UI.Core.csproj src/Coglatas.UI.Core/
 COPY src/Coglatas.Application/Coglatas.Application.csproj src/Coglatas.Application/
 COPY src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj src/Coglatas.Infrastructure/
 COPY src/Coglatas.Web/Coglatas.Web.csproj src/Coglatas.Web/
