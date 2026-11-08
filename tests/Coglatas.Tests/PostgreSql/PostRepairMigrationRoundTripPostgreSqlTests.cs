@@ -6,7 +6,7 @@ namespace Coglatas.Tests.PostgreSql;
 
 /// <summary>Selected catalog contracts on an empty, disposable migration database.</summary>
 [Collection("PostgreSqlTaskV1")]
-public sealed class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelper output)
+public sealed partial class PostRepairMigrationRoundTripPostgreSqlTests(ITestOutputHelper output)
 {
     private const string RetainedRepairBoundary = "20260728020000_CreateMissingTenantPlatformTables";
 
