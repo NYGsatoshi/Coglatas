@@ -140,6 +140,137 @@ public sealed class EventRepositoryContractPostgreSqlTests
         Assert.Empty(await fixture.Repository.ListScopeRecipientUserIdsAsync(foreign));
     }
 
+    [PostgreSqlFact]
+    public Task ProjectCalendarQueriesTranslateAndPreserveTenantScopeUtcDatesAndCompleteProjections() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), AssertProjectCalendarQueriesAsync);
+
+    private static async Task AssertProjectCalendarQueriesAsync(string connectionString)
+    {
+        await using var fixture = await Fixture.CreateAsync(connectionString);
+        var date = new DateOnly(2026, 11, 4);
+        var group = new Group
+        {
+            TenantId = fixture.TenantId, WorkspaceId = fixture.Workspace.Id,
+            Name = "Calendar group", Slug = "calendar-group", CreatedByUserId = fixture.Creator.Id
+        };
+        fixture.Seed.Groups.Add(group);
+
+        Project AddProject(string name, Workspace workspace, Guid tenantId)
+        {
+            var project = new Project
+            {
+                TenantId = tenantId, WorkspaceId = workspace.Id, Name = name,
+                Slug = Guid.NewGuid().ToString("N"), OwnerUserId = fixture.Creator.Id,
+                CreatedByUserId = fixture.Creator.Id, Status = ProjectStatus.Active, DueDate = date
+            };
+            fixture.Seed.Projects.Add(project);
+            return project;
+        }
+
+        Milestone AddMilestone(Project project, string title, DateOnly? dueDate)
+        {
+            var milestone = new Milestone
+            {
+                TenantId = project.TenantId, ProjectId = project.Id, Name = title, DueDate = dueDate
+            };
+            fixture.Seed.Milestones.Add(milestone);
+            return milestone;
+        }
+
+        TaskItem AddTask(Project project, string title, DateOnly? dueDate)
+        {
+            var task = new TaskItem
+            {
+                TenantId = project.TenantId, WorkspaceId = project.WorkspaceId, ProjectId = project.Id,
+                Title = title, CreatedByUserId = fixture.Creator.Id, DueDate = dueDate
+            };
+            fixture.Seed.TaskItems.Add(task);
+            return task;
+        }
+
+        var local = AddProject("Local project", fixture.Workspace, fixture.TenantId);
+        local.GroupId = group.Id;
+        var sameWorkspace = AddProject("Middle project", fixture.Workspace, fixture.TenantId);
+        var otherWorkspace = AddProject("Remote workspace project", fixture.OtherWorkspace, fixture.TenantId);
+        var foreign = AddProject("Foreign project", fixture.ForeignWorkspace, fixture.ForeignTenantId);
+        var archived = AddProject("Archived project", fixture.Workspace, fixture.TenantId);
+        archived.Status = ProjectStatus.Archived;
+        var deleted = AddProject("Deleted project", fixture.Workspace, fixture.TenantId);
+        deleted.MarkDeleted(Fixture.At);
+        var dateless = AddProject("Dateless project", fixture.Workspace, fixture.TenantId);
+        dateless.DueDate = null;
+        var milestone = AddMilestone(local, "Alpha milestone", date);
+        var task = AddTask(local, "Zulu task", date);
+        var beforeMilestone = AddMilestone(local, "Before milestone", date.AddDays(-1));
+        var afterMilestone = AddMilestone(local, "After milestone", date.AddDays(1));
+        var beforeTask = AddTask(local, "Before task", date.AddDays(-1));
+        var afterTask = AddTask(local, "After task", date.AddDays(1));
+        AddMilestone(local, "Dateless milestone", null);
+        AddTask(local, "Dateless task", null);
+        AddMilestone(local, "Deleted milestone", date).MarkDeleted(Fixture.At);
+        AddTask(local, "Deleted task", date).MarkDeleted(Fixture.At);
+        foreach (var excluded in new[] { foreign, archived, deleted })
+        {
+            AddMilestone(excluded, "Excluded milestone", date);
+            AddTask(excluded, "Excluded task", date);
+        }
+        await fixture.Seed.SaveChangesAsync();
+
+        // The input is November 5 locally, but its UTC calendar date is November 4.
+        var boundary = new DateTimeOffset(2026, 11, 5, 0, 30, 0, TimeSpan.FromHours(9));
+        var rows = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery(boundary, boundary));
+        Assert.Equal([milestone.Id, local.Id, sameWorkspace.Id, otherWorkspace.Id, task.Id], rows.Select(item => item.Id));
+        Assert.All(rows, item =>
+        {
+            Assert.Equal(new DateTimeOffset(2026, 11, 4, 0, 0, 0, TimeSpan.Zero), item.StartsAt);
+            Assert.Null(item.EndsAt);
+        });
+        var projectedProject = Assert.Single(rows, item => item.Id == local.Id);
+        Assert.Equal("ProjectDeadline", projectedProject.ItemType);
+        Assert.Equal(local.Id, projectedProject.ProjectId);
+        Assert.Equal(local.WorkspaceId, projectedProject.WorkspaceId);
+        Assert.Equal(group.Id, projectedProject.GroupId);
+        Assert.Equal(local.Name, projectedProject.ScopeLabel);
+        Assert.Equal(ProjectStatus.Active.ToString(), projectedProject.Status);
+        Assert.Equal($"/projects/{local.Id}", projectedProject.Route);
+        var projectedMilestone = Assert.Single(rows, item => item.Id == milestone.Id);
+        Assert.Equal("Milestone", projectedMilestone.ItemType);
+        Assert.Equal(local.Id, projectedMilestone.ProjectId);
+        Assert.Equal(milestone.Name, projectedMilestone.Title);
+        Assert.Equal(milestone.Status.ToString(), projectedMilestone.Status);
+        Assert.Equal($"/projects/{local.Id}/milestones/{milestone.Id}", projectedMilestone.Route);
+        var projectedTask = Assert.Single(rows, item => item.Id == task.Id);
+        Assert.Equal("TaskDueDate", projectedTask.ItemType);
+        Assert.Equal(local.Id, projectedTask.ProjectId);
+        Assert.Equal(task.Title, projectedTask.Title);
+        Assert.Equal(task.Status.ToString(), projectedTask.Status);
+        Assert.Equal($"/tasks/{task.Id}", projectedTask.Route);
+
+        var workspaceRows = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, WorkspaceId: fixture.Workspace.Id));
+        Assert.Equal([milestone.Id, local.Id, sameWorkspace.Id, task.Id], workspaceRows.Select(item => item.Id));
+        var groupRows = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, GroupId: group.Id));
+        Assert.Equal([milestone.Id, local.Id, task.Id], groupRows.Select(item => item.Id));
+        var projectRows = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: local.Id));
+        Assert.Equal([milestone.Id, local.Id, task.Id], projectRows.Select(item => item.Id));
+        Assert.Empty(await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, WorkspaceId: fixture.OtherWorkspace.Id, ProjectId: local.Id)));
+        Assert.Empty(await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: foreign.Id)));
+
+        var unbounded = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery(ProjectId: local.Id));
+        Assert.Equal([beforeMilestone.Id, beforeTask.Id, milestone.Id, local.Id, task.Id, afterMilestone.Id, afterTask.Id],
+            unbounded.Select(item => item.Id));
+        Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
+        Assert.All(fixture.Seed.ChangeTracker.Entries(), entry => Assert.Equal(EntityState.Unchanged, entry.State));
+        Assert.Equal(date, local.DueDate);
+        Assert.Equal(date, milestone.DueDate);
+        Assert.Equal(date, task.DueDate);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public static readonly DateTimeOffset At = new(2026, 11, 4, 9, 0, 0, TimeSpan.Zero);
