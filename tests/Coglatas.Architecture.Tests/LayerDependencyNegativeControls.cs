@@ -57,7 +57,7 @@ public sealed class LayerDependencyNegativeControls
         public WebMarker? Web => null;
     }
 
-    private sealed class ApplicationMarker;
-    private sealed class InfrastructureMarker;
-    private sealed class WebMarker;
+    private sealed class ApplicationMarker { }
+    private sealed class InfrastructureMarker { }
+    private sealed class WebMarker { }
 }
