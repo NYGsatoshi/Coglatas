@@ -166,38 +166,44 @@ public sealed class PerformanceFixtureRoundtripTests
     private static async Task<Dictionary<string, string>> ReadPersistedIdentitiesAsync(AppDbContext context, JsonElement evidence)
     {
         var reported = JsonSerializer.Deserialize<Dictionary<string, string>>(evidence.GetProperty("identities").GetRawText())!;
-        var tenant = await context.Tenants.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Slug == reported["tenantSlug"]);
-        var actor = await context.Users.AsNoTracking().SingleAsync(row => row.Email == reported["operatorEmail"]);
-        var workspaceId = Guid.Parse(reported["workspaceId"]);
-        var workspace = await context.Workspaces.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == workspaceId);
-        var taskListId = Guid.Parse(reported["taskListProjectId"]);
-        var taskList = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == taskListId);
-        var ganttId = Guid.Parse(reported["ganttProjectId"]);
-        var gantt = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == ganttId);
-        var kanbanId = Guid.Parse(reported["kanbanProjectId"]);
-        var kanban = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == kanbanId);
-        var conversationId = Guid.Parse(reported["conversationId"]);
-        var conversation = await context.Conversations.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == conversationId);
-        var taskId = Guid.Parse(reported["taskId"]);
-        var task = await context.TaskItems.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == taskId);
+        var tenant = await context.Tenants.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Slug == "perf-small");
+        var actor = await context.Users.AsNoTracking().SingleAsync(row => row.Email == "perf-small-operator@example.test");
+        var workspace = await context.Workspaces.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Slug == "perf-small-workspace-000");
+        // The tracked small profile shares project 0000 across the task, Gantt and Kanban scenarios.
+        var project = await context.Projects.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Slug == "perf-small-project-0000");
+        var conversation = await context.Conversations.IgnoreQueryFilters().AsNoTracking().SingleAsync(row =>
+            row.WorkspaceId == workspace.Id && row.Title == "PERF conversation 00000");
+        var task = await context.TaskItems.IgnoreQueryFilters().AsNoTracking().SingleAsync(row =>
+            row.ProjectId == project.Id && row.Title == "PERF task 0000-000000");
         Assert.Equal(tenant.Id, workspace.TenantId);
         Assert.Equal(tenant.Id, task.TenantId);
         Assert.Equal(tenant.Id, conversation.TenantId);
         Assert.Equal(workspace.Id, conversation.WorkspaceId);
-        Assert.Equal(taskList.Id, task.ProjectId);
-        foreach (var project in new[] { taskList, gantt, kanban })
-        {
-            Assert.Equal(workspace.Id, project.WorkspaceId);
-            Assert.Equal(tenant.Id, project.TenantId);
-        }
+        Assert.Equal(project.Id, task.ProjectId);
+        Assert.Equal(project.Id, conversation.ProjectId);
+        Assert.Equal(workspace.Id, project.WorkspaceId);
+        Assert.Equal(tenant.Id, project.TenantId);
+        Assert.Equal(actor.Id, task.PrimaryAssigneeUserId);
+        var focus = evidence.GetProperty("focus");
+        var projectTasks = await context.TaskItems.IgnoreQueryFilters().CountAsync(row => row.ProjectId == project.Id);
+        Assert.Equal(focus.GetProperty("projectTasks").GetInt32(), projectTasks);
+        Assert.True(projectTasks >= focus.GetProperty("kanbanAuthorizedCards").GetInt32());
+        Assert.Equal(focus.GetProperty("projectMilestones").GetInt32(),
+            await context.Milestones.IgnoreQueryFilters().CountAsync(row => row.ProjectId == project.Id));
+        Assert.Equal(focus.GetProperty("projectDependencies").GetInt32(),
+            await context.TaskDependencies.IgnoreQueryFilters().CountAsync(row => row.ProjectId == project.Id));
+        Assert.Equal(focus.GetProperty("conversationMessages").GetInt32(),
+            await context.Messages.IgnoreQueryFilters().CountAsync(row => row.ConversationId == conversation.Id));
+        Assert.Equal(focus.GetProperty("userMyTasks").GetInt32(),
+            await context.TaskItems.IgnoreQueryFilters().CountAsync(row => row.PrimaryAssigneeUserId == actor.Id));
         var persisted = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["tenantSlug"] = tenant.Slug,
             ["operatorEmail"] = actor.Email,
             ["workspaceId"] = workspace.Id.ToString("D"),
-            ["taskListProjectId"] = taskList.Id.ToString("D"),
-            ["ganttProjectId"] = gantt.Id.ToString("D"),
-            ["kanbanProjectId"] = kanban.Id.ToString("D"),
+            ["taskListProjectId"] = project.Id.ToString("D"),
+            ["ganttProjectId"] = project.Id.ToString("D"),
+            ["kanbanProjectId"] = project.Id.ToString("D"),
             ["conversationId"] = conversation.Id.ToString("D"),
             ["taskId"] = task.Id.ToString("D")
         };

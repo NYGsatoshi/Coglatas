@@ -20,8 +20,13 @@ password verification, original manifest bytes and deterministic generated
 fixture evidence. Each rebuild uses committed persistence and fresh EF queries;
 this does not establish all-table RLS or external storage bytes.
 
-After v1 and each v2 rebuild, no-tracking reads bind the reported Tenant, actor,
-Workspace, three Project references, Conversation and Task to persisted rows.
+After v1 and each v2 rebuild, no-tracking reads independently select the named
+small-profile Tenant, operator, Workspace, focus Project, Conversation and Task
+by fixture labels rather than evidence IDs. The test checks focus Task,
+milestone, dependency, assigned-Task and message cardinalities and the minimum
+Kanban capacity. All three small-profile Project aliases must report that
+persisted focus Project. A consistently wrong but existing reported identity
+cannot select a different workload and still pass.
 Identity comparisons normalize UUIDs and compare dictionaries rather than JSON
 formatting. The attachment checks include Workspace ownership and persisted
 FileObject links. Manifest discovery checks the consumer working directory and
