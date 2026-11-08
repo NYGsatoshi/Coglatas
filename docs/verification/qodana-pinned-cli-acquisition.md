@@ -84,7 +84,11 @@ analysis or security acceptance.
 
 The acquisition workflow adds a separate read-only initialization control. It
 prepares the actual different version 2.27.3 in a job-isolated runner cache shared
-by warming and initialization. It seeds the pinned action's normal feature-flag
+by warming and initialization. A complete trusted runner-image entry is copied
+without changing its original, with executable byte comparison and actual version
+verification; otherwise the fixed original release archive must verify its digest.
+This retains the original action's normal trust in preinstalled runner entries.
+It seeds the pinned action's normal feature-flag
 cache with a controlled response selecting 2.27.3, executes the production warm
 source with both transfers failing, and checks that no 2.27.4 executable or marker
 exists. It then invokes the unchanged action's normal resolver without a `tools`
