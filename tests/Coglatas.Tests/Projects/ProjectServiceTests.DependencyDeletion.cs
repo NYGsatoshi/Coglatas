@@ -43,12 +43,14 @@ public sealed partial class ProjectServiceTests
             task.WorkspaceId = fixture.Workspace.Id;
         var predecessorDates = (predecessor.PlannedStartDate, predecessor.PlannedEndDate);
         var successorDates = (successor.PlannedStartDate, successor.PlannedEndDate);
+        var retainedEdge = (retained.ProjectId, retained.PredecessorTaskItemId, retained.SuccessorTaskItemId, retained.DependencyType);
 
         var result = await fixture.Service.DeleteDependencyAsync(successor.Id, dependency.Id, 7);
 
         Assert.True(result.IsSuccess, result.Error);
         Assert.DoesNotContain(dependency, fixture.Dependencies);
         Assert.Same(retained, Assert.Single(fixture.Dependencies));
+        Assert.Equal(retainedEdge, (retained.ProjectId, retained.PredecessorTaskItemId, retained.SuccessorTaskItemId, retained.DependencyType));
         Assert.Equal(3, fixture.Projects.Tasks.Count);
         Assert.Same(predecessor, fixture.Projects.Tasks[predecessor.Id]);
         Assert.Same(successor, fixture.Projects.Tasks[successor.Id]);
