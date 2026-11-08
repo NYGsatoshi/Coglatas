@@ -790,6 +790,28 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
 
 
 
+    def test_cli_refuses_unverified_ruleset_exclusions(self) -> None:
+        for excluded in ("missing", None, "refs/heads/main", ["refs/heads/main"],
+                         ["~DEFAULT_BRANCH"], ["~ALL"], ["refs/heads/*"],
+                         ["refs/heads/other"], [None]):
+            with self.subTest(excluded=excluded):
+                api = self.complete_live_api()
+                ref = api.responses["repos/Coglatas/Coglatas/rulesets/123"]["conditions"]["ref_name"]
+                if excluded == "missing":
+                    del ref["exclude"]
+                else:
+                    ref["exclude"] = excluded
+                output = io.StringIO()
+                with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi", return_value=api), mock.patch.object(required.os.sys, "stdout", output):
+                    exit_code = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--json"])
+                report = json.loads(output.getvalue())
+                self.assertEqual(1, exit_code)
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("pass", report["exact_head"]["decision"])
+                self.assertEqual("fail", report["live_ruleset"]["decision"])
+                self.assertTrue(any("empty exclusion array" in error for error in report["live_ruleset"]["errors"]))
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

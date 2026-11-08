@@ -585,6 +585,9 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
     included = ref.get("include") if isinstance(ref, dict) else None
     if not isinstance(included, list) or "~DEFAULT_BRANCH" not in included:
         errors.append("live required-check ruleset must include ~DEFAULT_BRANCH")
+    excluded = ref.get("exclude") if isinstance(ref, dict) else None
+    if not isinstance(excluded, list) or excluded:
+        errors.append("live required-check ruleset must provide an empty exclusion array; exclusion matching is not verified")
     rules = live.get("rules")
     if not isinstance(rules, list):
         return errors + ["live ruleset rules must be an array"]

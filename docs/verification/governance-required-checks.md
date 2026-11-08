@@ -28,6 +28,14 @@ normal JSON/exit-code result, rather than escaping as attribute/type exceptions.
 These checks preserve the registered contexts, producers, conclusions and timeout
 rules; they do not activate a new gate or change live GitHub protection.
 
+The evaluator does not implement GitHub's branch-pattern exclusion matching.
+It therefore requires an explicit empty exclusion array before claiming live
+default-branch protection. Missing, malformed, or nonempty exclusions fail closed,
+including exclusions for apparently unrelated branches. Supporting selective
+exclusions requires separate verified matching behavior; this validator must not
+infer protection from the include marker alone. Existing empty exclusions retain
+their behavior, and no live ruleset is modified by this check.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.
