@@ -33,6 +33,11 @@ describe('Independent local Core evidence display qualification', () => {
 
   it('never shows green for unsupported source records or unresolved inspection inputs', () => {
     expect(assessLocalEvidence(altered((v) =>
+      Object.assign(v.result, { rules: [] })))).toBe('partial-coverage');
+    expect(assessLocalEvidence(altered((v) =>
+      Object.assign((v.manifest['manifest'] as { settings: object }).settings,
+        { sourceCoverage: 'coglatas.partial' })))).toBe('partial-coverage');
+    expect(assessLocalEvidence(altered((v) =>
       Object.assign(v.declarations[0], { status: 'Unsupported' })))).toBe('partial-coverage');
     expect(assessLocalEvidence(altered((v) =>
       Object.assign(v.semanticInspection!, { bindingComplete: false })))).toBe('partial-coverage');
