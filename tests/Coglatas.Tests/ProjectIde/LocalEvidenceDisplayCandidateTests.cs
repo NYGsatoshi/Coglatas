@@ -68,7 +68,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         var input = Input();
         var previous = new CompilerHostRequest(new(input), 4);
         var next = new CompilerHostRequest(new(input), 5);
-        using var view = new SyntheticWorkbenchViewModel();
+        var view = new SyntheticWorkbenchViewModel();
         view.BeginSynthetic(previous);
         var response = await Host(input).CompileAsync(previous);
         view.Reset();
