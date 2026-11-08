@@ -942,7 +942,7 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         registry, api = self.commit_status_api()
         path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
         combined = api.responses[path]
-        combined["statuses"] *= 100
+        combined["statuses"] = [{**combined["statuses"][0], "id": index + 1} for index in range(100)]
         combined["total_count"] = 101
         api.responses[path + "&page=2"] = {"sha": OLD_HEAD, "total_count": 101, "statuses": []}
         with self.assertRaisesRegex(RuntimeError, "head identity"):
@@ -1001,12 +1001,43 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
     def test_combined_status_total_cannot_change_between_pages(self) -> None:
         registry, api = self.commit_status_api()
         path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
-        api.responses[path]["statuses"] *= 100
+        api.responses[path]["statuses"] = [{**api.responses[path]["statuses"][0], "id": index + 1} for index in range(100)]
         api.responses[path]["total_count"] = 101
         api.responses[path + "&page=2"] = {"sha": HEAD, "total_count": 100, "statuses": []}
         code, report = self.run_validated_fake_cli(registry, api)
         self.assertEqual(1, code)
         self.assertIn("pagination", report["error"])
+
+
+    def test_duplicate_api_ids_cannot_fill_declared_total(self) -> None:
+        for kind in ("check-runs", "statuses"):
+            with self.subTest(kind=kind):
+                if kind == "check-runs":
+                    registry, api = REGISTRY, self.complete_live_api()
+                    path = f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"
+                    rows = api.responses[path]["check_runs"]
+                    rows += [{**rows[0], "id": index + 7} for index in range(94)]
+                    api.responses[path]["total_count"] = 101
+                    api.responses[path + "&page=2"] = {"total_count": 101, "check_runs": [copy.deepcopy(rows[0])]}
+                else:
+                    registry, api = self.commit_status_api()
+                    path = f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"
+                    row = api.responses[path]["statuses"][0]
+                    api.responses[path] = {"sha": HEAD, "total_count": 101, "statuses": [{**row, "id": index + 1} for index in range(100)]}
+                    api.responses[path + "&page=2"] = {"sha": HEAD, "total_count": 101, "statuses": [copy.deepcopy(row)]}
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertIn("duplicate or invalid entry ID", report["error"])
+                self.assertIn(path + "&page=2", api.calls)
+
+    def test_malformed_api_ids_fail_through_validated_cli(self) -> None:
+        for identity in (None, True, [], 0, "1"):
+            with self.subTest(identity=identity):
+                registry, api = self.commit_status_api()
+                api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]["statuses"][0]["id"] = identity
+                code, report = self.run_validated_fake_cli(registry, api)
+                self.assertEqual(1, code)
+                self.assertIn("duplicate or invalid entry ID", report["error"])
 
 
 class BackendDatabaseBootstrapTests(unittest.TestCase):

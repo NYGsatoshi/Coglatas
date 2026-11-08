@@ -868,6 +868,7 @@ def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | Non
     out = []
     page = 1
     declared_total = None
+    seen_ids = set()
     while True:
         payload = api.get(path if page == 1 else f"{path}&page={page}")
         if expected_head_sha is not None and (not isinstance(payload, dict) or payload.get("sha") != expected_head_sha):
@@ -878,6 +879,11 @@ def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | Non
         if any(not isinstance(value, dict) for value in batch):
             raise RuntimeError("GitHub pagination page entries must be objects")
         values = [dict(x) for x in batch]
+        for value in values:
+            identity = value.get("id")
+            if not isinstance(identity, int) or isinstance(identity, bool) or identity <= 0 or identity in seen_ids:
+                raise RuntimeError("GitHub pagination contains a duplicate or invalid entry ID")
+            seen_ids.add(identity)
         if expected_head_sha is not None:
             for value in values:
                 if "sha" in value and value["sha"] != expected_head_sha:

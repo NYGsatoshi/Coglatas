@@ -60,6 +60,10 @@ Controlled commit-status fixtures exercise the real registry loader and CLI,
 but do not establish live producer compatibility: absent creator identity still
 fails the registered producer contract. No live commit-status gate is activated.
 
+Every collected check/status has a distinct positive integer provider ID;
+duplicates within or across pages cannot satisfy the declared total. This does
+not establish completeness beyond GitHub's documented endpoint retention limits.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.
