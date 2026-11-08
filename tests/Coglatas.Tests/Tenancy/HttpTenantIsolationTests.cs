@@ -5082,7 +5082,8 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "TaskV1PR07B")]
     public async Task RevokedMemberIsExcludedFromMentionCandidatesAndDirectMentions()
     {
-        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        using var logs = new CapturingRequestLoggerProvider();
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync(loggerProvider: logs);
         var data = app.Data;
         Guid commentId;
         long commentVersion;
@@ -5116,12 +5117,18 @@ public sealed class HttpTenantIsolationTests
         using (var create = JsonContent($$"""{"bodyPlainText":"{{mentionBody}}","isImportant":false}"""))
         using (var response = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id:D}/comments", HttpMethod.Post, create))
         {
+            // Publish only a finite failure class; never render exception text or request data.
+            Assert.Empty(logs.Entries.Where(row => row.Exception is not null).Select(row =>
+                row.Exception is System.Text.RegularExpressions.RegexMatchTimeoutException ? "REGEX_TIMEOUT" : "OTHER_UNHANDLED_EXCEPTION"));
             await AssertTaskErrorAsync(response, HttpStatusCode.BadRequest, "TASK_MENTION_NOT_ELIGIBLE");
         }
 
         using (var update = JsonContent($$"""{"bodyPlainText":"please review {{mentionBody}}","isImportant":false,"expectedVersion":{{commentVersion}}}"""))
         using (var response = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/task-comments/{commentId:D}", HttpMethod.Patch, update))
         {
+            // Publish only a finite failure class; never render exception text or request data.
+            Assert.Empty(logs.Entries.Where(row => row.Exception is not null).Select(row =>
+                row.Exception is System.Text.RegularExpressions.RegexMatchTimeoutException ? "REGEX_TIMEOUT" : "OTHER_UNHANDLED_EXCEPTION"));
             await AssertTaskErrorAsync(response, HttpStatusCode.BadRequest, "TASK_MENTION_NOT_ELIGIBLE");
         }
     }
