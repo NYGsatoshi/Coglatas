@@ -20,6 +20,9 @@ const altered = (apply: (value: PreviewCase) => void): PreviewCase => {
   apply(value);
   return value;
 };
+const bundle = (...cases: PreviewCase[]): PreviewBundle => ({
+  format: 'coglatas.web-preview/1', mode: 'synthetic-fixture', coreProduct: 'independent-test', cases,
+});
 
 describe('Independent local Core evidence display qualification', () => {
   it('requires explicit boolean completeness, including when loading is bypassed', () => {
@@ -62,8 +65,8 @@ describe('Independent local Core evidence display qualification', () => {
   it('clears an accepted pass before reloading, cancellation and context reselection', async () => {
     const store = new ProjectIdeWorkbenchStore();
     const pass = fixture();
-    const bundle = { cases: [pass] } as PreviewBundle;
-    await store.load(async () => bundle);
+    const data = bundle(pass);
+    await store.load(async () => data);
     store.choose(pass.key);
     store.loadResult();
     expect(assessLocalEvidence(store.result())).toBe('complete-local-pass');
@@ -75,7 +78,7 @@ describe('Independent local Core evidence display qualification', () => {
     const pending = store.load(() => new Promise((resolve) => { finish = resolve; }));
     expect(assessLocalEvidence(store.result())).toBe('not-loaded');
     store.clear('cancelled');
-    finish(bundle);
+    finish(data);
     await pending;
     expect(store.state()).toBe('cancelled');
     expect(store.bundle()).toBeNull();
@@ -84,8 +87,8 @@ describe('Independent local Core evidence display qualification', () => {
 
   it('rejects a delayed older read even if the adapter ignores its abort signal', async () => {
     const store = new ProjectIdeWorkbenchStore();
-    const oldBundle = { cases: [fixture()] } as PreviewBundle;
-    const nextBundle = { cases: [] } as unknown as PreviewBundle;
+    const oldBundle = bundle(fixture());
+    const nextBundle = bundle();
     let finish!: (value: PreviewBundle) => void;
     const old = store.load(() => new Promise((resolve) => { finish = resolve; }));
     await store.load(async () => nextBundle);
