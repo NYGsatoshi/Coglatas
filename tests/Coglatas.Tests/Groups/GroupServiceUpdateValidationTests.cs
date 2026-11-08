@@ -138,7 +138,7 @@ public sealed partial class GroupServiceUpdateValidationTests
         public AppDbContext Context { get; }
         public User User { get; }
         public Workspace Workspace { get; }
-        public Group OldParent { get; }
+        private Group OldParent { get; }
         public Group NewParent { get; }
         public Group Subject { get; }
         public Group ForeignParent { get; }
