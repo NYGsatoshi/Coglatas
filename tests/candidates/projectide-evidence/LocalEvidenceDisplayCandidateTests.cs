@@ -37,8 +37,11 @@ public sealed class LocalEvidenceDisplayCandidateTests
                      result.Execution == CompilerExecutionState.Completed &&
                      result.Coverage == CompilerCoverage.Complete &&
                      result.EvidenceComplete, view.HasCompleteLocalPass);
-        Assert.Equal(view.HasCompleteLocalPass ? "complete-local-pass" : "not-passed",
-            view.LocalEvidenceState);
+        var expectedState = result.Execution != CompilerExecutionState.Completed ? "not-executed" :
+            result.Coverage != CompilerCoverage.Complete ? "partial-coverage" :
+            !result.EvidenceComplete ? "missing-evidence" :
+            result.Verdict == CompilerVerdict.Pass ? "complete-local-pass" : "not-passed";
+        Assert.Equal(expectedState, view.LocalEvidenceState);
 
         view.Reset();
         Assert.Equal("not-loaded", view.LocalEvidenceState);
