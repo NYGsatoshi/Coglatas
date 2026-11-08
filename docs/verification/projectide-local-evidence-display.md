@@ -9,7 +9,7 @@ The source artifact remains the Core-generated synthetic preview. The Angular UI
 ## Classification and precedence
 
 1. `not-loaded`: no accepted result exists, including after reset, rejection, cancellation, or disposal.
-2. `stale`: source/revision/input binding mismatch. Angular also verifies the exact result input ID, input digest, bound input stamp and source digest before presenting a positive state; Windows relies on the current Core request/response checks and rechecks accepted digest/source binding.
+2. `stale`: source/revision/input binding mismatch. Angular verifies the result input ID/digest, bound stamp, manifest envelope ID/digest, manifest Source context/digest and desired context before a positive display. The loaded result must also be the selected case instance from the current load generation; a matching reusable case key alone is insufficient. Windows relies on the current Core request/response checks and rechecks accepted digest/source binding.
 3. `not-executed`: Core execution is not `Completed`.
 4. `partial-coverage`: execution finished but declared coverage is not complete.
 5. `missing-evidence`: coverage is complete but the evidence-complete flag is false.

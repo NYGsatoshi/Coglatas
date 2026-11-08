@@ -72,6 +72,7 @@ export class ProjectIdeWorkbenchComponent {
   );
   readonly evidenceState = computed(() => {
     const result = this.store.result();
+    // The selected case instance belongs to this load generation; a reused key does not.
     return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result);
   });
   readonly completePass = computed(() => this.evidenceState() === 'complete-local-pass');

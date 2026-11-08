@@ -194,6 +194,7 @@ export type LocalEvidenceState =
   | 'not-passed'
   | 'complete-local-pass';
 
+/** Classify a synthetic result only after its input, source, context and required coverage agree. */
 export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
   if (!value) return 'not-loaded';
   if (!isPreviewCaseShape(value) || !hasUniquePreviewIdentities(value)) return 'missing-evidence';
