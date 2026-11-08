@@ -35,10 +35,18 @@ install_qodana_cli() {
   local installation archive
   installation="$(mktemp -d "${RUNNER_TEMP%/}/qodana-cli-${QODANA_CLI_VERSION}.XXXXXXXX")"
   archive="$installation/qodana-linux.tar.gz"
-  curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
+  # The official binary API avoids the browser release route's repeated 504s.
+  # Public assets need no token. Both routes retain the same authenticated bytes.
+  if ! curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
     --connect-timeout 20 --max-time 180 --retry 3 --retry-delay 5 --retry-max-time 240 \
+    --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' \
     --output "$archive" \
-    "https://github.com/JetBrains/qodana-cli/releases/download/v${QODANA_CLI_VERSION}/qodana_linux_x86_64.tar.gz"
+    'https://api.github.com/repos/JetBrains/qodana-cli/releases/assets/585558698'; then
+    curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
+      --connect-timeout 20 --max-time 180 --retry 3 --retry-delay 5 --retry-max-time 240 \
+      --output "$archive" \
+      "https://github.com/JetBrains/qodana-cli/releases/download/v${QODANA_CLI_VERSION}/qodana_linux_x86_64.tar.gz"
+  fi
   install_verified_qodana_archive "$archive" "$installation"
   "$installation/qodana" --version
   printf '%s\n' "$installation" >> "$GITHUB_PATH"

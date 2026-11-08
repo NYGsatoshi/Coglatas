@@ -11,7 +11,12 @@ using bounded HTTPS transfers, then uses the pinned action's supported
 `use-installed-cli` input. The archive SHA-256 remains
 `b1fc01fb5825f4c6382f9cedcfe97d4a8eeaaddc9f5384a3b5870ca63e231c6f`,
 matching the original pinned action. Verification precedes extraction and
-execution. Each installation uses a fresh runner temporary directory; nothing
+execution. The fixed public Release Asset API (asset `585558698`) is tried first,
+with the same release's browser URL as a bounded fallback. Both require HTTPS
+including redirects, and both must satisfy the same digest. No token is used.
+This uses GitHub's documented binary asset retrieval contract:
+<https://docs.github.com/en/rest/releases/assets#get-a-release-asset>.
+Each installation uses a fresh runner temporary directory; nothing
 is promoted to a global cache. Failed acquisition or verification fails the job.
 
 External PRs restore this executable from the immutable PR base alongside the
@@ -23,3 +28,8 @@ downloads the actual authenticated release and runs its native version command.
 That proves acquisition only. Protected PR checks and independent source review
 must still complete, followed by both full Qodana scans on the resulting Main.
 No Sonar coverage improvement, Security disposition or release approval is implied.
+
+The first repair HEAD `9d1b65ae` passed all four native refusal tests but its
+direct browser-URL download also failed with HTTP 504 in acquisition run
+`42470034306/1`. Static analysis `42470034371/1` independently failed while
+downloading actionlint, before linting. Neither is claimed as a passing run.
