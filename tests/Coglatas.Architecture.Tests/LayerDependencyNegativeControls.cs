@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using ArchUnitNET.Domain;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnit;
 using Xunit;
@@ -16,6 +15,15 @@ public sealed class LayerDependencyNegativeControls
     [Fact]
     public void LayerRulesRejectSyntheticForbiddenReferences()
     {
+        // Exercise each deliberately forbidden reference. The production rules
+        // below must still detect those exact dependencies in ArchUnitNET.
+        Assert.Null(new DomainLikeFixture().Application);
+        Assert.Null(new DomainLikeFixture().Infrastructure);
+        Assert.Null(new DomainLikeFixture().Web);
+        Assert.Null(new ApplicationLikeFixture().Infrastructure);
+        Assert.Null(new ApplicationLikeFixture().Web);
+        Assert.Null(new InfrastructureLikeFixture().Web);
+
         var architecture = new ArchLoader()
             .LoadAssemblies(typeof(LayerDependencyNegativeControls).Assembly)
             .Build();
