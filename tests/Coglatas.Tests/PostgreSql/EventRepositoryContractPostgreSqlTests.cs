@@ -145,6 +145,8 @@ public sealed class EventRepositoryContractPostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), AssertProjectCalendarQueriesAsync);
 
+    /// <summary>Checks native calendar scope, independent deadline ranges, projections and read-only state.</summary>
+    /// <param name="connectionString">The isolated migrated PostgreSQL database supplied by the harness.</param>
     private static async Task AssertProjectCalendarQueriesAsync(string connectionString)
     {
         await using var fixture = await Fixture.CreateAsync(connectionString);
@@ -309,6 +311,32 @@ public sealed class EventRepositoryContractPostgreSqlTests
                 remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id,
                 afterMilestone.Id, afterProject.Id, afterTask.Id],
             allDates.Select(item => item.Id));
+
+        var datelessMilestone = AddMilestone(dateless, "Dateless milestone with date", date);
+        var datelessTask = AddTask(dateless, "Dateless task with date", date);
+        var outsideMilestone = AddMilestone(beforeProject, "Outside deadline milestone", date);
+        var outsideTask = AddTask(beforeProject, "Outside deadline task", date);
+        await fixture.Seed.SaveChangesAsync();
+        var independentDates = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery(boundary, boundary));
+        Assert.Equal(
+            [milestone.Id, datelessMilestone.Id, datelessTask.Id, local.Id,
+                middleMilestone.Id, sameWorkspace.Id, middleTask.Id, outsideMilestone.Id, outsideTask.Id,
+                remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id],
+            independentDates.Select(item => item.Id));
+        var datelessParent = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: dateless.Id));
+        Assert.Equal([datelessMilestone.Id, datelessTask.Id], datelessParent.Select(item => item.Id));
+        var outsideParent = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: beforeProject.Id));
+        Assert.Equal([outsideMilestone.Id, outsideTask.Id], outsideParent.Select(item => item.Id));
+        var allIndependentDates = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery());
+        Assert.Equal(
+            [beforeMilestone.Id, beforeProject.Id, beforeTask.Id,
+                milestone.Id, datelessMilestone.Id, datelessTask.Id, local.Id,
+                middleMilestone.Id, sameWorkspace.Id, middleTask.Id, outsideMilestone.Id, outsideTask.Id,
+                remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id,
+                afterMilestone.Id, afterProject.Id, afterTask.Id],
+            allIndependentDates.Select(item => item.Id));
         Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
         Assert.All(fixture.Seed.ChangeTracker.Entries(), entry => Assert.Equal(EntityState.Unchanged, entry.State));
         Assert.Equal(date, local.DueDate);
