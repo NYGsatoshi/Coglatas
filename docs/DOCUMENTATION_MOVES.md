@@ -24,6 +24,46 @@ path inventory does not settle every content classification. Use
 No original document is physically moved, deleted, or newly archived by these
 initial organization changes.
 
+## DOC-04 validation checkpoint
+
+[PR #1811](https://github.com/NYGsatoshi/Coglatas/pull/1811) implemented the
+committed-tree reference/catalogue checker, independent controls, fixed
+dependencies, qualification workflow, and operating guide on the test
+workstream. It normally merged into `SecurityTestImplimation` as
+`1dc64c38390208e45c4496c685cd4c37de00607c`. The documentation branch records
+this result without importing the test branch's contents.
+
+| Qualified input | Identity |
+| --- | --- |
+| Checker PR head | `78206c0ecf9b934d302ece7a6fd502b314363ece` |
+| Checker head and merge tree | `4581f78ae13f161c929b88fefb563276bc6ff47c` |
+| DOC-03 corpus and trusted retention baseline | `f849313aecf480948a6fe9176d73a490f2bec93f` |
+| Documentation corpus tree | `9001024215a6cf2dae75123296e9c020c21b538e` |
+
+[Qualification run 42429664858, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/42429664858)
+passed 48 independent positive/negative controls and the complete pinned
+corpus: 475 Markdown documents/catalogue entries, 779 local references,
+24 validated fragments, 122 companion references to 118 files, 33 protected
+documents, and 38 retained immutable files, with zero findings. A separate
+navigation-only run checked the 451-document checker branch; it did not
+claim catalogue or protection coverage for that different source.
+
+All six registered required contexts passed on the exact checker PR head.
+[PR CI 42429664893/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/42429664893)
+passed all 17 jobs, including the four Functional domains and actor journey;
+[Publication Readiness 42429664980/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/42429664980)
+passed its owning trust-boundary checks. The
+[exact-merge qualification 42430210440/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/42430210440)
+also passed. These results retain their separate checker/corpus identities
+and do not grant product, numerical-assurance, or owner-approval credit.
+
+This checkpoint adds no physical moves, deletions, or archive admissions.
+The classifications and unresolved dispositions below remain in force.
+For each next move, follow the [maintenance procedure](DOCUMENTATION_MAINTENANCE.md#procedure-for-a-documentation-change)
+and run the qualified checker against that move's own committed candidate
+and trusted ancestor before recording its result. The initial corpus receipt
+does not substitute for candidate-specific validation.
+
 ## Classification coverage
 
 Every one of the 475 scoped Markdown paths has one catalogue entry. The
