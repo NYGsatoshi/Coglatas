@@ -127,6 +127,13 @@ def main() -> None:
     except Exception as exc:
         record["status"] = "FAILED_OR_INCOMPLETE"
         record["error"] = str(exc)
+        # A failing candidate must expose its bounded actual diagnostic in CI,
+        # not only preserve it in an expiring artifact.
+        for name in ("vitest.log", "dotnet-test.log", "npm-install.log"):
+            diagnostic = evidence / name
+            if diagnostic.is_file():
+                print(f"Recorded {name} tail (synthetic candidate only):", file=sys.stderr)
+                print(diagnostic.read_text(encoding="utf-8", errors="replace")[-5000:], file=sys.stderr)
         raise
     finally:
         record["retainedLogSha256"] = {
