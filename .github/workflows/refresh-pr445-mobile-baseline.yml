@@ -12,7 +12,7 @@ permissions: {}
 jobs:
   refresh-mobile-baseline:
     if: github.repository_id == '1261244608'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     environment: syncfusion-licensed-build

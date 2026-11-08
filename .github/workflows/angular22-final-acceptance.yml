@@ -26,7 +26,7 @@ permissions:
 jobs:
   legacy-angular-build:
     name: coglatas-frontend Angular 22 build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -57,7 +57,7 @@ jobs:
 
   compat-critical:
     name: compat-critical retries=0
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
 
     steps:
