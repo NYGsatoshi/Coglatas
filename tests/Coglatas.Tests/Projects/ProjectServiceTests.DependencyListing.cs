@@ -75,6 +75,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Empty(fixture.Invalidations.TaskAssignmentChanges);
         Assert.Equal(0, fixture.Invalidations.TaskChangedCount);
         Assert.Empty(fixture.AuthorizationChanges.Items);
         Assert.Empty(fixture.TaskNotifications.Requests);
@@ -146,6 +147,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Empty(fixture.Invalidations.TaskAssignmentChanges);
         Assert.Equal(0, fixture.Invalidations.TaskChangedCount);
         Assert.Empty(fixture.AuthorizationChanges.Items);
         Assert.Empty(fixture.TaskNotifications.Requests);
@@ -169,6 +171,14 @@ public sealed partial class ProjectServiceTests
         var target = fixture.AddTask("Target");
         var neighbor = fixture.AddTask("Unmapped neighbor");
         var control = fixture.AddTask("Visible neighbor");
+        neighbor.VersionNo = 5;
+        control.VersionNo = 7;
+        target.PlannedStartDate = new DateOnly(2026, 8, 1);
+        target.PlannedEndDate = new DateOnly(2026, 8, 2);
+        neighbor.PlannedStartDate = new DateOnly(2026, 8, 3);
+        neighbor.PlannedEndDate = new DateOnly(2026, 8, 4);
+        control.PlannedStartDate = new DateOnly(2026, 8, 5);
+        control.PlannedEndDate = new DateOnly(2026, 8, 6);
         foreach (var task in fixture.Projects.Tasks.Values)
             task.WorkspaceId = fixture.Workspace.Id;
         var visible = new TaskDependency
@@ -192,6 +202,9 @@ public sealed partial class ProjectServiceTests
             case "foreign-project-edge": excluded.ProjectId = Guid.NewGuid(); break;
         }
         var storedTasks = fixture.Projects.Tasks.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var taskFields = new[] { target, neighbor, control }
+            .Select(task => (Task: task, Version: task.VersionNo, Start: task.PlannedStartDate, End: task.PlannedEndDate))
+            .ToArray();
         var excludedFields = (excluded.ProjectId, excluded.PredecessorTaskItemId, excluded.SuccessorTaskItemId, excluded.DependencyType);
         var visibleFields = (visible.ProjectId, visible.PredecessorTaskItemId, visible.SuccessorTaskItemId, visible.DependencyType);
 
@@ -211,6 +224,8 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(storedTasks.Count, fixture.Projects.Tasks.Count);
         foreach (var row in storedTasks)
             Assert.Same(row.Value, fixture.Projects.Tasks[row.Key]);
+        foreach (var row in taskFields)
+            Assert.Equal((row.Version, row.Start, row.End), (row.Task.VersionNo, row.Task.PlannedStartDate, row.Task.PlannedEndDate));
         Assert.Equal(1, target.VersionNo);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
@@ -218,6 +233,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Empty(fixture.Invalidations.TaskAssignmentChanges);
         Assert.Equal(0, fixture.Invalidations.TaskChangedCount);
         Assert.Empty(fixture.AuthorizationChanges.Items);
         Assert.Empty(fixture.TaskNotifications.Requests);
@@ -249,6 +265,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Empty(fixture.Invalidations.TaskAssignmentChanges);
         Assert.Equal(0, fixture.Invalidations.TaskChangedCount);
         Assert.Empty(fixture.AuthorizationChanges.Items);
         Assert.Empty(fixture.TaskNotifications.Requests);
