@@ -110,10 +110,22 @@ def main() -> None:
         execute(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"],
                 frontend, evidence / "npm-install.log")
         report_path = evidence / "vitest-results.json"
-        execute(["npm", "exec", "--", "vitest", "run",
-                 "src/app/features/projectide/projectide-evidence-display.candidate.spec.ts",
-                 "--config", "vitest.config.ts", "--reporter=json",
-                 "--outputFile=" + str(report_path)], frontend, evidence / "vitest.log")
+        try:
+            execute(["npm", "exec", "--", "vitest", "run",
+                     "src/app/features/projectide/projectide-evidence-display.candidate.spec.ts",
+                     "--config", "vitest.config.ts", "--reporter=json",
+                     "--outputFile=" + str(report_path)], frontend, evidence / "vitest.log")
+        except RuntimeError:
+            if report_path.is_file():
+                failed_report = json.loads(report_path.read_text(encoding="utf-8"))
+                for suite in failed_report.get("testResults", []):
+                    print("Vitest suite status:", suite.get("name"), suite.get("status"), file=sys.stderr)
+                    for assertion in suite.get("assertionResults", []):
+                        if assertion.get("status") != "passed":
+                            print("Vitest assertion:", assertion.get("fullName"), file=sys.stderr)
+                            print(str(assertion.get("failureMessages", []))[-3500:], file=sys.stderr)
+                    print(str(suite.get("message", ""))[-3500:], file=sys.stderr)
+            raise
         if not report_path.is_file():
             raise ValueError("Actual independent Vitest JSON report missing")
         test_report = json.loads(report_path.read_text(encoding="utf-8"))
