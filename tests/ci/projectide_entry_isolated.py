@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -69,34 +70,58 @@ def owned_commits(repo: Path, base: str, head: str, paths: tuple[str, ...]) -> l
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--product-head", required=True)
-    parser.add_argument("--test-head", required=True)
+    parser.add_argument("--product-head")
+    parser.add_argument("--test-head")
     parser.add_argument("--worktree", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--offline-packages", type=Path)
+    parser.add_argument("--integrated", action="store_true", help="Qualify the actual ProjectIDE PR tree")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     target, output = args.worktree.resolve(), args.evidence.resolve()
     if target.exists() or output.exists():
         raise ValueError("Fresh verification and evidence paths required")
-    owned_commits(repo, PRODUCT_BASE, args.product_head,
-                  ("src/Coglatas.Domain/ProjectIde/", "tools/Coglatas.SecurityArchitecture/", "docs/verification/"))
-    tests = owned_commits(repo, TEST_BASE, args.test_head, TEST_PATHS)
-    reused = owned_commits(repo, REUSED_BASE, REUSED_HEAD, REUSED_PATHS)
+    if args.integrated:
+        if args.product_head or args.test_head:
+            raise ValueError("Integrated qualification takes only the checked-out exact HEAD")
+        if os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("GITHUB_BASE_REF") != "projectide/integration-20261031":
+            raise ValueError("Integrated Entry qualification requires the ProjectIDE integration target")
+        if "tests/Coglatas.ProjectIde.Entry.Tests/Coglatas.ProjectIde.Entry.Tests.csproj" not in (
+            repo / "Coglatas.slnx").read_text(encoding="utf-8"):
+            raise ValueError("Integrated Entry project must be in the current solution")
+        args.product_head = git(repo, "rev-parse", "HEAD")
+        args.test_head = args.product_head
+        receipt = dict(mode="INTEGRATED_PROJECTIDE_CANDIDATE", integratedHead=args.product_head,
+                       sourceIndependentTestHead="3990258c3f93aa9b22542ff590ae302e7c3c087e",
+                       sourceReaderHead=REUSED_HEAD, executionScope="PURE_CORE_ONLY",
+                       adoptionCredit=False, verification={})
+        tests, reused = [], []
+    else:
+        if not args.product_head or not args.test_head:
+            raise ValueError("Independent composition requires both exact candidate heads")
+        owned_commits(repo, PRODUCT_BASE, args.product_head,
+                      ("src/Coglatas.Domain/ProjectIde/", "tools/Coglatas.SecurityArchitecture/", "docs/verification/"))
+        tests = owned_commits(repo, TEST_BASE, args.test_head, TEST_PATHS)
+        reused = owned_commits(repo, REUSED_BASE, REUSED_HEAD, REUSED_PATHS)
+        receipt = dict(productHead=args.product_head, productBase=PRODUCT_BASE,
+                       testHead=args.test_head, testBase=TEST_BASE, reusedTestHead=REUSED_HEAD,
+                       verification={}, executionScope="PURE_CORE_ONLY", adoptionCredit=False)
     output.mkdir(parents=True)
-    receipt = dict(productHead=args.product_head, productBase=PRODUCT_BASE,
-                   testHead=args.test_head, testBase=TEST_BASE, reusedTestHead=REUSED_HEAD,
-                   verification={}, executionScope="PURE_CORE_ONLY", adoptionCredit=False)
     try:
         git(repo, "worktree", "add", "--detach", str(target), args.product_head)
-        for commit in tests + reused:
-            git(target, "-c", "commit.gpgsign=false", "-c", "user.name=Pure Core isolated verification",
-                "-c", "user.email=isolated-verification@example.invalid", "cherry-pick", commit)
-        if git(target, "diff", args.product_head, "HEAD", "--", "src", "tools"):
-            raise ValueError("Test composition changed product source")
-        receipt.update(combinedCommit=git(target, "rev-parse", "HEAD"), combinedTree=git(target, "rev-parse", "HEAD^{tree}"),
-                       productTree=git(repo, "rev-parse", args.product_head + "^{tree}"),
-                       testTree=git(repo, "rev-parse", args.test_head + "^{tree}"))
+        if args.integrated:
+            receipt.update(integratedTree=git(target, "rev-parse", "HEAD^{tree}"),
+                           verificationCommit=git(target, "rev-parse", "HEAD"))
+        else:
+            for commit in tests + reused:
+                git(target, "-c", "commit.gpgsign=false", "-c", "user.name=Pure Core isolated verification",
+                    "-c", "user.email=isolated-verification@example.invalid", "cherry-pick", commit)
+            if git(target, "diff", args.product_head, "HEAD", "--", "src", "tools"):
+                raise ValueError("Test composition changed product source")
+            receipt.update(combinedCommit=git(target, "rev-parse", "HEAD"),
+                           combinedTree=git(target, "rev-parse", "HEAD^{tree}"),
+                           productTree=git(repo, "rev-parse", args.product_head + "^{tree}"),
+                           testTree=git(repo, "rev-parse", args.test_head + "^{tree}"))
         sys.path.insert(0, str(target / "tests/ci"))
         from projectide_core_isolated import inventory
         receipt["verification"]["inventoryNegativeControls"] = "Failed"
