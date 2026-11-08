@@ -252,7 +252,11 @@ jobs:
             scripts/ci/test_audit_sbom_component_inventory.py \
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \
-            tests/ci/test_performance_api_collection.py; do
+            tests/ci/test_performance_api_collection.py \
+            scripts/ci/test_av_mig_contract_boundary.py \
+            scripts/ci/test_av_mig_contract_boundary_hardening.py \
+            scripts/ci/test_av_mig_contract_boundary_adversarial.py \
+            scripts/ci/test_av_mig_production_cli.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
