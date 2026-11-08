@@ -55,7 +55,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore authoritative .NET graph in parallel
-        run: dotnet restore Coglatas.slnx --verbosity minimal
+        run: dotnet restore Coglatas.slnx --locked-mode --verbosity minimal
 
       - name: Build authoritative .NET graph in parallel
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m
