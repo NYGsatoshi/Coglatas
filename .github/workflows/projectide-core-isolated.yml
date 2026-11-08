@@ -24,7 +24,7 @@ jobs:
   isolated:
     name: Exact Core Product and Test candidates
     if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'test/projectide-core-slice3-')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout exact independent Test candidate
@@ -66,7 +66,7 @@ jobs:
   integration-inventory-controls:
     name: Integration Core TRX integrity negative controls
     if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-integration-slice3-relations-20261104'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout exact integrated Test candidate
@@ -89,7 +89,7 @@ jobs:
       (startsWith(github.head_ref, 'test/projectide-integration-compiler-') ||
       startsWith(github.head_ref, 'test/projectide-integration-web-windows-') ||
       startsWith(github.head_ref, 'test/projectide-integration-navigation-'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout exact integration Test candidate

@@ -20,7 +20,7 @@ jobs:
   isolated:
     name: Fixed Product and Test candidates
     if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-core-slice2-remainder-20261101'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout exact independent Test candidate
@@ -56,7 +56,7 @@ jobs:
   integration-inventory-controls:
     name: Integration TRX inventory negative controls
     if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/projectide-integration-slice2-remainder-20261104'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout exact integration Test candidate
