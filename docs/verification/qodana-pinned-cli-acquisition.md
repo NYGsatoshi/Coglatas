@@ -25,6 +25,9 @@ modes, build artifact lineage, assertions and coverage contracts are unchanged.
 
 The non-required, read-only Linux acquisition workflow executes refusal controls,
 downloads the actual authenticated release and runs its native version command.
+The new suite follows the existing `scripts/ci/test-*.py` test-body naming
+contract. Existing coverage configuration and production-source identity are
+unchanged; no exclusion or report rewrite is added.
 It separately injects an API transfer failure and supplies the already authenticated
 archive on the browser fallback, then checks actual installation/version execution
 and binary identity. That control tests fallback logic without claiming a second

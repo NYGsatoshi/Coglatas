@@ -7,7 +7,7 @@ on:
       - .github/workflows/qodana_trusted_gate.yml
       - .github/workflows/codeql.yml
       - scripts/ci/install-qodana-cli.sh
-      - scripts/ci/test_install_qodana_cli.py
+      - scripts/ci/test-install-qodana-cli.py
   push:
     branches: [main]
     paths:
@@ -15,7 +15,7 @@ on:
       - .github/workflows/qodana_trusted_gate.yml
       - .github/workflows/codeql.yml
       - scripts/ci/install-qodana-cli.sh
-      - scripts/ci/test_install_qodana_cli.py
+      - scripts/ci/test-install-qodana-cli.py
   workflow_dispatch:
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run native refusal controls
-        run: python3 -B scripts/ci/test_install_qodana_cli.py
+        run: python3 -B scripts/ci/test-install-qodana-cli.py
       - name: Acquire and verify the original pinned release
         run: bash scripts/ci/install-qodana-cli.sh
       - name: Execute the installed CLI on Linux
@@ -42,7 +42,7 @@ jobs:
       - name: Verify successful fallback with the authenticated release bytes
         shell: bash
         run: |
-          python3 -B scripts/ci/test_install_qodana_cli.py \
+          python3 -B scripts/ci/test-install-qodana-cli.py \
             --verified-archive "$(dirname "$(command -v qodana)")/qodana-linux.tar.gz"
 
   codeql-selector-control:
