@@ -60,10 +60,20 @@ presence and representative passing counts cannot close #842/#614 or establish
 all-adapter completion. Changes to this execution catalogue need review-visible
 coverage accounting; silent removal is not completion.
 
-`scripts/ci/sec_arch_reconcile.py` independently binds downloaded execution and
+[`scripts/ci/sec_arch_reconcile.py`](../../scripts/ci/sec_arch_reconcile.py)
+independently binds downloaded execution and
 producer ZIP bytes to expected GitHub artifact digests, exact candidate/run/attempt,
-the producer source/build stamp, all five compiled assemblies and the environment
-fingerprint. It streams a bounded hashed snapshot and never extracts archive paths.
+the producer source/build stamp and the environment fingerprint. For version 2
+execution receipts, it reconciles all six compiled assemblies, including
+`Coglatas.SecurityArchitecture.dll`, and their matching loaded copies under the
+[six-assembly binding contract](security-architecture-six-assembly-binding.md).
+The [execution producer](../../scripts/ci/sec_arch_evidence.py) emits
+`schemaVersion: 2`, `verifierVersion: "2"` and
+`assemblyBindingScope: SIX_ASSEMBLIES_WITH_LOADED_COPIES`, as required by the
+[shared binding rules](../../scripts/ci/sec_arch_assembly_binding.py).
+This is an explicit six-assembly scope, not qualification of every transitive
+dependency, service or production environment.
+The reconciler streams a bounded hashed snapshot and never extracts archive paths.
 The original receipt and outcomes remain unchanged, including FAIL/ERROR.
 Expected identities/digests must be obtained independently from reviewed GitHub
 run/artifact provenance. This offline check does not authenticate that provenance,
@@ -71,6 +81,15 @@ raw TRX, signatures, claimed test coverage or owner approvals. Its report always
 retains trusted attestation UNVERIFIED and pre-Avalonia BLOCKED. Existing PR
 preflight and trusted Main backend jobs execute positive controls and deliberate
 archive/binding mutations without rebuilding the product.
+
+Version 1 execution receipts remain readable as historical five-assembly evidence.
+Their derived reports retain `HISTORICAL_FIVE_ASSEMBLIES`, a bound assembly count
+of five and `fullDependencyQualification: UNVERIFIED`; they do not qualify the
+verifier dependency or all loaded copies. A version 2 reconciliation report does
+not upgrade its version 1 input. Fresh version 2 execution is required to qualify
+the six-assembly binding. These execution-receipt versions are separate from the
+[typed CLI contract](../../tools/Coglatas.SecurityArchitecture/README.md), whose
+schema remains version 1.
 
 ```text
 python scripts/ci/sec_arch_reconcile.py --producer <producer.zip> --execution <execution.zip> --candidate-sha <exact-SHA> --run-id <GitHub-run> --run-attempt <attempt> --producer-digest <independent-ZIP-SHA256> --execution-digest <independent-ZIP-SHA256> --output <new-private-report.json>
@@ -84,7 +103,8 @@ attempt, workflow, required producer/backend/security jobs and exact artifact ID
 for a completed Main push. It reads the immutable workflow source at the supplied
 candidate, rejects forks, renamed/missing/skipped jobs, replaced/expired artifacts
 and changed authority, and obtains artifact digests directly from GitHub. Optional
-local ZIP paths then reuse the bounded five-assembly byte reconciliation. API
+local ZIP paths then reuse the bounded, versioned byte reconciliation described
+above, including its historical version 1 limits. API
 redirects are disabled; credentials are read only from `GH_TOKEN`/`GITHUB_TOKEN`
 and never included in diagnostics, URLs or reports.
 

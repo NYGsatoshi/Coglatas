@@ -64,18 +64,48 @@ and run the qualified checker against that move's own committed candidate
 and trusted ancestor before recording its result. The initial corpus receipt
 does not substitute for candidate-specific validation.
 
+## DOC-05 guidance reconciliation
+
+This batch resolves three specific content conflicts against documentation
+base `74ab2a603b499fcd9319046bb21664f5f9b33aa3`. It retains each existing
+path and separates maintained instructions from the historical material they
+still explain. The [coordination snapshot](#doc-05-coordination-snapshot-2026-11-09-0046-jst)
+records the observed branch identities and PR overlap.
+
+| Disposition | Reconciled scope | Retained boundary |
+| --- | --- | --- |
+| DOC-M12 | Cache locations, invalidation and cleanup are explained according to the checked-in workflows and host/container lifetime. | The private self-hosted runner context remains historical; a cache directory or volume does not establish persistence across GitHub-hosted jobs. |
+| DOC-M14 | Reusable dependency guidance follows the configured Node 26 Docker baseline. | The 2026-10-26 npm audit appendix, its Node 24 runtime, original false-green evidence, digests and issue qualifications remain source-bound history. Configuration is not proof of a fresh hosted bot or scanner run. |
+| DOC-M15 | SEC-ARCH reconciliation distinguishes version 2 six-assembly binding from version 1 historical five-assembly evidence. | All fifteen exit conditions, original outcomes, `BLOCKED`/Advisory status and separate owner approvals remain in force. Historical bytes do not acquire version 2 qualification. |
+
+The catalogue's inventory provenance advances to this 475-document base,
+with no Markdown additions declared for DOC-05. The earlier DOC-03 baseline
+and its two additions remain recorded above.
+
+These three catalogue records become `active` for their maintained guidance
+or contract purpose. This does not change product acceptance or approval
+state. Other unresolved records remain `needs-review`; the change adds no
+physical moves, deletions or archive admissions.
+
+Qualify this batch's exact committed candidate with the DOC-04 checker and
+the independently selected trusted baseline above, and record the result in
+the implementing PR. Retain catalogue coverage, local targets/fragments,
+companion assets, fixed paths and immutable bytes. The earlier DOC-04 receipt
+does not qualify this later tree, and local integrity checks do not establish
+external URL reachability or new product execution evidence.
+
 ## Classification coverage
 
 Every one of the 475 scoped Markdown paths has one catalogue entry. The
-initial lifecycle assessment is:
+initial lifecycle assessment and the DOC-05 reconciliation counts are:
 
-| Lifecycle | Documents |
-| --- | ---: |
-| `active` | 106 |
-| `candidate` | 81 |
-| `historical` | 20 |
-| `superseded` | 15 |
-| `needs-review` | 253 |
+| Lifecycle | Initial DOC-03 | After DOC-05 |
+| --- | ---: | ---: |
+| `active` | 106 | 109 |
+| `candidate` | 81 | 81 |
+| `historical` | 20 | 20 |
+| `superseded` | 15 | 15 |
+| `needs-review` | 253 | 250 |
 
 The `needs-review` entries explicitly retain unresolved or mixed scope; they
 are not silently treated as obsolete. Candidate classifications preserve the
@@ -87,8 +117,9 @@ completed features. Recalculate them when refreshing the catalogue.
 
 `Retain` is the current path decision. `Review scope` identifies specific
 follow-up work; it is not a move authorization or an assertion that a source
-has become obsolete. These entries inherit the source baseline above and
-require a refreshed PR-overlap check before implementation.
+has become obsolete. Initial entries inherit the source baseline above; the
+three DOC-05 dispositions use the separately recorded reconciliation baseline.
+Further implementation requires a refreshed PR-overlap check.
 
 | ID | Existing document or group | Current disposition | Concrete follow-up and completion condition |
 | --- | --- | --- | --- |
@@ -103,10 +134,10 @@ require a refreshed PR-overlap check before implementation.
 | DOC-M09 | [Release gate](verification/student-council-release-gate.md), readiness JSON, and other verification/evidence bundles | Retain source-bound records | Keep dates, commits, runs, attempts, outcomes, and approvals together. Check JSON/log/image/archive companions before any future move. Later success does not replace earlier failure records. |
 | DOC-M10 | [Numerical-assurance suspension](../performance/ASSURANCE-SUSPENSION.md) and [U-22 fixture guide](u22/demo-data.md) | Retain governing purpose | The suspension explicitly has no automatic expiry; the fixture guide is test-only guidance. Neither is eligible for automatic archival based on its date or surrounding package name. |
 | DOC-M11 | [Existing archive](archive/README.md) | Retain current categories and historical scope | Add new entries only after successor or bounded-history review, consumer checks, asset accounting, and deliberate old-link treatment. Existing archive placement does not resolve every outstanding obligation described in a record. |
-| DOC-M12 | [CI cache strategy](../.github/CI_CACHE_STRATEGY.md) | Needs review; retain path | Its opening describes self-hosted persistent caches, while [the runner-pool guide](ci/self-hosted-runner-pool.md) explicitly scopes its self-hosted material as historical private-operation context and [Main CI](../.github/workflows/ci.yml) uses `ubuntu-latest`. Reconcile the cache guide's audience and runner scope against the actual workflow/cache setup; do not silently discard still-applicable cache guidance. |
+| DOC-M12 | [CI cache strategy](../.github/CI_CACHE_STRATEGY.md) | Retain active guide; DOC-05 scope reconciled | Current cache behavior is tied to checked-in workflows and explicit host/container lifetimes. Keep [the runner-pool guide](ci/self-hosted-runner-pool.md)'s historical private-operation boundary and recheck implementation before changing persistence or cleanup guidance. |
 | DOC-M13 | [Dependency update fast lane](ci/dependency-update-fastlane.md) | Needs review; retain path | The guide declares Dependabot-only operation and names `.github/dependabot.yml`; the inspected tree instead contains [Renovate configuration](../.github/renovate.json) and lacks that named Dependabot file. Reconcile configured producers, schedules, and constraints with the owning workstream in #1749. Config presence alone does not establish live bot execution or a successful update. |
-| DOC-M14 | [Dependency security automation](verification/dependency-security-automation-20261026.md) | Needs review; retain source-bound evidence | The reusable constraints still prescribe a Node 24 Docker baseline, while [Renovate configuration](../.github/renovate.json) explicitly retains approved Node 26 LTS. Reconcile the maintained version guidance with its current source; preserve the earlier verification appendices and their original runtimes. |
-| DOC-M15 | [SEC-ARCH preflight](verification/security-architecture-preflight.md) | Needs review; retain effective owner gates | Its implementation walkthrough describes five-assembly reconciliation, while [versioned assembly binding](verification/security-architecture-six-assembly-binding.md) defines version 2 six-assembly scope and preserves version 1 as historical. Reconcile the walkthrough while retaining BLOCKED/Advisory, unresolved mappings, and separate owner decisions. |
+| DOC-M14 | [Dependency security automation](verification/dependency-security-automation-20261026.md) | Retain active guide and dated evidence; DOC-05 scope reconciled | The reusable Node Docker constraint follows [Renovate configuration](../.github/renovate.json). Keep original audit runtimes and outcomes within their dated scope; require fresh execution evidence for bot, scanner or runtime qualification. |
+| DOC-M15 | [SEC-ARCH preflight](verification/security-architecture-preflight.md) | Retain active contract; DOC-05 scope reconciled | The walkthrough now follows [versioned assembly binding](verification/security-architecture-six-assembly-binding.md). Preserve version 1 evidence, all fifteen exit conditions, BLOCKED/Advisory, unresolved mappings and separate owner decisions when updating the contract. |
 
 ## Branch and PR coordination
 
@@ -146,6 +177,30 @@ All three listed PRs were Draft in this observation. Their current lifecycle
 and merge permission remain governed by the owning workstream. A path that
 does not appear in this table still needs a complete consumer and overlap
 search before a move; this table reports direct Markdown-path overlap only.
+
+### DOC-05 coordination snapshot: 2026-11-09 00:46 JST
+
+| Owning branch | Observed commit |
+| --- | --- |
+| `docs/integration-20261107` | `74ab2a603b499fcd9319046bb21664f5f9b33aa3` |
+| `main` | `ad77fd995ac4d01d892183708964ea00c86c24c0` |
+| `SecurityTestImplimation` | `1dc64c38390208e45c4496c685cd4c37de00607c` |
+| `projectide/integration-20261031` | `aeee28f04529a232518281cd83811aa5cfaf57e8` |
+
+The refreshed inventory covers all changed-file pages for 57 open PRs.
+None directly changes the DOC-05 cache, dependency-security automation or
+SEC-ARCH preflight guides, the catalogue, or this ledger. This is a direct
+path-overlap observation, not a claim that their implementation sources have
+no pending changes. The reconciliation uses the inspected committed source;
+pending workflow, toolchain or verifier proposals are not adopted by updating
+documentation.
+
+[PR #1749](https://github.com/NYGsatoshi/Coglatas/pull/1749), observed at
+`fe059005a9e97af3f28db68120331b5b8a983e99` against
+`SecurityTestImplimation` base `3865b09a2d3ea3cb82f450c6d19ec643ffbae01f`,
+still owns changes to `docs/ci/dependency-update-fastlane.md` and
+`docs/ci/github-action-pinning.md`. Keep those guides with that workstream.
+Recheck branch and overlapping PR identities before publishing a later batch.
 
 ### Pending Main synchronization
 

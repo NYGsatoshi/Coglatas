@@ -1,14 +1,18 @@
 # Dependency automation and independent security scanning
 
+This document maintains dependency-update and scanning guidance alongside the
+original 2026-10-26 integration and npm audit records. The dated sections apply
+to their recorded source and observations, including the Node 24 audit toolchain;
+they do not select the current Docker baseline or establish current hosted-run
+qualification.
+
 ## Scope
 
-Mend-hosted Renovate is the sole dependency-update bot for this repository.
-The official Mend Renovate GitHub App is already installed and demonstrated
-its ability to enumerate the repository's npm, NuGet, Docker/Compose, .NET SDK,
-and GitHub Actions dependencies in onboarding PR #1418. The audited repository
-configuration lives at `.github/renovate.json`, which Renovate recognizes
-as a supported configuration path. **Do not merge onboarding PR #1418 as
-a second configuration file.**
+The repository's dependency-update policy uses Mend-hosted Renovate as its sole
+dependency-update bot. The audited repository configuration lives at
+[`.github/renovate.json`](../../.github/renovate.json). Keep that single reviewed
+configuration; the dependency policy guard rejects a duplicate root
+`renovate.json` or `renovate.json5`.
 
 The former `.github/dependabot.yml` is removed to stop scheduled Dependabot
 version-update PRs. Preserve GitHub Dependency graph and Dependabot
@@ -19,9 +23,7 @@ remediation when that feature is provided by the App installation.
 
 **No self-hosted Renovate runner, GitHub Actions App credentials, private key,
 GitHub Environment, or hourly Actions schedule is required.** Do not add
-`RENOVATE_APP_ID` or `RENOVATE_APP_PRIVATE_KEY`. Mend-hosted Community
-Cloud runs on its provider-managed schedule, normally around every four hours
-for active repositories, not on a guaranteed hourly deadline.
+`RENOVATE_APP_ID` or `RENOVATE_APP_PRIVATE_KEY`.
 
 This change is limited to dependency and security tooling; product/runtime
 authorization, SEC-ARCH/RLS, DB schema, formal approvals, release admission,
@@ -33,17 +35,28 @@ Student Council release holds, and production deployment remain untouched.
   the existing CI and Owner/reviewer qualification.
 - Bound update PR concurrency and hourly PR creation; keep Major updates in
   the Dependency Dashboard until explicitly approved.
-- **GitHub Actions SHA pins:** request dashboard approval before opening
-  GitHub Actions upgrade PRs. Any such update must also amend the reviewed
-  `governance/github-actions-allowlist.json` entry (SHA, version, scope) and
-  pass the existing protected workflow pin/permission guards. No bot change
-  is automatically trusted to expand the allowlist or merge.
-- Keep the approved Node 24 Docker baseline. Exact Playwright image updates
-  are held pending synchronized npm lockfile/runtime/browser acceptance.
+- **GitHub Actions SHA pins:** the general GitHub Actions update group requires
+  dashboard approval before PR generation. Protected allowlisted Actions are
+  disabled from routine Renovate updates (`enabled: false`). Their pins require
+  a coordinated reviewed change to the workflow pin and
+  `governance/github-actions-allowlist.json` entry (SHA, version, scope), passing
+  the existing protected workflow pin/permission guards. No bot change is
+  automatically trusted to expand the allowlist or merge.
+- Keep the approved Node 26 Docker baseline. The Renovate `node` Docker rule
+  allows only `/^26([.-]|$)/`;
+  [`Dockerfile`](../../Dockerfile) and
+  [`infra/docker/frontend-dev.Dockerfile`](../../infra/docker/frontend-dev.Dockerfile)
+  use digest-pinned `node:26` and `node:26-alpine`, respectively.
+  [`test-dependency-update-policy.rb`](../../scripts/ci/test-dependency-update-policy.rb)
+  guards that major boundary and image pinning. Exact Playwright image updates
+  remain held pending synchronized npm lockfile/runtime/browser acceptance.
 - Keep .NET SDK majors discoverable but subject to explicit dashboard approval,
   together with the production SDK image-version/digest contract.
 
 ## Detection and enforcement
+
+The table describes configured triggers and controls. It does not establish a
+successful hosted scan or completion of provider setup and opt-in requirements.
 
 | Control | Trigger | Behavior |
 | --- | --- | --- |
@@ -61,7 +74,22 @@ requires separately approved, scoped workflow allowlist changes.
 Unknown external binary dependencies still require separate SBOM/inventory
 coverage; complete vulnerability detection is not claimed.
 
-## Required integration verification
+## Original integration observations and verification — 2026-10-26
+
+The original integration recorded that the official Mend Renovate GitHub App
+was installed and had demonstrated enumeration of npm, NuGet, Docker/Compose,
+.NET SDK, and GitHub Actions dependencies in onboarding PR #1418. It described
+Mend-hosted Community Cloud's provider-managed schedule as normally around every
+four hours for active repositories, without a guaranteed hourly deadline.
+These are dated onboarding observations; recheck provider evidence and PR state
+before reporting current installation, cadence, configuration loading or closure.
+**Do not merge onboarding PR #1418 as a second configuration file.**
+
+### Required integration verification
+
+The original verification requirements and follow-up are retained below. This
+record does not assert that onboarding, Socket SCA opt-in or approval holds were
+subsequently completed.
 
 1. Run the dependency policy mutation tests, publication readiness,
    actionlint/zizmor and all relevant exact-HEAD PR CI checks.
