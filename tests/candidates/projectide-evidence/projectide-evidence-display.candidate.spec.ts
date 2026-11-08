@@ -1,12 +1,13 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { assessLocalEvidence, hasCompleteCurrentPass, PreviewBundle, PreviewCase } from './projectide.contracts';
-import { readPreviewBundle } from './projectide-preview.adapter';
+import { assessLocalEvidence, hasCompleteCurrentPass } from './projectide.contracts';
+import type { PreviewBundle, PreviewCase } from './projectide.contracts';
 
 const fixture = (): PreviewCase => {
   const raw = JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8'));
-  const value = readPreviewBundle(raw) as PreviewBundle;
+  // Fixture was already exported by Core; this isolated suite tests presentation only.
+  const value = raw as PreviewBundle;
   const current = value.cases.find((c) => c.key === 'pass');
   if (!current) throw new Error('Required .NET synthetic PASS fixture missing');
   return current;
