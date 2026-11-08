@@ -168,11 +168,11 @@ public sealed partial class GroupServiceUpdateValidationTests
             "GroupMemberRemoved", "GroupArchived", "GroupRestored"
         ];
         Assert.Equal(expectedActions, fixture.Audit.Entries.Select(entry => entry.Action));
-        Assert.All(fixture.Audit.Entries, entry =>
+        foreach (var entry in fixture.Audit.Entries)
         {
             Assert.Equal(fixture.User.Id, entry.ActorUserId);
             Assert.Equal(groupId, entry.EntityId);
-        });
+        }
         Assert.Same(transaction, fixture.Context.Database.CurrentTransaction);
         if (connection is not null)
         {
