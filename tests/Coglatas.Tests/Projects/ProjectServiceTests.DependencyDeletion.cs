@@ -39,6 +39,8 @@ public sealed partial class ProjectServiceTests
             SuccessorTaskItemId = other.Id
         };
         fixture.Dependencies.AddRange([dependency, retained]);
+        foreach (var task in fixture.Projects.Tasks.Values)
+            task.WorkspaceId = fixture.Workspace.Id;
         var predecessorDates = (predecessor.PlannedStartDate, predecessor.PlannedEndDate);
         var successorDates = (successor.PlannedStartDate, successor.PlannedEndDate);
 
@@ -109,6 +111,8 @@ public sealed partial class ProjectServiceTests
             SuccessorTaskItemId = successor.Id
         };
         fixture.Dependencies.Add(dependency);
+        foreach (var task in fixture.Projects.Tasks.Values)
+            task.WorkspaceId = fixture.Workspace.Id;
         var targetId = successor.Id;
         switch (scenario)
         {
@@ -179,6 +183,8 @@ public sealed partial class ProjectServiceTests
             SuccessorTaskItemId = successor.Id
         };
         fixture.Dependencies.Add(dependency);
+        foreach (var task in fixture.Projects.Tasks.Values)
+            task.WorkspaceId = fixture.Workspace.Id;
         var dependencyId = dependency.Id;
         long version = 7;
         switch (scenario)
@@ -254,6 +260,8 @@ public sealed partial class ProjectServiceTests
             SuccessorTaskItemId = successor.Id
         };
         fixture.Dependencies.Add(dependency);
+        foreach (var task in fixture.Projects.Tasks.Values)
+            task.WorkspaceId = fixture.Workspace.Id;
         fixture.CommandUnitOfWork.Outcome = new(outcome);
 
         var result = await fixture.Service.DeleteDependencyAsync(successor.Id, dependency.Id, 7);
