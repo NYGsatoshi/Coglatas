@@ -62,3 +62,5 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/api_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/common.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/environment_class.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_av_mig_contract_boundary.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_av_mig_contract_boundary_base.py

@@ -146,6 +146,8 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/api_diagnostics.py',
             ROOT.as_posix() + '/scripts/performance/common.py',
             ROOT.as_posix() + '/scripts/performance/environment_class.py',
+            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary.py',
+            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary_base.py',
         })
 
 
