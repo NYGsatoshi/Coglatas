@@ -470,7 +470,7 @@ export function validateLinuxOwnedWorkflowText(workflowText, ownerWorkflowPath =
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
       return false;
     }
-    if (candidate['runs-on'] !== 'ubuntu-latest') {
+    if (candidate['runs-on'] !== 'ubuntu-24.04') {
       return false;
     }
     const services = candidate.services;

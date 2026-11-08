@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   strict-thread-contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout exact PR source without persisted credentials

@@ -51,7 +51,7 @@ permissions:
 jobs:
   licensed-real-backend:
     name: licensed-real-backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 180
 
