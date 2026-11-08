@@ -340,4 +340,51 @@ assert_eq true "$(value_of "$output" security_dotnet)" "SEC-ARCH security route"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "SEC-ARCH scoped tests"
 assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "$(value_of "$output" backend_test_filter)" "SEC-ARCH filter"
 
+# Shared Web-child cleanup changes must retain every dependent owner scope.
+for helper_input in OwnedChildProcessShutdown.cs OwnedChildProcessShutdownTests.cs; do
+  repo="$tmp_root/owned-child-${helper_input//./-}"
+  init_repo "$repo" TestInfrastructure SecurityArchitecture PostgreSql
+  printf 'base\n' > "$repo/README.md"
+  printf 'original process control\n' > "$repo/tests/Coglatas.Tests/TestInfrastructure/$helper_input"
+  base="$(commit_all "$repo" base)"
+  printf 'changed process control\n' > "$repo/tests/Coglatas.Tests/TestInfrastructure/$helper_input"
+  head="$(commit_all "$repo" head)"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq true "$(value_of "$output" backend_tests)" "owned child helper execution $helper_input"
+  assert_eq true "$(value_of "$output" backend_ef)" "owned child PostgreSQL validation $helper_input"
+  assert_eq scoped "$(value_of "$output" backend_test_scope)" "owned child dependent scopes $helper_input"
+  filter="$(value_of "$output" backend_test_filter)"
+  assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.TestInfrastructure' "owned child infrastructure controls $helper_input"
+  assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "owned child SEC-ARCH owners $helper_input"
+  assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "owned child PostgreSQL HTTP owners $helper_input"
+done
+
+repo="$tmp_root/owned-child-fixture"
+init_repo "$repo" TestInfrastructure SecurityArchitecture PostgreSql
+printf 'original fixture\n' > "$repo/tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRFixture.cs"
+base="$(commit_all "$repo" base)"
+printf 'changed fixture\n' > "$repo/tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRFixture.cs"
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+filter="$(value_of "$output" backend_test_filter)"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "fixture-only SEC-ARCH owners"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "fixture-only PostgreSQL HTTP owners"
+
+repo="$tmp_root/owned-child-rename"
+init_repo "$repo" TestInfrastructure SecurityArchitecture PostgreSql
+printf 'retained process helper\n' > "$repo/tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown.cs"
+git -C "$repo" config diff.renames true
+base="$(commit_all "$repo" base)"
+# A scoped destination alone omits PostgreSQL owners when rename detection hides
+# the old helper path. Both specialized workflows already match this destination.
+[[ "$(realpath "$repo")" == "$tmp_root/"* ]] || exit 1
+git -C "$repo" mv tests/Coglatas.Tests/TestInfrastructure/OwnedChildProcessShutdown.cs tests/Coglatas.Tests/SecurityArchitecture/RenamedProcessShutdown.cs
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq scoped "$(value_of "$output" backend_test_scope)" "renamed helper remains concretely scoped"
+filter="$(value_of "$output" backend_test_filter)"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.TestInfrastructure' "renamed helper controls"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "renamed helper SEC-ARCH owners"
+assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "renamed helper PostgreSQL HTTP owners"
+
 echo "route-main-ci-changes regression tests passed"
