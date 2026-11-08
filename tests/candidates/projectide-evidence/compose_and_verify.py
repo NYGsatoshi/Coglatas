@@ -121,7 +121,17 @@ def main() -> None:
             raise ValueError("TRX outcome counters are missing")
         counts = {key: int(summary.get(key, "0")) for key in
                   ("total", "passed", "failed", "notExecuted", "skipped")}
-        if counts["total"] != 3 or counts["passed"] != 3 or any(
+        results = ET.parse(result_file).getroot().findall("{*}Results/{*}UnitTestResult")
+        names = [item.get("testName") for item in results]
+        if len(names) != 17 or len(set(names)) != 17:
+            raise ValueError("Compiled xUnit result identities are incomplete or duplicated")
+        discovery = execute(["dotnet", "test", project, "-c", "Release", "--no-build",
+                             "--list-tests", "--filter", "FullyQualifiedName~LocalEvidenceDisplayCandidateTests"],
+                            target, evidence / "compiled-discovery.log")
+        if any(name not in discovery for name in names):
+            raise ValueError("TRX identity absent from compiled discovery")
+        record["compiledXunitIdentities"] = sorted(names)
+        if counts["total"] != 17 or counts["passed"] != 17 or any(
                 counts[key] != 0 for key in ("failed", "notExecuted", "skipped")):
             raise ValueError(f"Independent xUnit identities or outcomes incorrect: {counts}")
         record["xunit"] = counts
@@ -155,10 +165,12 @@ def main() -> None:
         test_report = json.loads(report_path.read_text(encoding="utf-8"))
         suites = test_report.get("testResults", [])
         assertions = [case for suite in suites for case in suite.get("assertionResults", [])]
-        if (test_report.get("success") is not True or len(assertions) != 4 or
+        names = [case.get("fullName") for case in assertions]
+        if (test_report.get("success") is not True or len(assertions) != 10 or len(set(names)) != 10 or
                 any(case.get("status") != "passed" for case in assertions)):
             raise ValueError("Independent Angular evidence tests were not all discovered and passed")
         record["vitest"] = {"total": len(assertions), "passed": len(assertions)}
+        record["vitestIdentities"] = sorted(names)
         record["status"] = "PURE_SOURCE_COMPOSITION_PASSED"
     except Exception as exc:
         record["status"] = "FAILED_OR_INCOMPLETE"

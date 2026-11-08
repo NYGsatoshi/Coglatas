@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      PRODUCT_HEAD: 7e1daa251c751589903d5cce61d91ef8ceb2f4cd
+      PRODUCT_HEAD: 23126ee691050dffb016de015d3f2cfdaedc3f83
       CI: 'true'
     steps:
       - name: Checkout exact independent Test candidate
@@ -66,7 +66,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 35
     env:
-      PRODUCT_HEAD: 7e1daa251c751589903d5cce61d91ef8ceb2f4cd
+      PRODUCT_HEAD: 23126ee691050dffb016de015d3f2cfdaedc3f83
       CI: 'true'
     steps:
       - name: Checkout exact independent Test candidate
