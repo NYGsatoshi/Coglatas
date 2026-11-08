@@ -371,6 +371,49 @@ class LiveRulesetTests(unittest.TestCase):
         build["integration_id"] = 999
         self.assertTrue(any("producer integration drift" in e for e in guard.live_ruleset_errors(REGISTRY, live)))
 
+    def test_live_ruleset_cannot_relax_its_branch_or_enforcement_contract(self) -> None:
+        changes = (
+            ({"name": "unregistered"}, "ruleset name drift"),
+            ({"target": "tag"}, "target must be branch"),
+            ({"enforcement": "evaluate"}, "must be active"),
+            ({"conditions": {"ref_name": {"include": ["refs/heads/feature"]}}}, "include ~DEFAULT_BRANCH"),
+        )
+        for fields, expected in changes:
+            with self.subTest(fields=fields):
+                live = self.live_ruleset()
+                live.update(fields)
+                self.assertTrue(any(expected in e for e in guard.live_ruleset_errors(REGISTRY, live)))
+
+    def test_live_ruleset_rejects_duplicate_unknown_and_malformed_contexts(self) -> None:
+        for kind in ("duplicate", "unknown", "malformed"):
+            with self.subTest(kind=kind):
+                live = self.live_ruleset()
+                contexts = live["rules"][0]["parameters"]["required_status_checks"]
+                extra = copy.deepcopy(contexts[0])
+                if kind == "unknown":
+                    extra["context"] = "unregistered-check"
+                elif kind == "malformed":
+                    extra["context"] = ""
+                contexts.append(extra)
+                expected = {"duplicate": "duplicate required context", "unknown": "unknown required context", "malformed": "is malformed"}[kind]
+                self.assertTrue(any(expected in e for e in guard.live_ruleset_errors(REGISTRY, live)))
+
+    def test_missing_or_non_strict_live_status_rules_fail_closed(self) -> None:
+        for kind in ("missing", "duplicate", "parameters", "strict", "contexts"):
+            with self.subTest(kind=kind):
+                live = self.live_ruleset()
+                if kind == "missing":
+                    live["rules"] = []
+                elif kind == "duplicate":
+                    live["rules"].append(copy.deepcopy(live["rules"][0]))
+                elif kind == "parameters":
+                    live["rules"][0]["parameters"] = None
+                elif kind == "strict":
+                    live["rules"][0]["parameters"]["strict_required_status_checks_policy"] = False
+                else:
+                    live["rules"][0]["parameters"]["required_status_checks"] = None
+                self.assertNotEqual([], guard.live_ruleset_errors(REGISTRY, live))
+
     def test_dual_publish_old_and_new_are_both_expected(self) -> None:
         registry = dual_registry()
         live = self.live_ruleset(registry)
@@ -465,6 +508,74 @@ class ExactHeadTests(unittest.TestCase):
         next(item for item in checks if item["name"] == "build-test")["app"] = {"id": 1, "slug": "other"}
         report = guard.exact_head_report(REGISTRY, HEAD, checks, statuses, now=NOW, trusted_base_ref="main")
         self.assertEqual("fail", report["decision"])
+
+    def test_workflow_metadata_drift_cannot_borrow_a_successful_check(self) -> None:
+        changes = (
+            ({"workflow": ".github/workflows/unregistered.yml"}, "workflow-producer-drift"),
+            ({"workflow_head_sha": OLD_HEAD}, "workflow-run-head-drift"),
+            ({"workflow_event": "push"}, "workflow-event-drift"),
+            ({"app": None}, "check-app-drift"),
+            ({"app": {"id": 15368, "slug": "unregistered"}}, "check-app-drift"),
+        )
+        for fields, error in changes:
+            with self.subTest(fields=fields):
+                checks, statuses = self.success_evidence()
+                next(item for item in checks if item["name"] == "build-test").update(fields)
+                report = guard.exact_head_report(REGISTRY, HEAD, checks, statuses, now=NOW)
+                gate = next(item for item in report["gates"] if item["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("producer-drift", gate["reason"])
+                self.assertEqual([error], gate["producer_errors"])
+
+    def test_latest_authoritative_failure_wins_over_an_older_success(self) -> None:
+        checks, statuses = self.success_evidence()
+        build = next(item for item in checks if item["name"] == "build-test")
+        for ordering in (False, True):
+            with self.subTest(reverse_input=ordering):
+                failure = dict(build, id=999, conclusion="failure", completed_at="2026-09-04T05:29:00Z")
+                candidates = checks + [failure]
+                if ordering:
+                    candidates.reverse()
+                report = guard.exact_head_report(REGISTRY, HEAD, candidates, statuses, now=NOW)
+                gate = next(item for item in report["gates"] if item["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("failure", gate["observed_state"])
+                self.assertEqual("rejected-conclusion", gate["reason"])
+
+    def test_same_timestamp_uses_the_newer_check_identity(self) -> None:
+        checks, statuses = self.success_evidence()
+        build = next(item for item in checks if item["name"] == "build-test")
+        checks.append(dict(build, id=999, conclusion="cancelled"))
+        report = guard.exact_head_report(REGISTRY, HEAD, checks, statuses, now=NOW)
+        gate = next(item for item in report["gates"] if item["context"] == "build-test")
+        self.assertEqual("fail", report["decision"])
+        self.assertEqual("cancelled", gate["observed_state"])
+
+    def test_unknown_completed_state_and_missing_pending_clock_fail_closed(self) -> None:
+        changes = (
+            {"status": "completed", "conclusion": None},
+            {"status": "waiting", "conclusion": "success"},
+            {"status": "in_progress", "conclusion": None},
+            {"status": "queued", "conclusion": None, "started_at": "invalid", "created_at": "invalid"},
+        )
+        for fields in changes:
+            with self.subTest(fields=fields):
+                checks, statuses = self.success_evidence()
+                next(item for item in checks if item["name"] == "build-test").update(fields)
+                report = guard.exact_head_report(REGISTRY, HEAD, checks, statuses, now=NOW)
+                gate = next(item for item in report["gates"] if item["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                expected = "pending-timeout" if fields["status"] in {"queued", "in_progress"} else "unknown-state"
+                self.assertEqual(expected, gate["reason"])
+
+    def test_unregistered_success_and_non_object_payloads_do_not_supply_missing_gate(self) -> None:
+        checks, statuses = self.success_evidence()
+        build = next(item for item in checks if item["name"] == "build-test")
+        build["name"] = "build-test-unregistered"
+        report = guard.exact_head_report(REGISTRY, HEAD, [None, "success", *checks], [False, *statuses], now=NOW)
+        gate = next(item for item in report["gates"] if item["context"] == "build-test")
+        self.assertEqual("fail", report["decision"])
+        self.assertEqual("missing-current-head", gate["reason"])
 
     def test_dual_publish_requires_old_and_new_exact_head(self) -> None:
         registry = dual_registry()
