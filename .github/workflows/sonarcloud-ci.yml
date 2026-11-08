@@ -249,6 +249,7 @@ jobs:
             scripts/ci/qodana-packets/test_r2_candidate.py \
             scripts/ci/test-functional-evidence.py \
             scripts/ci/test_nuget_dependency_snapshot.py \
+            scripts/ci/test-nuget-lock-policy.py \
             scripts/ci/test_audit_sbom_component_inventory.py \
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \

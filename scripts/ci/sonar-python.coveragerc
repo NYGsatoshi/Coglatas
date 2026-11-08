@@ -54,6 +54,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/verify.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/qodana-packets/r2_verify.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/nuget_dependency_snapshot.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/check-nuget-lock-policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/audit_sbom_component_inventory.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-mvp-a-final-checks.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/validate-functional-quarantine.py
