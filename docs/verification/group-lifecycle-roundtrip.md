@@ -26,6 +26,11 @@ unchanged.
 The original parent is read from the persisted Subject row before the workflow
 and must be non-null. This preserves the parent-identity assertion while keeping
 the validation fixture's original-parent property private after its Qodana repair.
+The query captures the Subject identity scalar rather than the disposable fixture.
+The first synchronized `74364156` CI run `42461849795/1` passed its build/tests
+but failed the separate `AccessToDisposedClosure` inspection on that capture.
+The original failure remains retained; the scalar-only correction needs fresh
+execution and review without suppression, budget or assertion changes.
 PR qualification does not qualify the repair's resulting Main; exact Main CI,
 both full Qodana inventories and official Sonar are required separately.
 

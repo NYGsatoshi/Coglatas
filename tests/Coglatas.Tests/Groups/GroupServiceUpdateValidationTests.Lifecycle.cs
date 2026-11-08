@@ -24,8 +24,9 @@ public sealed partial class GroupServiceUpdateValidationTests
     {
         await using var fixture = await Fixture.CreateAsync(connection);
         var transaction = fixture.Context.Database.CurrentTransaction;
+        var subjectId = fixture.Subject.Id;
         var originalParentId = await fixture.Context.Groups.AsNoTracking()
-            .Where(group => group.Id == fixture.Subject.Id)
+            .Where(group => group.Id == subjectId)
             .Select(group => group.ParentGroupId).SingleAsync();
         Assert.NotNull(originalParentId);
         var suffix = Guid.NewGuid().ToString("N");
