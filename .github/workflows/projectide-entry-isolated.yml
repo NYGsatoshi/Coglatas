@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - tests/Coglatas.ProjectIde.Entry.Tests/**
+      - src/Coglatas.Domain/ProjectIde/**
+      - tools/Coglatas.SecurityArchitecture/SourceEntryValidator.cs
+      - tools/Coglatas.SecurityArchitecture/SpecTraceabilityValidator.cs
+      - tests/Coglatas.Tests/ProjectIde/**
+      - tests/ci/projectide-artifact-vectors.test.mjs
+      - global.json
       - tests/ci/projectide_entry_isolated.py
       - tests/ci/test_projectide_entry_isolated.py
       - tests/ci/test_projectide_entry_resharper.py
@@ -25,8 +31,7 @@ jobs:
     name: Promoted Entry current tree (ubuntu-24.04)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.base_ref == 'projectide/integration-20261031' &&
-      github.head_ref == 'test/projectide-entry-scoped-promotion-20261108'
+      github.base_ref == 'projectide/integration-20261031'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -67,8 +72,7 @@ jobs:
     name: Promoted Entry current tree (windows-latest)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.base_ref == 'projectide/integration-20261031' &&
-      github.head_ref == 'test/projectide-entry-scoped-promotion-20261108'
+      github.base_ref == 'projectide/integration-20261031'
     runs-on: windows-latest
     timeout-minutes: 25
     env:
