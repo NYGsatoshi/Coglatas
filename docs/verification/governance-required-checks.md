@@ -69,6 +69,12 @@ well-typed state fields before selection. An unorderable rejection cannot sort
 behind a success by receiving a minimum timestamp; malformed states produce the
 normal JSON failure result without a broad exception handler.
 
+Completed checks require `completed_at`; commit statuses require `updated_at`.
+Pending check ordering uses its start/creation time, and a missing pending clock
+retains the existing timeout failure. Unknown states fail before ordering.
+Completion cannot fall back to an earlier start time. Context names are checked
+before membership tests, and UTC normalization overflow is malformed evidence.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

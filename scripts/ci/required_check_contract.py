@@ -635,9 +635,9 @@ def _time(value: Any) -> dt.datetime | None:
         return None
     try:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)).astimezone(dt.timezone.utc)
+    except (ValueError, OverflowError):
         return None
-    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)).astimezone(dt.timezone.utc)
 
 
 def _head(candidate: dict[str, Any], sha: str, kind: str) -> bool:
@@ -680,8 +680,9 @@ def _state(item: dict[str, Any], candidate: dict[str, Any]) -> str:
     return str(status) if status in PENDING or status != "completed" else str(candidate.get("conclusion") or "unknown")
 
 
-def _stamp(candidate: dict[str, Any]) -> dt.datetime:
-    for key in ("completed_at", "updated_at", "started_at", "created_at"):
+def _stamp(candidate: dict[str, Any], kind: str) -> dt.datetime:
+    keys = ("updated_at",) if kind == "commit-status" else ("completed_at",) if candidate.get("status") == "completed" else ("started_at", "created_at")
+    for key in keys:
         parsed = _time(candidate.get(key))
         if parsed:
             return parsed
@@ -716,7 +717,6 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             error = _producer_error(item, candidate, head_sha, trusted_base_ref)
             if error is None:
                 _state(item, candidate)
-                _stamp(candidate)
                 valid.append(candidate)
             else:
                 producer_errors.append(error)
@@ -738,7 +738,18 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             overall = "fail"
             gates.append(gate)
             continue
-        selected = sorted(valid, key=lambda c: (_stamp(c), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
+        states = [_state(item, candidate) for candidate in valid]
+        if any(state not in PENDING | REJECTED | {"success"} for state in states):
+            gate["reason"] = "unknown-state"
+            overall = "fail"
+            gates.append(gate)
+            continue
+        if any(state in PENDING and (_time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is None for candidate, state in zip(valid, states)):
+            gate["reason"] = "pending-timeout"
+            overall = "fail"
+            gates.append(gate)
+            continue
+        selected = sorted(valid, key=lambda c: (_stamp(c, item["kind"]), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
         state = _state(item, selected)
         gate["observed_state"] = state
         if state == "success":
@@ -934,9 +945,13 @@ def evaluate_live_pr(api: Any, repository: str, pr_number: int, registry: dict[s
     contexts = {x["context"] for x in exact_entries(registry)}
     cache = {}
     for candidate in checks:
+        if not isinstance(candidate.get("name"), str) or not candidate["name"]:
+            raise RuntimeError("GitHub check-run context identity is missing or malformed")
         if candidate.get("name") in contexts:
             _enrich(api, repository, candidate, "details_url", cache)
     for candidate in statuses:
+        if not isinstance(candidate.get("context"), str) or not candidate["context"]:
+            raise RuntimeError("GitHub commit status context identity is missing or malformed")
         if candidate.get("context") in contexts:
             _enrich(api, repository, candidate, "target_url", cache)
     exact = exact_head_report(registry, sha, checks, statuses, now=now, trusted_base_ref=base)

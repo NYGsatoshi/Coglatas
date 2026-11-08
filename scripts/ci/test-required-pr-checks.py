@@ -1074,6 +1074,43 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                     self.assertIn("state", report["error"])
 
 
+    def test_completed_failure_cannot_use_an_earlier_start_timestamp(self) -> None:
+        for timestamp in (None, "invalid", []):
+            with self.subTest(timestamp=timestamp):
+                api = self.complete_live_api()
+                page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                rejection = {**page["check_runs"][0], "id": 999, "conclusion": "failure", "completed_at": timestamp, "started_at": "2026-09-04T05:00:00Z"}
+                page["check_runs"].append(rejection)
+                page["total_count"] += 1
+                code, report = self.run_validated_fake_cli(REGISTRY, api)
+                self.assertEqual(1, code)
+                self.assertIn("ordering timestamp", report["error"])
+
+    def test_malformed_context_identity_returns_json_before_membership(self) -> None:
+        for kind in ("check-runs", "statuses"):
+            for context in ([], {}, True, None, ""):
+                with self.subTest(kind=kind, context=context):
+                    if kind == "check-runs":
+                        registry, api = REGISTRY, self.complete_live_api()
+                        api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"][0]["name"] = context
+                    else:
+                        registry, api = self.commit_status_api()
+                        api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]["statuses"][0]["context"] = context
+                    code, report = self.run_validated_fake_cli(registry, api)
+                    self.assertEqual(1, code)
+                    self.assertIn("context identity", report["error"])
+
+    def test_timestamp_utc_normalization_overflow_returns_json_failure(self) -> None:
+        for timestamp in ("0001-01-01T00:00:00+01:00", "9999-12-31T23:59:59-01:00"):
+            with self.subTest(timestamp=timestamp):
+                api = self.complete_live_api()
+                page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                page["check_runs"][0]["completed_at"] = timestamp
+                code, report = self.run_validated_fake_cli(REGISTRY, api)
+                self.assertEqual(1, code)
+                self.assertIn("ordering timestamp", report["error"])
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 
