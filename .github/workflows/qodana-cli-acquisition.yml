@@ -83,7 +83,11 @@ jobs:
           ruby -ryaml -e 'w = YAML.load_file(".github/workflows/codeql.yml"); s = w.fetch("jobs").fetch("analyze").fetch("steps").find { |x| x["name"] == "Warm the normal CodeQL cache with the verified stable bundle" }; File.write(ARGV.fetch(0), s.fetch("run"))' "$script"
           fixture_cache="$(mktemp -d "$RUNNER_TEMP/codeql-control-cache.XXXXXXXX")"
           mock_bin="$(mktemp -d "$RUNNER_TEMP/codeql-control-transfer.XXXXXXXX")"
-          printf '#!/usr/bin/env bash\nprintf "call\\n" >> "$WARM_TRANSFER_LOG"\nexit 22\n' > "$mock_bin/curl"
+          cat > "$mock_bin/curl" <<'SH'
+          #!/usr/bin/env bash
+          printf 'call\n' >> "$WARM_TRANSFER_LOG"
+          exit 22
+          SH
           chmod 0755 "$mock_bin/curl"
           transfer_log="$RUNNER_TEMP/codeql-control-transfers"
           RUNNER_TOOL_CACHE="$fixture_cache" PATH="$mock_bin:$PATH" WARM_TRANSFER_LOG="$transfer_log" bash "$script"
