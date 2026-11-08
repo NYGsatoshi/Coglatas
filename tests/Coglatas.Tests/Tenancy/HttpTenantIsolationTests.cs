@@ -5118,8 +5118,7 @@ public sealed class HttpTenantIsolationTests
         using (var response = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id:D}/comments", HttpMethod.Post, create))
         {
             // Publish only a finite failure class; never render exception text or request data.
-            Assert.Empty(logs.Entries.Where(row => row.Exception is not null).Select(row =>
-                row.Exception is System.Text.RegularExpressions.RegexMatchTimeoutException ? "REGEX_TIMEOUT" : "OTHER_UNHANDLED_EXCEPTION"));
+            Assert.Empty(MentionFailureClasses(logs));
             await AssertTaskErrorAsync(response, HttpStatusCode.BadRequest, "TASK_MENTION_NOT_ELIGIBLE");
         }
 
@@ -5127,11 +5126,39 @@ public sealed class HttpTenantIsolationTests
         using (var response = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/task-comments/{commentId:D}", HttpMethod.Patch, update))
         {
             // Publish only a finite failure class; never render exception text or request data.
-            Assert.Empty(logs.Entries.Where(row => row.Exception is not null).Select(row =>
-                row.Exception is System.Text.RegularExpressions.RegexMatchTimeoutException ? "REGEX_TIMEOUT" : "OTHER_UNHANDLED_EXCEPTION"));
+            Assert.Empty(MentionFailureClasses(logs));
             await AssertTaskErrorAsync(response, HttpStatusCode.BadRequest, "TASK_MENTION_NOT_ELIGIBLE");
         }
     }
+
+    [Theory]
+    [InlineData("regex", "REGEX_TIMEOUT")]
+    [InlineData("other", "OTHER_LOGGED_EXCEPTION")]
+    [InlineData("wrapped", "OTHER_LOGGED_EXCEPTION")]
+    public void MentionFailureDiagnosticsRenderOnlyFiniteExceptionClasses(string kind, string expected)
+    {
+        using var logs = new CapturingRequestLoggerProvider();
+        Exception exception = kind switch
+        {
+            "regex" => new System.Text.RegularExpressions.RegexMatchTimeoutException("private diagnostic sample"),
+            "wrapped" => new InvalidOperationException("private diagnostic sample",
+                new System.Text.RegularExpressions.RegexMatchTimeoutException("private nested sample")),
+            _ => new InvalidOperationException("private diagnostic sample")
+        };
+        logs.CreateLogger(nameof(MentionFailureDiagnosticsRenderOnlyFiniteExceptionClasses))
+            .LogError(exception, "private formatted sample");
+
+        var failure = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Assert.Empty(MentionFailureClasses(logs)));
+        Assert.Contains(expected, failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private diagnostic sample", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private nested sample", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private formatted sample", failure.Message, StringComparison.Ordinal);
+    }
+
+    // Keep only finite labels in assertion output; cumulative logs do not attribute a failing request.
+    private static IEnumerable<string> MentionFailureClasses(CapturingRequestLoggerProvider logs) =>
+        logs.Entries.Where(row => row.Exception is not null).Select(row =>
+            row.Exception is System.Text.RegularExpressions.RegexMatchTimeoutException ? "REGEX_TIMEOUT" : "OTHER_LOGGED_EXCEPTION");
 
     private static async Task AssertPrivateMessagingErrorAsync(HttpResponseMessage response, string expected)
     {
