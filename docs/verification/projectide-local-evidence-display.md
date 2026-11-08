@@ -27,3 +27,50 @@ Product work is proposed in a dedicated Draft PR against `projectide/integration
 ## Restrictions and retained holds
 
 Do not introduce new formal Reader/Registry/Migration versions, external acquisition, signing, keys, Trust Root/enrollment, Eligibility policy, operational RLS/SQL/GRANT, Native/Avalonia activation, Production deployment, or Release. Preserve #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED, 15 deferred NOW decisions and zero adopted items out of the 99 still unready Spec requests. Private Spec #301 remains Draft and must not be copied into this public source.
+
+
+## Phase 9 qualification candidate (2026-11-09)
+
+Mission: `LOCAL_EVIDENCE_DISPLAY_INTEGRATION_QUALIFICATION`.
+Integration baseline: `1a32cfa5886281a6342af2a83c54f648b97d388d`.
+Product source before this update: `7e1daa251c751589903d5cce61d91ef8ceb2f4cd`
+(#1823, six files); independent source:
+`afb227e4fb074c9fd83f29d220cedaba9adb22d0` (#1825, four files against
+its exact SecurityTestImplimation base `1dc64c38390208e45c4496c685cd4c37de00607c`);
+scoped source: `d7a7b8268d0d19fa62511fd79064af7a85585f54` (#1828, two files).
+All three were open Drafts, with no submitted reviews, at audit start.
+
+The Product branch was updated by a normal merge of the integration baseline.
+Only #1834's two-file Entry CI repair was missing; there was no code conflict.
+The repair's broader source triggers and removal of the branch-specific predicate
+are preserved byte-for-byte. Existing Reader, Pure Core and Entry tests are not
+edited. Independent source is never raw-merged into ProjectIDE.
+
+Both promoted test blobs match the current independent source exactly. The C#
+blob named in #1828's initial description predates the explicit-disposal repair;
+that historical receipt does not describe the latest test source. Preserve the
+original commits and assertions and record final source/tree identities and
+actual check runs in PR receipts rather than copying an earlier PASS.
+
+This update makes unloaded evidence explicit, rejects malformed completeness,
+checks the separately supplied manifest identity/context/source digest, and
+prevents unsupported or unresolved source projections from showing local PASS.
+Angular also requires the loaded result to be the currently selected case.
+Windows retains exact request/generation/materialization admission and clears
+results before lifecycle notifications. Both clients preserve the existing
+presentation vocabulary. These checks inspect synthetic result projections;
+they do not authenticate a producer or make an external artifact trustworthy.
+
+Independent tests retain all original test identities and assertions and add
+explicit fixture expectations, source substitution, terminal-state cleanup,
+reentrant reset/dispose/reselection, malformed completeness, and delayed read
+rejection. The qualification runner must reconcile compiled xUnit discovery and
+actual TRX identities, retain Vitest assertion identities, and fail incomplete,
+duplicate or non-passing execution. The scoped promotion remains exactly the
+two test source files; candidate workflow/history stays in #1825.
+
+Exact final-head ordinary CI, two-host composition, ReSharper report integrity,
+scoped review and real browser evidence are separate checks. Configuration and
+previous runs are not current completion evidence. Headless Windows success
+never qualifies the actual Avalonia UI. All activation and adoption holds above
+remain unchanged. No feature PR is merged by this mission.

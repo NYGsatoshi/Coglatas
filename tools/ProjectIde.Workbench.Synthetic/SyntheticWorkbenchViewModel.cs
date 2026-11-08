@@ -48,7 +48,10 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
             if (!result.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
                 !result.Input.Source.Data.Equals(Source.Data)) return "stale";
             if (result.Execution != CompilerExecutionState.Completed) return "not-executed";
-            if (result.Coverage != CompilerCoverage.Complete) return "partial-coverage";
+            if (result.Coverage != CompilerCoverage.Complete ||
+                Inspection is { } inspection && (!inspection.BindingComplete ||
+                    inspection.Symbols.Any(symbol => symbol.Symbol.Status != ValueDecodeStatus.Decoded) ||
+                    inspection.References.Any(reference => reference.State != ReferenceResolutionState.Resolved))) return "partial-coverage";
             if (!result.EvidenceComplete) return "missing-evidence";
             return result.Verdict == CompilerVerdict.Pass ? "complete-local-pass" : "not-passed";
         }
