@@ -83,9 +83,12 @@ and original SARIF must qualify the final HEAD. Cache preparation alone is not
 analysis or security acceptance.
 
 The acquisition workflow adds a separate read-only initialization control. It
-prepares the pinned action's actual different bundled default 2.27.3, executes
-the production warm-step source with both transfers returning failure in an
-isolated cache fixture, checks that no 2.27.4 executable/completion marker exists,
-then runs the unchanged pinned action's original selector with its supported
-`linked` input for that different bundled default. This is a controlled selector
-test, without analysis, SARIF publication or a product-workflow version override.
+prepares the actual different version 2.27.3 in a job-isolated runner cache shared
+by warming and initialization. It seeds the pinned action's normal feature-flag
+cache with a controlled response selecting 2.27.3, executes the production warm
+source with both transfers failing, and checks that no 2.27.4 executable or marker
+exists. It then invokes the unchanged action's normal resolver without a `tools`
+override and asserts its actual selected version/path outputs and CLI execution.
+The cached feature response and cache/temp directories are fixtures confined to
+this read-only job; no live feature response, analysis, SARIF publication or
+product-workflow override is claimed.

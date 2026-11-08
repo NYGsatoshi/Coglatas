@@ -49,6 +49,9 @@ jobs:
     name: Original CodeQL selector after optional warm transfer failure
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      RUNNER_TOOL_CACHE: ${{ runner.temp }}/codeql-selector-control-tools
+      CODEQL_ACTION_TEMP: ${{ runner.temp }}/codeql-selector-control-action
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -57,6 +60,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$RUNNER_TOOL_CACHE" = "$RUNNER_TEMP/codeql-selector-control-tools"
+          mkdir -p "$CODEQL_ACTION_TEMP"
+          printf '%s\n' '{"default_codeql_version_2_27_3_enabled":true}' > "$CODEQL_ACTION_TEMP/cached-feature-flags.json"
           cache="$RUNNER_TOOL_CACHE/CodeQL/2.27.3/x64"
           if [[ -d "$cache" && -f "$cache.complete" ]]; then
             test "$("$cache/codeql/codeql" version --format=terse)" = '2.27.3'
@@ -81,7 +87,6 @@ jobs:
           set -euo pipefail
           script="$RUNNER_TEMP/actual-codeql-warm.sh"
           ruby -ryaml -e 'w = YAML.load_file(".github/workflows/codeql.yml"); s = w.fetch("jobs").fetch("analyze").fetch("steps").find { |x| x["name"] == "Warm the normal CodeQL cache with the verified stable bundle" }; File.write(ARGV.fetch(0), s.fetch("run"))' "$script"
-          fixture_cache="$(mktemp -d "$RUNNER_TEMP/codeql-control-cache.XXXXXXXX")"
           mock_bin="$(mktemp -d "$RUNNER_TEMP/codeql-control-transfer.XXXXXXXX")"
           cat > "$mock_bin/curl" <<'SH'
           #!/usr/bin/env bash
@@ -90,18 +95,23 @@ jobs:
           SH
           chmod 0755 "$mock_bin/curl"
           transfer_log="$RUNNER_TEMP/codeql-control-transfers"
-          RUNNER_TOOL_CACHE="$fixture_cache" PATH="$mock_bin:$PATH" WARM_TRANSFER_LOG="$transfer_log" bash "$script"
+          PATH="$mock_bin:$PATH" WARM_TRANSFER_LOG="$transfer_log" bash "$script"
           test "$(wc -l < "$transfer_log")" -eq 2
-          test ! -e "$fixture_cache/CodeQL/2.27.4/x64.complete"
-          test ! -e "$fixture_cache/CodeQL/2.27.4/x64/codeql/codeql"
-      - name: Run the original selector for its different bundled default
+          test ! -e "$RUNNER_TOOL_CACHE/CodeQL/2.27.4/x64.complete"
+          test ! -e "$RUNNER_TOOL_CACHE/CodeQL/2.27.4/x64/codeql/codeql"
+      - name: Run the normal original resolver with the controlled feature response
+        id: control_init
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
         with:
-          tools: linked
           languages: actions
           build-mode: none
       - name: Verify the different selected CLI remains available
         shell: bash
+        env:
+          SELECTED_CODEQL_VERSION: ${{ steps.control_init.outputs.codeql-version }}
+          SELECTED_CODEQL_PATH: ${{ steps.control_init.outputs.codeql-path }}
         run: |
-          test "$("$RUNNER_TOOL_CACHE/CodeQL/2.27.3/x64/codeql/codeql" version --format=terse)" = '2.27.3'
-          echo 'Original selector initialized the different bundled default after both optional warm transfers failed. No analysis or SARIF import is claimed.'
+          test "$SELECTED_CODEQL_VERSION" = '2.27.3'
+          test "$SELECTED_CODEQL_PATH" = "$RUNNER_TOOL_CACHE/CodeQL/2.27.3/x64/codeql/codeql"
+          test "$("$SELECTED_CODEQL_PATH" version --format=terse)" = '2.27.3'
+          echo 'Normal original resolver selected the controlled different version in the same cache after both optional warm transfers failed. No analysis, live feature-flag response or SARIF import is claimed.'
