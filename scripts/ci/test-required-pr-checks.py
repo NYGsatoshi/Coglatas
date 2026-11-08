@@ -644,6 +644,114 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         with self.assertRaises(RuntimeError):
             guard.evaluate_live_pr(api, repository, 42, REGISTRY, now=NOW)
 
+    def complete_live_api(self) -> FakeApi:
+        checks, statuses = self.success_evidence()
+        self.assertEqual([], statuses)
+        prefix = "repos/Coglatas/Coglatas"
+        responses = {
+            f"{prefix}/pulls/42": {"state": "open", "head": {"sha": HEAD}, "base": {"ref": "main"}},
+            f"{prefix}/rulesets": [{"id": 123, "name": REGISTRY["ruleset"]["name"]}],
+            f"{prefix}/rulesets/123": self.live_ruleset(),
+            f"{prefix}/commits/{HEAD}/check-runs?filter=latest&per_page=100": {"total_count": len(checks), "check_runs": checks},
+            f"{prefix}/commits/{HEAD}/statuses?per_page=100": [],
+        }
+        for check in checks:
+            run_id = 1000 + check["id"]
+            check["details_url"] = f"https://github.com/Coglatas/Coglatas/actions/runs/{run_id}"
+            responses[f"{prefix}/actions/runs/{run_id}"] = {
+                "path": check["workflow"], "event": "pull_request", "head_sha": HEAD, "head_branch": "feature"
+            }
+        return FakeApi(responses)
+
+    def test_actual_run_metadata_overrides_successful_check_claims(self) -> None:
+        for field, value, error in (
+            ("path", ".github/workflows/unregistered.yml", "workflow-producer-drift"),
+            ("event", "push", "workflow-event-drift"),
+            ("head_sha", OLD_HEAD, "workflow-run-head-drift"),
+        ):
+            with self.subTest(field=field):
+                api = self.complete_live_api()
+                api.responses["repos/Coglatas/Coglatas/actions/runs/1001"][field] = value
+                report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+                gate = next(row for row in report["exact_head"]["gates"] if row["context"] == "build-test")
+                self.assertEqual("fail", report["decision"])
+                self.assertEqual("producer-drift", gate["reason"])
+                self.assertEqual([error], gate["producer_errors"])
+
+    def test_shared_ci_run_is_resolved_once_for_all_of_its_required_checks(self) -> None:
+        api = self.complete_live_api()
+        checks = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]["check_runs"]
+        shared = [row for row in checks if row["workflow"] == ".github/workflows/ci.yml"]
+        self.assertGreaterEqual(len(shared), 2)
+        for check in shared:
+            check["details_url"] = "https://github.com/Coglatas/Coglatas/actions/runs/7777"
+        path = "repos/Coglatas/Coglatas/actions/runs/7777"
+        api.responses[path] = {"path": ".github/workflows/ci.yml", "event": "pull_request", "head_sha": HEAD}
+        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+        self.assertEqual("pass", report["decision"])
+        self.assertEqual(1, api.calls.count(path))
+
+    def test_required_checks_on_a_later_api_page_are_collected(self) -> None:
+        api = self.complete_live_api()
+        path = f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"
+        required_checks = api.responses[path]["check_runs"]
+        unrelated = [{"id": 5000 + i, "name": "unregistered", "head_sha": HEAD} for i in range(100)]
+        api.responses[path] = {"total_count": 100 + len(required_checks), "check_runs": unrelated}
+        api.responses[path + "&page=2"] = {"total_count": 100 + len(required_checks), "check_runs": required_checks}
+        report = guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+        self.assertEqual("pass", report["decision"])
+        self.assertIn(path + "&page=2", api.calls)
+        self.assertEqual(6, len(report["exact_head"]["gates"]))
+
+    def test_invalid_authoritative_pr_stops_before_downstream_api_reads(self) -> None:
+        for payload in (
+            None,
+            {"state": "closed"},
+            {"state": "open", "head": {"sha": "invalid"}, "base": {"ref": "main"}},
+            {"state": "open", "head": {"sha": HEAD}, "base": {"ref": ""}},
+        ):
+            with self.subTest(payload=payload):
+                path = "repos/Coglatas/Coglatas/pulls/42"
+                api = FakeApi({path: payload})
+                with self.assertRaisesRegex(RuntimeError, "missing or not open|authoritative head/base"):
+                    guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+                self.assertEqual([path], api.calls)
+
+    def test_malformed_authoritative_api_payloads_cannot_supply_success(self) -> None:
+        prefix = "repos/Coglatas/Coglatas"
+        for path, payload, error in (
+            (f"{prefix}/rulesets", {}, "ruleset list response"),
+            (f"{prefix}/rulesets/123", [], "ruleset detail response"),
+            (f"{prefix}/commits/{HEAD}/check-runs?filter=latest&per_page=100", {"check_runs": None}, "paginated response"),
+            (f"{prefix}/commits/{HEAD}/statuses?per_page=100", None, "paginated response"),
+            (f"{prefix}/actions/runs/1001", [], "run 1001 response is malformed"),
+        ):
+            with self.subTest(path=path):
+                api = self.complete_live_api()
+                api.responses[path] = payload
+                with self.assertRaisesRegex(RuntimeError, error):
+                    guard.evaluate_live_pr(api, "Coglatas/Coglatas", 42, REGISTRY, now=NOW)
+
+    def test_cli_preserves_live_decisions_in_exit_codes_and_json(self) -> None:
+        for decision, exit_code in (("pass", 0), ("pending", 2), ("fail", 1)):
+            with self.subTest(decision=decision):
+                output = io.StringIO()
+                report = {"decision": decision, "authoritative_head_sha": HEAD}
+                with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi"), mock.patch.object(required, "evaluate_live_pr", return_value=report) as evaluate, mock.patch.object(required.os.sys, "stdout", output):
+                    result = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--json"])
+                self.assertEqual(exit_code, result)
+                self.assertEqual(report, json.loads(output.getvalue()))
+                self.assertEqual(("Coglatas/Coglatas", 42), evaluate.call_args.args[1:3])
+
+    def test_cli_serializes_unavailable_evidence_as_failure_without_network(self) -> None:
+        output = io.StringIO()
+        with mock.patch.dict(required.os.environ, {"GITHUB_TOKEN": "", "GH_TOKEN": ""}), mock.patch.object(required, "GitHubApi"), mock.patch.object(required, "evaluate_live_pr", side_effect=RuntimeError("controlled unavailable evidence")), mock.patch.object(required.os.sys, "stdout", output):
+            exit_code = required.run_cli(["--live-pr", "42", "--repository", "Coglatas/Coglatas", "--json"])
+        report = json.loads(output.getvalue())
+        self.assertEqual(1, exit_code)
+        self.assertEqual("fail", report["decision"])
+        self.assertEqual("controlled unavailable evidence", report["error"])
+
 
 
 class BackendDatabaseBootstrapTests(unittest.TestCase):
