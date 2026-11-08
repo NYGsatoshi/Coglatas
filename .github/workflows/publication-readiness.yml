@@ -16,7 +16,7 @@ permissions:
 jobs:
   publication-readiness:
     name: publication-readiness
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -37,6 +37,7 @@ jobs:
             scripts/ci/test-mvp-a-final-checks.py
           ruby scripts/ci/test-workflow-trust-boundaries-upper-bound.rb
           python3 scripts/ci/test-publication-readiness.py
+          python3 scripts/ci/test-ubuntu-hosted-runner-pins.py
           python3 scripts/ci/test_github_action_pins.py
           python3 scripts/ci/test-mvp-a-final-checks.py
           python3 scripts/ci/test-main-check-results.py
@@ -49,6 +50,7 @@ jobs:
           ruby scripts/ci/check-workflow-trust-boundaries-upper-bound.rb
           python3 scripts/ci/github_action_pins.py --inventory-out "${RUNNER_TEMP}/github-actions-inventory.json"
           python3 scripts/ci/check-publication-readiness.py
+          python3 scripts/ci/check-ubuntu-hosted-runner-pins.py
           python3 scripts/ci/check-required-pr-checks.py
 
       - name: Scan PR diff or current ref history with Gitleaks

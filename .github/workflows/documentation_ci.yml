@@ -15,7 +15,7 @@ permissions:
 jobs:
   documentation:
     name: Documentation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -30,10 +30,11 @@ jobs:
             sh -c "chown -R ${uid}:${gid} /workspace"
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           clean: true
+          persist-credentials: false
 
       - name: Collect changed documentation files
         shell: bash
