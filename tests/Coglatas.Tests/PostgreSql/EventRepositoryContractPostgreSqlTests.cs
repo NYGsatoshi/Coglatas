@@ -337,6 +337,15 @@ public sealed class EventRepositoryContractPostgreSqlTests
                 remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id,
                 afterMilestone.Id, afterProject.Id, afterTask.Id],
             allIndependentDates.Select(item => item.Id));
+
+        var foreignMilestone = AddMilestone(local, "Foreign tenant milestone", date);
+        foreignMilestone.TenantId = fixture.ForeignTenantId;
+        await fixture.Seed.SaveChangesAsync();
+        Assert.True(await fixture.Seed.Milestones.IgnoreQueryFilters().AnyAsync(item =>
+            item.Id == foreignMilestone.Id && item.TenantId == fixture.ForeignTenantId && item.ProjectId == local.Id));
+        var tenantRows = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery());
+        Assert.Equal(allIndependentDates.Select(item => item.Id), tenantRows.Select(item => item.Id));
+        Assert.Null(await fixture.Scoped.Milestones.AsNoTracking().SingleOrDefaultAsync(item => item.Id == foreignMilestone.Id));
         Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
         Assert.All(fixture.Seed.ChangeTracker.Entries(), entry => Assert.Equal(EntityState.Unchanged, entry.State));
         Assert.Equal(date, local.DueDate);
