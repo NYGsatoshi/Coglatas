@@ -232,17 +232,24 @@ public sealed class EventRepositoryContractPostgreSqlTests
         Assert.Equal(local.WorkspaceId, projectedProject.WorkspaceId);
         Assert.Equal(group.Id, projectedProject.GroupId);
         Assert.Equal(local.Name, projectedProject.ScopeLabel);
+        Assert.Equal(local.Name, projectedProject.Title);
         Assert.Equal(ProjectStatus.Active.ToString(), projectedProject.Status);
         Assert.Equal($"/projects/{local.Id}", projectedProject.Route);
         var projectedMilestone = Assert.Single(rows, item => item.Id == milestone.Id);
         Assert.Equal("Milestone", projectedMilestone.ItemType);
         Assert.Equal(local.Id, projectedMilestone.ProjectId);
+        Assert.Equal(local.WorkspaceId, projectedMilestone.WorkspaceId);
+        Assert.Equal(group.Id, projectedMilestone.GroupId);
+        Assert.Equal(local.Name, projectedMilestone.ScopeLabel);
         Assert.Equal(milestone.Name, projectedMilestone.Title);
         Assert.Equal(milestone.Status.ToString(), projectedMilestone.Status);
         Assert.Equal($"/projects/{local.Id}/milestones/{milestone.Id}", projectedMilestone.Route);
         var projectedTask = Assert.Single(rows, item => item.Id == task.Id);
         Assert.Equal("TaskDueDate", projectedTask.ItemType);
         Assert.Equal(local.Id, projectedTask.ProjectId);
+        Assert.Equal(local.WorkspaceId, projectedTask.WorkspaceId);
+        Assert.Equal(group.Id, projectedTask.GroupId);
+        Assert.Equal(local.Name, projectedTask.ScopeLabel);
         Assert.Equal(task.Title, projectedTask.Title);
         Assert.Equal(task.Status.ToString(), projectedTask.Status);
         Assert.Equal($"/tasks/{task.Id}", projectedTask.Route);
@@ -264,6 +271,44 @@ public sealed class EventRepositoryContractPostgreSqlTests
         var unbounded = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery(ProjectId: local.Id));
         Assert.Equal([beforeMilestone.Id, beforeTask.Id, milestone.Id, local.Id, task.Id, afterMilestone.Id, afterTask.Id],
             unbounded.Select(item => item.Id));
+
+        var middleMilestone = AddMilestone(sameWorkspace, "Middle milestone", date);
+        var middleTask = AddTask(sameWorkspace, "Middle task", date);
+        var remoteMilestone = AddMilestone(otherWorkspace, "Remote workspace milestone", date);
+        var remoteTask = AddTask(otherWorkspace, "Remote workspace task", date);
+        var beforeProject = AddProject("Before project", fixture.Workspace, fixture.TenantId);
+        beforeProject.GroupId = group.Id;
+        beforeProject.DueDate = date.AddDays(-1);
+        var afterProject = AddProject("After project", fixture.Workspace, fixture.TenantId);
+        afterProject.GroupId = group.Id;
+        afterProject.DueDate = date.AddDays(1);
+        await fixture.Seed.SaveChangesAsync();
+
+        var complete = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery(boundary, boundary));
+        Assert.Equal(
+            [milestone.Id, local.Id, middleMilestone.Id, sameWorkspace.Id, middleTask.Id,
+                remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id],
+            complete.Select(item => item.Id));
+        var completeWorkspace = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, WorkspaceId: fixture.Workspace.Id));
+        Assert.Equal([milestone.Id, local.Id, middleMilestone.Id, sameWorkspace.Id, middleTask.Id, task.Id],
+            completeWorkspace.Select(item => item.Id));
+        var completeGroup = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, GroupId: group.Id));
+        Assert.Equal([milestone.Id, local.Id, task.Id], completeGroup.Select(item => item.Id));
+        var completeProject = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: local.Id));
+        Assert.Equal([milestone.Id, local.Id, task.Id], completeProject.Select(item => item.Id));
+        var middleProject = await fixture.Repository.ListProjectCalendarItemsAsync(
+            new CalendarQuery(boundary, boundary, ProjectId: sameWorkspace.Id));
+        Assert.Equal([middleMilestone.Id, sameWorkspace.Id, middleTask.Id], middleProject.Select(item => item.Id));
+        var allDates = await fixture.Repository.ListProjectCalendarItemsAsync(new CalendarQuery());
+        Assert.Equal(
+            [beforeMilestone.Id, beforeProject.Id, beforeTask.Id,
+                milestone.Id, local.Id, middleMilestone.Id, sameWorkspace.Id, middleTask.Id,
+                remoteMilestone.Id, otherWorkspace.Id, remoteTask.Id, task.Id,
+                afterMilestone.Id, afterProject.Id, afterTask.Id],
+            allDates.Select(item => item.Id));
         Assert.Empty(fixture.Scoped.ChangeTracker.Entries());
         Assert.All(fixture.Seed.ChangeTracker.Entries(), entry => Assert.Equal(EntityState.Unchanged, entry.State));
         Assert.Equal(date, local.DueDate);
