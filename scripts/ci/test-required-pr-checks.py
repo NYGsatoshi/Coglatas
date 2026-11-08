@@ -527,29 +527,34 @@ class ExactHeadTests(unittest.TestCase):
                 self.assertEqual("producer-drift", gate["reason"])
                 self.assertEqual([error], gate["producer_errors"])
 
-    def test_latest_authoritative_failure_wins_over_an_older_success(self) -> None:
+    def test_latest_authoritative_rejection_wins_over_an_older_success(self) -> None:
+        checks, statuses = self.success_evidence()
+        build = next(item for item in checks if item["name"] == "build-test")
+        for conclusion in ("failure", "cancelled"):
+            for ordering in (False, True):
+                with self.subTest(conclusion=conclusion, reverse_input=ordering):
+                    rejection = dict(build, id=999, conclusion=conclusion, completed_at="2026-09-04T05:29:00Z")
+                    candidates = checks + [rejection]
+                    if ordering:
+                        candidates.reverse()
+                    report = guard.exact_head_report(REGISTRY, HEAD, candidates, statuses, now=NOW)
+                    gate = next(item for item in report["gates"] if item["context"] == "build-test")
+                    self.assertEqual("fail", report["decision"])
+                    self.assertEqual(conclusion, gate["observed_state"])
+                    self.assertEqual("rejected-conclusion", gate["reason"])
+
+    def test_same_timestamp_uses_the_newer_check_identity(self) -> None:
         checks, statuses = self.success_evidence()
         build = next(item for item in checks if item["name"] == "build-test")
         for ordering in (False, True):
             with self.subTest(reverse_input=ordering):
-                failure = dict(build, id=999, conclusion="failure", completed_at="2026-09-04T05:29:00Z")
-                candidates = checks + [failure]
+                candidates = checks + [dict(build, id=999, conclusion="cancelled")]
                 if ordering:
                     candidates.reverse()
                 report = guard.exact_head_report(REGISTRY, HEAD, candidates, statuses, now=NOW)
                 gate = next(item for item in report["gates"] if item["context"] == "build-test")
                 self.assertEqual("fail", report["decision"])
-                self.assertEqual("failure", gate["observed_state"])
-                self.assertEqual("rejected-conclusion", gate["reason"])
-
-    def test_same_timestamp_uses_the_newer_check_identity(self) -> None:
-        checks, statuses = self.success_evidence()
-        build = next(item for item in checks if item["name"] == "build-test")
-        checks.append(dict(build, id=999, conclusion="cancelled"))
-        report = guard.exact_head_report(REGISTRY, HEAD, checks, statuses, now=NOW)
-        gate = next(item for item in report["gates"] if item["context"] == "build-test")
-        self.assertEqual("fail", report["decision"])
-        self.assertEqual("cancelled", gate["observed_state"])
+                self.assertEqual("cancelled", gate["observed_state"])
 
     def test_unknown_completed_state_and_missing_pending_clock_fail_closed(self) -> None:
         changes = (
