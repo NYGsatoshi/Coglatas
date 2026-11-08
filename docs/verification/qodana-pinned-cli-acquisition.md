@@ -33,3 +33,15 @@ The first repair HEAD `9d1b65ae` passed all four native refusal tests but its
 direct browser-URL download also failed with HTTP 504 in acquisition run
 `42470034306/1`. Static analysis `42470034371/1` independently failed while
 downloading actionlint, before linting. Neither is claimed as a passing run.
+
+At subsequent HEAD `a34d0622`, acquisition run `42470208586/1` passed the four
+native refusal tests and downloaded, verified, extracted and executed CLI
+2026.2.2 on Linux. That is acquisition evidence, not a full Qodana scan.
+
+Workflow static analysis encountered the same actionlint acquisition failure.
+Its existing actionlint 1.7.12 and zizmor 1.30.1 downloads now use their fixed
+official binary API assets (`384924896` and `552067642`) before the original
+release URLs. Both original SHA-256 values, versions, Python controls, lint
+commands and enforcement decisions remain unchanged. Both transfer routes are
+bounded and require HTTPS redirects. No credential or lint suppression is added.
+This independently scoped repair does not promote or merge PR #1676.
