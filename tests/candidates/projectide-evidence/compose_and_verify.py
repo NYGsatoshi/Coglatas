@@ -145,10 +145,12 @@ def main() -> None:
                 frontend, evidence / "npm-install.log")
         report_path = evidence / "vitest-results.json"
         try:
-            execute([npm, "exec", "--", "vitest", "run",
-                     "src/app/features/projectide/projectide-evidence-display.candidate.spec.ts",
-                     "--config", "vitest.config.ts", "--reporter=json",
-                     "--outputFile=" + str(report_path)], frontend, evidence / "vitest.log")
+            # Store lifecycle tests import decorated Angular classes. Use the
+            # maintained Angular builder so those sources are actually compiled.
+            execute([npm, "test", "--",
+                     "--include=src/app/features/projectide/projectide-evidence-display.candidate.spec.ts",
+                     "--reporters=json", "--output-file=" + str(report_path)],
+                    frontend, evidence / "vitest.log")
         except RuntimeError:
             if report_path.is_file():
                 failed_report = json.loads(report_path.read_text(encoding="utf-8"))
