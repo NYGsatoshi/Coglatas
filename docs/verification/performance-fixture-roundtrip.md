@@ -15,7 +15,7 @@ tracked small-profile cardinalities, then rebuilds the database twice with the
 existing DB scenario version. It checks removal of a prior sentinel, stable
 identities, distinct message cursor timestamps, Workspace attachments, real
 password verification, original manifest bytes and deterministic generated
-fixture evidence. Each rebuild uses committed persistence and repository reads;
+fixture evidence. Each rebuild uses committed persistence and fresh EF queries;
 this does not establish all-table RLS or external storage bytes.
 
 These are functional fixture correctness controls. They do not approve numeric
