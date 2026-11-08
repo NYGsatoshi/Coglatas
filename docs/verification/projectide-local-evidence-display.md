@@ -53,7 +53,7 @@ original commits and assertions and record final source/tree identities and
 actual check runs in PR receipts rather than copying an earlier PASS.
 
 This update makes unloaded evidence explicit, rejects malformed completeness,
-checks the separately supplied manifest identity/context/source digest, and
+checks the separately supplied manifest identity/context/source digest and required rule coverage, and
 prevents unsupported or unresolved source projections from showing local PASS.
 Angular also requires the loaded result to be the currently selected case.
 Windows retains exact request/generation/materialization admission and clears
