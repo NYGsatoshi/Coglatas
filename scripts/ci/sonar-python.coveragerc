@@ -5,6 +5,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-sonar-dotnet-coverage.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/required_check_contract.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/check-publication-readiness.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/check-coglatas-rename.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/github_action_pins.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_sbom_vulnerability_gate.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_sbom.py

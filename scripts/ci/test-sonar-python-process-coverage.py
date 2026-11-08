@@ -89,6 +89,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
             ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
             ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',
+            ROOT.as_posix() + '/scripts/ci/check-coglatas-rename.py',
             ROOT.as_posix() + '/scripts/ci/github_action_pins.py',
             ROOT.as_posix() + '/scripts/ci/verify_sbom_vulnerability_gate.py',
             ROOT.as_posix() + '/scripts/ci/verify_sbom.py',

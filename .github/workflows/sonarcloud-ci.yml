@@ -211,6 +211,7 @@ jobs:
             scripts/ci/test-sonar-dotnet-coverage.py \
             scripts/ci/test-required-pr-checks.py \
             scripts/ci/test-publication-readiness.py \
+            scripts/ci/test-coglatas-rename.py \
             scripts/ci/test_github_action_pins.py \
             scripts/ci/test_verify_sbom_vulnerability_gate.py \
             scripts/ci/test_verify_sbom.py \
