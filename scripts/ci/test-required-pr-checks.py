@@ -1160,6 +1160,35 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
                 self.assertEqual(["trusted-status-event-drift"], report["exact_head"]["gates"][0]["producer_errors"])
 
 
+    def test_future_evidence_clock_cannot_supply_success_or_pending(self) -> None:
+        for kind in ("check-runs", "statuses"):
+            for state in ("success", "pending"):
+                for reverse in (False, True):
+                    with self.subTest(kind=kind, state=state, reverse=reverse):
+                        clock = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=2)).isoformat()
+                        if kind == "check-runs":
+                            registry, api = REGISTRY, self.complete_live_api()
+                            page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"]
+                            rows = page["check_runs"]
+                            rows[0].update(conclusion="failure", completed_at=clock)
+                            future = {**rows[0], "id": 999, "conclusion": "success", "completed_at": "9999-12-31T23:59:59Z"}
+                            if state == "pending":
+                                future.update(status="in_progress", conclusion=None, completed_at=None, started_at="9999-12-31T23:59:59Z")
+                        else:
+                            registry, api = self.commit_status_api()
+                            page = api.responses[f"repos/Coglatas/Coglatas/commits/{HEAD}/status?per_page=100"]
+                            rows = page["statuses"]
+                            rows[0].update(state="failure", updated_at=clock)
+                            future = {**rows[0], "id": 999, "state": state, "updated_at": "9999-12-31T23:59:59Z", "created_at": "9999-12-31T23:59:59Z"}
+                        rows.append(future)
+                        page["total_count"] += 1
+                        if reverse:
+                            rows.reverse()
+                        code, report = self.run_validated_fake_cli(registry, api)
+                        self.assertEqual(1, code)
+                        self.assertIn("future", report["error"])
+
+
 class BackendDatabaseBootstrapTests(unittest.TestCase):
     """The PostgreSQL service must be initialized whenever routed PR tests run."""
 

@@ -80,6 +80,12 @@ work prevents PASS while it remains unsettled, even when another check completed
 later than its start. Every pending candidate must remain within the registered
 timeout; one expired candidate fails the gate. The timeout values are unchanged.
 
+Ordering clocks must not be later than the evaluator's captured current UTC
+time. Permitted future clock skew is explicitly zero seconds; future completion
+or pending clocks fail as malformed evidence instead of hiding a rejection or
+extending a timeout. Existing completion-time ordering and ID tie-breaking for
+settled results remain unchanged; no later-start precedence rule is introduced.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.

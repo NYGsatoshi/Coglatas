@@ -753,7 +753,8 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             gates.append(gate)
             continue
         for candidate in valid:
-            _stamp(candidate, item["kind"])
+            if _stamp(candidate, item["kind"]) > current:
+                raise RuntimeError("GitHub evidence ordering timestamp is in the future")
         unsettled = [candidate for candidate, state in zip(valid, states) if state in PENDING]
         selected = sorted(unsettled or valid, key=lambda c: (_stamp(c, item["kind"]), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
         state = _state(item, selected)
