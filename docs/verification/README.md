@@ -16,10 +16,12 @@ product behavior, execute a gate, or establish the state of a later Main commit.
 
 Two additional bounded PostgreSQL migration records were imported byte-for-byte
 from Main at `9cf3ed8eec0d46ebe0d841a533dee097ec007a4d` (DOC-08).
-This index now covers 298 records in `docs/verification/` on the documentation
-branch, including these two and one retained historical testing snapshot; it
-does not claim to index Main-only records outside the branch or to qualify
-migration or test runtime execution.
+This index now covers 303 records in `docs/verification/` on the documentation
+branch. The two migration records and one historical testing snapshot were
+added in earlier isolated PRs; five source-bound pagination records were copied
+byte-for-byte from Main `a851cc3a8bb977f08605097a719fa186c8f37e32` in DOC-09.
+The topic index does not cover Main-only records excluded from this branch, or
+assert runtime, official Gate, release, authorization or PostgreSQL acceptance.
 
 ## Find a topic
 
@@ -206,6 +208,7 @@ Creation, activation, membership, scoped reads, and related browser interactions
 - [Group roster Home and End across nested scrollports](group-roster-home-outer-scroll.md)
 - [Group roster viewport reauthorization candidate](group-roster-viewport-reauthorization-20261028.md)
 - [P0 Project create and activation verification](p0-project-create-activation.md)
+- [Project child list pagination overflow — Main source-bound](project-child-pagination-overflow.md)
 - [P0 Workspace sharing header verification](p0-workspace-sharing-header.md)
 - [Legacy Project comment mutation authority](project-comment-current-authority.md)
 - [Project detail initial response Workspace binding](project-detail-initial-workspace-response.md)
@@ -238,6 +241,7 @@ Task contracts, execution, scheduling, notification delivery, and implementation
 - [P0 Task-create quality checklist verification](p0-task-quality-checklist.md)
 - [P0 Task state-list verification](p0-task-state-list.md)
 - [P1 Task context summary verification](p1-task-context-summary.md)
+- [Optimized Project Task query pagination overflow — Main source-bound](project-task-query-pagination-overflow.md)
 - [Task deadline digest hosted lifecycle controls](task-deadline-worker-host-lifecycle.md)
 - [Task denial and Project refresh regression](task-denial-project-refresh-regression.md)
 - [Task execution intervention service controls](task-intervention-service-controls.md)
@@ -343,7 +347,10 @@ Publication, form admission, audit views, and their authorization and validation
 - [Legacy Announcement service contract tests](announcement-legacy-lifecycle.md)
 - [Audit grid native bounds regression](audit-grid-native-bounds-20261029.md)
 - [Audit pagination overflow - independent Main repair](audit-pagination-security-main-repair.md)
+- [Event list pagination overflow — Main source-bound](event-list-pagination-overflow.md)
 - [Internal Form parent authority](form-parent-authority.md)
+- [Form list pagination overflow — Main source-bound](form-list-pagination-overflow.md)
+- [Form response pagination overflow — Main source-bound](form-response-pagination-overflow.md)
 - [Forms answer admission and normalization tests](forms-answer-contract-tests.md)
 - [P0 announcement mobile details verification](p0-announcement-mobile-details.md)
 - [P0 announcement publish confirmation and durable delivery verification](p0-announcement-publish-confirmation.md)

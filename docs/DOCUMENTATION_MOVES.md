@@ -266,34 +266,54 @@ or adoption of absent code/CI into the documentation integration branch.
 | [`docs/verification/postgresql-postrepair-migration-roundtrip.md`](verification/postgresql-postrepair-migration-roundtrip.md) | `75494ca498ce2951701687874ad544686493b507` | Retain original text, source and failure boundaries; index and classify `needs-review` without fabricating runtime evidence. |
 | [`docs/verification/postgresql-prerepair-migration-roundtrip.md`](verification/postgresql-prerepair-migration-roundtrip.md) | `a22b4f268607312e6d7eb08c49594dba7acea554` | Retain original text, source and failure boundaries; index and classify `needs-review` without fabricating runtime evidence. |
 
+### DOC-09 bounded Main pagination-record synchronization — 2026-11-09 JST
+
+At inspected Main `a851cc3a8bb977f08605097a719fa186c8f37e32`, the five following paging records
+were selected as a coherent documentation-only intake after checking all
+58 currently open PRs and their complete changed-file inventories. None
+overlaps this PR's five source paths or three metadata/index paths.
+Copying reports is not acceptance of tests or claims that missing Product
+changes are already present on the older documentation integration baseline.
+
+| Imported record (original path) | Git blob in observed Main | Handling |
+| --- | --- | --- |
+| [`event-list-pagination-overflow.md`](verification/event-list-pagination-overflow.md) | `943fd6529ac9e7b343daf010e1a24f08f7a83e97` | Source unchanged; preserve original failed test outcomes and separately bounded native/hosted qualification. |
+| [`form-list-pagination-overflow.md`](verification/form-list-pagination-overflow.md) | `98002c7999e8376ac721a8af825e1b9c40078f2f` | Source unchanged; preserve original failed test outcomes and separately bounded native/hosted qualification. |
+| [`form-response-pagination-overflow.md`](verification/form-response-pagination-overflow.md) | `b3caf606eb68872050d482067c0cc691b8ba65f8` | Source unchanged; preserve original failed test outcomes and separately bounded native/hosted qualification. |
+| [`project-child-pagination-overflow.md`](verification/project-child-pagination-overflow.md) | `0269bdaa892dbfcb44e6a03e3f4fa2719e351c4f` | Source unchanged; preserve original failed test outcomes and separately bounded native/hosted qualification. |
+| [`project-task-query-pagination-overflow.md`](verification/project-task-query-pagination-overflow.md) | `6f30a5a409e9cb9e07e89a3fdc62b5be6f38b6f9` | Source unchanged; preserve original failed test outcomes and separately bounded native/hosted qualification. |
+
+Each source document remains byte-identical, including its original failed
+test revision, snapshot-specific CI constraints and explicit limitations.
+Source provenance is recorded in the catalogue for all five. No executable
+test or product implementation, migration, API contract, held PR, or
+provider disposition is imported by this documentation-only change.
+
 ### Pending Main synchronization
 
-At inspected Main `5733017012f74f4bd56e6849bf29da452f61a56c`, `docs/verification/` directly contains **19**
-Markdown paths absent from DOC-07's 475-file documentation baseline. Exactly
-two are imported above; **17 remain excluded**. They must be inspected for
-owner approval, source-specific evidence, companion files, and link/asset
-dependencies before importing. This is an observed direct-directory
-inventory, not an assertion that all nested Main directories are synchronized.
+At observed Main `a851cc3a8bb977f08605097a719fa186c8f37e32`, `docs/verification/` has **19**
+direct Markdown paths absent from this PR's 478-file starting baseline.
+Five are copied above. **14** remain deliberately outside
+this branch and its resulting catalogue, pending individual source, companion
+asset, consumer and owner review. Nested directories on Main are not
+asserted to be synchronized by this direct-directory inventory.
 
-| Observed Main-only document | Status |
+| Remaining Main-only document | Disposition |
 | --- | --- |
-| [`avmig-python-native-controls-coverage.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/avmig-python-native-controls-coverage.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`event-list-pagination-overflow.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/event-list-pagination-overflow.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`form-list-pagination-overflow.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/form-list-pagination-overflow.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`form-response-pagination-overflow.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/form-response-pagination-overflow.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`generated-rollback-caller-transaction.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/generated-rollback-caller-transaction.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`group-lifecycle-roundtrip.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/group-lifecycle-roundtrip.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`group-update-validation-tracking.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/group-update-validation-tracking.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`legacy-channel-lifecycle-persistence.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/legacy-channel-lifecycle-persistence.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`legacy-name-guard-native-coverage.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/legacy-name-guard-native-coverage.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`native-child-web-shutdown.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/native-child-web-shutdown.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`performance-fixture-roundtrip.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/performance-fixture-roundtrip.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`project-child-pagination-overflow.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/project-child-pagination-overflow.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`project-membership-service-controls.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/project-membership-service-controls.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`project-task-query-pagination-overflow.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/project-task-query-pagination-overflow.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`qodana-pinned-cli-acquisition.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/qodana-pinned-cli-acquisition.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`security-accounting-existing-native-suites.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/security-accounting-existing-native-suites.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
-| [`task-parent-project-scope-dispatch.md`](https://github.com/NYGsatoshi/Coglatas/blob/5733017012f74f4bd56e6849bf29da452f61a56c/docs/verification/task-parent-project-scope-dispatch.md) | Pending separate source-bound review and deliberate integration; not indexed or included in `docs/catalog.yml`. |
+| [`admin-bulk-invite-validation-staging.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/admin-bulk-invite-validation-staging.md) | Pending independent content/asset/owner review. |
+| [`avmig-python-native-controls-coverage.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/avmig-python-native-controls-coverage.md) | Pending independent content/asset/owner review. |
+| [`existing-final-and-producer-binding-native-suites.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/existing-final-and-producer-binding-native-suites.md) | Pending independent content/asset/owner review. |
+| [`generated-rollback-caller-transaction.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/generated-rollback-caller-transaction.md) | Pending independent content/asset/owner review. |
+| [`group-lifecycle-roundtrip.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/group-lifecycle-roundtrip.md) | Pending independent content/asset/owner review. |
+| [`group-update-validation-tracking.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/group-update-validation-tracking.md) | Pending independent content/asset/owner review. |
+| [`legacy-channel-lifecycle-persistence.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/legacy-channel-lifecycle-persistence.md) | Pending independent content/asset/owner review. |
+| [`legacy-name-guard-native-coverage.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/legacy-name-guard-native-coverage.md) | Pending independent content/asset/owner review. |
+| [`native-child-web-shutdown.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/native-child-web-shutdown.md) | Pending independent content/asset/owner review. |
+| [`performance-fixture-roundtrip.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/performance-fixture-roundtrip.md) | Pending independent content/asset/owner review. |
+| [`project-membership-service-controls.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/project-membership-service-controls.md) | Pending independent content/asset/owner review. |
+| [`qodana-pinned-cli-acquisition.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/qodana-pinned-cli-acquisition.md) | Pending independent content/asset/owner review. |
+| [`security-accounting-existing-native-suites.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/security-accounting-existing-native-suites.md) | Pending independent content/asset/owner review. |
+| [`task-parent-project-scope-dispatch.md`](https://github.com/NYGsatoshi/Coglatas/blob/a851cc3a8bb977f08605097a719fa186c8f37e32/docs/verification/task-parent-project-scope-dispatch.md) | Pending independent content/asset/owner review. |
 
 ## Record for an executed move
 
