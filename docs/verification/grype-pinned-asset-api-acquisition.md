@@ -21,6 +21,8 @@ preserving an existing executable and leaving the PATH file empty. Hosted Linux
 controls additionally use the original authenticated archive, real checksum,
 extraction, installation and version execution for API success and browser
 fallback. A valid archive from an untrusted effective host is still refused.
+The test archive acquisition uses the same transfer-only API/browser fallback
+and trusted-final-host/checksum checks; integrity rejection does not fall back.
 These controls do not establish a complete SBOM scan or image acceptance.
 
 Actual branch and resulting-Main image scans, required checks, original PR Gate,
