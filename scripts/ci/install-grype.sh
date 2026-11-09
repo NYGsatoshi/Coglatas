@@ -5,13 +5,14 @@ readonly GRYPE_VERSION="0.118.0"
 readonly GRYPE_LINUX_AMD64_ARCHIVE_SHA256="1d444c5e7360471815f7158f71935fcecc68a3c417d85c7344f770854300bba2"
 readonly ARCHIVE="grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
 readonly URL="https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/${ARCHIVE}"
+readonly API_URL="https://api.github.com/repos/anchore/grype/releases/assets/532808761"
 
 install_dir="${1:-${RUNNER_TEMP:-/tmp}/coglatas-grype/bin}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 mkdir -p "$install_dir"
-effective_url="$(
+download_archive() {
   curl \
     --fail \
     --silent \
@@ -26,9 +27,17 @@ effective_url="$(
     --connect-timeout 10 \
     --max-time 180 \
     --write-out '%{url_effective}' \
-    "$URL" \
+    "$@" \
     --output "$tmp_dir/$ARCHIVE"
-)"
+}
+
+# Both official routes must supply the same checksum-pinned release bytes.
+if ! effective_url="$(download_archive \
+  --header 'Accept: application/octet-stream' \
+  --header 'X-GitHub-Api-Version: 2022-11-28' \
+  "$API_URL")"; then
+  effective_url="$(download_archive "$URL")"
+fi
 effective_host="${effective_url#https://}"
 effective_host="${effective_host%%/*}"
 case "$effective_host" in
