@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Coglatas.Application.Common;
 using Coglatas.Application.Forms;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -181,24 +182,64 @@ public sealed partial class FormServiceTests
         var question = Assert.Single(form.Questions);
         Assert.NotEqual(Guid.Empty, question.Id);
         Assert.Equal(form.Id, question.FormId);
-        AssertQuestionProjection(created.Value!, question, "Choose", FormQuestionType.SingleChoice, true, -4, ["B", "A"]);
+        Assert.Equal(question.Id, created.Value!.Id);
+        Assert.Equal("Choose", created.Value.QuestionText);
+        Assert.Equal(FormQuestionType.SingleChoice, created.Value.QuestionType);
+        Assert.True(created.Value.IsRequired);
+        Assert.Equal(-4, created.Value.SortOrder);
+        Assert.Equal<string>(["B", "A"], created.Value.Options);
+        Assert.Equal("Choose", question.QuestionText);
+        Assert.Equal(FormQuestionType.SingleChoice, question.QuestionType);
+        Assert.True(question.IsRequired);
+        Assert.Equal(-4, question.SortOrder);
+        Assert.Equal("""["B","A"]""", question.OptionsJson);
         Assert.Equal(1, fixture.AuditCalls);
         Assert.Equal(1, fixture.SaveCalls);
 
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(" Changed ", FormQuestionType.MultipleChoice, false, 99, [" C ", "D"]));
         Assert.True(updated.IsSuccess, updated.Error);
-        AssertQuestionProjection(updated.Value!, question, "Changed", FormQuestionType.MultipleChoice, false, 99, ["C", "D"]);
+        Assert.Equal(question.Id, updated.Value!.Id);
+        Assert.Equal("Changed", updated.Value.QuestionText);
+        Assert.Equal(FormQuestionType.MultipleChoice, updated.Value.QuestionType);
+        Assert.False(updated.Value.IsRequired);
+        Assert.Equal(99, updated.Value.SortOrder);
+        Assert.Equal<string>(["C", "D"], updated.Value.Options);
+        Assert.Equal("Changed", question.QuestionText);
+        Assert.Equal(FormQuestionType.MultipleChoice, question.QuestionType);
+        Assert.False(question.IsRequired);
+        Assert.Equal(99, question.SortOrder);
+        Assert.Equal("""["C","D"]""", question.OptionsJson);
 
         var retained = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(QuestionText: " Retained "));
         Assert.True(retained.IsSuccess, retained.Error);
-        AssertQuestionProjection(retained.Value!, question, "Retained", FormQuestionType.MultipleChoice, false, 99, ["C", "D"]);
+        Assert.Equal(question.Id, retained.Value!.Id);
+        Assert.Equal("Retained", retained.Value.QuestionText);
+        Assert.Equal(FormQuestionType.MultipleChoice, retained.Value.QuestionType);
+        Assert.False(retained.Value.IsRequired);
+        Assert.Equal(99, retained.Value.SortOrder);
+        Assert.Equal<string>(["C", "D"], retained.Value.Options);
+        Assert.Equal("Retained", question.QuestionText);
+        Assert.Equal(FormQuestionType.MultipleChoice, question.QuestionType);
+        Assert.False(question.IsRequired);
+        Assert.Equal(99, question.SortOrder);
+        Assert.Equal("""["C","D"]""", question.OptionsJson);
 
         var text = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(QuestionType: FormQuestionType.LongText));
         Assert.True(text.IsSuccess, text.Error);
-        AssertQuestionProjection(text.Value!, question, "Retained", FormQuestionType.LongText, false, 99, null);
+        Assert.Equal(question.Id, text.Value!.Id);
+        Assert.Equal("Retained", text.Value.QuestionText);
+        Assert.Equal(FormQuestionType.LongText, text.Value.QuestionType);
+        Assert.False(text.Value.IsRequired);
+        Assert.Equal(99, text.Value.SortOrder);
+        Assert.Null(text.Value.Options);
+        Assert.Equal("Retained", question.QuestionText);
+        Assert.Equal(FormQuestionType.LongText, question.QuestionType);
+        Assert.False(question.IsRequired);
+        Assert.Equal(99, question.SortOrder);
+        Assert.Null(question.OptionsJson);
         Assert.Null(question.OptionsJson);
         var deleted = await fixture.Service.DeleteQuestionAsync(form.Id, question.Id);
         Assert.True(deleted.IsSuccess, deleted.Error);
@@ -218,7 +259,17 @@ public sealed partial class FormServiceTests
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest("  Repository question  ", SortOrder: 7));
         Assert.True(updated.IsSuccess, updated.Error);
-        AssertQuestionProjection(updated.Value!, question, "Repository question", FormQuestionType.Boolean, true, 7, null);
+        Assert.Equal(question.Id, updated.Value!.Id);
+        Assert.Equal("Repository question", updated.Value.QuestionText);
+        Assert.Equal(FormQuestionType.Boolean, updated.Value.QuestionType);
+        Assert.True(updated.Value.IsRequired);
+        Assert.Equal(7, updated.Value.SortOrder);
+        Assert.Null(updated.Value.Options);
+        Assert.Equal("Repository question", question.QuestionText);
+        Assert.Equal(FormQuestionType.Boolean, question.QuestionType);
+        Assert.True(question.IsRequired);
+        Assert.Equal(7, question.SortOrder);
+        Assert.Null(question.OptionsJson);
         var deleted = await fixture.Service.DeleteQuestionAsync(form.Id, question.Id);
         Assert.True(deleted.IsSuccess, deleted.Error);
         var repeated = await fixture.Service.DeleteQuestionAsync(form.Id, question.Id);
@@ -257,25 +308,9 @@ public sealed partial class FormServiceTests
         question.IsRequired, question.SortOrder, question.OptionsJson, question.CreatedAt, question.UpdatedAt
     });
 
-    private static (bool Success, string? Error) QuestionMutationOutcome(Coglatas.Application.Common.Result result) =>
+    private static (bool Success, string? Error) QuestionMutationOutcome(Result result) =>
         (result.IsSuccess, result.Error);
 
-    private static (bool Success, string? Error) QuestionMutationOutcome<T>(Coglatas.Application.Common.Result<T> result) =>
+    private static (bool Success, string? Error) QuestionMutationOutcome<T>(Result<T> result) =>
         (result.IsSuccess, result.Error);
-
-    private static void AssertQuestionProjection(FormQuestionResponse actual, FormQuestion stored,
-        string text, FormQuestionType type, bool required, int order, IReadOnlyList<string>? options)
-    {
-        Assert.Equal(stored.Id, actual.Id);
-        Assert.Equal(text, actual.QuestionText);
-        Assert.Equal(type, actual.QuestionType);
-        Assert.Equal(required, actual.IsRequired);
-        Assert.Equal(order, actual.SortOrder);
-        Assert.Equal(options, actual.Options);
-        Assert.Equal(text, stored.QuestionText);
-        Assert.Equal(type, stored.QuestionType);
-        Assert.Equal(required, stored.IsRequired);
-        Assert.Equal(order, stored.SortOrder);
-        Assert.Equal(options is null ? null : JsonSerializer.Serialize(options), stored.OptionsJson);
-    }
 }
