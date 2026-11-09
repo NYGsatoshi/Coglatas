@@ -235,7 +235,7 @@ public sealed class EventRepositoryContractPostgreSqlTests
         Assert.Equal(group.Id, projectedProject.GroupId);
         Assert.Equal(local.Name, projectedProject.ScopeLabel);
         Assert.Equal(local.Name, projectedProject.Title);
-        Assert.Equal(ProjectStatus.Active.ToString(), projectedProject.Status);
+        Assert.Equal(nameof(ProjectStatus.Active), projectedProject.Status);
         Assert.Equal($"/projects/{local.Id}", projectedProject.Route);
         var projectedMilestone = Assert.Single(rows, item => item.Id == milestone.Id);
         Assert.Equal("Milestone", projectedMilestone.ItemType);
