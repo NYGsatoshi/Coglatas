@@ -179,11 +179,14 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(fixture.TaskItem.Id, change.AggregateId);
         Assert.Equal(beforeTaskVersion + 1, change.AggregateVersion);
         using var payload = JsonDocument.Parse(change.PayloadJson);
-        Assert.Equal(fixture.TaskItem.Id, payload.RootElement.GetProperty("taskId").GetGuid());
-        Assert.Equal(fixture.Project.Id, payload.RootElement.GetProperty("projectId").GetGuid());
-        Assert.Equal(beforeTaskVersion + 1, payload.RootElement.GetProperty("taskVersion").GetInt64());
-        Assert.Equal("executionScopeChanged", payload.RootElement.GetProperty("change").GetString());
-        Assert.True(payload.RootElement.GetProperty("requiresRefetch").GetBoolean());
+        Assert.Equal(fixture.Tenant.Id, payload.RootElement.GetProperty("tenantId").GetGuid());
+        Assert.Equal(fixture.Actor.Id, payload.RootElement.GetProperty("actor").GetProperty("actorId").GetGuid());
+        var body = payload.RootElement.GetProperty("payload");
+        Assert.Equal(fixture.TaskItem.Id, body.GetProperty("taskId").GetGuid());
+        Assert.Equal(fixture.Project.Id, body.GetProperty("projectId").GetGuid());
+        Assert.Equal(beforeTaskVersion + 1, body.GetProperty("taskVersion").GetInt64());
+        Assert.Equal("executionScopeChanged", body.GetProperty("change").GetString());
+        Assert.True(body.GetProperty("requiresRefetch").GetBoolean());
         var stored = await ClearOverrideStoredStateAsync(fixture);
 
         var repeated = await service.ClearTaskOverrideAsync(fixture.TaskItem.Id, new ClearTaskExecutionScopeOverrideRequest(0));
