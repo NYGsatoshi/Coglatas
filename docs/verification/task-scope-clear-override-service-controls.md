@@ -3,7 +3,8 @@
 The additive Application service tests exercise the existing override-clear
 entry point with the existing isolated EF InMemory fixture. Negative versions,
 empty/missing/deleted/foreign-Tenant tasks and fixture-denied management retain
-the selected raw stored Task/override fields with no save, audit or Outbox effect.
+the selected raw stored Task/override fields with no save, audit or persisted or
+staged Outbox effect. The counter observes both unit-of-work save entry points.
 Stale existing versions and nonzero versions for an absent override also deny
 before mutation. An absent override with expected version zero returns the
 inherited policy without saving.

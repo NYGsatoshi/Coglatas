@@ -30,6 +30,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Theory]
@@ -44,7 +45,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         await SeedClearOverrideAsync(fixture);
         if (scenario == "deleted")
         {
-            fixture.TaskItem.DeletedAt = new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero);
+            fixture.TaskItem.MarkDeleted(new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero));
             await fixture.Db.SaveChangesAsync();
         }
         if (scenario == "foreignTenant") await fixture.SwitchToOtherTenantAsync();
@@ -66,6 +67,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Theory]
@@ -88,6 +90,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Theory]
@@ -108,6 +111,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Fact]
@@ -133,6 +137,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Fact]
@@ -197,6 +202,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(1, unit.SaveCalls);
         Assert.Single(fixture.Audit.Entries);
         Assert.Equal(change.Id, Assert.Single(await fixture.Db.OutboxEvents.AsNoTracking().ToListAsync()).Id);
+        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
     }
 
     [Fact]
@@ -245,7 +251,11 @@ public sealed partial class TaskExecutionScopeServiceTests
     {
         private readonly EfUnitOfWork _inner = new(db);
         public int SaveCalls { get; private set; }
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => _inner.SaveChangesAsync(cancellationToken);
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            SaveCalls++;
+            return _inner.SaveChangesAsync(cancellationToken);
+        }
         public Task<TaskCommandSaveOutcome> SaveTaskCommandAsync(CancellationToken cancellationToken = default)
         {
             SaveCalls++;
