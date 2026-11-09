@@ -4,8 +4,9 @@ The existing performance contract workflow already runs the complete 26-case
 `test_performance_local.py` and nine-case `test_performance_assurance.py` suites.
 The canonical Sonar Python producer now selects both unchanged suites once and
 includes twelve existing production helpers that they import. All original 53
-script entries and 63 production subjects remain, giving 55 entries and 75
-declared subjects. Test bodies remain
+script entries and 63 production subjects remain, together with the NuGet
+lock-policy suite and subject added on Main. The combined producer has 56
+entries and 76 declared subjects. Test bodies remain
 outside the measured include list. A loader control checks all owned test IDs,
 uniqueness, the absence of a replacement loader and exact single selection.
 The local suite has no direct-execution entry point. Its producer entry therefore
