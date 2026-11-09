@@ -22,7 +22,7 @@ public sealed partial class AdminServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal("A valid email address is required.", result.Error);
-        Assert.Equal(0, fixture.Repository.Invites.Count);
+        Assert.Empty(fixture.Repository.Invites.Select(invite => invite.Id));
         AssertNoAdministrativeEffects(fixture);
     }
 
@@ -45,7 +45,8 @@ public sealed partial class AdminServiceTests
             fixture.Repository.Invites.Select(invite => invite.NormalizedEmail).Order().ToArray());
         foreach (var stored in fixture.Repository.Invites)
         {
-            var response = Assert.Single(result.Value.Where(invite => invite.Id == stored.Id));
+            var responseId = Assert.Single(result.Value.Select(invite => invite.Id), id => id == stored.Id);
+            var response = result.Value.Single(invite => invite.Id == responseId);
             Assert.Equal((fixture.Repository.WorkspaceTenantId, workspaceId, WorkspaceRole.Member, expiresAt, fixture.ActorUser.Id),
                 (stored.TenantId, stored.WorkspaceId, stored.Role, stored.ExpiresAt, stored.InvitedByUserId));
             Assert.False(string.IsNullOrWhiteSpace(response.InviteToken));
