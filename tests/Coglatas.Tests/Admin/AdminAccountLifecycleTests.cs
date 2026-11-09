@@ -165,11 +165,11 @@ public sealed partial class AdminServiceTests
             await fixture.Service.ResetPasswordInviteAsync(subject.Id)
         ];
 
-        Assert.All(results, result =>
+        foreach (var result in results)
         {
             Assert.False(result.IsSuccess);
             Assert.Equal("SystemAdmin access is required.", result.Error);
-        });
+        }
         Assert.Equal(snapshot, (subject.Status, subject.SystemRole, subject.DeletedAt));
         Assert.Empty(fixture.Repository.Invites);
         AssertNoAdministrativeEffects(fixture);
