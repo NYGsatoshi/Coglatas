@@ -4,7 +4,7 @@ The common pre-credential Python producer runs the existing provenance suite
 and the complete execution-evidence suite. The evidence module owns a load_tests
 hook that also loads HTTP, SignalR and manual-replay controls. Those nested suites
 are not invoked again in the common loop. All previous test methods and
-assertions remain; the loop has 51 script entries and 63 unchanged subjects.
+assertions remain; the loop has 53 script entries and 63 unchanged subjects.
 
 The process-coverage regression checks the actual loaded test IDs against every
 evidence-owned and nested test, rejects duplicates, and requires the loop to
