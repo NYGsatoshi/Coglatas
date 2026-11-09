@@ -10,7 +10,7 @@
   ],
   "toolchain": {
     "dotnetGlobalJson": "global.json",
-    "nodeMajor": 24,
+    "nodeMajor": 26,
     "npmVersion": "11.17.0",
     "packageManagerManifests": [
       "package.json",

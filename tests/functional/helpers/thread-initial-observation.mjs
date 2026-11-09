@@ -1,9 +1,10 @@
 export const INITIAL_THREAD_DOM_FLAGS = ['workspacePresent', 'workspaceVisible', 'loadingPresent', 'loadingVisible',
   'errorPresent', 'errorVisible', 'rootPresent', 'rootVisible'];
+const PROJECTION_FLAGS = ['pagePresent', 'conversationPresent', 'threadOpenClass', 'groupClass'];
 export const THREAD_SHAPE_FLAGS = ['objectShape', 'rootMatches', 'conversationMatches', 'summaryMatches',
   'replyIdentitiesMatch', 'countsConsistent'];
 const exact = (value, fields) => value && !Array.isArray(value) && typeof value === 'object' &&
-  Object.keys(value).sort().join() === [...fields].sort().join();
+  Object.keys(value).length === fields.length && fields.every((field) => Object.hasOwn(value, field));
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /** Compare actual DTO values in memory; export only fixed booleans, never a DTO or identity. */
@@ -33,13 +34,27 @@ export function observeInitialThreadShape(initial, readBody, expectedRoot, expec
 }
 
 export function validateInitialThreadObservation(value) {
-  if (!exact(value, ['responseShape', 'failureDom']) ||
-      (value.responseShape !== null && (!exact(value.responseShape, THREAD_SHAPE_FLAGS) || THREAD_SHAPE_FLAGS.some((key) => typeof value.responseShape[key] !== 'boolean'))) ||
-      (value.failureDom !== null && (!exact(value.failureDom, INITIAL_THREAD_DOM_FLAGS) || INITIAL_THREAD_DOM_FLAGS.some((key) => typeof value.failureDom[key] !== 'boolean')))) {
+  const interleaving = Object.hasOwn(value ?? {}, 'preActionDeniedDom');
+  if (!exact(value, interleaving ? ['responseShape', 'failureDom', 'preActionDeniedDom']
+    : ['responseShape', 'failureDom']) ||
+      (value.responseShape !== null && (!exact(value.responseShape, THREAD_SHAPE_FLAGS) ||
+        THREAD_SHAPE_FLAGS.some((key) => typeof value.responseShape[key] !== 'boolean')))) {
     throw new Error('Initial Thread diagnostics are invalid.');
   }
-  for (const [present, visible] of [['workspacePresent', 'workspaceVisible'], ['loadingPresent', 'loadingVisible'], ['errorPresent', 'errorVisible'], ['rootPresent', 'rootVisible']]) {
-    if (value.failureDom?.[visible] && !value.failureDom[present]) { throw new Error('Initial Thread diagnostics are inconsistent.'); }
+  for (const [name, observation] of [['failureDom', value.failureDom],
+    ...(interleaving ? [['preActionDeniedDom', value.preActionDeniedDom]] : [])]) {
+    if (observation === null) { continue; }
+    const fields = name === 'failureDom' && exact(observation, INITIAL_THREAD_DOM_FLAGS)
+      ? INITIAL_THREAD_DOM_FLAGS : [...INITIAL_THREAD_DOM_FLAGS, ...PROJECTION_FLAGS];
+    if (!exact(observation, fields) || fields.some((key) => typeof observation[key] !== 'boolean')) {
+      throw new Error('Initial Thread DOM diagnostics are invalid.');
+    }
+    for (const [present, visible] of [['workspacePresent', 'workspaceVisible'],
+      ['loadingPresent', 'loadingVisible'], ['errorPresent', 'errorVisible'], ['rootPresent', 'rootVisible']]) {
+      if (observation[visible] && !observation[present]) {
+        throw new Error('Initial Thread DOM diagnostics are inconsistent.');
+      }
+    }
   }
   return structuredClone(value);
 }
@@ -58,6 +73,10 @@ export async function readInitialThreadDom(page) {
         return bounds.width > 0 && bounds.height > 0 && style.visibility !== 'hidden' && style.visibility !== 'collapse';
       });
     }
+    state.pagePresent = document.querySelectorAll('[data-testid="dm-page"]').length > 0;
+    state.conversationPresent = document.querySelectorAll('[data-testid="dm-conversation-surface"]').length > 0;
+    state.threadOpenClass = document.querySelectorAll('.dm-page__workspace.dm-page__workspace--thread-open').length > 0;
+    state.groupClass = document.querySelectorAll('.dm-page__workspace.dm-page__workspace--group').length > 0;
     return state;
   });
 }

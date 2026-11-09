@@ -29,6 +29,10 @@ syncfusion-license.txt
 
 # Public-repository audit outputs and private-key containers
 artifacts/
+# Tracked application/test source directories are not generated audit output.
+!frontend/src/app/features/artifacts/
+!src/Coglatas.Application/Artifacts/
+!tests/Coglatas.Tests/Artifacts/
 frontend/storybook-static/
 gitleaks*.json
 trivy*.txt

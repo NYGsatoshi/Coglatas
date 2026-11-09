@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { assertMobileMvp0Profile, mobileMvp0Project } from './mobile-mvp0-profile.mjs';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { exerciseRealSearchReconnect } from './real-backend-search-reconnect';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
@@ -82,12 +85,15 @@ test.describe('MVP0 real backend browser smoke', () => {
 
   test.beforeEach(async ({}, testInfo) => {
     test.skip(
-      testInfo.project.name !== 'chromium-desktop',
+      testInfo.project.name !== 'chromium-desktop' &&
+        !(process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1' && testInfo.project.name === mobileMvp0Project),
       'Real-backend smoke runs once against the desktop browser project because it uses a shared seeded backend account.'
     );
   });
 
   test('exercises mandatory authenticated MVP0 flows through ASP.NET Core backend', async ({ page }, testInfo) => {
+    const mobileMvp0 = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1';
+    if (mobileMvp0) assertMobileMvp0Profile(testInfo.project, testInfo.retry);
     const evidence: SmokeEvidence = {
       baseURL: String(testInfo.project.use.baseURL ?? ''),
       email: smokeEmail,
@@ -116,6 +122,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       await createDirectMessageAndVerifyPersistence(page, evidence);
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
+        mobileMvp0,
         authenticate: async (actorPage, account) => {
           const email = account === 'recipient' ? pr06ViewerEmail :
             account === 'third' ? pr05ManagerEmail : groupNewcomerEmail;
@@ -129,6 +136,12 @@ test.describe('MVP0 real backend browser smoke', () => {
         settleAuthorization: waitForAuthorizationOutbox,
         archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
       });
+      if (mobileMvp0) {
+        mkdirSync('artifacts/mobile-mvp0', { recursive: true });
+        writeFileSync('artifacts/mobile-mvp0/profile.json', JSON.stringify({
+          project: testInfo.project.name, retry: testInfo.retry, actors: groupResult.mobileProfiles,
+        }, null, 2) + '\n', { flag: 'wx' });
+      }
       evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
         status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, retained history, removal, re-entry, first-time addition and leave.' });
       await openAnnouncementDetail(page, evidence);
@@ -4275,8 +4288,22 @@ async function loginAndVerifySession(
 
   await expect(page).toHaveURL(/\/app\/workspaces$/);
   await expect(page.getByTestId('app-shell')).toBeVisible();
-  await expect(page.getByTestId('nav-projects').first()).toBeVisible();
-  await expect(page.getByTestId('nav-my-tasks').first()).toBeVisible();
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const toggle = page.getByTestId('mobile-nav-toggle');
+    const navigation = page.getByTestId('mobile-navigation');
+    await expect(toggle).toBeVisible();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await toggle.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'false');
+    await expect(navigation.getByTestId('nav-projects')).toBeVisible();
+    await expect(navigation.getByTestId('nav-my-tasks')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await expect(toggle).toBeFocused();
+  } else {
+    await expect(page.getByTestId('nav-projects').first()).toBeVisible();
+    await expect(page.getByTestId('nav-my-tasks').first()).toBeVisible();
+  }
 
   await recordFetchJson(page, evidence, 'auth-me', '/api/auth/me', {
     validate: (body) =>
@@ -4667,8 +4694,25 @@ async function assertCsrfRejectsMissingToken(page: Page, evidence: SmokeEvidence
   expect(probe.text, 'CSRF rejection body').toContain('CSRF');
 }
 
+async function clickSmokeNavigationLink(page: Page, name: string) {
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const navigation = page.getByTestId('mobile-navigation');
+    const toggle = page.getByTestId('mobile-nav-toggle');
+    await expect(toggle).toBeVisible();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await toggle.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'false');
+    const link = navigation.getByRole('link', { name, exact: true });
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+  } else {
+    await page.getByRole('link', { name }).first().click();
+  }
+}
+
 async function createDirectMessageAndVerifyPersistence(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Messages' }).first().click();
+  await clickSmokeNavigationLink(page, 'Messages');
   await expect(page).toHaveURL(/\/app\/messages$/);
   await expect(page.getByTestId('messages-page')).toBeVisible();
   await expect(page.getByTestId('new-message-button')).toBeVisible();
@@ -4738,6 +4782,11 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
       )
   });
 
+  const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL,
+    { conversationId: evidence.conversationId!, messageId: evidence.messageId!, body: messageBody });
+  evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
+    status: 200, body: searchReconnect,
+    bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });
   const messageRow = page.locator(`#message-${evidence.messageId}`);
   const more = page.getByTestId(`message-more-actions-${evidence.messageId}`);
   await more.click();
@@ -4802,7 +4851,7 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
 }
 
 async function openWorkspaces(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Workspaces' }).first().click();
+  await clickSmokeNavigationLink(page, 'Workspaces');
   await expect(page).toHaveURL(/\/app\/workspaces$/);
   await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
 
@@ -4814,7 +4863,7 @@ async function openWorkspaces(page: Page, evidence: SmokeEvidence) {
 }
 
 async function openAnnouncementDetail(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Announcements' }).first().click();
+  await clickSmokeNavigationLink(page, 'Announcements');
   await expect(page).toHaveURL(/\/app\/announcements$/);
   await expect(page.getByTestId('announcements-page')).toBeVisible();
 
@@ -4879,7 +4928,7 @@ async function openAnnouncementDetail(page: Page, evidence: SmokeEvidence) {
 }
 
 async function openProjectTaskDetail(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Projects' }).first().click();
+  await clickSmokeNavigationLink(page, 'Projects');
   await expect(page).toHaveURL(/\/app\/projects$/);
   await expect(page.getByTestId('projects-overview-page')).toBeVisible();
 
@@ -4917,14 +4966,19 @@ async function openProjectTaskDetail(page: Page, evidence: SmokeEvidence) {
   await expect(page.getByTestId('project-detail-page')).toBeVisible();
   await page.getByRole('tab', { name: 'List', exact: true }).click();
 
-  const taskRow = page.locator('[role="row"]').filter({ hasText: smokeTaskTitle }).first();
+  const nativeMobile = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1';
+  const profile = nativeMobile ? 'mobile' : 'desktop';
+  const taskRow = nativeMobile
+    ? page.getByTestId(`task-state-card-${evidence.taskId}-mobile`).filter({ hasText: smokeTaskTitle })
+    : page.locator('[role="row"]').filter({ hasText: smokeTaskTitle }).first();
+  if (nativeMobile) await expect(taskRow).toHaveCount(1);
   await expect(taskRow).toBeVisible();
-  await expect(page.getByTestId(`task-stage-name-${evidence.taskId}-desktop`))
+  await expect(page.getByTestId(`task-stage-name-${evidence.taskId}-${profile}`))
     .toHaveText(String(task!.workflowStageName));
-  await expect(page.getByTestId(`task-category-${evidence.taskId}-desktop`)).toBeVisible();
-  await expect(page.getByTestId(`task-blocked-${evidence.taskId}-desktop`)).toHaveText('Not blocked');
-  await expect(page.getByTestId(`task-artifact-${evidence.taskId}-desktop`)).toHaveText('Artifact available');
-  await expect(page.getByTestId(`task-updated-${evidence.taskId}-desktop`).locator('time'))
+  await expect(page.getByTestId(`task-category-${evidence.taskId}-${profile}`)).toBeVisible();
+  await expect(page.getByTestId(`task-blocked-${evidence.taskId}-${profile}`)).toHaveText('Not blocked');
+  await expect(page.getByTestId(`task-artifact-${evidence.taskId}-${profile}`)).toHaveText('Artifact available');
+  await expect(page.getByTestId(`task-updated-${evidence.taskId}-${profile}`).locator('time'))
     .toHaveAttribute('datetime', taskTimestamp);
   await clickTaskOpenDetail(page, taskRow);
 
@@ -5154,10 +5208,21 @@ async function openMyTasksFromNavigation(page: Page, evidence: SmokeEvidence) {
     }
   });
 
+  const mobileNavigation = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1'
+    ? page.getByTestId('mobile-navigation') : null;
+  if (mobileNavigation) {
+    await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');
+    await page.getByTestId('mobile-nav-toggle').click();
+    await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
+  }
+  const myTasksLink = mobileNavigation
+    ? mobileNavigation.getByTestId('nav-my-tasks') : page.getByTestId('nav-my-tasks').first();
+  await expect(myTasksLink).toBeVisible();
   const [myTasksResponse] = await Promise.all([
     waitForApiResponse(page, 'GET', '/api/me/tasks'),
-    page.getByTestId('nav-my-tasks').first().click()
+    myTasksLink.click()
   ]);
+  if (mobileNavigation) await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');
   await expect(page).toHaveURL(/\/app\/tasks$/);
   await expect(page.getByTestId('my-tasks-page')).toBeVisible();
   await expect(page.getByTestId('projects-load-error')).toHaveCount(0);
@@ -5202,7 +5267,7 @@ async function clickTaskOpenDetail(page: Page, taskRow: Locator): Promise<void> 
 }
 
 async function submitInvalidPasswordChange(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Account' }).first().click();
+  await clickSmokeNavigationLink(page, 'Account');
   await expect(page).toHaveURL(/\/app\/account$/);
   await expect(page.getByTestId('account-page')).toBeVisible();
   await expect(page.getByTestId('password-panel')).toBeVisible();
@@ -5228,6 +5293,13 @@ async function logoutAndVerifyAccessRevoked(page: Page, evidence: SmokeEvidence)
   // Assert the actual rendered public UI and browser location instead of
   // Playwright's document-navigation observer: this is an in-document Angular
   // route, not a new document request.
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(utilities).toBeVisible();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await utilities.click();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+  }
   const logoutResponse = waitForApiResponse(page, 'POST', '/api/auth/logout');
   await page.getByTestId('logout-action').click();
   const response = await logoutResponse;

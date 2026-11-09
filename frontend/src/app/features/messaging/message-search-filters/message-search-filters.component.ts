@@ -45,6 +45,10 @@ interface MessageAdvancedFilters {
 }
 
 type AuthorSearchStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
+export interface MessageSearchPresentation {
+  readonly mobilePanelOpen: boolean;
+  readonly advancedDrawerOpen: boolean;
+}
 type AdvancedFilterKey = 'author' | 'fromDate' | 'toDate' | 'read' | 'attachment';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -531,6 +535,26 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   private restoreLaterFilterAfterMutation = false;
   private mobilePanelFocusTimer: ReturnType<typeof setTimeout> | null = null;
   private mobilePanelFocusGeneration = 0;
+  private presentationFocusTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
+  @Input() presentationFocusCurrent: () => boolean = () => true;
+
+  @Input() set presentation(value: MessageSearchPresentation | null) {
+    if (!value || (!value.mobilePanelOpen && !value.advancedDrawerOpen)) { return; }
+    this.mobilePanelOpen.set(value.mobilePanelOpen);
+    this.advancedDrawerOpen.set(value.advancedDrawerOpen);
+    if (this.presentationFocusTimer !== null) { clearTimeout(this.presentationFocusTimer); }
+    this.presentationFocusTimer = setTimeout(() => {
+      this.presentationFocusTimer = null;
+      // A fresh child may restore local chrome after HTTP authorization. A newer
+      // user focus choice elsewhere takes precedence over this old local intent.
+      if (!this.destroyed && this.presentationFocusCurrent() && document.activeElement === document.body) {
+        if (this.advancedDrawerOpen()) { this.authorInput?.nativeElement.focus(); }
+        else if (this.mobilePanelOpen()) { this.searchInput?.nativeElement.focus(); }
+      }
+    });
+  }
+  @Output() readonly presentationChanged = new EventEmitter<MessageSearchPresentation>();
 
   @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('mobileToggle') private mobileToggle?: ElementRef<HTMLButtonElement>;
@@ -609,6 +633,8 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    if (this.presentationFocusTimer !== null) { clearTimeout(this.presentationFocusTimer); }
     this.cancelMobilePanelFocus();
     this.cancelRequest();
     this.cancelAuthorRequest();
@@ -622,6 +648,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.cancelMobilePanelFocus();
     const open = !this.mobilePanelOpen();
     this.mobilePanelOpen.set(open);
+    this.emitPresentation();
     if (open) {
       const origin = document.activeElement;
       const generation = this.mobilePanelFocusGeneration;
@@ -647,6 +674,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     event.stopPropagation();
     this.cancelMobilePanelFocus();
     this.mobilePanelOpen.set(false);
+    this.emitPresentation();
     setTimeout(() => this.mobileToggle?.nativeElement.focus());
   }
 
@@ -716,6 +744,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   changeSearch(): void {
     if (this.isMobileViewport()) {
       this.mobilePanelOpen.set(true);
+      this.emitPresentation();
     }
     this.clearSearch(true);
   }
@@ -761,6 +790,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.authorSearchStatus.set(applied.author ? 'ready' : 'idle');
     this.advancedFilterErrorKey.set(null);
     this.advancedDrawerOpen.set(true);
+    this.emitPresentation();
     setTimeout(() => this.authorInput?.nativeElement.focus());
   }
 
@@ -771,6 +801,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.cancelMobilePanelFocus();
     this.cancelAuthorRequest();
     this.advancedDrawerOpen.set(false);
+    this.emitPresentation();
     setTimeout(() => this.advancedTrigger?.nativeElement.focus());
   }
 
@@ -1187,6 +1218,10 @@ export class MessageSearchFiltersComponent implements OnDestroy {
       default:
         return this.allFilter;
     }
+  }
+
+  private emitPresentation(): void {
+    this.presentationChanged.emit({ mobilePanelOpen: this.mobilePanelOpen(), advancedDrawerOpen: this.advancedDrawerOpen() });
   }
 
   private scheduleFocus(target?: ElementRef<HTMLElement>): void {
