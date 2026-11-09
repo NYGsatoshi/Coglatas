@@ -23,7 +23,7 @@
           <svg lucideSearch aria-hidden="true"></svg>{{ text.searchAction }}
         </button>
       </form>
-      <button type="button" class="channels__primary" [disabled]="!facade.canCreate()"
+      <button type="button" class="channels__primary" [disabled]="!facade.canOpenCreate()"
         (click)="facade.openCreate()" data-testid="channel-create-open">
         <svg lucidePlus aria-hidden="true"></svg>{{ text.create }}
       </button>

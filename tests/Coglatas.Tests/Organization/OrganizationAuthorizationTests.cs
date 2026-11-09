@@ -349,6 +349,7 @@ public sealed class OrganizationAuthorizationTests
         public Task<IReadOnlyList<Post>> ListPinnedPostsAsync(Guid channelId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Post>>(Posts.Where(post => post.ChannelId == channelId && post is { PinnedAt: not null, DeletedAt: null }).ToList());
         public Task<PagedResponse<Post>> ListPostsAsync(Guid channelId, int page, int pageSize, DateTimeOffset? before, DateTimeOffset? after, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResponse<Post>(Posts.Where(post => post.ChannelId == channelId && !post.DeletedAt.HasValue).ToList(), page, pageSize, Posts.Count));
         public Task<Post?> GetPostByIdAsync(Guid postId, CancellationToken cancellationToken = default) => Task.FromResult(Posts.FirstOrDefault(post => post.Id == postId));
+        public Task<Post?> GetPostForUpdateAsync(Guid postId, CancellationToken cancellationToken = default) => Task.FromResult(Posts.FirstOrDefault(post => post.Id == postId));
         public Task<PagedResponse<PostThread>> ListThreadsAsync(Guid postId, int page, int pageSize, DateTimeOffset? before, DateTimeOffset? after, CancellationToken cancellationToken = default)
         {
             var source = Threads.Where(thread => thread.PostId == postId && thread.DeletedAt == null);

@@ -68,8 +68,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     {
                         CanManageSharing: false,
                         CanInspectSharing: false,
-                        Recipients: { Count: 0 },
-                        AvailableRecipients: { Count: 0 },
+                        Recipients.Count: 0,
+                        AvailableRecipients.Count: 0,
                         ExternalRecipientCount: null
                     };
                     var sharingVersionUnchanged = projection.SharingVersion == granted.SharingVersion;

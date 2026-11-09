@@ -1,0 +1,23 @@
+# Fixed, isolated synthetic actor journey. No published ports or intake activation.
+services:
+  app:
+    environment:
+      COGLATAS_SEED_ADMIN_ENABLED: "true"
+      COGLATAS_SEED_ADMIN_EMAIL: actor-owner@example.test
+      COGLATAS_SEED_ADMIN_USERNAME: Synthetic Actor Owner
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:?Synthetic owner password required}
+  real-backend-playwright:
+    image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+    user: ${ACTOR_UID:?Host UID required}:${ACTOR_GID:?Host GID required}
+    environment:
+      HOME: /control/home
+      TMPDIR: /control/tmp
+      COGLATAS_SEED_ADMIN_EMAIL: actor-owner@example.test
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:?Synthetic owner password required}
+      ACTOR_FRONTEND_SHA: ${TARGET_SHA:?Exact producer SHA required}
+      ACTOR_BACKEND_SHA: ${TARGET_SHA:?Exact producer SHA required}
+      ACTOR_RESULT_FILE: /control/result.json
+    volumes: !override
+      - ../../../:/work:ro
+      - ${ACTOR_CONTROL_DIR:?Private actor control required}:/control
+    command: ["node", "tests/ui/actor-replacement-real.mjs"]

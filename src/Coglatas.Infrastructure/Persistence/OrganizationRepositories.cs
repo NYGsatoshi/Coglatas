@@ -212,6 +212,14 @@ public sealed class ChannelRepository(AppDbContext dbContext) : IChannelReposito
             .FirstOrDefaultAsync(post => post.Id == postId, cancellationToken);
     }
 
+    public Task<Post?> GetPostForUpdateAsync(Guid postId, CancellationToken cancellationToken = default)
+    {
+        return dbContext.Posts
+            .AsTracking()
+            .Include(post => post.AuthorUser)
+            .FirstOrDefaultAsync(post => post.Id == postId, cancellationToken);
+    }
+
     public async Task<PagedResponse<PostThread>> ListThreadsAsync(Guid postId, int page, int pageSize, DateTimeOffset? before, DateTimeOffset? after, CancellationToken cancellationToken = default)
     {
         var query = dbContext.PostThreads

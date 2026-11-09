@@ -11,10 +11,10 @@ export function validateThreadProbe(value) {
   const extended = value && Object.hasOwn(value, 'observation');
   const initial = value && Object.hasOwn(value, 'initial');
   const fields = ['phases', 'target', ...(extended ? ['observation'] : []), ...(initial ? ['initial'] : [])];
-  if (!value || Object.keys(value).sort().join() !== fields.sort().join() || initial && !extended ||
+  if (!value || Object.keys(value).sort(compareCodeUnits).join() !== fields.sort(compareCodeUnits).join() || initial && !extended ||
       !Array.isArray(value.phases) || value.phases.length > phases.length ||
       new Set(value.phases).size !== value.phases.length || value.phases.some((phase) => !phases.includes(phase)) ||
-      !(extended && value.target === null) && (!value.target || Object.keys(value.target).sort().join() !== [...flags].sort().join() ||
+      !(extended && value.target === null) && (!value.target || Object.keys(value.target).sort(compareCodeUnits).join() !== [...flags].sort(compareCodeUnits).join() ||
       flags.some((flag) => typeof value.target[flag] !== 'boolean'))) {
     throw new Error('Restricted thread probe diagnostics are invalid.');
   }
@@ -28,6 +28,16 @@ export function validateThreadProbe(value) {
       !result.observation.events.some((event) => event.kind === 'AUTHORIZED_READ')) ||
       result.initial.failureDom !== null && result.observation.outcome !== 'FAILED') {
       throw new Error('Initial Thread diagnostic provenance is invalid.');
+    }
+    if (result.initial.preActionDeniedDom !== undefined && result.initial.preActionDeniedDom !== null) {
+      const events = result.observation.events;
+      const observer = events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+      const action = events.findIndex((event) => event.kind === 'ACTION_STARTED');
+      const containsInterleaving = observer >= 0 && action > observer && events.some((event, index) =>
+        event.kind === 'RESPONSE' && event.status === 400 && index > action &&
+        events.findIndex((request) => request.kind === 'REQUEST' && request.request === event.request) < observer &&
+        events.findIndex((request) => request.kind === 'REQUEST' && request.request === event.request) >= 0);
+      if (!containsInterleaving) { throw new Error('Unbound pre-action denial snapshot.'); }
     }
   }
   if (Buffer.byteLength(JSON.stringify(result)) > 4096) { throw new Error('Restricted thread probe exceeds its size limit.'); }
@@ -52,4 +62,12 @@ export function readThreadProbeSecondary(annotations) {
     return { state: 'INVALID', stages: [] };
   }
   return { state: 'AVAILABLE', stages };
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }

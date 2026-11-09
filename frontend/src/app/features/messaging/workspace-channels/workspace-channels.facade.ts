@@ -24,6 +24,9 @@ export class WorkspaceChannelsFacade {
   private listGeneration = 0;
   private listRequest?: Subscription;
   private commandRequest?: Subscription;
+  // An already displayed, server-granted button can receive its native click
+  // while a routine same-scope list refresh temporarily disables commands.
+  private mayOpenLocallyDuringRefresh = false;
   private createIdentity: { readonly fingerprint: string; readonly key: string } | null = null;
   private destroyed = false;
 
@@ -48,6 +51,11 @@ export class WorkspaceChannelsFacade {
   readonly totalPages = computed(() => Math.max(1, Math.ceil((this.directory()?.totalCount ?? 0) / 50)));
   readonly canCreate = computed(() => this.status() === 'ready' && this.directory()?.canCreate === true &&
     !!this.scope() && this.scope()!.key === this.boundScope && !this.pending());
+  // Opening an empty local dialog is not permission to create a channel.
+  // Submission always requires a fresh current-directory server capability.
+  readonly canOpenCreate = computed(() => this.canCreate() ||
+    (this.status() === 'loading' && this.mayOpenLocallyDuringRefresh && !this.destroyed &&
+      !!this.scope() && this.scope()!.key === this.boundScope && !this.pending()));
   readonly canSubmitCreate = computed(() => this.dialogOpen() && this.canCreate() && validChannelName(this.name()) &&
     ['PublicWithinScope', 'Private'].includes(this.visibility()));
 
@@ -75,6 +83,11 @@ export class WorkspaceChannelsFacade {
   refresh(page = 1): Promise<void> {
     const scope = this.scope();
     if (this.destroyed || !scope || scope.key !== this.boundScope || this.pending()) return Promise.resolve();
+    // Do not drop an already-authorized button's click in the brief window
+    // between starting a routine read and Angular updating the DOM. This is
+    // UI-only intent; create() still fails closed until the next allowed read.
+    this.mayOpenLocallyDuringRefresh = this.canCreate() ||
+      (this.status() === 'loading' && this.mayOpenLocallyDuringRefresh);
     this.listRequest?.unsubscribe();
     const generation = ++this.listGeneration;
     const boundary = this.boundary;
@@ -82,6 +95,7 @@ export class WorkspaceChannelsFacade {
     this.status.set('loading');
     const search = this.search().trim();
     if (search.length > 200 || !Number.isSafeInteger(page) || page < 1) {
+      this.mayOpenLocallyDuringRefresh = false;
       this.status.set('error');
       return Promise.resolve();
     }
@@ -89,12 +103,14 @@ export class WorkspaceChannelsFacade {
       this.listRequest = this.api.list(scope.workspaceId, page, search).pipe(finalize(resolve)).subscribe({
         next: (directory) => {
           if (!this.current(scope.key, boundary) || generation !== this.listGeneration) return;
+          this.mayOpenLocallyDuringRefresh = false;
           this.directory.set(directory);
           this.status.set('ready');
           if (!directory.canCreate) { this.clearCreate(); this.dialogOpen.set(false); }
         },
         error: (error: unknown) => {
           if (!this.current(scope.key, boundary) || generation !== this.listGeneration) return;
+          this.mayOpenLocallyDuringRefresh = false;
           if (this.isDenial(error)) {
             this.reset(); this.status.set('unavailable'); this.notice.set('denied');
           } else {
@@ -106,7 +122,7 @@ export class WorkspaceChannelsFacade {
   }
 
   openCreate(): void {
-    if (!this.canCreate()) return;
+    if (!this.canOpenCreate()) return;
     this.notice.set(null);
     this.dialogOpen.set(true);
   }
@@ -196,6 +212,7 @@ export class WorkspaceChannelsFacade {
   }
 
   private reset(): void {
+    this.mayOpenLocallyDuringRefresh = false;
     this.boundary++;
     this.listGeneration++;
     this.listRequest?.unsubscribe();

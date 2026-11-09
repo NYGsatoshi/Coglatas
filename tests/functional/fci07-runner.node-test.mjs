@@ -32,7 +32,8 @@ test('FCI-07 runners are syntactically valid and keep the security fixture bound
   assert.match(String(service?.command ?? ''), /run-fci07-playwright-owners\.sh/);
 });
 
-test('SEC-16 grant checks are wired into the mandatory FCI-07 owner', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('SEC-16 grant checks are wired into the mandatory FCI-07 owner', () => {
   const spec = readFileSync(specPath, 'utf8');
   const sec16 = readFileSync('tests/functional/security-negative/sec16-file-grants.ts', 'utf8');
   assert.match(spec, /createSec16GrantJourney\(/);

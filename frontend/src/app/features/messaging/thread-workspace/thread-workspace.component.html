@@ -1,3 +1,4 @@
+@let threadNavigationBinding = facade.threadNavigationBinding();
 <section class="workspace" [class.workspace--expanded]="facade.threadWorkspaceExpanded()" data-testid="thread-workspace">
   <header class="workspace__header">
     <h2>{{ i18n.translate('messaging.workspace.title') }}</h2>
@@ -38,7 +39,7 @@
         [thread]="facade.thread()" [canPost]="canPost" [canCreateThread]="canCreateThread"
         [mentionCandidates]="mentionCandidates" [focusMessageId]="focusMessageId"
         (close)="closeTab(facade.thread().rootMessageId!)"
-        (retry)="retry()"
+        (retry)="retry(threadNavigationBinding)"
         (draftChange)="facade.setThreadDraft($event)" (send)="facade.sendThreadDraft($event)"
       />
     </div>
@@ -49,7 +50,7 @@
         @for (root of availableRoots(); track root.id) {
           <button type="button" class="workspace__root"
             [attr.aria-current]="facade.thread().rootMessageId === root.id ? 'true' : null"
-            [attr.data-testid]="'thread-workspace-open-' + safeId(root.id)" (click)="openRoot(root.id)">
+            [attr.data-testid]="'thread-workspace-open-' + safeId(root.id)" (click)="openRoot(root.id, threadNavigationBinding)">
             <strong>{{ root.authorLabel }}</strong>
             <span class="workspace__excerpt">{{ root.isDeleted ? i18n.translate('messaging.deleted') : root.body }}</span>
             <span class="workspace__root-meta">

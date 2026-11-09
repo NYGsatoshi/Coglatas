@@ -30,6 +30,7 @@ const staticSuiteFiles = [
   'tests/ui/audit-accessibility.spec.ts',
   'tests/ui/message-thread-context.spec.ts',
   'tests/ui/student-council-group-dm.spec.ts',
+  'tests/ui/group-entry-workspace.spec.ts',
   'tests/ui/student-council-workspace-channels.spec.ts',
   'tests/ui/conversation-read.spec.ts',
   'tests/ui/web-wave-local-workbench.spec.ts',
@@ -45,7 +46,9 @@ try {
     '--test',
     'tests/ui/student-council-pilot-helpers.node-test.mjs',
     'tests/ui/group-keyboard-observation.node-test.mjs',
-    'tests/ui/public-https-golden-path-helpers.node-test.mjs'
+    'tests/ui/search-drawer-observation.node-test.mjs',
+    'tests/ui/public-https-golden-path-helpers.node-test.mjs',
+    'tests/ui/student-council-pilot-origin-guard.node-test.mjs'
   ]);
   if (helperExitCode !== 0) {
     throw new Error(`Angular Playwright helper tests failed with exit code ${helperExitCode}.`);

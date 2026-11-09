@@ -38,6 +38,7 @@ public interface IChannelRepository
     Task<IReadOnlyList<Post>> ListPinnedPostsAsync(Guid channelId, CancellationToken cancellationToken = default);
     Task<PagedResponse<Post>> ListPostsAsync(Guid channelId, int page, int pageSize, DateTimeOffset? before, DateTimeOffset? after, CancellationToken cancellationToken = default);
     Task<Post?> GetPostByIdAsync(Guid postId, CancellationToken cancellationToken = default);
+    Task<Post?> GetPostForUpdateAsync(Guid postId, CancellationToken cancellationToken = default);
     Task<PagedResponse<PostThread>> ListThreadsAsync(Guid postId, int page, int pageSize, DateTimeOffset? before, DateTimeOffset? after, CancellationToken cancellationToken = default);
     Task AddAsync(Channel channel, CancellationToken cancellationToken = default);
     Task AddMemberAsync(ChannelMember member, CancellationToken cancellationToken = default);

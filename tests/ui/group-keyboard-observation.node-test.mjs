@@ -6,12 +6,16 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import * as yaml from 'js-yaml';
+import { compareCodeUnits } from './test-support/code-unit-order.mjs';
 import { collectGroupKeyboardObservations } from '../../scripts/ci/collect-group-keyboard-observations.mjs';
-import { groupKeyboardByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
+import { groupKeyboardByteLimit, groupKeyboardV1ByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
   observeGroupKeyboardCase, validateGroupKeyboardObservation, withGroupKeyboardObservation } from './helpers/group-keyboard-observation.mjs';
 
 const event = () => ({ kind: 'KEYDOWN', key: 'HOME', target: 'LIST', active: 'LIST', documentFocused: true,
   defaultPrevented: false, milliseconds: 1000000, listTop: 1000000, listMax: 1000000, asideTop: 1000000, asideMax: 1000000 });
+const eventV2 = () => ({ ...event(), kind: 'CAPTURE_MICROTASK', listNode: 4096, listConnected: true,
+  trackedListNode: 4096, trackedListConnected: true, targetNode: 4096, targetConnected: true,
+  activeNode: 4096, activeConnected: true, trusted: true });
 const observation = (attempt = 0, bodyOutcome = 'FAILED') => ({ schemaVersion: 1,
   scope: 'MOCKED_UI_KEYBOARD_OBSERVATION_ONLY', profile: 'chromium-mobile', attempt, bodyOutcome,
   captureState: 'CAPTURED', classification: 'UNKNOWN', events: [event()], truncated: false });
@@ -30,10 +34,11 @@ function input(root, value) {
   writeFileSync(join(root, groupKeyboardInputDirectory, groupKeyboardFilename(value.profile, value.attempt)), JSON.stringify(value));
 }
 
-test('closed keyboard metadata excludes raw fields and fits 128 events within the 32 KiB budget', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('closed keyboard metadata excludes raw fields and fits 128 events within the 32 KiB budget', () => {
   const value = { ...observation(), events: Array.from({ length: 128 }, event) };
   assert.deepEqual(validateGroupKeyboardObservation(value), value);
-  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardByteLimit);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardV1ByteLimit);
   const mutations = [{ ...value, url: 'private-canary' }, { ...value, profile: 'private-canary' },
     { ...value, classification: 'CAUSE_PROVEN' }, { ...value, events: [...value.events, event()] },
     { ...value, events: [{ ...event(), html: 'private-canary' }] },
@@ -44,7 +49,7 @@ test('closed keyboard metadata excludes raw fields and fits 128 events within th
   for (const changed of mutations) { assert.throws(() => validateGroupKeyboardObservation(changed)); }
 });
 
-test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
+void test('truncation, unavailable and empty observations cannot claim complete evidence or a cause', () => {
   for (const changed of [{ ...observation(), truncated: true },
     { ...observation(), captureState: 'UNAVAILABLE', events: [] }, { ...observation(), events: [] }]) {
     assert.throws(() => validateGroupKeyboardObservation(changed));
@@ -53,7 +58,66 @@ test('truncation, unavailable and empty observations cannot claim complete evide
   assert.equal(validateGroupKeyboardObservation(observation(0, 'COMPLETED')).classification, 'UNKNOWN');
 });
 
-test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
+void test('v2 retains 128 bounded structural events while v1 remains a strict separate contract', () => {
+  const maximumEvent = () => ({ ...eventV2(), key: 'SHIFT_TAB', target: 'SUMMARY', active: 'SUMMARY',
+    listConnected: false, trackedListConnected: false, targetConnected: false, activeConnected: false, trusted: false });
+  const value = { ...observation(), schemaVersion: 2, profile: 'chromium-desktop', bodyOutcome: 'COMPLETED',
+    events: Array.from({ length: 128 }, maximumEvent) };
+  assert.deepEqual(validateGroupKeyboardObservation(value), value);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) > groupKeyboardV1ByteLimit);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardByteLimit);
+  for (const changed of [
+    { ...value, schemaVersion: 1 },
+    { ...value, schemaVersion: 3 },
+    { ...value, events: [...value.events, eventV2()] },
+    { ...value, events: [{ ...eventV2(), kind: 'POST_KEYDOWN' }] },
+    { ...value, events: [{ ...eventV2(), listNode: 4097 }] },
+    { ...value, events: [{ ...eventV2(), activeNode: 0.5 }] },
+    { ...value, events: [{ ...eventV2(), targetNode: 0, targetConnected: true }] },
+    { ...value, events: [{ ...eventV2(), trusted: 'private-canary' }] },
+    { ...value, events: [{ ...eventV2(), style: 'private-canary' }] },
+    { ...observation(), events: [{ ...event(), kind: 'SCROLL_END' }] },
+  ]) { assert.throws(() => validateGroupKeyboardObservation(changed)); }
+  for (const kind of ['SCROLL_END', 'LIFECYCLE', 'CAPTURE_MICROTASK']) {
+    assert.equal(validateGroupKeyboardObservation({ ...value,
+      events: [{ ...eventV2(), kind }] }).events[0].kind, kind);
+  }
+});
+
+void test('v2 never labels a missing roster, truncation or unavailable capture complete', () => {
+  const value = { ...observation(), schemaVersion: 2, events: [eventV2()] };
+  for (const changed of [{ ...value, truncated: true }, { ...value, events: [] },
+    { ...value, captureState: 'UNAVAILABLE', events: [] },
+    { ...value, events: [{ ...eventV2(), listNode: 0, listConnected: false }] }]) {
+    assert.throws(() => validateGroupKeyboardObservation(changed));
+    assert.equal(validateGroupKeyboardObservation({ ...changed, classification: 'INCOMPLETE' }).classification, 'INCOMPLETE');
+  }
+});
+
+void test('collector preserves strict legacy raw-byte bounds and independently binds mixed versions', () => {
+  for (const oversizedLegacy of [false, true]) {
+    const root = scratch();
+    try {
+      const sha = repository(root), legacy = { ...observation(), profile: 'chromium-desktop' };
+      input(root, legacy);
+      if (oversizedLegacy) {
+        const file = join(root, groupKeyboardInputDirectory, groupKeyboardFilename(legacy.profile, legacy.attempt));
+        writeFileSync(file, JSON.stringify(legacy) + ' '.repeat(groupKeyboardV1ByteLimit));
+        assert.throws(() => collectGroupKeyboardObservations(root, sha));
+        assert.equal(existsSync(join(root, groupKeyboardOutputDirectory)), false);
+      } else {
+        input(root, { ...observation(), schemaVersion: 2, events: [eventV2()] });
+        assert.equal(collectGroupKeyboardObservations(root, sha), 2);
+        const outputs = readdirSync(join(root, groupKeyboardOutputDirectory)).map((name) =>
+          JSON.parse(readFileSync(join(root, groupKeyboardOutputDirectory, name), 'utf8')));
+        assert.deepEqual(outputs.map((entry) => entry.observation.schemaVersion), [1, 2]);
+        assert.ok(outputs.every((entry) => entry.sourceSha === sha && entry.producerSha === sha));
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+});
+
+void test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
   const primary = new Error('private-primary'), secondary = new Error('private-secondary');
   let outcome;
   await assert.rejects(withGroupKeyboardObservation(async () => { throw primary; }, async (value) => {
@@ -64,7 +128,7 @@ test('publication and capture exceptions preserve the identical mandatory primar
     (error) => error === secondary);
 });
 
-test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
+void test('actual case helper publishes explicit unavailable capture before preserving the primary error', async () => {
   const root = scratch(), previous = process.cwd(), primary = new Error('private-primary');
   try {
     process.chdir(root);
@@ -78,18 +142,18 @@ test('actual case helper publishes explicit unavailable capture before preservin
   } finally { process.chdir(previous); rmSync(root, { recursive: true, force: true }); }
 });
 
-test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
+void test('actual Playwright first failure and later retry success retain separate immutable attempt files', () => {
   const root = scratch(), source = process.cwd();
   try {
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }));
     writeFileSync(join(root, 'fixture.spec.mjs'), `import {test} from ${JSON.stringify(pathToFileURL(join(source, 'node_modules/@playwright/test/index.mjs')).href)};
       import {observeGroupKeyboardCase} from ${JSON.stringify(pathToFileURL(join(source, 'tests/ui/helpers/group-keyboard-observation.mjs')).href)};
       test('mechanical retry-retention control only', async ({},info)=>{
-        await observeGroupKeyboardCase({addInitScript:async()=>{},evaluate:async()=>(${JSON.stringify({ events: [event()], truncated: false })})}, info,
+        await observeGroupKeyboardCase({addInitScript:async()=>{},evaluate:async()=>(${JSON.stringify({ events: [eventV2()], truncated: false })})}, info,
           async()=>{if(info.retry===0)throw new Error('private-primary');});
       });`);
     writeFileSync(join(root, 'quiet.mjs'), 'export default class { onEnd(){} }');
-    writeFileSync(join(root, 'config.mjs'), `export default ${JSON.stringify({ testDir: root, testMatch: 'fixture.spec.mjs',
+    writeFileSync(join(root, 'config.mjs'), `export default ${JSON.stringify({ build: { external: ['**/*.mjs'] }, testDir: root, testMatch: 'fixture.spec.mjs',
       outputDir: join(root, 'runner-output'), workers: 1, retries: 1, reporter: [[join(root, 'quiet.mjs')]],
       projects: [{ name: 'chromium-mobile' }],
     })};`);
@@ -97,7 +161,7 @@ test('actual Playwright first failure and later retry success retain separate im
     const run = spawnSync(process.execPath, [join(source, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(root, 'config.mjs')],
       { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 0); assert.equal((run.stdout + run.stderr).includes('private'), false);
-    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort();
+    const inputNames = readdirSync(join(root, groupKeyboardInputDirectory)).sort(compareCodeUnits);
     assert.deepEqual(inputNames, ['chromium-mobile-attempt-0.json', 'chromium-mobile-attempt-1.json']);
     assert.equal(collectGroupKeyboardObservations(root, sha), 2);
     const output = inputNames.map((name) => JSON.parse(readFileSync(join(root, groupKeyboardOutputDirectory, name), 'utf8')));
@@ -107,7 +171,7 @@ test('actual Playwright first failure and later retry success retain separate im
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
+void test('collector rejects raw data, identity mismatches, dirty source and stale output before any publication', () => {
   for (const mutation of ['raw', 'wrong-name', 'oversized', 'producer', 'source', 'dirty', 'stale']) {
     const root = scratch();
     try {
@@ -128,7 +192,7 @@ test('collector rejects raw data, identity mismatches, dirty source and stale ou
   }
 });
 
-test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
+void test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
   for (const mutation of ['special-file', 'same-inode-growth']) {
     const root = scratch();
     try {
@@ -170,7 +234,7 @@ test('collector rejects a special-file acquisition race and bounds same-inode gr
   }
 });
 
-test('collector refuses a linked artifacts parent before publication', () => {
+void test('collector refuses a linked artifacts parent before publication', () => {
   const root = scratch();
   try {
     const sha = repository(root); input(root, observation());
@@ -182,7 +246,7 @@ test('collector refuses a linked artifacts parent before publication', () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
+void test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/ci.yml', 'utf8'));
   const steps = workflow.jobs['frontend-test'].steps;
   const collect = steps.find((step) => step.id === 'collect-group-keyboard-observations');
@@ -200,7 +264,7 @@ test('CI retains only validated finite files after retry-success without expandi
     /'--test',[\s\S]*'tests\/ui\/group-keyboard-observation\.node-test\.mjs'/);
 });
 
-test('Main retains only successfully validated keyboard JSON and rejects raw success publication', () => {
+void test('Main retains only successfully validated keyboard JSON and rejects raw success publication', () => {
   const workflow = yaml.load(readFileSync('.github/workflows/main-validation.yml', 'utf8'));
   const original = workflow.jobs['main-frontend-test'].steps;
   const verify = (steps) => {
@@ -216,7 +280,11 @@ test('Main retains only successfully validated keyboard JSON and rejects raw suc
     assert.equal(upload['continue-on-error'], undefined);
     assert.equal(upload.uses, 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
     assert.ok(steps.indexOf(collect) < steps.indexOf(upload));
-    assert.equal(steps.filter((step) => step.uses?.startsWith('actions/upload-artifact@')).length, 2);
+    assert.equal(steps.filter((step) => step.uses?.startsWith('actions/upload-artifact@')).length, 3);
+    const search = steps.find((step) => step.with?.name === 'main-search-drawer-observations');
+    assert.equal(search.if, "always() && steps.collect-search-drawer-observations.outcome == 'success'");
+    assert.equal(search.with.path, 'artifacts/search-drawer-observation-validated/*.json');
+    assert.equal(search['continue-on-error'], undefined);
     const general = steps.find((step) => step.with?.name === 'main-frontend-browser-artifacts');
     assert.equal(general.if, 'failure()');
     assert.equal(general.with.path.trim(), 'playwright-report/\ntest-results/');

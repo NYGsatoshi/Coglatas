@@ -1,0 +1,59 @@
+# Original synthetic Test mechanism only; no production/HTTPS recovery claim.
+# No build, migrate, fixture seed, public port, external volume or host network.
+services:
+  postgres:
+    image: ${COGLATAS_RECOVERY_POSTGRES_IMAGE:?set recorded immutable PostgreSQL image}
+    environment:
+      POSTGRES_DB: coglatas_smoke
+      POSTGRES_USER: coglatas_smoke
+      POSTGRES_PASSWORD: coglatas_smoke_password
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U coglatas_smoke -d coglatas_smoke]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  app:
+    image: ${COGLATAS_APP_IMAGE:?set the same recorded application image}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Test
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=coglatas_smoke;Username=coglatas_smoke;Password=coglatas_smoke_password
+      Tenancy__AppMode: SaaS
+      Tenancy__TenantResolutionStrategy: HeaderForDevelopmentOnly
+      Tenancy__AllowDevelopmentHeaderTenantResolution: "true"
+      Tenancy__DevelopmentTenantHeaderName: X-Tenant-Slug
+      Tenancy__SeedOnStartup: "false"
+      UiShell__SeedOnStartup: "false"
+      LocalAdmin__SeedOnStartup: "false"
+      COGLATAS_SEED_ADMIN_ENABLED: "false"
+      COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"
+      COGLATAS_DEMO_DATASET_ENABLED: "false"
+      SecurityCiFixture__Enabled: "false"
+      Security__RequireHttps: "false"
+      Security__CookieSecurePolicy: SameAsRequest
+      Security__EnableHsts: "false"
+      Security__EnableCsrfProtection: "true"
+      Security__EnableRateLimiting: "false"
+      FileStorage__Provider: LocalFileSystem
+      FileStorage__RootPath: /app/storage/uploads
+      DataProtection__KeysPath: /app/data/protection-keys
+      Logging__LogLevel__Default: Warning
+    volumes:
+      - uploads:/app/storage/uploads
+      - protection_keys:/app/data/protection-keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, curl --fail --silent --show-error http://localhost:8080/health/ready >/dev/null]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+networks:
+  default:
+    internal: true
+volumes:
+  pgdata:
+  uploads:
+  protection_keys:
