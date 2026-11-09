@@ -8,12 +8,17 @@ Project fixture. All original test methods, fixtures and assertions remain.
 
 Each denial retains the selected existing milestone identity, parent, title,
 description, date, status, sort order, version and lifecycle timestamps. It
-leaves the milestone inventory unchanged and emits no audit or invalidation,
+leaves the milestone inventory unchanged and emits no audit or Project invalidation,
 command save, generic save or command-tracking clear. A subsequent valid
 command in the same fixture must succeed, trim the requested fields, use the
 command unit of work once, and emit the scoped audit and Project invalidation.
 The create control also retains the original milestone unchanged; the update
 control advances its existing version exactly once.
+
+The selected state is also compared after reading the fixture's stored
+dictionary entries again. Valid controls compare the stored create and update
+values with the accepted response or selected entity fields. This qualifies
+the repository double's state, not independent database persistence.
 
 These are Application tests with repository, authorization, audit,
 invalidation and unit-of-work doubles. They do not establish PostgreSQL

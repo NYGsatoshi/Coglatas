@@ -41,6 +41,11 @@ public sealed partial class ProjectServiceTests
             existing.DueDate, existing.Status, existing.SortOrder, existing.VersionNo,
             existing.CreatedAt, existing.UpdatedAt, existing.DeletedAt));
         Assert.Equal(existing.Id, Assert.Single(fixture.Projects.Milestones.Keys));
+        var storedAfterRejection = fixture.Projects.Milestones[existing.Id];
+        Assert.Equal(before, (storedAfterRejection.Id, storedAfterRejection.ProjectId,
+            storedAfterRejection.Name, storedAfterRejection.Description, storedAfterRejection.DueDate,
+            storedAfterRejection.Status, storedAfterRejection.SortOrder, storedAfterRejection.VersionNo,
+            storedAfterRejection.CreatedAt, storedAfterRejection.UpdatedAt, storedAfterRejection.DeletedAt));
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
@@ -64,6 +69,16 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(20, accepted.Value.DisplayOrder);
         Assert.Equal(1L, accepted.Value.Version);
         Assert.Equal(new[] { existing.Id, accepted.Value.Id }.Order(), fixture.Projects.Milestones.Keys.Order());
+        var storedCreate = fixture.Projects.Milestones[accepted.Value.Id];
+        Assert.Equal((accepted.Value.Id, accepted.Value.ProjectId, accepted.Value.Title,
+                accepted.Value.Description, accepted.Value.DueDate, accepted.Value.DisplayOrder, accepted.Value.Version),
+            (storedCreate.Id, storedCreate.ProjectId, storedCreate.Name, storedCreate.Description,
+                storedCreate.DueDate, storedCreate.SortOrder, storedCreate.VersionNo));
+        var storedExistingAfterCreate = fixture.Projects.Milestones[existing.Id];
+        Assert.Equal(before, (storedExistingAfterCreate.Id, storedExistingAfterCreate.ProjectId,
+            storedExistingAfterCreate.Name, storedExistingAfterCreate.Description, storedExistingAfterCreate.DueDate,
+            storedExistingAfterCreate.Status, storedExistingAfterCreate.SortOrder, storedExistingAfterCreate.VersionNo,
+            storedExistingAfterCreate.CreatedAt, storedExistingAfterCreate.UpdatedAt, storedExistingAfterCreate.DeletedAt));
         Assert.Equal(before, (existing.Id, existing.ProjectId, existing.Name, existing.Description,
             existing.DueDate, existing.Status, existing.SortOrder, existing.VersionNo,
             existing.CreatedAt, existing.UpdatedAt, existing.DeletedAt));
@@ -117,6 +132,11 @@ public sealed partial class ProjectServiceTests
             milestone.DueDate, milestone.Status, milestone.SortOrder, milestone.VersionNo,
             milestone.CreatedAt, milestone.UpdatedAt, milestone.DeletedAt));
         Assert.Equal(milestone.Id, Assert.Single(fixture.Projects.Milestones.Keys));
+        var storedAfterRejection = fixture.Projects.Milestones[milestone.Id];
+        Assert.Equal(before, (storedAfterRejection.Id, storedAfterRejection.ProjectId,
+            storedAfterRejection.Name, storedAfterRejection.Description, storedAfterRejection.DueDate,
+            storedAfterRejection.Status, storedAfterRejection.SortOrder, storedAfterRejection.VersionNo,
+            storedAfterRejection.CreatedAt, storedAfterRejection.UpdatedAt, storedAfterRejection.DeletedAt));
         Assert.Equal(0, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.GenericSaveCount);
@@ -144,6 +164,14 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(milestone.Status, accepted.Value.Status);
         Assert.Equal(milestone.DueDate, accepted.Value.DueDate);
         Assert.Equal(milestone.SortOrder, accepted.Value.DisplayOrder);
+        Assert.Equal(milestone.Description, accepted.Value.Description);
+        var storedUpdate = fixture.Projects.Milestones[milestone.Id];
+        Assert.Equal((milestone.Id, milestone.ProjectId, milestone.Name, milestone.Description,
+                milestone.DueDate, milestone.Status, milestone.SortOrder, milestone.VersionNo,
+                milestone.CreatedAt, milestone.UpdatedAt, milestone.DeletedAt),
+            (storedUpdate.Id, storedUpdate.ProjectId, storedUpdate.Name, storedUpdate.Description,
+                storedUpdate.DueDate, storedUpdate.Status, storedUpdate.SortOrder, storedUpdate.VersionNo,
+                storedUpdate.CreatedAt, storedUpdate.UpdatedAt, storedUpdate.DeletedAt));
         Assert.Equal(milestone.Id, Assert.Single(fixture.Projects.Milestones.Keys));
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
         Assert.Equal(0, fixture.CommandUnitOfWork.ClearCount);
