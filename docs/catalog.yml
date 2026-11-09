@@ -2129,7 +2129,7 @@ documents:
   kind: report
   domain: ci
   lifecycle: historical
-  classification_basis: Historical issue #1601 cleanup-exit repair and synthetic child-event test record. Current cleanup
+  classification_basis: Historical issue 1601 cleanup-exit repair and synthetic child-event test record. Current cleanup
     behavior is governed by run-real-backend-smoke-compose.mjs and its Node controls, not this
     source-bound report.
 - path: docs/verification/real-backend-mobile-acceptance.md
