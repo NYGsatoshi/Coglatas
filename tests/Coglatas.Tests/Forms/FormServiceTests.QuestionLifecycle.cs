@@ -119,11 +119,17 @@ public sealed partial class FormServiceTests
         fixture.AddResponse(form, manager.Id, [(question, "Retained answer", null)]);
         var response = Assert.Single(fixture.StoredResponses);
         var answer = Assert.Single(response.Answers);
+        var responseId = response.Id;
+        var answerId = answer.Id;
         var before = QuestionState(question);
 
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest("Changed", FormQuestionType.Boolean, false, 99));
+        Assert.Equal(responseId, response.Id);
+        Assert.Equal(answerId, answer.Id);
         var deleted = await fixture.Service.DeleteQuestionAsync(form.Id, question.Id);
+        Assert.Equal(responseId, response.Id);
+        Assert.Equal(answerId, answer.Id);
 
         Assert.False(updated.IsSuccess);
         Assert.Equal("Question type cannot be changed after responses exist.", updated.Error);
