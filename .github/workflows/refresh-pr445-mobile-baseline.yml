@@ -12,7 +12,7 @@ permissions: {}
 jobs:
   refresh-mobile-baseline:
     if: github.repository_id == '1261244608'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     environment: syncfusion-licensed-build
@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Refresh only the Linux mobile screenshot baseline
         shell: bash

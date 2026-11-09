@@ -22,12 +22,15 @@ on:
           - p0
           - fci04
           - mobile
+          - mobile-mvp0
+          - roster
           - issue683
           - authz
           - my-tasks
           - mbj01
           - mbj02
           - mbj03
+          - logical-recovery
           - all
   push:
     branches:
@@ -48,7 +51,7 @@ permissions:
 jobs:
   licensed-real-backend:
     name: licensed-real-backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 180
 
@@ -67,7 +70,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
+
+      - name: Admit explicitly selected synthetic logical recovery
+        id: logical_recovery_admission
+        if: inputs.suite == 'logical-recovery'
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { hostedContract } from './scripts/ci/run-synthetic-logical-recovery.mjs';
+          import { prepareRecoveryWorkflow } from './scripts/ci/synthetic-logical-recovery-receipt.mjs';
+          try { prepareRecoveryWorkflow(hostedContract(process.env), process.env); }
+          catch { console.error('Synthetic logical recovery admission rejected.'); process.exitCode = 1; }
+          NODE
 
       - name: Download main build artifacts
         if: inputs.reuse_main_artifacts == true
@@ -113,8 +130,65 @@ jobs:
           COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI: ${{ github.workspace }}/node_modules/@playwright/test/cli.js
         run: python3 scripts/ci/test-main-runtime-artifact.py AcceptanceImageReuseTests.test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary
 
+      - name: Prepare host-owned isolated roster output before Docker writes
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { accessSync, constants, lstatSync, mkdirSync } from 'node:fs';
+          try {
+            for (const path of ['artifacts', 'artifacts/roster-private', 'artifacts/roster-real']) {
+              try { mkdirSync(path, { mode: 0o700 }); }
+              catch (error) { if (error.code !== 'EEXIST') throw error; }
+              const info = lstatSync(path);
+              if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() ||
+                  (path !== 'artifacts' && (info.mode & 0o077) !== 0)) throw new Error();
+              accessSync(path, constants.W_OK | constants.X_OK);
+            }
+          } catch {
+            console.error('UI07_ROSTER_HOST_OUTPUT_NOT_WRITABLE');
+            process.exit(1);
+          }
+          console.log('UI07_ROSTER_HOST_OUTPUT_READY');
+          NODE
+
       - name: Prune unused Docker networks
+        if: inputs.suite != 'roster' && inputs.suite != 'logical-recovery' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         run: docker network prune --force
+
+      - name: Run isolated synthetic logical recovery mechanism
+        id: logical_recovery
+        if: steps.logical_recovery_admission.outputs.admitted == 'true'
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+          COGLATAS_RECOVERY_SOURCE_TREE: ${{ steps.logical_recovery_admission.outputs.source_tree }}
+        run: node scripts/ci/run-synthetic-logical-recovery.mjs
+
+      - name: Validate only the current synthetic logical recovery receipt
+        id: logical_recovery_receipt
+        if: always() && steps.logical_recovery_admission.outputs.admitted == 'true'
+        env:
+          COGLATAS_LOGICAL_RECOVERY_SELECTED: "1"
+          COGLATAS_RECOVERY_REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
+          COGLATAS_RECOVERY_SOURCE_TREE: ${{ steps.logical_recovery_admission.outputs.source_tree }}
+          COGLATAS_RECOVERY_RECEIPT_PATH: ${{ steps.logical_recovery.outputs.receipt_path }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { hostedContract } from './scripts/ci/run-synthetic-logical-recovery.mjs';
+          import { validateRecoveryReceipt } from './scripts/ci/synthetic-logical-recovery-receipt.mjs';
+          try { validateRecoveryReceipt(hostedContract(process.env), process.env); }
+          catch { console.error('Current synthetic logical recovery receipt rejected.'); process.exitCode = 1; }
+          NODE
+
+      - name: Upload closed synthetic logical recovery receipt
+        if: always() && steps.logical_recovery_admission.outputs.admitted == 'true' && steps.logical_recovery_receipt.outputs.receipt_path != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: synthetic-logical-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.logical_recovery_receipt.outputs.receipt_path }}
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run canonical FCI-04 fast and full owner on the reviewed candidate
         if: startsWith(github.ref, 'refs/heads/test/fci04-') || inputs.suite == 'fci04'
@@ -129,6 +203,43 @@ jobs:
       - name: Run Issue 683 fixed-SHA repeated race evidence
         if: github.event_name == 'workflow_dispatch' && inputs.suite == 'issue683'
         run: node tests/ui/run-issue-683-real-backend-evidence.mjs
+
+      # The fixed trusted push candidate uses the existing direct credential scope.
+      # Other push refs retain their previous suite selection.
+      - name: Verify isolated ReadOnly roster runner contracts
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        run: node --test tests/ui/readonly-roster-fixture.node-test.mjs tests/ui/readonly-roster-runner.node-test.mjs
+
+      - name: Run isolated real-backend ReadOnly roster acceptance
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        run: node tests/ui/run-real-backend-readonly-roster.mjs
+
+      - name: Upload structural ReadOnly roster execution receipts
+        if: always() && (inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: readonly-roster-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/roster-real/*/execution.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run independent real-backend MVP0 Mobile acceptance
+        if: inputs.suite == 'mobile-mvp0'
+        run: |
+          node --test tests/ui/mobile-mvp0-profile.node-test.mjs tests/ui/mobile-mvp0-runner.node-test.mjs
+          node tests/ui/run-real-backend-mobile-mvp0.mjs
+
+      - name: Upload sanitized MVP0 Mobile execution and device receipts
+        if: always() && inputs.suite == 'mobile-mvp0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: real-backend-mobile-mvp0-${{ github.sha }}
+          path: |
+            artifacts/mobile-mvp0/source-sha
+            artifacts/mobile-mvp0/profile.json
+            artifacts/mobile-mvp0/execution.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run opt-in real-backend mobile acceptance
         if: inputs.suite == 'mobile'
@@ -266,7 +377,7 @@ jobs:
           retention-days: 30
 
       - name: Upload sanitized diagnostic artifacts on failure
-        if: failure() && inputs.suite != 'mobile'
+        if: failure() && inputs.suite != 'mobile' && inputs.suite != 'mobile-mvp0' && inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

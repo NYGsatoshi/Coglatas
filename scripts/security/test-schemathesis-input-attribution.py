@@ -211,5 +211,18 @@ class IntegrationInputAttributionTests(unittest.TestCase):
         hooks.no_sensitive_internal_error_disclosure(None, response, get)
 
 
+    def test_workspace_icon_uses_actual_created_and_collection_case_metadata(self):
+        document = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+        operations = hooks.schemathesis.openapi.from_dict(document)["/api/workspaces"]
+        body = {"name": "owned synthetic Workspace", "icon": "sqlstate"}
+        row = {"id": self.integration_id, **body}
+        post = operations["POST"].Case(body=body, media_type="application/json")
+        response = SimpleNamespace(content=json.dumps({"data": row}).encode(), status_code=201)
+        hooks.no_sensitive_internal_error_disclosure(None, response, post)
+        response.content = json.dumps([row]).encode()
+        response.status_code = 200
+        hooks.no_sensitive_internal_error_disclosure(None, response, operations["GET"].Case())
+
+
 if __name__ == "__main__":
     unittest.main()

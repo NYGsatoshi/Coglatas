@@ -18,7 +18,7 @@ services:
       retries: 20
 
   migrate:
-    image: mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:afd0ccff9d306812a69ef0f47458376b6acb544ae866cfc4b8d28ff0eef35ea7
+    image: mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e
     working_dir: /src
     volumes:
       - ../../../:/src
