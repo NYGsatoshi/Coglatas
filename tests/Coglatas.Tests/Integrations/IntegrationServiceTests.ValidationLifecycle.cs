@@ -54,13 +54,18 @@ public sealed partial class IntegrationServiceTests
     public async Task IntegrationLifecycleNormalizesDefaultsAndPreservesNullUpdates(string? settings, string expected)
     {
         var fixture = IntegrationFixture.Create();
-        var created = await fixture.Service.CreateIntegrationAsync(new CreateIntegrationAccountRequest(IntegrationProvider.Other, "  Connector  ", settings));
+        var request = new CreateIntegrationAccountRequest(IntegrationProvider.Other, "  Connector  ", settings);
+        if (settings is not null)
+        {
+            request = request with { Status = IntegrationAccountStatus.Suspended };
+        }
+        var created = await fixture.Service.CreateIntegrationAsync(request);
         Assert.True(created.IsSuccess);
         var original = created.Value!;
         Assert.Equal("Connector", original.DisplayName);
         Assert.Equal(expected, original.SettingsJson);
         Assert.Equal(fixture.UserId, original.CreatedByUserId);
-        Assert.Equal(IntegrationAccountStatus.Draft, original.Status);
+        Assert.Equal(settings is null ? IntegrationAccountStatus.Draft : IntegrationAccountStatus.Suspended, original.Status);
 
         var unchanged = await fixture.Service.UpdateIntegrationAsync(original.Id, new UpdateIntegrationAccountRequest(null, null, null));
         Assert.True(unchanged.IsSuccess);
@@ -89,7 +94,7 @@ public sealed partial class IntegrationServiceTests
 
     [Theory]
     [InlineData(" ", "https://example.test/hook", "[]", "Webhook name is required.")]
-    [InlineData("Hook", "/relative", "[]", "Webhook URL must be absolute.")]
+    [InlineData("Hook", "relative/path", "[]", "Webhook URL must be absolute.")]
     [InlineData("Hook", "ftp://example.test/hook", "[]", "Webhook URL must use HTTPS.")]
     [InlineData("Hook", "http://example.test/hook", "[]", "Webhook URL must use HTTPS.")]
     [InlineData("Hook", "https://example.test/hook", "{", "Webhook events must contain valid JSON.")]
