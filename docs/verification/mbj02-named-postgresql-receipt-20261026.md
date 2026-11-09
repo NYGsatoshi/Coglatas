@@ -1,5 +1,25 @@
 # MBJ-02 fixed PostgreSQL result receipt
 
+## Historical implementation report and current receipt boundary
+
+This report records the October 2026 MBJ-02 named PostgreSQL receipt work,
+initial exact-source failures and bounded local/synthetic controls. Its
+initial Main observation, candidate test successes, seven synthetic
+fixture failures and later corrections are preserved below with their own
+source and run identities. They do not establish a fresh hosted acceptance
+result for the current Main head.
+
+At observed Main `54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae`, the
+[MBJ-02 runner](../../scripts/ci/run-mbj02-invite-acceptance.sh)
+selects `Scope=Issue527`, and the
+[receipt producer/validator](../../scripts/ci/mbj02-trx-receipt.py)
+enforces exact result identity and a separate full-wrapper exit condition.
+The [licensed acceptance workflow](../../.github/workflows/licensed-real-backend-acceptance.yml)
+invokes its tests and publishes the bounded validated receipt when eligible.
+`verification=VERIFIED` alone is not `status=PASS`. Neither this historic
+report nor the present wiring qualifies a future run, production recovery,
+release approval or a different project's requirements.
+
 ## Problem and boundary
 
 At Main `0eb156a773f8763b4fe7e1c14acead1fd4806560`, the MBJ-02 runner executes `Scope=Issue527` but does not invoke the required-name TRX verifier. The licensed workflow retains `test-results/` only on failure. Successful logs therefore do not provide an independently retained, strictly reconciled eight-fact result.

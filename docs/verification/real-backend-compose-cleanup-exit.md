@@ -1,5 +1,21 @@
 # Real-backend Compose cleanup exit propagation
 
+## Historical repair record and current source boundary
+
+This report records the #1601 cleanup-exit repair and its bounded helper tests.
+Read the results and its final *fresh hosted qualification remains necessary*
+statement as evidence from that repair, not a new run against today's Main.
+At observed Main `54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae`, the
+[actual Compose adapter](../../tests/ui/run-real-backend-smoke-compose.mjs)
+still treats unsuccessful project-scoped cleanup after a successful generic
+scenario as failure, and the
+[source-bound Node controls](../../tests/ui/real-backend-smoke-compose-helpers.node-test.mjs)
+cover failure precedence and SIGINT/SIGTERM handling with synthetic child
+events. The maintained operational entry is the
+[Functional Compose harness](../ci/functional-compose-harness.md).
+Source presence and synthetic controls do not prove actual Docker cleanup,
+latest licensed browser execution or Pilot/Release authorization.
+
 Issue [#1601](https://github.com/NYGsatoshi/Coglatas/issues/1601) corrects a
 qualification false success: the generic Compose adapter previously returned a
 successful scenario's zero exit even when its scoped `down` command failed.

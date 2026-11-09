@@ -141,6 +141,9 @@ Further implementation requires a refreshed PR-overlap check.
 | DOC-M16 | [Acceptance prebuilt-image reuse](verification/acceptance-prebuilt-image-reuse-20261019.md) | Retain historical repair/report; DOC-06 classified | Preserve original provenance-gap audit, bounded local controls and pending candidate checks. The later receipt-retention failure confirms this is not a current completeness attestation; current v1/v2 requirements remain in [runtime image identity](verification/runtime-image-identity.md). |
 | DOC-M17 | [Acceptance image receipt retention](verification/acceptance-image-receipt-retention-20261019.md) | Retain failed historical audit; DOC-06 classified | Keep Main 39150862060/1's three-of-four receipt failure and original repair evidence; distinguish classic schema v1 from conditional proof-bound v2 only by referencing current Main validator and active runtime identity contract. Do not upgrade either audit to a current hosted PASS. |
 | DOC-M18 | [Real-backend P0 authorization handoff](verification/real-backend-p0-authorization-handoff.md) | Retain historical handoff log; DOC-06 classified | The final exact-Main 37838083775/1 qualification closes the documented candidate chronology but not independent dependency/release gates. Current Test-only probe scope belongs to [security model](SECURITY_MODEL.md) and implementation. |
+| DOC-M19 | [Real-backend Compose cleanup exit](verification/real-backend-compose-cleanup-exit.md) | Retain historical issue repair; DOC-06 classified | The #1601 candidate record has synthetic child-event evidence, not fresh hosted Docker/OS proof. Current behavior is in [the Compose adapter](../tests/ui/run-real-backend-smoke-compose.mjs), Node controls and [harness guide](ci/functional-compose-harness.md); retain all original failure precedence and authorization limits. |
+| DOC-M20 | [SDK image digest coordination](verification/sdk-image-digest-coordination.md) | Retain historical digest-drift repair; DOC-06 classified | Keep original same-version digest mismatch and test-only negative mutations. Current canonical pin is [the Dockerfile](../Dockerfile) and the [image parity guard](../scripts/ci/test-dependency-update-policy.rb); do not convert pin parity into runtime or recovery approval. |
+| DOC-M21 | [MBJ-02 named PostgreSQL receipt](verification/mbj02-named-postgresql-receipt-20261026.md) | Retain historical receipt repair; DOC-06 classified | Preserve initial eight-fact source proof, the original seven failed synthetic fixture cases, and later corrections; current receipt authority is [the producer](../scripts/ci/mbj02-trx-receipt.py), wrapper and licensed workflow. `VERIFIED` is not wrapper `PASS`. |
 
 ## Branch and PR coordination
 
@@ -227,6 +230,26 @@ the inspected `508f5a565b4bf6d6942163fb1447eaff9b241ecb` Main verifier, shell he
 licensed acceptance workflow and existing active runtime-image-identity
 contract. This is classification/navigation only, not a physical move,
 archive admission, replay qualification or approval change.
+
+### DOC-06 evidence-chronology coordination snapshot: 2026-11-09 JST
+
+| Owning branch | Observed commit |
+| --- | --- |
+| `docs/integration-20261107` | `6a12a6416910b11af12d2157581234c34adc1c55` |
+| `main` | `54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae` |
+| `SecurityTestImplimation` | `1dc64c38390208e45c4496c685cd4c37de00607c` |
+
+The all-pages changed-file inventory covered 57 open PRs. None directly
+modifies the three source reports, this catalogue, or this move ledger.
+Related but unadopted source proposals exist: Dockerfile changes in #1826,
+#1787 and #1556; Compose adapter changes in #1632 and #1633;
+MBJ-02 receipt producer and SDK pin guard changes in #1556;
+and licensed acceptance workflow changes in #1633, #1502 and #1456.
+These candidates are not imported. Current source observations are pinned
+to the inspected Main commit
+`54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae`. Each document's original
+evidence remains source- and attempt-bound; this classification is not
+permission to archive a path or apply a held code/test candidate.
 
 ### Pending Main synchronization
 
