@@ -145,6 +145,38 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertEqual(len(selected), len(set(selected)))
                 self.assertEqual(sorted(selected), sorted(expected))
 
+    def test_existing_local_and_suspension_suites_are_complete_and_selected_once(self):
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        loader = unittest.TestLoader()
+
+        def cases(suite):
+            for item in suite:
+                if isinstance(item, unittest.TestSuite):
+                    yield from cases(item)
+                else:
+                    yield item.id()
+
+        for filename, count in (('test_performance_local.py', 26), ('test_performance_assurance.py', 9)):
+            with self.subTest(filename=filename):
+                self.assertEqual(loop.count('tests/ci/' + filename), 1)
+                name = 'canonical_existing_' + Path(filename).stem
+                spec = importlib.util.spec_from_file_location(name, ROOT / 'tests/ci' / filename)
+                self.assertIsNotNone(spec)
+                self.assertIsNotNone(spec.loader)
+                module = importlib.util.module_from_spec(spec)
+                with mock.patch.object(sys, 'path', [str(ROOT / 'tests/ci'), *sys.path]):
+                    spec.loader.exec_module(module)
+                self.assertFalse(hasattr(module, 'load_tests'), 'A new loader hook needs independent completeness review.')
+                expected = []
+                for value in vars(module).values():
+                    if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == name:
+                        expected.extend(cases(loader.loadTestsFromTestCase(value)))
+                selected = list(cases(loader.loadTestsFromModule(module)))
+                self.assertEqual(len(expected), count)
+                self.assertEqual(len(selected), len(set(selected)))
+                self.assertEqual(sorted(selected), sorted(expected))
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -214,6 +246,18 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/environment_class.py',
             ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary.py',
             ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary_base.py',
+            ROOT.as_posix() + '/scripts/performance/assurance_policy.py',
+            ROOT.as_posix() + '/scripts/performance/db-probe.py',
+            ROOT.as_posix() + '/scripts/performance/db_gate.py',
+            ROOT.as_posix() + '/scripts/performance/db_probe_import.py',
+            ROOT.as_posix() + '/scripts/performance/diagnostic_json.py',
+            ROOT.as_posix() + '/scripts/performance/local-fetch-evidence.py',
+            ROOT.as_posix() + '/scripts/performance/local-runtime-preflight.py',
+            ROOT.as_posix() + '/scripts/performance/local_api_samples.py',
+            ROOT.as_posix() + '/scripts/performance/local_evidence.py',
+            ROOT.as_posix() + '/scripts/performance/local_runner.py',
+            ROOT.as_posix() + '/scripts/performance/local_support.py',
+            ROOT.as_posix() + '/scripts/performance/performance-local.py',
         })
 
 

@@ -259,6 +259,8 @@ jobs:
             scripts/ci/test_av_mig_contract_boundary.py \
             scripts/ci/test_av_mig_contract_boundary_hardening.py \
             scripts/ci/test_av_mig_contract_boundary_adversarial.py \
+            tests/ci/test_performance_assurance.py \
+            tests/ci/test_performance_local.py \
             scripts/ci/test_av_mig_production_cli.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
