@@ -1,4 +1,4 @@
-/* eslint-disable max-lines, max-lines-per-function, require-atomic-updates -- FCI-06 keeps one canonical Announcement owner and bounded evidence together; test.step hand-offs intentionally assign captured resource IDs after awaits. */
+/* eslint-disable max-lines-per-function, max-lines, require-atomic-updates -- FCI-06 keeps one canonical Announcement owner and bounded evidence together; test.step hand-offs intentionally assign captured resource IDs after awaits. */
 import { randomUUID } from 'node:crypto';
 
 import { expect, type APIRequestContext, type APIResponse, type Response as PlaywrightResponse } from '@playwright/test';

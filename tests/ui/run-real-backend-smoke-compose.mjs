@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import {
+  composeFailureObservation,
   getComposeProjectName,
   normalizeExitCode,
   redactSecrets,
@@ -21,7 +22,8 @@ process.once('SIGINT', () => void handleSignal('SIGINT', 130));
 process.once('SIGTERM', () => void handleSignal('SIGTERM', 143));
 
 const directInvocation = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
-if (directInvocation || process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1') {
+if (directInvocation || (process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1' &&
+    process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE !== '1')) {
   process.exitCode = await runRealBackendSmokeCompose();
 }
 
@@ -37,12 +39,16 @@ export async function runRealBackendSmokeCompose(control = null) {
     composeInvocation = await selectComposeInvocation(isCommandAvailable);
     console.log(`Using ${composeInvocation.command} ${composeInvocation.prefix.join(' ')} with isolated project ${projectName}.`);
 
-    exitCode = (await runCompose(['-p', projectName, '-f', composeFile, 'config', '--quiet'], { capture: true, redact: true })).exitCode;
+    const config = await runCompose(['-p', projectName, '-f', composeFile, 'config', '--quiet'], { capture: true, redact: true });
+    exitCode = config.exitCode;
+    observeRosterComposeFailure('CONFIG', config);
     if (exitCode === 0) {
       if (rosterControl) await rosterControl.admit(rosterIo());
       const upArgs = ['-p', projectName, '-f', composeFile, 'up', '--detach'];
       upArgs.push(reusePrebuiltApp || rosterControl ? '--no-build' : '--build', 'postgres', 'app');
-      exitCode = (await runCompose(upArgs)).exitCode;
+      const up = await runCompose(upArgs);
+      exitCode = up.exitCode;
+      observeRosterComposeFailure('UP', up);
       if (rosterControl) await rosterControl.capture(rosterIo());
     }
 
@@ -67,7 +73,7 @@ export async function runRealBackendSmokeCompose(control = null) {
     }
 
     const cleanup = await cleanupOnce(exitCode === 0);
-    if (rosterControl && cleanup?.exitCode !== 0) exitCode = 1;
+    if ((rosterControl || exitCode === 0) && cleanup?.exitCode !== 0) exitCode = 1;
   }
 
   return exitCode;
@@ -84,6 +90,14 @@ function realBackendPlaywrightRunArgs() {
       throw new Error('Invalid FCI-05 Files owner gate.');
     }
     args.push('--env', `COGLATAS_FUNCTIONAL_FILES_GATE=${composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE}`);
+  }
+  if (composeEnv.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    if (rosterControl || composeEnv.COGLATAS_FCI04_GATES || composeEnv.COGLATAS_FUNCTIONAL_FILES_GATE) {
+      throw new Error('MVP0 Mobile is an independent selection, not a canonical owner override.');
+    }
+    args.push('--env', 'COGLATAS_REAL_BACKEND_MVP0_MOBILE=1', 'real-backend-playwright',
+      'bash', '-lc', 'npm ci && node tests/ui/run-real-backend-playwright.mjs --config=playwright.mobile-mvp0-real.config.ts --project=real-backend-mobile-mvp0-320 --retries=0 --workers=1');
+    return args;
   }
   args.push('real-backend-playwright');
   return args;
@@ -196,6 +210,16 @@ function rosterIo() {
   };
 }
 
+function observeRosterComposeFailure(operation, result) {
+  if (!rosterControl || result.exitCode === 0) return;
+  // Preserve the original failure before later capture/cleanup advances phase.
+  rosterControl.failed();
+  try {
+    const observation = composeFailureObservation(operation, result);
+    if (observation) console.error(`UI07_ROSTER_COMPOSE_OBSERVATION ${JSON.stringify(observation)}`);
+  } catch { /* Diagnostics must never replace the command failure or cleanup verdict. */ }
+}
+
 function runCommand(command, args, options = {}) {
   return new Promise((resolve) => {
     let settled = false;
@@ -224,7 +248,7 @@ function runCommand(command, args, options = {}) {
         process.stdout.write(options.redact ? redactSecrets(output) : output);
       }
 
-      resolve({ exitCode: outputOverflow ? 1 : normalizeExitCode(code), output, stdout, stderr });
+      resolve({ exitCode: outputOverflow ? 1 : normalizeExitCode(code), output, stdout, stderr, outputOverflow });
     };
 
     if (options.capture) {

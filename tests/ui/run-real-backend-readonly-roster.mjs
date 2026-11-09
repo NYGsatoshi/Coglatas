@@ -63,9 +63,16 @@ export function readBrowserReceipts(directory, sourceSha) {
           const kinds = ['CONVERSATION_REQUEST', 'CONVERSATION_RESPONSE', 'CONVERSATION_FAILED',
             'MESSAGES_REQUEST', 'MESSAGES_RESPONSE', 'MESSAGES_FAILED',
             'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'MEMBERS_FAILED', 'PANEL_MOUNTED', 'PANEL_REMOVED', 'PANEL_REMOUNTED',
-            'MAIN_FRAME_NAVIGATION', 'MAIN_FRAME_ROUTE_CHANGED'];
-          require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events']) &&
-            lifecycle.version === 1 && typeof lifecycle.observed === 'boolean' &&
+            'MAIN_FRAME_NAVIGATION', 'MAIN_FRAME_ROUTE_CHANGED',
+            'MOBILE_SUMMARY_SCROLL_BEGIN', 'MOBILE_SUMMARY_SCROLL_RETURNED',
+            'MOBILE_SUMMARY_VISIBILITY_CHECK', 'MOBILE_SUMMARY_VISIBLE',
+            'MOBILE_LIST_SCROLL_BEGIN', 'MOBILE_LIST_SCROLL_RETURNED',
+            'MOBILE_LIST_VISIBILITY_CHECK', 'MOBILE_LIST_VISIBLE'];
+          const legacy = lifecycle.version === 1;
+          require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events',
+              ...(legacy ? [] : ['equalTimestampOrder'])]) &&
+            (legacy || lifecycle.version === 2 && lifecycle.equalTimestampOrder === 'INDETERMINATE') &&
+            typeof lifecycle.observed === 'boolean' &&
             typeof lifecycle.truncated === 'boolean' &&
             (lifecycle.observed ? typeof lifecycle.panelPresent === 'boolean' : lifecycle.panelPresent === null) &&
             Array.isArray(lifecycle.events) && lifecycle.events.length <= 32);

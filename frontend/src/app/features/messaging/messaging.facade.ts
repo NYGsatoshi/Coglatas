@@ -2,7 +2,7 @@ import { injectMessagingI18n } from '../../core/i18n/providers/messaging-i18n';
 import { MESSAGING_ENGLISH_MESSAGES } from '../../core/i18n/messages/messaging.messages';
 import { localizeMessagingPage, localizeThread } from './messaging.i18n';
 import { computed, effect, inject, Injectable, InjectionToken, signal, untracked } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
@@ -157,6 +157,9 @@ export class MessagingFacade {
   };
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
+  private readonly projectionReset = new Subject<'routine' | 'boundary' | 'listPresentation'>();
+  /** Synchronous UI-intent handoff before protected DOM is removed; never authority. */
+  readonly beforeProjectionReset$ = this.projectionReset.asObservable();
   /** Last-rendered navigation identity, never a server grant or retained body. */
   readonly threadNavigationBinding = computed(() => {
     const page = this.pageState();
@@ -1990,7 +1993,15 @@ export class MessagingFacade {
     const intentRevision = this.threadIntentRevision;
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
-    const generation = this.beginRequestGeneration(binding ? 'routine' : 'boundary'),
+    const group = pageBeforeCatchUp.conversation;
+    const groupInteraction = this.hasCurrentActorIdentity() &&
+      (pageBeforeCatchUp.status === 'ready' || pageBeforeCatchUp.status === 'empty') &&
+      group.isGroup && group.kind === 'dm' && group.id === conversationId &&
+      group.tenantId === this.currentTenantId() &&
+      (!this.activeWorkspaceId() || group.workspaceId === this.activeWorkspaceId()) &&
+      group.viewerIsParticipant && !group.viewerWasRemoved && group.capabilities.includes('readBody') &&
+      group.groupMembers?.some(member => member.isCurrentUser && member.userId === this.currentUserId() && member.membership === 'active');
+    const generation = this.beginRequestGeneration(binding || groupInteraction ? 'routine' : 'boundary'),
       routeKind = this.pageState().routeKind;
     const navigation: CatchUpThreadNavigation | undefined = binding ? {
       scope: this.scopeFor(pageBeforeCatchUp), routeKind: pageBeforeCatchUp.routeKind,
@@ -2294,6 +2305,7 @@ export class MessagingFacade {
   }
 
   private beginRequestGeneration(reason: 'boundary' | 'routine' | 'listPresentation' = 'boundary'): number {
+    this.projectionReset.next(reason);
     this.catchUpThreadNavigation = undefined;
     if (reason !== 'routine') { this.threadNavigationBoundary.update((revision) => revision + 1); }
     if (reason !== 'listPresentation') { this.listPresentationBoundary.update((revision) => revision + 1); }

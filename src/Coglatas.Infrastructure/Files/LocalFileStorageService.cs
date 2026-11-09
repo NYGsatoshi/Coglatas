@@ -28,9 +28,32 @@ public sealed class LocalFileStorageService(IOptions<FileStorageOptions> options
         var fullPath = EnsureSafePath(root, storageKey);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-        await using (var output = File.Create(fullPath))
+        // Keep incomplete bytes away from the canonical key, including replacements.
+        // A sibling temporary file keeps publication on the same filesystem.
+        var temporaryPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".upload";
+        try
         {
-            await stream.CopyToAsync(output, cancellationToken);
+            await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                bufferSize: 81920, useAsync: true))
+            {
+                await stream.CopyToAsync(output, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        catch (Exception uploadError)
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException)
+            {
+                // Retain both failures if storage also prevents compensation.
+                throw new AggregateException("File upload and temporary-file cleanup failed.", uploadError, cleanupError);
+            }
+            throw;
         }
 
         return Result.Success();
@@ -73,8 +96,8 @@ public sealed class LocalFileStorageService(IOptions<FileStorageOptions> options
     {
         var fullPath = Path.GetFullPath(Path.Combine(root, storageKey));
         var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        if (!fullPath.Equals(root, StringComparison.OrdinalIgnoreCase) &&
-            !fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        if (!fullPath.Equals(root, StringComparison.Ordinal) &&
+            !fullPath.StartsWith(normalizedRoot, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Storage key resolved outside the configured file root.");
         }

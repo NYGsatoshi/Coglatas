@@ -7,6 +7,7 @@ export interface CoglatasFileUploaderItem {
   readonly fileName: string;
   readonly state: 'pending' | 'uploading' | 'succeeded' | 'failed' | 'cancelled';
   readonly message?: string;
+  readonly canRetry?: boolean;
 }
 
 @Component({
@@ -28,15 +29,19 @@ export interface CoglatasFileUploaderItem {
         type="file"
         [attr.aria-label]="resolvedAriaLabel()"
         [multiple]="multiple"
-        [disabled]="disabled"
+        [disabled]="disabled || !canUpload"
         (change)="handleInputChange($event)"
       />
 
       <div class="coglatas-uploader__prompt">
         <strong>{{ i18n.translate('files.upload.title') }}</strong>
         <span>{{ i18n.translate('files.upload.prompt') }}</span>
-        <button type="button" [disabled]="disabled" (click)="fileInput.click()">{{ i18n.translate('files.upload.choose') }}</button>
+        <button type="button" [disabled]="disabled || !canUpload" (click)="fileInput.click()">{{ i18n.translate('files.upload.choose') }}</button>
       </div>
+
+      @if (uploading) {
+        <progress max="100" [attr.value]="progressPercent ?? null" [attr.aria-label]="i18n.translate('files.upload.uploading')"></progress>
+      }
 
       @if (items.length > 0) {
         <ul class="coglatas-uploader__queue" [attr.aria-label]="i18n.translate('files.upload.queue')">
@@ -52,8 +57,8 @@ export interface CoglatasFileUploaderItem {
 
               @if (item.state === 'pending' || item.state === 'uploading') {
                 <button type="button" [disabled]="disabled" (click)="cancel.emit(item.clientRequestId)">{{ i18n.translate('files.upload.cancel') }}</button>
-              } @else if (item.state === 'failed' || item.state === 'cancelled') {
-                <button type="button" [disabled]="disabled" (click)="retry.emit(item.clientRequestId)">{{ i18n.translate('common.retry') }}</button>
+              } @else if ((item.state === 'failed' || item.state === 'cancelled') && item.canRetry !== false) {
+                <button type="button" [disabled]="disabled || !canUpload" (click)="retry.emit(item.clientRequestId)">{{ i18n.translate('common.retry') }}</button>
               }
             </li>
           }
@@ -72,6 +77,7 @@ export interface CoglatasFileUploaderItem {
     button:hover:not(:disabled) { background: var(--coglatas-color-bg-hover); }
     button:focus-visible { outline: var(--coglatas-focus-outline); outline-offset: var(--coglatas-focus-offset); }
     button:disabled { cursor: not-allowed; opacity: 0.55; }
+    progress { width: 100%; margin-top: 1rem; }
     .coglatas-uploader__queue { display: grid; gap: 0.5rem; margin: 1rem 0 0; padding: 0; list-style: none; }
     .coglatas-uploader__queue li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; border-top: 1px solid var(--coglatas-color-border-default); padding-top: 0.75rem; }
     .coglatas-uploader__queue li > div { display: grid; flex: 1 1 12rem; gap: 0.2rem; min-width: 0; }
@@ -86,6 +92,9 @@ export class CoglatasFileUploaderComponent {
   @Input() items: readonly CoglatasFileUploaderItem[] = [];
   @Input() multiple = false;
   @Input() disabled = false;
+  @Input() canUpload = true;
+  @Input() uploading = false;
+  @Input() progressPercent?: number;
   @Input() syncfusionEnabled = false;
 
   @Output() readonly filesSelected = new EventEmitter<readonly File[]>();
@@ -103,7 +112,7 @@ export class CoglatasFileUploaderComponent {
   }
 
   handleDragOver(event: DragEvent): void {
-    if (this.disabled) {
+    if (this.disabled || !this.canUpload) {
       return;
     }
 
@@ -114,7 +123,7 @@ export class CoglatasFileUploaderComponent {
   }
 
   handleDrop(event: DragEvent): void {
-    if (this.disabled) {
+    if (this.disabled || !this.canUpload) {
       return;
     }
 
@@ -131,7 +140,7 @@ export class CoglatasFileUploaderComponent {
   }
 
   private emitFiles(fileList: FileList | null): void {
-    if (this.disabled || !fileList || fileList.length === 0) {
+    if (this.disabled || !this.canUpload || !fileList || fileList.length === 0) {
       return;
     }
 
