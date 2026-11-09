@@ -34,7 +34,7 @@ public sealed class TaskExecutionSourcePolicyTransactionPostgreSqlTests
                     var replacement = initial with
                     {
                         ProjectScopeVersion = initial.ProjectScopeVersion + 1,
-                        TaskOverrideVersion = initial.TaskOverrideVersion.HasValue ? initial.TaskOverrideVersion.Value + 1 : null,
+                        TaskOverrideVersion = initial.TaskOverrideVersion + 1,
                         Policy = TaskExecutionSourcePolicyV2.FromLegacy(false, true)
                     };
                     foreach (var commit in new[] { false, true })
