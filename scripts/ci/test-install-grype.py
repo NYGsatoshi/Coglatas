@@ -3,12 +3,14 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
 import tarfile
 import tempfile
 import textwrap
+import time
 import unittest
 
 INSTALLER = Path(__file__).with_name("install-grype.sh").resolve()
@@ -18,13 +20,15 @@ PIN = "1d444c5e7360471815f7158f71935fcecc68a3c417d85c7344f770854300bba2"
 VERIFIED_ARCHIVE = None
 
 CURL = r'''#!/usr/bin/env python3
-import json, os, pathlib, shutil, sys
+import json, os, pathlib, shutil, sys, time
 args = sys.argv[1:]
 with pathlib.Path(os.environ["GRYPE_TEST_CALLS"]).open("a") as output:
     output.write(json.dumps(args) + "\n")
 url = next(value for value in args if value.startswith("https://"))
 destination = pathlib.Path(args[args.index("--output") + 1])
 mode = os.environ["GRYPE_TEST_MODE"]
+if mode == "stall":
+    time.sleep(60)
 if mode == "both-fail" or ("api.github.com" in url and mode.startswith("api-fail")):
     destination.write_bytes(b"partial transfer")
     sys.exit(22)
@@ -171,6 +175,12 @@ class GrypeFixtureAcquisitionTests(GrypeFixture):
         curl = tools / "curl"
         curl.write_text(CURL, encoding="utf-8")
         curl.chmod(0o755)
+        deadline_calls = root / "deadlines.jsonl"
+        real_timeout = shutil.which("timeout")
+        self.assertIsNotNone(real_timeout)
+        deadline = tools / "timeout"
+        deadline.write_text("#!/usr/bin/env python3\nimport json, os, pathlib, sys\nargs = sys.argv[1:]\nwith pathlib.Path(os.environ[\"GRYPE_TEST_DEADLINES\"]).open(\"a\") as output:\n    output.write(json.dumps(args) + \"\\n\")\nif os.environ[\"GRYPE_TEST_MODE\"] == \"stall\":\n    args[1] = \"0.2s\"\nreal = os.environ[\"GRYPE_TEST_REAL_TIMEOUT\"]\nos.execv(real, [real, *args])\n", encoding="utf-8")
+        deadline.chmod(0o755)
         calls = root / "calls.jsonl"
         workflow = INSTALLER.parents[2] / ".github/workflows/ci-routing-self-test.yml"
         source = workflow.read_text(encoding="utf-8")
@@ -179,13 +189,18 @@ class GrypeFixtureAcquisitionTests(GrypeFixture):
         script = "set -euo pipefail\n" + textwrap.dedent(source[start:end])
         environment = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"],
                        "RUNNER_TEMP": str(root), "GRYPE_TEST_MODE": mode,
-                       "GRYPE_TEST_CALLS": str(calls)}
+                       "GRYPE_TEST_CALLS": str(calls), "GRYPE_TEST_REAL_TIMEOUT": real_timeout,
+                       "GRYPE_TEST_DEADLINES": str(deadline_calls)}
         environment.pop("GRYPE_TEST_ARCHIVE", None)
         if authenticated:
             environment["GRYPE_TEST_ARCHIVE"] = str(VERIFIED_ARCHIVE)
         result = subprocess.run(["bash", "-c", script], env=environment,
                                 capture_output=True, text=True, check=False, timeout=30)
         recorded = [json.loads(line) for line in calls.read_text().splitlines()]
+        deadlines = [json.loads(line) for line in deadline_calls.read_text().splitlines()]
+        self.assertEqual(len(deadlines), len(recorded))
+        for args in deadlines:
+            self.assertEqual(args[:3], ["--kill-after=5s", "100s", "curl"])
         self.assertEqual(next(a for a in recorded[0] if a.startswith("https://")), API)
         for args in recorded:
             for flag, value in (("--proto", "=https"), ("--proto-redir", "=https"),
@@ -223,11 +238,13 @@ class GrypeFixtureAcquisitionTests(GrypeFixture):
     def test_workflow_non_https_effective_url_does_not_fall_back(self):
         self.assert_acquisition("http", False, 1)
 
-    def test_workflow_both_route_budgets_leave_time_for_controls(self):
-        workflow = (INSTALLER.parents[2] / ".github/workflows/ci-routing-self-test.yml").read_text()
-        self.assertIn("timeout-minutes: 5", workflow)
-        # Two attempts per route with one second between retries, then control overhead.
-        self.assertLessEqual(2 * (2 * 45 + 1) + 60, 5 * 60)
+    def test_workflow_stalled_transfers_reach_fallback_and_both_deadlines(self):
+        # Preserve and record the workflow's real100s/kill-after5s arguments.
+        # Scale only the fixture's native timeout duration to0.2s for stalled curl.
+        started = time.monotonic()
+        self.assert_acquisition("stall", False, 2)
+        self.assertLess(time.monotonic() - started, 10)
+
 
 if __name__ == "__main__":
     selected = "GrypeRefusalTests"
