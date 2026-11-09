@@ -170,6 +170,11 @@ case "$command" in
     fi;;
   ps) service="${@: -1}"; if [[ "$service" != app || -f "$TEST_APP_CREATED" ]]; then printf '%s-fixture\n' "$service"; fi;;
   run)
+    if [[ "$*" == '--rm --no-deps --entrypoint /bin/true real-backend-playwright' ]]; then
+      if [[ "$TEST_SCENARIO" == failed-prepare ]]; then exit 21; fi
+      if [[ "$TEST_SCENARIO" == retag-prepare ]]; then printf '%s\n' "$changed" > "$TEST_IMAGE_STATE"; fi
+      exit 0
+    fi
     if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == 1 ]]; then [[ " $* " == *' --no-deps '* && " $* " != *' --build '* ]] || exit 87; fi
     if [[ "$TEST_SCENARIO" == retag-probe || "$TEST_SCENARIO" == retag-failed-probe ]]; then printf '%s\n' "$changed" > "$TEST_IMAGE_STATE"; fi
     if [[ "$TEST_SCENARIO" == failed-probe || "$TEST_SCENARIO" == retag-failed-probe ]]; then exit 22; fi;;
@@ -727,6 +732,12 @@ class AcceptanceImageReuseTests(unittest.TestCase):
 
 
 class FunctionalImageReuseTests(unittest.TestCase):
+    @staticmethod
+    def owner_probe_index(traces):
+        return next(index for index, args in enumerate(traces)
+                    if args[0] == "compose" and "run" in args and
+                    args[args.index("run") + 1:] == ["--no-deps", "--rm", "real-backend-playwright"])
+
     def run_harness(self, *, reuse="1", scenario="matching", changes=None, workspace=None):
         with (tempfile.TemporaryDirectory() if workspace is None else nullcontext(str(workspace))) as directory:
             root = Path(directory)
@@ -798,7 +809,7 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
         app = next(args for args in starts if args[-1] == "app")
         self.assertIn("--no-build", app)
         self.assertEqual("never", app[app.index("--pull") + 1])
-        probe_index = next(index for index, args in enumerate(traces) if "run" in args)
+        probe_index = self.owner_probe_index(traces)
         cleanup_index = next(index for index, args in enumerate(traces) if "down" in args)
         container_checks = [index for index, args in enumerate(traces) if args[:3] == ["inspect", "--format", "{{.Image}}"]]
         self.assertTrue(any(index < probe_index for index in container_checks))
@@ -815,7 +826,9 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
                 self.assertEqual([["app"]], AcceptanceImageReuseTests.compose_commands(traces, "build"))
                 app = next(args for args in AcceptanceImageReuseTests.compose_commands(traces, "up") if args[-1] == "app")
                 self.assertEqual(["--detach", "--no-deps", "--no-build", "app"], app)
-                self.assertEqual([["--rm", "real-backend-playwright"]], AcceptanceImageReuseTests.compose_commands(traces, "run"))
+                runs = AcceptanceImageReuseTests.compose_commands(traces, "run")
+                self.assertEqual(["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"], runs[0])
+                self.assertEqual([["--rm", "real-backend-playwright"]], runs[1:])
                 self.assertFalse(any(args[:2] == ["image", "inspect"] for args in traces))
 
     def test_wrong_source_stamp_dirty_git_tool_or_image_fails_before_start(self):
@@ -846,7 +859,7 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
                 self.assertEqual(code, result.returncode, result.stderr)
                 self.assertEqual([], records)
                 self.assertNotIn("completed successfully", result.stdout)
-                probe = next(index for index, args in enumerate(traces) if "run" in args)
+                probe = self.owner_probe_index(traces)
                 cleanup = next(index for index, args in enumerate(traces) if "down" in args)
                 self.assertTrue(any(probe < index < cleanup for index, args in enumerate(traces) if args[:2] == ["image", "inspect"]))
 
@@ -857,10 +870,29 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
         self.assertEqual(22, records[0]["suiteExitCode"])
         self.assertTrue(records[0]["beforeProbeVerified"] and records[0]["afterProbeVerified"])
         self.assertNotIn("completed successfully", result.stdout)
-        probe = next(index for index, args in enumerate(traces) if "run" in args)
+        probe = self.owner_probe_index(traces)
         cleanup = next(index for index, args in enumerate(traces) if "down" in args)
         checks = [index for index, args in enumerate(traces) if args[:3] == ["inspect", "--format", "{{.Image}}"]]
         self.assertTrue(any(probe < index < cleanup for index in checks))
+
+    def test_preparation_failure_never_executes_owner_or_publishes_success(self):
+        result, traces, records = self.run_harness(scenario="failed-prepare")
+        self.assertEqual(1, result.returncode, result.stderr)
+        self.assertEqual([], records)
+        self.assertIn("[INFRA/SETUP FAILURE] phase=prepare-browser:", result.stderr)
+        self.assertNotIn("[PRODUCT TEST FAILURE]", result.stderr)
+        self.assertEqual([["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"]],
+                         AcceptanceImageReuseTests.compose_commands(traces, "run"))
+        self.assertEqual(1, len(AcceptanceImageReuseTests.compose_commands(traces, "down")))
+
+    def test_retag_during_preparation_is_rejected_before_owner_execution(self):
+        result, traces, records = self.run_harness(scenario="retag-prepare")
+        self.assertEqual(1, result.returncode, result.stderr)
+        self.assertEqual([], records)
+        self.assertNotIn("completed successfully", result.stdout)
+        self.assertEqual([["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"]],
+                         AcceptanceImageReuseTests.compose_commands(traces, "run"))
+        self.assertEqual(1, len(AcceptanceImageReuseTests.compose_commands(traces, "down")))
 
 
 class RuntimeImageIdentityTests(unittest.TestCase):

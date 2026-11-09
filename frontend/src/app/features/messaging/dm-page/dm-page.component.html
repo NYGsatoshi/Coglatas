@@ -105,7 +105,7 @@
       />
     }
     </div>
-    @if (vm.conversation.isGroup && canReadBody()) {
+    @if (vm.conversation.isGroup && canReadBody() && realtime.initialSynchronizationSettled()) {
       <aside class="dm-page__group-details" [attr.aria-label]="i18n.translate('messaging.group.details')">
         <app-group-member-panel [conversation]="vm.conversation" [action]="facade.groupAction()"
           (memberAdded)="facade.addGroupMember($event)" (memberRemoved)="facade.removeGroupMember($event)" (left)="facade.leaveGroup()" />
