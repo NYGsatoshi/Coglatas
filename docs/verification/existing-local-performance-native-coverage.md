@@ -8,6 +8,12 @@ script entries and 63 production subjects remain, giving 55 entries and 75
 declared subjects. Test bodies remain
 outside the measured include list. A loader control checks all owned test IDs,
 uniqueness, the absence of a replacement loader and exact single selection.
+The local suite has no direct-execution entry point. Its producer entry therefore
+uses the existing unittest discovery pattern. A real subprocess control uses the
+workflow's selected command to execute all 26 synthetic cases from a module with
+no main guard, checking every recorded case and the single native shard. The
+actual unchanged local suite still requires hosted execution evidence; loader
+enumeration and the synthetic control do not substitute for its 26-case result.
 
 The original producer, branch/parallel process bootstrap, pinned coverage tool,
 raw shards, combine, native JSON and XML import remain. Existing Functional,

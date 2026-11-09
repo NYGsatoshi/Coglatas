@@ -262,6 +262,12 @@ jobs:
             tests/ci/test_performance_assurance.py \
             tests/ci/test_performance_local.py \
             scripts/ci/test_av_mig_production_cli.py; do
+            if [[ "$control" == "tests/ci/test_performance_local.py" ]]; then
+              COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
+                PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
+                python3 -B -m coverage run -m unittest discover -s tests/ci -p "${control##*/}"
+              continue
+            fi
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"

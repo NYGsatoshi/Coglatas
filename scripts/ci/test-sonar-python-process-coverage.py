@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import os
 import runpy
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -176,6 +177,36 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertEqual(len(expected), count)
                 self.assertEqual(len(selected), len(set(selected)))
                 self.assertEqual(sorted(selected), sorted(expected))
+
+    def test_local_suite_without_main_runs_all_cases_through_the_selected_producer_command(self):
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        dispatch = workflow.split('; do\n', 1)[1].split('\n          done', 1)[0]
+        discovery = dispatch.split('if [[ "$control" == "tests/ci/test_performance_local.py" ]]; then\n', 1)[1].split('            fi', 1)[0]
+        self.assertEqual(discovery.count('python3 '), 1)
+        self.assertIn('              continue\n', discovery)
+        command = next(line.strip() for line in discovery.splitlines() if line.strip().startswith('python3 '))
+        args = shlex.split(command.replace('${control##*/}', 'test_performance_local.py'))
+        self.assertEqual(args[:5], ['python3', '-B', '-m', 'coverage', 'run'])
+        self.assertEqual(args[5:], ['-m', 'unittest', 'discover', '-s', 'tests/ci', '-p', 'test_performance_local.py'])
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            suite = folder / 'tests/ci'
+            suite.mkdir(parents=True)
+            (suite / 'subject.py').write_text('from pathlib import Path\ndef record(value):\n    with Path("executed.txt").open("a") as output:\n        output.write(str(value) + "\\n")\n', encoding='utf-8')
+            methods = ''.join('    def test_case_' + str(i) + '(self):\n        record(' + str(i) + ')\n' for i in range(26))
+            (suite / 'test_performance_local.py').write_text('import unittest\nfrom subject import record\nclass SyntheticLocalTests(unittest.TestCase):\n' + methods, encoding='utf-8')
+            config = folder / 'coverage.ini'
+            config.write_text('[run]\nbranch = True\nparallel = True\ninclude = ' + (suite / 'subject.py').as_posix() + '\n', encoding='utf-8')
+            env = self.environment()
+            env['COVERAGE_RCFILE'] = str(config)
+            env['COVERAGE_PROCESS_START'] = str(config)
+            env['COVERAGE_FILE'] = str(folder / 'data')
+            result = self.run_python(args[1:], folder, env)
+            self.assertIn('Ran 26 tests', result.stderr)
+            self.assertIn('OK', result.stderr)
+            executed = (folder / 'executed.txt').read_text(encoding='utf-8').splitlines()
+            self.assertEqual(sorted(map(int, executed)), list(range(26)))
+            self.assertEqual(len(list(folder.glob('data.*'))), 1)
 
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
