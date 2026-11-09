@@ -3,8 +3,8 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: 6f6cc7495921887c5c14ce043f03e8412666919c
-  base_tree: 9269a49ee6f765eaa51920ca2a11d1d18d2fff14
+  base_commit: 6a12a6416910b11af12d2157581234c34adc1c55
+  base_tree: 33d61f6db6e404890468e77a3564f784257c4aa3
   file_suffix: .md
   tracked_markdown_at_base: 475
   markdown_added_by_this_change: []
@@ -1537,10 +1537,10 @@ documents:
 - path: docs/verification/mbj02-named-postgresql-receipt-20261026.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: 'Opening scope: "At Main 0eb156a773f8763b4fe7e1c14acead1fd4806560, the MBJ-02 runner executes
-    Scope=Issue527 but does not invoke the required-name TRX verifier. The licensed workflow..." This implementation/verification
-    record needs a maintenance and successor review.'
+  lifecycle: historical
+  classification_basis: October 2026 MBJ-02 receipt implementation, initial local eight-fact tests, reviewer corrections
+    and preserved failed synthetic CI. Current runner, strict producer and licensed workflow own
+    execution; no latest-hosted PASS is inferred.
 - path: docs/verification/message-action-feedback-catchup.md
   kind: report
   domain: messaging
@@ -2128,10 +2128,10 @@ documents:
 - path: docs/verification/real-backend-compose-cleanup-exit.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: 'Opening scope: "Issue #1601 corrects a qualification false success: the generic Compose
-    adapter previously returned a successful scenario''s zero exit even when its scoped down command..." This
-    implementation/verification record needs a maintenance and successor review.'
+  lifecycle: historical
+  classification_basis: Historical issue #1601 cleanup-exit repair and synthetic child-event test record. Current cleanup
+    behavior is governed by run-real-backend-smoke-compose.mjs and its Node controls, not this
+    source-bound report.
 - path: docs/verification/real-backend-mobile-acceptance.md
   kind: report
   domain: ci
@@ -2190,10 +2190,10 @@ documents:
 - path: docs/verification/sdk-image-digest-coordination.md
   kind: report
   domain: ci
-  lifecycle: needs-review
-  classification_basis: 'Opening scope: "The Main SDK digest update left four Compose references and the synthetic
-    logical-recovery runner/receipt validator on a different image digest with the same10.0.403..." This implementation/verification
-    record needs a maintenance and successor review.'
+  lifecycle: historical
+  classification_basis: Historical same-version SDK-image digest drift and guard-repair record. Current canonical pin and
+    the digest-parity negative controls belong to Dockerfile and test-dependency-update-policy.rb;
+    report grants no runtime qualification.
 - path: docs/verification/search-opener-render-readiness-20261026.md
   kind: report
   domain: messaging
