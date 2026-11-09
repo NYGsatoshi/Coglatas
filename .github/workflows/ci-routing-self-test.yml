@@ -73,8 +73,8 @@ jobs:
           archive="$RUNNER_TEMP/grype-0.118.0-test-archive.tar.gz"
           fetch_archive() {
             curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
-              --tlsv1.2 --max-redirs 5 --connect-timeout 10 --max-time 180 \
-              --retry 3 --retry-all-errors --write-out '%{url_effective}' \
+              --tlsv1.2 --max-redirs 5 --connect-timeout 10 --max-time 45 \
+              --retry 1 --retry-max-time 95 --retry-all-errors --write-out '%{url_effective}' \
               "$@" --output "$archive"
           }
           if ! effective_url="$(fetch_archive \

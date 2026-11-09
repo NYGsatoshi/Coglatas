@@ -23,6 +23,11 @@ extraction, installation and version execution for API success and browser
 fallback. A valid archive from an untrusted effective host is still refused.
 The test archive acquisition uses the same transfer-only API/browser fallback
 and trusted-final-host/checksum checks; integrity rejection does not fall back.
+Seven additional controls execute the actual workflow fixture-acquisition shell
+block: API success, browser fallback, failed transfers, checksum/host/HTTPS
+refusal and the two-route time budget. Each route permits two 45-second attempts
+with one retry; together they leave time for controls within the five-minute job.
+The installer retains its existing production transfer budgets.
 These controls do not establish a complete SBOM scan or image acceptance.
 
 Actual branch and resulting-Main image scans, required checks, original PR Gate,

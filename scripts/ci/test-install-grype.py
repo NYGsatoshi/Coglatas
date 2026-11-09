@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 import unittest
 
 INSTALLER = Path(__file__).with_name("install-grype.sh").resolve()
@@ -158,10 +159,80 @@ class GrypeVerifiedArchiveTests(GrypeFixture):
         self.assertEqual(published.read_bytes(), b"")
 
 
+
+@unittest.skipUnless(os.name == "posix", "Native workflow fixture acquisition controls")
+class GrypeFixtureAcquisitionTests(GrypeFixture):
+    def run_acquisition(self, mode, authenticated=True):
+        temporary = tempfile.TemporaryDirectory(prefix="grype-workflow-control-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        tools = root / "tools"
+        tools.mkdir()
+        curl = tools / "curl"
+        curl.write_text(CURL, encoding="utf-8")
+        curl.chmod(0o755)
+        calls = root / "calls.jsonl"
+        workflow = INSTALLER.parents[2] / ".github/workflows/ci-routing-self-test.yml"
+        source = workflow.read_text(encoding="utf-8")
+        start = source.index('          archive="$RUNNER_TEMP/grype-')
+        end = source.index("          python3 -B scripts/ci/test-install-grype.py --verified-archive", start)
+        script = "set -euo pipefail\n" + textwrap.dedent(source[start:end])
+        environment = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                       "RUNNER_TEMP": str(root), "GRYPE_TEST_MODE": mode,
+                       "GRYPE_TEST_CALLS": str(calls)}
+        environment.pop("GRYPE_TEST_ARCHIVE", None)
+        if authenticated:
+            environment["GRYPE_TEST_ARCHIVE"] = str(VERIFIED_ARCHIVE)
+        result = subprocess.run(["bash", "-c", script], env=environment,
+                                capture_output=True, text=True, check=False, timeout=30)
+        recorded = [json.loads(line) for line in calls.read_text().splitlines()]
+        self.assertEqual(next(a for a in recorded[0] if a.startswith("https://")), API)
+        for args in recorded:
+            for flag, value in (("--proto", "=https"), ("--proto-redir", "=https"),
+                                ("--max-redirs", "5"), ("--max-time", "45"),
+                                ("--retry", "1"), ("--retry-max-time", "95")):
+                self.assertEqual(args[args.index(flag) + 1], value)
+            self.assertIn("--tlsv1.2", args)
+        if len(recorded) == 2:
+            self.assertEqual(next(a for a in recorded[1] if a.startswith("https://")), BROWSER)
+        return result, recorded, root / "grype-0.118.0-test-archive.tar.gz"
+
+    def assert_acquisition(self, mode, successful, count, authenticated=True):
+        result, calls, archive = self.run_acquisition(mode, authenticated)
+        self.assertEqual(result.returncode == 0, successful, result.stdout + result.stderr)
+        self.assertEqual(len(calls), count)
+        if successful:
+            with archive.open("rb") as original:
+                self.assertEqual(hashlib.file_digest(original, "sha256").hexdigest(), PIN)
+
+    def test_workflow_api_acquisition_accepts_only_the_original_archive(self):
+        self.assert_acquisition("verified", True, 1)
+
+    def test_workflow_failed_api_transfer_falls_back_to_browser(self):
+        self.assert_acquisition("api-fail-verified", True, 2)
+
+    def test_workflow_both_transfer_failures_are_rejected(self):
+        self.assert_acquisition("both-fail", False, 2)
+
+    def test_workflow_checksum_rejection_does_not_fall_back(self):
+        self.assert_acquisition("invalid", False, 1, authenticated=False)
+
+    def test_workflow_valid_archive_from_untrusted_host_does_not_fall_back(self):
+        self.assert_acquisition("untrusted", False, 1)
+
+    def test_workflow_non_https_effective_url_does_not_fall_back(self):
+        self.assert_acquisition("http", False, 1)
+
+    def test_workflow_both_route_budgets_leave_time_for_controls(self):
+        workflow = (INSTALLER.parents[2] / ".github/workflows/ci-routing-self-test.yml").read_text()
+        self.assertIn("timeout-minutes: 5", workflow)
+        # Two attempts per route with one second between retries, then control overhead.
+        self.assertLessEqual(2 * (2 * 45 + 1) + 60, 5 * 60)
+
 if __name__ == "__main__":
     selected = "GrypeRefusalTests"
     if len(sys.argv) == 3 and sys.argv[1] == "--verified-archive":
         VERIFIED_ARCHIVE = Path(sys.argv[2]).resolve(strict=True)
-        selected = "GrypeVerifiedArchiveTests"
+        selected = ["GrypeVerifiedArchiveTests", "GrypeFixtureAcquisitionTests"]
         sys.argv = sys.argv[:1]
     unittest.main(defaultTest=selected)
