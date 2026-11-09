@@ -188,7 +188,7 @@ public sealed partial class FormServiceTests
         Assert.Equal(FormQuestionType.SingleChoice, createdQuestion.QuestionType);
         Assert.True(createdQuestion.IsRequired);
         Assert.Equal(-4, createdQuestion.SortOrder);
-        Assert.Equal<string>(["B", "A"], createdQuestion.Options);
+        Assert.Equal(["B", "A"], createdQuestion.Options);
         Assert.Equal("Choose", question.QuestionText);
         Assert.Equal(FormQuestionType.SingleChoice, question.QuestionType);
         Assert.True(question.IsRequired);
@@ -206,7 +206,7 @@ public sealed partial class FormServiceTests
         Assert.Equal(FormQuestionType.MultipleChoice, updatedQuestion.QuestionType);
         Assert.False(updatedQuestion.IsRequired);
         Assert.Equal(99, updatedQuestion.SortOrder);
-        Assert.Equal<string>(["C", "D"], updatedQuestion.Options);
+        Assert.Equal(["C", "D"], updatedQuestion.Options);
         Assert.Equal("Changed", question.QuestionText);
         Assert.Equal(FormQuestionType.MultipleChoice, question.QuestionType);
         Assert.False(question.IsRequired);
@@ -222,7 +222,7 @@ public sealed partial class FormServiceTests
         Assert.Equal(FormQuestionType.MultipleChoice, retainedQuestion.QuestionType);
         Assert.False(retainedQuestion.IsRequired);
         Assert.Equal(99, retainedQuestion.SortOrder);
-        Assert.Equal<string>(["C", "D"], retainedQuestion.Options);
+        Assert.Equal(["C", "D"], retainedQuestion.Options);
         Assert.Equal("Retained", question.QuestionText);
         Assert.Equal(FormQuestionType.MultipleChoice, question.QuestionType);
         Assert.False(question.IsRequired);
