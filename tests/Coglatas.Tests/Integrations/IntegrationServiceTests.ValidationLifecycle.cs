@@ -89,7 +89,12 @@ public sealed partial class IntegrationServiceTests
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(4, fixture.SaveCount);
         Assert.Equal(new[] { "IntegrationCreated", "IntegrationUpdated", "IntegrationUpdated", "IntegrationDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("IntegrationAccount", entry.EntityType); Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        foreach (var entry in fixture.AuditEntries)
+        {
+            Assert.Equal("IntegrationAccount", entry.EntityType);
+            Assert.Equal(original.Id, entry.EntityId);
+            Assert.Equal(fixture.UserId, entry.ActorUserId);
+        }
     }
 
     [Theory]
@@ -171,7 +176,12 @@ public sealed partial class IntegrationServiceTests
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(5, fixture.SaveCount);
         Assert.Equal(new[] { "WebhookCreated", "WebhookUpdated", "WebhookUpdated", "WebhookTestValidated", "WebhookDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("WebhookEndpoint", entry.EntityType); Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        foreach (var entry in fixture.AuditEntries)
+        {
+            Assert.Equal("WebhookEndpoint", entry.EntityType);
+            Assert.Equal(original.Id, entry.EntityId);
+            Assert.Equal(fixture.UserId, entry.ActorUserId);
+        }
     }
 
     [Theory]
@@ -243,6 +253,11 @@ public sealed partial class IntegrationServiceTests
         Assert.False((await fixture.Service.RevokeApiTokenAsync(Guid.NewGuid())).IsSuccess);
         Assert.Equal(4, fixture.SaveCount);
         Assert.Equal(new[] { "ApiTokenCreated", "ApiTokenUsed", "ApiTokenRevoked", "ApiTokenRevoked" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("ApiToken", entry.EntityType); Assert.Equal(token.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        foreach (var entry in fixture.AuditEntries)
+        {
+            Assert.Equal("ApiToken", entry.EntityType);
+            Assert.Equal(token.Id, entry.EntityId);
+            Assert.Equal(fixture.UserId, entry.ActorUserId);
+        }
     }
 }
