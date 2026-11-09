@@ -1,6 +1,7 @@
 """Real subprocess controls for the isolated pinned coverage bootstrap."""
 from pathlib import Path
 import ast
+import importlib
 import os
 import runpy
 import subprocess
@@ -79,6 +80,36 @@ class PythonProcessCoverageTests(unittest.TestCase):
             result = self.run_python(['-c', 'print("INERT_CONTROL")'], folder, env)
             self.assertEqual(result.stdout.strip(), 'INERT_CONTROL')
             self.assertEqual(list(folder.glob('data*')), [])
+
+    def test_accounting_hook_preserves_all_owned_and_nested_tests_without_duplicate_execution(self):
+        loader = unittest.TestLoader()
+        evidence = importlib.import_module('test_sec_arch_evidence')
+
+        def cases(suite):
+            for item in suite:
+                if isinstance(item, unittest.TestSuite):
+                    yield from cases(item)
+                else:
+                    yield item.id()
+
+        aggregate = list(cases(loader.loadTestsFromModule(evidence)))
+        expected = []
+        for value in vars(evidence).values():
+            if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == evidence.__name__:
+                expected.extend(cases(loader.loadTestsFromTestCase(value)))
+        nested = ('test_sec_arch_http_accounting', 'test_sec_arch_signalr_accounting', 'test_sec_arch_manual_replay')
+        for name in nested:
+            expected.extend(cases(loader.loadTestsFromModule(importlib.import_module(name))))
+        self.assertGreater(len(expected), 0)
+        self.assertEqual(len(expected), len(set(expected)))
+        self.assertEqual(len(aggregate), len(set(aggregate)))
+        self.assertEqual(sorted(expected), sorted(aggregate))
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        for name in nested:
+            self.assertNotIn('scripts/ci/' + name + '.py', loop)
+        for name in ('test_sec_arch_evidence', 'test_sec_arch_github_provenance'):
+            self.assertEqual(loop.count('scripts/ci/' + name + '.py'), 1)
 
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
