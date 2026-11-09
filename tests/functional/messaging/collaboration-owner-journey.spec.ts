@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { expect, type APIRequestContext, type APIResponse, type Request, type Response as PlaywrightResponse } from '@playwright/test';
-import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diagnostic-test';
+import { captureFunctionalFailure, diagnosticStep, test, traceSecondRootComposerFill } from '../fixtures/diagnostic-test';
 
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
@@ -236,6 +236,11 @@ test.describe('FCI-06 collaboration owner journeys', () => {
         await diagnosticStep('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', page, async () => {
           await page.goto(`/app/dm/${conversationId}`);
           await expect(page.getByTestId('dm-page')).toBeVisible();
+          // This positive Thread-tab journey requires a settled live connection.
+          // A routine reconnect/catch-up can replace the Composer between fill
+          // and click; that separate product reliability defect remains #1360.
+          // Do not change the send assertion, timeout, or test retry policy.
+          await expect(page.getByTestId('realtime-connection-state')).toHaveClass(/realtime-indicator--quiet/u);
           // The shell becomes visible before the actor-switched conversation
           // finishes its fresh authorized load. Wait for that projection before
           // emitting a command, or a route refresh can discard the new draft.
@@ -244,7 +249,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const firstDraft = `FCI-06 first thread draft ${runToken}`;
           const secondDraft = `FCI-06 second thread draft ${runToken}`;
           const draft = page.getByTestId('message-draft');
-          await draft.fill(secondRootBody);
+          await traceSecondRootComposerFill(page, draft, secondRootBody);
           await expect(draft).toHaveValue(secondRootBody);
           await expect(page.getByTestId('send-message')).toBeEnabled();
           const [secondRootResponse] = await Promise.all([
@@ -342,8 +347,18 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const matchesThread = (request: Request) => request.method() === 'GET' &&
             new URL(request.url()).pathname === `/api/messages/${messageId}/thread`;
           const observation = observeThreadRequests(page, matchesThread);
-          const probe: ThreadProbe = { phases: [], target: null, initial: { responseShape: null, failureDom: null } };
+          const probe: ThreadProbe = { phases: [], target: null,
+            initial: { responseShape: null, failureDom: null, preActionDeniedDom: null } };
           let sealInitialShape = (): void => {};
+          let interleavingCaptureOpen = true;
+          observation.onPreActionDenied(() => {
+            // One nonblocking, all-boolean DOM sample while an earlier GET's
+            // HTTP 400 is observed during the native fresh tab action. Never
+            // substitute that old response for the required fresh request.
+            void readInitialThreadDom(page).then((dom) => {
+              if (interleavingCaptureOpen) { probe.initial!.preActionDeniedDom = dom; }
+            }).catch(() => { /* Absent snapshot is explicitly unknown. */ });
+          });
           let failed = false, actionFailure = 'NONE';
           let failureTarget: ThreadTarget | null = null;
           const readTarget = async (): Promise<ThreadTarget> => {
@@ -378,13 +393,20 @@ test.describe('FCI-06 collaboration owner journeys', () => {
                 observation.selectAuthorized(request);
                 return true;
               }, { timeout: 20_000 }),
-              page.getByTestId(`open-message-thread-${messageId}`).click()
+              (() => {
+                observation.mark('AUTHORIZED_ACTION_STARTED');
+                const action = page.getByTestId(`open-message-thread-${messageId}`).click();
+                void action.then(() => { observation.mark('AUTHORIZED_ACTION_COMPLETED'); }, () => {});
+                return action;
+              })()
             ]);
             expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
             observation.mark('AUTHORIZED_READ');
+            observation.mark('ROOT_ASSERTION_STARTED');
             const rootProjection = expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
             sealInitialShape = observeInitialThreadShape(probe.initial!, () => authorizedThreadRead.json(), messageId, conversationId);
-            await rootProjection;
+            try { await rootProjection; observation.mark('ROOT_ASSERTION_PASSED'); }
+            catch (error) { observation.mark('ROOT_ASSERTION_FAILED'); throw error; }
             await page.getByTestId('thread-reply-draft').fill(deniedDraft);
             await page.getByTestId('thread-workspace-toggle').click();
             await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
@@ -453,6 +475,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             evidence.threadDeniedReadClearedUi = true;
           }, async () => {
             failed = true;
+            interleavingCaptureOpen = false;
             sealInitialShape();
             // Inspect after the caught failure, then freeze before restoring actor A.
             try { probe.initial!.failureDom = await readInitialThreadDom(page); } catch { probe.initial!.failureDom = null; }
@@ -460,6 +483,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             try { probe.observation = observation.finish('FAILED', failureTarget, actionFailure); }
             finally { await captureFunctionalFailure(page); }
           }, async () => {
+            interleavingCaptureOpen = false;
             sealInitialShape();
             if (!failed) { probe.observation = observation.finish('COMPLETED'); }
             // A failed capture must not fall back to an apparently complete legacy receipt.

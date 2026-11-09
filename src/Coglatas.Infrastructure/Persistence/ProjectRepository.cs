@@ -9,6 +9,21 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class ProjectRepository(AppDbContext dbContext) : IProjectRepository
 {
+    public async Task<bool> ReadCurrentAuthorizationAsync(Func<CancellationToken, Task<bool>> authorization,
+        CancellationToken cancellationToken = default)
+    {
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await authorization(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
     public async Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(
         Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default)
     {
@@ -123,7 +138,7 @@ public sealed class ProjectRepository(AppDbContext dbContext) : IProjectReposito
         var rows = await source.Include(task => task.WorkflowStage)
             .OrderBy(task => task.SortKey).ThenBy(task => task.SortOrder).ThenBy(task => task.DueDate)
             .ThenBy(task => task.Title).ThenBy(task => task.Id)
-            .Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize)
+            .Skip((int)Math.Min((query.SafePage - 1L) * query.SafePageSize, int.MaxValue)).Take(query.SafePageSize)
             .Select(task => new
             {
                 Task = task,

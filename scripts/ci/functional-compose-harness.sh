@@ -252,6 +252,14 @@ setup_failure() {
   local message="$2"
   printf '[INFRA/SETUP FAILURE] phase=%s: %s\n' "$phase" "$message" >&2
   collect_diagnostics || true
+  if [[ "$phase" == "apply-migrations" ]]; then
+    # Only fixed categories leave this read-only probe. Do not export Compose
+    # config, image identity, daemon messages or other environment contents.
+    local safe_dir="${FUNCTIONAL_DIAGNOSTIC_DIR:-$DEFAULT_DIAGNOSTIC_DIR}"
+    mkdir -p "$safe_dir"
+    python3 scripts/ci/functional-setup-failure-probe.py "${compose[@]}" \
+      >"$safe_dir/functional-migration-probe.json" || true
+  fi
   return 1
 }
 
@@ -347,6 +355,12 @@ run_harness() {
   fi
   wait_for_healthy app "$timeout_seconds" || setup_failure application-readiness "Application did not become healthy: $last_wait_state"
 
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    acceptance_verify_image_reuse container || setup_failure runtime-image-continuity "Application image could not be verified before the probe."
+  fi
+  "${compose[@]}" run --rm --no-deps --entrypoint /bin/true real-backend-playwright ||
+    setup_failure prepare-browser "Browser runtime could not be prepared before test execution."
+
   verify_mobile_runtime before || setup_failure mobile-image-binding "Mobile runtime binding failed."
 
   if [[ -n "${COGLATAS_FUNCTIONAL_DOMAIN:-}" ]]; then
@@ -359,9 +373,6 @@ run_harness() {
   fi
   suite_args+=(real-backend-playwright)
 
-  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
-    acceptance_verify_image_reuse container || setup_failure runtime-image-continuity "Application image could not be verified before the probe."
-  fi
   set +e
   if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
     acceptance_compose_run no-deps "${suite_args[@]:1}"
@@ -457,6 +468,86 @@ self_test() {
   grep -Fq '[INFRA/SETUP FAILURE]' "${BASH_SOURCE[0]}"
   grep -Fq '[PRODUCT TEST FAILURE]' "${BASH_SOURCE[0]}"
   rm -f "$temporary_input" "$temporary_output"
+
+  # Verify the failure-only shell call without Docker or external services.
+  local setup_probe_temp
+  setup_probe_temp="$(mktemp -d)"
+  if ! (
+    FUNCTIONAL_DIAGNOSTIC_DIR="$setup_probe_temp"
+    compose=(docker compose -p synthetic -f synthetic.yml)
+    collect_diagnostics() { :; }
+    python3() {
+      [[ "$1" == 'scripts/ci/functional-setup-failure-probe.py' &&
+         "$2" == 'docker' && "$3" == 'compose' ]] || return 1
+      printf '{"schemaVersion":1,"phase":"apply-migrations","daemonReachable":"unknown","migrateImagePinned":"unknown","migrateImageCache":"unknown"}\n'
+    }
+    ! setup_failure apply-migrations 'Synthetic controlled setup failure' &&
+      test -s "$setup_probe_temp/functional-migration-probe.json"
+  ); then
+    rm -rf "$setup_probe_temp"
+    printf 'Migration probe was not invoked on a failed startup.\n' >&2
+    return 1
+  fi
+  rm -rf "$setup_probe_temp"
+
+  # Exercise the actual harness boundary: image/runtime preparation is setup,
+  # whereas an executed suite's nonzero result remains a product test failure.
+  local runtime_case runtime_temp runtime_status
+  for runtime_case in fetch-failure product-failure success; do
+    runtime_temp="$(mktemp -d)"
+    set +e
+    (
+      set -e
+      unset COGLATAS_REUSE_PREBUILT_APP_IMAGE COGLATAS_REAL_BACKEND_MOBILE
+      unset COGLATAS_REAL_BACKEND_P0_SETUP COGLATAS_FUNCTIONAL_DOMAIN FUNCTIONAL_COMPOSE_FILES
+      export FUNCTIONAL_COMPOSE_PROJECT_NAME=synthetic-runtime-self-test
+      select_compose() { compose=(runtime_test_compose); }
+      runtime_test_compose() {
+        shift 4 # The fixed synthetic project and default Compose file.
+        case "$*" in
+          'config --quiet'|'build app'|'up --detach postgres'|'up --detach migrate'|'up --detach --no-deps --no-build app') return 0 ;;
+          'run --rm --no-deps --entrypoint /bin/true real-backend-playwright')
+            printf 'prepare\n' >> "$runtime_temp/calls"
+            [[ "$runtime_case" != fetch-failure ]] ;;
+          'run --rm real-backend-playwright')
+            printf 'suite\n' >> "$runtime_temp/calls"
+            case "$runtime_case" in fetch-failure) return 15 ;; product-failure) return 23 ;; *) return 0 ;; esac ;;
+          *) return 97 ;;
+        esac
+      }
+      docker() { [[ "$*" == info ]]; }
+      wait_for_healthy() { :; }
+      wait_for_completed() { :; }
+      collect_diagnostics() { :; }
+      cleanup() { printf 'cleanup\n' >> "$runtime_temp/calls"; }
+      run_harness
+    ) > "$runtime_temp/output" 2>&1
+    runtime_status=$?
+    set -e
+    if ! {
+      case "$runtime_case" in
+        fetch-failure)
+          [[ "$runtime_status" == 1 && "$(< "$runtime_temp/calls")" == $'prepare\ncleanup' ]] &&
+            grep -Fq '[INFRA/SETUP FAILURE] phase=prepare-browser:' "$runtime_temp/output" &&
+            ! grep -Fq '[PRODUCT TEST FAILURE]' "$runtime_temp/output" ;;
+        product-failure)
+          [[ "$runtime_status" == 23 && "$(< "$runtime_temp/calls")" == $'prepare\nsuite\ncleanup' ]] &&
+            grep -Fq '[PRODUCT TEST FAILURE] phase=execute-suite: suite process exited with code 23' "$runtime_temp/output" &&
+            ! grep -Fq '[INFRA/SETUP FAILURE]' "$runtime_temp/output" ;;
+        success)
+          [[ "$runtime_status" == 0 && "$(< "$runtime_temp/calls")" == $'prepare\nsuite\ncleanup' ]] ;;
+        *) false ;;
+      esac
+    }; then
+      printf 'Runtime classification control failed: %s (exit %s).\n' "$runtime_case" "$runtime_status" >&2
+      cat "$runtime_temp/output" >&2
+      rm -f "$runtime_temp/calls" "$runtime_temp/output"
+      rmdir "$runtime_temp"
+      return 1
+    fi
+    rm -f "$runtime_temp/calls" "$runtime_temp/output"
+    rmdir "$runtime_temp"
+  done
   printf 'Functional Compose harness self-test passed.\n'
 }
 

@@ -57,11 +57,14 @@ const MAX_PENDING_EVENTS = 512;
 @Injectable({ providedIn: 'root' })
 export class RealtimeFacade {
   private readonly authSession = inject(AuthSessionFacade);
+  // Metadata refreshes replace the user object; only actor identity owns this lifecycle.
+  private readonly currentActorId = computed(() => this.authSession.currentUser()?.userId);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly transport = inject(COGLATAS_REALTIME_TRANSPORT, { optional: true }) ?? inject(SignalrRealtimeTransport);
   private readonly state = signal<RealtimeConnectionState>('Degraded');
+  private readonly initialSynchronizationSettledState = signal(false);
   private readonly authorizationRevisionState = signal(0);
   private readonly events = new Subject<DurableRealtimeEvent>();
   private readonly diagnosticsSubject = new Subject<RealtimeDiagnostic>();
@@ -78,6 +81,7 @@ export class RealtimeFacade {
   private readonly aggregateVersions = new Map<string, number>();
   private readonly pendingEvents: PendingRealtimeEvent[] = [];
   private tenantId: string | null = null;
+  private userId: string | null = null;
   private starting: Promise<void> | null = null;
   private startingEpoch: number | null = null;
   private acceptingEventEpoch: number | null = null;
@@ -92,6 +96,9 @@ export class RealtimeFacade {
    */
   readonly authorizationRevision = this.authorizationRevisionState.asReadonly();
   readonly isEnabled = this.flags.realtimeSignalREnabled;
+  /** Presentation lifecycle only: completion or degradation is never resource authority. */
+  readonly initialSynchronizationSettled = computed(() =>
+    !this.flags.realtimeSignalREnabled() || this.initialSynchronizationSettledState());
   readonly isSynchronized = computed(() => this.state() === 'Connected');
   readonly durableEvents$ = this.events.asObservable();
   readonly diagnostics$ = this.diagnosticsSubject.asObservable();
@@ -107,6 +114,7 @@ export class RealtimeFacade {
           this.invalidateSynchronization();
           this.authorizedSubscriptionKeys.clear();
           this.state.set('Offline');
+          this.initialSynchronizationSettledState.set(true);
         }
       });
       window.addEventListener('online', () => {
@@ -119,11 +127,19 @@ export class RealtimeFacade {
     effect(() => {
       const tenant = this.authSession.currentTenant();
       const authenticated = this.authSession.isAuthenticated();
+      const userId = this.currentActorId();
       const enabled = this.flags.realtimeSignalREnabled();
-      if (!authenticated) {
+      if (!authenticated || !userId) {
         this.stopForSessionBoundary();
         return;
       }
+
+      // A replacement actor cannot inherit the previous connection or its
+      // protected projections, even when both users share the same Tenant.
+      if (this.userId && this.userId !== userId) {
+        this.stopForSessionBoundary();
+      }
+      this.userId = userId;
 
       // AuthSession hydrates the authenticated user (and its canonical current
       // Workspace) before /api/tenants/current completes. That short-lived
@@ -208,6 +224,7 @@ export class RealtimeFacade {
 
   /** Called by session/tenant lifecycle owners before protected state changes. */
   clearForTenantBoundary(): void {
+    this.initialSynchronizationSettledState.set(false);
     // A new Tenant must never inherit Workspace/context/subscription state
     // from the old Tenant. This is distinct from a temporary authorization
     // invalidation, which preserves declarative subscription intent.
@@ -383,6 +400,10 @@ export class RealtimeFacade {
         this.pendingEvents.length = 0;
         this.state.set(this.httpIsLikelyAvailable() ? 'Degraded' : 'Offline');
       }
+    } finally {
+      // A stale session/Tenant attempt cannot release a replacement's initial
+      // presentation gate. Later reconnects do not reset this lifecycle flag.
+      if (epoch === this.synchronizationEpoch) this.initialSynchronizationSettledState.set(true);
     }
   }
 
@@ -683,7 +704,7 @@ export class RealtimeFacade {
 
   private processEvent(value: unknown): void {
     const tenantId = this.tenantId;
-    if (!tenantId) {
+    if (!tenantId || this.userId !== this.currentActorId()) {
       return;
     }
 
@@ -815,6 +836,9 @@ export class RealtimeFacade {
       this.invalidateSynchronization();
       this.authorizedSubscriptionKeys.clear();
       this.state.set(this.httpIsLikelyAvailable() ? 'Degraded' : 'Offline');
+      // Terminal transport loss is HTTP fallback, not a new session/Tenant
+      // attempt whose initial presentation must wait for reauthorization.
+      this.initialSynchronizationSettledState.set(true);
     }
   }
 
@@ -841,6 +865,7 @@ export class RealtimeFacade {
   }
 
   private clearSessionBoundaryState(): void {
+    this.userId = null;
     this.clearProtectedApplicationState('session');
     this.desiredSubscriptions.clear();
     this.clearTransportAuthorizationState();
@@ -860,6 +885,7 @@ export class RealtimeFacade {
   }
 
   private stopForSessionBoundary(): void {
+    this.initialSynchronizationSettledState.set(false);
     this.invalidateSynchronization();
     this.clearSessionBoundaryState();
     this.intentionallyStopped = true;
@@ -885,6 +911,8 @@ export class RealtimeFacade {
     const currentTenant = this.authSession.currentTenant();
     return this.flags.realtimeSignalREnabled() &&
       this.authSession.isAuthenticated() &&
+      !!this.userId &&
+      this.currentActorId() === this.userId &&
       !!this.tenantId &&
       currentTenant?.isAvailable === true &&
       currentTenant.tenantId === this.tenantId;

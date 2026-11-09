@@ -195,6 +195,15 @@ CATALOG = {
         "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers": 1,
         "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore": 1,
     },
+    "SecurityArchitectureFilePolicyTransportTests": {
+        "ActualWorkspaceFileSharingPolicyReauthorizesEstablishedAndFreshTransportAndReplay": 1,
+    },
+    "SecurityArchitectureSignalRDeepChurnTests": {
+        "ConcurrentIndependentDirectScopeTransitionsReauthorizeEveryBoundedReconnectCycle": 1,
+    },
+    "SecurityArchitectureSignalRReadOnlyReconnectTests": {
+        "ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration": 1,
+    },
     "SecurityArchitectureSignalRProducerTests": {
         "ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects": 1,
     },

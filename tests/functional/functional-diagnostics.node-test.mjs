@@ -26,7 +26,8 @@ test('browser diagnostics discard URLs, resource identities, console text and ev
   assert.match(structuralSnapshotHtml(observation.data), /not a screenshot of the authenticated product/);
 });
 
-test('Thread diagnostics distinguish bounded read and reply operations without identities or query strings', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('Thread diagnostics distinguish bounded read and reply operations without identities or query strings', () => {
   const observation = createBrowserObservation(baseURL);
   for (const [suffix, operation] of [['thread', 'message.thread'], ['thread/messages', 'message.thread-replies']]) {
     const apiRequest = { ...request(), url: () => `${baseURL}/api/messages/${protectedValue}/${suffix}?anchorReplyMessageId=${protectedValue}` };
@@ -87,6 +88,31 @@ test('unexpected protected fields, unbounded data and malformed attachments are 
   assert.ok(!JSON.stringify(result).includes(protectedValue));
 });
 
+void test('v3 Composer timing is exact-key and does not upgrade historical browser schemas', () => {
+  const data = createBrowserObservation(baseURL).data;
+  assert.equal(data.schemaVersion, 3);
+  data.composerFill = { startedAtMs: 1000, finishedAtMs: 1010, outcome: 'resolved' };
+  assert.equal(validateBrowserObservation(data), data);
+  for (const interval of [
+    { ...data.composerFill, finishedAtMs: 999 },
+    { ...data.composerFill, startedAtMs: true },
+    { ...data.composerFill, outcome: protectedValue },
+    { ...data.composerFill, input: protectedValue },
+  ]) {
+    const rejected = { ...data, composerFill: interval };
+    assert.throws(() => validateBrowserObservation(rejected));
+    assert.throws(() => structuralSnapshotHtml(rejected));
+  }
+  const oldV2 = { ...data, schemaVersion: 2 };
+  delete oldV2.composerFill;
+  assert.equal(validateBrowserObservation(oldV2), oldV2, 'prior v2 diagnostic envelope remains readable');
+  assert.throws(() => validateBrowserObservation({ ...oldV2, composerFill: null }));
+  const oldV1 = { ...oldV2, schemaVersion: 1 };
+  delete oldV1.messaging;
+  assert.equal(validateBrowserObservation(oldV1), oldV1);
+  assert.ok(!JSON.stringify(data).includes(protectedValue));
+});
+
 test('nested full expansion identifies the failed stable child rather than its owner wrapper', () => {
   const result = attemptDiagnostic('FUNC-FILE-002', { status: 'failed', retry: 0, steps: [
     { category: 'test.step', title: 'FUNC-FILE-002 / F05-FAST-09 full expansion', error: { message: protectedValue }, steps: [
@@ -110,7 +136,7 @@ test('safe structural panel visibly binds its execution identity and rejects arb
   }
 });
 
-test('messaging thread and recovery diagnostics accept only their fixed existing step tokens', () => {
+void test('messaging thread and recovery diagnostics accept only their fixed existing step tokens', () => {
   for (const token of ['MSG-THREAD', 'MSG-THREAD-DENIAL', 'MSG-RECOVERY']) {
     assert.equal(stableStepId('FUNC-MSG-001', `FUNC-MSG-001 / ${token} ${protectedValue}`), token);
   }

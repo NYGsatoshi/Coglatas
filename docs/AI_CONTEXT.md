@@ -2,6 +2,21 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Legacy Project comment edits and deletes read the current persisted account,
+comment identity, and parent authority before changing a tracked comment.
+Existing manager grants and canonical TaskComment routing remain in place.
+See [legacy comment authority](verification/project-comment-current-authority.md)
+for the PATCH/DELETE boundary and evidence limits.
+
+Announcement audience enumeration and authorization require a current active,
+undeleted persisted account. Their read-only authority scope uses untracked
+queries across the scoped repositories so previously tracked roles, memberships
+or parents cannot mask committed changes. It restores the caller's tracking mode
+without saving or detaching pending changes. Scheduled publication uses the
+persisted author, independently of browser authentication, and retains existing
+deferral paths. This does not make multi-query admission atomic through commit.
+See [the current-authority boundary](verification/announcement-current-authority.md).
+
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
 validation times, reports granular inventory changes, and supports optional
@@ -39,6 +54,18 @@ the scoped persistence tracking mode is restored and pending writes remain track
 This does not make multi-query authorization atomic or compensate a caller-owned
 transaction that rolls back after a successful upload. See the selected isolated
 File/version controls in `docs/verification/security-architecture-fixtures.md`.
+Upload persistence distinguishes committed, proven uncommitted and unknown outcomes.
+Caller savepoint rollback and captured tracking qualify only failed saves or
+pre-save denials; successful caller-owned saves retain their outer rollback hold.
+See `docs/verification/file-upload-commit-outcomes.md` for the cleanup proof and
+remaining reconciliation boundary.
+
+Form authorization independently reads current persisted Form identity and
+parent/actor authority without reusing tracked snapshots. Scoped untracked reads
+restore the caller's tracking mode and retain pending writes and transaction
+ownership. Native committed-change controls cover the initial-load authorization
+interval; they do not establish atomic authorization through commit or deployed
+RLS. See the Form authorization boundary in `docs/SECURITY_MODEL.md`.
 
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,

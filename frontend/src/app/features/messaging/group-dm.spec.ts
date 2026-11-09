@@ -169,6 +169,44 @@ describe('Explicit Group creation', () => {
     http.expectNone('/api/conversations/direct');
   });
 
+  it('does not navigate using a successful stale Group create after a Workspace change', async () => {
+    const http = await setup();
+    const workspace = TestBed.inject(ActiveWorkspaceFacade);
+    workspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const component = fixture.componentInstance;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    http.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    component.openCreateDialog();
+    component.changeCreateMode('group');
+    fixture.detectChanges();
+    http.expectOne('/api/workspaces/workspace-a/members').flush([
+      { userId: 'first', displayName: 'First', status: 1 },
+      { userId: 'second', displayName: 'Second', status: 1 }
+    ]);
+    component.onGroupRecipientsChanged([
+      { userId: 'first', displayName: 'First' },
+      { userId: 'second', displayName: 'Second' }
+    ]);
+    component.createConversation();
+    const pending = http.expectOne('/api/conversations');
+    expect(pending.request.method).toBe('POST');
+    workspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    // Complete before Angular applies its scheduled scope-change effect.
+    if (!pending.cancelled) {
+      pending.flush({ id: 'old-scope-group', type: 'Group', workspaceId: 'workspace-a',
+        projectId: null, parentConversationId: null });
+    }
+    fixture.detectChanges();
+    http.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.createDialogOpen()).toBe(false);
+    expect(component.selectedRecipients()).toEqual([]);
+    expect(component.canSubmitCreate()).toBe(false);
+  });
+
   for (const outcome of ['network-error', 'wrong-workspace'] as const) {
     it(`does not claim failure or auto-resend an unconfirmed Group creation after ${outcome}`, async () => {
       const http = await setup(); TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
