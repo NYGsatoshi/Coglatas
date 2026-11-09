@@ -14,6 +14,12 @@ The initial index accounts for the 295 Markdown records present here at
 That inventory identifies the starting documents; it does not qualify their
 product behavior, execute a gate, or establish the state of a later Main commit.
 
+Two additional bounded PostgreSQL migration records were imported byte-for-byte
+from Main at `9cf3ed8eec0d46ebe0d841a533dee097ec007a4d` (DOC-08).
+This index now covers 297 records in `docs/verification/` on the documentation
+branch, including these two; it does not claim to index Main-only records that
+remain outside the branch or to qualify a migration's runtime execution.
+
 ## Find a topic
 
 | Topic | Contents |
@@ -403,6 +409,8 @@ Target-environment prerequisites, synthetic recovery, and isolated configuration
 - [Logical recovery expression stability — #1355](logical-recovery-schema-stability-20261101.md)
 - [Issue #481 public HTTPS production Golden Path](p0-public-https-golden-path.md)
 - [P4 isolated environment configuration decision packet](p4-isolated-environment-owner-packet-20261018.md)
+- [Post-repair PostgreSQL migration logical-catalog round trip — Main source-bound](postgresql-postrepair-migration-roundtrip.md)
+- [Pre-repair PostgreSQL migration-prefix round trip — Main source-bound](postgresql-prerepair-migration-roundtrip.md)
 - [Procon on-prem Compose migration verification](procon-onprem-compose-migration.md)
 - [Procon on-prem reverse-proxy topology](procon-onprem-reverse-proxy-topology.md)
 - [Startup configuration boundary controls](startup-configuration-boundaries.md)

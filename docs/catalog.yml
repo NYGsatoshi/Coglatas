@@ -3,12 +3,14 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: 6a12a6416910b11af12d2157581234c34adc1c55
-  base_tree: 33d61f6db6e404890468e77a3564f784257c4aa3
+  base_commit: 11fc3687d31daaafe8b10db68ea52c83a45b4f85
+  base_tree: 802b2f5c5c0b1fd3340f5b985081f262b2486bf7
   file_suffix: .md
   tracked_markdown_at_base: 475
-  markdown_added_by_this_change: []
-  expected_markdown_count: 475
+  markdown_added_by_this_change:
+  - docs/verification/postgresql-postrepair-migration-roundtrip.md
+  - docs/verification/postgresql-prerepair-migration-roundtrip.md
+  expected_markdown_count: 477
   excluded_formats:
   - .mdx
 documents:
@@ -2042,6 +2044,22 @@ documents:
   lifecycle: candidate
   classification_basis: 'Opening scope: "Coordinated .NET SDK 10.0.402 upgrade — candidate" Retain its explicit
     candidate/review-only document scope; this does not determine current PR or approval state.'
+- path: docs/verification/postgresql-postrepair-migration-roundtrip.md
+  kind: report
+  domain: data
+  lifecycle: needs-review
+  classification_basis: Source-bound bounded post-repair disposable PostgreSQL catalog round-trip test with
+    original full-rewind and column-ordinal failures retained. Current test availability and hosted qualification
+    require checking the owning Main source; imported prose alone proves no execution or migration admission.
+  source_ref: 'main: NYGsatoshi/Coglatas@9cf3ed8eec0d46ebe0d841a533dee097ec007a4d'
+- path: docs/verification/postgresql-prerepair-migration-roundtrip.md
+  kind: report
+  domain: data
+  lifecycle: needs-review
+  classification_basis: Source-bound pre-repair migration-prefix round-trip contract and retained failed full-rewind
+    experiment. Test execution, live model compatibility, current CI and recovery acceptance remain separate;
+    original Main source bytes are preserved without importing tests or migrations.
+  source_ref: 'main: NYGsatoshi/Coglatas@9cf3ed8eec0d46ebe0d841a533dee097ec007a4d'
 - path: docs/verification/pre-avalonia-licensed-scope-refresh.md
   kind: report
   domain: project-ide
