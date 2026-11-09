@@ -5,7 +5,9 @@ with the real scope repository and the `EfUnitOfWork` wired to that same
 repository. Its isolated migrated database has synthetic Tenant, account,
 Workspace, Project, Task, default/override rows and both policy documents.
 Distinct policies and versions above the 32-bit range make inheritance and
-version comparisons explicit.
+version comparisons explicit. The Project document's non-legacy `WebSite`
+default is `Prioritize`; the complete returned V2 policy must equal it, so a
+fallback that ignores the document cannot pass the inheritance assertion.
 
 The fact runs caller rollback and caller commit. The service removes the
 override row and Task policy document, advances the Task version and stores one
@@ -17,7 +19,8 @@ that selected snapshot. Commit exposes the removal, advanced version and the
 same invalidation identity with selected envelope fields in an independent
 context. The Project policy remains inherited.
 
-The audit recorder checks one exact service call and metadata per invocation;
+The audit recorder checks one service call, all entry fields and the complete
+one-key metadata set per invocation;
 it does not persist an Audit row or qualify audit transaction atomicity.
 Management authority is a fixture grant limited to the selected actor/Project.
 This does not establish persisted-current authorization, HTTP privacy,

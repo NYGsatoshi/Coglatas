@@ -51,6 +51,10 @@ public sealed class TaskScopeClearCallerTransactionPostgreSqlTests
             TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = project.Id, TaskItemId = task.Id,
             WebEnabled = false, ProjectFilesEnabled = true, VersionNo = 9_000_000_003L, UpdatedByUserId = actor.Id
         };
+        var defaultPolicy = TaskExecutionSourcePolicyV2.FromLegacy(true, false) with
+        {
+            WebSite = TaskExecutionSourceState.Prioritize
+        };
         await using (var seed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connectionString))
         {
             seed.Tenants.Add(tenant);
@@ -68,7 +72,7 @@ public sealed class TaskScopeClearCallerTransactionPostgreSqlTests
             var repository = new TaskExecutionScopeRepository(seed);
             repository.StageSourcePolicyDocument(new TaskExecutionSourcePolicyDocument(
                 TaskExecutionSourcePolicyOwnerType.Project, project.Id, tenant.Id, workspace.Id, project.Id,
-                null, projectScope.VersionNo, null, TaskExecutionSourcePolicyV2.FromLegacy(true, false)));
+                null, projectScope.VersionNo, null, defaultPolicy));
             var taskDocument = new TaskExecutionSourcePolicyDocument(
                 TaskExecutionSourcePolicyOwnerType.Task, task.Id, tenant.Id, workspace.Id, project.Id,
                 task.Id, projectScope.VersionNo, taskOverride.VersionNo, TaskExecutionSourcePolicyV2.FromLegacy(false, true));
@@ -110,6 +114,9 @@ public sealed class TaskScopeClearCallerTransactionPostgreSqlTests
             Assert.True(result.Value.CanManage);
             Assert.True(result.Value.EffectivePolicy.WebEnabled);
             Assert.False(result.Value.EffectivePolicy.ProjectFilesEnabled);
+            Assert.NotNull(result.Value.EffectivePolicy.PolicyV2);
+            Assert.Equal(TaskExecutionSourceState.Prioritize, result.Value.EffectivePolicy.PolicyV2.WebSite);
+            Assert.Equal(JsonSerializer.Serialize(defaultPolicy), JsonSerializer.Serialize(result.Value.EffectivePolicy.PolicyV2));
             Assert.Same(transaction, writer.Database.CurrentTransaction);
             Assert.Equal(ConnectionState.Open, writer.Database.GetDbConnection().State);
             Assert.False(repository.HasPendingSourcePolicyDocuments);
@@ -125,6 +132,13 @@ public sealed class TaskScopeClearCallerTransactionPostgreSqlTests
             Assert.Equal(actor.Id, entry.ActorUserId);
             Assert.Equal(workspace.Id, entry.WorkspaceId);
             Assert.Equal(project.Id, entry.ProjectId);
+            Assert.Null(entry.Summary);
+            Assert.Null(entry.GroupId);
+            Assert.Null(entry.IpAddress);
+            Assert.Null(entry.UserAgent);
+            Assert.Null(entry.TenantId);
+            Assert.Null(entry.CorrelationId);
+            Assert.Equal("overrideVersion", Assert.Single(entry.Metadata!).Key);
             Assert.Equal(taskOverride.VersionNo, Assert.IsType<long>(entry.Metadata!["overrideVersion"]));
             Assert.Equal(before, await ReadStoredStateAsync(connectionString, task.Id, project.Id));
 
