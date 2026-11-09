@@ -5,29 +5,29 @@ namespace Coglatas.Tests.Projects;
 public sealed partial class ProjectServiceTests
 {
     [Theory]
-    [InlineData(null, ProjectActivationState.Activated, null, true, 1L)]
-    [InlineData(ProjectStatus.Archived, ProjectActivationState.Activated, null, true, 1L)]
-    [InlineData(ProjectStatus.Deleted, ProjectActivationState.Activated, null, true, 1L)]
-    [InlineData((ProjectStatus)999, ProjectActivationState.Activated, null, true, 1L)]
+    [InlineData(null, ProjectActivationState.Activated, null, true, 1)]
+    [InlineData(ProjectStatus.Archived, ProjectActivationState.Activated, null, true, 1)]
+    [InlineData(ProjectStatus.Deleted, ProjectActivationState.Activated, null, true, 1)]
+    [InlineData((ProjectStatus)999, ProjectActivationState.Activated, null, true, 1)]
     [InlineData(ProjectStatus.Active, ProjectActivationState.LegacyUnknown, null, false, null)]
     [InlineData(ProjectStatus.Active, ProjectActivationState.NeverActivated, null, false, null)]
-    [InlineData(ProjectStatus.Planning, ProjectActivationState.Activated, null, true, 1L)]
+    [InlineData(ProjectStatus.Planning, ProjectActivationState.Activated, null, true, 1)]
     [InlineData(ProjectStatus.Planning, ProjectActivationState.NeverActivated, null, true, null)]
-    [InlineData(ProjectStatus.Planning, ProjectActivationState.NeverActivated, null, false, 1L)]
-    [InlineData(ProjectStatus.Active, ProjectActivationState.Activated, null, false, 1L)]
+    [InlineData(ProjectStatus.Planning, ProjectActivationState.NeverActivated, null, false, 1)]
+    [InlineData(ProjectStatus.Active, ProjectActivationState.Activated, null, false, 1)]
     [InlineData(ProjectStatus.Active, ProjectActivationState.Activated, null, true, null)]
-    [InlineData(ProjectStatus.Review, ProjectActivationState.Activated, null, true, 0L)]
-    [InlineData(ProjectStatus.Completed, ProjectActivationState.Activated, null, true, -1L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, null, true, 1L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Archived, true, 1L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Suspended, true, 1L)]
+    [InlineData(ProjectStatus.Review, ProjectActivationState.Activated, null, true, 0)]
+    [InlineData(ProjectStatus.Completed, ProjectActivationState.Activated, null, true, -1)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, null, true, 1)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Archived, true, 1)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Suspended, true, 1)]
     [InlineData(ProjectStatus.Suspended, ProjectActivationState.NeverActivated, ProjectStatus.Active, false, null)]
     public async Task InconsistentRestoreProvenanceCannotMutateOrPublishTheArchivedProject(
         ProjectStatus? archivedFromStatus,
         ProjectActivationState activationState,
         ProjectStatus? suspendedFromStatus,
         bool hasActivatedAt,
-        long? activationVersion)
+        int? activationVersion)
     {
         var fixture = ProjectFixture.Create();
         var manager = fixture.AddUser();
@@ -73,19 +73,19 @@ public sealed partial class ProjectServiceTests
 
     [Theory]
     [InlineData(ProjectStatus.Planning, ProjectActivationState.NeverActivated, null, false, null)]
-    [InlineData(ProjectStatus.Active, ProjectActivationState.Activated, null, true, 1L)]
-    [InlineData(ProjectStatus.Review, ProjectActivationState.Activated, null, true, 2L)]
-    [InlineData(ProjectStatus.Completed, ProjectActivationState.Activated, null, true, 3L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Active, true, 1L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Review, true, 2L)]
-    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Completed, true, 3L)]
+    [InlineData(ProjectStatus.Active, ProjectActivationState.Activated, null, true, 1)]
+    [InlineData(ProjectStatus.Review, ProjectActivationState.Activated, null, true, 2)]
+    [InlineData(ProjectStatus.Completed, ProjectActivationState.Activated, null, true, 3)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Active, true, 1)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Review, true, 2)]
+    [InlineData(ProjectStatus.Suspended, ProjectActivationState.Activated, ProjectStatus.Completed, true, 3)]
     [InlineData(ProjectStatus.Suspended, ProjectActivationState.NeverActivated, ProjectStatus.Planning, false, null)]
     public async Task ConsistentRestoreUsesTheStoredStateAndEmitsItsScopedEffectsOnlyOnce(
         ProjectStatus archivedFromStatus,
         ProjectActivationState activationState,
         ProjectStatus? suspendedFromStatus,
         bool hasActivatedAt,
-        long? activationVersion)
+        int? activationVersion)
     {
         var fixture = ProjectFixture.Create();
         var manager = fixture.AddUser();
