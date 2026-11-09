@@ -293,6 +293,11 @@ test.describe('Student council implemented entry diagnostics', () => {
       await expect(entry).toBeVisible();
       await entry.focus();
       await expect(entry).toBeFocused();
+      if (mobile) {
+        await navigation.evaluate(async (drawer) => {
+          await Promise.all(drawer.getAnimations().map((animation) => animation.finished));
+        });
+      }
       expect(await entry.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
         return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));

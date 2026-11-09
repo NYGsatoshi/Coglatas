@@ -131,6 +131,10 @@ public static class SecurityArchitectureCli
 
     private static async Task<byte[]> ReadBytesAsync(string path)
     {
+        if (path == null || path.Contains(".."))
+        {
+            throw new ArgumentException("Invalid file path");
+        }
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
             8192, FileOptions.Asynchronous | FileOptions.SequentialScan);

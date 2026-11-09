@@ -5,6 +5,9 @@ namespace Coglatas.Application.Common.Interfaces;
 
 public interface IAnnouncementRepository
 {
+    Task<T> ReadCurrentAuthorizationAsync<T>(Func<CancellationToken, Task<T>> authorization,
+        CancellationToken cancellationToken = default) => authorization(cancellationToken);
+
     Task<PagedResponse<Announcement>> ListVisibleAsync(Guid userId, bool isSystemAdmin, AnnouncementListQuery query, CancellationToken cancellationToken = default);
 
     Task<Announcement?> GetAsync(Guid announcementId, CancellationToken cancellationToken = default);

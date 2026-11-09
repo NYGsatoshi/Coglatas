@@ -7,46 +7,60 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.61.0',
+    '@lucide/angular': '1.66.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
-    '@syncfusion/ej2-angular-grids': '35.1.41',
-    '@syncfusion/ej2-angular-inputs': '35.1.41',
-    '@syncfusion/ej2-angular-popups': '35.1.39',
+    '@syncfusion/ej2-angular-grids': '35.1.42',
+    '@syncfusion/ej2-angular-inputs': '35.1.42',
+    '@syncfusion/ej2-angular-popups': '35.1.42',
     'ag-grid-angular': '36.2.0',
     'ag-grid-community': '36.2.0',
     rxjs: '7.8.2',
+    tslib: '2.9.1',
     'zone.js': '0.16.3',
   },
   expectedDevDependencies = {
     '@angular-devkit/build-angular': '22.2.4',
-    '@storybook/angular': '10.6.3',
+    '@storybook/angular': '10.6.5',
     jsdom: '30.1.3',
-    storybook: '10.6.3',
+    storybook: '10.6.5',
     vitest: '5.0.5',
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
   for (const [dependencyType, expected] of [
     ['dependencies', expectedDependencies],
     ['devDependencies', expectedDevDependencies],
   ]) {
     for (const [name, version] of Object.entries(expected)) {
-      assert.equal(packageJson[dependencyType][name], version,
-        `${name} drifted from the ANG22-06 reviewed version`);
-      assert.equal(frontendPackageLock.packages[''][dependencyType][name], version,
-        `${name} lockfile root differs from the ANG22-06 reviewed version`);
+      // Only the jsdom 31 candidate is permitted beside the reviewed baseline.
+      // All other ANG22-06 contract versions remain exact, not open ranges.
+      const permitted = name === 'jsdom' ? ['30.1.3', '31.0.0'] : [version];
+      const manifestVersion = packageJson[dependencyType][name];
+      assert.ok(permitted.includes(manifestVersion),
+        `${name} drifted outside the explicitly reviewed version candidates`);
+      assert.equal(frontendPackageLock.packages[''][dependencyType][name], manifestVersion,
+        `${name} lockfile root differs from the manifest`);
       const installed = frontendPackageLock.packages[`node_modules/${name}`];
-      assert.equal(installed?.version, version,
-        `${name} lockfile node differs from the ANG22-06 reviewed version`);
+      assert.equal(installed?.version, manifestVersion,
+        `${name} lockfile node differs from the manifest`);
       assert.match(installed?.integrity ?? '', /^sha512-/u,
         `${name} must retain its immutable registry integrity`);
     }
   }
 });
 
-test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
+void test('retains one explicitly qualified jsdom version across both Angular workspaces', () => {
+  const frontendJsdom = frontendPackageLock.packages['node_modules/jsdom']?.version;
+  assert.ok(['30.1.3', '31.0.0'].includes(frontendJsdom));
+  assert.equal(coglatasPackageLock.packages['node_modules/jsdom']?.version, frontendJsdom);
+  assert.equal(coglatasPackageJson.devDependencies.jsdom, `^${frontendJsdom}`);
+  assert.equal(coglatasPackageLock.packages[''].devDependencies.jsdom, `^${frontendJsdom}`);
+});
+
+void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
   for (const dependent of ['@syncfusion/ej2-angular-grids', '@syncfusion/ej2-angular-inputs']) {
     const nested = frontendPackageLock.packages[`node_modules/${dependent}/node_modules/@syncfusion/ej2-angular-base`];
     assert.equal(nested?.version, '35.1.41', `${dependent} must pin the newly proposed base version`);
@@ -64,16 +78,16 @@ test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide
     'stale base version must not stay classified');
 });
 
-test('pins Angular 22.2.4 CDK and sibling CLI/DevKit package integrity', () => {
-  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.4');
-  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.4');
-  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.4');
+void test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity', () => {
+  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.5');
+  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.5');
+  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.5');
   for (const [name, version] of Object.entries({
-    '@angular-devkit/architect': '0.2202.4',
+    '@angular-devkit/architect': '0.2202.5',
     '@angular-devkit/build-angular': '22.2.4',
-    '@angular-devkit/core': '22.2.4',
+    '@angular-devkit/core': '22.2.5',
     '@angular/build': '22.2.4',
-    '@angular/cli': '22.2.4',
+    '@angular/cli': '22.2.5',
   })) {
     assert.equal(coglatasPackageJson.devDependencies[name], version);
     assert.equal(coglatasPackageLock.packages[''].devDependencies[name], version);
@@ -83,7 +97,7 @@ test('pins Angular 22.2.4 CDK and sibling CLI/DevKit package integrity', () => {
   }
 });
 
-test('denies the Popups 35.1.39 nested Syncfusion base install script', () => {
+void test('denies the Popups nested Syncfusion 35.1.41 base install script', () => {
   const node = frontendPackageLock.packages[
     'node_modules/@syncfusion/ej2-angular-popups/node_modules/@syncfusion/ej2-angular-base'
   ];
