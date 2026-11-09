@@ -34,8 +34,8 @@ public sealed class AdminBulkInviteUnitOfWorkPostgreSqlTests
 
                 Assert.False(result.IsSuccess);
                 Assert.Equal("A valid email address is required.", result.Error);
-                Assert.Equal(0, db.ChangeTracker.Entries<Invite>().Count());
-                Assert.Equal(0, db.ChangeTracker.Entries<AuditLog>().Count());
+                Assert.Empty(db.ChangeTracker.Entries<Invite>().Select(entry => entry.Entity.Id));
+                Assert.Empty(db.ChangeTracker.Entries<AuditLog>().Select(entry => entry.Entity.Id));
                 Assert.Equal(EntityState.Modified, db.Entry(workspace).State);
                 Assert.Equal("Caller pending change", workspace.Name);
                 Assert.Same(transaction, db.Database.CurrentTransaction);
