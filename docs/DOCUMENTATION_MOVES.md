@@ -246,9 +246,11 @@ Related but unadopted source proposals exist: Dockerfile changes in #1826,
 MBJ-02 receipt producer and SDK pin guard changes in #1556;
 and licensed acceptance workflow changes in #1633, #1502 and #1456.
 These candidates are not imported. Current source observations are pinned
-to `54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae`. Each document's original evidence remains
-source- and attempt-bound; this classification is not a permission to
-archive a path or to apply a held code/test candidate.
+to the inspected Main commit
+`54e63db2efc7030f3f08b9d85bb95e9ad94ab5ae`. Each document's original
+evidence remains source- and attempt-bound; this classification is not
+permission to archive a path or apply a held code/test candidate.
+
 ### Pending Main synchronization
 
 The documentation base intentionally retains its initial product/test
