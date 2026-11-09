@@ -88,7 +88,7 @@ public sealed partial class IntegrationServiceTests
         Assert.True(afterDelete.IsSuccess);
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(4, fixture.SaveCount);
-        Assert.Equal(new[] { "IntegrationCreated", "IntegrationUpdated", "IntegrationUpdated", "IntegrationDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
+        Assert.Equal(["IntegrationCreated", "IntegrationUpdated", "IntegrationUpdated", "IntegrationDeleted"], fixture.AuditEntries.Select(entry => entry.Action));
         foreach (var entry in fixture.AuditEntries)
         {
             Assert.Equal("IntegrationAccount", entry.EntityType);
@@ -175,7 +175,7 @@ public sealed partial class IntegrationServiceTests
         Assert.True(afterDelete.IsSuccess);
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(5, fixture.SaveCount);
-        Assert.Equal(new[] { "WebhookCreated", "WebhookUpdated", "WebhookUpdated", "WebhookTestValidated", "WebhookDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
+        Assert.Equal(["WebhookCreated", "WebhookUpdated", "WebhookUpdated", "WebhookTestValidated", "WebhookDeleted"], fixture.AuditEntries.Select(entry => entry.Action));
         foreach (var entry in fixture.AuditEntries)
         {
             Assert.Equal("WebhookEndpoint", entry.EntityType);
@@ -252,7 +252,7 @@ public sealed partial class IntegrationServiceTests
         Assert.Equal(earlierRevocation, token.RevokedAt);
         Assert.False((await fixture.Service.RevokeApiTokenAsync(Guid.NewGuid())).IsSuccess);
         Assert.Equal(4, fixture.SaveCount);
-        Assert.Equal(new[] { "ApiTokenCreated", "ApiTokenUsed", "ApiTokenRevoked", "ApiTokenRevoked" }, fixture.AuditEntries.Select(entry => entry.Action));
+        Assert.Equal(["ApiTokenCreated", "ApiTokenUsed", "ApiTokenRevoked", "ApiTokenRevoked"], fixture.AuditEntries.Select(entry => entry.Action));
         foreach (var entry in fixture.AuditEntries)
         {
             Assert.Equal("ApiToken", entry.EntityType);
