@@ -176,6 +176,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(fixture.Actor.Id, audit.ActorUserId);
         Assert.Equal(fixture.Workspace.Id, audit.WorkspaceId);
         Assert.Equal(fixture.Project.Id, audit.ProjectId);
+        Assert.Equal("overrideVersion", Assert.Single(audit.Metadata!).Key);
         Assert.Equal(removed.VersionNo, Assert.IsType<long>(audit.Metadata!["overrideVersion"]));
         var change = Assert.Single(await fixture.Db.OutboxEvents.AsNoTracking().ToListAsync());
         Assert.Equal(fixture.Tenant.Id, change.TenantId);
