@@ -32,6 +32,14 @@ public sealed partial class FormServiceTests
         };
 
         var created = await fixture.Service.AddQuestionAsync(form.Id, request);
+        Assert.False(created.IsSuccess);
+        Assert.Equal(expectedError, created.Error);
+        Assert.Same(question, Assert.Single(form.Questions));
+        Assert.Equal(before, QuestionState(question));
+        Assert.Empty(form.Responses);
+        Assert.Empty(fixture.StoredResponses);
+        Assert.Equal(0, fixture.AuditCalls);
+        Assert.Equal(0, fixture.SaveCalls);
         // An omitted update keeps the existing choices; explicitly empty options exercise its rejection.
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(request.QuestionText, request.QuestionType,
@@ -127,6 +135,20 @@ public sealed partial class FormServiceTests
             new UpdateFormQuestionRequest("Changed", FormQuestionType.Boolean, false, 99));
         Assert.Equal(responseId, response.Id);
         Assert.Equal(answerId, answer.Id);
+        Assert.False(updated.IsSuccess);
+        Assert.Equal("Question type cannot be changed after responses exist.", updated.Error);
+        Assert.Same(question, Assert.Single(form.Questions));
+        Assert.Equal(before, QuestionState(question));
+        Assert.Same(response, Assert.Single(form.Responses));
+        Assert.Same(response, Assert.Single(fixture.StoredResponses));
+        Assert.Same(answer, Assert.Single(response.Answers));
+        Assert.Equal(question.Id, answer.FormQuestionId);
+        Assert.Equal(responseId, answer.FormResponseId);
+        Assert.Equal("Retained answer", answer.AnswerText);
+        Assert.Null(answer.AnswerJson);
+        Assert.Equal(manager.Id, response.RespondentUserId);
+        Assert.Equal(0, fixture.AuditCalls);
+        Assert.Equal(0, fixture.SaveCalls);
         var deleted = await fixture.Service.DeleteQuestionAsync(form.Id, question.Id);
         Assert.Equal(responseId, response.Id);
         Assert.Equal(answerId, answer.Id);
