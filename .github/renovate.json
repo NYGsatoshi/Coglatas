@@ -220,6 +220,59 @@
       "groupName": "ANG22 reviewed dependency candidates"
     },
     {
+      "description": "Hold legacy Angular Babel override until both npm locks can be regenerated",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@babel/core"
+      ],
+      "matchFileNames": [
+        "coglatas-frontend/package.json"
+      ],
+      "allowedVersions": "8.0.10"
+    },
+    {
+      "description": "Hold legacy Angular undici override until both npm locks can be regenerated",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "undici"
+      ],
+      "matchFileNames": [
+        "coglatas-frontend/package.json"
+      ],
+      "allowedVersions": "8.12.3"
+    },
+    {
+      "description": "Hold Syncfusion Inputs pending ANG22 vendor qualification",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@syncfusion/ej2-angular-inputs"
+      ],
+      "matchFileNames": [
+        "frontend/package.json"
+      ],
+      "allowedVersions": "35.1.42"
+    },
+    {
+      "description": "Hold AG Grid packages pending coordinated ANG22 qualification",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "ag-grid-angular",
+        "ag-grid-community"
+      ],
+      "matchFileNames": [
+        "frontend/package.json"
+      ],
+      "allowedVersions": "36.2.0"
+    },
+    {
       "description": "Group compatible NuGet updates per review",
       "matchManagers": [
         "nuget"
