@@ -3,13 +3,17 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: cb6873b3f887806da3ab33ef2cc4535b3a3173da
-  base_tree: c6d0c68ea0bea78de6886f39d09a13b03f07280f
+  base_commit: 7f6db2e2b36bad60133ae98e2b60c454d7a28592
+  base_tree: 73b4b2dc34ecdf9aea6a9c8dfb7a561d7f52221e
   file_suffix: .md
-  tracked_markdown_at_base: 477
+  tracked_markdown_at_base: 478
   markdown_added_by_this_change:
-  - docs/verification/testing-historical-snapshot-20260802.md
-  expected_markdown_count: 478
+  - docs/verification/event-list-pagination-overflow.md
+  - docs/verification/form-list-pagination-overflow.md
+  - docs/verification/form-response-pagination-overflow.md
+  - docs/verification/project-child-pagination-overflow.md
+  - docs/verification/project-task-query-pagination-overflow.md
+  expected_markdown_count: 483
   excluded_formats:
   - .mdx
 documents:
@@ -1314,6 +1318,14 @@ documents:
   classification_basis: 'Opening scope: "The dormant workspace Storybook compiler includes .storybook/preview.ts
     and source stories but inherited the application''s src root directory. Its owning build-storybook..." This
     implementation/verification record needs a maintenance and successor review.'
+- path: docs/verification/event-list-pagination-overflow.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: Source-bound Event list paging-overflow repair and Application-service double controls. Retains
+    failing oversized-page source evidence and lacks fresh PostgreSQL, HTTP, RLS and exact
+    resulting-Main acceptance.
+  source_ref: 'main: NYGsatoshi/Coglatas@a851cc3a8bb977f08605097a719fa186c8f37e32'
 - path: docs/verification/existing-python-controls-coverage.md
   kind: report
   domain: quality
@@ -1385,6 +1397,14 @@ documents:
   classification_basis: 'Opening scope: "The Files page reuses the existing shared CoglatasFileUploader selection,
     drop, single-file queue and Cancel/Retry presentation. It does not introduce another uploader..." This implementation/verification
     record needs a maintenance and successor review.'
+- path: docs/verification/form-list-pagination-overflow.md
+  kind: report
+  domain: forms
+  lifecycle: needs-review
+  classification_basis: Bounded Form catalogue pagination overflow repair with retained original failed test source and
+    local Application doubles. Original native evidence, official Gate and PostgreSQL authorization
+    remain separately qualified.
+  source_ref: 'main: NYGsatoshi/Coglatas@a851cc3a8bb977f08605097a719fa186c8f37e32'
 - path: docs/verification/form-parent-authority.md
   kind: report
   domain: forms
@@ -1392,6 +1412,14 @@ documents:
   classification_basis: 'Opening scope: "The implemented InternalForm questionnaire service uses its stored Workspace,
     Group or Project identity. Group and Project parents are resolved through the..." This implementation/verification
     record needs a maintenance and successor review.'
+- path: docs/verification/form-response-pagination-overflow.md
+  kind: report
+  domain: forms
+  lifecycle: needs-review
+  classification_basis: Bounded named and anonymous Form response paging-overflow repair with separate failed test
+    revision and redaction controls. Application doubles cannot qualify hosted PostgreSQL, HTTP or
+    RLS.
+  source_ref: 'main: NYGsatoshi/Coglatas@a851cc3a8bb977f08605097a719fa186c8f37e32'
 - path: docs/verification/forms-answer-contract-tests.md
   kind: report
   domain: forms
@@ -2086,6 +2114,14 @@ documents:
   lifecycle: active
   classification_basis: The opening explicitly describes the supported generic on-prem contract; operator configuration,
     proxy behavior, and verification procedure do not qualify a particular host.
+- path: docs/verification/project-child-pagination-overflow.md
+  kind: report
+  domain: workspaces
+  lifecycle: needs-review
+  classification_basis: Service-side Project child in-memory pagination repair for Milestones, Comments and fallback
+    Tasks. Original RED test reports are retained; optimized SQL Task path and complete current source
+    qualification are separate.
+  source_ref: 'main: NYGsatoshi/Coglatas@a851cc3a8bb977f08605097a719fa186c8f37e32'
 - path: docs/verification/project-comment-current-authority.md
   kind: report
   domain: workspaces
@@ -2114,6 +2150,14 @@ documents:
   classification_basis: 'Opening scope: "ProjectsFacade.loadProjects already rejected results from an old authorization
     generation or Workspace before applying state. Its preceding switchMap could nevertheless..." This implementation/verification
     record needs a maintenance and successor review.'
+- path: docs/verification/project-task-query-pagination-overflow.md
+  kind: report
+  domain: tasks
+  lifecycle: needs-review
+  classification_basis: Optimized ProjectRepository SQL Task paging-overflow repair with original test-only failures and
+    unavailable PostgreSQL execution retained. InMemory results do not establish actual SQL
+    translation or latest hosted acceptance.
+  source_ref: 'main: NYGsatoshi/Coglatas@a851cc3a8bb977f08605097a719fa186c8f37e32'
 - path: docs/verification/quality-evidence-native-coverage.md
   kind: report
   domain: quality
