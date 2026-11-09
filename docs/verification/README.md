@@ -16,9 +16,10 @@ product behavior, execute a gate, or establish the state of a later Main commit.
 
 Two additional bounded PostgreSQL migration records were imported byte-for-byte
 from Main at `9cf3ed8eec0d46ebe0d841a533dee097ec007a4d` (DOC-08).
-This index now covers 297 records in `docs/verification/` on the documentation
-branch, including these two; it does not claim to index Main-only records that
-remain outside the branch or to qualify a migration's runtime execution.
+This index now covers 298 records in `docs/verification/` on the documentation
+branch, including these two and one retained historical testing snapshot; it
+does not claim to index Main-only records outside the branch or to qualify
+migration or test runtime execution.
 
 ## Find a topic
 
@@ -81,6 +82,7 @@ Coverage definitions, gate ownership, owner journeys, and acceptance evidence.
 - [Functional CI journey matrix](functional-ci/functional-journey-matrix.md)
 - [Functional CI test policy](functional-ci/functional-test-policy.md)
 - [Required-check governance contract](governance-required-checks.md)
+- [Retained testing verification snapshot (2026-08-02)](testing-historical-snapshot-20260802.md)
 - [MBJ-02 fixed PostgreSQL result receipt](mbj02-named-postgresql-receipt-20261026.md)
 - [Group fixture Workspace restoration readiness](mobile-group-entry-readiness-20261029.md)
 - [Independent actual-backend MVP0 Mobile qualification](mobile-mvp0-group-dm-20261029.md)

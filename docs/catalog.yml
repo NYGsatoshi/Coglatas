@@ -3,14 +3,13 @@
 version: 1
 scope:
   repository: NYGsatoshi/Coglatas
-  base_commit: 11fc3687d31daaafe8b10db68ea52c83a45b4f85
-  base_tree: 802b2f5c5c0b1fd3340f5b985081f262b2486bf7
+  base_commit: cb6873b3f887806da3ab33ef2cc4535b3a3173da
+  base_tree: c6d0c68ea0bea78de6886f39d09a13b03f07280f
   file_suffix: .md
-  tracked_markdown_at_base: 475
+  tracked_markdown_at_base: 477
   markdown_added_by_this_change:
-  - docs/verification/postgresql-postrepair-migration-roundtrip.md
-  - docs/verification/postgresql-prerepair-migration-roundtrip.md
-  expected_markdown_count: 477
+  - docs/verification/testing-historical-snapshot-20260802.md
+  expected_markdown_count: 478
   excluded_formats:
   - .mdx
 documents:
@@ -2914,6 +2913,14 @@ documents:
   classification_basis: 'Opening scope: "Main741 first-attempt Security runtime failed its alpha-owner Schemathesis
     fuzzing case maqXLt, seed715069838, on PATCH /api/tenant/settings with vendor JSON. An..." This implementation/verification
     record needs a maintenance and successor review.'
+- path: docs/verification/testing-historical-snapshot-20260802.md
+  kind: report
+  domain: quality
+  lifecycle: historical
+  classification_basis: Dated June/August 2026 testing observations extracted verbatim from TESTING.md,
+    retaining the unexecuted PostgreSQL and IPC-limited audit boundaries. This source-bound snapshot
+    is not current Main qualification; original heading anchors remain at the guide entrance.
+  source_ref: 'documentation: NYGsatoshi/Coglatas@cb6873b3f887806da3ab33ef2cc4535b3a3173da'
 - path: docs/verification/thread-authorized-catchup-order-20261024.md
   kind: report
   domain: messaging

@@ -1,5 +1,23 @@
 # Testing
 
+## Navigate testing and qualification
+
+This guide distinguishes maintained test-layer instructions, bounded
+feature-specific verification requirements, and dated results. A required
+test configured in CI does not count as executed without its current-source
+run, attempt, environment, result and applicable approval. In particular,
+PostgreSQL and licensed browser evidence cannot be inferred from in-memory
+or mocked suites.
+
+| Goal | Where to go |
+| --- | --- |
+| Select unit, HTTP and PostgreSQL test layers | [Test layers](#test-layers), [unit/service](#unit-and-service-tests), [HTTP](#http-tests), [PostgreSQL](#postgresql-tests) |
+| Check Task notification and delivery contracts | [PR07-B immediate notifications](#task-v1-pr07-b-immediate-notification-tests), [PR07-C deadline digest](#task-v1-pr07-c-workspace-deadline-digest-tests), [PR07-D authorized delivery](#task-v1-pr07-d-authorized-delivery-and-angular-reconciliation-tests) |
+| Navigate browser, Mobile and public HTTPS checks | [Browser UI tests](#browser-ui-tests), [MVP0 smoke](#mvp0-real-backend-browser-smoke), [public HTTPS](#public-https-production-golden-path) |
+| Identify relevant workflows and commands | [CI](#ci) and [Commands](#commands) |
+| Interpret missing coverage and failed runs | [Coverage gaps](#coverage-gaps) and [Interpreting results](#interpreting-results) |
+| Read earlier, source-bound verification | [Retained August 2026 snapshot](#historical-verification-snapshot-2026-08-02) and [its complete record](verification/testing-historical-snapshot-20260802.md) |
+
 Forms answer normalization and submission admission controls are documented
 in [the Forms answer contract verification](verification/forms-answer-contract-tests.md).
 They exercise Application unit contracts and preserve the original Forms
@@ -21,26 +39,20 @@ evidence record.
 
 ## Historical verification snapshot (2026-08-02)
 
-The prior full backend and frontend audit used a disposable migrated PostgreSQL
-18 database and a local Windows UI diagnostic. It is retained only as
-historical environment context. Its result counts do not establish acceptance
-of the current PR07-C remediation; the final run must record its own immutable
-HEAD, PostgreSQL availability, and exact totals.
+The dated historical results are retained verbatim in
+[the testing verification snapshot](verification/testing-historical-snapshot-20260802.md).
+These results are not current CI or release qualification. This heading and
+both subheadings below remain as stable compatibility anchors.
 
 ### Historical 2026-06-28 A-04 auth boundary verification
 
-- Release build completed with 0 warnings and 0 errors.
-- `AuthSecurityHttpTests` passed 15/15 after the test harness persisted Data Protection keys to an isolated temp directory instead of the Windows user-profile key folder.
-- `TenantIsolation` filtered tests passed 24/24.
-- Full backend suite passed 128/128.
-- Docker daemon and local PostgreSQL were unavailable on this host, so container/runtime database assertions remain separate evidence work.
+Read the [original June 28 A-04 observations](verification/testing-historical-snapshot-20260802.md#historical-2026-06-28-a-04-auth-boundary-verification),
+including their Docker/PostgreSQL execution limitations.
 
 ### 2026-06-19 backend audit verification
 
-- Release build completed with 0 warnings and 0 errors.
-- The audit environment prevented the .NET test runner from opening its local IPC socket, so tests did not execute in that turn.
-- Existing test files were inspected for coverage, but the backend audit does not claim a fresh passing test run.
-- Detailed regression recommendations are in `docs/BACKEND_LOGIC_AUDIT.md`.
+Read the [original June 19 backend audit](verification/testing-historical-snapshot-20260802.md#2026-06-19-backend-audit-verification),
+including the explicit test-runner IPC failure and unexecuted tests.
 
 ## Test layers
 
