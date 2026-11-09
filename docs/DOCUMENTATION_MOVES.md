@@ -124,7 +124,7 @@ Further implementation requires a refreshed PR-overlap check.
 | ID | Existing document or group | Current disposition | Concrete follow-up and completion condition |
 | --- | --- | --- | --- |
 | DOC-M01 | [AI context](AI_CONTEXT.md) | Retain entrance; review mixed responsibilities | Keep task routes and effective constraints at the entrance. Link detailed historical executions to their existing source records only after identifying every unique requirement and active restriction. The initial navigation relocation is not a full ledger extraction. |
-| DOC-M02 | [Testing](TESTING.md) | Retain CI-bound path; review scoped extraction | Separate reusable execution guidance from dated results where that reduces duplication. Account for its compatibility-workflow trigger and existing anchors before any extraction. |
+| DOC-M02 | [Testing](TESTING.md) | Retain CI-bound guide and all active test contracts; bounded historical extraction | The dated June/August 2026 result snapshot moved verbatim to [its history record](verification/testing-historical-snapshot-20260802.md), with the original three heading anchors retained as compatibility links. Remaining long-form test contracts must not be moved until [compatibility workflow](../.github/workflows/compat-critical-preflight.yml) trigger coverage and inbound consumers are updated and verified. |
 | DOC-M03 | [API contracts](API_CONTRACTS.md) and [detailed contracts](contracts/) | Retain; review ownership | Identify the maintained home of each repeated contract and preserve compatibility/error semantics. Extract one coherent contract only after checking implementation and inbound references. |
 | DOC-M04 | [Security model](SECURITY_MODEL.md) and [known issues](KNOWN_ISSUES.md) | Retain; review mixed status records | Preserve the distinction between implementation, open issues, dated qualification, and approval. Maintain CODEOWNERS/governance references for the security model. A dated failure or HOLD is not removed solely because newer work exists. |
 | DOC-M05 | [Task compatibility](TASK_V1_PR01_COMPATIBILITY.md), `TASK_V1_PR02.md`, `TASK_V1_PR04.md`, `TASK_V1_PR05.md`, `TASK_V1_PR06.md`, and `TASK_V1_PR07_PLAN.md` | Retain; classify lasting contracts and plans | Inspect each document's actual scope. A numbered PR filename does not establish historical-only purpose. Retain unique acceptance criteria and explicitly identify any successor before archival. |
@@ -297,8 +297,18 @@ inventory, not an assertion that all nested Main directories are synchronized.
 
 ## Record for an executed move
 
-No physical moves have been executed in this ledger. Add a separate record for
-each coherent move after the applicable validation is ready. Include:
+One bounded, source-identical extraction (DOC-M02) has been prepared:
+
+| Field | Recorded action |
+| --- | --- |
+| Source/target | `docs/TESTING.md` → `docs/verification/testing-historical-snapshot-20260802.md` |
+| Original identity | Documentation baseline `cb6873b3f887806da3ab33ef2cc4535b3a3173da`; all 1,339 original snapshot characters retained inside the new file without rewriting failed or qualified results |
+| Legacy inbound anchors | Keep the original H2 and both H3 headings in `docs/TESTING.md`, each linking to the full retained original section |
+| Dependencies | Historical excerpt contains no Markdown hyperlinks or companion assets; the guide remains a path-filter input to `compat-critical-preflight.yml`; no active Task/PR07/Functional contracts are moved |
+| Validation | Check exact snapshot preservation, new/old anchors, catalogue coverage, index, and actual hosted CI on the implementing PR head |
+| Revert | Reinsert the original full section from `cb6873b3f887806da3ab33ef2cc4535b3a3173da` into `docs/TESTING.md`, delete the added historical record, and reverse index/catalogue/ledger changes as one reviewed revert |
+
+For each further coherent move, add a separate record after the applicable validation is ready. Include:
 
 - The owning branch, inspected base, resulting commit, and implementing PR.
 - Exact old and new paths, lifecycle basis, and a concrete successor when relevant.
