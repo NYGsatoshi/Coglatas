@@ -308,7 +308,7 @@ One bounded, source-identical extraction (DOC-M02) has been prepared:
 | Validation | Check exact snapshot preservation, new/old anchors, catalogue coverage, index, and actual hosted CI on the implementing PR head |
 | Revert | Reinsert the original full section from `cb6873b3f887806da3ab33ef2cc4535b3a3173da` into `docs/TESTING.md`, delete the added historical record, and reverse index/catalogue/ledger changes as one reviewed revert |
 
-Any future coherent move still requires the applicable validation below. Add a separate record for Include:
+For each further coherent move, add a separate record after the applicable validation is ready. Include:
 
 - The owning branch, inspected base, resulting commit, and implementing PR.
 - Exact old and new paths, lifecycle basis, and a concrete successor when relevant.
