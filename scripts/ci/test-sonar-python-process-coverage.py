@@ -204,6 +204,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/qodana-packets/verify.py',
             ROOT.as_posix() + '/scripts/ci/qodana-packets/r2_verify.py',
             ROOT.as_posix() + '/scripts/ci/nuget_dependency_snapshot.py',
+            ROOT.as_posix() + '/scripts/ci/check-nuget-lock-policy.py',
             ROOT.as_posix() + '/scripts/ci/audit_sbom_component_inventory.py',
             ROOT.as_posix() + '/scripts/ci/verify-mvp-a-final-checks.py',
             ROOT.as_posix() + '/scripts/ci/validate-functional-quarantine.py',

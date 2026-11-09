@@ -286,6 +286,37 @@ head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq full "$(value_of "$output" backend_test_scope)" "common fallback"
 
+# A lockfile-only change is a full dependency-graph change, not an incidental
+# source edit. CI and NuGet security must execute even without csproj changes.
+repo="$tmp_root/nuget-production-lock-only"
+init_repo "$repo"
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+mkdir -p "$repo/src/Coglatas.Infrastructure"
+printf '{"version":1}\n' > "$repo/src/Coglatas.Infrastructure/packages.lock.json"
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" backend)" "NuGet production lock backend"
+assert_eq true "$(value_of "$output" backend_ef)" "NuGet production lock EF"
+assert_eq full "$(value_of "$output" backend_test_scope)" "NuGet production lock full tests"
+assert_eq true "$(value_of "$output" security_dotnet)" "NuGet production lock SCA"
+assert_eq true "$(value_of "$output" security_image)" "NuGet production lock container"
+assert_eq true "$(value_of "$output" security_migration)" "NuGet production lock migrations"
+assert_eq true "$(value_of "$output" avmig_contract)" "NuGet production lock contract"
+
+repo="$tmp_root/nuget-test-lock-only"
+init_repo "$repo"
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+mkdir -p "$repo/tests/Coglatas.Tests"
+printf '{"version":1}\n' > "$repo/tests/Coglatas.Tests/packages.lock.json"
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" backend)" "NuGet test lock backend"
+assert_eq full "$(value_of "$output" backend_test_scope)" "NuGet test lock full tests"
+assert_eq true "$(value_of "$output" security_dotnet)" "NuGet test lock SCA"
+assert_eq false "$(value_of "$output" security_image)" "NuGet test lock not production image"
+
 # A positively identified documentation-only diff is the sole exemption. A
 # new/unclassified path and an invalid base cannot suppress a required owner.
 repo="$tmp_root/functional-docs"
