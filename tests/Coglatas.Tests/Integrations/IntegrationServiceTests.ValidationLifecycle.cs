@@ -25,6 +25,7 @@ public sealed partial class IntegrationServiceTests
         var empty = await fixture.Service.ListIntegrationsAsync();
         Assert.True(empty.IsSuccess);
         Assert.Empty(empty.Value!);
+        Assert.Empty(await fixture.Integrations.ListIntegrationAccountsAsync());
         Assert.Equal(0, fixture.SaveCount);
         Assert.Empty(fixture.AuditEntries);
 
@@ -41,6 +42,7 @@ public sealed partial class IntegrationServiceTests
         Assert.Equal(1, fixture.SaveCount);
         var audit = Assert.Single(fixture.AuditEntries);
         Assert.Equal("IntegrationCreated", audit.Action);
+        Assert.Equal("IntegrationAccount", audit.EntityType);
         Assert.Equal(original.Id, audit.EntityId);
         Assert.Equal(fixture.UserId, audit.ActorUserId);
     }
@@ -82,7 +84,7 @@ public sealed partial class IntegrationServiceTests
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(4, fixture.SaveCount);
         Assert.Equal(new[] { "IntegrationCreated", "IntegrationUpdated", "IntegrationUpdated", "IntegrationDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("IntegrationAccount", entry.EntityType); Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
     }
 
     [Theory]
@@ -100,6 +102,7 @@ public sealed partial class IntegrationServiceTests
         var empty = await fixture.Service.ListWebhooksAsync();
         Assert.True(empty.IsSuccess);
         Assert.Empty(empty.Value!);
+        Assert.Empty(await fixture.Integrations.ListWebhookEndpointsAsync());
         Assert.Equal(0, fixture.SaveCount);
         Assert.Empty(fixture.AuditEntries);
 
@@ -115,6 +118,7 @@ public sealed partial class IntegrationServiceTests
         Assert.Equal(1, fixture.SaveCount);
         var audit = Assert.Single(fixture.AuditEntries);
         Assert.Equal("WebhookCreated", audit.Action);
+        Assert.Equal("WebhookEndpoint", audit.EntityType);
         Assert.Equal(original.Id, audit.EntityId);
         Assert.Equal(fixture.UserId, audit.ActorUserId);
     }
@@ -123,15 +127,22 @@ public sealed partial class IntegrationServiceTests
     public async Task WebhookLifecycleRetainsNullFieldsAndDeletesWithoutFurtherEffects()
     {
         var fixture = IntegrationFixture.Create();
-        var created = await fixture.Service.CreateWebhookAsync(new CreateWebhookEndpointRequest("  Hook  ", "https://example.test/original", null, null));
+        var syntheticSecret = Guid.NewGuid().ToString("N");
+        var created = await fixture.Service.CreateWebhookAsync(new CreateWebhookEndpointRequest("  Hook  ", "https://example.test/original", syntheticSecret, "[\"fixture.changed\"]", WebhookEndpointStatus.Error));
         Assert.True(created.IsSuccess);
         var original = created.Value!;
         Assert.Equal("Hook", original.Name);
-        Assert.Equal("[]", original.EnabledEventsJson);
+        Assert.Equal("[\"fixture.changed\"]", original.EnabledEventsJson);
+        Assert.Equal(WebhookEndpointStatus.Error, original.Status);
+        var stored = await fixture.Integrations.GetWebhookEndpointAsync(original.Id);
+        Assert.NotNull(stored);
+        var originalSecretHash = stored.SecretHash;
+        Assert.Equal(fixture.TokenHasher.HashToken(syntheticSecret), originalSecretHash);
         Assert.Equal(fixture.UserId, original.CreatedByUserId);
         var unchanged = await fixture.Service.UpdateWebhookAsync(original.Id, new UpdateWebhookEndpointRequest(null, null, null, null, null));
         Assert.True(unchanged.IsSuccess);
         Assert.Equal(original, unchanged.Value);
+        Assert.Equal(originalSecretHash, stored.SecretHash);
         var updated = await fixture.Service.UpdateWebhookAsync(original.Id, new UpdateWebhookEndpointRequest("  Renamed hook  ", "https://example.test/updated", null, " ", WebhookEndpointStatus.Disabled));
         Assert.True(updated.IsSuccess);
         Assert.Equal("Renamed hook", updated.Value!.Name);
@@ -155,7 +166,7 @@ public sealed partial class IntegrationServiceTests
         Assert.Empty(afterDelete.Value!);
         Assert.Equal(5, fixture.SaveCount);
         Assert.Equal(new[] { "WebhookCreated", "WebhookUpdated", "WebhookUpdated", "WebhookTestValidated", "WebhookDeleted" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("WebhookEndpoint", entry.EntityType); Assert.Equal(original.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
     }
 
     [Theory]
@@ -219,11 +230,14 @@ public sealed partial class IntegrationServiceTests
         Assert.True((await fixture.Service.RevokeApiTokenAsync(token.Id)).IsSuccess);
         var revokedAt = token.RevokedAt;
         Assert.Equal(fixture.Clock.UtcNow, revokedAt);
+        var earlierRevocation = fixture.Clock.UtcNow.AddMinutes(-1);
+        token.RevokedAt = earlierRevocation;
+        Assert.NotEqual(fixture.Clock.UtcNow, token.RevokedAt);
         Assert.True((await fixture.Service.RevokeApiTokenAsync(token.Id)).IsSuccess);
-        Assert.Equal(revokedAt, token.RevokedAt);
+        Assert.Equal(earlierRevocation, token.RevokedAt);
         Assert.False((await fixture.Service.RevokeApiTokenAsync(Guid.NewGuid())).IsSuccess);
         Assert.Equal(4, fixture.SaveCount);
         Assert.Equal(new[] { "ApiTokenCreated", "ApiTokenUsed", "ApiTokenRevoked", "ApiTokenRevoked" }, fixture.AuditEntries.Select(entry => entry.Action));
-        Assert.All(fixture.AuditEntries, entry => { Assert.Equal(token.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
+        Assert.All(fixture.AuditEntries, entry => { Assert.Equal("ApiToken", entry.EntityType); Assert.Equal(token.Id, entry.EntityId); Assert.Equal(fixture.UserId, entry.ActorUserId); });
     }
 }

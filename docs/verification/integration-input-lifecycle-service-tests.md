@@ -8,6 +8,10 @@ complete selected response record. Positive Integration and Webhook lifecycles
 check normalization, null-field retention, updates, soft-deletion visibility,
 repeated denial and scoped audit/save counts. Token use checks the stored hash,
 returned identity/scopes, last-use timestamp and repeated revocation timestamp.
+The repeated-revoke control seeds a distinct earlier stored timestamp before
+the second command. Webhook null updates start with non-default events/status
+and a generated synthetic secret, and check its stored hash. Rejected creates
+also check unfiltered repository lists; audit checks include entity types.
 All data is synthetic. The webhook validation command sends no outbound request.
 
 The original tests and assertions are preserved. The fixture only gains audit
