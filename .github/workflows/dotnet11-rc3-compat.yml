@@ -26,7 +26,7 @@ jobs:
   migration-smoke:
     # Explicit experiment guard; this PR never changes the release gate.
     if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       CI: "true"
@@ -106,10 +106,10 @@ jobs:
       - name: Test portable backend regressions
         run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=dotnet11-portable.trx" --results-directory artifacts/dotnet11
 
-      - name: Set up reviewed Node 24 for strict TRX evidence parser
+      - name: Set up reviewed Node 26 for strict TRX evidence parser
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Restore root parser dependencies without install scripts
         run: |
@@ -135,7 +135,7 @@ jobs:
   container-pin-discovery:
     # Resolve real registry digests before any pinned production-like Dockerfiles change.
     if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Inspect .NET 11 GA OCI manifest digests without pulling or executing images
