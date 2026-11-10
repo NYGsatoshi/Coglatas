@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 spec = importlib.util.spec_from_file_location('architecture_advisory', Path(__file__).parents[2] / 'scripts/ci/architecture_advisory.py')
@@ -83,6 +86,53 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
             args.update(kwargs)
             with self.subTest(args=args), self.assertRaises(module.ArchitectureEvidenceError):
                 module.verify(trx(), **args)
+
+    def test_descriptor_read_uses_actual_bounded_trx_bytes(self):
+        """Accept a regular TRX through the same validated descriptor."""
+        source_bytes = trx()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'architecture-tests.trx'
+            path.write_bytes(source_bytes)
+            self.assertEqual(module.read_trx_file(path), source_bytes)
+            self.assertEqual(module.verify(module.read_trx_file(path), SHA, '123', 1)['actualCasesPassed'], 13)
+            path.write_bytes(b'')
+            with self.assertRaises(module.ArchitectureEvidenceError) as failure:
+                module.read_trx_file(path)
+            self.assertEqual(failure.exception.args[0], 'TRX_FILE')
+
+    def test_descriptor_read_rejects_swapped_path_after_lstat(self):
+        """An equal-sized path replacement cannot inherit the checked identity."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'architecture-tests.trx'
+            replacement = Path(folder) / 'replacement.trx'
+            source_bytes = trx()
+            path.write_bytes(source_bytes)
+            replacement.write_bytes(source_bytes)
+            real_open = os.open
+
+            def swap_before_open(target, flags, *args, **kwargs):
+                if Path(target) == path:
+                    os.replace(replacement, path)
+                return real_open(target, flags, *args, **kwargs)
+
+            with mock.patch.object(module.os, 'open', side_effect=swap_before_open):
+                with self.assertRaises(module.ArchitectureEvidenceError) as failure:
+                    module.read_trx_file(path)
+            self.assertEqual(failure.exception.args[0], 'TRX_FILE')
+
+    def test_descriptor_read_rejects_symlinked_leaf(self):
+        """A symlink is never a qualifying native TRX leaf."""
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'actual.trx'
+            link = Path(folder) / 'architecture-tests.trx'
+            target.write_bytes(trx())
+            try:
+                link.symlink_to(target)
+            except (OSError, NotImplementedError):
+                self.fail('This advisory CI environment cannot qualify its symlink guard')
+            with self.assertRaises(module.ArchitectureEvidenceError) as failure:
+                module.read_trx_file(link)
+            self.assertEqual(failure.exception.args[0], 'TRX_FILE')
 
     def test_native_utf8_bom_is_accepted(self):
         result = module.verify(b'\xef\xbb\xbf' + trx(), SHA, '123', 1)
