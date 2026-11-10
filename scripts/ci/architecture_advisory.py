@@ -123,7 +123,20 @@ def main() -> int:
             destination.write(json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n')
         print('ARCHITECTURE_ADVISORY_TRX_VERIFIED')
         return 0
-    except (ArchitectureEvidenceError, OSError, ValueError, KeyError):
+    except ArchitectureEvidenceError as error:
+        # Print only fixed, repository-owned codes, never XML contents or paths.
+        known = {
+            'TRX_SIZE', 'SOURCE_SHA', 'RUN_ID', 'ATTEMPT_INVALID',
+            'TRX_ENCODING', 'TRX_DTD', 'TRX_XML', 'TRX_ROOT', 'TRX_EMPTY',
+            'TRX_TOO_MANY_CASES', 'CASE_NAME', 'CASE_ID', 'DUPLICATE_CASE',
+            'CASE_NOT_PASSED', 'MISSING_NEGATIVE_OR_LAYER_CASE',
+            'UNEXPECTED_CASE_SCOPE', 'TRX_COUNTERS', 'TRX_COUNTER_MISMATCH',
+            'TRX_FILE', 'OUTPUT_PATH'
+        }
+        reason = error.args[0] if len(error.args) == 1 and error.args[0] in known else 'UNKNOWN'
+        print('ARCHITECTURE_ADVISORY_REFUSED:' + reason, file=sys.stderr)
+        return 1
+    except (OSError, ValueError, KeyError):
         print('ARCHITECTURE_ADVISORY_REFUSED', file=sys.stderr)
         return 1
 
