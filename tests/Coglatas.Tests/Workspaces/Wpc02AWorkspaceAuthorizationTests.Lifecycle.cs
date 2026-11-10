@@ -17,6 +17,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
     [InlineData(true, "missing", "NotFound")]
     [InlineData(false, "deleted", "NotFound")]
     [InlineData(true, "deleted", "NotFound")]
+    [InlineData(false, "soft-deleted", "NotFound")]
+    [InlineData(true, "soft-deleted", "NotFound")]
     [InlineData(false, "wrong-lifecycle", "InvalidStateTransition")]
     [InlineData(true, "wrong-lifecycle", "InvalidStateTransition")]
     [InlineData(false, "insufficient-role", "CapabilityDenied")]
@@ -63,8 +65,17 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
-        Guid[] expectedActiveUsers = [actor.Id, member.Id];
-        Guid[] expectedBothTransitions = [actor.Id, member.Id, actor.Id, member.Id];
+        LifecycleInvalidation[] expectedArchivedChanges =
+        [
+            new(before.TenantId, actor.Id, "workspace", before.Id, "archived"),
+            new(before.TenantId, member.Id, "workspace", before.Id, "archived")
+        ];
+        LifecycleInvalidation[] expectedBothTransitions =
+        [
+            ..expectedArchivedChanges,
+            new(before.TenantId, actor.Id, "workspace", before.Id, "restored"),
+            new(before.TenantId, member.Id, "workspace", before.Id, "restored")
+        ];
 
         var archived = await service.ArchiveAsync(fixture.Workspace.Id);
 
@@ -74,9 +85,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.Equal(1, fixture.LifecycleSaveCalls);
         Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceArchived", "Workspace", fixture.Workspace.Id),
             Assert.Single(fixture.LifecycleAudit));
-        Assert.Equal(expectedActiveUsers.Order(), fixture.LifecycleInvalidations.Select(x => x.UserId).Order());
-        Assert.All(fixture.LifecycleInvalidations, change =>
-            Assert.Equal(new LifecycleInvalidation(fixture.Workspace.TenantId, change.UserId, "workspace", fixture.Workspace.Id, "archived"), change));
+        Assert.Equal(expectedArchivedChanges.OrderBy(change => change.UserId),
+            fixture.LifecycleInvalidations.OrderBy(change => change.UserId));
 
         var repeatedArchive = await service.ArchiveAsync(fixture.Workspace.Id);
 
@@ -86,7 +96,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(1, fixture.LifecycleSaveCalls);
         Assert.Single(fixture.LifecycleAudit);
-        Assert.Equal(expectedActiveUsers.Order(), fixture.LifecycleInvalidations.Select(x => x.UserId).Order());
+        Assert.Equal(expectedArchivedChanges.OrderBy(change => change.UserId),
+            fixture.LifecycleInvalidations.OrderBy(change => change.UserId));
 
         var restored = await service.RestoreAsync(fixture.Workspace.Id);
 
@@ -97,10 +108,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.Collection(fixture.LifecycleAudit,
             entry => Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceArchived", "Workspace", fixture.Workspace.Id), entry),
             entry => Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceRestored", "Workspace", fixture.Workspace.Id), entry));
-        Assert.Equal(expectedBothTransitions.Order(),
-            fixture.LifecycleInvalidations.Select(x => x.UserId).Order());
-        Assert.All(fixture.LifecycleInvalidations.Skip(2), change =>
-            Assert.Equal(new LifecycleInvalidation(fixture.Workspace.TenantId, change.UserId, "workspace", fixture.Workspace.Id, "restored"), change));
+        Assert.Equal(expectedBothTransitions.OrderBy(change => change.Change).ThenBy(change => change.UserId),
+            fixture.LifecycleInvalidations.OrderBy(change => change.Change).ThenBy(change => change.UserId));
 
         var repeatedRestore = await service.RestoreAsync(fixture.Workspace.Id);
 
@@ -112,8 +121,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.Collection(fixture.LifecycleAudit,
             entry => Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceArchived", "Workspace", fixture.Workspace.Id), entry),
             entry => Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceRestored", "Workspace", fixture.Workspace.Id), entry));
-        Assert.Equal(expectedBothTransitions.Order(),
-            fixture.LifecycleInvalidations.Select(x => x.UserId).Order());
+        Assert.Equal(expectedBothTransitions.OrderBy(change => change.Change).ThenBy(change => change.UserId),
+            fixture.LifecycleInvalidations.OrderBy(change => change.Change).ThenBy(change => change.UserId));
     }
 
     [Theory]
@@ -157,12 +166,15 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var expectedResponse = new WorkspaceDetailResponse(before.Id, "Updated workspace", "Updated description", "updated-icon",
+            WorkspaceStatus.Active, before.CreatedByUserId, before.CreatedAt, before.UpdatedAt);
 
         var updated = await service.UpdateAsync(fixture.Workspace.Id,
             new UpdateWorkspaceRequest("  Updated workspace  ", "  Updated description  ", "  updated-icon  ", WorkspaceStatus.Active));
 
         Assert.True(updated.IsSuccess, updated.Error);
         var value = Assert.IsType<WorkspaceDetailResponse>(updated.Value);
+        Assert.Equal(expectedResponse, value);
         Assert.Equal("Updated workspace", value.Name);
         Assert.Equal("Updated description", value.Description);
         Assert.Equal("updated-icon", value.Icon);
@@ -191,7 +203,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var retained = await service.UpdateAsync(fixture.Workspace.Id, new UpdateWorkspaceRequest(null, null, null, null));
 
         Assert.True(retained.IsSuccess, retained.Error);
-        Assert.Equal(value, retained.Value);
+        Assert.Equal(expectedResponse, retained.Value);
         Assert.Equal(before with
         {
             Name = "Updated workspace",
@@ -253,11 +265,13 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
     private sealed record LifecycleSnapshot(
         Guid Id, Guid TenantId, string Name, string Slug, string? Description, string? Icon,
         WorkspaceStatus Status, Guid CreatedByUserId, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt,
-        DateTimeOffset? DeletedAt, string? TimeZone, TimeOnly DigestTime, long NotificationVersion)
+        DateTimeOffset? DeletedAt, Guid? DeletedByUserId, string? DeleteReason,
+        string? TimeZone, TimeOnly DigestTime, long NotificationVersion)
     {
         public static LifecycleSnapshot Capture(Workspace workspace) => new(
             workspace.Id, workspace.TenantId, workspace.Name, workspace.Slug, workspace.Description, workspace.Icon,
             workspace.Status, workspace.CreatedByUserId, workspace.CreatedAt, workspace.UpdatedAt, workspace.DeletedAt,
+            workspace.DeletedByUserId, workspace.DeleteReason,
             workspace.TimeZone, workspace.DefaultTaskDeadlineDigestLocalTime, workspace.TaskNotificationSettingsVersion);
     }
 
@@ -308,6 +322,10 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
                     break;
                 case "deleted":
                     Workspace.Status = WorkspaceStatus.Deleted;
+                    break;
+                case "soft-deleted":
+                    Workspace.MarkDeleted(new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero),
+                        actorUserId, "Synthetic retained deletion metadata");
                     break;
                 case "wrong-lifecycle":
                     Workspace.Status = Workspace.Status == WorkspaceStatus.Active ? WorkspaceStatus.Archived : WorkspaceStatus.Active;

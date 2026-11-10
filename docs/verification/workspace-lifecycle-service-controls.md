@@ -6,12 +6,14 @@ authorization contract, workflow, coverage scope or quality policy. The baseline
 test class and fixture gain only `partial` declarations; their original tests,
 assertions and repository doubles remain unchanged.
 
-The five new methods declare 22 cases:
+The five new methods declare 24 cases:
 
-- Twelve Archive/Restore denial rows cover unauthenticated, hidden, missing,
-  deleted, incorrect-lifecycle and insufficient-role states. Each operation
+- Fourteen Archive/Restore denial rows cover unauthenticated, hidden, missing,
+  deleted-status, separately soft-deleted, incorrect-lifecycle and insufficient-role
+  states. Each operation
   retains the complete selected Workspace and membership snapshots and records
   no audit, invalidation or save.
+  The selected Workspace snapshot includes the deletion time, actor and reason.
 - One round-trip control checks archive, repeated-archive denial, restore and
   repeated-restore denial separately. Only distinct active recipients receive
   the selected Tenant/user/Workspace/change metadata. Pending, suspended,
@@ -23,6 +25,8 @@ The five new methods declare 22 cases:
 - One metadata control checks trimming, the identifier-bound slug, all returned
   fields, complete selected stored state and omitted-field retention after each
   update. It checks the recorded audit and save counts without a lifecycle change.
+  Both DTO expectations and every invalidation record are constructed from
+  known pre-operation state and recipient identities, independently of actual output.
 - Four dependency-failure rows retain exception identity and distinguish an
   attempted save from a failure before saving. Mutable fixture state, recorded
   audit and attempted invalidation remain staged; they are not represented as
