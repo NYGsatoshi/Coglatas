@@ -190,10 +190,10 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         var evidence = claim.Evidence[0];
         switch (invalidCase)
         {
-            case "null-claims": return request with { Claims = null! };
-            case "empty-claims": return request with { Claims = [] };
-            case "too-many-claims": return request with
-                { Claims = Enumerable.Range(1, 201).Select(ordinal => first with { Ordinal = ordinal }).ToArray() };
+            case "null-claims": return new(null!);
+            case "empty-claims": return new([]);
+            case "too-many-claims": return new(
+                Enumerable.Range(1, 201).Select(ordinal => first with { Ordinal = ordinal }).ToArray());
             case "zero-claim-ordinal": claim = claim with { Ordinal = 0 }; break;
             case "negative-claim-ordinal": claim = claim with { Ordinal = -1 }; break;
             case "duplicate-claim-ordinal": claim = claim with { Ordinal = 1 }; break;
@@ -241,7 +241,7 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         {
             claim = claim with { Evidence = [evidence] };
         }
-        return request with { Claims = [first, claim] };
+        return new([first, claim]);
     }
 
     private static object?[] SelectedGraphSnapshot(Fixture fixture) =>
