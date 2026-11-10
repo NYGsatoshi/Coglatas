@@ -197,11 +197,14 @@ public sealed partial class FormServiceTests
         Assert.Equal(1, fixture.AuditCalls);
         Assert.Equal(1, fixture.SaveCalls);
 
+        var questionIdBeforeUpdate = question.Id;
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(" Changed ", FormQuestionType.MultipleChoice, false, 99, [" C ", "D"]));
         Assert.True(updated.IsSuccess, updated.Error);
         var updatedQuestion = Assert.IsType<FormQuestionResponse>(updated.Value);
         Assert.Equal(question.Id, updatedQuestion.Id);
+        Assert.Equal(questionIdBeforeUpdate, question.Id);
+        Assert.Equal(questionIdBeforeUpdate, updatedQuestion.Id);
         Assert.Equal("Changed", updatedQuestion.QuestionText);
         Assert.Equal(FormQuestionType.MultipleChoice, updatedQuestion.QuestionType);
         Assert.False(updatedQuestion.IsRequired);
@@ -213,11 +216,14 @@ public sealed partial class FormServiceTests
         Assert.Equal(99, question.SortOrder);
         Assert.Equal("""["C","D"]""", question.OptionsJson);
 
+        var questionIdBeforeRetainedUpdate = question.Id;
         var retained = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(QuestionText: " Retained "));
         Assert.True(retained.IsSuccess, retained.Error);
         var retainedQuestion = Assert.IsType<FormQuestionResponse>(retained.Value);
         Assert.Equal(question.Id, retainedQuestion.Id);
+        Assert.Equal(questionIdBeforeRetainedUpdate, question.Id);
+        Assert.Equal(questionIdBeforeRetainedUpdate, retainedQuestion.Id);
         Assert.Equal("Retained", retainedQuestion.QuestionText);
         Assert.Equal(FormQuestionType.MultipleChoice, retainedQuestion.QuestionType);
         Assert.False(retainedQuestion.IsRequired);
@@ -229,11 +235,14 @@ public sealed partial class FormServiceTests
         Assert.Equal(99, question.SortOrder);
         Assert.Equal("""["C","D"]""", question.OptionsJson);
 
+        var questionIdBeforeTextUpdate = question.Id;
         var text = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest(QuestionType: FormQuestionType.LongText));
         Assert.True(text.IsSuccess, text.Error);
         var textQuestion = Assert.IsType<FormQuestionResponse>(text.Value);
         Assert.Equal(question.Id, textQuestion.Id);
+        Assert.Equal(questionIdBeforeTextUpdate, question.Id);
+        Assert.Equal(questionIdBeforeTextUpdate, textQuestion.Id);
         Assert.Equal("Retained", textQuestion.QuestionText);
         Assert.Equal(FormQuestionType.LongText, textQuestion.QuestionType);
         Assert.False(textQuestion.IsRequired);
@@ -260,11 +269,14 @@ public sealed partial class FormServiceTests
         var question = fixture.AddQuestion(form, FormQuestionType.Boolean, true);
         form.Questions.Remove(question);
 
+        var questionIdBeforeUpdate = question.Id;
         var updated = await fixture.Service.UpdateQuestionAsync(form.Id, question.Id,
             new UpdateFormQuestionRequest("  Repository question  ", SortOrder: 7));
         Assert.True(updated.IsSuccess, updated.Error);
         var updatedQuestion = Assert.IsType<FormQuestionResponse>(updated.Value);
         Assert.Equal(question.Id, updatedQuestion.Id);
+        Assert.Equal(questionIdBeforeUpdate, question.Id);
+        Assert.Equal(questionIdBeforeUpdate, updatedQuestion.Id);
         Assert.Equal("Repository question", updatedQuestion.QuestionText);
         Assert.Equal(FormQuestionType.Boolean, updatedQuestion.QuestionType);
         Assert.True(updatedQuestion.IsRequired);

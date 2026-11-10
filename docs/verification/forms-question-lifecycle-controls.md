@@ -15,6 +15,10 @@ stored text/type/required/order/choice values, omitted choices and conversion to
 text, then deletion. An unloaded navigation control exercises repository lookup
 for update/delete and refusal of a second deletion.
 
+Each successful update captures the question ID before calling the service and
+compares both the selected stored object and returned DTO against that immutable
+value. Existing DTO-to-object comparisons and all earlier assertions remain.
+
 The fixture stores objects in memory. Audit observations count calls without
 establishing their identity or persisted contents. These tests do not establish
 PostgreSQL behavior, persisted-current account/membership authority, HTTP denial
