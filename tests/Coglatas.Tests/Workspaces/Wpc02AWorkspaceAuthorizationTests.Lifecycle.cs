@@ -43,7 +43,10 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedCode, result.ErrorDetail?.Code);
         Assert.Equal(before, LifecycleSnapshot.Capture(fixture.Workspace));
+        Assert.Equal(before.ToScalars(), LifecycleSnapshot.Capture(fixture.Workspace).ToScalars());
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
+        Assert.Equal(membersBefore.SelectMany(member => member.ToScalars()),
+            fixture.CaptureLifecycleMembers().SelectMany(member => member.ToScalars()));
         fixture.AssertNoLifecycleEffects();
     }
 
@@ -87,6 +90,8 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
             Assert.Single(fixture.LifecycleAudit));
         Assert.Equal(expectedArchivedChanges.OrderBy(change => change.UserId),
             fixture.LifecycleInvalidations.OrderBy(change => change.UserId));
+        Assert.Equal(expectedArchivedChanges.OrderBy(change => change.UserId).SelectMany(change => change.ToScalars()),
+            fixture.LifecycleInvalidations.OrderBy(change => change.UserId).SelectMany(change => change.ToScalars()));
 
         var repeatedArchive = await service.ArchiveAsync(before.Id);
 
@@ -268,6 +273,12 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         DateTimeOffset? DeletedAt, Guid? DeletedByUserId, string? DeleteReason,
         string? TimeZone, TimeOnly DigestTime, long NotificationVersion)
     {
+        public object?[] ToScalars() =>
+        [
+            Id, TenantId, Name, Slug, Description, Icon, Status, CreatedByUserId, CreatedAt, UpdatedAt,
+            DeletedAt, DeletedByUserId, DeleteReason, TimeZone, DigestTime, NotificationVersion
+        ];
+
         public static LifecycleSnapshot Capture(Workspace workspace) => new(
             workspace.Id, workspace.TenantId, workspace.Name, workspace.Slug, workspace.Description, workspace.Icon,
             workspace.Status, workspace.CreatedByUserId, workspace.CreatedAt, workspace.UpdatedAt, workspace.DeletedAt,
@@ -275,12 +286,21 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
             workspace.TimeZone, workspace.DefaultTaskDeadlineDigestLocalTime, workspace.TaskNotificationSettingsVersion);
     }
 
-    private sealed record LifecycleInvalidation(Guid TenantId, Guid UserId, string ScopeType, Guid? ScopeId, string Change);
+    private sealed record LifecycleInvalidation(Guid TenantId, Guid UserId, string ScopeType, Guid? ScopeId, string Change)
+    {
+        public object?[] ToScalars() => [TenantId, UserId, ScopeType, ScopeId, Change];
+    }
 
     private sealed record LifecycleMembership(
         Guid Id, Guid TenantId, Guid WorkspaceId, Guid UserId, WorkspaceRole Role, MembershipStatus Status,
         DateTimeOffset? JoinedAt, TimeOnly? DigestTime, long PreferenceVersion,
-        DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+        DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt)
+    {
+        public object?[] ToScalars() =>
+        [
+            Id, TenantId, WorkspaceId, UserId, Role, Status, JoinedAt, DigestTime, PreferenceVersion, CreatedAt, UpdatedAt
+        ];
+    }
 
     private sealed partial class Fixture
     {

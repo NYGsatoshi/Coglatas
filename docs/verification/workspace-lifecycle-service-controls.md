@@ -46,3 +46,11 @@ Local verification is source inspection and `git diff --check` only. No local
 analyzer checks, original PR Gate, independent review and completed parent/Main
 qualification remain mandatory. Any observed Main coverage delta must be
 measured independently; no local increment or projected gain is claimed.
+
+The first exact `44dd9eba` PR CI run failed the ReSharper gate on 25 positional
+properties used only by implicit record equality. Its original diagnostics and
+successful test execution remain separate evidence. An additive follow-up keeps
+every typed record comparison and explicitly compares all 16 Workspace, 11
+membership and five invalidation scalar fields. No property, assertion,
+inspection, threshold or policy is removed or suppressed. Fresh supported
+execution and analyzer results are required for the follow-up source.
