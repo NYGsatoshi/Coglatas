@@ -105,6 +105,7 @@ public sealed class TenantService(
         return Result<TenantResponse>.Success(ToTenantResponse(tenant));
     }
 
+    /// <summary>Validates domain uniqueness before staging platform tenant profile changes.</summary>
     public async Task<Result<TenantResponse>> UpdateTenantAsync(Guid tenantId, UpdateTenantRequest request, CancellationToken cancellationToken = default)
     {
         if (!await IsPlatformAdminAsync(cancellationToken))
@@ -116,16 +117,6 @@ public sealed class TenantService(
         if (tenant is null)
         {
             return Result<TenantResponse>.Failure("Tenant not found.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Name))
-        {
-            tenant.Name = request.Name.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.DisplayName))
-        {
-            tenant.DisplayName = request.DisplayName.Trim();
         }
 
         if (request.PrimaryDomain is not null)
@@ -141,6 +132,16 @@ public sealed class TenantService(
             }
 
             tenant.PrimaryDomain = primaryDomain;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            tenant.Name = request.Name.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            tenant.DisplayName = request.DisplayName.Trim();
         }
 
         if (request.PlanId is not null)
