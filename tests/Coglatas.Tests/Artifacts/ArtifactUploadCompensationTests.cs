@@ -5,6 +5,7 @@ using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,129 @@ namespace Coglatas.Tests.Artifacts;
 [Collection("PostgreSqlTaskV1")]
 public sealed class ArtifactUploadCompensationTests
 {
+    [PostgreSqlFact]
+    public Task SuccessfulCallerOwnedUploadRetainsBytesAfterCommit() => VerifySuccessfulCallerOwnedUploadAsync(commit: true);
+
+    [PostgreSqlFact]
+    public Task SuccessfulCallerOwnedUploadRetainsBytesAfterRollback() => VerifySuccessfulCallerOwnedUploadAsync(commit: false);
+
+    private static Task VerifySuccessfulCallerOwnedUploadAsync(bool commit) =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var token = deadline.Token;
+                await using var fixture = await Fixture.CreateAsync(connectionString: database, actualPersistence: true, persistAudit: true);
+                var original = await fixture.UploadAsync(token);
+                Assert.True(original.IsSuccess, original.Error);
+                var originalVersion = original.Value!;
+                var originalKey = Assert.Single(fixture.Storage.SavedKeys);
+                var workspace = await fixture.Context.Workspaces.SingleAsync(token);
+                var originalWorkspaceName = workspace.Name;
+                const string callerWorkspaceName = "Caller transaction edit";
+
+                await using var caller = await fixture.Context.Database.BeginTransactionAsync(token);
+                workspace.Name = callerWorkspaceName;
+                await fixture.Context.SaveChangesAsync(token);
+
+                fixture.UploadContent = "Different synthetic caller-owned Artifact bytes."u8.ToArray();
+                var uploaded = await fixture.UploadAsync(token);
+                Assert.True(uploaded.IsSuccess, uploaded.Error);
+                var newVersion = uploaded.Value!;
+                Assert.Equal(originalVersion.VersionNumber + 1, newVersion.VersionNumber);
+                var newKey = fixture.Storage.SavedKeys.Last();
+                Assert.Equal(2, fixture.Storage.SavedKeys.Count);
+                Assert.NotEqual(originalKey, newKey);
+                Assert.Same(caller, fixture.Context.Database.CurrentTransaction);
+                Assert.Same(workspace, fixture.Context.Workspaces.Local.Single());
+                Assert.Equal(callerWorkspaceName, workspace.Name);
+
+                var stagedVersion = await fixture.Context.ArtifactVersions.AsNoTracking()
+                    .SingleAsync(version => version.Id == newVersion.Id, token);
+                Assert.Equal(newVersion.Id, (await fixture.Context.Artifacts.AsNoTracking().SingleAsync(token)).CurrentVersionId);
+                Assert.True(await fixture.Context.AuditLogs.AnyAsync(log => log.EntityId == newVersion.Id, token));
+                var fileId = Assert.IsType<Guid>(stagedVersion.FileObjectId);
+                var attachmentId = stagedVersion.AttachmentId;
+                await AssertExactStoredBytesAsync(fixture.Storage, newKey, fixture.UploadContent, token);
+                Assert.Empty(fixture.Storage.DeletedKeys);
+
+                var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options;
+                var tenant = new CurrentTenant(workspace.TenantId);
+                await using (var observer = new AppDbContext(options, tenant))
+                {
+                    await AssertVisibilityAsync(observer, false);
+                }
+
+                if (commit) await caller.CommitAsync(token);
+                else await caller.RollbackAsync(token);
+
+                await using var verifier = new AppDbContext(options, tenant);
+                await AssertVisibilityAsync(verifier, commit);
+                var retainedOriginal = await verifier.ArtifactVersions.AsNoTracking()
+                    .Include(version => version.FileObject)
+                    .SingleAsync(version => version.Id == originalVersion.Id, token);
+                Assert.Equal(originalKey, retainedOriginal.FileObject!.StorageKey);
+                Assert.True(await verifier.AuditLogs.AnyAsync(log => log.EntityId == originalVersion.Id &&
+                    log.Action == "ArtifactVersionUploaded", token));
+                await AssertExactStoredBytesAsync(fixture.Storage, originalKey, Fixture.Content, token);
+                await AssertExactStoredBytesAsync(fixture.Storage, newKey, fixture.UploadContent, token);
+                Assert.Empty(fixture.Storage.DeletedKeys);
+
+                async Task AssertVisibilityAsync(AppDbContext observer, bool expectedVisible)
+                {
+                    var artifact = await observer.Artifacts.AsNoTracking().SingleAsync(token);
+                    Assert.Equal(expectedVisible ? newVersion.Id : originalVersion.Id, artifact.CurrentVersionId);
+                    Assert.Equal(expectedVisible ? callerWorkspaceName : originalWorkspaceName,
+                        (await observer.Workspaces.AsNoTracking().SingleAsync(token)).Name);
+                    var version = await observer.ArtifactVersions.AsNoTracking().SingleOrDefaultAsync(row => row.Id == newVersion.Id, token);
+                    var file = await observer.FileObjects.AsNoTracking().SingleOrDefaultAsync(row => row.Id == fileId, token);
+                    var attachment = await observer.Attachments.AsNoTracking().SingleOrDefaultAsync(row => row.Id == attachmentId, token);
+                    var audit = await observer.AuditLogs.AsNoTracking().SingleOrDefaultAsync(row => row.EntityId == newVersion.Id, token);
+                    var nativeVersion = await new FileRepository(observer).GetFileVersionAsync(tenant.TenantId, fileId, fileId, token);
+                    if (!expectedVisible)
+                    {
+                        Assert.Null(version);
+                        Assert.Null(file);
+                        Assert.Null(attachment);
+                        Assert.Null(audit);
+                        Assert.Null(nativeVersion);
+                        return;
+                    }
+
+                    Assert.NotNull(version);
+                    Assert.NotNull(file);
+                    Assert.NotNull(attachment);
+                    Assert.NotNull(audit);
+                    Assert.NotNull(nativeVersion);
+                    Assert.Equal(artifact.Id, version.ArtifactId);
+                    Assert.Equal(newVersion.VersionNumber, version.VersionNumber);
+                    Assert.Equal(file.Id, version.FileObjectId);
+                    Assert.Equal(attachment.Id, version.AttachmentId);
+                    Assert.Equal(file.Id, attachment.FileObjectId);
+                    Assert.Equal(AttachmentOwnerType.ArtifactVersion, attachment.OwnerType);
+                    Assert.Equal(version.Id, attachment.OwnerId);
+                    Assert.Equal(newKey, file.StorageKey);
+                    Assert.Equal(newKey, attachment.StorageKey);
+                    Assert.Equal(newKey, nativeVersion.StorageKey);
+                    Assert.Equal(newVersion.FileSize, file.SizeBytes);
+                    Assert.Equal(newVersion.FileSize, attachment.SizeBytes);
+                    Assert.Equal(newVersion.FileSize, nativeVersion.SizeBytes);
+                    Assert.Equal(file.Id, nativeVersion.FileObjectId);
+                    Assert.Equal(1, nativeVersion.VersionNumber);
+                    Assert.Equal("ArtifactVersionUploaded", audit.Action);
+                    Assert.Equal("ArtifactVersion", audit.EntityType);
+                    Assert.Equal(newVersion.UploadedByUserId, audit.ActorUserId);
+                }
+            });
+
+    private static async Task AssertExactStoredBytesAsync(Storage storage, string key, byte[] expected, CancellationToken cancellationToken)
+    {
+        await using var stored = await storage.OpenReadAsync(key, cancellationToken);
+        using var bytes = new MemoryStream();
+        await stored.CopyToAsync(bytes, cancellationToken);
+        Assert.Equal(expected, bytes.ToArray());
+    }
+
     [PostgreSqlFact]
     public Task CallerSavepointFailureRestoresTheArtifactGraphWithoutResurrectingTheFailedVersion() =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
@@ -354,7 +478,7 @@ public sealed class ArtifactUploadCompensationTests
 
         private Fixture(Guid tenantId, Guid userId, bool loggingEnabled, string? connectionString,
             string? sharedRoot = null, Guid? artifactId = null, AllocationBarrier? barrier = null,
-            IInterceptor? interceptor = null, bool actualPersistence = false)
+            IInterceptor? interceptor = null, bool actualPersistence = false, bool persistAudit = false)
         {
             _root = sharedRoot ?? Path.Combine(Path.GetTempPath(), "coglatas-artifact-compensation", Guid.NewGuid().ToString("N"));
             _artifactId = artifactId ?? Guid.NewGuid();
@@ -368,18 +492,23 @@ public sealed class ArtifactUploadCompensationTests
             _persistence = new Persistence(Context);
             IArtifactRepository repository = new ArtifactRepository(Context);
             if (barrier is not null) { repository = new SynchronizedArtifactRepository(repository, barrier); }
+            var currentUser = new CurrentUser(userId);
+            var currentTenant = new CurrentTenant(tenantId);
+            var clock = new Clock();
+            IAuditLogger audit = persistAudit ? new DbAuditLogger(Context, clock, currentUser, currentTenant) : _audit;
             _service = new ArtifactService(repository, new ProjectRepository(Context), null!,
                 new FileRepository(Context), Storage, new UploadPolicy(), Features, new Quotas(),
-                new ArtifactAuthorization(), new CurrentUser(userId), new CurrentTenant(tenantId), new Clock(),
-                _audit, _notifications, actualPersistence ? new EfUnitOfWork(Context) : _persistence, loggingEnabled ? Logger : null);
+                new ArtifactAuthorization(), currentUser, currentTenant, clock,
+                audit, _notifications, actualPersistence ? new EfUnitOfWork(Context) : _persistence, loggingEnabled ? Logger : null);
         }
 
         public static async Task<Fixture> CreateAsync(bool loggingEnabled = true, string? connectionString = null,
-            IInterceptor? interceptor = null, bool actualPersistence = false)
+            IInterceptor? interceptor = null, bool actualPersistence = false, bool persistAudit = false)
         {
             var tenantId = Guid.NewGuid();
             var userId = Guid.NewGuid();
-            var fixture = new Fixture(tenantId, userId, loggingEnabled, connectionString, interceptor: interceptor, actualPersistence: actualPersistence);
+            var fixture = new Fixture(tenantId, userId, loggingEnabled, connectionString, interceptor: interceptor,
+                actualPersistence: actualPersistence, persistAudit: persistAudit);
             var projectId = Guid.NewGuid();
             var workspaceId = Guid.NewGuid();
             fixture.Context.Tenants.Add(new Tenant(tenantId) { Name = "Synthetic", DisplayName = "Synthetic", Slug = "synthetic", Status = TenantStatus.Active });
