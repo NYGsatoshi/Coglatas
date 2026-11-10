@@ -121,13 +121,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Inspect RC3 OCI manifest digests without pulling or executing images
+      - name: Inspect .NET 11 GA OCI manifest digests without pulling or executing images
         shell: bash
         run: |
           set -euo pipefail
           for image in \
-            mcr.microsoft.com/dotnet/sdk:11.0.100-rc.3 \
-            mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.3; do
+            mcr.microsoft.com/dotnet/sdk:11.0.100 \
+            mcr.microsoft.com/dotnet/aspnet:11.0.0; do
             metadata="$(docker buildx imagetools inspect "$image")"
             digest="$(printf '%s\n' "$metadata" | awk '$1 == "Digest:" { print $2; exit }')"
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Invalid OCI manifest digest for $image" >&2; exit 1; }
