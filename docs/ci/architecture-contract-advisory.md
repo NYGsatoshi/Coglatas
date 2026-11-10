@@ -15,7 +15,9 @@ against test-only synthetic references to prove all six forbidden dependency
 directions are rejected by the dependency oracle. It does not change production
 architecture or prove all future product modules have appropriate constraints.
 
-The advisory runs dotnet restore/test on a fresh GitHub-hosted Ubuntu job.
+The advisory runs dotnet restore/test on a pinned Ubuntu 24.04 GitHub-hosted job.
+The bounded TRX parser accepts UTF-8 with or without exactly one UTF-8 BOM,
+rejects UTF-16 and embedded NULs, and explicitly rejects DTD declarations.
 scripts/ci/architecture_advisory.py requires an exact thirteen-case native TRX
 inventory, each Passed on its single result, consistent non-skipped counters,
 source/run/attempt metadata and fixed nonsecret receipt fields. Unexpected or

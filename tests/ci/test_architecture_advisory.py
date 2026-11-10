@@ -84,6 +84,10 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
             with self.subTest(args=args), self.assertRaises(module.ArchitectureEvidenceError):
                 module.verify(trx(), **args)
 
+    def test_native_utf8_bom_is_accepted(self):
+        result = module.verify(b'\xef\xbb\xbf' + trx(), SHA, '123', 1)
+        self.assertEqual(result['actualCasesPassed'], 13)
+
     def test_deterministic_identity_digest(self):
         left = module.verify(trx(), SHA, '123', 1)
         right = module.verify(trx(), SHA, '123', 1)
