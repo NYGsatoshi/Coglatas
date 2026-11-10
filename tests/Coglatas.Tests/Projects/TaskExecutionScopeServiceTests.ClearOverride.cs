@@ -30,7 +30,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.IgnoreQueryFilters().ToListAsync());
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Theory]
@@ -67,7 +67,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.IgnoreQueryFilters().ToListAsync());
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Theory]
@@ -90,7 +90,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Theory]
@@ -111,7 +111,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(0, unit.SaveCalls);
         Assert.Empty(fixture.Audit.Entries);
         Assert.Empty(await fixture.Db.OutboxEvents.ToListAsync());
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(1, unit.SaveCalls);
         Assert.Single(fixture.Audit.Entries);
         Assert.Equal(change.Id, Assert.Single(await fixture.Db.OutboxEvents.AsNoTracking().ToListAsync()).Id);
-        Assert.Empty(fixture.Db.ChangeTracker.Entries<OutboxEvent>().Where(entry => entry.State == EntityState.Added));
+        Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries<OutboxEvent>(), entry => entry.State == EntityState.Added);
     }
 
     [Fact]
