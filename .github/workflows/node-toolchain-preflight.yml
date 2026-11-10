@@ -18,6 +18,7 @@ on:
       - "scripts/ci/verify-node-toolchain.mjs"
       - "scripts/ci/dotnet-sdk-policy.mjs"
       - "scripts/ci/dotnet-sdk-policy.node-test.mjs"
+      - "scripts/ci/node-toolchain-qualification.node-test.mjs"
   push:
     branches: ["main"]
     paths:
@@ -36,6 +37,7 @@ on:
       - "scripts/ci/verify-node-toolchain.mjs"
       - "scripts/ci/dotnet-sdk-policy.mjs"
       - "scripts/ci/dotnet-sdk-policy.node-test.mjs"
+      - "scripts/ci/node-toolchain-qualification.node-test.mjs"
 
 concurrency:
   group: node-toolchain-preflight-${{ github.event.pull_request.number || github.ref }}
@@ -46,7 +48,7 @@ permissions:
 
 jobs:
   node-toolchain-preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
 
     steps:
@@ -58,13 +60,15 @@ jobs:
       - name: Setup repository Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Verify Node and npm toolchain policy
         run: node scripts/ci/verify-node-toolchain.mjs
 
       - name: Test exact .NET SDK policy acceptance and rejection
         run: node --test scripts/ci/dotnet-sdk-policy.node-test.mjs
+      - name: Qualify Node toolchain guard using positive and negative controls
+        run: node --test scripts/ci/node-toolchain-qualification.node-test.mjs
 
 
       - name: Verify script-free production Docker dependency path
@@ -88,8 +92,8 @@ jobs:
             echo
             echo "- Node: \`$(node --version)\`"
             echo "- npm: \`$(npm --version)\`"
-            echo "- Docker production frontend base: Node 24"
-            echo "- Docker frontend development base: Node 24-alpine"
-            echo "- Workflow setup-node majors: Node 24"
+            echo "- Docker production frontend base: Node 26"
+            echo "- Docker frontend development base: Node 26-alpine"
+            echo "- Workflow setup-node majors: Node 26"
             echo "- Runner trust boundary: GitHub-hosted"
           } >> "$GITHUB_STEP_SUMMARY"

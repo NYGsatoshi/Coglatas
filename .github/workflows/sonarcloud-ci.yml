@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       should_scan: ${{ steps.resolve.outputs.should_scan }}
@@ -123,11 +123,11 @@ jobs:
     needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     services:
       postgres:
-        image: postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81 # PostgreSQL 18.6
+        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -211,6 +211,7 @@ jobs:
             scripts/ci/test-sonar-dotnet-coverage.py \
             scripts/ci/test-required-pr-checks.py \
             scripts/ci/test-publication-readiness.py \
+            scripts/ci/test-coglatas-rename.py \
             scripts/ci/test_github_action_pins.py \
             scripts/ci/test_verify_sbom_vulnerability_gate.py \
             scripts/ci/test_verify_sbom.py \
@@ -235,10 +236,12 @@ jobs:
             tests/ci/test_performance_db_campaign.py \
             scripts/ci/test_specification_contract.py \
             scripts/ci/test_specification_contract_check.py \
-            scripts/ci/test_sec_arch_http_accounting.py \
-            scripts/ci/test_sec_arch_signalr_accounting.py \
             scripts/ci/test_sec_arch_worker_accounting.py \
             scripts/ci/test_sec_arch_rls_matrix.py \
+            scripts/ci/test_sec_arch_github_provenance.py \
+            scripts/ci/test_sec_arch_evidence.py \
+            scripts/ci/test_sec_arch_reconcile.py \
+            scripts/ci/test-mvp-a-final-checks.py \
             scripts/ci/test-functional-diagnostics.py \
             scripts/ci/test-postgres-log-privacy.py \
             scripts/ci/test-functional-setup-failure-probe.py \
@@ -250,21 +253,38 @@ jobs:
             scripts/ci/qodana-packets/test_r2_candidate.py \
             scripts/ci/test-functional-evidence.py \
             scripts/ci/test_nuget_dependency_snapshot.py \
+            scripts/ci/test-nuget-lock-policy.py \
             scripts/ci/test_audit_sbom_component_inventory.py \
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \
-            tests/ci/test_performance_api_collection.py; do
+            tests/ci/test_performance_api_collection.py \
+            scripts/ci/test_av_mig_contract_boundary.py \
+            scripts/ci/test_av_mig_contract_boundary_hardening.py \
+            scripts/ci/test_av_mig_contract_boundary_adversarial.py \
+            tests/ci/test_performance_assurance.py \
+            tests/ci/test_performance_local.py \
+            scripts/ci/test_av_mig_production_cli.py; do
+            if [[ "$control" == "tests/ci/test_performance_local.py" ]]; then
+              COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
+                PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
+                python3 -B -m coverage run -m unittest discover -s tests/ci -p "${control##*/}"
+              continue
+            fi
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
               python3 -B -m coverage run "$control"
           done
+          mkdir -p artifacts/sonar-python/native-shards
+          cp -- "$COVERAGE_FILE".* artifacts/sonar-python/native-shards/
           python3 -B -m coverage combine
+          cp -- "$COVERAGE_FILE" artifacts/sonar-python/coverage.native.data
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
+          python3 -B -m coverage json -o artifacts/sonar-python/coverage.native.json
 
       - name: Set up repository frontend Node version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Install pinned frontend package manager
         run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
@@ -320,6 +340,7 @@ jobs:
             tests/ui/group-entry-coverage.node-test.mjs \
             scripts/ci/verify-sonar-node-coverage.node-test.mjs \
             scripts/ci/dotnet-sdk-policy.node-test.mjs\
+            scripts/ci/node-toolchain-qualification.node-test.mjs \
             tests/ci/synthetic-logical-recovery.node-test.mjs \
             tests/ci/synthetic-logical-recovery-cleanup.node-test.mjs \
             tests/ci/synthetic-logical-recovery-probe.node-test.mjs \
@@ -713,6 +734,9 @@ jobs:
             artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
             artifacts/sonar-python/coverage.xml
+            artifacts/sonar-python/coverage.native.json
+            artifacts/sonar-python/coverage.native.data
+            artifacts/sonar-python/native-shards/*
           if-no-files-found: error
           retention-days: 7
 

@@ -1,8 +1,8 @@
 import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
 import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, projectFeedbackError, normalizeProjectFeedbackError, projectPriorityFeedback } from './project-feedback';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
-import { catchError, EMPTY, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { catchError, EMPTY, finalize, forkJoin, map, Observable, of, ReplaySubject, switchMap, take } from 'rxjs';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
@@ -12,6 +12,8 @@ import {
   RealtimeFacade,
 } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { WorkspaceSelectionFacade } from '../../core/workspace/workspace-selection.facade';
 import {
   CoglatasGanttDependency,
   CoglatasGanttEditIntent,
@@ -140,16 +142,23 @@ export class ProjectDetailFacade {
   private readonly i18n = injectProjectsI18n();
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
+  private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
+  private readonly workspaceSelection = inject(WorkspaceSelectionFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly state = signal<ProjectDetailViewModel>(this.loading());
   private projectId: string | null = null;
+  private initialLoadWorkspaceId: string | null = null;
   private projectOperational = false;
+  private operationalProjectionGeneration = 0;
   private realtimeCleanups: (() => void)[] = [];
   private refreshPending = false;
   private draftProjectRefreshInFlight = false;
   private interactionActive = false;
   private moveInFlight = false;
+  private initialLoadGeneration: number | null = null;
+  private initialProjectionAuthorization: ReplaySubject<boolean> | null = null;
+  private kanbanRefreshGeneration: number | null = null;
   private scheduleInteractionActive = false;
   private scheduleCommandInFlight = false;
   private scheduleCommandGeneration = 0;
@@ -162,11 +171,15 @@ export class ProjectDetailFacade {
   private activationNotice: ProjectActivationNotice | null = null;
   private scheduleRefreshPending = false;
   private scheduleRefreshInFlight = false;
+  private scheduleRefreshOwner: number | null = null;
   private scheduleRefreshAfterFlight = false;
   private scheduleRefreshAfterFlightFeedback: ProjectFeedbackString | undefined;
   private taskListRequestGeneration = 0;
   private taskListAppliedGeneration = 0;
   private taskListRefreshPending = false;
+  private projectProjectionAppliedGeneration = 0;
+  private projectVisitPending = false;
+  private projectVisitWorkspaceId: string | null = null;
   private taskListRefreshInFlight = false;
   private taskListRefreshAfterFlight = false;
   private taskListRefreshFlightGeneration = 0;
@@ -177,6 +190,14 @@ export class ProjectDetailFacade {
   private includeOlderCompleted = false;
 
   constructor() {
+    effect(() => {
+      const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+      const projectId = this.projectId;
+      // A direct route can start before initial Workspace hydration. Reauthorize
+      // its intent with a fresh request once the first selection is available.
+      if (workspaceId && projectId && this.initialLoadWorkspaceId === null)
+        {untracked(() => this.load(projectId));}
+    });
     this.realtime.durableEvents$.subscribe((event) => this.handleRealtimeEvent(event));
     this.realtime.registerProtectedStateClearer?.(
       PROJECT_REALTIME_OWNER,
@@ -188,6 +209,14 @@ export class ProjectDetailFacade {
 
   private rawView(): ProjectDetailViewModel {
     const current = this.state();
+    const selection = this.workspaceSelection.selection();
+    if (this.projectId && this.initialLoadWorkspaceId === null && !this.activeWorkspace.activeWorkspace() &&
+        selection.status !== 'loading') {
+      // A null-scope response cannot authorize the route. End the spinner when
+      // discovery settles, retaining mounted intent for a later real selection.
+      return { ...this.loading(), status: 'error', message: this.i18n.translate(
+        selection.status === 'selectionRequired' ? 'topBar.selectWorkspace' : 'topBar.workspaceUnavailable') };
+    }
     return {
       ...current,
       ...projectFeedbackField("taskListFeedback", this.taskListRefreshFeedback),
@@ -204,14 +233,25 @@ export class ProjectDetailFacade {
   }
 
   load(projectId: string): void {
+    this.settleInitialProjectionAuthorization(false);
+    const initialAuthorization = new ReplaySubject<boolean>(1);
+    this.initialProjectionAuthorization = initialAuthorization;
     if (this.projectId !== projectId)
       {this.activationNotice = null;}
     const loadGeneration = ++this.loadGeneration;
+    this.initialLoadGeneration = loadGeneration;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.scheduleCommandGeneration++;
     this.scheduleCommandInFlight = false;
     const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    this.initialLoadWorkspaceId = workspaceId;
+    this.projectVisitPending = true;
+    this.projectVisitWorkspaceId = workspaceId;
+    const loadIsCurrent = () =>
+      workspaceId !== null && this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
     const initialKanbanRequestGeneration = ++this.kanbanRequestGeneration;
     const initialScheduleRequestGeneration = ++this.scheduleRequestGeneration;
     const initialTaskListRequestGeneration = ++this.taskListRequestGeneration;
@@ -232,7 +272,9 @@ export class ProjectDetailFacade {
     this.state.set(this.loading());
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
+        if (!loadIsCurrent())
+          {return EMPTY;}
+        if (initialTaskListRequestGeneration < this.projectProjectionAppliedGeneration)
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         this.projectOperational = record.isOperational === true;
@@ -240,29 +282,41 @@ export class ProjectDetailFacade {
           {return of(this.draftReady(project));}
         return forkJoin({
           tasks: this.http.get<PagedResponseDto<TaskDto>>(`/api/projects/${projectId}/tasks`, { withCredentials: true }),
-          kanban: this.initialKanbanRequest(projectId),
-          gantt: this.initialScheduleRequest(projectId),
+          kanban: this.initialKanbanRequest(projectId, loadIsCurrent),
+          gantt: this.initialScheduleRequest(projectId, loadIsCurrent),
           workload: this.http.get<unknown>(`/api/projects/${projectId}/workload`, { withCredentials: true }),
           members: this.http.get<unknown>(`/api/projects/${projectId}/members`, { withCredentials: true })
-        }).pipe(map((response) => this.ready(
+        }).pipe(switchMap((response) => loadIsCurrent() ? of(this.ready(
           project,
           response.tasks.items ?? [],
           response.kanban,
           response.gantt,
           response.workload,
           response.members
-        )));
+        )) : EMPTY));
       }),
-      catchError((error: unknown) => of(this.failure(error)))
+      catchError((error: unknown) => of(this.failure(error))),
+      finalize(() => {
+        if (this.initialLoadGeneration === loadGeneration) {this.initialLoadGeneration = null;}
+        if (this.initialProjectionAuthorization === initialAuthorization)
+          {this.settleInitialProjectionAuthorization(false);}
+      })
     ).subscribe((view) => {
-      if (this.projectId === projectId &&
-          this.loadGeneration === loadGeneration &&
-          this.authorizationGeneration === authorizationGeneration) {
+      if (loadIsCurrent()) {
         const latest = this.state();
         if (view.status !== 'ready') {
+          if (view.status === 'permissionDenied')
+            {this.clearProtectedProjectionsForDeniedSubscription();}
+          else if (latest.status === 'ready')
+            {return;}
+          this.projectOperational = false;
+          this.settleInitialProjectionAuthorization(false);
           this.state.set(view);
           return;
         }
+        if (initialTaskListRequestGeneration < this.projectProjectionAppliedGeneration) {return;}
+        this.projectProjectionAppliedGeneration = initialTaskListRequestGeneration;
+        this.projectOperational = view.project?.isOperational === true;
 
         // A later request that failed must not make a valid initial response
         // disappear. Only a later successfully applied Task snapshot wins.
@@ -270,9 +324,14 @@ export class ProjectDetailFacade {
         if (applyInitialTasks)
           {this.taskListAppliedGeneration = initialTaskListRequestGeneration;}
         this.clearTaskListRefreshFeedback(initialTaskListRequestGeneration);
+        const applyInitialKanban = this.kanbanRequestGeneration === initialKanbanRequestGeneration;
+        if (applyInitialKanban && view.kanban.snapshot) {
+          this.selectedSwimlane = view.kanban.snapshot.selectedSwimlane;
+          this.includeOlderCompleted = view.kanban.snapshot.includesOlderCompleted;
+        }
         this.state.set({
           ...view,
-          kanban: this.kanbanRequestGeneration === initialKanbanRequestGeneration
+          kanban: applyInitialKanban
             ? view.kanban
             : latest.kanban,
           schedule: this.scheduleRequestGeneration === initialScheduleRequestGeneration
@@ -288,10 +347,8 @@ export class ProjectDetailFacade {
             view.activation
           )
         });
-        const appliedProject = this.state().project;
-        if (appliedProject) {
-          this.continueWorkingHistory.touchProject(appliedProject.id, appliedProject.workspaceId);
-        }
+        this.recordProjectVisit();
+        this.settleInitialProjectionAuthorization(view.project?.isOperational === true);
       }
     });
   }
@@ -921,12 +978,16 @@ export class ProjectDetailFacade {
 
     if (error.httpStatus === 401 || error.httpStatus === 403) {
       this.authorizationGeneration++;
+      this.resetTaskListRefreshState();
+      const moveWasInFlight = this.moveInFlight;
+      this.moveInFlight = false;
       this.scheduleRequestGeneration++;
       this.scheduleRefreshInFlight = false;
       this.scheduleRefreshAfterFlight = false;
       this.scheduleRefreshAfterFlightFeedback = undefined;
       this.state.set({
         ...latest,
+        kanban: moveWasInFlight ? { ...latest.kanban, busyTaskId: null } : latest.kanban,
         schedule: {
           ...this.loadingSchedule(),
           status: 'permissionDenied',
@@ -935,6 +996,7 @@ export class ProjectDetailFacade {
           error
         }
       });
+      if (moveWasInFlight) {this.refreshKanban(false);}
       return;
     }
     if (error.httpStatus === 404) {
@@ -986,10 +1048,12 @@ export class ProjectDetailFacade {
       {return;}
 
     this.moveInFlight = true;
+    const operationalGeneration = this.operationalProjectionGeneration;
+    const refreshWasInFlight = this.kanbanRefreshGeneration === this.kanbanRequestGeneration;
+    this.kanbanRequestGeneration++;
     const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
-    const presentationSwimlane = this.selectedSwimlane ?? snapshot.selectedSwimlane;
-    const presentationIncludesOlderCompleted = this.includeOlderCompleted;
     const rollbackSnapshot = snapshot;
     const optimistic = this.optimisticMove(snapshot, authoritativeCard, intent.targetStatus, intent.targetBeforeItemId, intent.targetAfterItemId);
     this.state.set({
@@ -1000,6 +1064,7 @@ export class ProjectDetailFacade {
         snapshot: optimistic,
         busyTaskId: authoritativeCard.taskId,
         focusTaskId: null,
+        reconciliationQueued: current.kanban.reconciliationQueued || refreshWasInFlight,
         ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.moving", { value0: authoritativeCard.summary })),
         error: undefined
       }
@@ -1019,13 +1084,16 @@ export class ProjectDetailFacade {
         catchError((error: unknown) => of({ kind: 'error' as const, error }))
       )
       .subscribe((result) => {
-        this.moveInFlight = false;
-        const latest = this.state();
-        if (this.projectId !== projectId || this.authorizationGeneration !== authorizationGeneration) {
-          if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            operationalGeneration !== this.operationalProjectionGeneration) {
+          if (result.kind === 'success') {this.reconcileCompletedStaleKanbanCommand(projectId);}
           return;
         }
+        this.moveInFlight = false;
+        const latest = this.state();
         if (result.kind === 'success') {
+          const presentationSwimlane = this.selectedSwimlane ?? snapshot.selectedSwimlane;
+          const presentationIncludesOlderCompleted = this.includeOlderCompleted;
           const warning = result.value.warnings.find((item) => item.code === 'KANBAN_WIP_LIMIT_EXCEEDED');
           const feedback = warning ? projectFeedbackText("projectFeedback.projectDetail.moveSaved", { value0: projectFeedbackValue(warning, "message") }) : projectFeedbackText("projectFeedback.projectDetail.moveSaved2");
           const presentationRefetchRequired =
@@ -1070,6 +1138,7 @@ export class ProjectDetailFacade {
               reconciliationQueued: false
             }
           });
+          if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
           return;
         }
 
@@ -1088,7 +1157,25 @@ export class ProjectDetailFacade {
           }
         });
         if (conflict) {this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.conflictResolvedFromTheAuthoritativeProjectBoard"));}
+        else if (latest.kanban.reconciliationQueued) {this.refreshKanban(true);}
       });
+  }
+
+  private reconcileCompletedStaleKanbanCommand(projectId: string | null): void {
+    if (!projectId || this.projectId !== projectId ||
+        (this.activeWorkspace.activeWorkspace()?.id ?? null) !== this.initialLoadWorkspaceId ||
+        this.state().kanban.status === 'permissionDenied')
+      {return;}
+    if (this.state().status === 'ready' && this.state().project?.isOperational === false) {return;}
+    if (!this.moveInFlight && this.initialLoadGeneration === this.loadGeneration) {
+      this.load(projectId);
+      return;
+    }
+    if (!this.projectOperational || this.state().status !== 'ready') {return;}
+    // The old response cannot own this mount. Reconcile its committed effect
+    // through current HTTP authority, queuing the board read behind a new move.
+    this.refreshKanban(false);
+    this.queueTaskListRefresh();
   }
 
   updateKanbanConfig(defaultSwimlane: ProjectKanbanSwimlane, columns: readonly ProjectKanbanColumn[]): void {
@@ -1096,7 +1183,10 @@ export class ProjectDetailFacade {
     const snapshot = current.kanban.snapshot;
     if (!snapshot?.canConfigure || current.kanban.busyTaskId) {return;}
     const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const operationalGeneration = this.operationalProjectionGeneration;
     const request: UpdateProjectKanbanConfigRequestDto = {
       expectedBoardVersion: snapshot.boardVersion,
       defaultSwimlane: swimlaneApiValue(defaultSwimlane),
@@ -1114,8 +1204,12 @@ export class ProjectDetailFacade {
       )
       .subscribe((result) => {
         const latest = this.state();
-        if (this.projectId !== projectId || this.authorizationGeneration !== authorizationGeneration)
-          {return;}
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId ||
+            operationalGeneration !== this.operationalProjectionGeneration) {
+          if (result.kind === 'success') {this.reconcileCompletedStaleKanbanCommand(projectId);}
+          return;
+        }
         if (result.kind === 'success') {
           this.selectedSwimlane = result.value.snapshot.selectedSwimlane;
           this.state.set({
@@ -1156,11 +1250,15 @@ export class ProjectDetailFacade {
   }
 
   release(): void {
+    this.settleInitialProjectionAuthorization(false);
+    this.projectVisitPending = false;
+    this.projectVisitWorkspaceId = null;
     this.releaseRealtime();
     this.projectId = null;
     this.projectOperational = false;
     this.draftProjectRefreshInFlight = false;
     this.loadGeneration++;
+    this.initialLoadGeneration = null;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.activationNotice = null;
@@ -1192,6 +1290,10 @@ export class ProjectDetailFacade {
       authorizationGeneration
     )) {return;}
 
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const projectionsAreCurrent = () => this.activationAttemptIsCurrent(
+      projectId, generation, loadGeneration, authorizationGeneration,
+    ) && (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId;
     this.state.set({
       ...this.state(),
       activation: {
@@ -1206,12 +1308,7 @@ export class ProjectDetailFacade {
     const scheduleRequestGeneration = ++this.scheduleRequestGeneration;
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.activationAttemptIsCurrent(
-          projectId,
-          generation,
-          loadGeneration,
-          authorizationGeneration
-        )) {return EMPTY;}
+        if (!projectionsAreCurrent()) {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
         if (!record.isOperational)
           {return of({ kind: 'draft' as const, project });}
@@ -1221,8 +1318,8 @@ export class ProjectDetailFacade {
             `/api/projects/${projectId}/tasks`,
             { withCredentials: true }
           ),
-          kanban: this.initialKanbanRequest(projectId),
-          gantt: this.initialScheduleRequest(projectId),
+          kanban: this.initialKanbanRequest(projectId, projectionsAreCurrent),
+          gantt: this.initialScheduleRequest(projectId, projectionsAreCurrent),
           workload: this.http.get<unknown>(
             `/api/projects/${projectId}/workload`,
             { withCredentials: true }
@@ -1252,17 +1349,17 @@ export class ProjectDetailFacade {
       }),
       catchError((error: unknown) => of({ kind: 'error' as const, error }))
     ).subscribe((result) => {
-      if (!this.activationAttemptIsCurrent(
-        projectId,
-        generation,
-        loadGeneration,
-        authorizationGeneration
-      )) {return;}
+      if (!projectionsAreCurrent()) {return;}
       this.activationInFlight = false;
 
       if (result.kind === 'active') {
         this.projectOperational = true;
         this.taskListAppliedGeneration = taskRequestGeneration;
+        const applyKanban = this.kanbanRequestGeneration === kanbanRequestGeneration;
+        if (applyKanban && result.view.kanban.snapshot) {
+          this.selectedSwimlane = result.view.kanban.snapshot.selectedSwimlane;
+          this.includeOlderCompleted = result.view.kanban.snapshot.includesOlderCompleted;
+        }
         const activation = this.activationForAuthorizedProjection(
           projectId,
           true,
@@ -1274,7 +1371,7 @@ export class ProjectDetailFacade {
         );
         this.state.set({
           ...result.view,
-          kanban: this.kanbanRequestGeneration === kanbanRequestGeneration
+          kanban: applyKanban
             ? result.view.kanban
             : this.state().kanban,
           schedule: this.scheduleRequestGeneration === scheduleRequestGeneration
@@ -1286,7 +1383,7 @@ export class ProjectDetailFacade {
       }
 
       if (result.kind === 'draft') {
-        this.projectOperational = false;
+        this.invalidateOperationalProjections();
         if (!committed)
           {this.activationNotice = null;}
         const activation = this.activationForAuthorizedProjection(
@@ -1398,19 +1495,24 @@ export class ProjectDetailFacade {
       this.realtime.registerCatchUp(PROJECT_REALTIME_OWNER, (context) => {
         const wasOperational = this.projectOperational;
         const denied = context.deniedOwners.has(PROJECT_REALTIME_OWNER);
+        const recoveringDenied = denied || this.state().kanban.status === 'permissionDenied' ||
+          this.state().schedule.status === 'permissionDenied';
         if (denied)
           {this.clearProtectedProjectionsForDeniedSubscription();}
-        this.refreshProjectProjections(projectId, this.authorizationGeneration, !wasOperational);
-        if (wasOperational) {
+        const parallelRevalidation = wasOperational && (!recoveringDenied || denied);
+        const parentAuthorization = this.revalidateProjectProjections(projectId, this.authorizationGeneration, !parallelRevalidation);
+        if (parallelRevalidation) {
           this.refreshKanban(
             false,
             denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedBoardDataWas2") : projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"),
-            true
+            true,
+            parentAuthorization
           );
           this.refreshSchedule(
             false,
             denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedScheduleDataWas2") : projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"),
-            true
+            true,
+            parentAuthorization
           );
         }
       })
@@ -1418,8 +1520,10 @@ export class ProjectDetailFacade {
   }
 
   private clearProtectedProjectionsForDeniedSubscription(): void {
+    this.settleInitialProjectionAuthorization(false);
     this.authorizationGeneration++;
     this.loadGeneration++;
+    this.initialLoadGeneration = null;
     this.activationGeneration++;
     this.activationInFlight = false;
     this.projectOperational = false;
@@ -1466,27 +1570,55 @@ export class ProjectDetailFacade {
       {cleanup();}
   }
 
-  private initialKanbanRequest(projectId: string) {
+  private initialKanbanRequest(projectId: string, isCurrent: () => boolean) {
     if (!this.flags.kanbanV1Enabled()) {return of<KanbanLoadOutcome>({ kind: 'disabled' });}
     return this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { withCredentials: true }).pipe(
       map((dto): KanbanLoadOutcome => ({ kind: 'success', dto })),
-      catchError((error: unknown) => of<KanbanLoadOutcome>({ kind: 'error', error }))
+      catchError((error: unknown) => {
+        this.handleProjectionDenial(error, isCurrent);
+        return of<KanbanLoadOutcome>({ kind: 'error', error });
+      })
     );
   }
 
-  private initialScheduleRequest(projectId: string) {
+  private initialScheduleRequest(projectId: string, isCurrent: () => boolean) {
     return this.http.get<ProjectGanttSnapshotDto>(
       `/api/projects/${projectId}/gantt`,
       { withCredentials: true }
     ).pipe(
       map((dto): ScheduleLoadOutcome => ({ kind: 'success', dto })),
-      catchError((error: unknown) => of<ScheduleLoadOutcome>({ kind: 'error', error }))
+      catchError((error: unknown) => {
+        this.handleProjectionDenial(error, isCurrent);
+        return of<ScheduleLoadOutcome>({ kind: 'error', error });
+      })
     );
   }
 
-  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
+  private handleProjectionDenial(error: unknown, isCurrent: () => boolean): void {
+    if (!isCurrent()) {return;}
+    const failure = this.failure(error);
+    if (failure.status !== 'permissionDenied') {return;}
     const projectId = this.projectId;
-    if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    this.clearProtectedProjectionsForDeniedSubscription();
+    this.state.set({
+      ...failure,
+      kanban: this.kanbanFailure(error, null),
+      schedule: this.scheduleFailure(error, null)
+    });
+    if (!projectId) {return;}
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    // Recover navigation only through fresh parent and collection authority.
+    // The denied operational projections remain redacted without retry loops.
+    this.refreshProjectProjections(projectId, authorizationGeneration, false, undefined, () =>
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
+  }
+
+  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization: Observable<boolean> | undefined = this.initialProjectionAuthorization ?? undefined): void {
+    const projectId = this.projectId;
+    if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (this.scheduleInteractionActive || this.scheduleCommandInFlight) {
       const current = this.state();
       this.state.set({
@@ -1517,7 +1649,10 @@ export class ProjectDetailFacade {
 
     const requestGeneration = ++this.scheduleRequestGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const loadGeneration = this.loadGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.scheduleRefreshInFlight = true;
+    this.scheduleRefreshOwner = requestGeneration;
     const current = this.state();
     this.state.set({
       ...current,
@@ -1533,13 +1668,41 @@ export class ProjectDetailFacade {
       { withCredentials: true }
     ).pipe(
       map((dto) => ({ kind: 'success' as const, value: mapProjectGanttSnapshot(dto) })),
-      catchError((error: unknown) => of({ kind: 'error' as const, error }))
+      switchMap((result) => parentAuthorization
+        ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+        : of(result)),
+      catchError((error: unknown) => of({ kind: 'error' as const, error })),
+      finalize(() => {
+        if (requestGeneration === this.scheduleRefreshOwner) {
+          this.scheduleRefreshInFlight = false;
+          this.scheduleRefreshOwner = null;
+          if (this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+              (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && this.state().status === 'ready')
+            {this.scheduleFollowUpRefresh(projectId);}
+        }
+      })
     ).subscribe((result) => {
-      if (requestGeneration === this.scheduleRequestGeneration)
-        {this.scheduleRefreshInFlight = false;}
-      if (this.projectId !== projectId ||
-          requestGeneration !== this.scheduleRequestGeneration ||
-          authorizationGeneration !== this.authorizationGeneration) {
+      if (requestGeneration === this.scheduleRefreshOwner) {
+        this.scheduleRefreshInFlight = false;
+        this.scheduleRefreshOwner = null;
+      }
+      if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+          (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId) {
+        this.scheduleFollowUpRefresh(projectId);
+        return;
+      }
+      // Definitive current authority wins over interaction buffering and
+      // refresh order, just as it does for the Board reader.
+      if (result.kind === 'error') {
+        const failure = this.failure(result.error);
+        if (failure.status === 'permissionDenied') {
+          this.handleProjectionDenial(result.error, () =>
+            this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
+          return;
+        }
+      }
+      if (requestGeneration !== this.scheduleRequestGeneration) {
         this.scheduleFollowUpRefresh(projectId);
         return;
       }
@@ -1583,6 +1746,11 @@ export class ProjectDetailFacade {
   }
 
   private scheduleFollowUpRefresh(projectId: string): void {
+    if (this.state().status === 'permissionDenied' || this.state().schedule.status === 'permissionDenied') {
+      this.scheduleRefreshAfterFlight = false;
+      this.scheduleRefreshAfterFlightFeedback = undefined;
+      return;
+    }
     if (!this.scheduleRefreshAfterFlight ||
         this.scheduleRefreshInFlight ||
         this.projectId !== projectId)
@@ -1590,22 +1758,41 @@ export class ProjectDetailFacade {
     const feedback = this.scheduleRefreshAfterFlightFeedback;
     this.scheduleRefreshAfterFlight = false;
     this.scheduleRefreshAfterFlightFeedback = undefined;
-    queueMicrotask(() => this.refreshSchedule(true, feedback));
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const operationalGeneration = this.operationalProjectionGeneration;
+    queueMicrotask(() => {
+      if (operationalGeneration === this.operationalProjectionGeneration &&
+          this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+          (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId &&
+          this.state().status !== 'permissionDenied' && this.state().schedule.status !== 'permissionDenied')
+        {this.refreshSchedule(true, feedback);}
+    });
   }
 
   private queueTaskListRefresh(): void {
-    if (this.taskListRefreshPending || !this.projectId || !this.projectOperational)
+    const projectId = this.projectId;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    const operationalGeneration = this.operationalProjectionGeneration;
+    if (this.taskListRefreshPending || !projectId || !workspaceId || !this.projectOperational)
       {return;}
     this.taskListRefreshPending = true;
     queueMicrotask(() => {
+      if (operationalGeneration !== this.operationalProjectionGeneration ||
+          !this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration)) {return;}
       this.taskListRefreshPending = false;
-      this.refreshTaskList();
+      if ((this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId)
+        {this.refreshTaskList();}
     });
   }
 
   private refreshTaskList(): void {
     const projectId = this.projectId;
-    if (!projectId || !this.projectOperational)
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    if (!projectId || !workspaceId || !this.projectOperational)
       {return;}
     if (this.taskListRefreshInFlight) {
       this.taskListRefreshAfterFlight = true;
@@ -1614,8 +1801,10 @@ export class ProjectDetailFacade {
 
     const requestGeneration = ++this.taskListRequestGeneration;
     const flightGeneration = ++this.taskListRefreshFlightGeneration;
+    const operationalGeneration = this.operationalProjectionGeneration;
     const loadGeneration = this.loadGeneration;
     const authorizationGeneration = this.authorizationGeneration;
+    const parentAuthorization = this.initialProjectionAuthorization;
     this.taskListRefreshInFlight = true;
     this.http.get<PagedResponseDto<TaskDto>>(
       `/api/projects/${projectId}/tasks`,
@@ -1625,13 +1814,26 @@ export class ProjectDetailFacade {
         kind: 'success' as const,
         rows: (response.items ?? []).map((task) => this.toRow(mapTaskDtoToRecord(task, [])))
       })),
-      catchError((error: unknown) => of({ kind: 'error' as const, error }))
+      switchMap((result) => parentAuthorization
+        ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+        : of(result)),
+      catchError((error: unknown) => of({ kind: 'error' as const, error })),
+      finalize(() => {
+        if (flightGeneration === this.taskListRefreshFlightGeneration)
+          {this.taskListRefreshInFlight = false;}
+      })
     ).subscribe((result) => {
       if (flightGeneration === this.taskListRefreshFlightGeneration)
         {this.taskListRefreshInFlight = false;}
+      if ((this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId) {
+        if (flightGeneration === this.taskListRefreshFlightGeneration)
+          {this.taskListRefreshAfterFlight = false;}
+        return;
+      }
       if (this.projectId !== projectId ||
           loadGeneration !== this.loadGeneration ||
-          authorizationGeneration !== this.authorizationGeneration) {
+          authorizationGeneration !== this.authorizationGeneration ||
+          operationalGeneration !== this.operationalProjectionGeneration) {
         this.taskListFollowUpRefresh(projectId);
         return;
       }
@@ -1705,15 +1907,38 @@ export class ProjectDetailFacade {
     this.taskListRefreshFeedback = null;
   }
 
-  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
+  private invalidateOperationalProjections(): void {
+    // Draft ends the operational lifetime without replacing current authority.
+    // Reader denials still revalidate authority, but old data and command
+    // rollbacks cannot populate this Draft or a later Active projection.
+    this.projectOperational = false;
+    this.operationalProjectionGeneration++;
+    this.kanbanRequestGeneration++;
+    this.scheduleRequestGeneration++;
+    this.scheduleCommandGeneration++;
+    this.moveInFlight = false;
+    this.interactionActive = false;
+    this.kanbanRefreshGeneration = null;
+    this.refreshPending = false;
+    this.scheduleCommandInFlight = false;
+    this.scheduleInteractionActive = false;
+    this.scheduleRefreshPending = false;
+    this.scheduleRefreshInFlight = false;
+    this.scheduleRefreshOwner = null;
+    this.scheduleRefreshAfterFlight = false;
+    this.scheduleRefreshAfterFlightFeedback = undefined;
+    this.resetTaskListRefreshState();
+  }
+
+  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false, parentAuthorization: Observable<boolean> | undefined = this.initialProjectionAuthorization ?? undefined): void {
     const projectId = this.projectId;
-    if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
+    if (!projectId || !this.activeWorkspace.activeWorkspace() || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (!this.flags.kanbanV1Enabled()) {
       const current = this.state();
       this.state.set({ ...current, kanban: this.disabledKanban() });
       return;
     }
-    if (!force && (this.interactionActive || this.moveInFlight)) {
+    if (this.moveInFlight || (!force && this.interactionActive)) {
       const current = this.state();
       this.state.set({
         ...current,
@@ -1727,7 +1952,10 @@ export class ProjectDetailFacade {
     }
 
     const generation = ++this.kanbanRequestGeneration;
+    this.kanbanRefreshGeneration = generation;
     const authorizationGeneration = this.authorizationGeneration;
+    const loadGeneration = this.loadGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     const current = this.state();
     this.state.set({
       ...current,
@@ -1743,12 +1971,28 @@ export class ProjectDetailFacade {
     this.http.get<ProjectKanbanSnapshotDto>(`/api/projects/${projectId}/kanban`, { params, withCredentials: true })
       .pipe(
         map((dto) => ({ kind: 'success' as const, value: mapProjectKanbanSnapshot(dto) })),
-        catchError((error: unknown) => of({ kind: 'error' as const, error }))
+        switchMap((result) => parentAuthorization
+          ? parentAuthorization.pipe(take(1), switchMap((authorized) => authorized ? of(result) : EMPTY))
+          : of(result)),
+        catchError((error: unknown) => of({ kind: 'error' as const, error })),
+        finalize(() => {
+          if (this.kanbanRefreshGeneration === generation) {this.kanbanRefreshGeneration = null;}
+        })
       )
       .subscribe((result) => {
-        if (generation !== this.kanbanRequestGeneration ||
-            authorizationGeneration !== this.authorizationGeneration)
+        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) ||
+            (this.activeWorkspace.activeWorkspace()?.id ?? null) !== workspaceId)
           {return;}
+        if (result.kind === 'error') {
+          const error = normalizeProjectFeedbackError(result.error);
+          if (error.httpStatus === 401 || error.httpStatus === 403) {
+            this.handleProjectionDenial(result.error, () =>
+              this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+              (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId);
+            return;
+          }
+        }
+        if (generation !== this.kanbanRequestGeneration) {return;}
         const latest = this.state();
         if (result.kind === 'success') {
           this.selectedSwimlane = result.value.selectedSwimlane;
@@ -1785,9 +2029,13 @@ export class ProjectDetailFacade {
       {return;}
 
     if (event.eventType === 'Security.AuthorizationStateChanged.v1') {
+      this.settleInitialProjectionAuthorization(false);
       const wasOperational = this.projectOperational;
       this.authorizationGeneration++;
       this.loadGeneration++;
+      this.initialLoadGeneration = null;
+      this.moveInFlight = false;
+      this.interactionActive = false;
       this.activationGeneration++;
       this.activationInFlight = false;
       this.projectOperational = false;
@@ -1828,17 +2076,21 @@ export class ProjectDetailFacade {
         }
         this.releaseRealtime();
         this.registerRealtime(projectId);
-        this.refreshProjectProjections(projectId, authorizationGeneration, !wasOperational);
+        const parentAuthorization = this.revalidateProjectProjections(projectId, authorizationGeneration, !wasOperational);
         if (wasOperational) {
-          this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
-          this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
+          this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true, parentAuthorization);
+          this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true, parentAuthorization);
         }
       });
       return;
     }
 
+    // Ordinary data events cannot authorize projections cleared by a denial.
+    // Explicit authorization invalidation above retains its revalidation path.
+    if (this.state().status === 'permissionDenied') {return;}
     if (!this.projectOperational) {
-      if (event.eventType === 'Projects.ProjectChanged.v1')
+      if (event.eventType === 'Projects.ProjectChanged.v1' && this.state().status === 'ready' &&
+          this.state().project?.isOperational === false)
         {this.refreshDraftProjectAfterChange();}
       return;
     }
@@ -1847,8 +2099,8 @@ export class ProjectDetailFacade {
       event.eventType === 'Projects.TaskChanged.v1' ||
       event.eventType === 'Projects.TaskAssignmentChanged.v1' ||
       event.eventType === 'Projects.TaskWorkflowChanged.v1';
-    let refreshKanban = true;
-    let refreshSchedule = true;
+    let refreshKanban = this.state().kanban.status !== 'permissionDenied';
+    let refreshSchedule = this.state().schedule.status !== 'permissionDenied';
     if (event.eventType !== 'Projects.ProjectChanged.v1') {
       const taskId = text(event.payload['taskId']);
       const eventVersion = number(event.payload['taskVersion']);
@@ -1875,13 +2127,22 @@ export class ProjectDetailFacade {
         {refreshSchedule = false;}
     }
 
+    const projectId = this.projectId;
+    const loadGeneration = this.loadGeneration;
+    const authorizationGeneration = this.authorizationGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const ordinaryRefreshIsCurrent = () => this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && this.state().status !== 'permissionDenied';
+    const operationalGeneration = this.operationalProjectionGeneration;
     if (refreshKanban && (this.interactionActive || this.moveInFlight))
       {this.refreshKanban(false);}
     else if (refreshKanban && !this.refreshPending) {
       this.refreshPending = true;
       queueMicrotask(() => {
+        if (operationalGeneration !== this.operationalProjectionGeneration) {return;}
         this.refreshPending = false;
-        this.refreshKanban(true);
+        if (ordinaryRefreshIsCurrent() && this.state().kanban.status !== 'permissionDenied')
+          {this.refreshKanban(true);}
       });
     }
 
@@ -1890,8 +2151,10 @@ export class ProjectDetailFacade {
     else if (refreshSchedule && !this.scheduleRefreshPending) {
       this.scheduleRefreshPending = true;
       queueMicrotask(() => {
+        if (operationalGeneration !== this.operationalProjectionGeneration) {return;}
         this.scheduleRefreshPending = false;
-        this.refreshSchedule(true);
+        if (ordinaryRefreshIsCurrent() && this.state().schedule.status !== 'permissionDenied')
+          {this.refreshSchedule(true);}
       });
     }
 
@@ -1899,20 +2162,59 @@ export class ProjectDetailFacade {
       {this.queueTaskListRefresh();}
   }
 
+  private settleInitialProjectionAuthorization(authorized: boolean): void {
+    const pending = this.initialProjectionAuthorization;
+    this.initialProjectionAuthorization = null;
+    pending?.next(authorized);
+    pending?.complete();
+  }
+
+  private recordProjectVisit(): void {
+    const current = this.state();
+    const project = current.project;
+    if (!this.projectVisitPending || current.status !== 'ready' || !project || project.id !== this.projectId ||
+        !this.projectVisitWorkspaceId || this.activeWorkspace.activeWorkspace()?.id !== this.projectVisitWorkspaceId ||
+        (project.workspaceId && project.workspaceId !== this.projectVisitWorkspaceId)) {return;}
+    this.projectVisitPending = false;
+    this.continueWorkingHistory.touchProject(project.id, project.workspaceId);
+  }
+
+  private revalidateProjectProjections(projectId: string, authorizationGeneration: number, refreshOperationalViews: boolean): Observable<boolean> {
+    const authorization = new ReplaySubject<boolean>(1);
+    let authorized = false;
+    this.refreshProjectProjections(projectId, authorizationGeneration, refreshOperationalViews, () => {
+      if (!authorized) {authorization.next(false);}
+      authorization.complete();
+    }, undefined, () => {
+      authorized = true;
+      authorization.next(true);
+      authorization.complete();
+    });
+    return authorization;
+  }
+
   private refreshProjectProjections(
     projectId: string,
     authorizationGeneration: number,
     refreshOperationalViews = true,
-    onSettled?: () => void
+    onSettled?: () => void,
+    isCurrent?: () => boolean,
+    onAuthorized?: () => void
   ): void {
     const loadGeneration = this.loadGeneration;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    // Catch-ups and Project events must obey the same live scope boundary as
+    // the initial route, including before dispatch and after each HTTP stage.
+    const requestIsCurrent = () => workspaceId !== null &&
+      this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration) &&
+      (this.activeWorkspace.activeWorkspace()?.id ?? null) === workspaceId && (isCurrent?.() ?? true);
+    if (!requestIsCurrent()) {return;}
     const taskListRequestGeneration = ++this.taskListRequestGeneration;
     this.http.get<ProjectDto>(`/api/projects/${projectId}`, { withCredentials: true }).pipe(
       switchMap((project) => {
-        if (!this.projectRequestIsCurrent(projectId, loadGeneration, authorizationGeneration))
+        if (!requestIsCurrent())
           {return EMPTY;}
         const record = mapProjectDtoToRecord(project);
-        this.projectOperational = record.isOperational === true;
         if (!record.isOperational)
           {return of({ kind: 'draft' as const, project });}
         return forkJoin({
@@ -1941,11 +2243,7 @@ export class ProjectDetailFacade {
       catchError((error: unknown) => of({ kind: 'error' as const, error })),
       finalize(() => onSettled?.())
     ).subscribe((result) => {
-      if (
-        this.projectId !== projectId ||
-        this.loadGeneration !== loadGeneration ||
-        this.authorizationGeneration !== authorizationGeneration
-      ) {return;}
+      if (!requestIsCurrent()) {return;}
 
       if (result.kind === 'error') {
         // A denied realtime reauthorization has already cleared every
@@ -1954,13 +2252,21 @@ export class ProjectDetailFacade {
         // denial that can be a 400/404 rather than a credential 401/403; do
         // not let that response replace the security state with a generic
         // loading error after the clear.
-        if (this.state().status === 'permissionDenied')
+        const failure = this.failure(result.error);
+        if (failure.status === 'permissionDenied')
+          {this.clearProtectedProjectionsForDeniedSubscription();}
+        else if (taskListRequestGeneration < this.projectProjectionAppliedGeneration)
           {return;}
-        this.state.set(this.failure(result.error));
+        else if (this.state().status === 'permissionDenied' || this.state().kanban.status === 'permissionDenied' ||
+                 this.state().schedule.status === 'permissionDenied')
+          {return;}
+        this.state.set(failure);
         return;
       }
+      if (taskListRequestGeneration < this.projectProjectionAppliedGeneration) {return;}
+      this.projectProjectionAppliedGeneration = taskListRequestGeneration;
       if (result.kind === 'draft') {
-        this.projectOperational = false;
+        this.invalidateOperationalProjections();
         const previousActivation = this.state().activation;
         const fallbackActivation: ProjectActivationViewModel =
           previousActivation.status === 'permissionDenied'
@@ -1974,6 +2280,8 @@ export class ProjectDetailFacade {
             fallbackActivation
           )
         });
+        this.recordProjectVisit();
+        this.settleInitialProjectionAuthorization(false);
         return;
       }
       const current = this.state();
@@ -1998,10 +2306,14 @@ export class ProjectDetailFacade {
         ...projectFeedbackField("message", undefined)
       });
       this.taskListFollowUpRefresh(projectId);
+      this.recordProjectVisit();
+      this.settleInitialProjectionAuthorization(true);
+      onAuthorized?.();
       if (refreshOperationalViews) {
         this.refreshKanban(false, projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"));
         this.refreshSchedule(false, projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"));
       }
+      else {this.scheduleFollowUpRefresh(projectId);}
     });
   }
 
@@ -2170,8 +2482,6 @@ export class ProjectDetailFacade {
     if (outcome.kind === 'error') {return this.kanbanFailure(outcome.error, null);}
     try {
       const snapshot = mapProjectKanbanSnapshot(outcome.dto);
-      this.selectedSwimlane = snapshot.selectedSwimlane;
-      this.includeOlderCompleted = snapshot.includesOlderCompleted;
       return {
         status: snapshot.cards.length ? 'ready' : 'empty',
         snapshot,
