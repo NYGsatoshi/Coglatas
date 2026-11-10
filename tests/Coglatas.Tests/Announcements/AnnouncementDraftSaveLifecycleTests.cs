@@ -63,6 +63,11 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.True(sentinel.IsSuccess, sentinel.Error);
         Assert.NotEqual(originalId, sentinel.Value!.Id);
         var before = await CaptureDraftRowsAsync(fixture);
+        Assert.Equal(2, before.Count);
+        Assert.True(before.ContainsKey(sentinel.Value.Id));
+        Assert.Equal(actor, before[sentinel.Value.Id]["AuthorUserId"]);
+        Assert.Equal(tenant, before[sentinel.Value.Id]["TenantId"]);
+        Assert.Equal("Unrelated retained draft", before[sentinel.Value.Id]["Title"]);
         var workspace = targetShape == 0 ? (Guid?)null : Guid.NewGuid();
         var group = targetShape >= 2 ? (Guid?)Guid.NewGuid() : null;
         var channel = targetShape == 3 ? (Guid?)Guid.NewGuid() : null;
@@ -85,6 +90,9 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.Equal(("Saved title", "Saved body.", priority, pinned, requiresRead, expires),
             (response.Title, response.Body, response.Priority, response.IsPinned, response.RequiresReadConfirmation, response.ExpiresAt));
         Assert.Equal(created.Value.CreatedAtUtc, response.CreatedAtUtc);
+        Assert.Equal(initial.CreatedAt, response.CreatedAtUtc);
+        Assert.Null(response.Cta);
+        Assert.Null(response.Attachment);
         Assert.NotNull(response.UpdatedAtUtc);
         Assert.InRange(response.UpdatedAtUtc!.Value, saveStartedAt, saveCompletedAt);
         Assert.True(response.UpdatedAtUtc.Value >= initial.CreatedAt);
@@ -108,7 +116,7 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.Empty(FindDraftRowDifferences(expectedRows, afterSave));
         Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(fixture.Invalidations.AnnouncementChanges);
-        var idempotencyIds = await fixture.Db.IdempotencyRecords.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
+        var idempotencyIds = await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
 
         var stale = await fixture.Service.SaveAsync(originalId,
             new SaveAnnouncementDraftRequest(originalVersion, fixture.Content("Rejected stale replacement")), cancellation.Token);
@@ -116,7 +124,7 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.False(stale.IsSuccess);
         Assert.Equal("ANNOUNCEMENT_DRAFT_STALE", stale.ErrorDetail!.Code);
         Assert.Empty(FindDraftRowDifferences(afterSave, await CaptureDraftRowsAsync(fixture)));
-        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
+        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
         Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(fixture.Invalidations.AnnouncementChanges);
     }
@@ -151,7 +159,7 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.Equal(publish ? AnnouncementDraftStatus.Published : AnnouncementDraftStatus.Scheduled, persisted.Status);
         if (publish)
         {
-            var announcement = await fixture.Db.Announcements.AsNoTracking().SingleAsync();
+            var announcement = await fixture.Db.Announcements.IgnoreQueryFilters().AsNoTracking().SingleAsync();
             Assert.Equal(announcement.Id, persisted.PublishedAnnouncementId);
             Assert.Equal(announcement.Id, Assert.Single(fixture.Invalidations.AnnouncementChanges));
             Assert.Equal((fixture.TenantId, actor), (announcement.TenantId, announcement.AuthorUserId));
@@ -161,13 +169,15 @@ public sealed partial class AnnouncementDraftServiceTests
         {
             Assert.Null(persisted.PublishedAnnouncementId);
             Assert.Null(persisted.PublishedAtUtc);
-            Assert.Empty(await fixture.Db.Announcements.ToListAsync());
+            Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
             Assert.Empty(fixture.Invalidations.AnnouncementChanges);
         }
         var before = await CaptureDraftRowsAsync(fixture);
-        var announcementIds = await fixture.Db.Announcements.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
+        Assert.Single(before);
+        Assert.True(before.ContainsKey(originalId));
+        var announcementIds = await fixture.Db.Announcements.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
         var invalidationIds = fixture.Invalidations.AnnouncementChanges.ToArray();
-        var idempotencyIds = await fixture.Db.IdempotencyRecords.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
+        var idempotencyIds = await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
 
         var rejected = await fixture.Service.SaveAsync(originalId,
             new SaveAnnouncementDraftRequest(persisted.VersionNo - (staleVersion ? 1 : 0), fixture.Content("Rejected edit")));
@@ -175,9 +185,9 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.False(rejected.IsSuccess);
         Assert.Equal("ANNOUNCEMENT_DRAFT_NOT_EDITABLE", rejected.ErrorDetail!.Code);
         Assert.Empty(FindDraftRowDifferences(before, await CaptureDraftRowsAsync(fixture)));
-        Assert.Equal(announcementIds, await fixture.Db.Announcements.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
+        Assert.Equal(announcementIds, await fixture.Db.Announcements.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
         Assert.Equal(invalidationIds, fixture.Invalidations.AnnouncementChanges);
-        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
+        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
     }
 
     [Theory]
@@ -197,7 +207,8 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.True(first.IsSuccess, first.Error);
         Assert.True(second.IsSuccess, second.Error);
         var actor = fixture.CurrentUser.UserId;
-        fixture.CurrentUser.UserId = Guid.NewGuid();
+        var otherActor = Guid.NewGuid();
+        fixture.CurrentUser.UserId = otherActor;
         var other = await fixture.Service.CreateAsync(fixture.Request("Other author draft"), "list-other-draft-create");
         Assert.True(other.IsSuccess, other.Error);
         fixture.CurrentUser.UserId = actor;
@@ -208,6 +219,11 @@ public sealed partial class AnnouncementDraftServiceTests
         var targets = new Dictionary<Guid, AnnouncementDraftTargetRequest> { [first.Value.Id] = firstTarget, [second.Value.Id] = secondTarget };
         foreach (var row in ownRows) Assert.Equal(targets[row.Id], new AnnouncementDraftTargetRequest(row.WorkspaceId, row.GroupId, row.ChannelId));
         var before = await CaptureDraftRowsAsync(fixture);
+        Assert.Equal(3, before.Count);
+        Assert.True(before.ContainsKey(other.Value!.Id));
+        Assert.Equal(otherActor, before[other.Value.Id]["AuthorUserId"]);
+        Assert.Equal(fixture.TenantId, before[other.Value.Id]["TenantId"]);
+        Assert.Equal("Other author draft", before[other.Value.Id]["Title"]);
         using var cancellation = new CancellationTokenSource();
         var expectedCalls = ownRows.Select(row => (actor!.Value, targets[row.Id].WorkspaceId, targets[row.Id].GroupId, targets[row.Id].ChannelId, cancellation.Token)).ToArray();
         var observedAudience = new RecordingListAudience();

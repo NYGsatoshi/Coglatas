@@ -35,6 +35,13 @@ original test, fixture and product source remains unchanged.
   consume an unrelated queued outcome. Equal-timestamp ordering and cancelled
   operation behavior remain outside this scope.
 
+The pre-operation snapshots explicitly establish the sentinel and other-author
+rows and their independently captured author/Tenant identities. Related
+announcement and idempotency identity checks observe all synthetic stored rows
+with query filters disabled. The save response also requires null CTA and
+Attachment fields for plain content, and its creation timestamp must match the
+independently loaded persisted pre-save row, alongside the original response.
+
 The snapshot helper requires exactly the explicit twenty-eight mapped scalar
 names and rejects shadow properties. Unknown non-shadow fields cannot become
 implicitly accepted preservation baselines.
