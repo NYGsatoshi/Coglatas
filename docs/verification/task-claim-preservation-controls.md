@@ -1,12 +1,21 @@
 # Task claim preservation controls
 
-The additive `TaskCommandServiceTests.Claim.cs` source declares 23 Application
+The additive `TaskCommandServiceTests.Claim.cs` source declares 25 Application
 cases: 13 refusal cases, six existing-Watch combinations and two new-Watch
 controls that also repeat the claim. The original test source changes only its
 outer class declaration to `partial`; its fixture and assertions remain intact.
 Two additional cases give the Task a creator distinct from the current actor,
 requiring the actor in both stored/returned assignee identity and notification,
 separate Creator/PrimaryAssignee Watches and both affected-user identities.
+Two further cases cover persistence-valid manual Watch intent with explicit
+opt-out false, one per stage. The two retained both-true rows are synthetic
+invalid-state controls; the persistence check constraint prohibits storing that
+combination, so they provide no persisted manual-intent evidence.
+
+Every refusal case also seeds a Watch and collaborator row for the requested
+Task before capture. The missing-Task case deliberately retains those rows in
+the fake repository after removing the Task; it tests refusal cleanup behavior
+in doubles and does not claim a foreign-key-valid database graph.
 
 Before each command, the controls capture every stored Task, Watch and
 collaborator key, original object reference and immutable scalar value. They

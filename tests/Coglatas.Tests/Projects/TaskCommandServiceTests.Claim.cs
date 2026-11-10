@@ -25,6 +25,17 @@ public sealed partial class TaskCommandServiceTests
     {
         var fixture = Fixture.Create();
         var task = SeedClaimTask(fixture, TaskStageCategory.Backlog);
+        fixture.Projects.Watches.Add(new()
+        {
+            TenantId = task.TenantId, TaskItemId = task.Id, UserId = fixture.Actor,
+            AutomaticSources = WorkItemWatchAutomaticSource.Creator, IsManualWatch = true,
+            IsWatching = true, UpdatedAt = new FixedClock().UtcNow.AddDays(-6), VersionNo = 13
+        });
+        fixture.Projects.Collaborators.Add(new()
+        {
+            TenantId = task.TenantId, TaskItemId = task.Id, UserId = Guid.NewGuid(),
+            AddedByUserId = fixture.Actor, AddedAt = new FixedClock().UtcNow.AddDays(-7)
+        });
         var groupId = task.TargetGroupId!.Value;
         var groups = new ClaimGroups(groupId, fixture.Actor, scenario != "group-member-missing");
         var requestedId = task.Id;
@@ -71,9 +82,12 @@ public sealed partial class TaskCommandServiceTests
     [InlineData(TaskStageCategory.Todo, false, false, true)]
     [InlineData(TaskStageCategory.Todo, false, true, false)]
     [InlineData(TaskStageCategory.Todo, true, true, true)]
+    [InlineData(TaskStageCategory.Backlog, true, false, true)]
+    [InlineData(TaskStageCategory.Todo, true, false, true)]
     public async Task ClaimRetainsExistingWatchIdentityAndExplicitIntent(
         TaskStageCategory category, bool manual, bool optedOut, bool watching)
     {
+        // Both-true rows are synthetic invalid states, not persisted manual-intent evidence.
         var fixture = Fixture.Create();
         var task = SeedClaimTask(fixture, category);
         var watch = new WorkItemWatchState
