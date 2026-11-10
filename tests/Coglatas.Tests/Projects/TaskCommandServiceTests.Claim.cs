@@ -1,3 +1,4 @@
+using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
@@ -114,7 +115,8 @@ public sealed partial class TaskCommandServiceTests
         before.Watches[watchId].Values[nameof(WorkItemWatchState.UpdatedAt)] = new FixedClock().UtcNow;
         before.Watches[watchId].Values[nameof(WorkItemWatchState.VersionNo)] = 6L;
         AssertClaimGraph(before, fixture);
-        AssertClaimEffects(fixture, task, taskId, version, result);
+        var response = AssertClaimEffects(fixture, task, taskId, version, result);
+        Assert.False(response.Task.UiPermissions.CanClaim);
         Assert.Equal((groupId, fixture.Actor), Assert.Single(groups.Reads));
     }
 
@@ -148,7 +150,8 @@ public sealed partial class TaskCommandServiceTests
         before.Tasks[taskId].Values[nameof(TaskItem.VersionNo)] = version + 1;
         before.Watches.Add(watch.Id, (watch, ClaimWatchScalars(watch)));
         AssertClaimGraph(before, fixture);
-        AssertClaimEffects(fixture, task, taskId, version, result);
+        var response = AssertClaimEffects(fixture, task, taskId, version, result);
+        Assert.False(response.Task.UiPermissions.CanClaim);
         Assert.Equal((groupId, fixture.Actor), Assert.Single(groups.Reads));
         var afterFirstClaim = CaptureClaimGraph(fixture);
         var auditBeforeRepeat = Assert.Single(fixture.Audit.Entries);
@@ -244,8 +247,8 @@ public sealed partial class TaskCommandServiceTests
         Assert.Equal((groupId, fixture.Actor), Assert.Single(groups.Reads));
     }
 
-    private static void AssertClaimEffects(Fixture fixture, TaskItem task, Guid taskId, long previousVersion,
-        Coglatas.Application.Common.Result<TaskCommandResponse> result)
+    private static TaskCommandResponse AssertClaimEffects(Fixture fixture, TaskItem task, Guid taskId, long previousVersion,
+        Result<TaskCommandResponse> result)
     {
         Assert.True(result.IsSuccess);
         Assert.Equal(taskId, result.Value!.Task.Id);
@@ -283,6 +286,7 @@ public sealed partial class TaskCommandServiceTests
         Assert.Empty(fixture.Invalidations.ProjectChanges);
         Assert.Equal(1, fixture.UnitOfWork.SaveCount);
         Assert.Equal(0, fixture.UnitOfWork.ClearCount);
+        return result.Value;
     }
 
     private static TaskCommandService CreateClaimService(Fixture fixture, ClaimGroups groups, string scenario = "") =>
@@ -402,7 +406,7 @@ public sealed partial class TaskCommandServiceTests
         public Task<GroupMember?> GetMemberAsync(Guid group, Guid user, CancellationToken ct = default)
         {
             Reads.Add((group, user));
-            return Task.FromResult<GroupMember?>(member && group == groupId && user == actor ? new GroupMember { GroupId = group, UserId = user } : null);
+            return Task.FromResult(member && group == groupId && user == actor ? new GroupMember { GroupId = group, UserId = user } : null);
         }
         public Task<IReadOnlyList<Group>> ListByWorkspaceAsync(Guid workspace, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Group>>([]);
         public Task<IReadOnlyList<Group>> ListManagedByUserAsync(Guid workspace, Guid user, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Group>>([]);
@@ -414,7 +418,7 @@ public sealed partial class TaskCommandServiceTests
 
     private sealed class ClaimUsers(Guid actor) : IUserRepository
     {
-        public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<User?>(id == actor ? new User { Id = actor, DisplayName = "Synthetic claimer", Email = "claimer@example.test" } : null);
+        public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(id == actor ? new User { Id = actor, DisplayName = "Synthetic claimer", Email = "claimer@example.test" } : null);
         public Task<User?> GetByNormalizedEmailAsync(string email, CancellationToken ct = default) => Task.FromResult<User?>(null);
         public Task AddAsync(User user, CancellationToken ct = default) => Task.CompletedTask;
     }

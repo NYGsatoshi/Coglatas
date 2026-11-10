@@ -1,10 +1,11 @@
 # Task claim preservation controls
 
 The additive `TaskCommandServiceTests.Claim.cs` source declares 25 Application
-cases: 13 refusal cases, six existing-Watch combinations and two new-Watch
-controls that also repeat the claim. The original test source changes only its
-outer class declaration to `partial`; its fixture and assertions remain intact.
-Two additional cases give the Task a creator distinct from the current actor,
+cases: 13 refusals, eight existing-Watch combinations, two new-Watch controls
+that repeat the claim, and two distinct-creator controls. The baseline includes
+an outer `partial` declaration and the bounded analyzer repairs described below;
+its fixture bodies and every original assertion remain intact.
+The distinct-creator cases give the Task a creator different from the current actor,
 requiring the actor in both stored/returned assignee identity and notification,
 separate Creator/PrimaryAssignee Watches and both affected-user identities.
 Two further cases cover persistence-valid manual Watch intent with explicit
@@ -16,6 +17,15 @@ Every refusal case also seeds a Watch and collaborator row for the requested
 Task before capture. The missing-Task case deliberately retains those rows in
 the fake repository after removing the Task; it tests refusal cleanup behavior
 in doubles and does not claim a foreign-key-valid database graph.
+
+The changed-file analyzer repair also removes two redundant explicit default
+Priority arguments from the baseline and records all three observed brief
+sources before checking their complete expected sequence. Every original
+baseline assertion remains, with one additional collection assertion; fixture
+bodies remain unchanged. The claim effect helper returns the verified DTO for
+the callers to check that claiming is no longer offered. Redundant qualification
+and inferred type arguments are removed without inspection suppression or
+budget changes. Original failed ReSharper reports remain historical evidence.
 
 Before each command, the controls capture every stored Task, Watch and
 collaborator key, original object reference and immutable scalar value. They
