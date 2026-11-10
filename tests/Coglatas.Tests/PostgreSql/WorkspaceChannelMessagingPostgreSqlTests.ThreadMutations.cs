@@ -153,6 +153,9 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         Assert.Equal(replyId, messagePayload.GetProperty("messageId").GetGuid());
         Assert.Equal(rootId, messagePayload.GetProperty("threadRootMessageId").GetGuid());
         Assert.Equal(2L, messagePayload.GetProperty("messageVersion").GetInt64());
+        var persistedMutationTimestamp = delete ? after.DeletedAt!.Value : after.EditedAt!.Value;
+        var eventMutationTimestamp = messagePayload.GetProperty(delete ? "deletedAt" : "updatedAt").GetDateTimeOffset();
+        Assert.InRange(eventMutationTimestamp, persistedMutationTimestamp, persistedMutationTimestamp.AddTicks(9));
         if (delete)
         {
             Assert.Equal("tombstone", messagePayload.GetProperty("deletionMode").GetString());

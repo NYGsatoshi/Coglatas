@@ -26,6 +26,9 @@ Envelope event/schema/aggregate fields are checked independently of the stored
 columns against the original identities and expected versions. The Thread
 payload must contain exactly its six declared metadata properties; additional
 properties cannot pass the content-exclusion assertions unnoticed.
+The edit event's `updatedAt` and delete event's `deletedAt` independently match
+the corresponding persisted mutation timestamp, allowing only the zero-to-nine
+ticks removed by PostgreSQL's microsecond truncation.
 
 The existing PostgreSQL harness requires an explicit test connection and
 creates an isolated migrated temporary database. The original raw Main report
