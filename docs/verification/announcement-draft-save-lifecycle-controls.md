@@ -7,20 +7,37 @@ original test, fixture and product source remains unchanged.
 - Twelve editable-save controls span all three priorities and Global,
   Workspace, Group and Channel target shapes. They verify trimmed content,
   flags, expiry, the returned target/identity/version and retained publication
-  state. A complete pre-operation mapped-scalar dictionary supplies the
+  state. Creation covers the inverse target shape and rotated priority, with
+  opposite flags/expiry, before replacement; literal actor, Tenant, version,
+  content, initial publication/claim fields and zero attempt count are checked.
+  A complete pre-operation mapped-scalar dictionary supplies the
   independent expected persisted row; only the named editable fields, version
-  and observed persistence timestamp may change. Reusing the original version
+  and observed persistence timestamp may change. The updated timestamp is
+  independently bounded by the save call's wall-clock interval and may not
+  precede creation; strict time advancement is not asserted. An unrelated
+  retained draft must remain unchanged. Reusing the original version
   must fail without further row, announcement, invalidation or idempotency
   identity changes.
 - Four controls obtain Scheduled or Published state through the original
   queue/worker APIs before attempting an edit with a current or stale version.
   The edit must report not editable and retain every mapped draft scalar,
   announcement identity, recorded announcement invalidation and idempotency
-  identity.
+  identity. The original create ID is captured before queueing and checked on
+  the queue response, worker claim and persisted draft. Scheduled state has no
+  published row/invalidation; Published state has exactly the linked
+  announcement and matching recorded invalidation before the rejected edit.
 - Three list controls retain two own drafts and another author's draft. They
-  recheck each own audience, exclude a selectively revoked audience and the
+  recheck two distinct own audiences, exclude a selectively revoked audience and the
   other author, preserve ordering and every list projection field, and leave
-  all mapped draft rows unchanged.
+  all mapped draft rows unchanged. A separate recording adapter returns
+  authorization by exact target identity and records the exact ordered pair
+  of actor/target/cancellation-token calls; extra or repeated calls cannot
+  consume an unrelated queued outcome. Equal-timestamp ordering and cancelled
+  operation behavior remain outside this scope.
+
+The snapshot helper requires exactly the explicit twenty-eight mapped scalar
+names and rejects shadow properties. Unknown non-shadow fields cannot become
+implicitly accepted preservation baselines.
 
 The original raw Main OpenCover report identified unvisited save/list branches;
 that observation selects test scope and does not forecast a coverage gain.
