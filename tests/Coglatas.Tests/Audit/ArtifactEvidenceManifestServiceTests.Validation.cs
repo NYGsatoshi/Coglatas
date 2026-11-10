@@ -65,15 +65,16 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         Assert.Equal(before, SelectedGraphSnapshot(fixture));
         Assert.Empty(await fixture.Evidence.ListClaimsAsync(fixture.Version.Id));
         Assert.Empty(await fixture.Evidence.ListClaimsAsync(fixture.SecondVersion.Id));
-        Assert.Empty(await fixture.ManifestContext.Set<ArtifactEvidence>().ToListAsync());
-        Assert.Empty(await fixture.ManifestContext.Set<ArtifactFinding>().ToListAsync());
-        Assert.Empty(await fixture.ManifestContext.Set<AuditFindingHistory>().ToListAsync());
+        Assert.Empty(await fixture.ManifestContext.Set<ArtifactClaim>().IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.Empty(await fixture.ManifestContext.Set<ArtifactEvidence>().IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.Empty(await fixture.ManifestContext.Set<ArtifactFinding>().IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.Empty(await fixture.ManifestContext.Set<AuditFindingHistory>().IgnoreQueryFilters().AsNoTracking().ToListAsync());
         Assert.DoesNotContain(fixture.ManifestContext.ChangeTracker.Entries(),
             entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
-        Assert.Equal(1, await fixture.ManifestContext.Set<Artifact>().CountAsync());
-        Assert.Equal(2, await fixture.ManifestContext.Set<ArtifactVersion>().CountAsync());
-        Assert.Equal(2, await fixture.ManifestContext.Set<Attachment>().CountAsync());
-        Assert.Equal(2, await fixture.ManifestContext.Set<FileObject>().CountAsync());
+        Assert.Equal(1, await fixture.ManifestContext.Set<Artifact>().IgnoreQueryFilters().AsNoTracking().CountAsync());
+        Assert.Equal(2, await fixture.ManifestContext.Set<ArtifactVersion>().IgnoreQueryFilters().AsNoTracking().CountAsync());
+        Assert.Equal(2, await fixture.ManifestContext.Set<Attachment>().IgnoreQueryFilters().AsNoTracking().CountAsync());
+        Assert.Equal(2, await fixture.ManifestContext.Set<FileObject>().IgnoreQueryFilters().AsNoTracking().CountAsync());
         Assert.Empty(fixture.AuditLogger.Entries);
         Assert.Equal(0, fixture.UnitOfWork.SaveCount);
     }
@@ -84,9 +85,13 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
     public async Task ExactSnapshotAndFindingBoundsRetainTwentyEvidenceItemsAndInitialHistory(int confidence)
     {
         await using var fixture = await Fixture.CreateAsync(canReview: true, canUpdateArtifact: true);
+        var actorId = await fixture.AssignDistinctManifestCreatorAsync();
+        Assert.NotEqual(actorId, fixture.Artifact.CreatedByUserId);
+        Assert.NotEqual(actorId, fixture.Version.CreatedByUserId);
+        Assert.NotEqual(actorId, fixture.SecondVersion.CreatedByUserId);
         var before = SelectedGraphSnapshot(fixture);
         var versionId = fixture.Version.Id;
-        var actorId = fixture.Artifact.CreatedByUserId;
+        var projectId = fixture.Artifact.ProjectId;
         var timestamp = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
         var evidence = new ArtifactEvidenceManifestItem(
             1, " websnapshot ", " " + new string('r', 2048) + " ",
@@ -158,6 +163,8 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         Assert.Equal("ArtifactVersion", audit.EntityType);
         Assert.Equal(versionId, audit.EntityId);
         Assert.Equal(fixture.TenantId, audit.TenantId);
+        Assert.Equal(actorId, audit.ActorUserId);
+        Assert.Equal(projectId, audit.ProjectId);
         Assert.Equal(1, audit.Metadata!["claimCount"]);
         Assert.Equal(1, audit.Metadata["findingCount"]);
         Assert.Equal("artifact-claims-evidence-v1", audit.Metadata["schema"]);
@@ -168,10 +175,10 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
     private static AttachArtifactEvidenceManifestRequest InvalidManifest(string invalidCase)
     {
         var request = WebSnapshotRequest();
-        var first = request.Claims[0];
-        var claim = first with { Ordinal = 2 };
-        var evidence = claim.Evidence[0];
         var finding = new ArtifactFindingManifestItem(nameof(AuditFindingSeverity.Low), 50, "manifest-detector", "policy-v1");
+        var first = request.Claims[0] with { Finding = finding };
+        var claim = first with { Ordinal = 2, Finding = null };
+        var evidence = claim.Evidence[0];
         switch (invalidCase)
         {
             case "null-claims": return request with { Claims = null! };
@@ -234,16 +241,31 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         fixture.Artifact.TaskItemId, fixture.Artifact.Name, fixture.Artifact.Description,
         fixture.Artifact.ArtifactType, fixture.Artifact.Status, fixture.Artifact.CurrentVersionId,
         fixture.Artifact.CreatedByUserId, fixture.Artifact.DeletedAt,
+        fixture.Artifact.CreatedAt, fixture.Artifact.UpdatedAt, fixture.Artifact.DeletedByUserId, fixture.Artifact.DeleteReason,
         fixture.Version.Id, fixture.Version.TenantId, fixture.Version.ArtifactId,
         fixture.Version.VersionNumber, fixture.Version.AttachmentId, fixture.Version.FileObjectId,
         fixture.Version.Notes, fixture.Version.CreatedByUserId, fixture.Version.DeletedAt,
+        fixture.Version.CreatedAt, fixture.Version.UpdatedAt, fixture.Version.DeletedByUserId, fixture.Version.DeleteReason,
         fixture.SecondVersion.Id, fixture.SecondVersion.TenantId, fixture.SecondVersion.ArtifactId,
         fixture.SecondVersion.VersionNumber, fixture.SecondVersion.AttachmentId, fixture.SecondVersion.FileObjectId,
-        fixture.SecondVersion.Notes, fixture.SecondVersion.CreatedByUserId, fixture.SecondVersion.DeletedAt
+        fixture.SecondVersion.Notes, fixture.SecondVersion.CreatedByUserId, fixture.SecondVersion.DeletedAt,
+        fixture.SecondVersion.CreatedAt, fixture.SecondVersion.UpdatedAt,
+        fixture.SecondVersion.DeletedByUserId, fixture.SecondVersion.DeleteReason
     ];
 
     private sealed partial class Fixture
     {
         public AppDbContext ManifestContext => Context;
+
+        public async Task<Guid> AssignDistinctManifestCreatorAsync()
+        {
+            var callerId = CurrentUser.UserId ?? throw new InvalidOperationException("The fixture requires a current caller.");
+            var creatorId = Guid.NewGuid();
+            Artifact.CreatedByUserId = creatorId;
+            Version.CreatedByUserId = creatorId;
+            SecondVersion.CreatedByUserId = creatorId;
+            await Context.SaveChangesAsync();
+            return callerId;
+        }
     }
 }
