@@ -2,6 +2,7 @@ name: Architecture Contract (Security Advisory)
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [SecurityTestImplimation]
     paths:
       - ".github/workflows/architecture-contract-advisory.yml"
