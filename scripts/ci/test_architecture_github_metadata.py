@@ -136,6 +136,18 @@ class GithubMetadataTests(unittest.TestCase):
         with self.assertRaises(witness.MetadataRefused):
             verify(record)
 
+    def test_boolean_run_attempt_metadata_refuses(self) -> None:
+        """Boolean attempt values may compare equal to 1 but are not valid IDs."""
+        for area in ('run', 'job'):
+            record = fixture()
+            if area == 'run':
+                record['run']['run_attempt'] = True
+            else:
+                record['jobs'][0]['run_attempt'] = True
+            with self.subTest(area=area):
+                with self.assertRaises(witness.MetadataRefused):
+                    verify(record)
+
     def test_fake_job_and_check_app_refuse(self) -> None:
         """Require exactly the original successful job and Actions check app."""
         record = fixture()

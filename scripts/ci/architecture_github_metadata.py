@@ -135,7 +135,8 @@ def verify(record: dict, *, pr_number: int, head_sha: str, base_sha: str,
     require(run['id'] == run_id and run['head_sha'] == head_sha
             and run['head_branch'] == pr['head']['ref'] and run['event'] == 'pull_request'
             and run['path'] == WORKFLOW and run['workflow_id'] == WORKFLOW_ID
-            and run['run_attempt'] == attempt and run['status'] == 'completed'
+            and type(run['run_attempt']) is int and run['run_attempt'] == attempt
+            and run['status'] == 'completed'
             and run['conclusion'] == 'success' and positive(run['check_suite_id'])
             and run['repository']['id'] == run['head_repository']['id'] == REPOSITORY_ID,
             'RUN_MISMATCH')
@@ -151,7 +152,8 @@ def verify(record: dict, *, pr_number: int, head_sha: str, base_sha: str,
     require(type(jobs) is list and len(jobs) == 1, 'JOB_SCOPE')
     job = jobs[0]
     require(job['id'] == job_id and job['name'] == JOB_NAME
-            and job['run_id'] == run_id and job['run_attempt'] == attempt
+            and job['run_id'] == run_id and type(job['run_attempt']) is int
+            and job['run_attempt'] == attempt
             and job['head_sha'] == head_sha and job['status'] == 'completed'
             and job['conclusion'] == 'success'
             and job['check_run_url'] ==
