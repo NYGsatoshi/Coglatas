@@ -84,7 +84,7 @@ The observed 1,136-byte ZIP SHA-256 was
 These are historical inputs, not a frozen ongoing trust anchor.
 Neither live API response data nor the downloaded ZIP is committed.
 
-Run the ten focused synthetic controls:
+Run the eleven focused synthetic controls:
 
     python3 -B scripts/ci/test_architecture_github_metadata.py
 
@@ -100,7 +100,7 @@ The optional read-only CLI accepts independently exported JSON:
       --artifact-id 13777452374 --artifact-size 1136 \
       --artifact-sha256 9d6c564e556d523fc4dbd9876f7e3da01aae8dfbd2fc38e35f0d9f9d943b9ac1
 
-The additive non-required advisory step runs only the ten synthetic
+The additive non-required advisory step runs only the eleven synthetic
 offline controls. It makes no network request and does not modify
 the existing native .NET tests, TRX reader, artifact upload,
 required-check topology, permissions or runner count.
