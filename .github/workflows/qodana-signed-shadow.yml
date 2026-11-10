@@ -27,7 +27,7 @@ jobs:
   shadow-producer:
     name: Qodana signed shadow / producer
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -96,7 +96,7 @@ jobs:
         if: steps.qodana_scan.outcome == 'success'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
           # Qodana project-model guard executes Node only, without npm install.
           # Disallow implicit ~/.npm cache restore/upload and quota warnings.
           package-manager-cache: false
@@ -127,7 +127,7 @@ jobs:
     name: Qodana signed shadow / attestor
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
     needs: [shadow-producer]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -163,7 +163,7 @@ jobs:
     name: Qodana signed shadow / independent verification
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
     needs: [shadow-attestor]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
