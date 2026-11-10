@@ -5,7 +5,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Workspaces;
 
-public sealed class Wpc02AWorkspaceAuthorizationTests
+public sealed partial class Wpc02AWorkspaceAuthorizationTests
 {
     [Fact]
     public async Task ArchivedCurrentMemberCanReadHistoricalWorkspace()
@@ -69,7 +69,7 @@ public sealed class Wpc02AWorkspaceAuthorizationTests
         Assert.True(await fixture.Authorization.CanContributeWorkspace(systemAdmin.Id, fixture.Workspace.Id));
     }
 
-    private sealed class Fixture
+    private sealed partial class Fixture
     {
         private Fixture(WorkspaceStatus status)
         {
