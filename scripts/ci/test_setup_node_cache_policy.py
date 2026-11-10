@@ -107,8 +107,8 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if not re.search(r"(?m)^        with:\s*$", step):
                 issues.append(f"{path}/{job_id}: missing setup-node with block")
             versions = re.findall(r"(?m)^          node-version: (\S+)\s*$", step)
-            if versions not in (['"24"'], ["'24'"]):
-                issues.append(f"{path}/{job_id}: Node 24 toolchain not pinned")
+            if versions not in (['"26"'], ["'26'"]):
+                issues.append(f"{path}/{job_id}: Node 26 toolchain not pinned")
             flags = INPUT_CACHE.findall(step)
             if flags != ["false"]:
                 issues.append(f"{path}/{job_id}: implicit npm cache must be disabled exactly once")
@@ -149,8 +149,11 @@ def main() -> int:
             workflows, "          package-manager-cache: false",
             "          package-manager-cache: false\n          package-manager-cache: false",
         ),
+        # Target a job in EXPECTED, not the unrelated first setup-node
+        # occurrence in ci.yml (the actor-replacement helper).
         "lost Node version": one_replacement(
-            workflows, '          node-version: "24"', '          node-version: "23"'
+            workflows, '          node-version: "26"', '          node-version: "23"',
+            ".github/workflows/qodana-signed-shadow.yml",
         ),
         "lost fixed owner": one_replacement(
             workflows, "scripts/ci/npm-ci-retry.sh frontend",
@@ -161,7 +164,7 @@ def main() -> int:
             ".github/workflows/qodana_trusted_gate.yml",
         ),
         "single-quoted typecheck Node drift": one_replacement(
-            workflows, "          node-version: '24'", "          node-version: '23'",
+            workflows, "          node-version: '26'", "          node-version: '23'",
             ".github/workflows/thread-functional-typecheck.yml",
         ),
         "signed shadow cache reenabled": one_replacement(
