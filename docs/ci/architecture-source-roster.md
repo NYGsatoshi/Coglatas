@@ -9,20 +9,29 @@ It is **not** an alternative to ArchUnitNET, the native `dotnet test` run, or th
 existing exact TRX verification. No workflow, Required Check, test-selection,
 ReSharper, product, scanner, or governance setting is changed.
 
-The `CORE` profile requires the two existing source files and exactly 12 Facts.
-The `WITH_NEGATIVE_ORACLE` profile additionally requires
-`LayerDependencyNegativeControls.cs` from the unmerged #1824 and exactly 13
-Facts. The independent `#1878` composed trial includes the latter file; the
-current Security base does not. The two profiles are explicit, so a missing
-negative-oracle file is never silently treated as a passing 13-case inventory.
+The `CORE` profile is valid **only when** the project has exactly the two
+existing source files, the negative-oracle file is **absent**, and those files
+declare exactly 12 Facts. The `WITH_NEGATIVE_ORACLE` profile requires those
+two source files **plus** `LayerDependencyNegativeControls.cs` from the unmerged
+#1824, declaring exactly 13 Facts. The independent #1878 composed trial
+contains the latter file while the current Security baseline does not.
+The exact-file-set check must reject `CORE` on a composed tree containing the
+negative oracle and reject `WITH_NEGATIVE_ORACLE` when it is missing.
 
 ## Source evidence contract
 
 `python3 -B scripts/ci/architecture_source_roster.py --root . --profile CORE`
 
+Use that command **only** for the original two-file Security baseline.
+For the three-file composed Architecture candidate, use:
+
+`python3 -B scripts/ci/architecture_source_roster.py --root . --profile WITH_NEGATIVE_ORACLE`
+
 The bounded parser rejects unexpected `.cs` siblings, malformed or missing source
 files, symlinked leaves, unsupported Fact/Theory syntax, wrong namespaces and
-classes, missing methods, and duplicate case names. It accepts only the current
+classes, missing methods, and duplicate case names. A bounded source read uses
+one opened descriptor (no-follow where available), comparing its identity
+with the checked file and rechecking descriptor metadata after reading. It accepts only the current
 simple top-level `public void Method()` syntax with a directly adjacent `[Fact]`.
 Broader syntax requires a separately reviewed parser; this is **not a complete
 C# or Roslyn parser**. The source files are not executed by this tool.
@@ -50,7 +59,9 @@ actually ran or that source text matches compiled C# semantics.
 
 The isolated fixtures check both declared profiles and reject missing/additional
 files, duplicate or added cases, changed namespaces, dynamic test attributes,
-invalid encodings and symlinks. They qualify only the standalone source parser,
+invalid encodings, source-file replacement between check and open, and symlinks.
+A platform unable to create the symlink must **fail** the guard control rather
+than register a positive result from a skipped test. They qualify only the standalone source parser,
 not the native Architecture suite. No extra runner or artifact owner is activated.
 
 The existing Governance Identity Drift, current-head CodeRabbit and cross-domain
