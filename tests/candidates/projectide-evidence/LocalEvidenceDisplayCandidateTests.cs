@@ -8,6 +8,7 @@ namespace Coglatas.Tests.ProjectIde;
 /// <summary>Independent candidate tests; copied only into an exact Product composition.</summary>
 public sealed class LocalEvidenceDisplayCandidateTests
 {
+    /// <summary>Verifies that exhausted compiler execution cannot display a local PASS.</summary>
     [Fact]
     public async Task ResourceExhaustionHasANonExecutedDisplayEvenWhenTheHostReturnsAResult()
     {
@@ -23,6 +24,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.False(view.HasCompleteLocalPass);
     }
 
+    /// <summary>Checks all Core fixture states against independently declared display expectations.</summary>
     [Theory]
     [InlineData("pass", "complete-local-pass")]
     [InlineData("fail", "not-passed")]
@@ -46,6 +48,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.Equal(expected == "complete-local-pass", view.HasCompleteLocalPass);
     }
 
+    /// <summary>Rejects stale positive evidence during synchronous lifecycle notifications.</summary>
     [Theory]
     [InlineData("reset")]
     [InlineData("dispose")]
@@ -76,6 +79,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         finally { view.Dispose(); }
     }
 
+    /// <summary>Clears an earlier positive result after any terminal host failure.</summary>
     [Theory]
     [InlineData(CompilerHostStatus.Cancelled)]
     [InlineData(CompilerHostStatus.Unsupported)]
@@ -96,6 +100,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.Null(view.Result);
     }
 
+    /// <summary>Rejects a foreign source/result pair before accepting the genuine request.</summary>
     [Fact]
     public async Task SubstitutedSourceAndResultIdentityCannotEnterTheCurrentSelection()
     {
@@ -112,6 +117,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.True(view.HasCompleteLocalPass);
     }
 
+    /// <summary>Creates the pinned local synthetic compiler host for the fixture input.</summary>
     private static LocalNetCompilerHost Host(CompilerInputManifest input)
     {
         CompilerArtifactIdentity Artifact(string field) =>
@@ -122,6 +128,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
                 .Select(item => item.GetString())));
     }
 
+    /// <summary>Requires an accepted current result before displaying a literal local PASS.</summary>
     [Fact]
     public async Task NoLocalPassCanAppearBeforeTheExactCurrentResponse()
     {
@@ -137,15 +144,9 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.True(view.TryAccept(await Host(input).CompileAsync(request)));
         Assert.Equal("Ready", view.State);
         var result = Assert.IsType<CompilerResult>(view.Result);
-        Assert.Equal(result.Verdict == CompilerVerdict.Pass &&
-                     result.Execution == CompilerExecutionState.Completed &&
-                     result.Coverage == CompilerCoverage.Complete &&
-                     result.EvidenceComplete, view.HasCompleteLocalPass);
-        var expectedState = result.Execution != CompilerExecutionState.Completed ? "not-executed" :
-            result.Coverage != CompilerCoverage.Complete ? "partial-coverage" :
-            !result.EvidenceComplete ? "missing-evidence" :
-            result.Verdict == CompilerVerdict.Pass ? "complete-local-pass" : "not-passed";
-        Assert.Equal(expectedState, view.LocalEvidenceState);
+        Assert.Equal(CompilerVerdict.Pass, result.Verdict);
+        Assert.True(view.HasCompleteLocalPass);
+        Assert.Equal("complete-local-pass", view.LocalEvidenceState);
 
         view.Reset();
         Assert.Equal("not-loaded", view.LocalEvidenceState);
@@ -153,6 +154,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.Null(view.Result);
     }
 
+    /// <summary>Confirms inconclusive Core evaluation never becomes a trusted or local PASS.</summary>
     [Fact]
     public async Task CurrentIncompleteCoreResultDoesNotBecomeTrustedOrLocallyPassed()
     {
@@ -166,6 +168,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.NotEqual("complete-local-pass", view.LocalEvidenceState);
     }
 
+    /// <summary>Blocks delayed responses from an invalidated client generation.</summary>
     [Fact]
     public async Task WrongGenerationAndResetRejectOldResponseWithoutRestoringLocalPass()
     {
