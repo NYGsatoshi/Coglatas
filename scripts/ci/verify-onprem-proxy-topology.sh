@@ -70,14 +70,8 @@ trycloudflare_caddy = load(trycloudflare_caddy_path)
 
 with open("global.json", encoding="utf-8") as handle:
     sdk_version = json.load(handle)["sdk"]["version"]
-# The full prerelease SDK build is pinned by global.json; Microsoft's official
-# RC3 OCI image uses the shorter release-candidate tag. Do not admit arbitrary
-# prerelease tags or widen the immutable-image digest check.
-sdk_image_tag = (
-    "11.0.100-rc.3"
-    if sdk_version == "11.0.100-rc.3.26522.148"
-    else sdk_version
-)
+# The GA SDK tag must match global.json exactly. Keep existing digest checks.
+sdk_image_tag = sdk_version
 expected_sdk_image = f"mcr.microsoft.com/dotnet/sdk:{sdk_image_tag}"
 
 for name, config in (

@@ -355,12 +355,12 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
         cls.verifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.verifier)
         cls.sdk_version = json.loads((ROOT / "global.json").read_text())["sdk"]["version"]
-        cls.sdk_image_tag = ("11.0.100-rc.3" if cls.sdk_version == "11.0.100-rc.3.26522.148" else cls.sdk_version)
+        cls.sdk_image_tag = cls.sdk_version
 
-    def test_sdk_policy_accepts_only_pinned_stable_or_exact_rc3(self) -> None:
+    def test_sdk_policy_accepts_only_pinned_stable_or_exact_ga(self) -> None:
         cases = (
             ("10.0.403", False),
-            ("11.0.100-rc.3.26522.148", True),
+            ("11.0.100", False),
         )
         for version, allow_prerelease in cases:
             sdk = {"version": version, "rollForward": "disable", "allowPrerelease": allow_prerelease}
@@ -371,19 +371,20 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
             None,
             {},
             {"version": "10.0.403", "rollForward": "disable", "allowPrerelease": True},
-            {"version": "11.0.100-rc.3.26522.148", "rollForward": "disable", "allowPrerelease": False},
+            {"version": "11.0.100", "rollForward": "disable", "allowPrerelease": True},
+            {"version": "11.0.100-rc.3.26522.148", "rollForward": "disable", "allowPrerelease": True},
             {"version": "11.0.100-rc.2.12345.678", "rollForward": "disable", "allowPrerelease": True},
             {"version": "11.0.100-rc.3.26522.148x", "rollForward": "disable", "allowPrerelease": True},
-            {"version": "11.0.100-rc.3.26522.148", "rollForward": "latestPatch", "allowPrerelease": True},
+            {"version": "11.0.100", "rollForward": "latestPatch", "allowPrerelease": False},
             {"version": "10.0.403", "rollForward": "disable"},
         )
         for candidate in invalid:
             with self.subTest(candidate=candidate), self.assertRaises(SystemExit):
                 self.verifier.require_approved_sdk_version(candidate)
 
-    def test_rc3_and_stable_images_use_exact_matching_digests(self) -> None:
+    def test_ga_and_stable_images_use_exact_matching_digests(self) -> None:
         for version, tag in (("10.0.403", "10.0.403"),
-                             ("11.0.100-rc.3.26522.148", "11.0.100-rc.3")):
+                             ("11.0.100", "11.0.100")):
             valid = f"mcr.microsoft.com/dotnet/sdk:{tag}@sha256:{'a' * 64}"
             with self.subTest(version=version):
                 self.verifier.require_source_sdk_image(self.rendered(valid), version)
