@@ -96,6 +96,12 @@
               {{ loaded.result.coverage }} · {{ t('ide.verdict') }}: {{ loaded.result.verdict }} ·
               {{ t('ide.freshness') }}: {{ loaded.freshness }}
             </p>
+            <p data-testid="ide-evidence-status">
+              {{ t('ide.evidenceStatus') }}: {{ evidenceMessage() }} ·
+              {{ t('ide.evidenceCompleteness') }}:
+              {{ loaded.result.evidenceComplete ? t('ide.evidenceComplete') : t('ide.evidenceIncomplete') }}
+            </p>
+            <p class="notice">{{ t('ide.noEvidenceEligibility') }}</p>
             @if (loaded.freshness !== 'Current') {
               <p class="notice">
                 {{ t('ide.stale') }} {{ t('ide.changed') }}:
@@ -110,6 +116,7 @@
               <p>{{ t('ide.partial') }}</p>
             }
           } @else {
+            <p data-testid="ide-evidence-status">{{ t('ide.evidenceStatus') }}: {{ evidenceMessage() }}</p>
             <p>{{ t('ide.notRun') }}</p>
           }
         </section>

@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { BoundReference, Diagnostic, InspectedSymbol, SourceRecord, hasCompleteCurrentPass } from './projectide.contracts';
+import { BoundReference, Diagnostic, InspectedSymbol, SourceRecord, assessLocalEvidence } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -70,9 +70,23 @@ export class ProjectIdeWorkbenchComponent {
           .includes(this.search().toLowerCase()),
     ),
   );
-  readonly completePass = computed(() => {
-    const value = this.store.result();
-    return !!value && hasCompleteCurrentPass(value);
+  readonly evidenceState = computed(() => {
+    const result = this.store.result();
+    // The selected case instance belongs to this load generation; a reused key does not.
+    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result);
+  });
+  readonly completePass = computed(() => this.evidenceState() === 'complete-local-pass');
+  readonly evidenceMessage = computed(() => {
+    const keys = {
+      'not-loaded': 'ide.evidenceNotLoaded',
+      stale: 'ide.evidenceStale',
+      'not-executed': 'ide.evidenceNotExecuted',
+      'partial-coverage': 'ide.evidencePartial',
+      'missing-evidence': 'ide.evidenceMissing',
+      'not-passed': 'ide.evidenceNotPassed',
+      'complete-local-pass': 'ide.evidenceLocalPass',
+    } as const;
+    return this.t(keys[this.evidenceState()]);
   });
   readonly records = computed(() => [
     ...(this.store.context()?.declarations ?? []),

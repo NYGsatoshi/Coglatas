@@ -1,3 +1,5 @@
+import { hasUniquePreviewIdentities, isPreviewCaseShape } from './projectide-preview.validation';
+
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
 declare const identity: unique symbol;
 export type Identity<K extends string> = string & { readonly [identity]: K };
@@ -182,14 +184,63 @@ export const sameContext = (a: RevisionContext, b: RevisionContext): boolean =>
 export const sameDigest = (a: Digest, b: Digest): boolean =>
   a.algorithm === b.algorithm && a.value === b.value;
 
-/** View policy only: zero findings alone says nothing about completeness. */
+/** Bounded presentation of Core compiler axes, not trusted evidence or eligibility. */
+export type LocalEvidenceState =
+  | 'not-loaded'
+  | 'stale'
+  | 'not-executed'
+  | 'partial-coverage'
+  | 'missing-evidence'
+  | 'not-passed'
+  | 'complete-local-pass';
+
+/** Classify a synthetic result only after its input, source, context and required coverage agree. */
+export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
+  if (!value) return 'not-loaded';
+  if (!isPreviewCaseShape(value) || !hasUniquePreviewIdentities(value)) return 'missing-evidence';
+  const result = value.result;
+  const manifest = value.manifest['manifest'] as Record<string, unknown> | null | undefined;
+  const manifestContext = manifest?.['sourceContext'] as RevisionContext | null | undefined;
+  const manifestSourceDigest = manifest?.['sourceDigest'] as Digest | null | undefined;
+  const envelopeDigest = value.manifest['inputDigest'] as Digest | null | undefined;
+  // Recheck exact source/input context even when a caller bypasses preview loading.
+  if (value.freshness !== 'Current' ||
+      value.manifest['compilerInputId'] !== value.inputId ||
+      !envelopeDigest || !sameDigest(envelopeDigest, value.inputDigest) ||
+      !manifestSourceDigest || !sameDigest(manifestSourceDigest, value.sourceDigest) ||
+      !manifestContext?.branch || !sameContext(manifestContext, value.context) ||
+      !sameContext(value.context, value.desiredContext) ||
+      result.compilerInputId !== value.inputId ||
+      !sameDigest(result.inputDigest, value.inputDigest) ||
+      !sameDigest(result.boundInputStamp.inputDigest, value.inputDigest) ||
+      !sameDigest(result.boundInputStamp.sourceDigest, value.sourceDigest) ||
+      !sameContext(result.boundInputStamp.sourceContext, value.context)) {
+    return 'stale';
+  }
+  if (result.execution !== 'coglatas.completed') return 'not-executed';
+  const settings = manifest?.['settings'] as {
+    sourceCoverage?: string;
+    rules?: readonly { ruleId: string; version: number; required: boolean }[];
+  } | null | undefined;
+  const required = Array.isArray(settings?.rules) ? settings.rules.filter((rule) => rule?.required === true) : [];
+  const outcomes = required.map((rule) => result.rules.find((outcome) =>
+    outcome.ruleId === rule.ruleId && outcome.version === rule.version));
+  if (result.coverage !== 'coglatas.complete' || settings?.sourceCoverage !== 'coglatas.complete' ||
+      required.length === 0 || outcomes.some((rule) => !rule ||
+        rule.execution !== 'coglatas.completed' || rule.coverage !== 'coglatas.complete') ||
+      [...value.declarations, ...value.relations].some((record) => record.status !== 'Decoded') ||
+      (value.semanticInspection && (!value.semanticInspection.bindingComplete ||
+        value.semanticInspection.symbols.some((symbol) => symbol.status !== 'Decoded') ||
+        value.semanticInspection.references.some((reference) => reference.state !== 'Resolved')))) {
+    return 'partial-coverage';
+  }
+  if (result.evidenceComplete !== true || outcomes.some((rule) => rule?.evidence.kind === 'coglatas.missing') ||
+      result.diagnostics.some((diagnostic) => diagnostic.evidence.kind === 'coglatas.missing')) return 'missing-evidence';
+  if (result.verdict !== 'coglatas.pass' || outcomes.some((rule) => rule?.verdict !== 'coglatas.pass')) return 'not-passed';
+  return 'complete-local-pass';
+}
+
+/** A local fixture PASS is never Producer trust, current access or Evidence Eligibility. */
 export function hasCompleteCurrentPass(value: PreviewCase): boolean {
-  return (
-    value.freshness === 'Current' &&
-    sameContext(value.context, value.desiredContext) &&
-    value.result.execution === 'coglatas.completed' &&
-    value.result.coverage === 'coglatas.complete' &&
-    value.result.verdict === 'coglatas.pass' &&
-    value.result.evidenceComplete
-  );
+  return assessLocalEvidence(value) === 'complete-local-pass';
 }
