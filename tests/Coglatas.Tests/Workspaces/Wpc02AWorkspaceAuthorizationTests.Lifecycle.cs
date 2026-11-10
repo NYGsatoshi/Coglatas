@@ -32,9 +32,12 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var actor = fixture.AddUser(SystemRole.User);
         fixture.AddMember(actor.Id, scenario == "insufficient-role" ? WorkspaceRole.Member : WorkspaceRole.Owner);
         fixture.PrepareLifecycleDenial(scenario, actor.Id);
+        if (scenario != "missing") fixture.AddLifecycleWorkspaceSentinel();
         var service = fixture.CreateLifecycleService(actor.Id, scenario != "unauthenticated");
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var workspacesBefore = fixture.CaptureLifecycleWorkspaceRepository();
+        if (scenario == "missing") Assert.Empty(workspacesBefore);
 
         var result = restoring
             ? await service.RestoreAsync(before.Id)
@@ -44,6 +47,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.Equal(expectedCode, result.ErrorDetail?.Code);
         Assert.Equal(before, LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(before.ToScalars(), LifecycleSnapshot.Capture(fixture.Workspace).ToScalars());
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore);
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(membersBefore.SelectMany(member => member.ToScalars()),
             fixture.CaptureLifecycleMembers().SelectMany(member => member.ToScalars()));
@@ -65,9 +69,11 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         fixture.AddMember(pending.Id, WorkspaceRole.Member, MembershipStatus.Pending);
         fixture.AddMember(suspended.Id, WorkspaceRole.Member, MembershipStatus.Suspended);
         fixture.AddForeignLifecycleMember(foreign.Id);
+        fixture.AddLifecycleWorkspaceSentinel();
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var workspacesBefore = fixture.CaptureLifecycleWorkspaceRepository();
         LifecycleInvalidation[] expectedArchivedChanges =
         [
             new(before.TenantId, actor.Id, "workspace", before.Id, "archived"),
@@ -84,6 +90,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
 
         Assert.True(archived.IsSuccess, archived.Error);
         Assert.Equal(before with { Status = WorkspaceStatus.Archived }, LifecycleSnapshot.Capture(fixture.Workspace));
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore, before with { Status = WorkspaceStatus.Archived });
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(1, fixture.LifecycleSaveCalls);
         Assert.Equal(new AuditLogEntry(actor.Id, "WorkspaceArchived", "Workspace", before.Id),
@@ -97,6 +104,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
 
         Assert.False(repeatedArchive.IsSuccess);
         Assert.Equal("InvalidStateTransition", repeatedArchive.ErrorDetail?.Code);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore, before with { Status = WorkspaceStatus.Archived });
         Assert.Equal(before with { Status = WorkspaceStatus.Archived }, LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(1, fixture.LifecycleSaveCalls);
@@ -107,6 +115,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var restored = await service.RestoreAsync(before.Id);
 
         Assert.True(restored.IsSuccess, restored.Error);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore);
         Assert.Equal(before, LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(2, fixture.LifecycleSaveCalls);
@@ -120,6 +129,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
 
         Assert.False(repeatedRestore.IsSuccess);
         Assert.Equal("InvalidStateTransition", repeatedRestore.ErrorDetail?.Code);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore);
         Assert.Equal(before, LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         Assert.Equal(2, fixture.LifecycleSaveCalls);
@@ -143,9 +153,11 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var fixture = CreateLifecycleFixture(WorkspaceStatus.Active);
         var actor = fixture.AddUser(SystemRole.User);
         fixture.AddMember(actor.Id, WorkspaceRole.Owner);
+        fixture.AddLifecycleWorkspaceSentinel();
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var workspacesBefore = fixture.CaptureLifecycleWorkspaceRepository();
         var request = new UpdateWorkspaceRequest(
             invalidField == "name" ? "invalid\0name" : "Replacement name",
             invalidField == "description" ? "invalid\0description" : "Replacement description",
@@ -157,6 +169,7 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedCode, result.ErrorDetail?.Code);
         Assert.Equal(expectedTarget, result.ErrorDetail?.Target);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore);
         Assert.Equal(before, LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
         fixture.AssertNoLifecycleEffects();
@@ -168,9 +181,11 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         var fixture = CreateLifecycleFixture(WorkspaceStatus.Active);
         var actor = fixture.AddUser(SystemRole.User);
         fixture.AddMember(actor.Id, WorkspaceRole.Admin);
+        fixture.AddLifecycleWorkspaceSentinel();
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var workspacesBefore = fixture.CaptureLifecycleWorkspaceRepository();
         var expectedResponse = new WorkspaceDetailResponse(before.Id, "Updated workspace", "Updated description", "updated-icon",
             WorkspaceStatus.Active, before.CreatedByUserId, before.CreatedAt, before.UpdatedAt);
 
@@ -205,9 +220,24 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
             Assert.Single(fixture.LifecycleAudit));
         Assert.Empty(fixture.LifecycleInvalidations);
 
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore, before with
+        {
+            Name = "Updated workspace",
+            Slug = $"updated-workspace-{before.Id:N}",
+            Description = "Updated description",
+            Icon = "updated-icon"
+        });
+
         var retained = await service.UpdateAsync(before.Id, new UpdateWorkspaceRequest(null, null, null, null));
 
         Assert.True(retained.IsSuccess, retained.Error);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore, before with
+        {
+            Name = "Updated workspace",
+            Slug = $"updated-workspace-{before.Id:N}",
+            Description = "Updated description",
+            Icon = "updated-icon"
+        });
         Assert.Equal(expectedResponse, retained.Value);
         Assert.Equal(before with
         {
@@ -238,15 +268,19 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
         fixture.AddMember(actor.Id, WorkspaceRole.Owner);
         var failure = new InvalidOperationException("Synthetic lifecycle dependency failure.");
         fixture.FailLifecycleDependency(failure, failingSave);
+        fixture.AddLifecycleWorkspaceSentinel();
         var service = fixture.CreateLifecycleService(actor.Id);
         var before = LifecycleSnapshot.Capture(fixture.Workspace);
         var membersBefore = fixture.CaptureLifecycleMembers();
+        var workspacesBefore = fixture.CaptureLifecycleWorkspaceRepository();
 
         var observed = await Assert.ThrowsAsync<InvalidOperationException>(() => restoring
             ? service.RestoreAsync(before.Id)
             : service.ArchiveAsync(before.Id));
 
         Assert.Same(failure, observed);
+        fixture.AssertLifecycleWorkspaceRepository(workspacesBefore,
+            before with { Status = restoring ? WorkspaceStatus.Active : WorkspaceStatus.Archived });
         Assert.Equal(before with { Status = restoring ? WorkspaceStatus.Active : WorkspaceStatus.Archived },
             LifecycleSnapshot.Capture(fixture.Workspace));
         Assert.Equal(membersBefore, fixture.CaptureLifecycleMembers());
@@ -304,6 +338,41 @@ public sealed partial class Wpc02AWorkspaceAuthorizationTests
 
     private sealed partial class Fixture
     {
+        public void AddLifecycleWorkspaceSentinel()
+        {
+            var sentinel = new Workspace
+            {
+                TenantId = Guid.NewGuid(), Name = "Unrelated retained workspace", Slug = "unrelated-retained-workspace",
+                Description = "Unrelated retained description", Icon = "unrelated-icon", Status = WorkspaceStatus.Archived,
+                CreatedByUserId = Guid.NewGuid(), CreatedAt = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero),
+                UpdatedAt = new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero), TimeZone = "UTC",
+                DefaultTaskDeadlineDigestLocalTime = new TimeOnly(8, 30), TaskNotificationSettingsVersion = 4
+            };
+            sentinel.MarkDeleted(new DateTimeOffset(2026, 11, 3, 0, 0, 0, TimeSpan.Zero),
+                sentinel.CreatedByUserId, "Unrelated retained deletion marker");
+            Workspaces.Items.Add(sentinel.Id, sentinel);
+        }
+
+        public IReadOnlyDictionary<Guid, (Workspace Instance, LifecycleSnapshot Snapshot)> CaptureLifecycleWorkspaceRepository() =>
+            Workspaces.Items.ToDictionary(row => row.Key,
+                row => (Instance: row.Value, Snapshot: LifecycleSnapshot.Capture(row.Value)));
+
+        public void AssertLifecycleWorkspaceRepository(
+            IReadOnlyDictionary<Guid, (Workspace Instance, LifecycleSnapshot Snapshot)> before,
+            LifecycleSnapshot? selectedExpected = null)
+        {
+            Assert.Equal(before.Keys.Order(), Workspaces.Items.Keys.Order());
+            foreach (var row in before.OrderBy(row => row.Key))
+            {
+                var stored = Workspaces.Items[row.Key];
+                Assert.Same(row.Value.Instance, stored);
+                var expected = selectedExpected is { } replacement && row.Key == replacement.Id
+                    ? replacement : row.Value.Snapshot;
+                Assert.Equal(expected, LifecycleSnapshot.Capture(stored));
+                Assert.Equal(expected.ToScalars(), LifecycleSnapshot.Capture(stored).ToScalars());
+            }
+        }
+
         private LifecycleAuditRecorder LifecycleAuditRecorder { get; } = new();
         private LifecycleSaveRecorder LifecycleSaveRecorder { get; } = new();
         private LifecyclePublisher LifecyclePublisher { get; } = new();

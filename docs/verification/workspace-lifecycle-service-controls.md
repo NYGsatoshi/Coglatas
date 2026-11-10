@@ -54,3 +54,18 @@ every typed record comparison and explicitly compares all 16 Workspace, 11
 membership and five invalidation scalar fields. No property, assertion,
 inspection, threshold or policy is removed or suppressed. Fresh supported
 execution and analyzer results are required for the follow-up source.
+
+The later complete source review of `c7a8a800` identified a separate repository
+collection oracle gap even though its CI passed. An additive follow-up captures
+an independent dictionary of every Workspace key, original object reference
+and immutable sixteen-field scalar snapshot before each test's operations.
+Every refusal, transition, repeated command, metadata update and dependency
+failure compares the complete key set and all stored rows. Expected selected
+changes come from pre-operation IDs and literal state changes; all other rows
+retain their original identity and values. A deleted, foreign-Tenant sentinel
+is included in every existing-Workspace fixture, while missing-Workspace rows
+explicitly start with and retain an empty dictionary. The existing selected
+object, membership, effect and failure assertions remain unchanged. This adds
+collection-state observations in repository doubles, not SQL, persistence,
+rollback or Tenant-admission qualification. Fresh exact-head execution,
+inspection and complete independent review remain required.
