@@ -20,6 +20,13 @@ The follow-up retains that assertion and also compares the complete key/token
 identity and independently frozen non-reusable run IDs. The original native
 success and analyzer failure remain separate historical results; the new
 source requires fresh execution and review.
+The next independent review identified a further seed-boundary oracle gap.
+Both scope collections are now captured before the accepted seed request and
+independently re-read afterward, with single-row and complete mapped-scalar
+identity/version/flag retention assertions before the actual refusal baseline.
+This prevents a seed operation from silently deleting or changing a scope and
+then having the tested refusal preserve that already-incorrect baseline. It
+does not assert that any such production deletion has been observed.
 
 Each case first creates a real accepted run through the existing service and
 EF InMemory idempotency coordinator, with a stored override, Idempotency row,

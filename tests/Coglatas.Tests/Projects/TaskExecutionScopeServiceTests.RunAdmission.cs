@@ -151,6 +151,8 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(1L, projectScope.VersionNo);
         Assert.False(projectScope.WebEnabled);
         Assert.False(projectScope.ProjectFilesEnabled);
+        var projectScopesBeforeSeed = JsonSerializer.Serialize(await CaptureRunAdmissionRowsAsync(fixture, fixture.Db.ProjectExecutionScopes.IgnoreQueryFilters()));
+        var overridesBeforeSeed = JsonSerializer.Serialize(await CaptureRunAdmissionRowsAsync(fixture, fixture.Db.TaskExecutionScopeOverrides.IgnoreQueryFilters()));
         var accepted = await fixture.Service.RequestRunAsync(fixture.TaskItem.Id, "retained-admission-run");
         Assert.True(accepted.IsSuccess, accepted.Error);
         Assert.NotEqual(Guid.Empty, accepted.Value!.Id);
@@ -196,6 +198,12 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(retainedRunId, audit.EntityId);
         Assert.Equal(fixture.Workspace.Id, audit.WorkspaceId);
         Assert.Equal(fixture.Project.Id, audit.ProjectId);
+        var projectScopesAfterSeed = await CaptureRunAdmissionRowsAsync(fixture, fixture.Db.ProjectExecutionScopes.IgnoreQueryFilters());
+        var overridesAfterSeed = await CaptureRunAdmissionRowsAsync(fixture, fixture.Db.TaskExecutionScopeOverrides.IgnoreQueryFilters());
+        Assert.Single(projectScopesAfterSeed);
+        Assert.Single(overridesAfterSeed);
+        Assert.Equal(projectScopesBeforeSeed, JsonSerializer.Serialize(projectScopesAfterSeed));
+        Assert.Equal(overridesBeforeSeed, JsonSerializer.Serialize(overridesAfterSeed));
         return retainedRunId;
     }
 
