@@ -1,0 +1,44 @@
+# Workspace lifecycle service regression controls
+
+This additive candidate exercises the existing `WorkspaceService` Archive,
+Restore and metadata-update commands. It changes no production implementation,
+authorization contract, workflow, coverage scope or quality policy. The baseline
+test class and fixture gain only `partial` declarations; their original tests,
+assertions and repository doubles remain unchanged.
+
+The five new methods declare 22 cases:
+
+- Twelve Archive/Restore denial rows cover unauthenticated, hidden, missing,
+  deleted, incorrect-lifecycle and insufficient-role states. Each operation
+  retains the complete selected Workspace and membership snapshots and records
+  no audit, invalidation or save.
+- One round-trip control checks archive, repeated-archive denial, restore and
+  repeated-restore denial separately. Only distinct active recipients receive
+  the selected Tenant/user/Workspace/change metadata. Pending, suspended,
+  duplicate and other-Workspace membership rows do not add recipients. Selected
+  Workspace metadata and membership rows remain intact after each operation.
+- Four invalid-update rows check the three database-unsafe null-character
+  fields and the separate lifecycle-command requirement. Other requested fields
+  must not be partially applied; selected state and effects remain unchanged.
+- One metadata control checks trimming, the identifier-bound slug, all returned
+  fields, complete selected stored state and omitted-field retention after each
+  update. It checks the recorded audit and save counts without a lifecycle change.
+- Four dependency-failure rows retain exception identity and distinguish an
+  attempted save from a failure before saving. Mutable fixture state, recorded
+  audit and attempted invalidation remain staged; they are not represented as
+  committed or rolled back.
+
+The service uses the existing `WorkspaceAuthorizationService` over the original
+lightweight user and Workspace repositories. Selected membership rows receive
+the fixture Tenant identity before snapshots are taken. The audit, publisher
+and unit-of-work recorders are controlled test doubles. They do not prove
+current persisted authority, tenant admission, HTTP privacy, SQL isolation,
+durable Outbox staging, delivery, rollback, effect atomicity, deployed roles,
+all-table RLS, File/Artifact reconciliation or full Recovery. No native timeout
+cause, security disposition, Owner approval or release acceptance is inferred.
+
+Local verification is source inspection and `git diff --check` only. No local
+.NET/WSL execution is used. Supported exact-head hosted execution, compiler and
+analyzer checks, original PR Gate, independent review and completed parent/Main
+qualification remain mandatory. Any observed Main coverage delta must be
+measured independently; no local increment or projected gain is claimed.
