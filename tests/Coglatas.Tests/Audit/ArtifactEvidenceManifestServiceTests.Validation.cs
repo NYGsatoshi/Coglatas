@@ -55,14 +55,19 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         string expectedMessage)
     {
         await using var fixture = await Fixture.CreateAsync(canReview: true, canUpdateArtifact: true);
+        var artifactId = fixture.Artifact.Id;
+        var versionId = fixture.Version.Id;
+        var secondVersionId = fixture.SecondVersion.Id;
         var before = SelectedGraphSnapshot(fixture);
+        var persistedBefore = await PersistedGraphSnapshotAsync(fixture, artifactId, versionId, secondVersionId);
 
-        var result = await fixture.Service.AttachAsync(fixture.Version.Id, InvalidManifest(invalidCase));
+        var result = await fixture.Service.AttachAsync(versionId, InvalidManifest(invalidCase));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("ValidationFailed", result.ErrorDetail?.Code);
         Assert.Equal(expectedMessage, result.ErrorDetail?.Message);
         Assert.Equal(before, SelectedGraphSnapshot(fixture));
+        Assert.Equal(persistedBefore, await PersistedGraphSnapshotAsync(fixture, artifactId, versionId, secondVersionId));
         Assert.Empty(await fixture.Evidence.ListClaimsAsync(fixture.Version.Id));
         Assert.Empty(await fixture.Evidence.ListClaimsAsync(fixture.SecondVersion.Id));
         Assert.Empty(await fixture.ManifestContext.Set<ArtifactClaim>().IgnoreQueryFilters().AsNoTracking().ToListAsync());
@@ -90,7 +95,10 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         Assert.NotEqual(actorId, fixture.Version.CreatedByUserId);
         Assert.NotEqual(actorId, fixture.SecondVersion.CreatedByUserId);
         var before = SelectedGraphSnapshot(fixture);
+        var artifactId = fixture.Artifact.Id;
         var versionId = fixture.Version.Id;
+        var secondVersionId = fixture.SecondVersion.Id;
+        var persistedBefore = await PersistedGraphSnapshotAsync(fixture, artifactId, versionId, secondVersionId);
         var projectId = fixture.Artifact.ProjectId;
         var timestamp = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
         var evidence = new ArtifactEvidenceManifestItem(
@@ -113,6 +121,7 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
         Assert.Equal(versionId, result.Value!.ArtifactVersionId);
         Assert.Equal(1, result.Value.ClaimCount);
         Assert.Equal(before, SelectedGraphSnapshot(fixture));
+        Assert.Equal(persistedBefore, await PersistedGraphSnapshotAsync(fixture, artifactId, versionId, secondVersionId));
         var claim = Assert.Single(await fixture.Evidence.ListClaimsAsync(versionId));
         Assert.Equal(versionId, claim.ArtifactVersionId);
         Assert.Equal(fixture.TenantId, claim.TenantId);
@@ -236,21 +245,36 @@ public sealed partial class ArtifactEvidenceManifestServiceTests
     }
 
     private static object?[] SelectedGraphSnapshot(Fixture fixture) =>
+        SelectedGraphSnapshot(fixture.Artifact, fixture.Version, fixture.SecondVersion);
+
+    private static async Task<object?[]> PersistedGraphSnapshotAsync(
+        Fixture fixture, Guid artifactId, Guid versionId, Guid secondVersionId)
+    {
+        var artifact = await fixture.ManifestContext.Set<Artifact>().IgnoreQueryFilters().AsNoTracking()
+            .SingleAsync(item => item.Id == artifactId);
+        var version = await fixture.ManifestContext.Set<ArtifactVersion>().IgnoreQueryFilters().AsNoTracking()
+            .SingleAsync(item => item.Id == versionId);
+        var secondVersion = await fixture.ManifestContext.Set<ArtifactVersion>().IgnoreQueryFilters().AsNoTracking()
+            .SingleAsync(item => item.Id == secondVersionId);
+        return SelectedGraphSnapshot(artifact, version, secondVersion);
+    }
+
+    private static object?[] SelectedGraphSnapshot(Artifact artifact, ArtifactVersion version, ArtifactVersion secondVersion) =>
     [
-        fixture.Artifact.Id, fixture.Artifact.TenantId, fixture.Artifact.ProjectId,
-        fixture.Artifact.TaskItemId, fixture.Artifact.Name, fixture.Artifact.Description,
-        fixture.Artifact.ArtifactType, fixture.Artifact.Status, fixture.Artifact.CurrentVersionId,
-        fixture.Artifact.CreatedByUserId, fixture.Artifact.DeletedAt,
-        fixture.Artifact.CreatedAt, fixture.Artifact.UpdatedAt, fixture.Artifact.DeletedByUserId, fixture.Artifact.DeleteReason,
-        fixture.Version.Id, fixture.Version.TenantId, fixture.Version.ArtifactId,
-        fixture.Version.VersionNumber, fixture.Version.AttachmentId, fixture.Version.FileObjectId,
-        fixture.Version.Notes, fixture.Version.CreatedByUserId, fixture.Version.DeletedAt,
-        fixture.Version.CreatedAt, fixture.Version.UpdatedAt, fixture.Version.DeletedByUserId, fixture.Version.DeleteReason,
-        fixture.SecondVersion.Id, fixture.SecondVersion.TenantId, fixture.SecondVersion.ArtifactId,
-        fixture.SecondVersion.VersionNumber, fixture.SecondVersion.AttachmentId, fixture.SecondVersion.FileObjectId,
-        fixture.SecondVersion.Notes, fixture.SecondVersion.CreatedByUserId, fixture.SecondVersion.DeletedAt,
-        fixture.SecondVersion.CreatedAt, fixture.SecondVersion.UpdatedAt,
-        fixture.SecondVersion.DeletedByUserId, fixture.SecondVersion.DeleteReason
+        artifact.Id, artifact.TenantId, artifact.ProjectId,
+        artifact.TaskItemId, artifact.Name, artifact.Description,
+        artifact.ArtifactType, artifact.Status, artifact.CurrentVersionId,
+        artifact.CreatedByUserId, artifact.DeletedAt,
+        artifact.CreatedAt, artifact.UpdatedAt, artifact.DeletedByUserId, artifact.DeleteReason,
+        version.Id, version.TenantId, version.ArtifactId,
+        version.VersionNumber, version.AttachmentId, version.FileObjectId,
+        version.Notes, version.CreatedByUserId, version.DeletedAt,
+        version.CreatedAt, version.UpdatedAt, version.DeletedByUserId, version.DeleteReason,
+        secondVersion.Id, secondVersion.TenantId, secondVersion.ArtifactId,
+        secondVersion.VersionNumber, secondVersion.AttachmentId, secondVersion.FileObjectId,
+        secondVersion.Notes, secondVersion.CreatedByUserId, secondVersion.DeletedAt,
+        secondVersion.CreatedAt, secondVersion.UpdatedAt,
+        secondVersion.DeletedByUserId, secondVersion.DeleteReason
     ];
 
     private sealed partial class Fixture

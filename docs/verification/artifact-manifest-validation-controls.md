@@ -24,6 +24,11 @@ identities, audit metadata, one save and the untouched other Version. Fixture
 setup gives the Artifact and both Versions a creator distinct from the current
 caller; history and audit must name the caller, and the audit must name the
 original Project. Snapshots retain inherited creation/update/deletion metadata.
+Both refusal and successful paths independently materialize no-tracking,
+unfiltered Artifact/two-Version scalar snapshots from the InMemory store before
+and after the call, using identities captured before the operation. Tracked
+snapshots and table cardinalities are separate checks. These reads do not add
+PostgreSQL or independent-connection acceptance.
 
 These are application-service controls backed by the original EF InMemory
 fixture. They do not establish PostgreSQL transactions, persisted-current
