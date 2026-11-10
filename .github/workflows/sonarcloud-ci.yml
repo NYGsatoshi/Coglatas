@@ -225,7 +225,7 @@ jobs:
             scripts/ci/test-main-runtime-artifact.py \
             deploy/sakura/test_validate_pilot_intake_policy.py \
             tests/ci/test_release_image_graph.py \
-            tests/ci/test_performance_environment.py \     
+            tests/ci/test_performance_environment.py \
             tests/ci/test_release_supply_chain.py \
             tests/ci/test_release_main_security_evidence.py \
             tests/ci/test_release_browser_evidence.py \

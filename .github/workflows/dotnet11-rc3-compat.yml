@@ -68,23 +68,6 @@ jobs:
           PY
           dotnet --info
 
-      - name: Generate proposed GA lockfiles in an isolated workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Diagnostic only: all canonical restore/quality gates remain in locked mode.
-          dotnet restore Coglatas.slnx --disable-parallel --force-evaluate -p:RestoreLockedMode=false --verbosity minimal
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          for path in sorted([*Path("src").rglob("packages.lock.json"), *Path("tests").rglob("packages.lock.json")]):
-              value = json.dumps(path.read_text(encoding="utf-8"), ensure_ascii=True)
-              print(f"GA_LOCKFILE_BEGIN::{path}::{len(value)}")
-              for offset in range(0, len(value), 2000):
-                  print(f"GA_LOCKFILE_CHUNK::{path}::{offset}::{value[offset:offset + 2000]}")
-              print(f"GA_LOCKFILE_END::{path}")
-          PY
-
       - name: Restore .NET 11 GA dependency graph
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
