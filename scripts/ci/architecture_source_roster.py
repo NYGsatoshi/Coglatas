@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import stat
@@ -43,18 +44,23 @@ def directory(path: Path) -> None:
 
 
 def regular_bytes(path: Path) -> bytes:
-    """Read only a small, real source file and reject symlinked leaves."""
+    """Validate and read a bounded regular source through one stable descriptor."""
     try:
-        mode = path.lstat().st_mode
-        size = path.stat().st_size
+        leaf = path.lstat()
+        require(stat.S_ISREG(leaf.st_mode), 'SOURCE_FILE')
+        flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+        with os.fdopen(os.open(path, flags), 'rb') as source:
+            info = os.fstat(source.fileno())
+            require(stat.S_ISREG(info.st_mode) and os.path.samestat(leaf, info)
+                    and 0 < info.st_size <= MAX_BYTES, 'SOURCE_FILE')
+            raw = source.read(MAX_BYTES + 1)
+            after = os.fstat(source.fileno())
+            require(os.path.samestat(info, after) and info.st_size == after.st_size
+                    and info.st_mtime_ns == after.st_mtime_ns
+                    and info.st_ctime_ns == after.st_ctime_ns, 'SOURCE_FILE')
     except OSError as exc:
         raise SourceRosterError('SOURCE_FILE') from exc
-    require(stat.S_ISREG(mode) and not path.is_symlink() and 0 < size <= MAX_BYTES, 'SOURCE_FILE')
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise SourceRosterError('SOURCE_FILE') from exc
-    require(len(raw) == size and b'\x00' not in raw, 'SOURCE_FILE')
+    require(len(raw) == info.st_size and b'\x00' not in raw, 'SOURCE_FILE')
     return raw
 
 
