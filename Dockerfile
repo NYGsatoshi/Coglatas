@@ -49,11 +49,15 @@ WORKDIR /src
 
 COPY Coglatas.slnx ./
 COPY src/Coglatas.Domain/Coglatas.Domain.csproj src/Coglatas.Domain/
+COPY src/Coglatas.UI.Core/Coglatas.UI.Core.csproj src/Coglatas.UI.Core/
 COPY src/Coglatas.Application/Coglatas.Application.csproj src/Coglatas.Application/
 COPY src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj src/Coglatas.Infrastructure/
 COPY src/Coglatas.Web/Coglatas.Web.csproj src/Coglatas.Web/
+COPY src/Coglatas.Application/packages.lock.json src/Coglatas.Application/
+COPY src/Coglatas.Infrastructure/packages.lock.json src/Coglatas.Infrastructure/
+COPY src/Coglatas.Web/packages.lock.json src/Coglatas.Web/
 RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sharing=locked \
-    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj
+    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --locked-mode
 
 COPY . .
 RUN rm -rf src/Coglatas.Web/wwwroot/*
@@ -62,7 +66,7 @@ COPY --from=frontend-build /src/frontend/dist/coglatas-web/ src/Coglatas.Web/www
 # restore layers. Force a restore in the same cache mount as publish so missing
 # NuGet packages are repaired before --no-restore is used.
 RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sharing=locked \
-    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --force && \
+    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --locked-mode --force && \
     dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14@sha256:1a48394b6f29d3a32c79d9edecd4abda0ecbe8776d567dbfc4590ed6979c740c AS runtime
