@@ -191,7 +191,7 @@ def image_errors(source, sdk_version)
     *Dir.glob(ROOT.join('infra/compose/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
     *Dir.glob(ROOT.join('deploy/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s }
   ]
-  approved_tag = sdk_version == '11.0.100-rc.3.26522.148' ? '11.0.100-rc.3' : sdk_version
+  approved_tag = sdk_version
   matches = 0
   candidates.uniq.each do |name|
     path = ROOT / name
@@ -266,9 +266,9 @@ sdk = global_json.fetch('sdk', {})
 sdk_version = sdk['version']
 stable_sdk = sdk_version.is_a?(String) && sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['allowPrerelease'] == false
-approved_rc3 = sdk_version == '11.0.100-rc.3.26522.148' && sdk['allowPrerelease'] == true
-abort('SDK must pin approved stable .NET 10 or exact isolated .NET 11 RC3') unless
-  (stable_sdk || approved_rc3) && sdk['rollForward'] == 'disable'
+approved_ga = sdk_version == '11.0.100' && sdk['allowPrerelease'] == false
+abort('SDK must pin approved stable .NET 10 or exact isolated .NET 11 GA') unless
+  (stable_sdk || approved_ga) && sdk['rollForward'] == 'disable'
 
 root_npm = JSON.parse((ROOT / 'package.json').read)
 root_lock = JSON.parse((ROOT / 'package-lock.json').read)

@@ -12,7 +12,7 @@ const digest = '@sha256:[a-f0-9]{64}';
 const sdkPolicy = JSON.parse(await readFile('global.json', 'utf8')).sdk;
 const { approved, sdkImageTag, runtimeTagPattern } = resolveDotnetSdkPolicy(sdkPolicy);
 if (!approved) {
-  failures.push('global.json must pin an approved exact stable .NET 10 SDK or the explicitly authorized .NET 11 RC3 experiment without roll-forward.');
+  failures.push('global.json must pin an approved exact stable .NET 10 SDK or the explicitly authorized .NET 11 GA experiment without roll-forward.');
 }
 const sdkVersionPattern = typeof sdkImageTag === 'string' ? sdkImageTag.replaceAll('.', '\\.') : 'INVALID';
 const runtimePattern = new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/aspnet:${runtimeTagPattern}${digest})\\s+AS\\s+runtime\\s*$`, 'm');
