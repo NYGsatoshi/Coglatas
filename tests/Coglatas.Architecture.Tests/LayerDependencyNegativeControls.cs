@@ -7,16 +7,17 @@ using static ArchUnitNET.Fluent.ArchRuleDefinition;
 namespace Coglatas.Architecture.Tests;
 
 /// <summary>
-/// Negative controls for the ArchUnit dependency oracle; the production six
-/// directional rules are still executed by LayerDependencyTests.
+/// Demonstrates that ArchUnitNET detects synthetic forbidden references in
+/// test-only fixtures. Production providers and AssertNoDependency in
+/// LayerDependencyTests are exercised separately, not by this control.
 /// </summary>
 public sealed class LayerDependencyNegativeControls
 {
     [Fact]
     public void LayerRulesRejectSyntheticForbiddenReferences()
     {
-        // Exercise each deliberately forbidden reference. The production rules
-        // below must still detect those exact dependencies in ArchUnitNET.
+        // Keep each synthetic reference in the loaded binary; these fixtures
+        // exercise an inline rule, not the production rule provider.
         Assert.Null(new DomainLikeFixture().Application);
         Assert.Null(new DomainLikeFixture().Infrastructure);
         Assert.Null(new DomainLikeFixture().Web);
@@ -40,10 +41,17 @@ public sealed class LayerDependencyNegativeControls
 
         foreach (var (source, target) in forbidden)
         {
-            var sourceTypes = Types().That().HaveFullNameMatching(Regex.Escape(source.FullName!));
-            var targetTypes = Types().That().HaveFullNameMatching(Regex.Escape(target.FullName!));
-            Assert.ThrowsAny<Exception>(() =>
+            var sourcePattern = "^" + Regex.Escape(source.FullName!) + "$";
+            var targetPattern = "^" + Regex.Escape(target.FullName!) + "$";
+            var sourceTypes = Types().That().HaveFullNameMatching(sourcePattern);
+            var targetTypes = Types().That().HaveFullNameMatching(targetPattern);
+            Assert.Single(sourceTypes.GetObjects(architecture));
+            Assert.Single(targetTypes.GetObjects(architecture));
+
+            var error = Assert.Throws<FailedArchRuleException>(() =>
                 Types().That().Are(sourceTypes).Should().NotDependOnAny(targetTypes).Check(architecture));
+            Assert.Contains(source.Name, error.Message, StringComparison.Ordinal);
+            Assert.Contains(target.Name, error.Message, StringComparison.Ordinal);
         }
     }
 

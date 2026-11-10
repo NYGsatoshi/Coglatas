@@ -46,6 +46,13 @@ def verify(raw: bytes, source_sha: str, run_id: str, attempt: int) -> dict:
     require(type(source_sha) is str and re.fullmatch(r'[a-f0-9]{40}', source_sha) is not None, 'SOURCE_SHA')
     require(type(run_id) is str and re.fullmatch(r'[1-9][0-9]{0,18}', run_id) is not None, 'RUN_ID')
     require(type(attempt) is int and 1 <= attempt <= 1000000, 'ATTEMPT_INVALID')
+    # TRX originates from the native dotnet logger. Reject alternate XML encodings
+    # before the byte-level DTD guard, so UTF-16 NUL bytes cannot evade it.
+    require(raw.startswith(b'<?xml') and b'\x00' not in raw, 'TRX_ENCODING')
+    try:
+        raw.decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise ArchitectureEvidenceError('TRX_ENCODING') from exc
     require(b'<!DOCTYPE' not in raw.upper() and b'<!ENTITY' not in raw.upper(), 'TRX_DTD')
     try:
         root = ET.fromstring(raw)

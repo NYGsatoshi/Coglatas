@@ -62,9 +62,20 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
                 module.verify(trx(**{variant: True}), SHA, '123', 1)
 
     def test_rejects_missing_xml_dtd_and_invalid_source(self):
-        for data in (b'', b'garbage', trx(dtd=True), trx().replace(b'Passed', b'Skipped', 1)):
-            with self.subTest(size=len(data)), self.assertRaises(module.ArchitectureEvidenceError):
+        invalid = (
+            (b'', 'TRX_SIZE'),
+            (b'garbage', 'TRX_ENCODING'),
+            (b"<?xml version='1.0' encoding='utf-8'?><broken", 'TRX_XML'),
+            (trx(dtd=True), 'TRX_DTD'),
+            (trx().replace(b'Passed', b'Skipped', 1), 'CASE_NOT_PASSED'),
+            (b'\xff\xfe' + trx().decode('utf-8').encode('utf-16le'), 'TRX_ENCODING'),
+            (trx().replace(b'<?xml', b'\xef\xbb\xbf<?xml', 1), 'TRX_ENCODING'),
+            (trx().replace(b'<?xml', b'<?xm\x00l', 1), 'TRX_ENCODING'),
+        )
+        for data, code in invalid:
+            with self.subTest(code=code), self.assertRaises(module.ArchitectureEvidenceError) as caught:
                 module.verify(data, SHA, '123', 1)
+            self.assertEqual(caught.exception.args[0], code)
         for kwargs in ({'source_sha': 'bad'}, {'run_id': '0'}, {'attempt': 0}):
             args = dict(source_sha=SHA, run_id='123', attempt=1)
             args.update(kwargs)
