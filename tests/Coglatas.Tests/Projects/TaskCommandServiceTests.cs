@@ -7,7 +7,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class TaskCommandServiceTests
+public sealed partial class TaskCommandServiceTests
 {
     [Fact]
     public async Task StructuredBriefPatchPreservesOmittedFieldsClearsExplicitNullAndReturnsPerFieldProvenance()
