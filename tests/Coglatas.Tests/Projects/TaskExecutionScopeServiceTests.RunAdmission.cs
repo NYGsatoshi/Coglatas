@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.Projects;
@@ -58,7 +60,7 @@ public sealed partial class TaskExecutionScopeServiceTests
     public async Task PrintableBoundaryKeysReachTheCoordinatorWithoutTrimmingOrChangingRows(int length)
     {
         await using var fixture = await Fixture.CreateAsync();
-        await SeedRunAdmissionControlAsync(fixture);
+        var retainedRunId = await SeedRunAdmissionControlAsync(fixture);
         var before = await CaptureRunAdmissionStateAsync(fixture);
         var coordinator = new RunAdmissionCoordinator(IdempotentCreateDisposition.RequestMismatch);
         var unit = new CountingClearUnitOfWork(fixture.Db);
@@ -71,7 +73,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Null(result.Value);
         Assert.Equal("TASK_EXECUTION_IDEMPOTENCY_CONFLICT", result.ErrorDetail!.Code);
         Assert.Equal("header.Idempotency-Key", result.ErrorDetail.Target);
-        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token);
+        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token, retainedRunId);
         Assert.Equal(0, unit.SaveCalls);
         Assert.Equal(before, await CaptureRunAdmissionStateAsync(fixture));
         Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
@@ -85,7 +87,7 @@ public sealed partial class TaskExecutionScopeServiceTests
     public async Task MissingCoordinatorResultsNeverClaimAcceptanceOrChangeExistingExecutionRows(IdempotentCreateDisposition disposition, string errorCode)
     {
         await using var fixture = await Fixture.CreateAsync();
-        await SeedRunAdmissionControlAsync(fixture);
+        var retainedRunId = await SeedRunAdmissionControlAsync(fixture);
         var before = await CaptureRunAdmissionStateAsync(fixture);
         var coordinator = new RunAdmissionCoordinator(disposition);
         var unit = new CountingClearUnitOfWork(fixture.Db);
@@ -97,8 +99,11 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.Equal(errorCode, result.ErrorDetail!.Code);
+        Assert.Equal(disposition == IdempotentCreateDisposition.RequestMismatch
+            ? "The Idempotency-Key was already used for a different execution request."
+            : "The execution request could not be reconciled. Retry with a new Idempotency-Key.", result.ErrorDetail.Message);
         Assert.Equal(disposition == IdempotentCreateDisposition.RequestMismatch ? "header.Idempotency-Key" : null, result.ErrorDetail.Target);
-        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token);
+        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token, retainedRunId);
         Assert.Equal(0, unit.SaveCalls);
         Assert.Equal(before, await CaptureRunAdmissionStateAsync(fixture));
         Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
@@ -108,7 +113,7 @@ public sealed partial class TaskExecutionScopeServiceTests
     public async Task CoordinatorFailureBeforeStagingReturnsTheGenericPersistenceErrorAndRetainsExistingRows()
     {
         await using var fixture = await Fixture.CreateAsync();
-        await SeedRunAdmissionControlAsync(fixture);
+        var retainedRunId = await SeedRunAdmissionControlAsync(fixture);
         var before = await CaptureRunAdmissionStateAsync(fixture);
         var coordinator = new RunAdmissionCoordinator(IdempotentCreateDisposition.Created, failBeforeStaging: true);
         var unit = new CountingClearUnitOfWork(fixture.Db);
@@ -122,15 +127,30 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal("TASK_EXECUTION_PERSISTENCE_UNAVAILABLE", result.ErrorDetail!.Code);
         Assert.Equal("The execution request could not be recorded.", result.ErrorDetail.Message);
         Assert.Null(result.ErrorDetail.Target);
-        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token);
+        AssertRunAdmissionContext(fixture, coordinator, key, cancellation.Token, retainedRunId);
         Assert.Equal(0, unit.SaveCalls);
         Assert.Equal(before, await CaptureRunAdmissionStateAsync(fixture));
         Assert.DoesNotContain(fixture.Db.ChangeTracker.Entries(), entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
     }
 
-    private static async Task SeedRunAdmissionControlAsync(Fixture fixture)
+    private static async Task<Guid> SeedRunAdmissionControlAsync(Fixture fixture)
     {
-        await SeedClearOverrideAsync(fixture);
+        var taskOverride = await SeedClearOverrideAsync(fixture);
+        var storedOverride = Assert.Single(await fixture.Db.TaskExecutionScopeOverrides.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.Equal(taskOverride.Id, storedOverride.Id);
+        Assert.Equal((fixture.Tenant.Id, fixture.Workspace.Id, fixture.Project.Id, fixture.TaskItem.Id),
+            (storedOverride.TenantId, storedOverride.WorkspaceId, storedOverride.ProjectId, storedOverride.TaskItemId));
+        Assert.Equal(9_000_000_003L, storedOverride.VersionNo);
+        Assert.Equal(fixture.Actor.Id, storedOverride.UpdatedByUserId);
+        Assert.False(storedOverride.WebEnabled);
+        Assert.True(storedOverride.ProjectFilesEnabled);
+        var projectScope = Assert.Single(await fixture.Db.ProjectExecutionScopes.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.NotEqual(Guid.Empty, projectScope.Id);
+        Assert.Equal((fixture.Tenant.Id, fixture.Workspace.Id, fixture.Project.Id),
+            (projectScope.TenantId, projectScope.WorkspaceId, projectScope.ProjectId));
+        Assert.Equal(1L, projectScope.VersionNo);
+        Assert.False(projectScope.WebEnabled);
+        Assert.False(projectScope.ProjectFilesEnabled);
         var accepted = await fixture.Service.RequestRunAsync(fixture.TaskItem.Id, "retained-admission-run");
         Assert.True(accepted.IsSuccess, accepted.Error);
         Assert.NotEqual(Guid.Empty, accepted.Value!.Id);
@@ -138,13 +158,56 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Single(await fixture.Db.IdempotencyRecords.AsNoTracking().ToListAsync());
         Assert.Single(await fixture.Db.OutboxEvents.AsNoTracking().ToListAsync());
         Assert.Single(fixture.Audit.Entries);
+        var retainedRunId = accepted.Value.Id;
+        var run = Assert.Single(await fixture.Db.TaskExecutionRuns.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.Equal(retainedRunId, run.Id);
+        Assert.Equal(TaskExecutionRunStatus.Accepted, run.Status);
+        Assert.Equal(TaskExecutionRunStatus.Accepted, accepted.Value.Status);
+        Assert.Equal((fixture.Tenant.Id, fixture.Workspace.Id, fixture.Project.Id, fixture.TaskItem.Id, fixture.Actor.Id),
+            (run.TenantId, run.WorkspaceId, run.ProjectId, run.TaskItemId, run.RequestedByUserId));
+        Assert.Equal(TaskExecutionScopeOrigin.TaskOverride, run.SnapshotScopeOrigin);
+        Assert.Equal(1L, run.SnapshotProjectScopeVersion);
+        Assert.Equal(9_000_000_003L, run.SnapshotTaskOverrideVersion);
+        Assert.False(run.SnapshotWebEnabled);
+        Assert.True(run.SnapshotProjectFilesEnabled);
+        Assert.Equal(TaskExecutionProvider.FirstPartyProjectFilesRuntimeV1, run.RuntimeProvider);
+        Assert.Equal(TaskExecutionRun.RuntimeContractVersion1, run.RuntimeContractVersion);
+        var record = Assert.Single(await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.NotEqual(Guid.Empty, record.Id);
+        Assert.Equal((fixture.Tenant.Id, fixture.Actor.Id, "TaskExecution.Run.v1", "TaskExecutionRun", retainedRunId),
+            (record.TenantId, record.ActorUserId, record.Operation, record.ResourceType, record.ResourceId));
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("retained-admission-run"))), record.KeyHash);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fixture.TaskItem.Id.ToString("N")))), record.RequestHash);
+        var change = Assert.Single(await fixture.Db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        Assert.NotEqual(Guid.Empty, change.Id);
+        Assert.Equal(fixture.Tenant.Id, change.TenantId);
+        Assert.Equal("Projects.TaskChanged.v1", change.EventType);
+        Assert.Equal("Task", change.AggregateType);
+        Assert.Equal(fixture.TaskItem.Id, change.AggregateId);
+        Assert.Equal(7_000_000_004L, change.AggregateVersion);
+        using var payload = JsonDocument.Parse(change.PayloadJson);
+        Assert.Equal(fixture.Actor.Id, payload.RootElement.GetProperty("actor").GetProperty("actorId").GetGuid());
+        Assert.Equal(fixture.TaskItem.Id, payload.RootElement.GetProperty("payload").GetProperty("taskId").GetGuid());
+        Assert.Equal("executionRunChanged", payload.RootElement.GetProperty("payload").GetProperty("change").GetString());
+        var audit = Assert.Single(fixture.Audit.Entries);
+        Assert.Equal(fixture.Actor.Id, audit.ActorUserId);
+        Assert.Equal("TaskExecutionRunRequested", audit.Action);
+        Assert.Equal("TaskExecutionRun", audit.EntityType);
+        Assert.Equal(retainedRunId, audit.EntityId);
+        Assert.Equal(fixture.Workspace.Id, audit.WorkspaceId);
+        Assert.Equal(fixture.Project.Id, audit.ProjectId);
+        return retainedRunId;
     }
 
-    private static void AssertRunAdmissionContext(Fixture fixture, RunAdmissionCoordinator coordinator, string key, CancellationToken token)
+    private static void AssertRunAdmissionContext(Fixture fixture, RunAdmissionCoordinator coordinator, string key, CancellationToken token, Guid retainedRunId)
     {
+        var expectedRequestIdentity = (key, token);
+        Guid[] nonReusableRunIds = [Guid.Empty, retainedRunId];
         Assert.Equal(1, coordinator.Calls);
         Assert.Equal(token, coordinator.Token);
         var context = Assert.IsType<CreateIdempotencyContext>(coordinator.Context);
+        Assert.Equal(expectedRequestIdentity, (context.ClientRequestIdentity, coordinator.Token));
+        Assert.DoesNotContain(context.ResourceId, nonReusableRunIds);
         Assert.Equal(fixture.Tenant.Id, context.TenantId);
         Assert.Equal(fixture.Actor.Id, context.ActorUserId);
         Assert.Equal("TaskExecution.Run.v1", context.Operation);
@@ -152,6 +215,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fixture.TaskItem.Id.ToString("N")))), context.RequestHash);
         Assert.Equal("TaskExecutionRun", context.ResourceType);
         Assert.NotEqual(Guid.Empty, context.ResourceId);
+        Assert.NotEqual(retainedRunId, context.ResourceId);
         Assert.NotEqual(Assert.Single(fixture.Db.TaskExecutionRuns.AsNoTracking()).Id, context.ResourceId);
     }
 
@@ -170,8 +234,13 @@ public sealed partial class TaskExecutionScopeServiceTests
         where TEntity : class
     {
         var rows = await source.AsNoTracking().ToArrayAsync();
-        return rows.Select(row => fixture.Db.Entry(row).Properties.OrderBy(property => property.Metadata.Name)
-                .ToDictionary(property => property.Metadata.Name, property => property.CurrentValue))
+        return rows.Select(row =>
+            {
+                var properties = fixture.Db.Entry(row).Properties.ToArray();
+                Assert.Empty(properties.Where(property => property.Metadata.IsShadowProperty()));
+                return properties.OrderBy(property => property.Metadata.Name)
+                    .ToDictionary(property => property.Metadata.Name, property => property.CurrentValue);
+            })
             .OrderBy(row => (Guid)row["Id"]!).ToArray();
     }
 
