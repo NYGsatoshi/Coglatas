@@ -79,7 +79,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         finally { view.Dispose(); }
     }
 
-    /// <summary>Clears an earlier positive result after any terminal host failure.</summary>
+    /// <summary>A new request clears the previous PASS, then terminal refusal sets its explicit status.</summary>
     [Theory]
     [InlineData(CompilerHostStatus.Cancelled)]
     [InlineData(CompilerHostStatus.Unsupported)]
@@ -95,6 +95,7 @@ public sealed class LocalEvidenceDisplayCandidateTests
         Assert.True(view.HasCompleteLocalPass);
         view.BeginSynthetic(new(new(input), 11));
         Assert.False(view.TryAccept(new(status, "test.terminal", input.InputDigest, 11, Guid.NewGuid(), null)));
+        Assert.Equal(status.ToString(), view.State);
         Assert.Equal("not-loaded", view.LocalEvidenceState);
         Assert.False(view.HasCompleteLocalPass);
         Assert.Null(view.Result);
