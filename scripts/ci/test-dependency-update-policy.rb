@@ -71,10 +71,10 @@ def update_errors(config)
     sdk['matchFileNames'] == ['global.json', '**/global.json'] && sdk['matchUpdateTypes'] == ['major'] &&
     sdk['dependencyDashboardApproval'] == true && sdk['enabled'] != false
 
-  node = find_rule.call('Retain approved Node 24 LTS for container images')
+  node = find_rule.call('Retain approved Node 26 LTS for container images')
   errors << 'Docker Node LTS major boundary is missing or broadened' unless node.is_a?(Hash) &&
     node['matchDatasources'] == ['docker'] && node['matchPackageNames'] == ['node'] &&
-    node['allowedVersions'] == '/^24([.-]|$)/'
+    node['allowedVersions'] == '/^26([.-]|$)/'
   playwright = find_rule.call('Playwright Docker image must match the root Playwright lockfile')
   errors << 'Playwright image cannot update independently from its npm lockfile' unless
     playwright.is_a?(Hash) && playwright['enabled'] == false &&
@@ -89,17 +89,71 @@ def update_errors(config)
   errors << 'Renovate must generate lockfiles with the repository npm version' unless
     config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
 
+  # npm's lockfile-only updater can omit still-required transitive dependencies.
+  # Ensure the repair covers standalone overrides/majors and grouped patch updates.
+  npm_rebuild = find_rule.call('Regenerate npm lockfiles with full installation on every update')
+  errors << 'All npm updates require a full install and second lockfile pass' unless
+    npm_rebuild.is_a?(Hash) && npm_rebuild['matchManagers'] == ['npm'] &&
+    npm_rebuild['skipInstalls'] == false && npm_rebuild['postUpdateOptions'] == ['npmInstallTwice'] &&
+    !npm_rebuild.key?('matchUpdateTypes') && !npm_rebuild.key?('matchPackageNames') &&
+    !npm_rebuild.key?('enabled') && npm_rebuild['skipArtifactsUpdate'] != true
+
+  typescript = find_rule.call('Keep TypeScript in Angular 22 supported peer range')
+  errors << 'TypeScript 7 conflicts with Angular 22 build/compiler peer dependencies' unless
+    typescript.is_a?(Hash) && typescript['matchManagers'] == ['npm'] &&
+    typescript['matchPackageNames'] == ['typescript'] &&
+    typescript['allowedVersions'] == '/^6\\.0\\./' &&
+    !typescript.key?('enabled') && !typescript.key?('matchUpdateTypes')
+
   npm_updates = find_rule.call('Group compatible npm updates per review')
   errors << 'npm lockfile update must run twice to avoid incomplete npm ci artifacts' unless
     npm_updates.is_a?(Hash) && npm_updates['matchManagers'] == ['npm'] &&
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
-  angular_build = find_rule.call('Skip broken Angular build 22.2.5 optional peer tree')
-  errors << 'Only the proven broken Angular build patch may be excluded; future fixes must remain eligible' unless
+
+  playwright_npm = find_rule.call('Keep Playwright npm updates tied to the reviewed browser image')
+  errors << 'Playwright npm updates must remain aligned with the qualified browser image' unless
+    playwright_npm.is_a?(Hash) && playwright_npm['matchManagers'] == ['npm'] &&
+    playwright_npm['matchPackageNames'] == ['@playwright/test'] &&
+    playwright_npm['matchFileNames'] == ['package.json'] &&
+    playwright_npm['allowedVersions'] == '1.64.1' && playwright_npm['enabled'] != false
+
+  minimatch_lock = find_rule.call('Hold malformed npm minimatch override updates for lockfile repair')
+  errors << 'Known malformed minimatch override lockfile updates must stay quarantined' unless
+    minimatch_lock.is_a?(Hash) && minimatch_lock['matchManagers'] == ['npm'] &&
+    minimatch_lock['matchPackageNames'] == ['minimatch'] &&
+    minimatch_lock['matchFileNames'] == ['coglatas-frontend/package.json', 'scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    minimatch_lock['allowedVersions'] == '11.0.4' && minimatch_lock['enabled'] != false
+
+  sonar_glob = find_rule.call('Hold Sonar glob updates that cannot produce installable locks')
+  errors << 'Known malformed Sonar glob lockfiles must stay quarantined' unless
+    sonar_glob.is_a?(Hash) && sonar_glob['matchManagers'] == ['npm'] &&
+    sonar_glob['matchPackageNames'] == ['glob'] &&
+    sonar_glob['matchFileNames'] == ['scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    sonar_glob['allowedVersions'] == '14.0.3' && sonar_glob['enabled'] != false
+
+  ang22_candidates = find_rule.call('Separate ANG22 reviewed packages from routine npm updates')
+  reviewed_names = %w[
+    @angular/animations @angular/build @angular/cdk @angular/cli @angular/common @angular/compiler
+    @angular/compiler-cli @angular/core @angular/forms @angular/platform-browser
+    @angular/platform-browser-dynamic @angular/router @angular-devkit/architect
+    @angular-devkit/build-angular @angular-devkit/core @lucide/angular
+    @storybook/angular storybook @vitest/coverage-istanbul vitest
+  ].sort
+  errors << 'Contract-pinned Angular 22 dependencies need separate owner-reviewed qualification' unless
+    ang22_candidates.is_a?(Hash) && ang22_candidates['matchManagers'] == ['npm'] &&
+    ang22_candidates.fetch('matchPackageNames', []).sort == reviewed_names &&
+    ang22_candidates['matchUpdateTypes'] == ['minor', 'patch'] &&
+    ang22_candidates['dependencyDashboardApproval'] == true &&
+    ang22_candidates['groupName'] == 'ANG22 reviewed dependency candidates' &&
+    ang22_candidates['enabled'] != false
+
+  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
+  errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
-    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular'] &&
-    angular_build['allowedVersions'] == '!/^22\\.2\\.5$/' &&
+    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular', '@angular/cli'] &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.[56]$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
 
   stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
@@ -173,8 +227,8 @@ end
 # The production build and development images must stay on an owner-approved
 # Node LTS major. Renovate digest updates within that major remain allowed.
 NODE_LTS_DOCKER_IMAGES = {
-  'Dockerfile' => /\AFROM node:24@sha256:[0-9a-f]{64} AS frontend-deps\z/,
-  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:24-alpine@sha256:[0-9a-f]{64}\z/
+  'Dockerfile' => /\AFROM node:26@sha256:[0-9a-f]{64} AS frontend-deps\z/,
+  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:26-alpine@sha256:[0-9a-f]{64}\z/
 }.freeze
 
 def node_lts_image_errors(sources)
@@ -186,7 +240,7 @@ def node_lts_image_errors(sources)
     text = sources.fetch(name, nil) || path.read
     node_references = text.lines.map(&:strip).select { |line| line.start_with?('FROM node:') }
     if node_references.length != 1 || !expected.match?(node_references.first)
-      "#{name}: the only Node base image must be immutable SHA-pinned Node 24 LTS"
+      "#{name}: the only Node base image must be immutable SHA-pinned Node 26 LTS"
     end
   end
 end
@@ -213,6 +267,16 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
+root_npm = JSON.parse((ROOT / 'package.json').read)
+root_lock = JSON.parse((ROOT / 'package-lock.json').read)
+browser_image = (ROOT / 'infra/docker/playwright.Dockerfile').read
+abort('Root Playwright test dependency must remain pinned to the reviewed browser runtime') unless
+  root_npm.fetch('devDependencies', {})['@playwright/test'] == '1.64.1' &&
+  %w[@playwright/test playwright playwright-core].all? do |name|
+    root_lock.fetch('packages', {}).fetch("node_modules/#{name}", {})['version'] == '1.64.1'
+  end &&
+  browser_image.include?('FROM mcr.microsoft.com/playwright:v1.64.0-noble')
+
 errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
@@ -223,7 +287,7 @@ mutations = {
   'unbounded PRs' => ->(x) { x['prConcurrentLimit'] = 0 },
   'bypass major approval' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep major upgrades individually approved' }['dependencyDashboardApproval'] = false },
   'disable SDK proposals' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Require dashboard approval for SDK major migration proposals' }['enabled'] = false },
-  'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
+  'unreviewed Node 28' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 26 LTS for container images' }['allowedVersions'] = '/^28/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
@@ -239,12 +303,26 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
-  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '>=22' },
-  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '<22.2.5' },
-  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['matchPackageNames'] << '@angular/core' },
-  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['enabled'] = false },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
-  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
+  'unreviewed Playwright npm version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }['allowedVersions'] = '1.65.0' },
+  'drop Playwright root package scope' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }.delete('matchFileNames') },
+  'unqualified minimatch override version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold malformed npm minimatch override updates for lockfile repair' }['allowedVersions'] = '11.0.5' },
+  'unqualified sonar glob version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Sonar glob updates that cannot produce installable locks' }['allowedVersions'] = '14.0.4' },
+  'unreviewed ANG22 package in routine group' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['dependencyDashboardApproval'] = false },
+  'unreviewed ANG22 package group crossover' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['groupName'] = 'npm compatible (minor and patch)' },
+  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
+  'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
+  'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
+  'only repair minor npm updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['matchUpdateTypes'] = ['minor', 'patch'] },
+  'skip npm lockfile artifacts entirely' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipArtifactsUpdate'] = true },
+  'allow unsupported TypeScript 7' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '>=6' },
+  'freeze TypeScript 6.0 fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '/^6\\.0\\.3$/' },
+  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
+  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
@@ -279,7 +357,7 @@ abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_ve
 end
 
 bad_node_major = {
-  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
+  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:26@sha256:/, 'FROM node:28@sha256:')
 }
 abort('Guard missed unreviewed Node major') if node_lts_image_errors(bad_node_major).empty?
 bad_node_digest = {

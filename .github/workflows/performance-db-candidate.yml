@@ -20,7 +20,7 @@ concurrency:
 jobs:
   guard:
     name: Authorize exact PR 1046 candidate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       validated: ${{ steps.identity.outputs.validated }}
@@ -118,7 +118,7 @@ jobs:
     name: Candidate production DB evidence (${{ matrix.profile }})
     needs: guard
     if: needs.guard.result == 'success' && needs.guard.outputs.validated == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 90
     strategy:
@@ -201,7 +201,7 @@ jobs:
     name: Candidate production DB duration gate
     needs: [guard, collect]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       TARGET_SHA: ${{ github.sha }}

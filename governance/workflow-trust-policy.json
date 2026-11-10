@@ -13,6 +13,7 @@
   },
   "runner_routing": {
     "github_hosted_labels": [
+      "ubuntu-24.04",
       "ubuntu-latest",
       "windows-latest",
       "macos-latest",
