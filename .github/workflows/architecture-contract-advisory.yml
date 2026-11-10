@@ -16,6 +16,8 @@ on:
       - "scripts/ci/test_architecture_evidence_pair.py"
       - "scripts/ci/architecture_archive_bytes.py"
       - "scripts/ci/test_architecture_archive_bytes.py"
+      - "scripts/ci/architecture_github_metadata.py"
+      - "scripts/ci/test_architecture_github_metadata.py"
       - "src/**"
       - "global.json"
 
@@ -96,6 +98,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 -B scripts/ci/test_architecture_archive_bytes.py
+      - name: Test read-only GitHub Architecture metadata witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/test_architecture_github_metadata.py
       - name: Preserve sanitized advisory receipt
         if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
