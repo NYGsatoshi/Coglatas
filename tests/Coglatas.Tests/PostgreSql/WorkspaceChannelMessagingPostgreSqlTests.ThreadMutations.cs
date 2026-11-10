@@ -46,6 +46,16 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         Assert.Null(storedReply.DeletedAt);
         Assert.Equal("Original synthetic root.", beforeMessages[rootId]["Body"]);
         Assert.Equal("Unrelated synthetic message.", beforeMessages[sentinelId]["Body"]);
+        foreach (var id in new[] { rootId, sentinelId })
+        {
+            Assert.Equal(scenario.Tenant.Id, beforeMessages[id]["TenantId"]);
+            Assert.Equal(scenario.Workspace.Id, beforeMessages[id]["WorkspaceId"]);
+            Assert.Equal(scenario.Conversation.Id, beforeMessages[id]["ConversationId"]);
+            Assert.Equal(scenario.Actor.Id, beforeMessages[id]["AuthorUserId"]);
+            Assert.Null(beforeMessages[id]["ThreadRootMessageId"]);
+            Assert.Equal(1L, beforeMessages[id]["Version"]);
+            Assert.Null(beforeMessages[id]["DeletedAt"]);
+        }
         var beforeConversations = await CaptureThreadScalarRowsAsync(beforeReader, beforeReader.Conversations, row => row.Id);
         Assert.True(beforeConversations.ContainsKey(scenario.Conversation.Id));
         var beforeOutbox = await CaptureThreadScalarRowsAsync(beforeReader, beforeReader.OutboxEvents, row => row.Id);
@@ -123,10 +133,17 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
                 (item.TenantId, item.PayloadSchemaVersion, item.Status, item.AttemptCount));
             using var document = JsonDocument.Parse(item.PayloadJson);
             var envelope = document.RootElement;
+            var isMessage = item.Id == messageEvent.Id;
             Assert.Equal(item.Id, envelope.GetProperty("eventId").GetGuid());
             Assert.Equal(scenario.Tenant.Id, envelope.GetProperty("tenantId").GetGuid());
             Assert.Equal("User", envelope.GetProperty("actor").GetProperty("actorType").GetString());
             Assert.Equal(scenario.Actor.Id, envelope.GetProperty("actor").GetProperty("actorId").GetGuid());
+            Assert.Equal(isMessage ? messageType : "Messaging.ThreadChanged.v1", envelope.GetProperty("eventType").GetString());
+            Assert.Equal(1, envelope.GetProperty("payloadSchemaVersion").GetInt32());
+            Assert.Equal(isMessage ? "Message" : "MessageThread", envelope.GetProperty("aggregateType").GetString());
+            Assert.Equal(isMessage ? replyId : rootId, envelope.GetProperty("aggregateId").GetGuid());
+            if (isMessage) Assert.Equal(2L, envelope.GetProperty("aggregateVersion").GetInt64());
+            else Assert.Equal(JsonValueKind.Null, envelope.GetProperty("aggregateVersion").ValueKind);
             var target = Assert.Single(JsonSerializer.Deserialize<RealtimeRoutingTarget[]>(item.RoutingJson, ThreadMutationJsonOptions)!);
             Assert.Equal(new RealtimeRoutingTarget(RealtimeSubscriptionType.Conversation, scenario.Conversation.Id), target);
         }
@@ -150,6 +167,8 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         }
         using var threadDocument = JsonDocument.Parse(threadEvent.PayloadJson);
         var threadPayload = threadDocument.RootElement.GetProperty("payload");
+        string[] expectedThreadProperties = ["change", "conversationId", "latestReplyAt", "replyCount", "requiresRefetch", "threadRootMessageId"];
+        Assert.Equal(expectedThreadProperties, threadPayload.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         Assert.Equal(scenario.Conversation.Id, threadPayload.GetProperty("conversationId").GetGuid());
         Assert.Equal(rootId, threadPayload.GetProperty("threadRootMessageId").GetGuid());
         Assert.Equal(1, threadPayload.GetProperty("replyCount").GetInt32());

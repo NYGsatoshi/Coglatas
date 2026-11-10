@@ -11,6 +11,8 @@ Message and Conversation scalar with query filters disabled. Only the named
 reply fields and independently bounded persisted timestamps may change; the
 root, unrelated message, keys and other scalars remain unchanged. PostgreSQL's
 microsecond timestamp truncation is explicitly allowed at the lower boundary.
+Both persisted non-reply messages independently retain the expected Tenant,
+Workspace, Conversation, author, null thread-root relationship and version.
 
 The post-save read requires two new stored Outbox events: the exact versioned
 Message edit/tombstone and metadata-only Thread refresh. Tenant, actor, subject,
@@ -20,6 +22,10 @@ contains neither reply text nor the actor display name. Deletion retains a
 bodyless reply tombstone. One new persisted communication Audit row has the
 expected action, actor, Tenant, resource, decision and reason. Every previously
 stored Outbox/Audit row's mapped scalars and identities are retained.
+Envelope event/schema/aggregate fields are checked independently of the stored
+columns against the original identities and expected versions. The Thread
+payload must contain exactly its six declared metadata properties; additional
+properties cannot pass the content-exclusion assertions unnoticed.
 
 The existing PostgreSQL harness requires an explicit test connection and
 creates an isolated migrated temporary database. The original raw Main report
