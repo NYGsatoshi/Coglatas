@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Coglatas.Application.Events;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -28,14 +29,18 @@ public sealed partial class EventLifecycleContractTests
         await fixture.Db.SaveChangesAsync();
         var eventId = fixture.Event.Id;
         var before = EventValidationSnapshot(fixture.Event);
-        var storedBefore = EventValidationSnapshot(await fixture.ReadEventAsync());
+        var storedBefore = EventValidationSnapshot(await fixture.Db.ActivityEvents.IgnoreQueryFilters()
+            .AsNoTracking().SingleAsync(item => item.Id == eventId));
         CreateEventRequest request = new(fixture.Workspace.Id, null, null, "Candidate", null, null,
             fixture.Clock.UtcNow.AddDays(2), fixture.Clock.UtcNow.AddDays(2).AddHours(1));
         request = invalidCase switch
         {
             "no-scope" => request with { WorkspaceId = null },
             "multiple-scopes" => request with { GroupId = Guid.NewGuid() },
-            "null-title" => request with { Title = null! },
+            "null-title" => JsonSerializer.Deserialize<CreateEventRequest>(JsonSerializer.Serialize(new
+            {
+                request.WorkspaceId, Title = (string?)null, request.StartsAt, request.EndsAt
+            })) ?? throw new InvalidOperationException("The synthetic request must deserialize."),
             "blank-title" => request with { Title = " \t " },
             "equal-times" => request with { EndsAt = request.StartsAt },
             "reversed-times" => request with { EndsAt = request.StartsAt.AddTicks(-1) },
@@ -70,7 +75,8 @@ public sealed partial class EventLifecycleContractTests
         await using var fixture = await Fixture.CreateAsync();
         var eventId = fixture.Event.Id;
         var before = EventValidationSnapshot(fixture.Event);
-        var storedBefore = EventValidationSnapshot(await fixture.ReadEventAsync());
+        var storedBefore = EventValidationSnapshot(await fixture.Db.ActivityEvents.IgnoreQueryFilters()
+            .AsNoTracking().SingleAsync(item => item.Id == eventId));
         var request = invalidCase switch
         {
             "multiple-scopes" => new UpdateEventRequest(WorkspaceId: fixture.Workspace.Id, GroupId: Guid.NewGuid()),
@@ -102,7 +108,8 @@ public sealed partial class EventLifecycleContractTests
     {
         await using var fixture = await Fixture.CreateAsync();
         var originalId = fixture.Event.Id;
-        var original = EventValidationSnapshot(await fixture.ReadEventAsync());
+        var original = EventValidationSnapshot(await fixture.Db.ActivityEvents.IgnoreQueryFilters()
+            .AsNoTracking().SingleAsync(item => item.Id == originalId));
         var startsAt = fixture.Clock.UtcNow.AddDays(2);
         var result = await fixture.Service.CreateAsync(new CreateEventRequest(fixture.Workspace.Id, null, null,
             "  Synthetic new event  ", emptyText ? " \t " : "  Description  ", emptyText ? " \t " : "  Room  ",
@@ -196,6 +203,10 @@ public sealed partial class EventLifecycleContractTests
         Assert.Equal("Event updated: Updated event", notification.Title);
         Assert.Equal(clearText ? null : "Original description", notification.Body);
         await fixture.AssertAuditAsync("EventUpdated");
+        var audit = Assert.Single(await fixture.Db.AuditLogs.IgnoreQueryFilters().AsNoTracking().ToListAsync());
+        (Guid? Actor, string Action, string? EntityType, Guid? EntityId, Guid TenantId) expectedAudit =
+            (fixture.Actor.Id, "EventUpdated", "ActivityEvent", eventId, original.TenantId);
+        Assert.Equal(expectedAudit, (audit.ActorUserId, audit.Action, audit.EntityType, audit.EntityId, audit.TenantId));
         Assert.Empty(await fixture.Db.EventAttendances.IgnoreQueryFilters().AsNoTracking().ToListAsync());
         Assert.Equal(1, fixture.UnitOfWork.Saves);
         Assert.False(fixture.Db.ChangeTracker.HasChanges());
