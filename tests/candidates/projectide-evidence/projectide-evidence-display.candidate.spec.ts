@@ -34,6 +34,20 @@ describe('Independent local Core evidence display qualification', () => {
   it('never shows green for unsupported source records or unresolved inspection inputs', () => {
     expect(assessLocalEvidence(altered((v) =>
       Object.assign(v.result, { rules: [] })))).toBe('partial-coverage');
+    // A globally passing result must still include the exact declared required rule.
+    const required = (fixture().manifest['manifest'] as {
+      settings: { rules: readonly { ruleId: string; required: boolean }[] };
+    }).settings.rules.find((rule) => rule.required);
+    if (!required) throw new Error('The Core PASS fixture has no required rule');
+    expect(assessLocalEvidence(altered((v) =>
+      Object.assign(v.result, {
+        rules: v.result.rules.filter((rule) => rule.ruleId !== required.ruleId),
+      })))).toBe('partial-coverage');
+    expect(assessLocalEvidence(altered((v) => {
+      const outcome = v.result.rules.find((rule) => rule.ruleId === required.ruleId);
+      if (!outcome) throw new Error('The required Core rule result is missing');
+      Object.assign(outcome, { version: outcome.version + 1 });
+    }))).toBe('partial-coverage');
     expect(assessLocalEvidence(altered((v) =>
       Object.assign((v.manifest['manifest'] as { settings: object }).settings,
         { sourceCoverage: 'coglatas.partial' })))).toBe('partial-coverage');
