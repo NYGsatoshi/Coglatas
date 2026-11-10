@@ -133,14 +133,20 @@ public sealed partial class ProjectServiceTests
         var assignment = fixture.AddLegacyAssignment(task, target, role, manager.Id);
         assignment.EstimatedHours = 2;
         assignment.ActualHours = 1;
+        var assigningManager = fixture.AddUser();
+        fixture.AddProjectMember(assigningManager.Id, ProjectRole.Manager);
+        assignment.AssignedByUserId = assigningManager.Id;
+        assignment.AssignedAt = fixture.Clock.UtcNow.AddDays(-7);
         SetAssignmentGuardCanonicalRelationship(fixture, task, target, manager, role);
         SeedAssignmentGuardSentinel(fixture, manager, target);
         var assignmentId = assignment.Id;
         var taskId = task.Id;
         var targetId = target.Id;
-        var managerId = manager.Id;
+        var managerId = assignment.AssignedByUserId;
         var displayName = target.DisplayName;
-        var assignedAt = fixture.Clock.UtcNow;
+        var assignedAt = assignment.AssignedAt;
+        Assert.NotEqual(manager.Id, managerId);
+        Assert.Equal(fixture.Clock.UtcNow.AddDays(-7), assignedAt);
         var before = CaptureAssignmentGuardState(fixture);
 
         var result = await fixture.Service.UpdateAssignmentAsync(assignmentId, new UpdateTaskAssignmentRequest(role, 2, 1));

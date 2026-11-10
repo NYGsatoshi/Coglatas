@@ -29,3 +29,12 @@ supported hosted execution, inspection, CI, original PR Gate, independent
 review and resulting-Main qualification are required separately. Coverage scope,
 producer reports, zero-hit ranges, thresholds and budgets remain unchanged.
 No projected or summed Overall Coverage gain or release approval is inferred.
+
+The complete first source review of `31a67125` identified a provenance-oracle
+gap: the original assigning actor and time coincided with the current caller
+and fixed clock. An additive follow-up seeds a different assigning manager
+and an assignment time seven days before that clock, captures both stored
+values before the call, and checks the distinction explicitly. All original
+cases and assertions remain; returning the current caller or time can no
+longer satisfy the unchanged-hours DTO expectations. Fresh hosted execution,
+inspection and independent review remain required after the follow-up.
