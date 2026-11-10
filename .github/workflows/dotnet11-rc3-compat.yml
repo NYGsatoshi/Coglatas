@@ -1,4 +1,4 @@
-name: Experimental .NET 11 RC3 compatibility
+name: Experimental .NET 11 GA compatibility
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dotnet11-rc3-${{ github.event.pull_request.number }}
+  group: dotnet11-ga-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install exact RC3 SDK
+      - name: Install exact .NET 11 GA SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json
@@ -50,34 +50,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(dotnet --version)" = "11.0.100-rc.3.26522.148"
+          test "$(dotnet --version)" = "11.0.100"
           python3 - <<'PY'
           import json
           from pathlib import Path
           import xml.etree.ElementTree as ET
 
           sdk = json.loads(Path("global.json").read_text())["sdk"]
-          assert sdk == {"version": "11.0.100-rc.3.26522.148", "rollForward": "disable", "allowPrerelease": True}, sdk
+          assert sdk == {"version": "11.0.100", "rollForward": "disable", "allowPrerelease": False}, sdk
           projects = sorted([*Path("src").rglob("*.csproj"), *Path("tests").rglob("*.csproj"), *Path("tools").rglob("*.csproj")])
           assert len(projects) >= 9, projects
           for project in projects:
               root = ET.parse(project).getroot()
               frameworks = [e.text for e in root.iter("TargetFramework")]
               assert frameworks == ["net11.0"], (str(project), frameworks)
-          print("RC3 SDK, exact prerelease policy and project targets verified:", len(projects))
+          print("GA SDK, exact stable policy and project targets verified:", len(projects))
           PY
           dotnet --info
 
-      - name: Restore RC3 dependency graph
+      - name: Restore .NET 11 GA dependency graph
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
-      - name: Inventory RC3 OpenAPI build-tool payload
+      - name: Inventory .NET 11 GA OpenAPI build-tool payload
         shell: bash
         run: |
           set -euo pipefail
-          package="$HOME/.nuget/packages/microsoft.extensions.apidescription.server/11.0.0-rc.3.26522.148"
+          package="$HOME/.nuget/packages/microsoft.extensions.apidescription.server/11.0.0"
           test -d "$package"
-          echo "RC3 ApiDescription tool and build files:"
+          echo "GA ApiDescription tool and build files:"
           find "$package" -maxdepth 4 -type f -printf '%P\n' | grep -E '\.(dll|targets|runtimeconfig\.json)$' | sort | head -75
 
       - name: Compile full backend and test graph
@@ -110,7 +110,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: dotnet11-rc3-compat-${{ github.run_attempt }}
+          name: dotnet11-ga-compat-${{ github.run_attempt }}
           path: artifacts/dotnet11
           if-no-files-found: warn
           retention-days: 14

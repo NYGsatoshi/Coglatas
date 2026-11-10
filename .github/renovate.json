@@ -109,7 +109,7 @@
       "matchPackageNames": [
         "dotnet-sdk"
       ],
-      "allowedVersions": "11.0.100-rc.3.26522.148"
+      "allowedVersions": "11.0.100"
     },
     {
       "description": "Regenerate npm lockfiles with full installation on every update",
