@@ -40,7 +40,9 @@ def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=Fals
     ET.SubElement(summary, N + 'Counters', values)
     xml = ET.tostring(root, encoding='utf-8', xml_declaration=True)
     if dtd:
-        xml = b'<!DOCTYPE foo [<!ENTITY x "evil">]>' + xml
+        # Place the DTD after the XML declaration so the DTD-specific guard,
+        # not the unrelated encoding guard, must reject the input.
+        xml = xml.replace(b'?>', b'?>\n<!DOCTYPE foo [<!ENTITY x "evil">]>\n', 1)
     return xml
 
 

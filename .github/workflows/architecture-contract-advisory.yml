@@ -21,7 +21,7 @@ permissions:
 jobs:
   architecture-contract-advisory:
     name: architecture-contract-advisory
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout tested PR merge
