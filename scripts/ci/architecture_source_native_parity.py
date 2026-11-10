@@ -89,12 +89,28 @@ def verify(root: Path, raw: bytes, sha: str, run_id: str, attempt: int) -> dict:
         'caseCount': roster['caseCount'],
         'sourceNameRosterSha256': roster['rosterSha256'],
         'nativeNameRosterSha256': name_digest,
+        'nativeReceiptCaseIdsSha256': native_receipt['caseIdsSha256'],
         'result': 'SOURCE_TRX_NAME_SET_MATCH',
         'sourceEvidence': 'BOUNDED_TEXT_NOT_COMPILED_CSHARP',
         'nativeEvidence': 'LOCAL_TRX_CONTENT_ONLY',
         'sourceShaAuthenticated': False, 'nativeSdkCaseIdsVerified': False,
         'artifactProvenanceVerified': False, 'requiredCheckQualified': False,
     }
+
+
+def write_report(report: dict, output: Path) -> None:
+    """Create a sanitized sidecar exclusively in the producing runner's temp dir."""
+    try:
+        tmp = Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
+        valid = (output.name == 'architecture-source-native-parity.json'
+                 and output.parent.resolve(strict=True) == tmp)
+        require(valid, 'OUTPUT_PATH')
+        fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                     | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(json.dumps(report, sort_keys=True, separators=(',', ':')) + '\n')
+    except (OSError, KeyError) as exc:
+        raise NameParityRefused('OUTPUT_PATH') from exc
 
 
 def main() -> int:
@@ -105,14 +121,20 @@ def main() -> int:
     parser.add_argument('--sha', required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--attempt', type=int, required=True)
+    parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     try:
         result = verify(args.root, read_trx(args.trx), args.sha, args.run_id, args.attempt)
+        if args.output is not None:
+            write_report(result, args.output)
     except (NameParityRefused, source.SourceRosterError,
             native.ArchitectureEvidenceError, OSError, ValueError, RecursionError):
         print('ARCHITECTURE_SOURCE_TRX_PARITY_REFUSED', file=sys.stderr)
         return 1
-    print(json.dumps(result, sort_keys=True, separators=(',', ':')))
+    if args.output is None:
+        print(json.dumps(result, sort_keys=True, separators=(',', ':')))
+    else:
+        print('ARCHITECTURE_SOURCE_TRX_PARITY_VERIFIED')
     return 0
 
 

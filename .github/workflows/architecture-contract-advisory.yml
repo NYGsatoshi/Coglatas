@@ -12,6 +12,8 @@ on:
       - "scripts/ci/test_architecture_source_roster.py"
       - "scripts/ci/architecture_source_native_parity.py"
       - "scripts/ci/test_architecture_source_native_parity.py"
+      - "scripts/ci/architecture_evidence_pair.py"
+      - "scripts/ci/test_architecture_evidence_pair.py"
       - "src/**"
       - "global.json"
 
@@ -75,12 +77,25 @@ jobs:
           python3 -B scripts/ci/architecture_source_native_parity.py \
             --root . --trx "$RUNNER_TEMP/architecture-trx/architecture-tests.trx" \
             --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$RUNNER_TEMP/architecture-source-native-parity.json"
+      - name: Bind sanitized native and source-name receipts in the same job
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/test_architecture_evidence_pair.py
+          python3 -B scripts/ci/architecture_evidence_pair.py \
+            --native "$RUNNER_TEMP/architecture-advisory-receipt.json" \
+            --parity "$RUNNER_TEMP/architecture-source-native-parity.json" \
+            --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
             --attempt "$GITHUB_RUN_ATTEMPT"
       - name: Preserve sanitized advisory receipt
         if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: architecture-advisory-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/architecture-advisory-receipt.json
+          path: |
+            ${{ runner.temp }}/architecture-advisory-receipt.json
+            ${{ runner.temp }}/architecture-source-native-parity.json
           if-no-files-found: error
           retention-days: 7
