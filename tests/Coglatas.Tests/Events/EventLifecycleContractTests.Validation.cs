@@ -116,7 +116,7 @@ public sealed partial class EventLifecycleContractTests
             startsAt, startsAt.AddHours(1), startsAt, 0, emptyText ? " \t " : "  Notebook  "));
 
         Assert.True(result.IsSuccess);
-        var value = result.Value!;
+        var value = Assert.IsType<EventDetailResponse>(result.Value);
         Assert.NotEqual(originalId, value.Id);
         Assert.Equal(fixture.Actor.Id, value.CreatedByUserId);
         Assert.Equal(fixture.Workspace.Id, value.WorkspaceId);
@@ -171,7 +171,7 @@ public sealed partial class EventLifecycleContractTests
             BringItemsText: clearText ? " \t " : null));
 
         Assert.True(result.IsSuccess);
-        var value = result.Value!;
+        var value = Assert.IsType<EventDetailResponse>(result.Value);
         Assert.Equal(eventId, value.Id);
         Assert.Equal(original.WorkspaceId, value.WorkspaceId);
         Assert.Equal(original.CreatedByUserId, value.CreatedByUserId);
