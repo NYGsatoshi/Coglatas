@@ -1,9 +1,12 @@
 # Task claim preservation controls
 
-The additive `TaskCommandServiceTests.Claim.cs` source declares 21 Application
+The additive `TaskCommandServiceTests.Claim.cs` source declares 23 Application
 cases: 13 refusal cases, six existing-Watch combinations and two new-Watch
 controls that also repeat the claim. The original test source changes only its
 outer class declaration to `partial`; its fixture and assertions remain intact.
+Two additional cases give the Task a creator distinct from the current actor,
+requiring the actor in both stored/returned assignee identity and notification,
+separate Creator/PrimaryAssignee Watches and both affected-user identities.
 
 Before each command, the controls capture every stored Task, Watch and
 collaborator key, original object reference and immutable scalar value. They

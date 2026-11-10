@@ -158,6 +158,78 @@ public sealed partial class TaskCommandServiceTests
         Assert.Equal((groupId, fixture.Actor), Assert.Single(groups.Reads));
     }
 
+    [Theory]
+    [InlineData(TaskStageCategory.Backlog)]
+    [InlineData(TaskStageCategory.Todo)]
+    public async Task ClaimAssignsTheCurrentActorWhenTheTaskCreatorIsAnotherUser(TaskStageCategory category)
+    {
+        var fixture = Fixture.Create();
+        var task = SeedClaimTask(fixture, category);
+        var creatorId = Guid.NewGuid();
+        task.CreatedByUserId = creatorId;
+        Assert.NotEqual(creatorId, fixture.Actor);
+        var taskId = task.Id;
+        var groupId = task.TargetGroupId!.Value;
+        var version = task.VersionNo;
+        var before = CaptureClaimGraph(fixture);
+        var groups = new ClaimGroups(groupId, fixture.Actor, true);
+
+        var result = await CreateClaimService(fixture, groups).ClaimAsync(taskId, new TaskClaimRequest(version));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(taskId, result.Value!.Task.Id);
+        Assert.Equal(version + 1, result.Value.Task.Version);
+        Assert.Equal(fixture.Actor, result.Value.Task.PrimaryAssignee!.UserId);
+        Assert.NotEqual(creatorId, result.Value.Task.PrimaryAssignee.UserId);
+        before.Tasks[taskId].Values[nameof(TaskItem.PrimaryAssigneeUserId)] = fixture.Actor;
+        before.Tasks[taskId].Values[nameof(TaskItem.VersionNo)] = version + 1;
+        var watches = fixture.Projects.Watches.Where(row => row.TaskItemId == taskId).ToArray();
+        Assert.Equal(new[] { creatorId, fixture.Actor }.Order(), watches.Select(row => row.UserId).Order());
+        foreach (var (userId, source) in new[]
+        {
+            (creatorId, WorkItemWatchAutomaticSource.Creator),
+            (fixture.Actor, WorkItemWatchAutomaticSource.PrimaryAssignee)
+        })
+        {
+            var watch = Assert.Single(watches, row => row.UserId == userId);
+            Assert.NotEqual(Guid.Empty, watch.Id);
+            Assert.Equal(Guid.Empty, watch.TenantId);
+            Assert.Equal(taskId, watch.TaskItemId);
+            Assert.Equal(source, watch.AutomaticSources);
+            Assert.False(watch.IsManualWatch);
+            Assert.False(watch.IsExplicitOptOut);
+            Assert.True(watch.IsWatching);
+            Assert.Equal(new FixedClock().UtcNow, watch.UpdatedAt);
+            Assert.Equal(1, watch.VersionNo);
+            before.Watches.Add(watch.Id, (watch, ClaimWatchScalars(watch)));
+        }
+        AssertClaimGraph(before, fixture);
+        var audit = Assert.Single(fixture.Audit.Entries);
+        Assert.Equal(fixture.Actor, audit.ActorUserId);
+        Assert.Equal(taskId, audit.EntityId);
+        Assert.Equal("TaskClaimed", audit.Action);
+        Assert.Equal(version, Assert.IsType<long>(audit.Metadata!["versionBefore"]));
+        var changed = Assert.Single(fixture.Invalidations.TaskChanges);
+        Assert.Equal(taskId, changed.TaskId);
+        Assert.Equal("claimed", changed.Change);
+        Assert.Equal(new[] { "primaryAssigneeUserId" }, changed.ChangedFields);
+        Assert.Equal(new[] { creatorId, fixture.Actor }, changed.AffectedUserIds);
+        var assigned = Assert.Single(fixture.Invalidations.TaskAssignmentChanges);
+        Assert.Equal(taskId, assigned.TaskId);
+        Assert.Equal("assigneeChanged", assigned.Change);
+        Assert.Equal(new[] { creatorId, fixture.Actor }, assigned.AffectedUserIds);
+        var notification = Assert.Single(fixture.Notifications.Requests);
+        Assert.Same(task, notification.Task);
+        Assert.Equal(TaskNotificationEventKind.PrimaryAssigneeChanged, notification.EventKind);
+        Assert.Equal(fixture.Actor, notification.ActorUserId);
+        Assert.Equal(fixture.Actor, notification.NewPrimaryAssigneeUserId);
+        Assert.Null(notification.PreviousPrimaryAssigneeUserId);
+        Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.UnitOfWork.ClearCount);
+        Assert.Equal((groupId, fixture.Actor), Assert.Single(groups.Reads));
+    }
+
     private static void AssertClaimEffects(Fixture fixture, TaskItem task, Guid taskId, long previousVersion,
         Coglatas.Application.Common.Result<TaskCommandResponse> result)
     {
