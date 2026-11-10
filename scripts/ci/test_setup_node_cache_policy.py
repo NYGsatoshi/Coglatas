@@ -149,8 +149,11 @@ def main() -> int:
             workflows, "          package-manager-cache: false",
             "          package-manager-cache: false\n          package-manager-cache: false",
         ),
+        # Target a job in EXPECTED, not the unrelated first setup-node
+        # occurrence in ci.yml (the actor-replacement helper).
         "lost Node version": one_replacement(
-            workflows, '          node-version: "26"', '          node-version: "23"'
+            workflows, '          node-version: "26"', '          node-version: "23"',
+            ".github/workflows/qodana-signed-shadow.yml",
         ),
         "lost fixed owner": one_replacement(
             workflows, "scripts/ci/npm-ci-retry.sh frontend",
