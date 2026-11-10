@@ -5,6 +5,8 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class SpecTraceabilityValidator
 {
+    private static readonly TimeSpan DeclarationMatchTimeout = TimeSpan.FromSeconds(1);
+
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9_.-]*\\z")]
     private static partial Regex VerifierIdPattern();
 
@@ -110,11 +112,19 @@ public static partial class SpecTraceabilityValidator
         var method = segments[^1];
         var type = segments[^2];
         var space = string.Join('.', segments[..^2]);
-        if (!Regex.IsMatch(method, "^[A-Za-z][A-Za-z0-9_]*\\z", RegexOptions.CultureInvariant)) return false;
-        return Regex.IsMatch(source, @"^\s*namespace\s+" + Regex.Escape(space) + @"\s*[;{]", RegexOptions.Multiline | RegexOptions.CultureInvariant) &&
-            Regex.IsMatch(source, @"^\s*public\s+(?:sealed\s+|static\s+|partial\s+)*class\s+" + Regex.Escape(type) + @"\b", RegexOptions.Multiline | RegexOptions.CultureInvariant) &&
-            Regex.Matches(source, @"^\s*public\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|void|ValueTask(?:<[^>]+>)?)\s+" +
-            Regex.Escape(method) + @"\s*\(", RegexOptions.Multiline | RegexOptions.CultureInvariant).Count == 1;
+        try
+        {
+            if (!Regex.IsMatch(method, "^[A-Za-z][A-Za-z0-9_]*\\z", RegexOptions.CultureInvariant, DeclarationMatchTimeout)) return false;
+            return Regex.IsMatch(source, @"^\s*namespace\s+" + Regex.Escape(space) + @"\s*[;{]", RegexOptions.Multiline | RegexOptions.CultureInvariant, DeclarationMatchTimeout) &&
+                Regex.IsMatch(source, @"^\s*public\s+(?:sealed\s+|static\s+|partial\s+)*class\s+" + Regex.Escape(type) + @"\b", RegexOptions.Multiline | RegexOptions.CultureInvariant, DeclarationMatchTimeout) &&
+                Regex.Matches(source, @"^\s*public\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|void|ValueTask(?:<[^>]+>)?)\s+" +
+                Regex.Escape(method) + @"\s*\(", RegexOptions.Multiline | RegexOptions.CultureInvariant, DeclarationMatchTimeout).Count == 1;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Unverified declaration linkage must retain the existing failure diagnostic.
+            return false;
+        }
     }
 
     private static int ValidateEvidence(SpecTraceabilityEvidenceDocument? evidence,
