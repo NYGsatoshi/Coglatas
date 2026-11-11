@@ -1,5 +1,19 @@
 # PR-I: existing Qodana controls and scanner responsibility audit
 
+### New source-level native-suite completeness control
+
+The Sonar producer's five Qodana test path registrations are now additionally
+checked against the original **16 + 12 + 11 + 20 + 16 = 75** direct
+`unittest.TestCase.test_*` methods. The bounded AST regression rejects a
+missing/renamed test, duplicate test-method name, custom `load_tests` loader,
+or loss of the actual `if __name__ == "__main__": unittest.main()`
+entrypoint that the original `coverage run "$control"` script invocation
+requires. Synthetic negative mutations remove one original test method name
+or the native entrypoint and must be rejected. No real Qodana scan, cloud send,
+test filter, scanner threshold or Sonar import is performed by this source-only
+check. These are historical control-count contracts, not proof that 75 tests
+executed on the latest SHA; native execution and Sonar import remain pending.
+
 ## Security branch reconciliation checkpoint (2026-11-11)
 
 This existing Draft PR is now being reconciled with `SecurityTestImplimation`

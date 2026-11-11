@@ -240,6 +240,72 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertTrue((ROOT / subject).is_file())
                 self.assertIn(ROOT.as_posix() + '/' + subject, measured)
 
+    def test_qodana_suite_inventory_and_actual_script_entrypoints_remain_complete(self):
+        """Reject a reduced test count or missing unittest.main despite intact file paths."""
+        expected = (
+            ('tests/ci/test_qodana_sarif_parity.py', 16),
+            ('tests/ci/test_qodana_artifact_provenance.py', 12),
+            ('tests/ci/test_qodana_cloud_send_preflight.py', 11),
+            ('tests/ci/test_qodana_shadow_signature.py', 20),
+            ('tests/ci/test_qodana_signed_subject.py', 16),
+        )
+
+        def verify_script(source, count):
+            """Inspect direct unittest owners and the real __main__ invocation."""
+            parsed = ast.parse(source)
+            classes = [item for item in parsed.body
+                       if isinstance(item, ast.ClassDef) and any(
+                           isinstance(parent, ast.Attribute) and
+                           isinstance(parent.value, ast.Name) and
+                           parent.value.id == 'unittest' and
+                           parent.attr == 'TestCase' for parent in item.bases)]
+            if len(classes) != 1:
+                raise ValueError('QODANA_TEST_OWNER')
+            test_names = [item.name for item in classes[0].body
+                          if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                          and item.name.startswith('test_')]
+            if len(test_names) != count or len(set(test_names)) != count:
+                raise ValueError('QODANA_TEST_COUNT')
+            if any(isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                   and item.name == 'load_tests' for item in parsed.body):
+                raise ValueError('QODANA_LOADER_OVERRIDE')
+            main_guards = [item for item in parsed.body if
+                           isinstance(item, ast.If) and
+                           isinstance(item.test, ast.Compare) and
+                           isinstance(item.test.left, ast.Name) and
+                           item.test.left.id == '__name__' and
+                           len(item.test.ops) == 1 and
+                           isinstance(item.test.ops[0], ast.Eq) and
+                           len(item.test.comparators) == 1 and
+                           isinstance(item.test.comparators[0], ast.Constant) and
+                           item.test.comparators[0].value == '__main__']
+            if len(main_guards) != 1 or len(main_guards[0].body) != 1:
+                raise ValueError('QODANA_TEST_ENTRYPOINT')
+            expr = main_guards[0].body[0]
+            if not (isinstance(expr, ast.Expr) and
+                    isinstance(expr.value, ast.Call) and
+                    isinstance(expr.value.func, ast.Attribute) and
+                    isinstance(expr.value.func.value, ast.Name) and
+                    expr.value.func.value.id == 'unittest' and
+                    expr.value.func.attr == 'main' and
+                    not expr.value.args and not expr.value.keywords):
+                raise ValueError('QODANA_TEST_ENTRYPOINT')
+            return len(test_names)
+
+        self.assertEqual(sum(count for _, count in expected), 75)
+        for path, count in expected:
+            with self.subTest(source=path):
+                source = (ROOT / path).read_text(encoding='utf-8')
+                self.assertEqual(verify_script(source, count), count)
+                # These are pure source mutations, not executions of upload clients.
+                self.assertIn('    def test_', source)
+                with self.assertRaisesRegex(ValueError, '^QODANA_TEST_COUNT$'):
+                    verify_script(source.replace('    def test_', '    def omitted_', 1),
+                                  count)
+                self.assertIn('unittest.main()', source)
+                with self.assertRaisesRegex(ValueError, '^QODANA_TEST_ENTRYPOINT$'):
+                    verify_script(source.replace('unittest.main()', 'pass', 1), count)
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
