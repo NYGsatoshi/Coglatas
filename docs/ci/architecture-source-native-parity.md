@@ -46,7 +46,12 @@ or retried attempts stay separately visible.
 The synthetic controls reject missing/extra native results, duplicate native
 test IDs, failed/skipped/aborted test outcomes, malformed or DTD-bearing XML,
 source-name substitutions preserving a count of thirteen, missing source
-files, invalid run identity, oversized TRX files and symlinked TRX inputs.
+files, invalid run identity, oversized TRX files, symlinked TRX leaves, and
+same-size path substitutions between file inspection and opening. The parser
+reuses the native verifier's same-descriptor bounded TRX input reader; no
+second, less strict admission path is maintained. Symlink creation failures
+in the focused test are test failures, **never** silent skip/pass credit.
+The focused control inventory remains ten authored Python test methods.
 A refusal prints only ARCHITECTURE_SOURCE_TRX_PARITY_REFUSED; raw names and
 XML contents are not printed.
 
