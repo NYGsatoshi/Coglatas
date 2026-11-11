@@ -9,10 +9,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
-import stat
 import sys
 import xml.etree.ElementTree as ET
 
@@ -31,24 +29,11 @@ def require(value: bool, code: str) -> None:
 
 
 def read_trx(path: Path) -> bytes:
-    """Read one small regular TRX, rejecting leaf symlinks and file changes."""
+    """Reuse the native verifier's descriptor-bound TRX admission and bounded read."""
     try:
-        info = path.lstat()
-        require(stat.S_ISREG(info.st_mode) and not path.is_symlink()
-                and 0 < info.st_size <= native.MAX_BYTES, 'TRX_INPUT_INVALID')
-        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
-        try:
-            opened = os.fstat(fd)
-            require(stat.S_ISREG(opened.st_mode) and opened.st_size == info.st_size,
-                    'TRX_INPUT_INVALID')
-            with os.fdopen(fd, 'rb', closefd=False) as stream:
-                raw = stream.read(native.MAX_BYTES + 1)
-        finally:
-            os.close(fd)
-    except (OSError, ValueError) as exc:
+        return native.read_trx_file(path)
+    except (native.ArchitectureEvidenceError, OSError, ValueError) as exc:
         raise NameParityRefused('TRX_INPUT_INVALID') from exc
-    require(len(raw) == info.st_size, 'TRX_INPUT_INVALID')
-    return raw
 
 
 def reconcile_names(roster: dict, names: list[str]) -> str:
