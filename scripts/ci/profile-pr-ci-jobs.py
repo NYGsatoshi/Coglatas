@@ -77,10 +77,31 @@ def refuse_constant(value):
     raise IncompleteProfile("NONFINITE_JSON")
 
 
+def open_json_leaf(path: Path) -> int:
+    """Open a path via no-follow directory FDs, rejecting parent traversal."""
+    require(hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY"),
+            "UNSUPPORTED_JSON_PLATFORM")
+    require(isinstance(path, Path) and bool(path.name)
+            and all(part not in ("..", "") for part in path.parts),
+            "INVALID_JSON_PATH")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    parent_fd = os.open("/" if path.is_absolute() else ".", directory_flags)
+    try:
+        parts = path.parts[1:-1] if path.is_absolute() else path.parts[:-1]
+        for part in parts:
+            require(part not in (".", ".."), "INVALID_JSON_PATH")
+            next_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = next_fd
+        leaf_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+        return os.open(path.name, leaf_flags, dir_fd=parent_fd)
+    finally:
+        os.close(parent_fd)
+
+
 def read_json(path: Path, maximum_bytes: int):
-    """Read a bounded single-link regular JSON input without following links."""
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    fd = os.open(path, flags)
+    """Read stable, bounded regular JSON via no-follow path FDs."""
+    fd = open_json_leaf(path)
     try:
         metadata = os.fstat(fd)
         require(stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1
@@ -94,7 +115,14 @@ def read_json(path: Path, maximum_bytes: int):
             size += len(part)
             require(size <= maximum_bytes, "JSON_TOO_LARGE")
             chunks.append(part)
-        require(size == os.fstat(fd).st_size, "JSON_CHANGED_DURING_READ")
+        final = os.fstat(fd)
+        require(final.st_dev == metadata.st_dev
+                and final.st_ino == metadata.st_ino
+                and final.st_size == size
+                and final.st_nlink == 1
+                and final.st_mtime_ns == metadata.st_mtime_ns
+                and final.st_ctime_ns == metadata.st_ctime_ns,
+                "JSON_CHANGED_DURING_READ")
         return json.loads(b"".join(chunks).decode("utf-8"),
                           object_pairs_hook=unique_pairs,
                           parse_constant=refuse_constant)

@@ -8,10 +8,12 @@ import copy
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -260,6 +262,57 @@ class NativeProfileTests(unittest.TestCase):
             link.symlink_to(path)
             with self.assertRaises((OSError, profile.IncompleteProfile)):
                 profile.read_json(link, 100)
+
+    def test_reader_refuses_symlinked_parent_traversal_and_hardlink(self):
+        """Reject input ancestors or aliases that redirect an evidence file."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trusted = root / "trusted"
+            trusted.mkdir()
+            source = trusted / "run.json"
+            source.write_text('{"stable":true}', encoding="utf-8")
+            self.assertEqual({"stable": True}, profile.read_json(source, 100))
+            alias = root / "linked-parent"
+            alias.symlink_to(trusted, target_is_directory=True)
+            with self.assertRaises((OSError, profile.IncompleteProfile)):
+                profile.read_json(alias / "run.json", 100)
+            with self.assertRaisesRegex(profile.IncompleteProfile,
+                                        "^INVALID_JSON_PATH$"):
+                profile.read_json(trusted / ".." / "trusted" / "run.json", 100)
+            hardlink = root / "hardlink.json"
+            os.link(source, hardlink)
+            with self.assertRaisesRegex(profile.IncompleteProfile,
+                                        "^INVALID_JSON_FILE$"):
+                profile.read_json(source, 100)
+            hardlink.unlink()
+            self.assertEqual({"stable": True}, profile.read_json(source, 100))
+
+    def test_reader_refuses_same_size_mutation_during_read(self):
+        """Detect content changes that retain the original byte length."""
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "run.json"
+            source.write_text('{"state":"first"}', encoding="utf-8")
+            replacement = '{"state":"other"}'
+            self.assertEqual(source.stat().st_size, len(replacement))
+            original_read = profile.os.read
+            mutated = False
+
+            def tamper_after_read(fd, size):
+                nonlocal mutated
+                data = original_read(fd, size)
+                if data and not mutated:
+                    mutated = True
+                    stat_before = source.stat()
+                    source.write_text(replacement, encoding="utf-8")
+                    os.utime(source, ns=(stat_before.st_atime_ns,
+                                         stat_before.st_mtime_ns + 1_000_000_000))
+                return data
+
+            with patch.object(profile.os, "read", side_effect=tamper_after_read):
+                with self.assertRaisesRegex(profile.IncompleteProfile,
+                                            "^JSON_CHANGED_DURING_READ$"):
+                    profile.read_json(source, 100)
+            self.assertTrue(mutated)
 
     def test_public_native_run_metadata_samples_replay_exact_duration_sums(self):
         """Preserve all three source-distinct public timing regression samples."""

@@ -20,6 +20,13 @@ The parser rejects malformed/symlinked/unbounded input, duplicate JSON fields,
 duplicate/foreign job identities, wrong SHA/attempt, partial pagination, failed
 jobs, skipped **owning test/scanner steps**, missing production/test owners,
 invalid timestamps, and a run that is not an exactly completed PR CI SUCCESS.
+Input files are opened using Linux no-follow directory file descriptors for
+**every parent component and the leaf**, rejecting symlinked ancestors and
+`..` traversal. Only single-link regular files are read; any dev/inode,
+size, link count, mtime or ctime drift detected during the bounded read is
+refused. The new negative controls include a symlinked parent, hardlink,
+path traversal, and a same-byte-size concurrent replacement. This is an
+offline parser integrity guard, not authenticated GitHub API provenance.
 Every measured owning or Security sub-step must have native start/end timestamps
 within its successful parent job's native start/end interval. A successful
 but out-of-job step is rejected rather than attributed to that job.
