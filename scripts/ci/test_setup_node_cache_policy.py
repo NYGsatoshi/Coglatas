@@ -61,6 +61,7 @@ INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
 
 
 def job_blocks(source: str) -> dict[str, str]:
+    """Split the fixed workflow jobs into bounded source blocks for policy inspection."""
     marker = re.search(r"(?m)^jobs:\s*$", source)
     if marker is None:
         return {}
@@ -73,6 +74,7 @@ def job_blocks(source: str) -> dict[str, str]:
 
 
 def violations(workflows: dict[str, str], installer: str) -> list[str]:
+    """Return all fixed-owner, Node 26 and isolated npm-cache policy violations."""
     issues = []
     # The isolation contract has to remain true before disabling setup-node's
     # own global cache. Do not assume scripts remain unchanged forever.
@@ -120,6 +122,7 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
 def one_replacement(
     workflows: dict[str, str], before: str, after: str, path: str = ".github/workflows/ci.yml"
 ) -> dict[str, str]:
+    """Mutate one controlled workflow anchor without modifying other source owners."""
     changed = workflows.copy()
     assert changed[path].count(before) >= 1, f"Mutation anchor missing: {before!r}"
     changed[path] = changed[path].replace(before, after, 1)
@@ -127,6 +130,7 @@ def one_replacement(
 
 
 def main() -> int:
+    """Verify real workflow policy and fail closed on all twelve mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
