@@ -164,6 +164,7 @@ class ArchitectureSourceNativeParityTests(unittest.TestCase):
         real_open = os.open
 
         def replace_before_open(target, flags, *args, **kwargs):
+            """Swap the checked TRX leaf before opening to test inode binding."""
             if Path(target) == path:
                 os.replace(replacement, path)
             return real_open(target, flags, *args, **kwargs)
