@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPT = Path(__file__).with_name('architecture_source_roster.py')
 SPEC = importlib.util.spec_from_file_location('architecture_source_roster', SCRIPT)
@@ -94,13 +96,30 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
         with self.assertRaises(module.SourceRosterError):
             module.discover(self.root, 'CORE')
 
+    def test_source_swap_between_check_and_open_is_denied(self) -> None:
+        """A replacement leaf must not masquerade as the previously checked inode."""
+        replacement = self.project / 'replacement.tmp'
+        replacement.write_text(fixture('LayerDependencyTests', 6), encoding='utf-8')
+        original_open = os.open
+
+        def replace_then_open(path, flags, *args, **kwargs):
+            """Swap the checked C# file before opening to test inode rejection."""
+            if Path(path) == self.core:
+                os.replace(replacement, self.core)
+            return original_open(path, flags, *args, **kwargs)
+
+        with mock.patch.object(module.os, 'open', side_effect=replace_then_open):
+            with self.assertRaises(module.SourceRosterError) as caught:
+                module.discover(self.root, 'CORE')
+        self.assertEqual(caught.exception.args[0], 'SOURCE_FILE')
+
     def test_symlinked_source_is_denied(self) -> None:
-        """Do not follow a source-file symlink outside the pinned project."""
+        """Reject symlinked leaves; unsupported CI platforms must fail, never skip."""
         self.core.unlink()
         try:
             self.core.symlink_to(self.projectide)
         except (OSError, NotImplementedError):
-            self.skipTest('OS does not support this synthetic symlink control')
+            self.fail('Symlink control unavailable: this environment cannot qualify the guard')
         with self.assertRaises(module.SourceRosterError):
             module.discover(self.root, 'CORE')
 
