@@ -296,4 +296,12 @@ test('source-only opt-in cannot silently change the protected frontend runner', 
   assert.doesNotMatch(runner, /playwright-full-source-list-reporter/);
   assert.doesNotMatch(compose, /playwright-full-source-list-reporter/);
   assert.match(wf, /ci-opt\/playwright-full-source-list-20261105/);
+  const sdkTrial = wf.split(
+    '      - name: Verify generated-title SDK applicability on isolated source trial\n')[1]
+    ?.split('      - name: List original static Playwright test IDs on isolated trial branch only\n')[0];
+  assert.ok(sdkTrial, 'trial-only SDK step must precede the source --list step');
+  assert.match(sdkTrial, /github\.base_ref == 'SecurityTestImplimation'/);
+  assert.match(sdkTrial, /github\.head_ref == 'ci-opt\/playwright-full-source-list-20261105'/);
+  assert.match(sdkTrial, /needs\.frontend-build\.outputs\.frontend_playwright == 'true'/);
+  assert.match(sdkTrial, /node --test tests\/ui\/playwright-source-applicability\.node-test\.mjs/);
 });

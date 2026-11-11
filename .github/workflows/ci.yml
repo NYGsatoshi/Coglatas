@@ -922,6 +922,29 @@ jobs:
         if: needs.frontend-build.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
+      - name: Verify generated-title SDK applicability on isolated source trial
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(mktemp)"
+          trap 'rm -f "$receipt"' EXIT
+          if ! node --test tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
+            echo "::error::SOURCE_APPLICABILITY_SDK_TEST_FAILED"
+            exit 1
+          fi
+          for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'; do
+            if ! grep -Fxq -- "$expected" "$receipt"; then
+              echo "::error::SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE"
+              exit 1
+            fi
+          done
+          echo "SOURCE_APPLICABILITY_SDK=7_PASS_0_SKIP"
+
       - name: List original static Playwright test IDs on isolated trial branch only
         if: >-
           github.event_name == 'pull_request' &&

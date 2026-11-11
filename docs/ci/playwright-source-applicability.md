@@ -105,7 +105,18 @@ governance, Nightly and release acceptance remain separate.
 ## Controls, retention and rollback
 
 Run `node --test tests/ui/playwright-source-applicability.node-test.mjs` with the
-existing frontend TypeScript and root SDK dependencies available. Run
+existing frontend TypeScript and root SDK dependencies available.
+To obtain native evidence without introducing a new runner or install lane,
+the existing `frontend-test` now runs these seven Node test methods **after**
+the original root/Angular `npm ci` steps, only for the existing
+`ci-opt/playwright-full-source-list-20261105` PR trial targeting
+`SecurityTestImplimation` when the frontend Playwright route is selected.
+It checks the exact `7 PASS / 0 FAIL / 0 SKIP` summary and emits only a finite
+diagnostic if the SDK fixture fails; child output remains private and is
+deleted after the check. The original protected browser/Vitest job follows
+unchanged. This step cannot run or qualify while its existing upstream
+frontend producer is blocked, and its result is not proof of browser execution,
+a source capture artifact or Required Check readiness. Run
 `python3 -B scripts/ci/test-playwright-applicability-reconcile.py` only with the
 pinned #1755 adapter and its companion `test-playwright-case-reconcile.py` fixture
 explicitly available together in the composed checkout or an isolated qualification
