@@ -1,9 +1,11 @@
 """Synthetic controls for C# Fact-source to native TRX test-name parity."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 import architecture_advisory as native
@@ -153,11 +155,29 @@ class ArchitectureSourceNativeParityTests(unittest.TestCase):
         path.write_bytes(b'x' * (native.MAX_BYTES + 1))
         with self.assertRaises(parity.NameParityRefused):
             parity.read_trx(path)
+
+        # Even a same-size replacement between lstat and open is not the
+        # previously admitted TRX inode.
+        path.write_bytes(self.raw)
+        replacement = self.root / 'replacement.trx'
+        replacement.write_bytes(self.raw)
+        real_open = os.open
+
+        def replace_before_open(target, flags, *args, **kwargs):
+            if Path(target) == path:
+                os.replace(replacement, path)
+            return real_open(target, flags, *args, **kwargs)
+
+        with mock.patch.object(native.os, 'open', side_effect=replace_before_open):
+            with self.assertRaises(parity.NameParityRefused) as refused:
+                parity.read_trx(path)
+        self.assertEqual(refused.exception.args[0], 'TRX_INPUT_INVALID')
+
         link = self.root / 'linked.trx'
         try:
             link.symlink_to(path)
         except (OSError, NotImplementedError):
-            self.skipTest('OS does not support this synthetic symlink control')
+            self.fail('Symlink control unavailable: cannot qualify the guard')
         with self.assertRaises(parity.NameParityRefused):
             parity.read_trx(link)
 
