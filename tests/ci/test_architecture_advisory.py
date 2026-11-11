@@ -19,6 +19,7 @@ N = module.NAMESPACE
 
 
 def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=False, extra=False, dtd=False):
+    """Build a bounded synthetic native TRX with configurable negative outcomes."""
     root = ET.Element(N + 'TestRun')
     results = ET.SubElement(root, N + 'Results')
     names = sorted(module.EXPECTED)
@@ -51,22 +52,26 @@ def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=Fals
 
 class ArchitectureAdvisoryTests(unittest.TestCase):
     def test_native_fixture_reconciles_exact_case_names(self):
+        """Validate all thirteen original Architecture names without gate promotion."""
         result = module.verify(trx(), SHA, '123', 1)
         self.assertEqual(result['caseCount'], 13)
         self.assertFalse(result['requiredCheckQualified'])
         self.assertEqual(result['artifactTrust'], 'EXTERNAL_VERIFICATION_REQUIRED')
 
     def test_rejects_case_missing_or_duplicate_or_extra(self):
+        """Reject missing, repeated and unauthorized native case identities."""
         for variant in ('missing', 'duplicate', 'extra'):
             with self.subTest(variant=variant), self.assertRaises(module.ArchitectureEvidenceError):
                 module.verify(trx(**{variant: True}), SHA, '123', 1)
 
     def test_rejects_failure_and_counter_drift(self):
+        """Prevent failed outcomes or false counters from qualifying a run."""
         for variant in ('failed', 'incorrect_counters'):
             with self.subTest(variant=variant), self.assertRaises(module.ArchitectureEvidenceError):
                 module.verify(trx(**{variant: True}), SHA, '123', 1)
 
     def test_rejects_missing_xml_dtd_and_invalid_source(self):
+        """Reject malformed encodings, DTD input and invalid source claims."""
         invalid = (
             (b'', 'TRX_SIZE'),
             (b'garbage', 'TRX_ENCODING'),
@@ -111,6 +116,7 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
             real_open = os.open
 
             def swap_before_open(target, flags, *args, **kwargs):
+                """Replace the checked pathname before the actual descriptor opens."""
                 if Path(target) == path:
                     os.replace(replacement, path)
                 return real_open(target, flags, *args, **kwargs)
@@ -135,10 +141,12 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
             self.assertEqual(failure.exception.args[0], 'TRX_FILE')
 
     def test_native_utf8_bom_is_accepted(self):
+        """Accept a single native UTF-8 BOM without weakening the encoding guard."""
         result = module.verify(b'\xef\xbb\xbf' + trx(), SHA, '123', 1)
         self.assertEqual(result['actualCasesPassed'], 13)
 
     def test_deterministic_identity_digest(self):
+        """Require reproducible bounded hashes for the same native case set."""
         left = module.verify(trx(), SHA, '123', 1)
         right = module.verify(trx(), SHA, '123', 1)
         self.assertEqual(left, right)
