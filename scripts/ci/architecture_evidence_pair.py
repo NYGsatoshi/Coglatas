@@ -76,6 +76,12 @@ def read_receipt(path: Path, directory: Path, filename: str) -> dict:
                     actual.st_dev == metadata.st_dev, 'RECEIPT_FILE')
             with os.fdopen(fd, 'rb', closefd=False) as stream:
                 raw = stream.read(MAX_REPORT_BYTES + 1)
+            post_read = os.fstat(fd)
+            require(os.path.samestat(actual, post_read)
+                    and actual.st_size == post_read.st_size
+                    and actual.st_mtime_ns == post_read.st_mtime_ns
+                    and actual.st_ctime_ns == post_read.st_ctime_ns,
+                    'RECEIPT_FILE')
         finally:
             os.close(fd)
     except OSError as exc:
