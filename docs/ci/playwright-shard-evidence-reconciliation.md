@@ -18,8 +18,13 @@ A complete two-shard union that executes **zero passing tests** is refused with
 agree that all cases were skipped. This prevents a metadata-only `PASS` when no
 browser cases actually ran. The rejection is tested by generating an all-SKIP
 roster and recomputing both matching shard digests, so a digest mismatch cannot
-hide the zero-pass omission. Nonzero PASS count alone still does not attest
-actual browser execution or upstream roster/Artifact provenance.
+hide the zero-pass omission. In addition, each individual shard must contain
+at least one `passed` case, or the verifier refuses `SHARD_NO_PASSED_TESTS`.
+The negative control modifies either shard to all-SKIP while keeping positive
+results in the other shard and recomputing both matching source-roster digests.
+The original all-SKIP-union refusal takes precedence when neither shard passes.
+Nonzero PASS count alone still does not attest actual browser execution or
+upstream roster/Artifact provenance.
 
 The manifest verifier intentionally reports `EXTERNAL_VERIFICATION_REQUIRED`
 because JSON metadata does not prove that a GitHub artifact ID exists or belongs

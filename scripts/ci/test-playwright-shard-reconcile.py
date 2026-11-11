@@ -110,6 +110,26 @@ class ShardEvidenceTests(unittest.TestCase):
                                     "^NO_PASSED_TESTS$"):
             verify(roster, shards)
 
+    def test_one_entirely_skipped_shard_cannot_pass_union(self):
+        """Refuse a shard that executed no passing tests despite a green union."""
+        for skipped_index in (0, 1):
+            with self.subTest(skipped_shard=skipped_index + 1):
+                roster, shards = fixtures()
+                skipped_ids = {record["id"] for record in shards[skipped_index]["tests"]}
+                for record in roster["tests"]:
+                    if record["id"] in skipped_ids:
+                        record["status"] = "skipped"
+                for shard in shards:
+                    for record in shard["tests"]:
+                        if record["id"] in skipped_ids:
+                            record["status"] = "skipped"
+                    shard["rosterSha256"] = reconcile.roster_digest(roster)
+                self.assertTrue(any(record["status"] == "passed"
+                                    for record in shards[1 - skipped_index]["tests"]))
+                with self.assertRaisesRegex(reconcile.InvalidEvidence,
+                                            "^SHARD_NO_PASSED_TESTS$"):
+                    verify(roster, shards)
+
     def test_missing_duplicate_and_unknown_cases_fail(self):
         """Reject any incomplete, repeated or foreign shard case identity."""
         for kind in ("missing", "duplicate", "unknown"):

@@ -199,6 +199,9 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
     require(combined == expected, "SHARD_MISSING_TEST_OR_STATUS")
     require(any(status == "passed" for status in combined.values()),
             "NO_PASSED_TESTS")
+    for receipt in shards:
+        require(any(case["status"] == "passed" for case in receipt["tests"]),
+                "SHARD_NO_PASSED_TESTS")
     return {
         "schema": OUTPUT_SCHEMA,
         "suite": SUITE,
