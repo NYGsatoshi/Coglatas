@@ -46,11 +46,11 @@
     "@ts-morph/common": {
       "minimatch": "11.0.4"
     },
-    "undici": "8.12.4",
+    "undici": "8.12.3",
     "fast-uri": "4.2.3",
     "nanoid": "6.0.2",
     "qs": "6.17.1",
-    "@babel/core": "8.1.0",
+    "@babel/core": "8.0.10",
     "http-proxy-middleware": "4.2.1",
     "esbuild": "0.28.2",
     "ajv": "8.20.0",
