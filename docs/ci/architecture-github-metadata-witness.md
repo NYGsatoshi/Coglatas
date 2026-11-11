@@ -48,10 +48,16 @@ from its reviewed head to its actual checked-out merge revision. The
 local git rev-parse HEAD == GITHUB_SHA execution check helps but cannot
 be promoted to an independent GitHub API producer attestation.
 
-The snapshot is a bounded regular JSON file. Symlinked endpoints and
-ancestors, invalid UTF-8, duplicate JSON properties, non-finite JSON
-and unsupported top-level keys fail closed. Only the fixed error
-ARCHITECTURE_GITHUB_METADATA_REFUSED is printed on refusal.
+The snapshot is a bounded regular JSON file. The reader checks the file
+identity before opening, reads bounded bytes from that single descriptor,
+and rechecks the descriptor identity, size, mtime and ctime after the read.
+It rejects same-sized pathname replacement, detectable in-place mutations,
+symlinked endpoints and ancestors, invalid UTF-8, duplicate JSON properties,
+non-finite JSON and unsupported top-level keys. The existing eleven-method
+synthetic suite includes swap and post-read mutation controls; a platform
+unable to run the symlink check must **fail**, not silently report a skip.
+Metadata checks are not cryptographic file-content authentication. Only
+the fixed error ARCHITECTURE_GITHUB_METADATA_REFUSED is printed on refusal.
 
 A successful result is SUPPLIED_GITHUB_METADATA_CONTENT_MATCH only.
 All wider authority flags remain false:
