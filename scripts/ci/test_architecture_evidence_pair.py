@@ -176,11 +176,28 @@ class ArchitectureEvidencePairTests(unittest.TestCase):
         path.write_text(json.dumps(native_receipt()), encoding='utf-8')
         with self.assertRaises(pair.EvidencePairRefused):
             pair.read_receipt(path, self.root, pair.PARITY_FILE)
+
+        # An equally sized replacement between lstat and open must not
+        # borrow the identity of the file admitted by the first check.
+        replacement = self.root / 'replacement.json'
+        replacement.write_bytes(path.read_bytes())
+        actual_open = os.open
+
+        def swap_before_open(target, flags, *args, **kwargs):
+            if Path(target) == path:
+                os.replace(replacement, path)
+            return actual_open(target, flags, *args, **kwargs)
+
+        with patch.object(pair.os, 'open', side_effect=swap_before_open):
+            with self.assertRaises(pair.EvidencePairRefused) as failure:
+                pair.read_receipt(path, self.root, pair.NATIVE_FILE)
+        self.assertEqual(failure.exception.args[0], 'RECEIPT_FILE')
+
         link = self.root / pair.PARITY_FILE
         try:
             link.symlink_to(path)
         except (OSError, NotImplementedError):
-            self.skipTest('OS does not support symlinks for this control')
+            self.fail('Symlink control unavailable: cannot qualify the guard')
         with self.assertRaises(pair.EvidencePairRefused):
             pair.read_receipt(link, self.root, pair.PARITY_FILE)
 
