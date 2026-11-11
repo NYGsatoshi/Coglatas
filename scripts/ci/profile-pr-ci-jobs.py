@@ -48,19 +48,23 @@ class PrivateArgumentParser(argparse.ArgumentParser):
     """Refuse invalid options without echoing caller-supplied values."""
 
     def error(self, _message):
+        """Return a fixed refusal code instead of echoing private CLI arguments."""
         raise IncompleteProfile("INVALID_ARGUMENTS")
 
 
 def require(condition: bool, reason: str) -> None:
+    """Reject an unsatisfied profile invariant using a finite reason code."""
     if not condition:
         raise IncompleteProfile(reason)
 
 
 def is_positive_int(value: object) -> bool:
+    """Accept only positive native JSON integers, excluding bool and float."""
     return type(value) is int and 0 < value < 10**18
 
 
 def unique_pairs(pairs):
+    """Reject duplicate JSON keys before building an input object."""
     result = {}
     for key, value in pairs:
         require(key not in result, "DUPLICATE_JSON_FIELD")
@@ -69,10 +73,12 @@ def unique_pairs(pairs):
 
 
 def refuse_constant(value):
+    """Prevent nonfinite JSON values from entering native run metadata."""
     raise IncompleteProfile("NONFINITE_JSON")
 
 
 def read_json(path: Path, maximum_bytes: int):
+    """Read a bounded single-link regular JSON input without following links."""
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     fd = os.open(path, flags)
     try:
@@ -97,6 +103,7 @@ def read_json(path: Path, maximum_bytes: int):
 
 
 def parse_utc(value):
+    """Parse a strict UTC Z-suffixed native timestamp."""
     require(type(value) is str and value.endswith("Z"), "INVALID_UTC_TIMESTAMP")
     try:
         timestamp = datetime.fromisoformat(value[:-1] + "+00:00")
@@ -106,6 +113,7 @@ def parse_utc(value):
 
 
 def seconds(start, end):
+    """Validate and measure a nonnegative bounded integer-second interval."""
     value = (parse_utc(end) - parse_utc(start)).total_seconds()
     require(0 <= value <= MAX_JOB_DURATION_SECONDS and value.is_integer(),
             "INVALID_JOB_DURATION")
@@ -113,6 +121,7 @@ def seconds(start, end):
 
 
 def owned_step_seconds(job, target):
+    """Require one successful step contained in the owning job interval."""
     steps = job.get("steps")
     require(type(steps) is list, "MISSING_NATIVE_STEP_INVENTORY")
     matches = [step for step in steps
@@ -168,14 +177,13 @@ def profile(run, inventory, *, expected_sha):
                 and job.get("conclusion") in ("success", "skipped"),
                 "INCOMPLETE_OR_FAILED_JOB")
         if job["conclusion"] == "skipped":
+            require(name not in JOBS, "NATIVE_JOB_NOT_SUCCESS")
             continue
         duration = seconds(job.get("started_at"), job.get("completed_at"))
         elapsed.append(duration)
         if name in JOBS:
             selected[name] = (job, duration)
     require(set(selected) == set(JOBS), "MISSING_REQUIRED_NATIVE_JOB")
-    for job, _ in selected.values():
-        require(job.get("conclusion") == "success", "NATIVE_JOB_NOT_SUCCESS")
     detailed = {}
     for job_name, stage in OWNING_STEPS.items():
         detailed[stage] = owned_step_seconds(selected[job_name][0], stage)
@@ -213,6 +221,7 @@ def profile(run, inventory, *, expected_sha):
 
 
 def main(argv=None):
+    """Run a read-only profile with finite diagnostics and sanitized output."""
     parser = PrivateArgumentParser(prog="profile-pr-ci-jobs", description=__doc__,
                                    add_help=False, allow_abbrev=False)
     parser.add_argument("--run-json", type=Path, required=True)

@@ -34,10 +34,12 @@ DURATIONS = {
 
 
 def stamp(i):
+    """Produce deterministic UTC fixture timestamps."""
     return (EPOCH + timedelta(seconds=i)).isoformat().replace("+00:00", "Z")
 
 
 def fixture():
+    """Build complete synthetic native run and owning-job records."""
     run = {
         "id": 1234, "run_attempt": 1, "name": "PR CI",
         "path": ".github/workflows/ci.yml",
@@ -72,10 +74,13 @@ def fixture():
 
 
 class NativeProfileTests(unittest.TestCase):
+    """Verify positive timing and fail-closed identity/admission behavior."""
     def verify(self, run, jobs, sha=SHA):
+        """Invoke the real profiler using a caller-pinned expected source SHA."""
         return profile.profile(run, jobs, expected_sha=sha)
 
     def test_full_native_success_only_produces_sanitized_timing(self):
+        """Keep successful sample metrics explicitly non-attestational."""
         run, jobs = fixture()
         report = self.verify(run, jobs)
         self.assertEqual(213, report["totalRunnerSeconds"])
@@ -88,8 +93,11 @@ class NativeProfileTests(unittest.TestCase):
         self.assertNotIn("runner_name", json.dumps(report))
 
     def test_unknown_or_cross_source_revision_refused(self):
+        """Reject inconsistent run, commit and individual job identities."""
         for which, key, value in (
             ("run", "head_sha", "b" * 40),
+            ("run", "head_commit", {"id": "b" * 40}),
+            ("run", "head_commit", {"sha": "b" * 40}),
             ("run", "path", ".github/workflows/main-validation.yml"),
             ("run", "conclusion", "failure"),
             ("run", "event", "push"),
@@ -106,6 +114,7 @@ class NativeProfileTests(unittest.TestCase):
                     self.verify(run, inventory)
 
     def test_missing_pagination_duplicate_and_skipped_owner_fail(self):
+        """Refuse incomplete job inventories and non-successful required jobs."""
         for mode in ("missing", "truncated", "duplicate-id", "duplicate-name",
                      "skipped-required", "failed-job"):
             with self.subTest(mode=mode):
@@ -127,7 +136,38 @@ class NativeProfileTests(unittest.TestCase):
                 with self.assertRaises(profile.IncompleteProfile):
                     self.verify(run, inventory)
 
+    def test_skipped_required_job_has_specific_fail_closed_reason(self):
+        """Give a skipped owning job a distinct finite rejection code."""
+        for owner in profile.JOBS:
+            with self.subTest(owner=owner):
+                run, inventory = fixture()
+                row = next(j for j in inventory["jobs"] if j["name"] == owner)
+                row["conclusion"] = "skipped"
+                with self.assertRaisesRegex(profile.IncompleteProfile,
+                                            "^NATIVE_JOB_NOT_SUCCESS$"):
+                    self.verify(run, inventory)
+
+    def test_cli_refuses_mismatched_head_commit_with_finite_diagnostic(self):
+        """Reject a foreign run commit in the actual CLI without leaking data."""
+        run, jobs = fixture()
+        run["head_commit"] = {"id": "b" * 40}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_path, jobs_path = root / "run.json", root / "jobs.json"
+            run_path.write_text(json.dumps(run), encoding="utf-8")
+            jobs_path.write_text(json.dumps(jobs), encoding="utf-8")
+            command = [sys.executable, "-B", str(script),
+                       "--run-json", str(run_path),
+                       "--jobs-json", str(jobs_path), "--sha", SHA]
+            child = subprocess.run(command, cwd=directory,
+                                   capture_output=True, text=True, timeout=10)
+            self.assertEqual(1, child.returncode)
+            self.assertEqual("", child.stdout)
+            self.assertEqual("Unqualified PR CI profile: RUN_COMMIT_MISMATCH\n",
+                             child.stderr)
+
     def test_required_native_execution_cannot_be_inferred_from_green_job(self):
+        """Demand original owner steps even when a parent job claims success."""
         for owner, target in profile.OWNING_STEPS.items():
             with self.subTest(owner=owner):
                 run, inventory = fixture()
@@ -137,6 +177,7 @@ class NativeProfileTests(unittest.TestCase):
                     self.verify(run, inventory)
 
     def test_duplicate_or_unsuccessful_security_step_rejected(self):
+        """Reject missing, duplicated or unsuccessful native Security steps."""
         for mode in ("duplicate", "skipped", "missing-times"):
             with self.subTest(mode=mode):
                 run, inventory = fixture()
@@ -152,6 +193,7 @@ class NativeProfileTests(unittest.TestCase):
                     self.verify(run, inventory)
 
     def test_native_step_timing_must_fit_owning_job(self):
+        """Reject measured steps outside their parent job timestamp window."""
         owners = list(profile.OWNING_STEPS.items())
         owners.extend(("security-scan", name) for name in profile.SECURITY_STEPS
                       if name != profile.OWNING_STEPS["security-scan"])
@@ -174,6 +216,7 @@ class NativeProfileTests(unittest.TestCase):
                         self.verify(run, inventory)
 
     def test_invalid_timestamps_and_excessive_duration_rejected(self):
+        """Require strict UTC and bounded chronological time intervals."""
         for start, end in (
             ("2026-11-04T00:00:00", stamp(1)),
             (stamp(2), stamp(1)),
@@ -188,6 +231,7 @@ class NativeProfileTests(unittest.TestCase):
                     self.verify(run, inventory)
 
     def test_boolean_and_float_identifiers_not_promoted(self):
+        """Reject noninteger JSON values masquerading as native IDs."""
         for key in ("id", "run_id", "run_attempt"):
             for value in (True, 1.0, "1"):
                 with self.subTest(key=key, value=value):
@@ -197,12 +241,14 @@ class NativeProfileTests(unittest.TestCase):
                         self.verify(run, inventory)
 
     def test_duplicate_json_fields_and_nonfinite_values_fail(self):
+        """Reject duplicate keys and nonstandard JSON constants."""
         with self.assertRaisesRegex(profile.IncompleteProfile, "DUPLICATE_JSON_FIELD"):
             json.loads('{"id":1,"id":2}', object_pairs_hook=profile.unique_pairs)
         with self.assertRaisesRegex(profile.IncompleteProfile, "NONFINITE_JSON"):
             json.loads('{"id":NaN}', parse_constant=profile.refuse_constant)
 
     def test_reader_rejects_symlinks_and_large_untrusted_json(self):
+        """Reject symbolic-link paths and oversized local input files."""
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
             path = folder / "run.json"
@@ -216,6 +262,7 @@ class NativeProfileTests(unittest.TestCase):
                 profile.read_json(link, 100)
 
     def test_public_native_run_metadata_samples_replay_exact_duration_sums(self):
+        """Preserve all three source-distinct public timing regression samples."""
         # Selected original REST job metadata; no test logs, runner names or secrets.
         fixture = ROOT / "tests/ci/pr-ci-profile-public-fixtures.json"
         history = json.loads(fixture.read_text(encoding="utf-8"))
@@ -244,6 +291,7 @@ class NativeProfileTests(unittest.TestCase):
                                 sha=sample["run"]["head_sha"])
 
     def test_cli_reports_only_closed_metrics(self):
+        """Emit sanitized timing fields without disclosing native private names."""
         run, jobs = fixture()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -260,6 +308,7 @@ class NativeProfileTests(unittest.TestCase):
             self.assertNotIn("runner_name", message)
 
     def test_actual_cli_rejects_private_arguments_with_finite_diagnostics(self):
+        """Keep rejected CLI values out of stdout and stderr."""
         canary = "SYNTHETIC_PRIVATE_PROFILE_ARGUMENT"
         args = ["--run-json", "run.json", "--jobs-json", "jobs.json", "--sha", SHA]
         variants = [args + ["--unknown", canary], ["--run-json", canary],
