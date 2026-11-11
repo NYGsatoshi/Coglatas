@@ -178,9 +178,13 @@ def profile(run, inventory, *, expected_sha):
             and run.get("conclusion") == "success", "RUN_NOT_COMPARABLE")
     require(run.get("head_sha") == expected_sha, "RUN_SOURCE_MISMATCH")
     if run.get("head_commit") is not None:
-        require(type(run["head_commit"]) is dict
-                and run["head_commit"].get("id", run["head_commit"].get("sha"))
-                    == expected_sha, "RUN_COMMIT_MISMATCH")
+        head_commit = run["head_commit"]
+        require(type(head_commit) is dict
+                and ("id" in head_commit or "sha" in head_commit)
+                and all(type(head_commit[key]) is str
+                        and head_commit[key] == expected_sha
+                        for key in ("id", "sha") if key in head_commit),
+                "RUN_COMMIT_MISMATCH")
     rows = inventory.get("jobs")
     require(type(rows) is list and 0 < len(rows) <= MAX_JOB_COUNT
             and type(inventory.get("total_count")) is int

@@ -4,6 +4,11 @@ This diagnostic reads the **unaltered GitHub REST workflow-run and first-page jo
 completed successful \`.github/workflows/ci.yml\` pull request. It never calls GitHub,
 changes a required check, executes a scanner, uploads an artifact, or creates a runner.
 It accepts only the **same exact source SHA, run ID and run attempt** on every job.
+If the GitHub run's optional `head_commit` object supplies both `id` and
+`sha`, **both** must individually match the caller-pinned source SHA. Neither
+field can silently override a contradictory other field. The real CLI and
+synthetic negative controls cover that mismatch; timing is still observation
+only, not GitHub metadata authentication.
 
 To collect the input from an approved source-matched PR CI run:
 

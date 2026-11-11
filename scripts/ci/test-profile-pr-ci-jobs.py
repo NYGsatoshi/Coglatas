@@ -100,6 +100,11 @@ class NativeProfileTests(unittest.TestCase):
             ("run", "head_sha", "b" * 40),
             ("run", "head_commit", {"id": "b" * 40}),
             ("run", "head_commit", {"sha": "b" * 40}),
+            ("run", "head_commit", {"id": SHA, "sha": "b" * 40}),
+            ("run", "head_commit", {"id": "b" * 40, "sha": SHA}),
+            ("run", "head_commit", {"id": SHA, "sha": None}),
+            ("run", "head_commit", {"id": None, "sha": SHA}),
+            ("run", "head_commit", {"id": SHA, "sha": True}),
             ("run", "path", ".github/workflows/main-validation.yml"),
             ("run", "conclusion", "failure"),
             ("run", "event", "push"),
@@ -114,6 +119,14 @@ class NativeProfileTests(unittest.TestCase):
                 target[key] = value
                 with self.assertRaises(profile.IncompleteProfile):
                     self.verify(run, inventory)
+
+    def test_consistent_dual_head_commit_fields_remain_valid(self):
+        """Accept native metadata when both optional commit identifiers match."""
+        run, inventory = fixture()
+        run["head_commit"] = {"id": SHA, "sha": SHA}
+        report = self.verify(run, inventory)
+        self.assertEqual(SHA, report["sourceSha"])
+        self.assertEqual("JOB_TIMING_ONLY", report["status"])
 
     def test_missing_pagination_duplicate_and_skipped_owner_fail(self):
         """Refuse incomplete job inventories and non-successful required jobs."""
@@ -152,7 +165,7 @@ class NativeProfileTests(unittest.TestCase):
     def test_cli_refuses_mismatched_head_commit_with_finite_diagnostic(self):
         """Reject a foreign run commit in the actual CLI without leaking data."""
         run, jobs = fixture()
-        run["head_commit"] = {"id": "b" * 40}
+        run["head_commit"] = {"id": SHA, "sha": "b" * 40}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             run_path, jobs_path = root / "run.json", root / "jobs.json"
