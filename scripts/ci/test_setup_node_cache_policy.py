@@ -76,6 +76,32 @@ def job_blocks(source: str) -> dict[str, str]:
     }
 
 
+def run_command_lines(job: str) -> list[str]:
+    """Return only actual run-step shell source, excluding YAML/shell comments."""
+    commands = []
+    multiline = False
+    for line in job.splitlines():
+        run = re.match(r"^        run:[ \t]*(.*)$", line)
+        if run is not None:
+            value = run.group(1).strip()
+            multiline = value in ("|", "|-", "|+", ">", ">-", ">+")
+            if not multiline:
+                command = value.split("#", 1)[0].strip()
+                if command:
+                    commands.append(command)
+            continue
+        if multiline:
+            if not line.strip():
+                continue
+            if line.startswith("          "):
+                command = line.strip().split("#", 1)[0].strip()
+                if command:
+                    commands.append(command)
+            else:
+                multiline = False
+    return commands
+
+
 def violations(workflows: dict[str, str], installer: str) -> list[str]:
     """Return all fixed-owner, Node 26 and isolated npm-cache policy violations."""
     issues = []
@@ -99,8 +125,8 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if job is None:
                 issues.append(f"{path}: missing job {job_id}")
                 continue
-            if owner not in job:
-                issues.append(f"{path}/{job_id}: expected fixed package owner missing")
+            if not any(owner in command for command in run_command_lines(job)):
+                issues.append(f"{path}/{job_id}: expected executable package owner missing")
             uses = list(SETUP_NODE.finditer(job))
             references = list(SETUP_NODE_REFERENCES.finditer(job))
             if (len(uses) != 1 or len(references) != 1
@@ -135,7 +161,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all fourteen mutation controls."""
+    """Verify real workflow policy and fail closed on all sixteen mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -167,6 +193,15 @@ def main() -> int:
         "lost fixed owner": one_replacement(
             workflows, "scripts/ci/npm-ci-retry.sh frontend",
             "scripts/ci/UNREVIEWED-INSTALL.sh frontend",
+        ),
+        "owner retained as inline comment": one_replacement(
+            workflows, "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: echo disabled # bash scripts/ci/npm-ci-retry.sh frontend",
+        ),
+        "owner retained as YAML comment": one_replacement(
+            workflows, "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        # run: bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "        run: echo disabled",
         ),
         "qodana guard cache regression": one_replacement(
             workflows, "          package-manager-cache: false", "          package-manager-cache: true",
@@ -207,7 +242,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 14 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 16 mutation controls rejected.")
     return 0
 
 
