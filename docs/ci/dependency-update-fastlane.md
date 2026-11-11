@@ -1,40 +1,24 @@
 # Dependency update proposals — Renovate
 
-## Current configuration
+## Current source-of-truth policy (Security qualification)
 
-At Security source `3865b09a2d3ea3cb82f450c6d19ec643ffbae01f`,
-`.github/renovate.json` is the current version-update configuration and
-`.github/dependabot.yml` is absent. Renovate is the sole configured update bot.
-Dependabot vulnerability alerts and GitHub dependency-graph services are separate
-from the removed version-update configuration.
+The active updater configuration is `.github/renovate.json`, not the
+historical Dependabot schedule reproduced below. At the reviewed Security
+baseline `47dffab4ba29b451c56881c698a932ffeb97bc57`, Renovate has `automerge=false`,
+`prConcurrentLimit=8`, `prHourlyLimit=4`, and dashboard approval for major
+upgrades. This is a configuration observation, not proof that a particular
+version, binary, container, transitive graph or external advisory was discovered.
 
-Renovate disables automerge, limits open proposals to eight and new proposals to
-four per hour, and requires dashboard approval for major upgrades. Compatible
-npm and NuGet proposals use their existing groups. Explicit package rules retain
-the approved SDK, Node, Python, Angular and Syncfusion boundaries. Protected
-Action revisions and the Playwright container are held for coordinated review;
-configuration presence does not prove automatic discovery of every image,
-installer binary or transitive dependency.
+Retain native manifest/lock, SDK/image, approved Actions pin/allowlist and
+full Required Check admission. Protected Actions and version boundaries must
+be updated through their separately reviewed owner policies; no security
+scanners, automation or approvals are added by this document. The historical
+Dependabot procedures below are **not** live instructions or a current
+daily scan/PR SLA. Consult the source-bound
+[PR-I scanner inventory](../verification/ci-assurance-pr-i-scanner-inventory-20261106.json)
+as a historical snapshot, not evidence of current execution completeness.
 
-The old daily Dependabot table below is historical. It does not describe a
-registered current polling schedule or a publication-to-PR SLA. Verify actual
-Renovate proposals and their source identity rather than reactivating a second
-bot. Keep manifest/lock, SDK/image, browser/package and reviewed Action-allowlist
-identities aligned. Require existing native checks and independent review;
-dependency-update proposals do not establish vulnerability remediation or
-release readiness. Main changes and integration remain separately authorized.
-
-The PR-I [scanner inventory](../verification/ci-assurance-pr-i-scanner-inventory-20261106.json)
-records responsibility and completeness limits separately for Renovate,
-Dependency Review, npm/NuGet advisory scans and source/image supply-chain tools.
-
-## Historical Dependabot operating record — superseded
-
-The original operating instructions, rationale, reviewed narrow Sonar exception
-and evidence links below are preserved for chronology. Their Dependabot-only
-claims, schedules and updater file references are not current instructions.
-This documentation reconciliation changes no bot configuration, analysis scope,
-Quality Gate, exception, threshold or dependency policy.
+## Historical Dependabot-only fast lane (superseded)
 
 ## Objective and risk boundary
 
@@ -180,6 +164,11 @@ use the same SDK patch with full reviewed SHA-256 digests. Dependabot's SDK,
 Docker and Compose proposals may be generated separately. The resulting
 candidate cannot merge until it passes the SDK-image parity guard; combine
 the related proposals with registry-verified image digests and rerun CI.
+The root Dockerfile SDK digest is the canonical identity for live SDK consumers.
+The parity guard checks that digest in Compose, development/security images and
+both synthetic logical-recovery pin carriers, including same-version drift.
+Update the recovery runner, receipt validator and positive test fixture together;
+historical receipts remain bound to their original source and image identities.
 
 `scripts/ci/test-dependency-update-policy.rb` is enforced in the existing
 required `publication-readiness` job. It rejects missing update entries, unsupported subdaily cron expressions,

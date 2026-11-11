@@ -64,13 +64,9 @@ The validator emits a machine-readable inventory when `--inventory-out` is suppl
 
 ## Dependency update flow
 
-`.github/renovate.json` is the current update configuration; the former
-`.github/dependabot.yml` is absent. Protected Actions named in its explicit
-package rule have automated updates disabled, so do not infer a weekly proposal
-or automatic pin update. Review proposed revisions with the same allowlist
-contract whether discovered manually or through an eligible Renovate proposal.
+`.github/renovate.json` is the current update configuration, while the former Dependabot version-update workflow is absent. Protected Actions listed by the Renovate package rule have automated update proposals disabled; do not assume a weekly proposal or automatic pin change. Updates remain explicit, independently reviewable source changes.
 
-When preparing a new Action revision:
+When evaluating a new Action revision:
 
 1. Inspect the upstream repository/release and confirm the proposed commit belongs to the intended release/tag.
 2. Confirm the Action repository remains appropriate for its recorded purpose and protected-use classification.

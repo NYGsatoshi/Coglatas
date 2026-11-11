@@ -1,5 +1,26 @@
 # PR-I: existing Qodana controls and scanner responsibility audit
 
+## Security branch reconciliation checkpoint (2026-11-11)
+
+This existing Draft PR is now being reconciled with `SecurityTestImplimation`
+baseline `47dffab4ba29b451c56881c698a932ffeb97bc57`. The source-level Qodana gap remains the five
+previously omitted suites and operational modules, but the present Sonar
+collector already contains additional source/test owners introduced since
+historical baseline `3865b09a2d3ea3cb82f450c6d19ec643ffbae01f`.
+All current entries are retained; the new producer and its strict
+exact-set regression extend those current inventories by exactly five.
+
+The native Linux 75-test, 643-line and 42-subject counts recorded below are
+**immutable historical observations** at the original source SHA, not a new
+measurement on this reconciled branch. Likewise the archived scanner inventory,
+configuration digests and artifacts remain bound to their explicitly recorded
+historical SHA and must not be relabeled or edited to imply current execution.
+Current-head PR CI, official Sonar import, independent review, full scanner
+and source-artifact provenance remain separately unqualified until verified.
+No token-backed Sonar routing, Main merge, scanner permissions or required
+check is modified by this work.
+
+
 Status: IMPLEMENTED / LOCALLY_VALIDATED for this bounded coverage slice.
 Branch-native qualification, trusted Sonar import, independent review and
 integration remain incomplete. SECURITY_BRANCH_INTEGRATION = HOLD.

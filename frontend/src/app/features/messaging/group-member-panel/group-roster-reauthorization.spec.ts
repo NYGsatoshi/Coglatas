@@ -25,6 +25,8 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     initialSettled.set(true);
     scroll = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, writable: true, value: scroll });
+    // jsdom does not implement the enclosing scrollport API used by Home/End.
+    Object.defineProperty(HTMLElement.prototype, 'scrollBy', { configurable: true, writable: true, value: vi.fn() });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 320, 420));
     params.next(convertToParamMap({ conversationId: 'group-a' }));
     await TestBed.configureTestingModule({
