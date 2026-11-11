@@ -826,6 +826,24 @@ describe('ThreadPreviewComponent', () => {
     expect(close).toHaveBeenCalledTimes(3);
   });
 
+  it.each(['thread-back', 'thread-close'])('does not override %s with pending panel autofocus', async (testId) => {
+    const pendingFixture = TestBed.createComponent(ThreadPreviewComponent);
+    pendingFixture.componentRef.setInput('thread', threadViewModel());
+    pendingFixture.componentRef.setInput('canPost', true);
+    pendingFixture.componentRef.setInput('canCreateThread', true);
+    pendingFixture.detectChanges();
+
+    // Focus a header action before the initial queued autofocus executes.
+    const control = (pendingFixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!;
+    control.focus();
+    expect(document.activeElement).toBe(control);
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(control);
+    pendingFixture.destroy();
+  });
+
   it.each(['thread-back', 'thread-close'])('does not steal focus from %s when loading completes', async (testId) => {
     const pendingFixture = TestBed.createComponent(ThreadPreviewComponent);
     pendingFixture.componentRef.setInput('thread', {
