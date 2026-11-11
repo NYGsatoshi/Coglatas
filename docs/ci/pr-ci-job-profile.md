@@ -34,7 +34,14 @@ path traversal, and a same-byte-size concurrent replacement. This is an
 offline parser integrity guard, not authenticated GitHub API provenance.
 Every measured owning or Security sub-step must have native start/end timestamps
 within its successful parent job's native start/end interval. A successful
-but out-of-job step is rejected rather than attributed to that job.
+but out-of-job step is rejected rather than attributed to that job. Input
+timestamps must use canonical ISO 8601 GitHub UTC syntax
+`YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS.ffffffZ` (one to six
+fractional digits). Alternate datetime forms accepted by Python's
+`datetime.fromisoformat`, such as space separators, ISO week dates, compact
+dates, omitted seconds or precision above microseconds, are refused. The
+existing interval calculation still requires nonnegative, integer-second
+job and step durations; the new negatives do not reclassify old failed CI.
 
 Its stdout JSON contains only fixed job categories and durations, source SHA,
 run ID, attempt and counts. Job/step names, logs, runner metadata and HTTP
