@@ -275,12 +275,21 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
 
   ngAfterViewChecked(): void {
     if (this.restoreHeaderFocus) {
-      const control = this.restoreHeaderFocus === 'back'
+      const requested = this.restoreHeaderFocus;
+      const control = requested === 'back'
         ? this.backControl?.nativeElement
         : this.closeControl?.nativeElement;
       this.restoreHeaderFocus = null;
       if (control?.isConnected && document.activeElement !== control) {
         control.focus();
+      }
+      // The Back action is hidden on wide screens. Browsers and jsdom 31
+      // cannot focus a display:none button, so use the visible Close action.
+      if (requested === 'back' && document.activeElement !== control) {
+        const close = this.closeControl?.nativeElement;
+        if (close?.isConnected && document.activeElement !== close) {
+          close.focus();
+        }
       }
     }
     const key = this.thread.status === 'closed'

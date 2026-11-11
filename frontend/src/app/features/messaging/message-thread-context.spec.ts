@@ -833,9 +833,13 @@ describe('ThreadPreviewComponent', () => {
     pendingFixture.componentRef.setInput('canCreateThread', true);
     pendingFixture.detectChanges();
 
-    // Focus a header action before the initial queued autofocus executes.
+    // Back is hidden on desktop; expose it to model the mobile header.
     const control = (pendingFixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!;
+    if (testId === 'thread-back') {
+      control.style.display = 'inline-flex';
+    }
+    // Focus the header before the initial queued autofocus executes.
     control.focus();
     expect(document.activeElement).toBe(control);
     await Promise.resolve();
@@ -859,7 +863,12 @@ describe('ThreadPreviewComponent', () => {
     await Promise.resolve();
     const control = (pendingFixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!;
+    if (testId === 'thread-back') {
+      // Verify the mobile Back action, which desktop CSS otherwise hides.
+      control.style.display = 'inline-flex';
+    }
     control.focus();
+    expect(document.activeElement).toBe(control);
 
     pendingFixture.componentRef.setInput('thread', threadViewModel());
     pendingFixture.detectChanges();
@@ -874,6 +883,8 @@ describe('ThreadPreviewComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
     const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
+    // Test mobile navigation explicitly: the desktop stylesheet hides Back.
+    back.style.display = 'inline-flex';
     const close = vi.spyOn(fixture.componentInstance.close, 'emit');
     textarea.focus();
     expect(document.activeElement).toBe(textarea);
@@ -889,6 +900,29 @@ describe('ThreadPreviewComponent', () => {
     expect(document.activeElement).toBe(back);
     back.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores focus to visible Close when desktop Back is hidden after parent deletion', async () => {
+    await Promise.resolve();
+    const root = fixture.nativeElement as HTMLElement;
+    const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
+    const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
+    const close = root.querySelector<HTMLButtonElement>('[data-testid="thread-close"]')!;
+    // Explicit desktop condition, independent of test runner viewport.
+    back.style.display = 'none';
+    textarea.focus();
+    expect(document.activeElement).toBe(textarea);
+
+    const current = threadViewModel();
+    fixture.componentRef.setInput('thread', {
+      ...current,
+      rootMessage: { ...current.rootMessage!, isDeleted: true, body: '', version: 3 }
+    });
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(textarea.disabled).toBe(true);
+    expect(document.activeElement).toBe(close);
   });
 
   it('renders durable reply tombstones and disables posting to a deleted parent', () => {
