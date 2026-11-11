@@ -27,8 +27,15 @@ regular, unencrypted JSON members of at most 8 KiB each:
 Unexpected/duplicate/path traversal/linked members, alternate
 compression, suspicious ratios, invalid ZIP central directory, malformed
 or duplicated JSON properties, non-finite values and wrong schemas fail
-closed. The local input is read through a bounded file descriptor;
-symlinked input and oversized archives are refused. No extraction occurs.
+closed. The local input is checked with `lstat`, then opened through
+one bounded file descriptor (with no-follow where supported); the opened
+regular-file identity and byte length must match the checked leaf. The
+descriptor's identity, size, mtime and ctime are checked **again after the
+bounded read** to reject same-size path swaps and detectable in-place
+mutations. These metadata checks are not a cryptographic anti-race guarantee:
+the independently supplied ZIP SHA-256 is still required. Symlinked input,
+oversized archives and unsupported symlink test environments fail closed
+rather than silently granting a skipped-positive result. No extraction occurs.
 
 Receipt identity claims are strict. An exact ZIP-byte match is not
 sufficient when its SHA, Run, Attempt, count, digest or status claims
@@ -101,8 +108,11 @@ The offline command requires a separately downloaded local ZIP:
       --run-id 42815795815 --attempt 1 \
       --expected-roster-sha256 31fbe9183aeb2fa6fca17a9af1fc5618e157922858acf446a1de623201d40d84
 
-The new Python module and its twelve synthetic positive/negative
-tests were run locally, 12/12 passed. The exact downloaded ZIP
+For the original candidate revision, the twelve synthetic positive/negative
+tests were run locally, 12/12 passed. The current source-owner revision adds
+descriptor post-read and file-swap negative assertions **inside the same
+twelve test method identities**; their current-head CI has not yet qualified
+this change. The previously observed exact downloaded ZIP
 also returned ARCHIVE_BYTES_AND_PAIR_CONTENT_MATCH with all five
 authority/gate flags false.
 
