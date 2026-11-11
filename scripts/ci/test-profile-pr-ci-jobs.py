@@ -245,6 +245,24 @@ class NativeProfileTests(unittest.TestCase):
                 with self.assertRaises(profile.IncompleteProfile):
                     self.verify(run, inventory)
 
+        # datetime.fromisoformat accepts alternate ISO forms which the
+        # GitHub REST timestamp contract does not emit or authorize.
+        for malformed in (
+            "2026-11-04 00:00:00Z",
+            "20261104T000000Z",
+            "2026-11-04T00:00Z",
+            "2026-W45-3T00:00:00Z",
+            "2026-11-04T00:00:00.1234567Z",
+        ):
+            with self.subTest(malformed=malformed):
+                with self.assertRaisesRegex(profile.IncompleteProfile,
+                                            "^INVALID_UTC_TIMESTAMP$"):
+                    profile.parse_utc(malformed)
+
+        # Preserve valid second-precision and fractional UTC timestamps.
+        self.assertEqual(profile.parse_utc("2026-11-04T00:00:00Z"),
+                         profile.parse_utc("2026-11-04T00:00:00.000Z"))
+
     def test_boolean_and_float_identifiers_not_promoted(self):
         """Reject noninteger JSON values masquerading as native IDs."""
         for key in ("id", "run_id", "run_attempt"):
