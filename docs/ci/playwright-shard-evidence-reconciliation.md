@@ -13,6 +13,14 @@ repeated, missing, skipped-drift, failed, interrupted or retried cases
 are rejected, not counted as a green required gate. Output contains only
 counts, hashes and identity metadata, never paths, names, HTTP data or secrets.
 
+A complete two-shard union that executes **zero passing tests** is refused with
+`NO_PASSED_TESTS`, even when every source-roster status and both shard digests
+agree that all cases were skipped. This prevents a metadata-only `PASS` when no
+browser cases actually ran. The rejection is tested by generating an all-SKIP
+roster and recomputing both matching shard digests, so a digest mismatch cannot
+hide the zero-pass omission. Nonzero PASS count alone still does not attest
+actual browser execution or upstream roster/Artifact provenance.
+
 The manifest verifier intentionally reports `EXTERNAL_VERIFICATION_REQUIRED`
 because JSON metadata does not prove that a GitHub artifact ID exists or belongs
 to a successful same-run producer. A future CI gate must independently query
@@ -59,3 +67,13 @@ full frontend run stays authoritative; PR #1717 source-only discovery remains
 a separate dependency. Rollback through a Security-targeted PR by reverting
 this parser/test/documentation repair; retain its original failed regression.
 
+## Exact Security integration qualification (2026-11-11)
+
+This existing source-owner PR was reconciled to current `SecurityTestImplimation`
+without importing Main or changing the original full frontend suite, runner,
+scanners or six Required Checks. The four-path delta consists of this verifier,
+its synthetic negative controls, this document and one additive CI Preflight
+step. New source tests require at least one `passed` result and reject all-SKIP
+metadata; they do **not** activate browser sharding. Native CI, independent
+current-head review and external artifact/source producer authentication must
+qualify separately. Prior passing runs belong to earlier immutable SHAs.

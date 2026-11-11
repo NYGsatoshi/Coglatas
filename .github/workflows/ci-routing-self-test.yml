@@ -6,12 +6,34 @@ on:
       - ".github/workflows/ci-routing-self-test.yml"
       - "scripts/ci/route-main-ci-changes.sh"
       - "scripts/ci/test-route-main-ci-changes.sh"
+      - "scripts/ci/check-nuget-lock-policy.py"
+      - "scripts/ci/test-nuget-lock-policy.py"
+      - "scripts/ci/install-grype.sh"
+      - "scripts/ci/test-install-grype.py"
+      - "**/packages.lock.json"
+      - "src/**/*.csproj"
+      - "tests/**/*.csproj"
+      - "tools/**/*.csproj"
+      - "Dockerfile"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/main-build-artifacts.yml"
   push:
     branches: ["main"]
     paths:
       - ".github/workflows/ci-routing-self-test.yml"
       - "scripts/ci/route-main-ci-changes.sh"
       - "scripts/ci/test-route-main-ci-changes.sh"
+      - "scripts/ci/check-nuget-lock-policy.py"
+      - "scripts/ci/test-nuget-lock-policy.py"
+      - "scripts/ci/install-grype.sh"
+      - "scripts/ci/test-install-grype.py"
+      - "**/packages.lock.json"
+      - "src/**/*.csproj"
+      - "tests/**/*.csproj"
+      - "tools/**/*.csproj"
+      - "Dockerfile"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/main-build-artifacts.yml"
 
 concurrency:
   group: ci-routing-self-test-${{ github.event.pull_request.number || github.ref }}
@@ -23,12 +45,12 @@ permissions:
 jobs:
   router-regression:
     name: Main CI routing regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
@@ -36,3 +58,35 @@ jobs:
       - name: Validate selective routing cases
         shell: bash
         run: bash scripts/ci/test-route-main-ci-changes.sh
+
+      - name: Validate NuGet locked restore policy and negative mutations
+        run: |
+          python3 -B scripts/ci/check-nuget-lock-policy.py
+          python3 -B scripts/ci/test-nuget-lock-policy.py
+
+      - name: Validate pinned Grype refusal and authenticated transfer controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ci/install-grype.sh
+          python3 -B scripts/ci/test-install-grype.py
+          archive="$RUNNER_TEMP/grype-0.118.0-test-archive.tar.gz"
+          fetch_archive() {
+            timeout --kill-after=5s 100s curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
+              --tlsv1.2 --max-redirs 5 --connect-timeout 10 --max-time 45 \
+              --retry 1 --retry-max-time 95 --retry-all-errors --write-out '%{url_effective}' \
+              "$@" --output "$archive"
+          }
+          if ! effective_url="$(fetch_archive \
+            --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/anchore/grype/releases/assets/532808761')"; then
+            effective_url="$(fetch_archive 'https://github.com/anchore/grype/releases/download/v0.118.0/grype_0.118.0_linux_amd64.tar.gz')"
+          fi
+          effective_host="${effective_url#https://}"
+          effective_host="${effective_host%%/*}"
+          case "$effective_host" in
+            github.com|*.githubusercontent.com) ;;
+            *) echo "Grype test archive ended at an untrusted host." >&2; exit 1 ;;
+          esac
+          printf '%s  %s\n' '1d444c5e7360471815f7158f71935fcecc68a3c417d85c7344f770854300bba2' "$archive" | sha256sum --check --strict
+          python3 -B scripts/ci/test-install-grype.py --verified-archive "$archive"

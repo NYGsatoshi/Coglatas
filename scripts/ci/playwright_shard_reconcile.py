@@ -34,10 +34,12 @@ class PrivateArgumentParser(argparse.ArgumentParser):
     """Never echo rejected caller values through argparse diagnostics."""
 
     def error(self, _message):
+        """Refuse malformed CLI arguments without echoing any input values."""
         raise InvalidEvidence("INVALID_ARGUMENTS")
 
 
 def require(condition: bool, reason: str) -> None:
+    """Raise a finite refusal reason when an evidence invariant is false."""
     if not condition:
         raise InvalidEvidence(reason)
 
@@ -52,6 +54,7 @@ def unique_pairs(pairs):
 
 
 def _reject_nonfinite(_value):
+    """Reject nonstandard nonfinite JSON constants before reconciliation."""
     raise InvalidEvidence("NONFINITE_JSON")
 
 
@@ -109,14 +112,17 @@ def read_json(path: Path):
 
 
 def fields(obj, names, reason):
+    """Require a JSON object with exactly the expected schema keys."""
     require(type(obj) is dict and set(obj) == set(names), reason)
 
 
 def integer(value, reason):
+    """Accept only positive bounded native integer identities."""
     require(type(value) is int and 0 < value < 1_000_000_000_000_000_000, reason)
 
 
 def sorted_ids(entries, kind):
+    """Validate bounded sorted unique test identities and expected statuses."""
     require(type(entries) is list and 0 < len(entries) <= MAX_TESTS, kind + "_COUNT")
     previous = ""
     for entry in entries:
@@ -191,6 +197,8 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
             require(result["status"] == expected[identity], "SHARD_STATUS_MISMATCH")
             combined[identity] = result["status"]
     require(combined == expected, "SHARD_MISSING_TEST_OR_STATUS")
+    require(any(status == "passed" for status in combined.values()),
+            "NO_PASSED_TESTS")
     return {
         "schema": OUTPUT_SCHEMA,
         "suite": SUITE,
@@ -211,6 +219,7 @@ def reconcile(roster, shards, *, source_sha, run_id, attempt):
 
 
 def main(argv=None):
+    """Reconcile bounded offline receipts and write only a fixed private artifact."""
     parser = PrivateArgumentParser(prog="playwright-shard-reconcile", description=__doc__,
                                    add_help=False, allow_abbrev=False)
     parser.add_argument("--roster", type=Path, required=True)
