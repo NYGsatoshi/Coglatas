@@ -1,4 +1,4 @@
-# Playwright full-source test discovery — bounded read-only trial
+# Playwright full-source test discovery — bounded list-only trial
 
 ## Scope
 
@@ -18,8 +18,12 @@ copied into another source-of-truth list. Nonliteral/duplicate/extra spec
 selection fails closed.
 
 During this **one PR head branch only**, the existing `frontend-test`
-runner executes an additional read-only CLI step after its normal Node/Angular
+runner executes an additional **list-only** CLI step after its normal Node/Angular
 installation and before the **unchanged** original full-suite launcher.
+Playwright `--list` loads the selected spec modules and therefore **can run
+module-level code** even when it does not execute browser test bodies. This
+step is not a read-only or side-effect-free isolation boundary. Its source,
+execution context and sanitized reporter output remain separately qualified.
 The exact accepted trial branch is
 `ci-opt/playwright-full-source-list-20261105`, base
 `SecurityTestImplimation`. The trial validates `git rev-parse HEAD` against `GITHUB_SHA`.
@@ -71,8 +75,10 @@ The separate additive two-runner trial #1715 was closed without merge after
 - Native Node negative tests validate strict static-suite extraction,
   privacy-safe reporter stdout, exact-456 count refusal, source SHA,
   canonical digest, exclusive local output and symlink-denied parents.
-- The guarded native PR CI step proves the original v1.64 CLI actually
-  enumerates source tests (unlike synthetic mock-only tests).
+- The guarded native PR CI step is intended to prove that the original v1.64
+  CLI enumerates source tests (unlike synthetic mock-only tests); **no native
+  success is credited** until the guarded frontend job actually enters and
+  passes that step. List-only discovery may execute module-level code.
 - The existing original frontend-test, 6 required statuses, SEC-04/06
   roles and permissions stay intact.
 
