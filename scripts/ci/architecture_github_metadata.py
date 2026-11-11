@@ -76,7 +76,7 @@ def reject_constant(_value: str) -> None:
 
 
 def read_snapshot(path: Path) -> dict:
-    """Read one bounded snapshot and revalidate its descriptor after reading."""
+    """Open without following links or blocking on swapped FIFOs, then revalidate."""
     try:
         current = path.absolute()
         while current != current.parent:
@@ -85,7 +85,8 @@ def read_snapshot(path: Path) -> dict:
         info = path.lstat()
         require(stat.S_ISREG(info.st_mode) and 0 < info.st_size <= MAX_METADATA,
                 'METADATA_FILE')
-        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)
+                     | getattr(os, 'O_NONBLOCK', 0))
         try:
             opened = os.fstat(fd)
             require(stat.S_ISREG(opened.st_mode) and opened.st_size == info.st_size
