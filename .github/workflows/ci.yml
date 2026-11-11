@@ -14,7 +14,7 @@ permissions:
 jobs:
   changes:
     name: CI preflight + route
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       backend: ${{ steps.route.outputs.backend }}
@@ -120,6 +120,11 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Enforce NuGet locked restore policy and negative controls
+        run: |
+          python3 -B scripts/ci/check-nuget-lock-policy.py
+          python3 -B scripts/ci/test-nuget-lock-policy.py
+
       - name: Verify offline Playwright shard identity and retry evidence contracts
         run: node --test tests/ui/playwright-shard-evidence.node-test.mjs
 
@@ -158,7 +163,7 @@ jobs:
   dotnet-build:
     name: .NET build producer
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       built: ${{ steps.scope.outputs.built }}
@@ -213,7 +218,7 @@ jobs:
 
       - name: Restore authoritative .NET graph
         if: steps.scope.outputs.built == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity normal
 
       - name: Build authoritative .NET graph
         if: steps.scope.outputs.built == 'true'
@@ -290,7 +295,7 @@ jobs:
     name: PR Functional runtime from shared artifacts
     needs: [changes, dotnet-build, frontend-build]
     if: needs.changes.outputs.functional == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout tested PR merge revision
@@ -340,7 +345,7 @@ jobs:
     name: PR same-document actor replacement
     needs: [changes, functional-runtime]
     if: needs.changes.outputs.functional == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout actual producer merge revision
@@ -351,7 +356,7 @@ jobs:
       - name: Set up pinned Node for the fixed consumer
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24.22.2"
+          node-version: "26"
       - name: Validate fixed actor controls before runtime execution
         run: |
           node --check tests/ui/actor-replacement-real.mjs
@@ -396,7 +401,7 @@ jobs:
     name: functional-fast
     needs: [changes, functional-runtime, functional-run]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Enforce selected Functional evidence or explicit exemption
@@ -441,12 +446,12 @@ jobs:
     name: build-test
     if: ${{ always() }}
     needs: dotnet-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     services:
       postgres:
-        image: postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81 # PostgreSQL 18.6
+        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -533,7 +538,7 @@ jobs:
 
       - name: Restore NuGet packages for consumer tools
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity minimal
 
       - name: Restore .NET tools
         # Database-backed backend tests need EF tooling even when the PR has no
@@ -705,7 +710,7 @@ jobs:
     # Non-required Advisory consumer. It is not a dependency of any existing required context.
     needs: build-test
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout exact Advisory consumer revision
@@ -731,7 +736,7 @@ jobs:
   frontend-build:
     name: Frontend build producer
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       frontend: ${{ needs.changes.outputs.frontend }}
@@ -759,7 +764,7 @@ jobs:
         if: needs.changes.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
           # This job uses an isolated npm cache (or does not install packages).
           # Do not save an unrelated default ~/.npm cache into GitHub Actions.
           package-manager-cache: false
@@ -820,7 +825,7 @@ jobs:
     name: frontend-test
     if: ${{ always() }}
     needs: frontend-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -874,7 +879,7 @@ jobs:
         if: needs.frontend-build.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
           # This job uses an isolated npm cache (or does not install packages).
           # Do not save an unrelated default ~/.npm cache into GitHub Actions.
           package-manager-cache: false
@@ -987,7 +992,7 @@ jobs:
     name: security-scan
     if: ${{ always() }}
     needs: dotnet-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     env:
@@ -1074,7 +1079,7 @@ jobs:
 
       - name: Restore
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_dotnet == 'true' || needs.dotnet-build.outputs.avmig_contract == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity normal
 
       - name: Reject vulnerable NuGet packages
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_dotnet == 'true'
