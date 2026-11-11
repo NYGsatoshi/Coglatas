@@ -119,7 +119,12 @@ def owned_step_seconds(job, target):
                if type(step) is dict and step.get("name") == target]
     require(len(matches) == 1 and matches[0].get("conclusion") == "success"
             and matches[0].get("status") == "completed", "NATIVE_STEP_INCOMPLETE")
-    return seconds(matches[0].get("started_at"), matches[0].get("completed_at"))
+    step = matches[0]
+    job_start, job_end = parse_utc(job.get("started_at")), parse_utc(job.get("completed_at"))
+    step_start = parse_utc(step.get("started_at"))
+    step_end = parse_utc(step.get("completed_at"))
+    require(job_start <= step_start <= step_end <= job_end, "STEP_OUTSIDE_JOB")
+    return seconds(step.get("started_at"), step.get("completed_at"))
 
 
 def profile(run, inventory, *, expected_sha):

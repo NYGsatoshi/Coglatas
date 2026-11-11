@@ -20,6 +20,9 @@ The parser rejects malformed/symlinked/unbounded input, duplicate JSON fields,
 duplicate/foreign job identities, wrong SHA/attempt, partial pagination, failed
 jobs, skipped **owning test/scanner steps**, missing production/test owners,
 invalid timestamps, and a run that is not an exactly completed PR CI SUCCESS.
+Every measured owning or Security sub-step must have native start/end timestamps
+within its successful parent job's native start/end interval. A successful
+but out-of-job step is rejected rather than attributed to that job.
 
 Its stdout JSON contains only fixed job categories and durations, source SHA,
 run ID, attempt and counts. Job/step names, logs, runner metadata and HTTP

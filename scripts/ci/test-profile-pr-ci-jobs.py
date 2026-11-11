@@ -151,6 +151,28 @@ class NativeProfileTests(unittest.TestCase):
                 with self.assertRaises(profile.IncompleteProfile):
                     self.verify(run, inventory)
 
+    def test_native_step_timing_must_fit_owning_job(self):
+        owners = list(profile.OWNING_STEPS.items())
+        owners.extend(("security-scan", name) for name in profile.SECURITY_STEPS
+                      if name != profile.OWNING_STEPS["security-scan"])
+        for owner, target in owners:
+            for mode in ("before-job", "after-job"):
+                with self.subTest(owner=owner, step=target, mode=mode):
+                    run, inventory = fixture()
+                    job = next(row for row in inventory["jobs"]
+                               if row["name"] == owner)
+                    step = next(item for item in job["steps"]
+                                if item["name"] == target)
+                    if mode == "before-job":
+                        step["started_at"] = stamp(-1)
+                        step["completed_at"] = stamp(0)
+                    else:
+                        step["started_at"] = stamp(DURATIONS[owner])
+                        step["completed_at"] = stamp(DURATIONS[owner] + 1)
+                    with self.assertRaisesRegex(profile.IncompleteProfile,
+                                                "STEP_OUTSIDE_JOB"):
+                        self.verify(run, inventory)
+
     def test_invalid_timestamps_and_excessive_duration_rejected(self):
         for start, end in (
             ("2026-11-04T00:00:00", stamp(1)),
