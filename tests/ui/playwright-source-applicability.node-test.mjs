@@ -114,28 +114,50 @@ test('actual native SDK IDs bind to AST declaration, project and describe scope 
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const directory = mkdtempSync(path.join(tmpdir(), 'coglatas-applicability-'));
   try {
-    const raw = source.replace("'@playwright/test'", JSON.stringify(path.join(root, 'node_modules/@playwright/test/index.mjs')));
+    const raw = (source +
+      "\ntest.describe('PRIVATE_GENERATED_SCOPE', () => {\n" +
+      "  for (const id of [1, 2]) { test('PRIVATE_GENERATED_' + id, async () => {}); }\n" +
+      "});\n").replace("'@playwright/test'",
+        JSON.stringify(path.join(root, 'node_modules/@playwright/test/index.mjs')));
     writeFileSync(path.join(directory, 'fixture.spec.ts'), raw);
     writeFileSync(path.join(directory, 'playwright.config.mjs'),
       `export default {testDir:'.',testMatch:'fixture.spec.ts',projects:[{name:'chromium-desktop'},{name:'chromium-mobile'}]};`);
     const moduleUrl = pathToFileURL(path.join(root, 'scripts/ci/playwright-source-applicability.mjs')).href;
-    writeFileSync(path.join(directory, 'reporter.mjs'), `import {buildApplicability} from ${JSON.stringify(moduleUrl)};
+    const hashModuleUrl = pathToFileURL(path.join(root, 'tests/ui/playwright-shard-evidence.mjs')).href;
+    writeFileSync(path.join(directory, 'reporter.mjs'), `import {buildApplicability, analyzeSpec} from ${JSON.stringify(moduleUrl)};
+      import {hashPlaywrightTestId} from ${JSON.stringify(hashModuleUrl)};
       import {readFileSync} from 'node:fs';
       export default class {printsToStdio(){return true;} onBegin(config,suite){
         const text=readFileSync(${JSON.stringify(path.join(directory, 'fixture.spec.ts'))},'utf8');
         const tests=suite.allTests().map(t=>{const scopes=[];for(let p=t.parent;p;p=p.parent)if(p.type==='describe')scopes.unshift(p.title);
           return {id:t.id,file:'fixture.spec.ts',title:t.title,scopes,line:t.location.line,column:t.location.column,
             project:t.parent.project().name,expectedStatus:t.expectedStatus};});
-        console.log(JSON.stringify(buildApplicability({sourceSha:${JSON.stringify(sourceSha)},
+        const report=buildApplicability({sourceSha:${JSON.stringify(sourceSha)},
           files:new Map([['fixture.spec.ts',text]]),baselineFiles:new Map([['fixture.spec.ts',text]]),
-          configuredProjects:config.projects.map(p=>p.name),tests})));}}`);
+          configuredProjects:config.projects.map(p=>p.name),tests});
+        const generated=tests.filter(t=>/^PRIVATE_GENERATED_[12]$/.test(t.title));
+        const declarations=analyzeSpec('fixture.spec.ts',text).filter(row=>row.title===null);
+        const byId=new Map(report.applicability.tests.map(row=>[row.id,row]));
+        const bound=declarations.length===1 && generated.length===4 &&
+          new Set(generated.map(t=>t.title)).size===2 &&
+          new Set(generated.map(t=>t.project)).size===2 &&
+          generated.every(t=>{const row=byId.get(hashPlaywrightTestId(t.id));
+            return t.scopes.length===1 && t.scopes[0]==='PRIVATE_GENERATED_SCOPE' &&
+              t.line===declarations[0].line &&
+              t.column>=declarations[0].column && t.column<=declarations[0].columnEnd &&
+              row?.classification==='RUN' && /^[a-f0-9]{64}$/.test(row?.bindingSha256);});
+        console.log(JSON.stringify({...report, generatedSdkCount:generated.length,
+          generatedSdkBindingVerified:bound}));}}`);
     const result = spawnSync(process.execPath, [path.join(root, 'node_modules/@playwright/test/cli.js'), 'test', '--list',
       '--config', path.join(directory, 'playwright.config.mjs'), '--reporter', path.join(directory, 'reporter.mjs')],
     { encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
     assert.equal(result.status, 0, 'SDK list-only control refused; child output withheld');
     const value = JSON.parse(result.stdout);
     assert.equal(value.applicability.tests.filter(row => row.classification === 'CONDITIONAL_SKIP').length, 3);
-    assert.equal(value.source.tests.length, 8);
+    assert.equal(value.source.tests.length, 12);
+    assert.equal(value.applicability.tests.filter(row => row.classification === 'RUN').length, 7);
+    assert.equal(value.generatedSdkCount, 4);
+    assert.equal(value.generatedSdkBindingVerified, true);
     assert.doesNotMatch(result.stdout, /PRIVATE_/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

@@ -34,6 +34,9 @@ export function extractStaticSpecFiles(text) {
   if (invocations.length !== 1 ||
       invocations[0][1].trim().replace(/\s+/g, ' ') !== expectedInvocation)
     deny('STATIC_INVOCATION_DRIFT');
+  // Reject additional references that could mutate or alias the selected array.
+  if ([...text.matchAll(/\bstaticSuiteFiles\b/g)].length !== 2)
+    deny('STATIC_SELECTION_MUTATION');
   if ([...text.matchAll(/^const playwrightArgs = process\.argv\.slice\(2\);\r?$/gm)].length !== 1)
     deny('PASSTHROUGH_CONTRACT_DRIFT');
   const lines = matches[0][1].trim().split(/\r?\n/);
@@ -112,6 +115,31 @@ function requireContext(env) {
       git.stdout.trim() !== env.GITHUB_SHA) deny('SOURCE_CHECKOUT_MISMATCH');
 }
 
+/** Verify runner, config and selected specs against pinned Git blob bytes. */
+export function verifyPinnedSourceFiles(root, sourceSha, selectedFiles) {
+  if (typeof sourceSha !== 'string' || !SHA.test(sourceSha) ||
+      !Array.isArray(selectedFiles) || selectedFiles.length < 1 ||
+      selectedFiles.length > 24 || new Set(selectedFiles).size !== selectedFiles.length ||
+      selectedFiles.some(file => typeof file !== 'string' ||
+        !/^tests\/ui\/[a-z0-9-]+\.spec\.ts$/.test(file)))
+    deny('SOURCE_CONTENT_MISMATCH');
+  for (const file of ['tests/ui/run-angular-playwright.mjs', 'playwright.config.ts',
+                      ...selectedFiles]) {
+    const pinned = spawnSync('git', ['show', sourceSha + ':' + file], {
+      cwd: root, encoding: null, timeout: 15000, maxBuffer: 1024 * 1024,
+    });
+    if (pinned.error || pinned.signal || pinned.status !== 0 ||
+        !Buffer.isBuffer(pinned.stdout)) deny('SOURCE_CONTENT_MISMATCH');
+    let current;
+    try {
+      current = readFileSync(path.join(root, file));
+    } catch {
+      deny('SOURCE_CONTENT_MISMATCH');
+    }
+    if (!current.equals(pinned.stdout)) deny('SOURCE_CONTENT_MISMATCH');
+  }
+}
+
 /** Open the root through no-follow directory descriptors, rejecting symlink ancestors. */
 function openPinnedRootDirectory(root) {
   // Linux CI only. Each component is opened relative to the previous stable
@@ -166,6 +194,7 @@ export function runSourceDiscovery(env = process.env) {
   requireContext(env);
   const raw = readFileSync(path.join(ROOT, 'tests/ui/run-angular-playwright.mjs'), 'utf8');
   const files = extractStaticSpecFiles(raw);
+  verifyPinnedSourceFiles(ROOT, env.GITHUB_SHA, files);
   const cli = path.join(ROOT, 'node_modules/@playwright/test/cli.js');
   const reporter = path.join(ROOT, 'tests/ui/playwright-full-source-list-reporter.mjs');
   const args = [cli, 'test', ...files, '--list', '--reporter=' + reporter];
@@ -207,6 +236,8 @@ export function runSourceDiscovery(env = process.env) {
     deny('UNSANITIZED_REPORTER_STDOUT');
   }
   const stats = verifySourceDiscovery(data, env.GITHUB_SHA);
+  verifyPinnedSourceFiles(ROOT, env.GITHUB_SHA, files);
+  requireContext(env);
   persistNonpublishingRoster(data);
   return stats;
 }
@@ -227,7 +258,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       : undefined;
     const approved = new Set([
       'BAD_SOURCE_FILE', 'STATIC_SELECTION_NOT_UNIQUE', 'STATIC_SELECTION_SIZE',
-      'STATIC_INVOCATION_DRIFT', 'PASSTHROUGH_CONTRACT_DRIFT',
+      'STATIC_INVOCATION_DRIFT', 'STATIC_SELECTION_MUTATION',
+      'PASSTHROUGH_CONTRACT_DRIFT', 'SOURCE_CONTENT_MISMATCH',
       'INVALID_STATIC_SELECTION', 'SCHEMA', 'UNTRUSTED_DISCOVERY',
       'UNEXPECTED_TEST_COUNT', 'NONCANONICAL_SOURCE_TESTS', 'SOURCE_DIGEST',
       'SKIP_BASELINE_DRIFT', 'DECLARED_SKIP_EXCEEDS_BASELINE',

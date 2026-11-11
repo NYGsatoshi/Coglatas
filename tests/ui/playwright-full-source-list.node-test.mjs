@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import SourceListReporter from './playwright-full-source-list-reporter.mjs';
 import {
   extractStaticSpecFiles, verifySourceDiscovery, persistNonpublishingRoster,
+  verifyPinnedSourceFiles,
 } from '../../scripts/ci/qualify-playwright-full-source-list.mjs';
 
 const SHA = 'a'.repeat(40);
@@ -69,10 +71,62 @@ test('source discovery rejects filtered invocation and extra selectors while pre
       "'--project=chromium-desktop',"),
     runner.replace('const playwrightArgs = process.argv.slice(2);',
       "const playwrightArgs = ['--grep=partial'];"),
+    runner.replace('exitCode = await runPlaywright();',
+      'staticSuiteFiles.splice(0, 1); exitCode = await runPlaywright();'),
+    runner.replace('exitCode = await runPlaywright();',
+      'const selectedAlias = staticSuiteFiles; selectedAlias.pop(); exitCode = await runPlaywright();'),
+    runner.replace('exitCode = await runPlaywright();',
+      "staticSuiteFiles[0] = 'tests/ui/app.spec.ts'; exitCode = await runPlaywright();"),
   ]) {
     assert.notEqual(changed, runner);
     assert.throws(() => extractStaticSpecFiles(changed), /DISCOVERY_REFUSED/);
   }
+});
+
+/** A matching HEAD must never qualify mutated tracked source bytes. */
+test('pinned tracked source refuses same-size working-tree edits', () => {
+  const root = mkdtempSync(join(tmpdir(), 'coglatas-source-content-'));
+  const selected = ['tests/ui/example.spec.ts'];
+  const runnerPath = join(root, 'tests/ui/run-angular-playwright.mjs');
+  const configPath = join(root, 'playwright.config.ts');
+  const specPath = join(root, selected[0]);
+  const content = new Map([
+    [runnerPath, 'const full = true;\n'],
+    [configPath, 'export default {};\n'],
+    [specPath, "test('one',()=>{});\n"],
+  ]);
+  const git = args => {
+    const result = spawnSync('git', args, {
+      cwd: root, encoding: 'utf8', timeout: 15000, maxBuffer: 65536,
+    });
+    assert.equal(result.status, 0, 'Synthetic Git control failed');
+    return result.stdout.trim();
+  };
+  try {
+    mkdirSync(join(root, 'tests/ui'), { recursive: true });
+    for (const [file, source] of content) writeFileSync(file, source);
+    git(['init', '--quiet']);
+    git(['add', '--', 'playwright.config.ts',
+      'tests/ui/run-angular-playwright.mjs', selected[0]]);
+    git(['-c', 'user.name=CI', '-c', 'user.email=ci@example.invalid',
+      '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'pinned fixture']);
+    const sha = git(['rev-parse', 'HEAD']);
+    assert.match(sha, /^[a-f0-9]{40}$/);
+    verifyPinnedSourceFiles(root, sha, selected);
+    for (const [file, original] of content) {
+      const mutated = original.replace(/one|true|default/, word =>
+        ({ one: 'two', true: 'nope', default: 'defaUlt' })[word]);
+      assert.notEqual(mutated, original);
+      assert.equal(mutated.length, original.length);
+      writeFileSync(file, mutated);
+      assert.throws(() => verifyPinnedSourceFiles(root, sha, selected),
+        /DISCOVERY_REFUSED:SOURCE_CONTENT_MISMATCH/);
+      writeFileSync(file, original);
+      verifyPinnedSourceFiles(root, sha, selected);
+    }
+    assert.throws(() => verifyPinnedSourceFiles(root, sha,
+      ['tests/ui/../example.spec.ts']), /DISCOVERY_REFUSED:SOURCE_CONTENT_MISMATCH/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('valid list reporter emits one source-only, privacy-safe discovery record', () => {

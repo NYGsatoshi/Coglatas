@@ -22,8 +22,15 @@ runner executes an additional read-only CLI step after its normal Node/Angular
 installation and before the **unchanged** original full-suite launcher.
 The exact accepted trial branch is
 `ci-opt/playwright-full-source-list-20261105`, base
-`SecurityTestImplimation`. The trial validates `git rev-parse HEAD`
-against `GITHUB_SHA`.
+`SecurityTestImplimation`. The trial validates `git rev-parse HEAD` against `GITHUB_SHA`.
+It also compares the original runner, `playwright.config.ts`, and each
+of the 24 selected specs byte-for-byte against pinned `git show` blobs
+both **before and after** list-only discovery. A same-size working-tree edit
+is rejected despite matching HEAD; no roster is written on detected drift.
+Any additional reference to the selected array outside its declaration
+and protected spawn, including splice, assignment or aliases, rejects.
+These controls are source integrity only, not browser execution or
+independent artifact provenance.
 
 The custom list-only reporter gathers `suite.allTests()` and validates
 each `TestCase.id` and expected PASS/SKIP state with the pure
