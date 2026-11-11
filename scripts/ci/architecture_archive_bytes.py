@@ -78,7 +78,7 @@ def parse_document(raw: bytes, name: str) -> dict:
 
 
 def read_bounded(path: Path) -> bytes:
-    """Read a regular ZIP from a stable file descriptor with bounded size."""
+    """Read a bounded ZIP and revalidate its opened descriptor after reading."""
     try:
         absolute = path.absolute()
         current = absolute.parent
@@ -96,6 +96,12 @@ def read_bounded(path: Path) -> bytes:
                     'ARCHIVE_FILE')
             with os.fdopen(fd, 'rb', closefd=False) as stream:
                 raw = stream.read(MAX_ARCHIVE + 1)
+            after = os.fstat(fd)
+            require(os.path.samestat(opened, after) and
+                    opened.st_size == after.st_size and
+                    opened.st_mtime_ns == after.st_mtime_ns and
+                    opened.st_ctime_ns == after.st_ctime_ns,
+                    'ARCHIVE_FILE')
         finally:
             os.close(fd)
     except (OSError, ValueError) as exc:
