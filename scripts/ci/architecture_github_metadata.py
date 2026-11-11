@@ -76,7 +76,7 @@ def reject_constant(_value: str) -> None:
 
 
 def read_snapshot(path: Path) -> dict:
-    """Read one bounded regular input, rejecting symlink endpoints and ancestors."""
+    """Read one bounded snapshot and revalidate its descriptor after reading."""
     try:
         current = path.absolute()
         while current != current.parent:
@@ -93,6 +93,12 @@ def read_snapshot(path: Path) -> dict:
                     'METADATA_FILE')
             with os.fdopen(fd, 'rb', closefd=False) as stream:
                 raw = stream.read(MAX_METADATA + 1)
+            after = os.fstat(fd)
+            require(os.path.samestat(opened, after)
+                    and opened.st_size == after.st_size
+                    and opened.st_mtime_ns == after.st_mtime_ns
+                    and opened.st_ctime_ns == after.st_ctime_ns,
+                    'METADATA_FILE')
         finally:
             os.close(fd)
         require(len(raw) == info.st_size and b'\x00' not in raw, 'METADATA_FILE')
