@@ -103,6 +103,7 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
         original_open = os.open
 
         def replace_then_open(path, flags, *args, **kwargs):
+            """Swap the checked C# file before opening to test inode rejection."""
             if Path(path) == self.core:
                 os.replace(replacement, self.core)
             return original_open(path, flags, *args, **kwargs)
