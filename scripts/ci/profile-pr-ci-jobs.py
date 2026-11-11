@@ -131,8 +131,10 @@ def read_json(path: Path, maximum_bytes: int):
 
 
 def parse_utc(value):
-    """Parse a strict UTC Z-suffixed native timestamp."""
-    require(type(value) is str and value.endswith("Z"), "INVALID_UTC_TIMESTAMP")
+    """Parse a canonical GitHub UTC timestamp with bounded microsecond precision."""
+    require(type(value) is str and re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z", value) is not None,
+        "INVALID_UTC_TIMESTAMP")
     try:
         timestamp = datetime.fromisoformat(value[:-1] + "+00:00")
     except ValueError as error:
