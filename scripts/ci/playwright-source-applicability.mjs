@@ -19,6 +19,7 @@ const callback = call => call.arguments.findLast(node => ts.isArrowFunction(node
 const expression = statement => ts.isExpressionStatement(statement) ? statement.expression : null;
 const isDeclaration = call => ts.isCallExpression(call) && ['test', 'test.skip'].includes(callName(call)) &&
   call.arguments.length >= 2 && callback(call) === call.arguments.at(-1) && callback(call) !== call.arguments[0];
+/** Visit the entire TypeScript AST without executing source expressions. */
 function visit(node, fn) { fn(node); ts.forEachChild(node, child => visit(child, fn)); }
 
 /** Compare complete canonical source anchors, never a set of approved native IDs. */
@@ -54,6 +55,7 @@ export function analyzeSpec(file, text) {
   }
   visit(ast, node => { if (ts.isCallExpression(node) && helpers.has(callName(node))) helperCalls.add(node); });
 
+  /** Accept only a literal project-name inequality bound to the callback argument. */
   function predicate(skip, parameter) {
     check(callName(skip) === 'test.skip' && skip.arguments.length === 2 && ts.isStringLiteral(skip.arguments[1]));
     const binary = skip.arguments[0];
@@ -66,6 +68,7 @@ export function analyzeSpec(file, text) {
     consumed.add(skip);
     return binary.right.text;
   }
+  /** Analyze only the first statement of a test or beforeEach callback. */
   function leading(fn) {
     check(fn && ts.isBlock(fn.body));
     const first = expression(fn.body.statements[0] ?? ast);

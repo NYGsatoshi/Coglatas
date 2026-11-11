@@ -7,6 +7,7 @@ import sys
 
 def reconcile(source_raw, native_raw, applicability_raw, *, source_sha, execution_kind, run_id,
               attempt, applicability_sha256):
+    """Reconcile source-only applicability with the separately pinned #1755 native evidence."""
     # Deliberately absent from #1717 alone. Never manufacture integration of #1755.
     from playwright_case_reconcile import reconcile as original, parse_evidence, require, fields
     prior = original(source_raw, native_raw, source_sha=source_sha, execution_kind=execution_kind,
@@ -68,6 +69,7 @@ def reconcile(source_raw, native_raw, applicability_raw, *, source_sha, executio
 
 
 def main():
+    """Validate one bounded stdin envelope and emit only sanitized reconciliation."""
     try:
         from playwright_case_reconcile import parse_evidence, fields, MAX_BYTES
         if len(sys.argv) != 1: raise ValueError()

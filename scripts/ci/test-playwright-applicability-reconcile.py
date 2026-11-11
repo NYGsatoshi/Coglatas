@@ -10,6 +10,7 @@ import playwright_applicability_reconcile as policy
 import playwright_case_reconcile as original
 
 def load_fixture():
+    """Load the pinned independent native fixture and construct an untrusted sidecar."""
     path = Path(original.__file__).with_name('test-playwright-case-reconcile.py')
     spec = importlib.util.spec_from_file_location('original_controls', path)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -28,15 +29,20 @@ def load_fixture():
     return source, native, sidecar, module.IDENTITY
 
 def compare(source, native, sidecar, identity, expected_digest=None):
+    """Call the actual composed reconciler with caller-pinned provenance fields."""
     return policy.reconcile(json.dumps(source).encode(), json.dumps(native).encode(), json.dumps(sidecar).encode(),
                             **identity, applicability_sha256=expected_digest or sidecar['applicabilitySha256'])
 
 def seal(sidecar):
+    """Recalculate the synthetic sidecar digest for negative-control mutations."""
     payload = {key: sidecar[key] for key in ['sourceSha', 'suite', 'rosterSha256', 'anchorSha', 'sourceManifestSha256', 'tests']}
     sidecar['applicabilitySha256'] = hashlib.sha256(json.dumps(payload, separators=(',', ':')).encode()).hexdigest()
 
 class PolicyControls(unittest.TestCase):
+    """Refuse altered applicability while preserving original native attempts."""
+
     def test_conditional_content_preserves_original_rejection_and_native_records(self):
+        """Confirm content-matching sidecar does not rewrite the original rejection."""
         source, native, sidecar, identity = load_fixture()
         result = compare(source, native, sidecar, identity)
         self.assertEqual('CONTENT_MATCH', result['decision'])
@@ -49,6 +55,7 @@ class PolicyControls(unittest.TestCase):
         self.assertFalse(result['states']['REQUIRED_GATE_QUALIFIED'])
 
     def test_unrelated_or_intended_execution_project_skip_and_missing_results_reject(self):
+        """Reject unauthorized skips and incomplete or failed native execution."""
         for mode in ['run-skipped', 'conditional-passed', 'missing', 'duplicate', 'extra', 'retry', 'failed', 'interrupted']:
             source, native, sidecar, identity = load_fixture()
             if mode == 'run-skipped':
@@ -69,6 +76,7 @@ class PolicyControls(unittest.TestCase):
             self.assertEqual('REJECTED', compare(source, native, sidecar, identity)['decision'])
 
     def test_sha_identity_and_independent_sidecar_digest_mismatch_refuse(self):
+        """Reject source/run/attempt or independently pinned digest inconsistencies."""
         for mode in ['sha', 'run', 'attempt', 'digest']:
             source, native, sidecar, identity = load_fixture()
             if mode == 'sha': sidecar['sourceSha'] = 'b' * 40
@@ -78,6 +86,7 @@ class PolicyControls(unittest.TestCase):
                 compare(source, native, sidecar, identity, 'e' * 64 if mode == 'digest' else None)
 
     def test_sidecar_missing_duplicated_malformed_unknown_and_incomplete_refuse(self):
+        """Enforce bounded strict per-case schema, order, bindings and counts."""
         for mode in ['missing', 'duplicate', 'field', 'schema', 'project', 'binding', 'empty']:
             source, native, sidecar, identity = load_fixture()
             if mode == 'missing': sidecar['tests'].pop()
@@ -96,6 +105,7 @@ class PolicyControls(unittest.TestCase):
                 compare(source, native, sidecar, identity)
 
     def test_malformed_oversized_duplicate_json_and_empty_evidence_refuse(self):
+        """Reject invalid, ambiguous, oversized or empty serialized sidecar evidence."""
         source, native, sidecar, identity = load_fixture()
         for raw in [b'', b'{', b'\xff', b'{"x":1,"x":1}', b'{"x":NaN}', b' ' * (original.MAX_BYTES + 1)]:
             with self.assertRaises(original.InvalidCaseEvidence):
