@@ -4,10 +4,12 @@ from __future__ import annotations
 from io import BytesIO
 import hashlib
 import json
+import os
 from pathlib import Path
 import stat
 import tempfile
 import unittest
+from unittest.mock import patch
 import warnings
 import zipfile
 
@@ -181,20 +183,60 @@ class ArchitectureArchiveBytesTests(unittest.TestCase):
             check(pack(records))
 
     def test_regular_file_reader_rejects_symlink_and_oversize(self) -> None:
-        """Only bounded regular files, not redirected endpoints, are read."""
+        """Reject oversized, replaced, mutated, or symlinked archive leaves."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             good = root / 'actual.zip'
-            good.write_bytes(pack())
-            self.assertEqual(reader.read_bounded(good), good.read_bytes())
+            raw = pack()
+            good.write_bytes(raw)
+            self.assertEqual(reader.read_bounded(good), raw)
             good.write_bytes(b'x' * (reader.MAX_ARCHIVE + 1))
             with self.assertRaises(reader.ArchiveRefused):
                 reader.read_bounded(good)
+
+            # Identical byte length cannot authorize a different inode.
+            good.write_bytes(raw)
+            replacement_zip = root / 'replacement.zip'
+            replacement_zip.write_bytes(raw)
+            real_open = os.open
+
+            def swap_before_open(target, flags, *args, **kwargs):
+                """Replace the checked ZIP name before descriptor acquisition."""
+                if Path(target) == good:
+                    os.replace(replacement_zip, good)
+                return real_open(target, flags, *args, **kwargs)
+
+            with patch.object(reader.os, 'open', side_effect=swap_before_open):
+                with self.assertRaises(reader.ArchiveRefused) as refused:
+                    reader.read_bounded(good)
+            self.assertEqual(refused.exception.args[0], 'ARCHIVE_FILE')
+
+            # An in-place metadata mutation during a descriptor read also fails.
+            good.write_bytes(raw)
+            real_fstat = os.fstat
+            fstat_calls = 0
+
+            def change_metadata_on_post_read(fd):
+                """Mutate the actual open archive after its first file check."""
+                nonlocal fstat_calls
+                fstat_calls += 1
+                if fstat_calls == 2:
+                    original_info = real_fstat(fd)
+                    os.utime(good, ns=(original_info.st_atime_ns,
+                                       original_info.st_mtime_ns + 2_000_000_000))
+                return real_fstat(fd)
+
+            with patch.object(reader.os, 'fstat', side_effect=change_metadata_on_post_read):
+                with self.assertRaises(reader.ArchiveRefused) as refused:
+                    reader.read_bounded(good)
+            self.assertEqual(refused.exception.args[0], 'ARCHIVE_FILE')
+            self.assertEqual(fstat_calls, 2)
+
             symlink = root / 'link.zip'
             try:
                 symlink.symlink_to(good)
             except (OSError, NotImplementedError):
-                self.skipTest('This synthetic symlink control is unsupported on this OS')
+                self.fail('Cannot qualify this symlink guard on the current platform')
             with self.assertRaises(reader.ArchiveRefused):
                 reader.read_bounded(symlink)
 
