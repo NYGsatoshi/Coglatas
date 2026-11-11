@@ -49,13 +49,17 @@ local git rev-parse HEAD == GITHUB_SHA execution check helps but cannot
 be promoted to an independent GitHub API producer attestation.
 
 The snapshot is a bounded regular JSON file. The reader checks the file
-identity before opening, reads bounded bytes from that single descriptor,
-and rechecks the descriptor identity, size, mtime and ctime after the read.
+identity before opening, requests `O_NOFOLLOW` and `O_NONBLOCK` where
+available (to avoid hanging if a checked regular file becomes a named pipe
+before `open`), reads bounded bytes from that single descriptor, and
+rechecks the descriptor identity, size, mtime and ctime after the read.
 It rejects same-sized pathname replacement, detectable in-place mutations,
 symlinked endpoints and ancestors, invalid UTF-8, duplicate JSON properties,
 non-finite JSON and unsupported top-level keys. The existing eleven-method
-synthetic suite includes swap and post-read mutation controls; a platform
-unable to run the symlink check must **fail**, not silently report a skip.
+synthetic suite covers the nonblocking open flag with a simulated FIFO
+substitution, plus swap and post-read mutation controls, **without opening
+an actual blocking pipe**. A platform unable to qualify the nonblocking or
+symlink checks must fail rather than silently report a skip.
 Metadata checks are not cryptographic file-content authentication. Only
 the fixed error ARCHITECTURE_GITHUB_METADATA_REFUSED is printed on refusal.
 
