@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import architecture_github_metadata as witness
 
@@ -213,11 +215,47 @@ class GithubMetadataTests(unittest.TestCase):
                 with self.subTest(length=len(raw)), self.assertRaises(witness.MetadataRefused):
                     witness.read_snapshot(path)
             path.write_text(json.dumps(fixture()), encoding='utf-8')
+
+            # The same bytes at a different inode are still an invalid swap.
+            replacement = root / 'api-replacement.json'
+            replacement.write_bytes(path.read_bytes())
+            real_open = os.open
+
+            def swap_before_open(target, flags, *args, **kwargs):
+                """Replace the admitted pathname before acquiring its descriptor."""
+                if Path(target) == path:
+                    os.replace(replacement, path)
+                return real_open(target, flags, *args, **kwargs)
+
+            with patch.object(witness.os, 'open', side_effect=swap_before_open):
+                with self.assertRaises(witness.MetadataRefused):
+                    witness.read_snapshot(path)
+
+            # A metadata mutation after the first fstat must fail as well.
+            path.write_text(json.dumps(fixture()), encoding='utf-8')
+            real_fstat = os.fstat
+            observed = 0
+
+            def mutate_during_read(fd):
+                """Change file metadata immediately before post-read validation."""
+                nonlocal observed
+                observed += 1
+                if observed == 2:
+                    before = real_fstat(fd)
+                    os.utime(path, ns=(before.st_atime_ns,
+                                       before.st_mtime_ns + 2_000_000_000))
+                return real_fstat(fd)
+
+            with patch.object(witness.os, 'fstat', side_effect=mutate_during_read):
+                with self.assertRaises(witness.MetadataRefused):
+                    witness.read_snapshot(path)
+            self.assertEqual(observed, 2)
+
             link = root / 'api-link.json'
             try:
                 link.symlink_to(path)
             except (OSError, NotImplementedError):
-                self.skipTest('This filesystem does not permit symlinks')
+                self.fail('Cannot qualify the metadata symlink guard on this platform')
             with self.assertRaises(witness.MetadataRefused):
                 witness.read_snapshot(link)
 
