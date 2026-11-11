@@ -22,6 +22,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuildAngularFrontendOnPublish>false</BuildAngularFrontendOnPublish>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+
   </PropertyGroup>
 
   <PropertyGroup>

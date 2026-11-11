@@ -9,12 +9,12 @@ permissions:
 jobs:
   main-backend-test:
     name: Main Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     services:
       postgres:
-        image: postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81 # PostgreSQL 18.6
+        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -212,7 +212,7 @@ jobs:
 
   main-frontend-test:
     name: Main Frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -225,7 +225,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
           # This job uses an isolated npm cache (or does not install packages).
           # Do not save an unrelated default ~/.npm cache into GitHub Actions.
           package-manager-cache: false
@@ -305,7 +305,7 @@ jobs:
 
   main-security-test:
     name: Main Security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     env:
