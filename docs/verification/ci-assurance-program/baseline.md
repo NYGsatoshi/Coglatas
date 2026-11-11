@@ -107,6 +107,67 @@ version is inferred from the configured image. A future finite admission-stage
 diagnostic can expose a fixed refusal code without publishing error messages,
 paths, credentials or protected response bodies. Keep every existing guard.
 
+## Cross-PR Functional Runtime DNS admission incident (2026-11-12)
+
+This is a **separate live observation**, not part of the original immutable
+2026-11-06 assurance inventory or the original 35-run/76-check snapshot.
+Keep historical Git blob counts and initial artifact receipts unchanged.
+
+Two distinct Security-only, unmerged Draft candidates hit the **same**
+fail-closed Ubuntu package-index DNS boundary in their ordinary PR CI,
+before their Functional runtime or browser tests could execute:
+
+| Candidate head | Exact PR CI run | Original failed owner | Observed failure |
+| --- | --- | --- | --- |
+| [#1888](https://github.com/NYGsatoshi/Coglatas/pull/1888) `e7909057ac01793c884113462eec71ce6a3bd835` | [43032027040](https://github.com/NYGsatoshi/Coglatas/actions/runs/43032027040), first attempt | Functional Runtime job `130562622795` | `archive.ubuntu.com` and `security.ubuntu.com` DNS failures while enforcing `apt` / `libapt-pkg6.0t64` package floors; Docker exit 100 |
+| [#1880](https://github.com/NYGsatoshi/Coglatas/pull/1880) `a1e919d5040d524abe99709f559b7393ce2a1f58` | [43058044791](https://github.com/NYGsatoshi/Coglatas/actions/runs/43058044791), first attempt | Functional Runtime job `130654663082` | The same Ubuntu DNS names failed during the identical APT security-floor build step; Docker exited nonzero |
+
+In both runs the required `functional-fast` aggregate **correctly failed
+closed** (jobs `130563051361` and `130655202807` respectively) because
+the Functional Runtime producer failed. Neither result is a successful
+Functional/browser test or a valid six-Required-Check acceptance receipt.
+The separate Architecture Advisory on those candidate heads succeeded,
+but does not substitute for native Functional evidence.
+
+The first #1888 run was permitted **one** scoped
+`rerun-failed-jobs` attempt after completion. Its new Functional Runtime
+job `130631864799` **failed again** at the same DNS boundary and
+`functional-fast` job `130632281197` failed closed. These outcomes are
+separate historical attempts; retain both. The source tree, original
+version floors, exact review/merge-source identity and required-check
+topology were not changed to bypass the failure.
+
+**Current root-cause limit:** The observed error is DNS resolution inside
+the Docker build environment on GitHub Actions Ubuntu runners. This is
+evidence of network/name-resolution failure, **not** independently proven
+GitHub-wide outage, a specific upstream DNS provider fault, an application
+regression, a vulnerability remediation failure or proof that every
+runner has the same problem.
+
+**Scoped follow-up before any integration:** establish a *separate*
+read-only diagnostic that distinguishes host DNS from Docker build
+namespace DNS, captures only fixed-label success/refusal and the
+source/run/attempt/runner-image identity, and tests package-repository
+reachability without logging environment variables, proxy credentials,
+network configuration secrets or unrelated raw responses. Require a
+successful rerun of the original **unmodified** build, package-version
+checks, Functional runtime/test owners and six protected contexts before
+crediting CI. Do **not** remove `Acquire::Retries=0`, lower the pinned
+APT package floors, skip container builds, change protected routing, add
+unreviewed public mirrors, mark an external DNS failure green or erase
+the original attempts. Network changes require their own reviewed
+owner/scoped PR and fresh exact-head verification.
+
+This observation only changes this dated documentation. The repository's
+registered Security ruleset identity mismatch, independent current-head
+review requirements, source/native case and Artifact producer trust,
+Production/Release HOLD, and **Main unchanged** remain in force.
+
+`DNS_INCIDENT=OBSERVED_TWO_PRS; ROOT_CAUSE=DOCKER_NAME_RESOLUTION_UNATTRIBUTED;
+FUNCTIONAL_CI=FAILED_CLOSED; OWNER_HOLD=true; RELEASE_NO_GO; MERGE=NO`
+
+---
+
 ## Existing work reconciliation and priorities
 
 1. **PR-A / first-attempt triage:** preserve the failure above and improve finite
