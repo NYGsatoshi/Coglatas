@@ -34,11 +34,17 @@ The pair verifier strictly parses two local inputs:
 - architecture-source-native-parity.json
 
 They must be bounded, regular and in the same trusted runner temporary
-directory. Unknown schema fields, duplicate JSON keys, malformed encodings,
-non-finite values, inconsistent source SHA/run ID/run attempt claims, failed
-test states, unauthorized success/producer claims, and mismatched digests all
-fail closed. Synthetic negative controls exercise these refusal conditions
-and exclusive sidecar creation.
+directory. The reader checks the leaf and opened descriptor identity, reads
+through that one bounded descriptor and rechecks its identity, size, mtime
+and ctime afterward. It rejects same-size path replacements, symlinked leaves,
+and changed file metadata rather than treating a preliminary pathname check as
+proof of the bytes actually consumed. Unknown schema fields, duplicate JSON
+keys, malformed encodings, non-finite values, inconsistent source SHA/run ID/run
+attempt claims, failed test states, unauthorized success/producer claims and
+mismatched digests all fail closed. The ten existing synthetic Python methods
+now also require a genuine symlink control: a platform that cannot create the
+test symlink fails the control rather than silently reporting a skip/pass.
+These controls still cannot authenticate producer identity or artifact bytes.
 
 The existing upload-artifact job publishes both sanitized JSON documents
 under its existing uniquely named Artifact. Neither report contains raw
