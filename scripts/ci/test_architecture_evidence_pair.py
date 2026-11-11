@@ -184,6 +184,7 @@ class ArchitectureEvidencePairTests(unittest.TestCase):
         actual_open = os.open
 
         def swap_before_open(target, flags, *args, **kwargs):
+            """Swap an already checked receipt pathname before descriptor opening."""
             if Path(target) == path:
                 os.replace(replacement, path)
             return actual_open(target, flags, *args, **kwargs)
