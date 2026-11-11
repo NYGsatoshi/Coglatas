@@ -36,6 +36,7 @@ class ArchitectureEvidenceError(ValueError):
 
 
 def require(ok: bool, code: str) -> None:
+    """Reject invalid advisory evidence using a fixed, nonsecret refusal code."""
     if not ok:
         raise ArchitectureEvidenceError(code)
 
