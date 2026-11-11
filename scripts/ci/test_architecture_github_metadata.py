@@ -251,6 +251,25 @@ class GithubMetadataTests(unittest.TestCase):
                     witness.read_snapshot(path)
             self.assertEqual(observed, 2)
 
+            # The leaf may become a FIFO after its initial regular-file check.
+            # Assert nonblocking flags without opening a real, potentially
+            # hanging pipe if this guard is later removed.
+            if not getattr(os, 'O_NONBLOCK', 0):
+                self.fail('Nonblocking FIFO admission cannot be qualified here')
+            real_open = os.open
+
+            def reject_fifo_substitution(target, flags, *args, **kwargs):
+                """Require nonblocking acquisition and simulate a redirected FIFO."""
+                if Path(target) == path:
+                    self.assertTrue(flags & os.O_NONBLOCK)
+                    raise OSError('synthetic named-pipe substitution')
+                return real_open(target, flags, *args, **kwargs)
+
+            with patch.object(witness.os, 'open', side_effect=reject_fifo_substitution):
+                with self.assertRaises(witness.MetadataRefused) as refused:
+                    witness.read_snapshot(path)
+            self.assertEqual(refused.exception.args[0], 'METADATA_INPUT')
+
             link = root / 'api-link.json'
             try:
                 link.symlink_to(path)
