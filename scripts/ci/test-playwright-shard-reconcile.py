@@ -86,6 +86,53 @@ class ShardEvidenceTests(unittest.TestCase):
             self.assertIn("playwright-shard-reconcile", help_result.stdout)
             self.assertNotIn(str(SCRIPT), help_result.stdout)
 
+    def test_real_node_fixture_is_accepted_by_python_reconciler(self):
+        """Run the existing Node fixture through the real Python union gate."""
+        interop_path = ROOT / "scripts/ci/test-playwright-shard-interop.py"
+        fixture_spec = importlib.util.spec_from_file_location(
+            "playwright_shard_node_fixture", interop_path)
+        self.assertIsNotNone(fixture_spec)
+        self.assertIsNotNone(fixture_spec.loader)
+        fixture_module = importlib.util.module_from_spec(fixture_spec)
+        fixture_spec.loader.exec_module(fixture_module)
+        # The fixture invokes the original nonpublishing Node evidence producer;
+        # no mocked/Python-created shard receipts can satisfy this assertion.
+        produced = subprocess.run(
+            ["node", "--input-type=module", "-e", fixture_module.NODE_FIXTURE],
+            cwd=ROOT, stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(0, produced.returncode, "NODE_FIXTURE_FAILED")
+        self.assertFalse(produced.stderr, "NODE_FIXTURE_DIAGNOSTICS")
+        self.assertLess(len(produced.stdout.encode("utf-8")), 32 * 1024)
+        pair = json.loads(
+            produced.stdout, object_pairs_hook=reconcile.unique_pairs,
+            parse_constant=reconcile._reject_nonfinite,
+        )
+        self.assertEqual({"first", "second"}, set(pair))
+        first, second = pair["first"], pair["second"]
+        self.assertEqual(first["roster"], second["roster"])
+        self.assertIs(first["requiredCheckQualified"], False)
+        self.assertIs(second["requiredCheckQualified"], False)
+        self.assertEqual("EXTERNAL_VERIFICATION_REQUIRED", first["artifactTrust"])
+        self.assertEqual("EXTERNAL_VERIFICATION_REQUIRED", second["artifactTrust"])
+        actual = verify(first["roster"], [first["shard"], second["shard"]])
+        self.assertEqual(
+            (2, 4, 3, 1, "PASS", "EXTERNAL_VERIFICATION_REQUIRED", False),
+            (actual["shards"], actual["tests"], actual["passed"],
+             actual["skipped"], actual["outcome"], actual["artifactTrust"],
+             actual["requiredCheckQualified"]),
+        )
+        # A changed Node receipt must still be refused by the actual
+        # cross-language consumer, not only by independent schema helpers.
+        foreign = copy.deepcopy(second["shard"])
+        foreign["tests"][0]["status"] = (
+            "skipped" if foreign["tests"][0]["status"] == "passed" else "passed"
+        )
+        with self.assertRaisesRegex(reconcile.InvalidEvidence,
+                                    "^SHARD_STATUS_MISMATCH$"):
+            verify(first["roster"], [first["shard"], foreign])
+
     def test_valid_disjoint_roster_preserves_skips_and_sanitizes_output(self):
         """Preserve legitimate executed/skipped counts and untrusted output flags."""
         roster, shards = fixtures()

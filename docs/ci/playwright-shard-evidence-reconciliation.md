@@ -72,6 +72,23 @@ full frontend run stays authoritative; PR #1717 source-only discovery remains
 a separate dependency. Rollback through a Security-targeted PR by reverting
 this parser/test/documentation repair; retain its original failed regression.
 
+## Node producer → Python consumer contract
+
+A native positive control runs the **existing**
+`scripts/ci/test-playwright-shard-interop.py` Node fixture through
+`tests/ui/playwright-shard-evidence.mjs`, parses its actual two shard receipts,
+and feeds them directly to `playwright_shard_reconcile.reconcile`. Both
+Node-produced shards must agree on one roster, and the Python consumer must
+preserve four test IDs, three PASS, one SKIP, with `outcome=PASS` but
+`requiredCheckQualified=false` and
+`artifactTrust=EXTERNAL_VERIFICATION_REQUIRED`. A mutated Node receipt
+also must be rejected by the actual Python consumer. No separate Playwright
+browser execution, shard launcher, uploader, token or Required Check is added.
+
+This verifies synthetic Node/Python contract compatibility only. It does not
+authenticate the source roster, actual Playwright reporter events, GitHub
+artifact bytes, or who produced a receipt.
+
 ## Exact Security integration qualification (2026-11-11)
 
 This existing source-owner PR was reconciled to current `SecurityTestImplimation`
