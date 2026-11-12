@@ -58,7 +58,7 @@ JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
 SETUP_NODE = re.compile(r"(?m)^        uses: actions/setup-node@([0-9a-f]{40})\s*(?:#.*)?$")
 # Count *all* setup-node refs, not only SHA-pinned ones. A second unpinned
 # action must not be invisible to the fixed-source policy.
-SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        |      -[ \t]+)uses[ \t]*:[ \t]*['\"]?actions/setup-node@")
+SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        |      -[ \t]+)(?:uses|['\"]uses['\"])[ \t]*:[ \t]*['\"]?actions/setup-node@")
 INPUT_CACHE = re.compile(r"(?m)^          package-manager-cache: (\S+)\s*$")
 INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
 
@@ -77,30 +77,70 @@ def job_blocks(source: str) -> dict[str, str]:
 
 
 def run_command_lines(job: str) -> list[str]:
-    """Return only actual run-step shell source, excluding YAML/shell comments."""
-    commands = []
-    multiline = False
+    """Decode reviewed plain, literal and flat folded run scalars fail-closed.
+
+    Folded (>-) YAML joins adjacent non-empty physical lines with spaces.
+    Treat blank-separated and more-indented folded forms as unsupported
+    rather than trusting a physical line that YAML does not execute alone.
+    """
+    commands: list[str] = []
+    style: str | None = None
+    folded: list[str] = []
+    pending_blank = False
+    unsupported = False
+
+    def finish() -> None:
+        nonlocal style, folded, pending_blank, unsupported
+        if style == "folded" and folded and not unsupported:
+            # Strip shell comments only AFTER YAML folding. Earlier removal
+            # could falsely promote a later folded line to an invocation.
+            command = " ".join(folded).split("#", 1)[0].strip()
+            if command:
+                commands.append(command)
+        style = None
+        folded = []
+        pending_blank = False
+        unsupported = False
+
     for line in job.splitlines():
         run = re.match(r"^        run:[ \t]*(.*)$", line)
         if run is not None:
+            finish()
             value = run.group(1).strip()
-            multiline = value in ("|", "|-", "|+", ">", ">-", ">+")
-            if not multiline:
+            if value in ("|", "|-", "|+"):
+                style = "literal"
+            elif value in (">", ">-", ">+"):
+                style = "folded"
+            elif value and not value.startswith(("&", "*", "!", "{", "[")):
                 command = value.split("#", 1)[0].strip()
                 if command:
                     commands.append(command)
             continue
-        if multiline:
-            if not line.strip():
-                continue
-            if line.startswith("          "):
-                command = line.strip().split("#", 1)[0].strip()
-                if command:
-                    commands.append(command)
-            else:
-                multiline = False
-    return commands
 
+        if style is None:
+            continue
+        if not line.strip():
+            if style == "folded":
+                pending_blank = True
+            continue
+        if not line.startswith("          "):
+            finish()
+            continue
+        fragment = line[10:]
+        if style == "literal":
+            command = fragment.split("#", 1)[0].strip()
+            if command:
+                commands.append(command)
+        else:
+            # A nested indent or a separated folded paragraph may have
+            # different YAML newline semantics: decline unsupported forms.
+            if pending_blank or fragment.startswith((" ", "\t")):
+                unsupported = True
+            folded.append(fragment.strip())
+            pending_blank = False
+
+    finish()
+    return commands
 
 def owner_invoked(job: str, owner: str) -> bool:
     """Require an active canonical Bash/Node command, never echo or path mentions."""
@@ -112,13 +152,18 @@ def owner_invoked(job: str, owner: str) -> bool:
         commands = run_command_lines(step)
         if any(canonical.match(command) for command in commands):
             return True
-        # The reviewed real-backend control uses folded YAML run: >-
-        # with node --test and its test-file arguments on separate lines.
+        # The original real-backend step has one folded node --test
+        # invocation with a fixed list of .mjs test arguments. Evaluate
+        # the *decoded* command, never each physical YAML line.
         if (owner == "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
                 and re.search(r"(?m)^        run: >[-+]?[ \t]*$", step)
-                and commands and commands[0] == "node --test"
-                and owner in commands[1:]):
-            return True
+                and len(commands) == 1):
+            args = commands[0].split()
+            if (len(args) >= 3 and args[:2] == ["node", "--test"]
+                    and owner in args[2:]
+                    and all(re.fullmatch(r"[A-Za-z0-9_./-]+\.mjs", arg)
+                            for arg in args[2:])):
+                return True
     return False
 
 
@@ -181,7 +226,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all twenty mutation controls."""
+    """Verify real workflow policy and fail closed on all twenty-three mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -281,6 +326,27 @@ def main() -> int:
             "      - name: Require original SARIF and enforce existing project model gate",
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        "double-quoted uses key on extra setup-node": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - \"uses\": actions/setup-node@v4\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "single-quoted uses key on extra setup-node": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - 'uses': actions/setup-node@v4\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "folded echo is not an owner execution": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: >-\n"
+            "          echo\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -290,7 +356,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 20 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 23 mutation controls rejected.")
     return 0
 
 
