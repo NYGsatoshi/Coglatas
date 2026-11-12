@@ -74,7 +74,12 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
             'UNSUPPORTED_SYNTAX')
     # Match declarations as whole supported C# lines, never as substrings
     # inside comments or identifiers. Reject foreign/duplicate namespaces.
-    namespaces = re.findall(r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*
+    namespaces = re.findall(
+        r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*$',
+        source)
+    require(namespaces == [NAMESPACE] and
+            re.search(r'(?m)^using Xunit;[ \t]*$', source) is not None,
+            'SOURCE_NAMESPACE')
     classes = CLASS.findall(source)
     require(classes == [expected_class], 'SOURCE_CLASS')
     require('[Theory' not in source and '[InlineData' not in source and '[Fact(' not in source,
