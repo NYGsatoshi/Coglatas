@@ -1,5 +1,11 @@
 # Coglatas
 
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=coverage)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+[![Lines of code](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+
 > [!IMPORTANT]
 > **Public source, not open source.** This repository is visible for transparency,
 > technical evaluation, portfolio review, and CI. No permission is granted to
