@@ -38,11 +38,21 @@ SECRETS_INHERIT = re.compile(r"^\s*secrets\s*:\s*inherit\s*$")
 ENVIRONMENT_FIELD = re.compile(r"^\s*environment\s*:")
 PERMISSIONS_FIELD = re.compile(r"^(?P<indent>\s*)permissions\s*:\s*(?P<value>.*)$")
 WRITE_VALUE = re.compile(r"(?:^|[,{\s])(?:[A-Za-z0-9_-]+\s*:\s*)?write(?:-all)?(?:$|[,}\s])")
+# Match canonical and YAML-quoted "uses" keys alike. A quoted spelling
+# must receive precisely the same immutable-pin and allowlist validation.
+USES_KEY = r"(?:uses|'uses'|\"uses\")"
 USES_LINE = re.compile(
-    r"^\s*(?:-\s*)?uses\s*:\s*(?P<quote>['\"]?)(?P<target>[^'\"#\s]+)(?P=quote)"
+    rf"^\s*(?:-\s*)?{USES_KEY}\s*:\s*(?P<quote>['\"]?)(?P<target>[^'\"#\s]+)(?P=quote)"
     r"\s*(?:#\s*(?P<comment>.*?))?\s*$"
 )
-USES_PREFIX = re.compile(r"^\s*(?:-\s*)?uses\s*:")
+USES_PREFIX = re.compile(rf"^\s*(?:-\s*)?{USES_KEY}\s*:")
+
+# The physical-line validator cannot safely inventory YAML flow-style
+# jobs/steps. Reject those forms rather than silently missing an action.
+FLOW_STYLE_JOBS = re.compile(r"^jobs\s*:\s*[\[{]")
+FLOW_STYLE_JOB = re.compile(r"^  [A-Za-z][A-Za-z0-9_-]*\s*:\s*\{")
+FLOW_STYLE_STEPS = re.compile(r"^    steps\s*:\s*[\[{]")
+FLOW_STYLE_STEP = re.compile(r"^      -\s*\{")
 
 
 @dataclass(frozen=True)
@@ -173,8 +183,26 @@ def _parse_uses(workflow: str, text: str) -> tuple[list[UseReference], list[str]
     """Parse workflow ``uses:`` references and return fail-closed parse errors."""
     references: list[UseReference] = []
     errors: list[str] = []
+    in_jobs = False
 
     for line_number, raw in enumerate(text.splitlines(), start=1):
+        # A flow-style step or job can conceal a uses reference from the
+        # line-oriented inventory. Fail closed on unsupported forms, including
+        # quoted/escaped mapping keys that would otherwise be invisible.
+        if re.match(r"^jobs\s*:", raw):
+            in_jobs = True
+        elif raw and not raw[0].isspace() and not raw.startswith("#"):
+            in_jobs = False
+        if FLOW_STYLE_JOBS.match(raw) or (in_jobs and (
+            FLOW_STYLE_JOB.match(raw)
+            or FLOW_STYLE_STEPS.match(raw)
+            or FLOW_STYLE_STEP.match(raw)
+        )):
+            errors.append(
+                f"{workflow}:{line_number}: unsupported flow-style job or step fail-closed"
+            )
+            continue
+
         clean = _without_comment(raw).strip()
         if not USES_PREFIX.match(clean):
             continue
