@@ -15,7 +15,7 @@ def docker_from_directives(source: str) -> list[str]:
     """Return all Docker FROM stages, including unsupported extra or case-varied stages."""
     return [
         line.strip() for line in source.splitlines()
-        if re.match(r"(?i)^FROM(?:[ \\t]|$)", line.strip())
+        if re.match(r"(?i)^FROM(?:\s|$)", line.strip())
     ]
 
 
