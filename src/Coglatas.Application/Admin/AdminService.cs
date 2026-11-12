@@ -31,7 +31,7 @@ public sealed class AdminService(
 
     public async Task<Result> RestartTaskDeadlineDigestAsync(
         Guid jobId,
-        RestartTaskDeadlineDigestRequest request,
+        RestartTaskDeadlineDigestRequest? request,
         CancellationToken cancellationToken = default)
     {
         if (jobId == Guid.Empty ||
@@ -97,6 +97,7 @@ public sealed class AdminService(
             : Result<AdminUserDetailResponse>.Success(ToUserDetail(user));
     }
 
+    /// <summary>Validates supplied display-name and email fields before staging profile changes on the repository-owned user.</summary>
     public async Task<Result<AdminUserDetailResponse>> UpdateUserAsync(Guid userId, UpdateAdminUserRequest request, CancellationToken cancellationToken = default)
     {
         if (!await IsSystemAdminAsync(cancellationToken))
@@ -116,8 +117,6 @@ public sealed class AdminService(
             {
                 return Result<AdminUserDetailResponse>.Failure("Display name is required and must be 120 characters or fewer.");
             }
-
-            user.DisplayName = request.DisplayName.Trim();
         }
 
         if (request.Email is not null)
@@ -136,6 +135,11 @@ public sealed class AdminService(
 
             user.Email = request.Email.Trim();
             user.NormalizedEmail = normalizedEmail;
+        }
+
+        if (request.DisplayName is not null)
+        {
+            user.DisplayName = request.DisplayName.Trim();
         }
 
         var shouldRevokeSessions = false;
@@ -297,6 +301,7 @@ public sealed class AdminService(
         return Result<AdminInviteResponse>.Success(ToInviteResponse(invite, rawToken));
     }
 
+    /// <summary>Validates the distinct batch before staging invitations in the shared unit of work.</summary>
     public async Task<Result<IReadOnlyList<AdminInviteResponse>>> BulkCreateInvitesAsync(BulkCreateInviteRequest request, CancellationToken cancellationToken = default)
     {
         if (!await IsSystemAdminAsync(cancellationToken))
@@ -309,7 +314,7 @@ public sealed class AdminService(
             return Result<IReadOnlyList<AdminInviteResponse>>.Failure("Bulk invite requires 1 to 500 email addresses.");
         }
 
-        var responses = new List<AdminInviteResponse>();
+        var pendingInvites = new List<(Invite Invite, string RawToken)>();
         foreach (var email in request.Emails.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var result = await BuildInviteAsync(request.WorkspaceId, email, request.Role, request.ExpiresAt, cancellationToken);
@@ -318,7 +323,12 @@ public sealed class AdminService(
                 return Result<IReadOnlyList<AdminInviteResponse>>.Failure(result.Error ?? "Invite could not be created.");
             }
 
-            var (invite, rawToken) = result.Value;
+            pendingInvites.Add(result.Value);
+        }
+
+        var responses = new List<AdminInviteResponse>(pendingInvites.Count);
+        foreach (var (invite, rawToken) in pendingInvites)
+        {
             await adminRepository.AddInviteAsync(invite, cancellationToken);
             responses.Add(ToInviteResponse(invite, rawToken));
         }
