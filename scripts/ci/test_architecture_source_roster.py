@@ -95,6 +95,22 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
             'namespace Coglatas.Architecture.Tests;', 'namespace Other;'), encoding='utf-8')
         with self.assertRaises(module.SourceRosterError):
             module.discover(self.root, 'CORE')
+        # A comment containing the reviewed namespace must not satisfy
+        # a foreign actual declaration or duplicate namespace claims.
+        self.core.write_text(fixture('LayerDependencyTests', 6).replace(
+            'namespace Coglatas.Architecture.Tests;',
+            'namespace Other;\n// namespace Coglatas.Architecture.Tests;'),
+            encoding='utf-8')
+        with self.assertRaises(module.SourceRosterError) as failure:
+            module.discover(self.root, 'CORE')
+        self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
+        self.core.write_text(fixture('LayerDependencyTests', 6).replace(
+            'namespace Coglatas.Architecture.Tests;',
+            'namespace Coglatas.Architecture.Tests;\nnamespace Other;'),
+            encoding='utf-8')
+        with self.assertRaises(module.SourceRosterError) as failure:
+            module.discover(self.root, 'CORE')
+        self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
 
     def test_source_swap_between_check_and_open_is_denied(self) -> None:
         """A replacement leaf must not masquerade as the previously checked inode."""
