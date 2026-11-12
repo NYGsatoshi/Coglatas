@@ -139,9 +139,16 @@ def verify(record: dict, *, pr_number: int, head_sha: str, base_sha: str,
             and [x['sha'] for x in merge['parents']] == [base_sha, head_sha]
             and head['tree']['sha'] == merge['tree']['sha']
             and sha(head['tree']['sha'], 40), 'TREE_MISMATCH')
+    # Actions may return either an unqualified workflow filename or a
+    # ref-qualified path. Accept only the already-pinned Security base ref.
+    run_path = run.get('path')
+    require(type(run_path) is str, 'RUN_MISMATCH')
+    workflow_path, separator, workflow_ref = run_path.partition('@')
+    require(workflow_path == WORKFLOW
+            and (not separator or workflow_ref == BASE_REF), 'RUN_MISMATCH')
     require(run['id'] == run_id and run['head_sha'] == head_sha
             and run['head_branch'] == pr['head']['ref'] and run['event'] == 'pull_request'
-            and run['path'] == WORKFLOW and run['workflow_id'] == WORKFLOW_ID
+            and run['workflow_id'] == WORKFLOW_ID
             and type(run['run_attempt']) is int and run['run_attempt'] == attempt
             and run['status'] == 'completed'
             and run['conclusion'] == 'success' and positive(run['check_suite_id'])
