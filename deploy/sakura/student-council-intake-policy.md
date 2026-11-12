@@ -88,6 +88,10 @@ strict version/DTO shapes, boolean flags, duplicate normalized keys and capture
 age. Its output always retains `targetPolicy=UNQUALIFIED` and
 `liveStateVerified=false`. It is a local contract guard, not a deployment gate
 or proof that the supplied data came from the target.
+The capture must be a regular UTF-8 file of at most 256 KiB; symlinks, FIFOs,
+directories and files replaced or changed during reading are rejected. Reads are
+bounded independently of the initial file size, and rejections do not print the
+capture content. This file admission check does not authenticate its provenance.
 Feature keys are conservatively restricted to ASCII and normalized with
 lowercase and only the .NET ASCII trim characters (space, tab, CR, LF, vertical
 tab and form feed), matching the supported registry keys. Unicode case folding is

@@ -46,9 +46,15 @@ compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPO
 source "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh"
 acceptance_prepare_image_reuse
 mkdir -p test-results
+MBJ02_PRIVATE_RESULTS=""
 
 cleanup() {
   local exit_code=$?
+  trap - EXIT
+  local evidence_exit=0
+  if [[ -n "$MBJ02_PRIVATE_RESULTS" ]]; then
+    python3 scripts/ci/mbj02-trx-receipt.py finish --exit-code "$exit_code" || evidence_exit=$?
+  fi
   if (( exit_code != 0 )); then
     echo "Collecting sanitized MBJ-02 failure evidence." >&2
     "${compose[@]}" ps --all > test-results/mbj02-compose-ps.txt 2>&1 || true
@@ -64,7 +70,10 @@ sys.stdout.write(text)
 ' < /tmp/mbj02-compose.log > test-results/mbj02-compose.log 2>/dev/null || true
   fi
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
-  return "$exit_code"
+  if (( exit_code == 0 && evidence_exit != 0 )); then
+    exit "$evidence_exit"
+  fi
+  exit "$exit_code"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -149,11 +158,26 @@ run_probe() {
 
 run_issue527_postgres_tests() {
   local connection_string='Host=postgres;Port=5432;Database=coglatas_smoke;Username=coglatas_smoke;Password=coglatas_smoke_password'
+  local test_exit=0 proof_exit=0
   echo "Running Issue #527 PostgreSQL transaction/replay integration tests."
+  "${compose[@]}" exec -T postgres psql -U coglatas_smoke -d coglatas_smoke \
+    -v ON_ERROR_STOP=1 -Atqc 'SHOW server_version_num' > "$MBJ02_PRIVATE_RESULTS/postgres-before.txt"
+  # /src is already the host checkout bind mount. Keep raw TRX/stdout outside
+  # test-results/, which the licensed workflow uploads on failure.
   "${compose[@]}" run --rm --no-deps \
     -e POSTGRES_TEST_CONNECTION_STRING="$connection_string" \
+    -e COGLATAS_MBJ02_RESULTS_DIRECTORY="$MBJ02_PRIVATE_RESULTS" \
     migrate \
-    bash -lc 'set -euo pipefail; dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --filter "Scope=Issue527" --logger "trx;LogFileName=mbj02-issue527-postgresql.trx" --results-directory test-results 2>&1 | tee test-results/mbj02-issue527-postgresql.log'
+    bash -lc 'set -euo pipefail; dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --filter "Scope=Issue527" --logger "trx;LogFileName=mbj02-issue527-postgresql.trx" --results-directory "$COGLATAS_MBJ02_RESULTS_DIRECTORY"' \
+    > "$MBJ02_PRIVATE_RESULTS/test.log" 2>&1 || test_exit=$?
+  "${compose[@]}" exec -T postgres psql -U coglatas_smoke -d coglatas_smoke \
+    -v ON_ERROR_STOP=1 -Atqc 'SHOW server_version_num' > "$MBJ02_PRIVATE_RESULTS/postgres-after.txt" || proof_exit=$?
+  python3 scripts/ci/mbj02-trx-receipt.py test-complete --exit-code "$test_exit" || proof_exit=$?
+  if (( test_exit != 0 )); then
+    echo "MBJ-02 selected PostgreSQL tests failed; raw output remains private." >&2
+    return "$test_exit"
+  fi
+  return "$proof_exit"
 }
 
 verify_postgres_state() {
@@ -252,6 +276,7 @@ JSON
   echo "MBJ-02 PostgreSQL persistence and isolation state verified."
 }
 
+MBJ02_PRIVATE_RESULTS="$(python3 scripts/ci/mbj02-trx-receipt.py begin)"
 echo "Validating MBJ-02 Compose configuration."
 "${compose[@]}" config --quiet
 

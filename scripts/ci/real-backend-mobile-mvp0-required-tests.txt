@@ -1,0 +1,2 @@
+# Independent opt-in profile; does not alter the required Desktop or canonical Mobile owners.
+exercises mandatory authenticated MVP0 flows through ASP.NET Core backend

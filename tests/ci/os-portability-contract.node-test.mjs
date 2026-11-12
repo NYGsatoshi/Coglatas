@@ -40,7 +40,7 @@ test('contract rejects a missing OS and a browser execution Cartesian product', 
 
 test('Linux database ownership accepts official tagged and digest-pinned PostgreSQL only', () => {
   const digest = 'a'.repeat(64);
-  const workflow = (image, runner = 'ubuntu-latest') => `jobs:\n  database:\n    runs-on: ${runner}\n    services:\n      postgres:\n        image: ${JSON.stringify(image)}\n`;
+  const workflow = (image, runner = 'ubuntu-24.04') => `jobs:\n  database:\n    runs-on: ${runner}\n    services:\n      postgres:\n        image: ${JSON.stringify(image)}\n`;
   for (const image of ['postgres:18.6', 'postgres:18.6-alpine', `postgres@sha256:${digest}`, `postgres:18.6@sha256:${digest}`]) {
     assert.doesNotThrow(() => validateLinuxOwnedWorkflowText(workflow(image)), image);
   }
@@ -49,8 +49,10 @@ test('Linux database ownership accepts official tagged and digest-pinned Postgre
     'unrelated:18.6', 'private.example/postgres:18.6', `postgres-other@sha256:${digest}`]) {
     assert.throws(() => validateLinuxOwnedWorkflowText(workflow(image)), /Ubuntu job that directly owns/u, image);
   }
-  assert.throws(() => validateLinuxOwnedWorkflowText(workflow(`postgres@sha256:${digest}`, 'windows-latest')),
-    /Ubuntu job that directly owns/u);
+  for (const runner of ['ubuntu-latest', 'ubuntu-26.04', 'windows-latest']) {
+    assert.throws(() => validateLinuxOwnedWorkflowText(workflow(`postgres@sha256:${digest}`, runner)),
+      /Ubuntu job that directly owns/u, runner);
+  }
   assert.throws(() => validateLinuxOwnedWorkflowText('jobs:\n  database:\n    runs-on: ubuntu-latest\n'),
     /Ubuntu job that directly owns/u);
 });

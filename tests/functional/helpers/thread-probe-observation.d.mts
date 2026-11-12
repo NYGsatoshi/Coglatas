@@ -1,6 +1,7 @@
 import type { Page, Request } from '@playwright/test';
 import type { ThreadTarget } from './thread-probe-diagnostics.mjs';
 export interface ThreadObservation {
+  schemaVersion?: 3;
   elapsedMs?: (number | null)[];
   events: { kind: string; request: number | null; status: number | null }[];
   truncated: boolean; orphanResponse: boolean; freshRequest: number | null;

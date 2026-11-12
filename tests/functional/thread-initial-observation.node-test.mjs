@@ -44,7 +44,8 @@ const probe = () => {
     initial: { responseShape: threadResponseShape(dto(), privateValue, privateValue), failureDom: dom() } };
 };
 
-test('actual response comparisons export booleans and distinguish invalid identity/count shapes without content', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('actual response comparisons export booleans and distinguish invalid identity/count shapes without content', () => {
   assert.ok(Object.values(threadResponseShape(dto(), privateValue, privateValue)).every(Boolean));
   for (const value of [null, {}, { ...dto(), replies: null }, { ...dto(), rootMessage: { id: 'other' } },
     { ...dto(), summary: { ...dto().summary, replyCount: 1 } }, { ...dto(), replies: [{ id: privateValue, conversationId: 'other' }] }]) {
@@ -55,7 +56,7 @@ test('actual response comparisons export booleans and distinguish invalid identi
   }
 });
 
-test('body observation never joins progress and a sealed lease rejects late completion or rejection', async () => {
+void test('body observation never joins progress and a sealed lease rejects late completion or rejection', async () => {
   for (const outcome of ['resolve-before-seal', 'resolve-after-seal', 'reject-after-seal', 'never-resolves']) {
     let resolve, reject;
     const body = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -75,7 +76,7 @@ test('body observation never joins progress and a sealed lease rejects late comp
   }
 });
 
-test('precleanup DOM capture inspects fixed structural selectors only, never text, attributes or product globals', async () => {
+void test('precleanup DOM capture inspects fixed structural selectors only, never text, attributes or product globals', async () => {
   const previousDocument = globalThis.document, previousStyle = globalThis.getComputedStyle;
   const seen = [];
   const element = { getBoundingClientRect: () => ({ width: 1, height: 1 }),
@@ -92,7 +93,7 @@ test('precleanup DOM capture inspects fixed structural selectors only, never tex
   } finally { globalThis.document = previousDocument; globalThis.getComputedStyle = previousStyle; }
 });
 
-test('new authorized selection excludes an old response and refuses pre-observer ordinal binding', () => {
+void test('new authorized selection excludes an old response and refuses pre-observer ordinal binding', () => {
   const page = new EventEmitter(), observation = observeThreadRequests(page, () => true);
   const old = {}, fresh = {};
   page.emit('request', old); observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
@@ -105,7 +106,7 @@ test('new authorized selection excludes an old response and refuses pre-observer
   assert.throws(() => validateThreadObservation(altered));
 });
 
-test('optional initial receipt strictly rejects unknown fields, nonbooleans, invented visibility and unbound shape', () => {
+void test('optional initial receipt strictly rejects unknown fields, nonbooleans, invented visibility and unbound shape', () => {
   const valid = probe();
   const mutations = [
     (value) => { value.initial.private = privateValue; },
@@ -125,7 +126,7 @@ test('optional initial receipt strictly rejects unknown fields, nonbooleans, inv
   assert.deepEqual(readThreadProbe([{}, ...Array(2).fill({ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(valid)) })]), { state: 'INVALID', data: null });
 });
 
-test('pre-action denied-response DOM requires an older GET 400 after the explicit action', () => {
+void test('pre-action denied-response DOM requires an older GET 400 after the explicit action', () => {
   const page = new EventEmitter(), observation = observeThreadRequests(page, () => true);
   observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
   const allowed = {}, old = {}, fresh = {};
@@ -176,7 +177,7 @@ test('pre-action denied-response DOM requires an older GET 400 after the explici
   assert.equal(JSON.stringify(validateThreadProbe(valid)).includes(privateValue), false);
 });
 
-test('24-event receipt with all new boolean fields remains below4096 bytes and truncation stays INCOMPLETE', () => {
+void test('24-event receipt with all new boolean fields remains below4096 bytes and truncation stays INCOMPLETE', () => {
   const value = probe();
   while (value.observation.events.length < 24) {
     value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
@@ -189,7 +190,7 @@ test('24-event receipt with all new boolean fields remains below4096 bytes and t
   assert.throws(() => validateThreadProbe({ ...value, observation: { ...value.observation, classification: 'UNKNOWN' } }));
 });
 
-test('canonical failure attribution remains conservative when secondary diagnostics or restoration fail', () => {
+void test('canonical failure attribution remains conservative when secondary diagnostics or restoration fail', () => {
   for (const stage of ['CAPTURE', 'RESTORE', privateValue]) {
     const result = attemptDiagnostic('FUNC-MSG-001', { status: 'failed', retry: 0, errors: [{ message: 'TimeoutError: secondary' }],
       steps: [{ category: 'test.step', title: 'FUNC-MSG-001 / MSG-THREAD-DENIAL', error: { matcherResult: {} } }] },
@@ -200,7 +201,7 @@ test('canonical failure attribution remains conservative when secondary diagnost
   }
 });
 
-test('canonical attempt retains validated Thread evidence but never promotes missing, invalid or truncated diagnostics to a result', () => {
+void test('canonical attempt retains validated Thread evidence but never promotes missing, invalid or truncated diagnostics to a result', () => {
   const valid = probe();
   for (const attachments of [[], [{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(privateValue) }],
     [{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(valid)) }]]) {
@@ -215,7 +216,7 @@ test('canonical attempt retains validated Thread evidence but never promotes mis
   assert.equal(validateThreadProbe(altered).observation.classification, 'INCOMPLETE');
 });
 
-test('actual canonical reporter publishes the bounded probe with failed owner and refuses raw attachment projection', () => {
+void test('actual canonical reporter publishes the bounded probe with failed owner and refuses raw attachment projection', () => {
   const previousDirectory = process.cwd(), directory = mkdtempSync(join(tmpdir(), 'canonical-thread-retention-'));
   const envKeys = ['COGLATAS_FUNCTIONAL_DOMAIN', 'COGLATAS_FUNCTIONAL_SELECTED_GATES', 'TARGET_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'];
   const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
@@ -266,7 +267,7 @@ function ownerCallback() {
 }
 
 for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable', 'restore-failure', 'failure-capture-error', 'request-failure', 'body-never-resolves', 'root-pass-body-never-resolves']) {
-  test(`exact owner callback retains first root failure before cleanup under ${condition}; mocked transport only`, { timeout: 2000 }, async () => {
+  void test(`exact owner callback retains first root failure before cleanup under ${condition}; mocked transport only`, { timeout: 2000 }, async () => {
     const primary = new Error('private-primary'), attachments = [], secondary = [], ordering = [];
     let cleanup = false, requestListener, bodyReadCount = 0, bodyStartedAfterMatcher = false;
     const page = new EventEmitter();
@@ -352,23 +353,30 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
 }
 
 
-test('timed expanded DOM record at24 maximum-width events stays within4096 bytes', () => {
+for (const [schemaVersion, eventLimit] of [[undefined, 24], [3, 32]]) {
+  await test(`timed expanded DOM record version ${schemaVersion ?? 'legacy'} at${eventLimit} maximum-width events stays within4096 bytes`, () => {
   const value = probe();
+  if (schemaVersion === undefined) {
+    delete value.observation.schemaVersion;
+  } else {
+    value.observation.schemaVersion = schemaVersion;
+  }
+  assert.equal(Object.hasOwn(value.observation, "schemaVersion"), schemaVersion !== undefined);
   value.initial.failureDom = { ...Object.fromEntries(Object.keys(dom()).map((key) => [key, false])),
     pagePresent: false, conversationPresent: false, threadOpenClass: false, groupClass: false };
   value.observation.events.push({ kind: 'AUTHORIZED_ACTION_STARTED', request: null, status: null },
     { kind: 'AUTHORIZED_ACTION_COMPLETED', request: null, status: null },
     { kind: 'ROOT_ASSERTION_STARTED', request: null, status: null },
     { kind: 'ROOT_ASSERTION_FAILED', request: null, status: null });
-  while (value.observation.events.length < 24) {
+  while (value.observation.events.length < eventLimit) {
     value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
   }
-  value.observation.elapsedMs = Array(24).fill(3600000);
+  value.observation.elapsedMs = Array(eventLimit).fill(3600000);
   const valid = validateThreadProbe(value);
   assert.ok(Buffer.byteLength(JSON.stringify(valid)) <= 4096);
   const widest = observationKinds.reduce((left, right) => left.length > right.length ? left : right);
   const envelope = structuredClone(value);
-  envelope.observation.events = Array.from({ length: 24 }, () => ({ kind: widest, request: null, status: null }));
+  envelope.observation.events = Array.from({ length: eventLimit }, () => ({ kind: widest, request: null, status: null }));
   envelope.observation.freshRequest = null; envelope.observation.classification = 'INCOMPLETE';
   envelope.observation.actionFailure = 'POINTER_INTERCEPTION';
   // Deliberately not a valid event order: every retained scalar uses its longest closed representation.
@@ -381,9 +389,10 @@ test('timed expanded DOM record at24 maximum-width events stays within4096 bytes
     (copy) => { copy.observation.elapsedMs.pop(); },
   ]) { const copy = structuredClone(valid); mutate(copy); assert.throws(() => validateThreadProbe(copy)); }
 });
+}
 
 
-test('failed matcher marker precedes asynchronous capture and late response, preserving primary through failed cleanup', async () => {
+void test('failed matcher marker precedes asynchronous capture and late response, preserving primary through failed cleanup', async () => {
   const page = new EventEmitter(); let now = 0;
   const observation = observeThreadRequests(page, () => true, () => now++);
   const initial = { responseShape: null, failureDom: null }, primary = new Error(privateValue);
@@ -409,7 +418,7 @@ test('failed matcher marker precedes asynchronous capture and late response, pre
   assert.equal(JSON.stringify(captured).includes(privateValue), false);
 });
 
-test('canonical owner preserves native call and root matcher order with unchanged explicit deadlines', () => {
+void test('canonical owner preserves native call and root matcher order with unchanged explicit deadlines', () => {
   const callback = ownerCallback();
   const required = ["observation.mark('AUTHORIZED_OBSERVER_REGISTERED')", 'page.waitForResponse(', 'page.waitForRequest(',
     "observation.mark('AUTHORIZED_ACTION_STARTED')", 'page.getByTestId(`open-message-thread-${messageId}`).click()',
@@ -426,7 +435,7 @@ test('canonical owner preserves native call and root matcher order with unchange
 });
 
 
-test('every adjacent key collision in historical and expanded DOM partitions is rejected directly and by attachment projection', () => {
+void test('every adjacent key collision in historical and expanded DOM partitions is rejected directly and by attachment projection', () => {
   const collisions = collisionProbes();
   assert.equal(collisions.length, 18);
   for (const value of collisions) {

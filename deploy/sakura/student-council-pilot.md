@@ -385,6 +385,8 @@ Checksums and `pg_restore --list` prove readability, not a successful restore.
 
 ## Isolated restore drill
 
+**Recovery remains blocked by [Issue #1355](https://github.com/NYGsatoshi/Coglatas/issues/1355).** The historical ordinary logical restore completed but failed the retained strict raw-schema comparison; the separate original-DDL/data-only replay failed on foreign-key load ordering. The procedure below is not a qualified recovery repair or a restore PASS. Preserve strict schema/catalog, row, sequence, role/grant, Audit, File and application checks; do not normalize away differences, disable constraints or triggers, or use a second restore to erase the first failure. The physical candidate in [PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379) remains Draft / review only / Owner HOLD and does not replace the approved strategy. Any formal strategy change, target restore or cutover still requires its exact existing approval scope.
+
 Use a separate approved host or an unused project name and **new empty volumes**.
 The tracked `student-council-pilot-restore.compose.yml` has no canonical container
 names, migrations, seed, edge service, published ports or automatic deployment.

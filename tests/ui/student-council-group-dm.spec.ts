@@ -6,6 +6,248 @@ const workspaceId = 'static-workspace-1';
 const groupId = '77777777-7777-4777-8777-777777777777';
 const actor = 'mock-user-a';
 
+test.describe('Conversation-create intent across real browser catch-up (mock HTTP and SignalR)', () => {
+  for (const result of ['direct-current', 'group-current', 'direct-denied'] as const) {
+    test(`revalidates recipients while retaining only same-scope local intent: ${result}`, async ({ page }) => {
+      const control = await installGroupApi(page);
+      control.existingGroup = false;
+      await page.route('**/api/ui/runtime-config.js', route => route.fulfill({
+        contentType: 'application/javascript', body: 'window.__COGLATAS_FEATURE_FLAGS__={"realtime.signalR":true};'
+      }));
+      await page.route('**/hubs/app/negotiate?*', route => route.fulfill({ json: {
+        negotiateVersion: 1, connectionId: 'synthetic-dialog', connectionToken: 'synthetic-dialog',
+        availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
+      } }));
+      let reconnect: (() => Promise<void>) | undefined;
+      await page.routeWebSocket('**/hubs/app?*', socket => {
+        reconnect = () => socket.close({ code: 1012, reason: 'Synthetic same-scope catch-up' });
+        socket.onMessage(raw => {
+          for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
+            const message = JSON.parse(frame);
+            if (message.protocol) { socket.send('{}\u001e'); continue; }
+            if (message.type === 1) socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
+              result: { allowed: true, code: 'Allowed' } }) + '\u001e');
+          }
+        });
+      });
+      let holdRefresh = false;
+      let refreshReads = 0;
+      let releaseRefresh = () => {};
+      const refreshGate = new Promise<void>(resolve => { releaseRefresh = resolve; });
+      await page.route(url => url.pathname === '/api/conversations', async route => {
+        if (route.request().method() === 'GET' && holdRefresh) {
+          refreshReads++;
+          await refreshGate;
+          if (result === 'direct-denied') {
+            await route.fulfill({ status: 403, json: { error: 'Unavailable' } });
+            return;
+          }
+        }
+        await route.fallback();
+      });
+      let freshRecipients = false;
+      await page.route('**/api/conversations/recipients?*', route => route.fulfill({ json: [
+        { userId: freshRecipients ? 'fresh' : 'old', displayName: freshRecipients ? 'Fresh current recipient' : 'Old protected recipient' }
+      ] }));
+      let memberReads = 0;
+      await page.route(`**/api/workspaces/${workspaceId}/members`, async route => {
+        memberReads++;
+        if (freshRecipients) {
+          await route.fulfill({ json: [
+            { userId: actor, displayName: 'Current participant', status: 1 },
+            { userId: 'new-peer', displayName: 'New participant', status: 1 }
+          ] });
+        } else await route.fallback();
+      });
+
+      await page.goto('/app/dm');
+      await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+      await page.getByTestId('new-message-button').click();
+      const dialog = page.getByTestId('new-message-dialog');
+      const submit = page.getByTestId('create-conversation-submit');
+      const group = result === 'group-current';
+      if (group) {
+        await page.getByTestId('group-create-mode').check();
+        await page.getByTestId('group-title').fill('Local council intent');
+        await page.getByTestId('group-recipient-option').filter({ hasText: 'Council peer' }).click();
+        await page.getByTestId('group-recipient-option').filter({ hasText: 'New participant' }).click();
+      } else {
+        await page.getByTestId('recipient-search').fill('Local council intent');
+        await page.getByTestId('recipient-option').filter({ hasText: 'Old protected recipient' }).click();
+      }
+      await expect(submit).toBeEnabled();
+      const previousMemberReads = memberReads;
+      freshRecipients = true;
+      holdRefresh = true;
+      await reconnect!();
+      try {
+        await expect.poll(() => refreshReads).toBeGreaterThan(0);
+        await expect(dialog).toBeVisible();
+        await expect(submit).toBeDisabled();
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeDisabled();
+        await expect(page.getByTestId('remove-recipient')).toHaveCount(0);
+        await expect(page.getByTestId(group ? 'group-recipient-option' : 'recipient-option')).toHaveCount(0);
+      } finally {
+        releaseRefresh();
+      }
+      if (result === 'direct-denied') {
+        await expect(dialog).toHaveCount(0);
+      } else {
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toBeEnabled();
+        await expect(page.getByTestId(group ? 'group-title' : 'recipient-search')).toHaveValue('Local council intent');
+        await expect(submit).toBeDisabled();
+        if (group) {
+          await expect.poll(() => memberReads).toBeGreaterThan(previousMemberReads);
+          await expect(page.getByTestId('group-recipient-option')).toHaveCount(1);
+          await expect(dialog).not.toContainText('Council peer');
+          await expect(page.getByTestId('group-recipient-option')).toHaveAttribute('aria-pressed', 'false');
+        } else {
+          await expect(page.getByTestId('recipient-option')).toHaveCount(0);
+          await page.getByTestId('recipient-search').fill('Fresh council intent');
+          await expect(page.getByTestId('recipient-option')).toHaveText('Fresh current recipient');
+          await expect(dialog).not.toContainText('Old protected recipient');
+          await page.getByTestId('recipient-option').click();
+          await expect(submit).toBeEnabled();
+        }
+      }
+      expect(control.creates).toEqual([]);
+      expect(control.sends).toEqual([]);
+    });
+  }
+});
+
+test.describe('Group native viewport across later realtime catch-up (mock HTTP)', () => {
+  for (const result of ['initial-synchronization', 'terminal-degradation', 'offline-degradation', 'authorized-before-check', 'authorized-during-check', 'outside-focus', 'denied'] as const) {
+    test(`keeps only current authority and viewport intent: ${result}`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 420 });
+      const control = await installGroupApi(page);
+      control.manager = false; control.readOnly = true; control.longRoster = true;
+      await page.addInitScript(() => {
+        const original = HTMLElement.prototype.scrollIntoView;
+        const scope = window as typeof window & { rosterScrolls?: number };
+        scope.rosterScrolls = 0;
+        HTMLElement.prototype.scrollIntoView = function (options) {
+          if (this.matches('[data-testid="group-members-panel"] summary, .group-members__list, [data-testid="group-leave"]')) {
+            scope.rosterScrolls!++;
+          }
+          original.call(this, options);
+        };
+      });
+      await page.route('**/api/ui/runtime-config.js', route => route.fulfill({
+        contentType: 'application/javascript', body: 'window.__COGLATAS_FEATURE_FLAGS__={"realtime.signalR":true};'
+      }));
+      await page.route('**/hubs/app/negotiate?*', route => route.fulfill({ json: {
+        negotiateVersion: 1, connectionId: 'synthetic-roster', connectionToken: 'synthetic-roster',
+        availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
+      } }));
+      let reconnect: (() => Promise<void>) | undefined;
+      let releaseInitial: (() => void) | undefined;
+      let degrade: (() => void) | undefined;
+      await page.routeWebSocket('**/hubs/app?*', socket => {
+        reconnect = () => socket.close({ code: 1012, reason: 'Synthetic reconnect control' });
+        degrade = () => socket.send(JSON.stringify({ type: 7, allowReconnect: false }) + '\u001e');
+        socket.onMessage(raw => {
+          for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
+            const message = JSON.parse(frame);
+            if (message.protocol) { socket.send('{}\u001e'); continue; }
+            if (message.type !== 1) continue;
+            const complete = () => socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
+              result: { allowed: true, code: 'Allowed' } }) + '\u001e');
+            if (['initial-synchronization', 'terminal-degradation', 'offline-degradation'].includes(result) && message.target === 'SubscribeUser') releaseInitial = complete;
+            else complete();
+          }
+        });
+      });
+      let reads = 0;
+      let holdRefresh = false;
+      let releaseDetail = () => {};
+      const detailGate = new Promise<void>(resolve => { releaseDetail = resolve; });
+      await page.route(`**/api/conversations/${groupId}`, async route => {
+        if (++reads > 1 && holdRefresh) await detailGate;
+        await route.fallback();
+      });
+      await page.goto(`/app/dm/${groupId}`);
+      const panel = page.getByTestId('group-members-panel');
+      const summary = panel.locator('summary');
+      if (['initial-synchronization', 'terminal-degradation', 'offline-degradation'].includes(result)) {
+        await expect.poll(() => !!releaseInitial).toBe(true);
+        await expect(page.getByTestId('confirmed-message')).toHaveCount(1);
+        // The initial HTTP projection cannot expose a temporary roster while
+        // the first transport synchronization still owes its current catch-up.
+        await expect(panel).toHaveCount(0);
+        if (result === 'terminal-degradation' || result === 'offline-degradation') {
+          if (result === 'terminal-degradation') degrade!();
+          else await page.context().setOffline(true);
+          await expect(page.getByTestId('realtime-connection-state')).toContainText(
+            result === 'terminal-degradation' ? 'Realtime updates are delayed.' : 'Offline.');
+          await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+          await summary.scrollIntoViewIfNeeded();
+          await expect(summary).toBeInViewport({ ratio: 1 });
+          return;
+        }
+        holdRefresh = true;
+        releaseInitial!();
+        await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
+        await expect(panel).toHaveCount(0);
+        await expect(page.getByTestId('confirmed-message')).toHaveCount(0);
+        releaseDetail();
+        await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+        await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+        await summary.scrollIntoViewIfNeeded();
+        await expect(summary).toBeInViewport({ ratio: 1 });
+        expect(await page.evaluate(() => (window as typeof window & { rosterScrolls?: number }).rosterScrolls)).toBe(0);
+        return;
+      }
+      await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+      await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+      const old = await summary.elementHandle();
+      // Exactly one native action, completed before the controlled catch-up.
+      await summary.scrollIntoViewIfNeeded();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      holdRefresh = true;
+      await reconnect!();
+      await expect(panel).toHaveCount(0);
+      await expect(page.getByTestId('confirmed-message')).toHaveCount(0);
+      expect(await old!.evaluate(node => node.isConnected)).toBe(false);
+      if (result === 'outside-focus') await page.getByTestId('manual-refresh').focus();
+      if (result === 'denied') control.denied = true;
+      if (result === 'authorized-during-check') {
+        const visibility = expect(summary).toBeInViewport({ ratio: 1 });
+        releaseDetail();
+        await visibility;
+      } else {
+        releaseDetail();
+      }
+      if (result === 'denied') {
+        await expect(page.getByTestId('dm-page')).toContainText('Conversation API request failed.');
+        await expect(panel).toHaveCount(0);
+        await expect(page.getByTestId('dm-page')).not.toContainText('Ordinary participant');
+      } else {
+        await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+        if (result === 'outside-focus') {
+          await expect(page.getByTestId('manual-refresh')).toBeFocused();
+        } else {
+          await expect(summary).toBeInViewport({ ratio: 1 });
+          await summary.focus();
+          await page.keyboard.press('Tab');
+          const list = panel.locator('.group-members__list');
+          await expect(list).toBeFocused();
+          await list.scrollIntoViewIfNeeded();
+          await page.keyboard.press('End');
+          expect(await list.evaluate(node => Math.abs(node.scrollTop - (node.scrollHeight - node.clientHeight)))).toBeLessThanOrEqual(1);
+          await page.keyboard.press('Home');
+          expect(await list.evaluate(node => node.scrollTop)).toBe(0);
+        }
+      }
+      expect(control.sends).toEqual([]);
+      expect(control.adds).toEqual([]);
+      expect(await page.evaluate(() => (window as typeof window & { rosterScrolls?: number }).rosterScrolls))
+        .toBe(result.startsWith('authorized') ? 1 : 0);
+    });
+  }
+});
+
 test.describe('Student Council Group DM mock frontend contract', () => {
   for (const width of [1536, 1366, 768, 390, 320]) {
     const locale = width === 390 ? 'ja' : 'en';
@@ -172,6 +414,271 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     });
   }
 
+  test('honors rapid focused roster Home and End reversals without a pending native scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 1536, height: 600 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const list = panel.locator('.group-members__list');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    await panel.locator('summary').focus();
+    await page.keyboard.press('Tab');
+    await expect(list).toBeFocused();
+    // Each completed key must cancel the preceding boundary scroll, including
+    // reversal before a native smooth-scroll animation would have settled.
+    for (const key of ['End', 'Home', 'End', 'Home'] as const) {
+      await page.keyboard.press(key);
+      const position = await list.evaluate((element) => ({ top: element.scrollTop,
+        maximum: element.scrollHeight - element.clientHeight }));
+      expect(position.maximum).toBeGreaterThan(0);
+      expect(position.top).toBe(key === 'Home' ? 0 : position.maximum);
+      await expect(list).toBeFocused();
+    }
+    await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+  });
+
+  test('exposes the first complete member after Home through the mobile outer scrollport', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.addInitScript(() => {
+      localStorage.setItem('coglatas.locale', 'ja');
+      localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+    });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true;
+    control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const summary = panel.locator('summary');
+    const list = panel.locator('.group-members__list');
+    const rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    await summary.scrollIntoViewIfNeeded();
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await summary.focus();
+    await page.keyboard.press('Tab');
+    await expect(list).toBeFocused();
+    await list.scrollIntoViewIfNeeded();
+    await expect(list).toBeInViewport();
+    await page.keyboard.press('End');
+    const end = await list.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));
+    expect(end.max).toBeGreaterThan(0);
+    expect(end.top).toBe(end.max);
+    await page.keyboard.press('Tab');
+    await expect(panel.getByTestId('group-leave')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(list).toBeFocused();
+    await page.keyboard.press('Home');
+    expect(await list.evaluate(element => element.scrollTop)).toBe(0);
+    await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+    await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press('Shift+Tab');
+    await expect(summary).toBeFocused();
+    await testInfo.attach('mobile-home-geometry.json', { contentType: 'application/json', body: JSON.stringify(await panel.evaluate(element => {
+      const rect = (node: Element | null) => node?.getBoundingClientRect().toJSON() ?? null;
+      const list = element.querySelector('ul');
+      return { viewport: { width: innerWidth, height: innerHeight }, summary: rect(element.querySelector('summary')),
+        list: rect(list), firstName: rect(list?.querySelector('strong') ?? null), firstStatus: rect(list?.querySelector('small') ?? null),
+        locale: document.documentElement.lang, active: document.activeElement?.tagName, home: list?.scrollTop };
+    })) });
+    await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+    await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+    await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+  });
+
+  test('keeps Home zero and the start visible when the first member is taller than its scrollport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    control.firstMemberName = Array.from({ length: 120 }, () => 'Synthetic long member').join(' ');
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const list = panel.locator('ul');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    expect(await list.evaluate(ul => ul.querySelector('li')!.getBoundingClientRect().height > ul.clientHeight)).toBe(true);
+    await panel.locator('summary').scrollIntoViewIfNeeded();
+    await panel.locator('summary').focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    await page.keyboard.press('End');
+    expect(await list.evaluate(ul => ul.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press('Home');
+    expect(await list.evaluate(ul => ul.scrollTop)).toBe(0);
+    expect(await list.evaluate(ul => {
+      let top = 0, bottom = innerHeight;
+      for (let node: Element | null = ul; node; node = node.parentElement) {
+        if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(node).overflowY)) {
+          const rect = node.getBoundingClientRect(); top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom);
+        }
+      }
+      const start = ul.querySelector('li')!.getBoundingClientRect().top;
+      return start >= top && start < bottom;
+    })).toBe(true);
+    await expect(list).toBeFocused();
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('exposes Home and the summary through fractional-height enclosing scrollports', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.addInitScript(() => { localStorage.setItem('coglatas.locale', 'ja'); });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), summary = panel.locator('summary');
+    const list = panel.locator('ul'), rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    for (const height of [302.55, 302.75, 302.95]) {
+      await page.locator('.app-shell__main').evaluate((element, height) => {
+        Object.assign((element as HTMLElement).style, { flex: `0 0 ${height}px`, height: `${height}px`, maxHeight: `${height}px` });
+      }, height);
+      expect(await page.locator('.app-shell__main').evaluate(element => element.getBoundingClientRect().height)).toBeCloseTo(height, 1);
+      await summary.scrollIntoViewIfNeeded(); await summary.focus();
+      await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+      await page.keyboard.press('End');
+      await page.keyboard.press('Tab'); await expect(panel.getByTestId('group-leave')).toBeFocused();
+      await page.keyboard.press('Shift+Tab'); await expect(list).toBeFocused();
+      await page.keyboard.press('Home');
+      expect(await list.evaluate(ul => ul.scrollTop)).toBe(0);
+      await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+      await page.keyboard.press('Shift+Tab'); await expect(summary).toBeFocused();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
+    }
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('exposes each Home and End row before focus leaves a clipped roster', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), summary = panel.locator('summary');
+    const list = panel.locator('ul'), rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    await summary.scrollIntoViewIfNeeded(); await summary.focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    for (const key of ['Home', 'End', 'Home', 'End']) {
+      await page.keyboard.press(key);
+      const position = await list.evaluate(ul => ({ top: ul.scrollTop, max: ul.scrollHeight - ul.clientHeight }));
+      expect(position.top).toBe(key === 'Home' ? 0 : position.max);
+      const row = key === 'Home' ? rows.first() : rows.last();
+      await expect(row.locator('strong')).toBeInViewport({ ratio: 1 });
+      await expect(row.locator('small')).toBeInViewport({ ratio: 1 });
+      await expect(list).toBeFocused();
+    }
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('exposes the end of an oversized final member while retaining inner End maximum', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true; control.persistedRosterShape = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel'), list = panel.locator('ul');
+    const rows = panel.getByTestId('group-member-row');
+    await expect(rows).toHaveCount(43);
+    await rows.last().locator('strong').evaluate(node => { node.textContent = Array.from({ length: 120 }, () => 'Synthetic final member').join(' '); });
+    expect(await rows.last().evaluate(row => row.getBoundingClientRect().height > row.closest('ul')!.clientHeight)).toBe(true);
+    await panel.locator('summary').scrollIntoViewIfNeeded(); await panel.locator('summary').focus();
+    await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    await page.keyboard.press('Home'); await page.keyboard.press('End');
+    const position = await list.evaluate(ul => ({ top: ul.scrollTop, max: ul.scrollHeight - ul.clientHeight }));
+    expect(position.top).toBe(position.max); expect(position.max).toBeGreaterThan(0);
+    await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    await expect(list).toBeFocused();
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('restores short-roster End through a real enclosing scrollport after authorized remount', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page); control.manager = false; control.readOnly = true;
+    await page.route('**/api/ui/runtime-config.js', route => route.fulfill({
+      contentType: 'application/javascript', body: 'window.__COGLATAS_FEATURE_FLAGS__={"realtime.signalR":true};'
+    }));
+    await page.route('**/hubs/app/negotiate?*', route => route.fulfill({ json: {
+      negotiateVersion: 1, connectionId: 'synthetic-short-roster', connectionToken: 'synthetic-short-roster',
+      availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
+    } }));
+    let reconnect: (() => Promise<void>) | undefined;
+    await page.routeWebSocket('**/hubs/app?*', socket => {
+      reconnect = () => socket.close({ code: 1012, reason: 'Synthetic short-roster reconnect' });
+      socket.onMessage(raw => {
+        for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
+          const message = JSON.parse(frame);
+          if (message.protocol) { socket.send('{}\u001e'); continue; }
+          if (message.type === 1) socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
+            result: { allowed: true, code: 'Allowed' } }) + '\u001e');
+        }
+      });
+    });
+    let hold = false, held = 0, release = () => {};
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route(`**/api/conversations/${groupId}`, async route => {
+      if (hold) { held++; await gate; }
+      await route.fallback();
+    });
+    await page.goto(`/app/dm/${groupId}`);
+    await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+    await page.addStyleTag({ content: '.dm-page__group-details { height: 110px !important; max-height: 110px !important; min-height: 0 !important; overflow-y: auto !important; }' });
+    const panel = page.getByTestId('group-members-panel'), list = panel.locator('ul');
+    const last = panel.getByTestId('group-member-row').last();
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(3);
+    expect(await list.evaluate(ul => ul.scrollHeight <= ul.clientHeight)).toBe(true);
+    expect(await page.locator('.dm-page__group-details').evaluate(outer => outer.scrollHeight > outer.clientHeight)).toBe(true);
+    await list.focus(); await page.keyboard.press('End');
+    await expect(last.locator('small')).toBeInViewport({ ratio: 1 });
+    hold = true;
+    await reconnect!();
+    try { await expect.poll(() => held).toBeGreaterThan(0); await expect(panel).toHaveCount(0); }
+    finally { release(); }
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(3);
+    await expect(list).toBeFocused();
+    const end = await list.evaluate(ul => ({ top: ul.scrollTop, max: Math.max(0, ul.scrollHeight - ul.clientHeight) }));
+    expect(end.top).toBe(end.max); expect(end.max).toBe(0);
+    await expect(last.locator('small')).toBeInViewport({ ratio: 1 });
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]);
+  });
+
+  test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const summary = panel.locator('summary');
+    const list = panel.locator('.group-members__list');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    await expect(page.getByTestId('message-draft')).toBeDisabled();
+    await summary.scrollIntoViewIfNeeded();
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await summary.focus();
+    await page.keyboard.press('Tab');
+    await expect(list).toBeFocused();
+    await list.scrollIntoViewIfNeeded();
+    await expect(list).toBeInViewport();
+    await expect(list).toBeFocused();
+    await page.keyboard.press('End');
+    const end = await list.evaluate((element) => ({
+      top: element.scrollTop, max: element.scrollHeight - element.clientHeight
+    }));
+    expect(end.max).toBeGreaterThan(0);
+    expect(end.top).toBe(end.max);
+    await page.keyboard.press('Tab');
+    await expect(panel.getByTestId('group-leave')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(list).toBeFocused();
+    await page.keyboard.press('Home');
+    expect(await list.evaluate((element) => element.scrollTop)).toBe(0);
+    await page.keyboard.press('Shift+Tab');
+    await expect(summary).toBeFocused();
+    expect(control.adds).toEqual([]);
+    expect(control.sends).toEqual([]);
+    expect(control.threadRequests).toEqual([]);
+  });
+
   test('keeps pending Group creation and nested recipient overflow accessible at 320x420', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
@@ -270,7 +777,7 @@ async function installGroupApi(page: Page) {
   let releaseCreate = () => {};
   const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
   const control = { creates: [] as Record<string, unknown>[], sends: [] as Record<string, unknown>[], adds: [] as string[], removes: [] as string[],
-    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
+    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, persistedRosterShape: false, firstMemberName: '', holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
   const workspaceMembers = [
     { userId: actor, displayName: 'Current participant', status: 1 },
     { userId: 'peer', displayName: 'Council peer', status: 1 },
@@ -287,7 +794,9 @@ async function installGroupApi(page: Page) {
   let messages = [{ id: 'group-root', workspaceId, conversationId: groupId, authorUserId: 'peer', authorDisplayName: 'Council peer', body: 'Protected Group body',
     createdAt: '2026-10-19T01:00:00Z', clientRequestId: 'original-group-key', isDeleted: false, version: 1 }];
   const detail = () => ({ id: groupId, workspaceId, type: 'Group', title, projectId: null, parentConversationId: null, rootConversationId: null,
-    isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member) => member.userId === actor
+    isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member, index) => control.persistedRosterShape
+      ? { ...member, displayName: index === 0 && control.firstMemberName ? control.firstMemberName : `Synthetic roster participant ${String(index + 1).padStart(2, '0')}`, role: index === 1 ? 'Admin' : 'ReadOnly', canPost: index === 1, canManageMembers: index === 1, leftAt: null, removedAt: null }
+      : member).map((member) => member.userId === actor
       ? { ...member, role: control.readOnly ? 'ReadOnly' : control.manager ? 'Admin' : 'Member', canManageMembers: control.manager } : member) });
   await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: { token: 'csrf-group-ui', headerName: 'X-CSRF-Token' } }));
   await page.route('**/api/**', async (route) => {
@@ -320,7 +829,9 @@ async function installGroupApi(page: Page) {
         const message = { id: 'created-group-message', workspaceId, conversationId: groupId, createdAt: '2026-10-20T00:00:00Z', isDeleted: false, version: 1,
           authorUserId: actor, authorDisplayName: 'Current participant', body: payload.body, clientRequestId: payload.clientRequestId };
         messages = [...messages, message]; await route.fulfill({ json: message });
-      } else { await route.fulfill({ json: { items: messages } }); }
+      } else { await route.fulfill({ json: { items: control.persistedRosterShape
+        ? messages.map(message => ({ ...message, body: 'Synthetic roster positive 00000000-0000-4000-8000-000000000000' }))
+        : messages } }); }
       return;
     }
     if (path === `/api/conversations/${groupId}/members` && method === 'POST') {

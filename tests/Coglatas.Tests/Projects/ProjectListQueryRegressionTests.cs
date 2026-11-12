@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class ProjectListQueryRegressionTests
+public sealed partial class ProjectListQueryRegressionTests
 {
     [Theory]
     [InlineData(821_215_108, 50)]
