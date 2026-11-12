@@ -40,6 +40,19 @@ ESCAPED_TSV_EXTERNAL_OWNER = re.compile(
 EXTERNAL_PACKAGE = re.compile(
     r"(?<![A-Za-z0-9_])[Tt][Ii][Nn][Yy][Gg][Ll][Oo][Bb][Bb][Yy](?![A-Za-z0-9_])"
 )
+SONARCLOUD_PROJECT_KEY = r"[Nn][Yy][Gg]satoshi_coglatas"
+# Only the repository README's canonical badge endpoints qualify. The match
+# group covers the external project key, never the complete URL or its metadata.
+SONARCLOUD_BADGE_URL = re.compile(
+    r"https://sonarcloud\\.io/api/project_badges/measure\\?project=(?P<project>"
+    + SONARCLOUD_PROJECT_KEY
+    + r")&metric=(?:alert_status|coverage|duplicated_lines_density|ncloc|reliability_rating)(?=\\))"
+)
+SONARCLOUD_PROJECT_URL = re.compile(
+    r"https://sonarcloud\\.io/summary/new_code\\?id=(?P<project>"
+    + SONARCLOUD_PROJECT_KEY + r")(?=\\))"
+)
+
 INTEGRITY_TOKEN = re.compile(
     r"(?P<algorithm>sha(?:1|256|384|512))-(?P<digest>[A-Za-z0-9+/]+={0,2})"
 )
@@ -262,6 +275,10 @@ def owner_spans(text: str) -> list[tuple[int, int]]:
 
 def external_spans(path: str, text: str) -> list[tuple[int, int]]:
     spans = owner_spans(text)
+    if path == "README.md":
+        # Classify only the canonical external project-key spans in real badge URLs.
+        for pattern in (SONARCLOUD_BADGE_URL, SONARCLOUD_PROJECT_URL):
+            spans.extend(match.span("project") for match in pattern.finditer(text))
     filename = Path(path).name
     if filename not in {"package-lock.json", "npm-shrinkwrap.json", "packages.lock.json"}:
         return spans
