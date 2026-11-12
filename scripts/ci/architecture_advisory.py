@@ -36,6 +36,7 @@ class ArchitectureEvidenceError(ValueError):
 
 
 def require(ok: bool, code: str) -> None:
+    """Reject invalid advisory evidence using a fixed, nonsecret refusal code."""
     if not ok:
         raise ArchitectureEvidenceError(code)
 
@@ -97,7 +98,30 @@ def verify(raw: bytes, source_sha: str, run_id: str, attempt: int) -> dict:
     }
 
 
+def read_trx_file(path: Path) -> bytes:
+    """Bind a bounded TRX read to one opened regular-file identity."""
+    try:
+        leaf = path.lstat()
+        require(stat.S_ISREG(leaf.st_mode) and 0 < leaf.st_size <= MAX_BYTES, 'TRX_FILE')
+        flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+        with os.fdopen(os.open(path, flags), 'rb') as source:
+            opened = os.fstat(source.fileno())
+            require(stat.S_ISREG(opened.st_mode) and os.path.samestat(leaf, opened)
+                    and 0 < opened.st_size <= MAX_BYTES, 'TRX_FILE')
+            raw = source.read(MAX_BYTES + 1)
+            final = os.fstat(source.fileno())
+            require(os.path.samestat(opened, final)
+                    and opened.st_size == final.st_size
+                    and opened.st_mtime_ns == final.st_mtime_ns
+                    and opened.st_ctime_ns == final.st_ctime_ns
+                    and len(raw) == opened.st_size, 'TRX_FILE')
+        return raw
+    except OSError as exc:
+        raise ArchitectureEvidenceError('TRX_FILE') from exc
+
+
 def main() -> int:
+    """Verify native TRX evidence and emit only a sanitized bounded receipt."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--trx', required=True)
     parser.add_argument('--sha', required=True)
@@ -106,12 +130,7 @@ def main() -> int:
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     try:
-        path = Path(args.trx)
-        info = path.lstat()
-        require(stat.S_ISREG(info.st_mode) and not path.is_symlink() and 0 < info.st_size <= MAX_BYTES,
-                'TRX_FILE')
-        with path.open('rb') as source:
-            raw = source.read(MAX_BYTES + 1)
+        raw = read_trx_file(Path(args.trx))
         receipt = verify(raw, args.sha, args.run_id, args.attempt)
         temp = Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
         output = Path(args.output)
