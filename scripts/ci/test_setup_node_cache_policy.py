@@ -115,6 +115,7 @@ def run_command_lines(job: str) -> list[str]:
     pending_blank = False
     unsupported = False
     shell_depth = 0
+    shell_continuation = False
 
     def finish() -> None:
         nonlocal style, folded, pending_blank, unsupported, shell_depth
@@ -159,6 +160,11 @@ def run_command_lines(job: str) -> list[str]:
             command = fragment.split("#", 1)[0].strip()
             if not command:
                 continue
+            # A multiline Bash AND/OR list, pipe or escaped newline changes
+            # the reachability of the next physical line. Refuse to credit any
+            # owner command in this unsupported shell grammar.
+            if re.search(r"(?:&&|\|\||\||\\)$", command):
+                shell_continuation = True
             # A textual command inside if/for/case/while blocks does not prove
             # unconditional execution. Never promote such nested lines.
             if re.match(r"^(?:if|for|while|until|case|select)(?:\s|$)", command):
@@ -182,6 +188,8 @@ def run_command_lines(job: str) -> list[str]:
             pending_blank = False
 
     finish()
+    if shell_continuation:
+        return []
     # Heredoc bodies are inert shell input, even if they contain what looks
     # like a canonical owner invocation. Reject the entire run step rather
     # than accidentally treating heredoc contents as executable commands.
@@ -314,7 +322,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all thirty-seven bounded source mutations."""
+    """Verify reviewed policy and reject all thirty-nine bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -515,6 +523,22 @@ def main() -> int:
             '          exit 0\n          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        "inactive multiline AND-list owner": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          false &&\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          true",
+        ),
+        "inactive multiline OR-list owner": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          true ||\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          true",
+        ),
         "quoted false condition on toolchain owner": one_replacement(
             workflows,
             "        run: node scripts/ci/verify-node-toolchain.mjs",
@@ -538,7 +562,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 37 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 39 mutation controls rejected.")
     return 0
 
 
