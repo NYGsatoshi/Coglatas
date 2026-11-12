@@ -33,7 +33,8 @@ def native_trx(names: list[str], outcome: str = 'Passed', duplicate_id: bool = F
             'testId': '1' if duplicate_id else str(index + 1), 'testName': name,
             'outcome': outcome if index == 0 else 'Passed',
         })
-    summary = ET.SubElement(root, native.NAMESPACE + 'ResultSummary')
+    summary = ET.SubElement(root, native.NAMESPACE + 'ResultSummary',
+                            {'outcome': 'Completed'})
     keys = ('total', 'executed', 'passed', 'failed', 'error', 'timeout', 'aborted',
             'inconclusive', 'notRunnable', 'notExecuted', 'disconnected', 'warning',
             'completed', 'inProgress', 'pending', 'passedButRunAborted')
