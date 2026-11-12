@@ -37,7 +37,7 @@ def fixture() -> dict:
         'merge_commit': {'sha': MERGE, 'parents': [{'sha': BASE}, {'sha': HEAD}],
                          'tree': {'sha': TREE}},
         'run': {'id': RUN, 'head_sha': HEAD, 'head_branch': BRANCH,
-                'event': 'pull_request', 'path': witness.WORKFLOW,
+                'event': 'pull_request', 'path': witness.WORKFLOW + '@' + witness.BASE_REF,
                 'workflow_id': witness.WORKFLOW_ID, 'run_attempt': 1,
                 'status': 'completed', 'conclusion': 'success',
                 'check_suite_id': 116036818242, 'repository': repo,
@@ -84,6 +84,10 @@ class GithubMetadataTests(unittest.TestCase):
         """Positive consistency is not independently authenticated evidence."""
         got = verify(fixture())
         self.assertEqual(got['status'], 'SUPPLIED_GITHUB_METADATA_CONTENT_MATCH')
+        unqualified = fixture()
+        unqualified['run']['path'] = witness.WORKFLOW
+        self.assertEqual(verify(unqualified)['status'],
+                         'SUPPLIED_GITHUB_METADATA_CONTENT_MATCH')
         self.assertEqual(got['artifactIdClaim'], ARTIFACT)
         self.assertFalse(got['baseProtectedObserved'])
         for field in ('gitHubResponseOriginAuthenticated', 'testedMergeExecutionAuthenticated',
@@ -128,6 +132,9 @@ class GithubMetadataTests(unittest.TestCase):
     def test_run_context_and_rerun_are_rejected(self) -> None:
         """Only first-attempt successful PR job under the pinned workflow qualifies."""
         for key, value in [('run_attempt', 2), ('path', '.github/workflows/ci.yml'),
+                           ('path', witness.WORKFLOW + '@main'),
+                           ('path', witness.WORKFLOW + '@' + witness.BASE_REF + '@evil'),
+                           ('path', witness.WORKFLOW + '@'),
                            ('status', 'in_progress'), ('conclusion', 'failure')]:
             record = fixture()
             record['run'][key] = value
