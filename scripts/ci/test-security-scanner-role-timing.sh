@@ -42,6 +42,24 @@ security_zap_target_regex() { printf 'http://app:8080\n'; }
 security_zap_forbidden_values_json() { printf '["synthetic-private-canary"]\n'; }
 security_scan_health() { return 0; }
 
+# The real SEC-06 runner now admits concrete SEC-05 Task IDs for each role.
+# Use distinct fixed synthetic GUIDs without bypassing its original resolver,
+# role mapping or identifier validation and without starting a database.
+export SEC05_ALPHA_TASK_ID="00000000-0000-4000-8000-0000000000a1"
+export SEC05_BETA_TASK_ID="00000000-0000-4000-8000-0000000000b2"
+[[ "$(security_zap_task_fixture_id alpha-owner)" == "$SEC05_ALPHA_TASK_ID" ]] ||
+  fail "alpha-owner Task fixture admission rejected"
+[[ "$(security_zap_task_fixture_id alpha-restricted)" == "$SEC05_ALPHA_TASK_ID" ]] ||
+  fail "alpha-restricted Task fixture admission rejected"
+[[ "$(security_zap_task_fixture_id beta-owner)" == "$SEC05_BETA_TASK_ID" ]] ||
+  fail "beta-owner Task fixture admission rejected"
+if SEC05_ALPHA_TASK_ID="not-a-guid" security_zap_task_fixture_id alpha-owner >/dev/null 2>&1; then
+  fail "SEC-06 Task fixture accepted an invalid identifier"
+fi
+if security_zap_task_fixture_id unknown-role >/dev/null 2>&1; then
+  fail "SEC-06 Task fixture accepted an unsupported role"
+fi
+
 # Never launch any Docker or scanner binary; every process exit is synthetic.
 docker() {
   if [[ "$1" == rm && "$2" == -f ]]; then
