@@ -3984,11 +3984,11 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("projects", null, t =>
                         {
-                            t.HasCheckConstraint("CK_projects_activation_provenance", "(\"ActivationState\" = 'Activated' AND \"ActivatedAtUtc\" IS NOT NULL AND \"ActivationVersion\" IS NOT NULL AND \"ActivationVersion\" > 0) OR (\"ActivationState\" IN ('LegacyUnknown', 'NeverActivated') AND \"ActivatedAtUtc\" IS NULL AND \"ActivationVersion\" IS NULL)");
+                            t.HasCheckConstraint("CK_projects_activation_provenance", "(\"ActivationState\" = 'Activated' AND \"ActivatedAtUtc\" IS NOT NULL AND \"ActivationVersion\" IS NOT NULL AND \"ActivationVersion\" > 0) OR (\"ActivationState\"::text IN ('LegacyUnknown', 'NeverActivated') AND \"ActivatedAtUtc\" IS NULL AND \"ActivationVersion\" IS NULL)");
 
-                            t.HasCheckConstraint("CK_projects_activation_state", "\"ActivationState\" IN ('LegacyUnknown', 'NeverActivated', 'Activated')");
+                            t.HasCheckConstraint("CK_projects_activation_state", "\"ActivationState\"::text IN ('LegacyUnknown', 'NeverActivated', 'Activated')");
 
-                            t.HasCheckConstraint("CK_projects_visibility", "\"Visibility\" IS NULL OR \"Visibility\" IN ('WorkspaceVisible', 'MembersOnly', 'Restricted')");
+                            t.HasCheckConstraint("CK_projects_visibility", "\"Visibility\" IS NULL OR \"Visibility\"::text IN ('WorkspaceVisible', 'MembersOnly', 'Restricted')");
                         });
                 });
 
@@ -4571,11 +4571,11 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("security_evaluation_rule_results", null, t =>
                         {
-                            t.HasCheckConstraint("CK_security_evaluation_rule_results_execution", "(\"Status\" = 'Completed' AND \"Outcome\" IS NOT NULL AND \"Outcome\" IN ('Allow', 'Deny', 'Unknown', 'Quarantine')) OR\n(\"Status\" IN ('Failed', 'Cancelled', 'TimedOut', 'NotExecuted') AND \"Outcome\" IS NULL)");
+                            t.HasCheckConstraint("CK_security_evaluation_rule_results_execution", "(\"Status\" = 'Completed' AND \"Outcome\" IS NOT NULL AND \"Outcome\"::text IN ('Allow', 'Deny', 'Unknown', 'Quarantine')) OR\n(\"Status\"::text IN ('Failed', 'Cancelled', 'TimedOut', 'NotExecuted') AND \"Outcome\" IS NULL)");
 
                             t.HasCheckConstraint("CK_security_evaluation_rule_results_id", "\"RuleId\" ~ '^[A-Za-z0-9_./:+-]{1,128}$'");
 
-                            t.HasCheckConstraint("CK_security_evaluation_rule_results_reason", "(\"Status\" IN ('Pending', 'NotExecuted') AND \"ReasonCode\" IN ('NotExecuted', 'RuleNotExecuted')) OR\n(\"Status\" = 'Failed' AND \"ReasonCode\" IN ('EvaluationFailed', 'RuleExecutionFailed')) OR\n(\"Status\" = 'Cancelled' AND \"ReasonCode\" = 'EvaluationCancelled') OR\n(\"Status\" = 'TimedOut' AND \"ReasonCode\" = 'EvaluationTimedOut') OR\n(\"Status\" = 'Completed' AND (\n    (\"Outcome\" = 'Allow' AND \"ReasonCode\" IN ('BindingsVerified', 'RevisionBindingVerified', 'PolicyBindingVerified', 'CompilerProvenanceVerified')) OR\n    (\"Outcome\" = 'Deny' AND \"ReasonCode\" = 'PolicyViolation') OR\n    (\"Outcome\" = 'Unknown' AND \"ReasonCode\" IN ('MissingEvidence', 'RevisionEvidenceMissing', 'PolicyEvidenceMissing', 'CompilerEvidenceMissing')) OR\n    (\"Outcome\" = 'Quarantine' AND \"ReasonCode\" IN ('BindingMismatch', 'RevisionBindingMismatch', 'PolicyBindingMismatch', 'CompilerProvenanceMismatch'))))");
+                            t.HasCheckConstraint("CK_security_evaluation_rule_results_reason", "(\"Status\"::text IN ('Pending', 'NotExecuted') AND \"ReasonCode\"::text IN ('NotExecuted', 'RuleNotExecuted')) OR\n(\"Status\" = 'Failed' AND \"ReasonCode\"::text IN ('EvaluationFailed', 'RuleExecutionFailed')) OR\n(\"Status\" = 'Cancelled' AND \"ReasonCode\" = 'EvaluationCancelled') OR\n(\"Status\" = 'TimedOut' AND \"ReasonCode\" = 'EvaluationTimedOut') OR\n(\"Status\" = 'Completed' AND (\n    (\"Outcome\" = 'Allow' AND \"ReasonCode\"::text IN ('BindingsVerified', 'RevisionBindingVerified', 'PolicyBindingVerified', 'CompilerProvenanceVerified')) OR\n    (\"Outcome\" = 'Deny' AND \"ReasonCode\" = 'PolicyViolation') OR\n    (\"Outcome\" = 'Unknown' AND \"ReasonCode\"::text IN ('MissingEvidence', 'RevisionEvidenceMissing', 'PolicyEvidenceMissing', 'CompilerEvidenceMissing')) OR\n    (\"Outcome\" = 'Quarantine' AND \"ReasonCode\"::text IN ('BindingMismatch', 'RevisionBindingMismatch', 'PolicyBindingMismatch', 'CompilerProvenanceMismatch'))))");
 
                             t.HasCheckConstraint("CK_security_evaluation_rule_results_schema", "\"SchemaVersion\" = 1");
 
@@ -4664,17 +4664,17 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("security_evaluation_runs", null, t =>
                         {
-                            t.HasCheckConstraint("CK_security_evaluation_runs_context", "\"ContextKind\" IN ('coglatas.committed', 'coglatas.candidate', 'coglatas.scenario')");
+                            t.HasCheckConstraint("CK_security_evaluation_runs_context", "\"ContextKind\"::text IN ('coglatas.committed', 'coglatas.candidate', 'coglatas.scenario')");
 
                             t.HasCheckConstraint("CK_security_evaluation_runs_digest", "\"InputDigest\" ~ '^[0-9a-f]{64}$' AND \"BindingDigest\" ~ '^[0-9a-f]{64}$'");
 
                             t.HasCheckConstraint("CK_security_evaluation_runs_identity", "jsonb_typeof(\"IdentityJson\") = 'object'");
 
-                            t.HasCheckConstraint("CK_security_evaluation_runs_lifecycle", "(\"Status\" = 'Pending' AND \"Outcome\" IS NULL AND \"TerminalAtUtc\" IS NULL AND \"ReasonCode\" = 'NotExecuted') OR\n(\"Status\" IN ('Completed', 'Failed', 'Cancelled', 'TimedOut', 'NotExecuted') AND \"TerminalAtUtc\" IS NOT NULL AND \"TerminalAtUtc\" >= \"CreatedAtUtc\"\n AND ((\"Status\" = 'Completed' AND \"Outcome\" IS NOT NULL AND \"Outcome\" IN ('Allow', 'Deny', 'Unknown', 'Quarantine')) OR\n      (\"Status\" <> 'Completed' AND \"Outcome\" IS NULL)))");
+                            t.HasCheckConstraint("CK_security_evaluation_runs_lifecycle", "(\"Status\" = 'Pending' AND \"Outcome\" IS NULL AND \"TerminalAtUtc\" IS NULL AND \"ReasonCode\" = 'NotExecuted') OR\n(\"Status\"::text IN ('Completed', 'Failed', 'Cancelled', 'TimedOut', 'NotExecuted') AND \"TerminalAtUtc\" IS NOT NULL AND \"TerminalAtUtc\" >= \"CreatedAtUtc\"\n AND ((\"Status\" = 'Completed' AND \"Outcome\" IS NOT NULL AND \"Outcome\"::text IN ('Allow', 'Deny', 'Unknown', 'Quarantine')) OR\n      (\"Status\" <> 'Completed' AND \"Outcome\" IS NULL)))");
 
-                            t.HasCheckConstraint("CK_security_evaluation_runs_mode", "\"EnforcementMode\" IN ('Disabled', 'Shadow')");
+                            t.HasCheckConstraint("CK_security_evaluation_runs_mode", "\"EnforcementMode\"::text IN ('Disabled', 'Shadow')");
 
-                            t.HasCheckConstraint("CK_security_evaluation_runs_reason", "(\"Status\" IN ('Pending', 'NotExecuted') AND \"ReasonCode\" IN ('NotExecuted', 'RuleNotExecuted')) OR\n(\"Status\" = 'Failed' AND \"ReasonCode\" IN ('EvaluationFailed', 'RuleExecutionFailed')) OR\n(\"Status\" = 'Cancelled' AND \"ReasonCode\" = 'EvaluationCancelled') OR\n(\"Status\" = 'TimedOut' AND \"ReasonCode\" = 'EvaluationTimedOut') OR\n(\"Status\" = 'Completed' AND (\n    (\"Outcome\" = 'Allow' AND \"ReasonCode\" IN ('BindingsVerified', 'RevisionBindingVerified', 'PolicyBindingVerified', 'CompilerProvenanceVerified')) OR\n    (\"Outcome\" = 'Deny' AND \"ReasonCode\" = 'PolicyViolation') OR\n    (\"Outcome\" = 'Unknown' AND \"ReasonCode\" IN ('MissingEvidence', 'RevisionEvidenceMissing', 'PolicyEvidenceMissing', 'CompilerEvidenceMissing')) OR\n    (\"Outcome\" = 'Quarantine' AND \"ReasonCode\" IN ('BindingMismatch', 'RevisionBindingMismatch', 'PolicyBindingMismatch', 'CompilerProvenanceMismatch'))))");
+                            t.HasCheckConstraint("CK_security_evaluation_runs_reason", "(\"Status\"::text IN ('Pending', 'NotExecuted') AND \"ReasonCode\"::text IN ('NotExecuted', 'RuleNotExecuted')) OR\n(\"Status\" = 'Failed' AND \"ReasonCode\"::text IN ('EvaluationFailed', 'RuleExecutionFailed')) OR\n(\"Status\" = 'Cancelled' AND \"ReasonCode\" = 'EvaluationCancelled') OR\n(\"Status\" = 'TimedOut' AND \"ReasonCode\" = 'EvaluationTimedOut') OR\n(\"Status\" = 'Completed' AND (\n    (\"Outcome\" = 'Allow' AND \"ReasonCode\"::text IN ('BindingsVerified', 'RevisionBindingVerified', 'PolicyBindingVerified', 'CompilerProvenanceVerified')) OR\n    (\"Outcome\" = 'Deny' AND \"ReasonCode\" = 'PolicyViolation') OR\n    (\"Outcome\" = 'Unknown' AND \"ReasonCode\"::text IN ('MissingEvidence', 'RevisionEvidenceMissing', 'PolicyEvidenceMissing', 'CompilerEvidenceMissing')) OR\n    (\"Outcome\" = 'Quarantine' AND \"ReasonCode\"::text IN ('BindingMismatch', 'RevisionBindingMismatch', 'PolicyBindingMismatch', 'CompilerProvenanceMismatch'))))");
 
                             t.HasCheckConstraint("CK_security_evaluation_runs_schema", "\"SchemaVersion\" = 1");
                         });
@@ -5168,7 +5168,7 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.HasIndex("JobId")
                         .IsUnique()
                         .HasDatabaseName("IX_task_deadline_digest_attempts_one_active")
-                        .HasFilter("\"Status\" IN ('Pending', 'Claimed')");
+                        .HasFilter("\"Status\"::text IN ('Pending', 'Claimed')");
 
                     b.HasIndex("RequestedByUserId");
 
@@ -5186,7 +5186,7 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_task_deadline_digest_attempts_claim_fields", "(\"Status\" = 'Claimed' AND \"ClaimOwner\" IS NOT NULL AND \"ClaimToken\" IS NOT NULL AND \"ClaimedAt\" IS NOT NULL AND \"ClaimExpiresAt\" IS NOT NULL) OR (\"Status\" <> 'Claimed' AND \"ClaimOwner\" IS NULL AND \"ClaimToken\" IS NULL AND \"ClaimedAt\" IS NULL AND \"ClaimExpiresAt\" IS NULL)");
 
-                            t.HasCheckConstraint("CK_task_deadline_digest_attempts_completion", "((\"Status\" IN ('Succeeded', 'Failed', 'Expired', 'Deferred')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\" IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
+                            t.HasCheckConstraint("CK_task_deadline_digest_attempts_completion", "((\"Status\"::text IN ('Succeeded', 'Failed', 'Expired', 'Deferred')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\"::text IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
 
                             t.HasCheckConstraint("CK_task_deadline_digest_attempts_number", "\"AttemptNumber\" > 0");
 
@@ -5298,7 +5298,7 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_task_deadline_digest_jobs_claim_fields", "(\"Status\" = 'Claimed' AND \"ClaimOwner\" IS NOT NULL AND \"ClaimToken\" IS NOT NULL AND \"ClaimedAt\" IS NOT NULL AND \"ClaimExpiresAt\" IS NOT NULL) OR (\"Status\" <> 'Claimed' AND \"ClaimOwner\" IS NULL AND \"ClaimToken\" IS NULL AND \"ClaimedAt\" IS NULL AND \"ClaimExpiresAt\" IS NULL)");
 
-                            t.HasCheckConstraint("CK_task_deadline_digest_jobs_completion", "((\"Status\" IN ('Succeeded', 'Failed')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\" IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
+                            t.HasCheckConstraint("CK_task_deadline_digest_jobs_completion", "((\"Status\"::text IN ('Succeeded', 'Failed')) AND \"CompletedAt\" IS NOT NULL) OR ((\"Status\"::text IN ('Pending', 'Claimed')) AND \"CompletedAt\" IS NULL)");
 
                             t.HasCheckConstraint("CK_task_deadline_digest_jobs_failed_after_three", "\"Status\" <> 'Failed' OR \"AutomaticAttemptCount\" = 3");
 

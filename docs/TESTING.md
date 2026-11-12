@@ -1,5 +1,19 @@
 # Testing
 
+Forms answer normalization and submission admission controls are documented
+in [the Forms answer contract verification](verification/forms-answer-contract-tests.md).
+They exercise Application unit contracts and preserve the original Forms
+authority implementation; they do not establish PostgreSQL or HTTP acceptance.
+
+The Functional Compose harness prepares the scoped browser runtime with a
+no-dependency `/bin/true` entrypoint before recording setup time and executing
+the real suite. Image acquisition or container preparation failure is
+`[INFRA/SETUP FAILURE] phase=prepare-browser`; it does not execute test owners.
+Preparation success is not browser, backend or journey acceptance. The actual
+suite keeps its original command, assertions, retries, deadlines and exit code.
+Its `[PRODUCT TEST FAILURE]` marker still requires causal investigation before
+classifying a failure as a product defect. Historical failures remain retained.
+
 The historical audit below predates the PR07-C remediation. No final
 post-remediation backend, frontend, or hosted result is recorded in this file;
 see `docs/verification/task-v1-pr07-c-deadline-digest.md` for the required
@@ -50,6 +64,12 @@ Covered areas include:
 - tenancy and save rules.
 
 Most service fixtures use fakes or EF Core InMemory.
+
+The [legacy Announcement lifecycle suite](verification/announcement-legacy-lifecycle.md)
+executes the existing controller-facing Application service with strict dependency
+contracts. Its read/reminder, validation and ordered-effect controls complement
+the separate Analytics/Attachment and persisted-authority suites; they do not
+establish database, HTTP, delivery or pilot acceptance.
 
 ### HTTP tests
 
@@ -853,7 +873,7 @@ This is configuration evidence. Check the actual GitHub Actions run before claim
 
 ### Issue #590 OS portability matrix
 
-`.github/workflows/os-portability.yml` runs one bounded toolchain/build/test contract on GitHub-hosted Ubuntu, Windows, and macOS. Each matrix leg uses `global.json`, Node 24, the repository-declared npm version, root and active-frontend lockfiles, Release .NET and Angular builds, the explicit DB-independent `Portability=CrossPlatform` .NET subset, Angular unit/helper tests, and COMPAT-04 `os-portability` discovery.
+`.github/workflows/os-portability.yml` runs one bounded toolchain/build/test contract on GitHub-hosted Ubuntu, Windows, and macOS. Each matrix leg uses `global.json`, Node 26, the repository-declared npm version, root and active-frontend lockfiles, Release .NET and Angular builds, the explicit DB-independent `Portability=CrossPlatform` .NET subset, Angular unit/helper tests, and COMPAT-04 `os-portability` discovery.
 
 The portable TRX verifier rejects zero, below-minimum, skipped, failed, or incomplete .NET selections. Matrix legs are not ignored with `continue-on-error`, and `fail-fast: false` preserves a distinct outcome/evidence artifact for every OS. PostgreSQL, Docker, real-backend, and browser-engine execution remain in their Linux or COMPAT-01 owning lanes; they are intentionally not multiplied into an OS x browser x database product. See `docs/ci/os-portability.md` for the exact support boundary and shell/path/case/line-ending classification.
 
