@@ -213,6 +213,34 @@ def external_dependency_record(lockfile: dict, path: tuple[str | int, ...]) -> b
             and record["resolved"].startswith("https://registry.npmjs.org/"))
 
 
+def valid_nuget_hash(value: object) -> bool:
+    """Accept only canonical unprefixed SHA-512 hashes from NuGet lock entries."""
+    if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9+/]{86}==", value) is None:
+        return False
+    try:
+        digest = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error):
+        return False
+    return len(digest) == 64 and base64.b64encode(digest).decode("ascii") == value
+
+
+def nuget_hash_record(lockfile: dict, path: tuple[str | int, ...]) -> bool:
+    """Allow only an actual Direct/Transitive dependency contentHash field."""
+    if (len(path) != 4 or path[0] != "dependencies" or path[3] != "contentHash"
+            or type(lockfile.get("version")) is not int or lockfile["version"] != 1):
+        return False
+    targets = lockfile.get("dependencies")
+    if not isinstance(targets, dict):
+        return False
+    graph = targets.get(path[1])
+    if not isinstance(graph, dict):
+        return False
+    entry = graph.get(path[2])
+    return (isinstance(entry, dict) and entry.get("type") in {"Direct", "Transitive"}
+            and isinstance(entry.get("resolved"), str) and bool(entry["resolved"])
+            and valid_nuget_hash(entry.get("contentHash")))
+
+
 def owner_spans(text: str) -> list[tuple[int, int]]:
     spans = []
     for pattern in (EXTERNAL_OWNER, ESCAPED_TSV_EXTERNAL_OWNER):
@@ -234,13 +262,24 @@ def owner_spans(text: str) -> list[tuple[int, int]]:
 
 def external_spans(path: str, text: str) -> list[tuple[int, int]]:
     spans = owner_spans(text)
-    if Path(path).name not in {"package-lock.json", "npm-shrinkwrap.json"}:
+    filename = Path(path).name
+    if filename not in {"package-lock.json", "npm-shrinkwrap.json", "packages.lock.json"}:
         return spans
     try:
         lockfile = json.loads(text)
     except ValueError:
         return spans
-    if (not isinstance(lockfile, dict) or type(lockfile.get("lockfileVersion")) is not int
+    if not isinstance(lockfile, dict):
+        return spans
+    if filename == "packages.lock.json":
+        # NuGet emits immutable raw Base64 SHA-512 digests, not npm SRI tokens.
+        # Classify the exact value span only; package names and adjacent
+        # metadata continue to be inspected, including malformed lockfiles.
+        for atom in json_text_atoms(text):
+            if not atom.is_key and nuget_hash_record(lockfile, atom.path):
+                spans.append((atom.start, atom.end))
+        return spans
+    if (type(lockfile.get("lockfileVersion")) is not int
             or lockfile["lockfileVersion"] not in {1, 2, 3}):
         return spans
     dependency_maps = {"dependencies", "devDependencies", "optionalDependencies", "peerDependencies"}

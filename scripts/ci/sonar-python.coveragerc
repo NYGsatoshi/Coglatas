@@ -78,3 +78,8 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_runner.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/local_support.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/performance-local.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-compare.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db_class_baselines.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/collect-environment.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/diagnostic_recovery.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/announcement-diagnostic.py

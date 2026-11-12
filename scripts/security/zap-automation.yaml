@@ -133,6 +133,16 @@ jobs:
           - "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}"
           - "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"
         responseCode: 200
+      # Exercise the actual GUID-constrained Task route using a seeded,
+      # role-scoped object so SQL-injection probes have meaningful coverage.
+      - name: SEC-06 concrete Task subtask read
+        url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/tasks/${COGLATAS_SECURITY_ZAP_TASK_ID}/subtasks?page=1&pageSize=50"
+        method: GET
+        headers:
+          - "X-Tenant-Slug:${COGLATAS_SECURITY_ZAP_TENANT}"
+          - "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}"
+          - "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"
+        responseCode: 200
 
   - type: passiveScan-wait
     parameters:
@@ -145,6 +155,10 @@ jobs:
     excludePaths:
       - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$"
       - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$"
+      # ZAP OpenAPI import creates this literal non-GUID placeholder URL, which
+      # never reaches the GUID-constrained handler. Replace its coverage with
+      # the authenticated concrete fixture GET in the requestor stage below.
+      - "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/tasks/taskItemId/subtasks(?:[?].*)?$"
 
   - type: activeScan-policy
     parameters:
