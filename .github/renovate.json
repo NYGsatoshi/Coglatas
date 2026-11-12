@@ -36,15 +36,26 @@
       "allowedVersions": "/^34\\./"
     },
     {
-      "description": "Skip broken Angular build 22.2.5 optional peer tree",
+      "description": "Hold Stylelint 18 until SCSS config supports its peer dependency",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "stylelint"
+      ],
+      "allowedVersions": "/^17\\./"
+    },
+    {
+      "description": "Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees",
       "matchManagers": [
         "npm"
       ],
       "matchPackageNames": [
         "@angular/build",
-        "@angular-devkit/build-angular"
+        "@angular-devkit/build-angular",
+        "@angular/cli"
       ],
-      "allowedVersions": "!/^22\\.2\\.5$/"
+      "allowedVersions": "!/^22\\.2\\.[56]$/"
     },
     {
       "description": "Keep protected GitHub Actions on reviewed SHA allowlist",
@@ -98,7 +109,27 @@
       "matchPackageNames": [
         "dotnet-sdk"
       ],
-      "allowedVersions": "10.0.403"
+      "allowedVersions": "10.0.404"
+    },
+    {
+      "description": "Regenerate npm lockfiles with full installation on every update",
+      "matchManagers": [
+        "npm"
+      ],
+      "skipInstalls": false,
+      "postUpdateOptions": [
+        "npmInstallTwice"
+      ]
+    },
+    {
+      "description": "Keep TypeScript in Angular 22 supported peer range",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "allowedVersions": "/^6\\.0\\./"
     },
     {
       "description": "Group compatible npm updates per review",
@@ -113,6 +144,80 @@
       "postUpdateOptions": [
         "npmInstallTwice"
       ]
+    },
+    {
+      "description": "Keep Playwright npm updates tied to the reviewed browser image",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@playwright/test"
+      ],
+      "matchFileNames": [
+        "package.json"
+      ],
+      "allowedVersions": "1.64.1"
+    },
+    {
+      "description": "Hold malformed npm minimatch override updates for lockfile repair",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "minimatch"
+      ],
+      "matchFileNames": [
+        "coglatas-frontend/package.json",
+        "scripts/ci/sonar-operational-coverage-tools/package.json"
+      ],
+      "allowedVersions": "11.0.4"
+    },
+    {
+      "description": "Hold Sonar glob updates that cannot produce installable locks",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "glob"
+      ],
+      "matchFileNames": [
+        "scripts/ci/sonar-operational-coverage-tools/package.json"
+      ],
+      "allowedVersions": "14.0.3"
+    },
+    {
+      "description": "Separate ANG22 reviewed packages from routine npm updates",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@angular/animations",
+        "@angular/build",
+        "@angular/cdk",
+        "@angular/cli",
+        "@angular/common",
+        "@angular/compiler",
+        "@angular/compiler-cli",
+        "@angular/core",
+        "@angular/forms",
+        "@angular/platform-browser",
+        "@angular/platform-browser-dynamic",
+        "@angular/router",
+        "@angular-devkit/architect",
+        "@angular-devkit/build-angular",
+        "@angular-devkit/core",
+        "@lucide/angular",
+        "@storybook/angular",
+        "storybook",
+        "@vitest/coverage-istanbul",
+        "vitest"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "dependencyDashboardApproval": true,
+      "groupName": "ANG22 reviewed dependency candidates"
     },
     {
       "description": "Group compatible NuGet updates per review",
@@ -148,14 +253,14 @@
       ]
     },
     {
-      "description": "Retain approved Node 24 LTS for container images",
+      "description": "Retain approved Node 26 LTS for container images",
       "matchDatasources": [
         "docker"
       ],
       "matchPackageNames": [
         "node"
       ],
-      "allowedVersions": "/^24([.-]|$)/"
+      "allowedVersions": "/^26([.-]|$)/"
     },
     {
       "description": "Playwright Docker image must match the root Playwright lockfile",

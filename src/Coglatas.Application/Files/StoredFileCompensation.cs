@@ -6,6 +6,38 @@ namespace Coglatas.Application.Files;
 internal static class StoredFileCompensation
 {
     private static readonly EventId CleanupFailed = new(53501, "UploadCompensationFailed");
+    private static readonly EventId RetainedAfterFailure = new(53502, "UploadCompensationSkipped");
+
+    public static async Task AfterUploadFailureAsync(IFileStorageService storage, string storageKey,
+        IUnitOfWork unitOfWork, UploadSaveOutcome outcome, ILogger? logger)
+    {
+        if (outcome.Disposition == UploadCommitDisposition.NotCommitted)
+        {
+            try
+            {
+                if (unitOfWork.TryDiscardFailedUploadChanges(outcome))
+                {
+                    await TryDeleteAsync(storage, storageKey, logger);
+                    return;
+                }
+            }
+            catch
+            {
+                // Failed discard must not permit metadata to outlive its stored bytes.
+            }
+            outcome.Disposition = UploadCommitDisposition.Unknown;
+        }
+
+        try
+        {
+            logger?.LogWarning(RetainedAfterFailure,
+                "Stored file retained after an upload failure with a committed or unknown outcome.");
+        }
+        catch
+        {
+            // Retention observability must preserve the initiating upload failure.
+        }
+    }
 
     public static async Task TryDeleteAsync(IFileStorageService storage, string storageKey, ILogger? logger)
     {

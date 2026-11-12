@@ -23,7 +23,7 @@ permissions:
 jobs:
   environment-smoke:
     name: performance-environment-small
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       COGLATAS_PERFORMANCE_PROFILE: small

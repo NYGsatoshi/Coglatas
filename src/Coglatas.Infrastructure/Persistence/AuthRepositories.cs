@@ -1,7 +1,11 @@
+using System.Transactions;
+using System.Runtime.CompilerServices;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Coglatas.Infrastructure.Persistence;
@@ -124,6 +128,83 @@ public sealed class EfUnitOfWork(
     AppDbContext dbContext,
     ITaskExecutionScopeRepository? taskExecutionScopes = null) : ITaskCommandUnitOfWork
 {
+    private readonly ConditionalWeakTable<UploadSaveOutcome, UploadTracking> _uploads = new();
+
+    public UploadSaveOutcome BeginUploadSave()
+    {
+        var outcome = new UploadSaveOutcome();
+        var entries = dbContext.ChangeTracker.Entries().ToArray();
+        // A caller with pending work retains complete control of that work. Do not
+        // discard or restore its state on the basis of an upload failure.
+        var canDiscard = entries.All(entry => entry.State == EntityState.Unchanged) &&
+            taskExecutionScopes?.HasPendingSourcePolicyDocuments != true;
+        var existing = new Dictionary<object, PropertyValues>(ReferenceEqualityComparer.Instance);
+        foreach (var entry in entries) existing.Add(entry.Entity, entry.CurrentValues.Clone());
+        _uploads.Add(outcome, new UploadTracking(existing, canDiscard));
+        return outcome;
+    }
+
+    public bool TryDiscardFailedUploadChanges(UploadSaveOutcome outcome)
+    {
+        if (!_uploads.TryGetValue(outcome, out var tracking))
+            return (!dbContext.Database.IsRelational() || dbContext.Database.CurrentTransaction is null) &&
+                TryDiscardFailedUploadChanges();
+        if (!tracking.CanDiscard || outcome.Disposition != UploadCommitDisposition.NotCommitted ||
+            Transaction.Current is not null ||
+            (dbContext.Database.IsRelational() && dbContext.Database.GetEnlistedTransaction() is not null) ||
+            taskExecutionScopes?.HasPendingSourcePolicyDocuments == true)
+            return false;
+
+        tracking.CapturePendingWrites(dbContext);
+        foreach (var entry in tracking.Writes.Where(entry => tracking.Existing.ContainsKey(entry.Entity)))
+        {
+            var original = tracking.Existing[entry.Entity];
+            entry.CurrentValues.SetValues(original);
+            entry.OriginalValues.SetValues(original);
+            entry.State = EntityState.Unchanged;
+        }
+        var introduced = tracking.Writes.Where(entry => !tracking.Existing.ContainsKey(entry.Entity)).ToList();
+        var remaining = introduced.ToList();
+        while (remaining.Count > 0)
+        {
+            // Required dependents must detach before their principals. Derive the
+            // order from the actual EF relationship keys, never a table-name list.
+            var leaf = remaining.FirstOrDefault(principal => !remaining.Any(dependent =>
+                !ReferenceEquals(principal.Entity, dependent.Entity) && DependsOn(dependent, principal)));
+            if (leaf is null) return false;
+            leaf.State = EntityState.Detached;
+            remaining.Remove(leaf);
+        }
+        // Detach does not remove CLR collection members. Remove only introduced
+        // writes from retained graphs so a later DetectChanges cannot rediscover them.
+        foreach (var entry in dbContext.ChangeTracker.Entries().ToArray())
+        foreach (var navigation in entry.Metadata.GetNavigations().Where(navigation => navigation.IsCollection))
+        foreach (var removed in introduced.Where(removed => navigation.TargetEntityType.IsAssignableFrom(removed.Metadata)))
+            navigation.GetCollectionAccessor()?.Remove(entry.Entity, removed.Entity);
+        dbContext.ChangeTracker.DetectChanges();
+        var attached = dbContext.ChangeTracker.Entries().Select(entry => entry.Entity).ToHashSet(ReferenceEqualityComparer.Instance);
+        if (introduced.Any(entry => attached.Contains(entry.Entity))) return false;
+        _uploads.Remove(outcome);
+        return true;
+    }
+
+    private static bool DependsOn(EntityEntry dependent, EntityEntry principal) =>
+        dependent.Metadata.GetForeignKeys().Any(key => key.PrincipalEntityType.IsAssignableFrom(principal.Metadata) &&
+            key.Properties.Select(property => dependent.Property(property.Name).CurrentValue)
+                .SequenceEqual(key.PrincipalKey.Properties.Select(property => principal.Property(property.Name).CurrentValue)));
+
+    private sealed class UploadTracking(Dictionary<object, PropertyValues> existing, bool canDiscard)
+    {
+        public Dictionary<object, PropertyValues> Existing { get; } = existing;
+        public bool CanDiscard { get; } = canDiscard;
+        public List<EntityEntry> Writes { get; } = [];
+        public void CapturePendingWrites(AppDbContext context)
+        {
+            foreach (var entry in context.ChangeTracker.Entries().Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+                if (!Writes.Any(write => ReferenceEquals(write.Entity, entry.Entity))) Writes.Add(entry);
+        }
+    }
+
     public void ClearTaskCommandTracking()
     {
         dbContext.ChangeTracker.Clear();
@@ -132,6 +213,123 @@ public sealed class EfUnitOfWork(
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         SaveWithPolicyDocumentsAsync(cancellationToken);
+
+    public bool TryDiscardFailedUploadChanges()
+    {
+        if (Transaction.Current is not null ||
+            (dbContext.Database.IsRelational() &&
+             (dbContext.Database.CurrentTransaction is not null || dbContext.Database.GetEnlistedTransaction() is not null)))
+        {
+            return false;
+        }
+        ClearTaskCommandTracking();
+        return true;
+    }
+
+    public async Task<int> SaveUploadChangesAsync(UploadSaveOutcome outcome, CancellationToken cancellationToken = default)
+    {
+        outcome.Disposition = UploadCommitDisposition.Unknown;
+        if (_uploads.TryGetValue(outcome, out var tracking)) tracking.CapturePendingWrites(dbContext);
+        if (dbContext.Database.IsRelational() && dbContext.Database.CurrentTransaction is { SupportsSavepoints: true } caller &&
+            Transaction.Current is null && dbContext.Database.GetEnlistedTransaction() is null && tracking?.CanDiscard == true)
+        {
+            var savepoint = "upload_" + Guid.NewGuid().ToString("N");
+            await caller.CreateSavepointAsync(savepoint, cancellationToken);
+            int count;
+            try
+            {
+                count = await SaveWithPolicyDocumentsAsync(cancellationToken);
+            }
+            catch
+            {
+                try
+                {
+                    await caller.RollbackToSavepointAsync(savepoint, CancellationToken.None);
+                    outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                }
+                catch
+                {
+                    // The caller still owns its transaction; uncertain writes retain bytes.
+                }
+                throw;
+            }
+            // Release acknowledgement can be lost after PostgreSQL removed the
+            // savepoint. Rolling back to that missing name would abort the caller's
+            // transaction. Preserve its final decision and retain Unknown instead.
+            await caller.ReleaseSavepointAsync(savepoint, cancellationToken);
+            return count;
+        }
+        if (!dbContext.Database.IsRelational() || dbContext.Database.CurrentTransaction is not null ||
+            Transaction.Current is not null || dbContext.Database.GetEnlistedTransaction() is not null)
+        {
+            return await SaveWithPolicyDocumentsAsync(cancellationToken);
+        }
+
+        IDbContextTransaction? transaction = null;
+        var commitStarted = false;
+        var preservingFailure = false;
+        try
+        {
+            try
+            {
+                transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            }
+            catch
+            {
+                try
+                {
+                    if (!_uploads.TryGetValue(outcome, out _)) ClearTaskCommandTracking();
+                    outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                }
+                catch
+                {
+                    // No save ran, but an undiscarded scope still cannot authorize deletion.
+                }
+                throw;
+            }
+
+            var count = await SaveWithPolicyDocumentsAsync(cancellationToken);
+            commitStarted = true;
+            await transaction.CommitAsync(cancellationToken);
+            outcome.Disposition = UploadCommitDisposition.Committed;
+            return count;
+        }
+        catch
+        {
+            preservingFailure = true;
+            if (transaction is not null)
+            {
+                try
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    if (!commitStarted)
+                    {
+                        if (!_uploads.TryGetValue(outcome, out _)) ClearTaskCommandTracking();
+                        outcome.Disposition = UploadCommitDisposition.NotCommitted;
+                    }
+                }
+                catch
+                {
+                    // Rollback/discard cannot replace the initiating error or prove an uncertain commit.
+                }
+            }
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                try
+                {
+                    await transaction.DisposeAsync();
+                }
+                catch when (preservingFailure)
+                {
+                    // Preserve the first failure. An acknowledged commit remains Committed.
+                }
+            }
+        }
+    }
 
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<CancellationToken, Task<T>> operation,

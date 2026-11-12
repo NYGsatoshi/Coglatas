@@ -21,7 +21,7 @@ jobs:
   qodana-cloud:
     name: Qodana Cloud / Full Repository
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Reuse the repository's existing protected trusted-build environment so
     # secret-bearing Qodana publication remains behind an established boundary.
     environment: syncfusion-licensed-build
@@ -141,7 +141,7 @@ jobs:
         if: steps.qodana_scan.outcome == 'success'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Guard Qodana findings and project model
         if: steps.qodana_scan.outcome == 'success'
