@@ -109,6 +109,8 @@ def _invalid_constant(_: str) -> NoReturn:
 
 
 def write_json(path: Path, value: dict[str, Any]) -> None:
+    if '..' in str(path):
+        raise ReleaseEvidenceError('Invalid file path')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",

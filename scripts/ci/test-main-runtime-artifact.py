@@ -170,6 +170,11 @@ case "$command" in
     fi;;
   ps) service="${@: -1}"; if [[ "$service" != app || -f "$TEST_APP_CREATED" ]]; then printf '%s-fixture\n' "$service"; fi;;
   run)
+    if [[ "$*" == '--rm --no-deps --entrypoint /bin/true real-backend-playwright' ]]; then
+      if [[ "$TEST_SCENARIO" == failed-prepare ]]; then exit 21; fi
+      if [[ "$TEST_SCENARIO" == retag-prepare ]]; then printf '%s\n' "$changed" > "$TEST_IMAGE_STATE"; fi
+      exit 0
+    fi
     if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == 1 ]]; then [[ " $* " == *' --no-deps '* && " $* " != *' --build '* ]] || exit 87; fi
     if [[ "$TEST_SCENARIO" == retag-probe || "$TEST_SCENARIO" == retag-failed-probe ]]; then printf '%s\n' "$changed" > "$TEST_IMAGE_STATE"; fi
     if [[ "$TEST_SCENARIO" == failed-probe || "$TEST_SCENARIO" == retag-failed-probe ]]; then exit 22; fi;;
@@ -181,7 +186,8 @@ esac
 
 class RuntimeArtifactTests(unittest.TestCase):
     def restore(self, *, source=SHA, dotnet=SHA, image=None, identity=IMAGE_ID,
-                actual=IMAGE_ID, event="push", missing=None):
+                actual=IMAGE_ID, event="push", missing=None, split_pr=False,
+                producer_sha=SHA, producer_missing=None, duplicate=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact, workspace, commands = (root / name for name in ("artifact", "workspace", "bin"))
@@ -191,7 +197,11 @@ class RuntimeArtifactTests(unittest.TestCase):
             family = "coglatas-pr-functional" if event == "pull_request" else "coglatas-main-runtime"
             (artifact / "runtime-image-name").write_text((image or family + ":" + SHA) + "\n")
             (artifact / "runtime-image-id").write_text(identity + "\n")
-            with tarfile.open(artifact / "dotnet-release-build.tar", "w") as archive:
+            dotnet_artifact = root / "dotnet-producer" if split_pr else artifact
+            if split_pr:
+                dotnet_artifact.mkdir()
+                (dotnet_artifact / "source-sha").write_text(producer_sha + "\n")
+            with tarfile.open(dotnet_artifact / "dotnet-release-build.tar", "w") as archive:
                 content = (dotnet + "\n").encode()
                 entry = tarfile.TarInfo("artifacts/ci/dotnet-build-sha")
                 entry.size = len(content)
@@ -205,9 +215,16 @@ class RuntimeArtifactTests(unittest.TestCase):
             docker.chmod(0o755)
             if missing:
                 (artifact / missing).unlink()
+            if producer_missing:
+                (dotnet_artifact / producer_missing).unlink()
+            if duplicate:
+                (artifact / "dotnet-release-build.tar").write_text("duplicate")
             exported = root / "exported-env"
-            result = subprocess.run(["bash", (ROOT / "scripts/ci/restore-main-build-artifacts.sh").as_posix(),
-                                     "artifact", SHA, "workspace"], cwd=root,
+            command = ["bash", (ROOT / "scripts/ci/restore-main-build-artifacts.sh").as_posix(),
+                       "artifact", SHA, "workspace"]
+            if split_pr:
+                command.append("dotnet-producer")
+            result = subprocess.run(command, cwd=root,
                                     env=os.environ | {"PATH": str(commands) + os.pathsep + os.environ["PATH"],
                                                       "GITHUB_EVENT_NAME": event,
                                                       "GITHUB_ENV": str(exported), "TEST_IMAGE_ID": actual},
@@ -221,6 +238,42 @@ class RuntimeArtifactTests(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertIn("COGLATAS_REUSE_PREBUILT_APP_IMAGE=1", exported)
                 self.assertIn(f"COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID={IMAGE_ID}", exported)
+
+    def test_pr_split_restores_original_dotnet_without_duplicate_artifact(self):
+        result, exported = self.restore(event="pull_request", split_pr=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("COGLATAS_REUSE_PREBUILT_DOTNET_BUILD=true", exported)
+
+    def test_pr_split_rejects_wrong_or_missing_producer_and_duplicate_bundle(self):
+        cases = (
+            {"producer_sha": "c" * 40},
+            {"dotnet": "c" * 40},
+            {"producer_missing": "source-sha"},
+            {"producer_missing": "dotnet-release-build.tar"},
+            {"duplicate": True},
+        )
+        for case in cases:
+            with self.subTest(case=case):
+                result, exported = self.restore(event="pull_request", split_pr=True, **case)
+                self.assertNotEqual(0, result.returncode)
+                self.assertEqual("", exported)
+
+    def test_pr_split_rejected_on_main_push(self):
+        result, exported = self.restore(event="push", split_pr=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("", exported)
+
+    def test_pr_functional_runtime_only_packages_image_not_second_dotnet_tar(self):
+        producer = (ROOT / "scripts/ci/package-pr-functional-runtime.sh").read_text()
+        self.assertNotIn('cp "$inputs/dotnet-release-build.tar" "$output/dotnet-release-build.tar"', producer)
+        self.assertIn('test -s "$inputs/dotnet-release-build.tar"', producer)
+        functional = (ROOT / ".github/workflows/functional-validation.yml").read_text()
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("Download exact-run PR .NET producer without repackaging", functional)
+        self.assertIn("name: dotnet-release-build", functional)
+        self.assertIn('"$RUNNER_TEMP/pr-dotnet-build"', functional)
+        self.assertIn("Download same-run .NET producer for actor", ci)
+        self.assertIn('"$RUNNER_TEMP/actor-dotnet-build"', ci)
 
     def test_wrong_source_dotnet_tag_family_or_loaded_image_fails_before_export(self):
         changes = ({"source": "c" * 40}, {"dotnet": "c" * 40},
@@ -727,6 +780,12 @@ class AcceptanceImageReuseTests(unittest.TestCase):
 
 
 class FunctionalImageReuseTests(unittest.TestCase):
+    @staticmethod
+    def owner_probe_index(traces):
+        return next(index for index, args in enumerate(traces)
+                    if args[0] == "compose" and "run" in args and
+                    args[args.index("run") + 1:] == ["--no-deps", "--rm", "real-backend-playwright"])
+
     def run_harness(self, *, reuse="1", scenario="matching", changes=None, workspace=None):
         with (tempfile.TemporaryDirectory() if workspace is None else nullcontext(str(workspace))) as directory:
             root = Path(directory)
@@ -798,7 +857,7 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
         app = next(args for args in starts if args[-1] == "app")
         self.assertIn("--no-build", app)
         self.assertEqual("never", app[app.index("--pull") + 1])
-        probe_index = next(index for index, args in enumerate(traces) if "run" in args)
+        probe_index = self.owner_probe_index(traces)
         cleanup_index = next(index for index, args in enumerate(traces) if "down" in args)
         container_checks = [index for index, args in enumerate(traces) if args[:3] == ["inspect", "--format", "{{.Image}}"]]
         self.assertTrue(any(index < probe_index for index in container_checks))
@@ -815,7 +874,9 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
                 self.assertEqual([["app"]], AcceptanceImageReuseTests.compose_commands(traces, "build"))
                 app = next(args for args in AcceptanceImageReuseTests.compose_commands(traces, "up") if args[-1] == "app")
                 self.assertEqual(["--detach", "--no-deps", "--no-build", "app"], app)
-                self.assertEqual([["--rm", "real-backend-playwright"]], AcceptanceImageReuseTests.compose_commands(traces, "run"))
+                runs = AcceptanceImageReuseTests.compose_commands(traces, "run")
+                self.assertEqual(["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"], runs[0])
+                self.assertEqual([["--rm", "real-backend-playwright"]], runs[1:])
                 self.assertFalse(any(args[:2] == ["image", "inspect"] for args in traces))
 
     def test_wrong_source_stamp_dirty_git_tool_or_image_fails_before_start(self):
@@ -846,7 +907,7 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
                 self.assertEqual(code, result.returncode, result.stderr)
                 self.assertEqual([], records)
                 self.assertNotIn("completed successfully", result.stdout)
-                probe = next(index for index, args in enumerate(traces) if "run" in args)
+                probe = self.owner_probe_index(traces)
                 cleanup = next(index for index, args in enumerate(traces) if "down" in args)
                 self.assertTrue(any(probe < index < cleanup for index, args in enumerate(traces) if args[:2] == ["image", "inspect"]))
 
@@ -857,10 +918,29 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
         self.assertEqual(22, records[0]["suiteExitCode"])
         self.assertTrue(records[0]["beforeProbeVerified"] and records[0]["afterProbeVerified"])
         self.assertNotIn("completed successfully", result.stdout)
-        probe = next(index for index, args in enumerate(traces) if "run" in args)
+        probe = self.owner_probe_index(traces)
         cleanup = next(index for index, args in enumerate(traces) if "down" in args)
         checks = [index for index, args in enumerate(traces) if args[:3] == ["inspect", "--format", "{{.Image}}"]]
         self.assertTrue(any(probe < index < cleanup for index in checks))
+
+    def test_preparation_failure_never_executes_owner_or_publishes_success(self):
+        result, traces, records = self.run_harness(scenario="failed-prepare")
+        self.assertEqual(1, result.returncode, result.stderr)
+        self.assertEqual([], records)
+        self.assertIn("[INFRA/SETUP FAILURE] phase=prepare-browser:", result.stderr)
+        self.assertNotIn("[PRODUCT TEST FAILURE]", result.stderr)
+        self.assertEqual([["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"]],
+                         AcceptanceImageReuseTests.compose_commands(traces, "run"))
+        self.assertEqual(1, len(AcceptanceImageReuseTests.compose_commands(traces, "down")))
+
+    def test_retag_during_preparation_is_rejected_before_owner_execution(self):
+        result, traces, records = self.run_harness(scenario="retag-prepare")
+        self.assertEqual(1, result.returncode, result.stderr)
+        self.assertEqual([], records)
+        self.assertNotIn("completed successfully", result.stdout)
+        self.assertEqual([["--rm", "--no-deps", "--entrypoint", "/bin/true", "real-backend-playwright"]],
+                         AcceptanceImageReuseTests.compose_commands(traces, "run"))
+        self.assertEqual(1, len(AcceptanceImageReuseTests.compose_commands(traces, "down")))
 
 
 class RuntimeImageIdentityTests(unittest.TestCase):

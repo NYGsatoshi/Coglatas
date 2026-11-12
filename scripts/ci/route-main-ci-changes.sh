@@ -64,7 +64,7 @@ if [[ -z "$base_sha" || "$base_sha" == "$zero_sha" || -z "$head_sha" ]] || \
 fi
 
 changed_file_list="${RUNNER_TEMP:-/tmp}/ci-changed-files.txt"
-if ! git diff --name-only "$base_sha" "$head_sha" > "$changed_file_list"; then
+if ! git diff --no-renames --name-only "$base_sha" "$head_sha" > "$changed_file_list"; then
   route_all
   exit 0
 fi
@@ -414,7 +414,7 @@ while IFS= read -r path; do
       security=true
       security_dotnet=true
       ;;
-    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.editorconfig|*.DotSettings|*.dotsettings|.config/*|tests/Coglatas.Tests/Coglatas.Tests.csproj|src/*.csproj)
+    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.editorconfig|*.DotSettings|*.dotsettings|.config/*|tests/Coglatas.Tests/Coglatas.Tests.csproj|src/*.csproj|src/*/packages.lock.json|tests/*/packages.lock.json)
       mark_backend_full
       backend_ef=true
       ;;
@@ -432,6 +432,13 @@ while IFS= read -r path; do
     scripts/ci/task-pr07d-required-tests.txt)
       backend=true
       backend_pr07d=true
+      ;;
+    tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRFixture.cs|tests/Coglatas.Tests/TestInfrastructure/*.cs)
+      # This shared process helper is used by the actual Web fixture across
+      # both the formal SEC-ARCH suite and PostgreSQL HTTP/transport owners.
+      add_backend_scope "TestInfrastructure"
+      add_backend_scope "SecurityArchitecture"
+      add_backend_scope "PostgreSql"
       ;;
     tests/Coglatas.Tests/*)
       mark_backend_test_file "$path"
@@ -598,7 +605,7 @@ while IFS= read -r path; do
   # AV-MIG contract routing. Source/build inputs require the SEC-01 contract,
   # but do not imply the NuGet dependency graph changed.
   case "$path" in
-    global.json|NuGet.config|Directory.Build.*|src/*.csproj|docs/migration/avalonia/*|scripts/ci/*av_mig*|scripts/ci/generate-security-openapi-contract.sh|src/Coglatas.Web/*|src/Coglatas.Application/*|tests/Coglatas.Tests/OpenApi/*|tools/AvMig.SourceInspector/*)
+    global.json|NuGet.config|Directory.Build.*|src/*.csproj|src/*/packages.lock.json|docs/migration/avalonia/*|scripts/ci/*av_mig*|scripts/ci/generate-security-openapi-contract.sh|src/Coglatas.Web/*|src/Coglatas.Application/*|tests/Coglatas.Tests/OpenApi/*|tools/AvMig.SourceInspector/*)
       avmig_contract=true
       security=true
       ;;
@@ -619,7 +626,7 @@ while IFS= read -r path; do
   # Runtime/API/harness changes require both deterministic contracts and the
   # live authenticated Core/Schemathesis/ZAP stacks before PR merge.
   case "$path" in
-    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|.dockerignore|.config/*)
+    src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.dockerignore|.config/*)
       security=true
       security_compose=true
       ;;
@@ -627,7 +634,7 @@ while IFS= read -r path; do
 
   # Only dependency/build manifests route the NuGet vulnerability scan.
   case "$path" in
-    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj|tests/Coglatas.Tests/*.csproj)
+    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj|src/*/packages.lock.json|tests/Coglatas.Tests/*.csproj|tests/*/packages.lock.json)
       security=true
       security_dotnet=true
       ;;
@@ -641,14 +648,14 @@ while IFS= read -r path; do
   esac
 
   case "$path" in
-    src/Coglatas.Infrastructure/Migrations/*|deploy/onprem/compose.yml|deploy/onprem/compose.ci.yml|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj)
+    src/Coglatas.Infrastructure/Migrations/*|deploy/onprem/compose.yml|deploy/onprem/compose.ci.yml|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj|src/*/packages.lock.json)
       security=true
       security_migration=true
       ;;
   esac
 
   case "$path" in
-    .dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|*/syncfusion-license.txt|syncfusion-license.txt)
+    .dockerignore|infra/docker/security-runtime-pr-prebuilt.Dockerfile|infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore|.env|.env.*|.env.example|Dockerfile|Dockerfile.*|frontend/package.json|frontend/package-lock.json|frontend/.npmrc|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|src/*.csproj|src/*/packages.lock.json|*/syncfusion-license.txt|syncfusion-license.txt)
       security=true
       security_image=true
       ;;
