@@ -37,7 +37,7 @@ export function collectGroupKeyboardObservations(root, expectedSha) {
   if (existsSync(output)) { invalid(); }
   if (!existsSync(input)) { return 0; }
   directory(join(root, 'artifacts')); directory(input);
-  const names = readdirSync(input).sort();
+  const names = readdirSync(input).sort(compareCodeUnits);
   if (names.length > 18) { invalid(); }
   directory(join(root, 'artifacts/ci'));
   const producerSha = boundedRead(join(root, 'artifacts/ci/frontend-build-sha'), 41).toString('utf8').trim();
@@ -65,4 +65,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     console.error('Group keyboard observation collection failed; no unvalidated browser data may be published.');
     process.exitCode = 1;
   }
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }
