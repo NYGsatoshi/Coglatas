@@ -64,8 +64,12 @@ def verify(raw: bytes, source_sha: str, run_id: str, attempt: int) -> dict:
         raise ArchitectureEvidenceError('TRX_XML') from exc
     require(root.tag == NAMESPACE + 'TestRun', 'TRX_ROOT')
     results = root.findall('./' + NAMESPACE + 'Results/' + NAMESPACE + 'UnitTestResult')
-    counters = root.find('./' + NAMESPACE + 'ResultSummary/' + NAMESPACE + 'Counters')
+    summary = root.find('./' + NAMESPACE + 'ResultSummary')
+    counters = summary.find(NAMESPACE + 'Counters') if summary is not None else None
     require(counters is not None and results, 'TRX_EMPTY')
+    # A passed case list cannot prove that the native run-level writer
+    # completed rather than failing or aborting the overall TRX run.
+    require(summary.get('outcome') == 'Completed', 'TRX_RUN_OUTCOME')
     require(len(results) <= 5000, 'TRX_TOO_MANY_CASES')
     ids: set[str] = set()
     names: set[str] = set()
