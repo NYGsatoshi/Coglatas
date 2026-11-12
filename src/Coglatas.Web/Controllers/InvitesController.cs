@@ -8,10 +8,11 @@ namespace Coglatas.Web.Controllers;
 
 [ApiController]
 [Route("api/invites")]
-[Authorize]
 public sealed class InvitesController(IAuthService authService) : ControllerBase
 {
+    // A recipient validates the invite token before creating an authenticated session.
     [HttpGet("validate")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Validate(
         [FromQuery, Required, RegularExpression("^[a-f0-9]{64}$")] string token,
@@ -23,7 +24,9 @@ public sealed class InvitesController(IAuthService authService) : ControllerBase
             : InviteProblem(result.Error, "Invite validation failed.");
     }
 
+    // Accepting a valid invitation establishes the session, so authentication cannot be required beforehand.
     [HttpPost("accept")]
+    [AllowAnonymous]
     [EnableRateLimiting("invite")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LoginResponse>> Accept(AcceptInviteRequest request, CancellationToken cancellationToken)
