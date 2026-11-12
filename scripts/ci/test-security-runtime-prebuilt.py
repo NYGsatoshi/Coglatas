@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify the PR-only no-recompile Docker image contract and routing guards."""
 from pathlib import Path
+import json
 import re
 import unittest
 
@@ -13,7 +14,34 @@ IGNORE = ROOT / "infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerigno
 class SecurityRuntimePrebuiltTests(unittest.TestCase):
     def test_prebuilt_sdk_image_cannot_compile_or_publish_product(self):
         source = DOCKERFILE.read_text(encoding="utf-8")
-        self.assertRegex(source, r"(?m)^FROM mcr[.]microsoft[.]com/dotnet/sdk:10[.]0[.]403@sha256:[a-f0-9]{64}$")
+        # Bind to the independent canonical image and pinned global.json
+        # instead of freezing a superseded SDK patch version in this test.
+        # Reject invalid or multiple canonical build stages fail-closed.
+        toolchain = json.loads((ROOT / "global.json").read_text(encoding="utf-8"))
+        sdk_version = toolchain["sdk"]["version"]
+        canonical_source = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        canonical_images = re.findall(
+            r"(?m)^FROM (mcr[.]microsoft[.]com/dotnet/sdk:"
+            r"(\\d+[.]\\d+[.]\\d+)@sha256:[a-f0-9]{64}) AS build$",
+            canonical_source,
+        )
+        self.assertEqual(1, len(canonical_images))
+        canonical_image, canonical_version = canonical_images[0]
+        self.assertEqual(sdk_version, canonical_version)
+        expected = rf"(?m)^FROM {re.escape(canonical_image)}$"
+        self.assertRegex(source, expected)
+        # A same-version digest substitution or an old SDK patch must fail.
+        corrupt_digest = canonical_image[:-1] + (
+            "0" if canonical_image[-1] != "0" else "1"
+        )
+        self.assertNotRegex(
+            source.replace(canonical_image, corrupt_digest), expected
+        )
+        old_version = canonical_image.replace(
+            f"/sdk:{sdk_version}@", "/sdk:10.0.403@"
+        )
+        if old_version != canonical_image:
+            self.assertNotRegex(source.replace(canonical_image, old_version), expected)
         self.assertIn("COPY . .", source)
         self.assertIn("dotnet tool restore", source)
         self.assertIn("dotnet restore src/Coglatas.Web/Coglatas.Web.csproj", source)
