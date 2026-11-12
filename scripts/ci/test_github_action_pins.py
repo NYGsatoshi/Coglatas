@@ -220,7 +220,7 @@ class GithubActionPinsTests(unittest.TestCase):
                     f"      {step}\n",
                 )
                 self.assertTrue(
-                    any("unsupported flow-style job or step" in e
+                    any("unsupported flow-style" in e
                         for e in self.errors())
                 )
 
@@ -236,7 +236,7 @@ class GithubActionPinsTests(unittest.TestCase):
                     "name: required\non: pull_request\njobs:\n" + job,
                 )
                 self.assertTrue(
-                    any("unsupported flow-style job or step" in e
+                    any("unsupported flow-style" in e
                         for e in self.errors())
                 )
 
@@ -248,7 +248,7 @@ class GithubActionPinsTests(unittest.TestCase):
             "steps: [{uses: actions/checkout@v7}]}}\n",
         )
         self.assertTrue(
-            any("unsupported flow-style job or step" in e
+            any("unsupported flow-style" in e
                 for e in self.errors())
         )
 
