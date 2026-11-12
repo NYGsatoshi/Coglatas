@@ -44,13 +44,13 @@ SONARCLOUD_PROJECT_KEY = r"[Nn][Yy][Gg]satoshi_coglatas"
 # Only the repository README's canonical badge endpoints qualify. The match
 # group covers the external project key, never the complete URL or its metadata.
 SONARCLOUD_BADGE_URL = re.compile(
-    r"https://sonarcloud\\.io/api/project_badges/measure\\?project=(?P<project>"
+    r"https://sonarcloud\.io/api/project_badges/measure\?project=(?P<project>"
     + SONARCLOUD_PROJECT_KEY
-    + r")&metric=(?:alert_status|coverage|duplicated_lines_density|ncloc|reliability_rating)(?=\\))"
+    + r")&metric=(?:alert_status|coverage|duplicated_lines_density|ncloc|reliability_rating)(?=\))"
 )
 SONARCLOUD_PROJECT_URL = re.compile(
-    r"https://sonarcloud\\.io/summary/new_code\\?id=(?P<project>"
-    + SONARCLOUD_PROJECT_KEY + r")(?=\\))"
+    r"https://sonarcloud\.io/summary/new_code\?id=(?P<project>"
+    + SONARCLOUD_PROJECT_KEY + r")(?=\))"
 )
 
 INTEGRITY_TOKEN = re.compile(
