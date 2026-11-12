@@ -60,7 +60,10 @@ SETUP_NODE = re.compile(r"(?m)^        uses: actions/setup-node@([0-9a-f]{40})\s
 # action must not be invisible to the fixed-source policy.
 SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        |      -[ \t]+)(?:uses|['\"]uses['\"])[ \t]*:[ \t]*['\"]?actions/setup-node@")
 INPUT_CACHE = re.compile(r"(?m)^          package-manager-cache: (\S+)\s*$")
-INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
+# YAML accepts quoted or spaced mapping keys. Count every recognized variant
+# so an additional input cannot silently override the reviewed false value.
+INPUT_CACHE_KEYS = re.compile(r"(?m)^          (?:package-manager-cache|['\"]package-manager-cache['\"])[ \t]*:")
+INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          (?:cache|['\"]cache['\"])[ \t]*:")
 
 
 def job_blocks(source: str) -> dict[str, str]:
@@ -214,7 +217,7 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if versions not in (['"26"'], ["'26'"]):
                 issues.append(f"{path}/{job_id}: Node 26 toolchain not pinned")
             flags = INPUT_CACHE.findall(step)
-            if flags != ["false"]:
+            if flags != ["false"] or len(INPUT_CACHE_KEYS.findall(step)) != 1:
                 issues.append(f"{path}/{job_id}: implicit npm cache must be disabled exactly once")
             if INPUT_EXPLICIT_CACHE.search(step):
                 issues.append(f"{path}/{job_id}: explicit setup-node cache not permitted")
@@ -232,7 +235,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all twenty-four mutation controls."""
+    """Verify reviewed policy and reject all twenty-eight bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -254,6 +257,26 @@ def main() -> int:
         "duplicate cache input": one_replacement(
             workflows, "          package-manager-cache: false",
             "          package-manager-cache: false\n          package-manager-cache: false",
+        ),
+        "spaced explicit npm cache key": one_replacement(
+            workflows,
+            "          package-manager-cache: false",
+            "          package-manager-cache: false\n          cache : npm",
+        ),
+        "double-quoted explicit npm cache key": one_replacement(
+            workflows,
+            "          package-manager-cache: false",
+            '          package-manager-cache: false\n          "cache": npm',
+        ),
+        "spaced duplicate auto-cache key": one_replacement(
+            workflows,
+            "          package-manager-cache: false",
+            "          package-manager-cache: false\n          package-manager-cache : true",
+        ),
+        "single-quoted duplicate auto-cache key": one_replacement(
+            workflows,
+            "          package-manager-cache: false",
+            "          package-manager-cache: false\n          'package-manager-cache': true",
         ),
         # Target a job in EXPECTED, not the unrelated first setup-node
         # occurrence in ci.yml (the actor-replacement helper).
@@ -370,7 +393,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 24 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 28 mutation controls rejected.")
     return 0
 
 
