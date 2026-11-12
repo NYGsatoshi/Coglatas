@@ -4,6 +4,67 @@ Status: **INCOMPLETE**. Integration target: **SecurityTestImplimation only**.
 This inventory grants no policy activation, exception, release approval, new
 required check, or performance-assurance credit. No Main mutation is authorized.
 
+## Later composed Node/SDK/SEC-06 native observation (2026-11-12)
+
+This is **new evidence from a different Security-only Draft PR**, not a rewrite
+of the initial 2026-11-06 72-workflow, 35-run, 76-check inventory. The original
+snapshots, failed attempts, case inventories and governance HOLD remain immutable.
+The [composed #1877](https://github.com/NYGsatoshi/Coglatas/pull/1877)
+has exact head `86016ff73f631551bb7e2bdb1177a90b74875219`; its
+[ordinary PR CI run 43203437864 / attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864)
+is `completed/success`. GitHub's tested merge
+`f0918a9ba564fd5b3dcfecabec8834f5cf5e2775` has parents
+`d8dd3862d55d315ca3814ec4af5902020c645dea` (the then-current Security
+base) and the exact #1877 head; both source and tested-merge Git trees are
+`b44aaec96c30760fda04d18d2babe595b78187f3`.
+
+The six registered `governance/required-checks.json` contexts below were
+confirmed exactly once, with GitHub Actions as their source, all
+`completed/success` at that head:
+
+| Required context | Exact native job | Outcome |
+| --- | --- | --- |
+| `build-test` | [131133792879](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131133792879) | SUCCESS |
+| `frontend-test` | [131133310527](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131133310527) | SUCCESS |
+| `security-scan` | [131133792705](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131133792705) | SUCCESS |
+| `publication-readiness` | [131132468282](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437741/job/131132468282) | SUCCESS |
+| `functional-fast` | [131135611563](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131135611563) | SUCCESS |
+| `performance-fast` | [131132573772](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437762/job/131132573772) | SUCCESS |
+
+All 50 latest-head Check Runs were terminal, with zero failed or pending.
+The CodeRabbit check remained `neutral`, **not an APPROVED review**.
+[PR CI preflight 131132468899](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131132468899)
+logged `SEC-04/SEC-06 per-role timing, fail-closed statuses and non-secret
+logging PASS` and **33 rejected Node cache-policy negative mutations**.
+The actual successful
+[security-scan 131133792705](https://github.com/NYGsatoshi/Coglatas/actions/runs/43203437864/job/131133792705)
+logged **35 SEC-05 real-PostgreSQL HTTP authorization negatives** with zero
+disclosures/denied mutations, SEC-04 Schemathesis PR roles
+`anonymous,alpha-restricted,alpha-owner`, and authenticated SEC-06 ZAP roles
+`alpha-owner,alpha-restricted,beta-owner`. These are native **scoped**
+observations, not a complete current API/actor/transition inventory, RESTler
+adoption, deep-stateful coverage, or D10 Artifact/producer attestation.
+
+The eight changed paths in #1877 were read back and each Git blob exactly matched
+its independent source-owner: #1874's **five** Node/Ubuntu workflow/policy paths,
+#1876's **two** current .NET 10.0.404 SDK Docker/test paths, and #1909's
+**one** synthetic SEC-06 timing test path. This byte identity does not transfer
+a passing Required Check onto those separately failing owner PRs. In particular,
+#1909's standalone CI still fails at inherited Node 24/`ubuntu-latest` preflights;
+#1876's own CI remains failed. The successful #1877 source cannot waive either
+history or automatically authorize promotion.
+
+**Admission remains HOLD:** #1877 is Draft/unmerged, its latest-head
+independent approval is absent, the registered ruleset `22302146` remains
+disabled while alternate Main-only ruleset `24643016` is active, and
+`SecurityTestImplimation` is unprotected. Owner authorization and separate
+full trust/provenance, release and numerical-performance decisions remain
+unverified. The `performance-fast` success is **not** numerical
+latency/throughput qualification under #1128. No Main or Security base change
+was made by this documentation update.
+
+---
+
 ## Scope and evidence model
 
 The initial audit is pinned to Security head
