@@ -10,7 +10,7 @@ Prerequisites:
 
 - Docker Desktop or another Docker engine with Compose v2
 - .NET 10 SDK
-- Node.js 24
+- Node.js 26 LTS
 
 One-time setup:
 
