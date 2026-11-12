@@ -364,6 +364,21 @@ public sealed class TenantAdministrationService(
             return Result.Failure("ThemeColor must be 40 characters or fewer.");
         }
 
+        if (!IsWellFormedUtf16(request.DefaultLocale) || !IsWellFormedUtf16(request.TimeZone))
+        {
+            return Result.Failure("Locale and timezone text must be valid UTF-16.");
+        }
+
+        if (request.DefaultLocale?.Trim().EnumerateRunes().Take(21).Count() > 20)
+        {
+            return Result.Failure("DefaultLocale must be 20 characters or fewer.");
+        }
+
+        if (request.TimeZone?.Trim().EnumerateRunes().Take(81).Count() > 80)
+        {
+            return Result.Failure("TimeZone must be 80 characters or fewer.");
+        }
+
         if (request.StorageQuotaBytes is < 0 || request.UserLimit is < 0 || request.ProjectLimit is < 0 || request.FileUploadLimitBytes is < 0)
         {
             return Result.Failure("Quota limits cannot be negative.");
@@ -375,6 +390,30 @@ public sealed class TenantAdministrationService(
         }
 
         return Result.Success();
+    }
+
+    private static bool IsWellFormedUtf16(string? value)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (!char.IsSurrogate(value[index]))
+            {
+                continue;
+            }
+
+            if (!char.IsHighSurrogate(value[index]) || index + 1 >= value.Length ||
+                !char.IsLowSurrogate(value[++index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static Result ValidatePlan(UpsertPlanRequest request, bool requireName)

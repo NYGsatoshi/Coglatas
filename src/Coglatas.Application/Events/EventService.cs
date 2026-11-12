@@ -43,8 +43,9 @@ public sealed class EventService(
             }
         }
 
+        var offset = (long)(page - 1) * pageSize;
         var pageItems = visible
-            .Skip((page - 1) * pageSize)
+            .Skip((int)Math.Min(offset, visible.Count))
             .Take(pageSize)
             .ToList();
 

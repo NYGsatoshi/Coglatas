@@ -2,6 +2,12 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Legacy Project comment edits and deletes read the current persisted account,
+comment identity, and parent authority before changing a tracked comment.
+Existing manager grants and canonical TaskComment routing remain in place.
+See [legacy comment authority](verification/project-comment-current-authority.md)
+for the PATCH/DELETE boundary and evidence limits.
+
 Announcement audience enumeration and authorization require a current active,
 undeleted persisted account. Their read-only authority scope uses untracked
 queries across the scoped repositories so previously tracked roles, memberships
