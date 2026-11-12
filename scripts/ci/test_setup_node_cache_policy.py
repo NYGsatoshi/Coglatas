@@ -140,6 +140,12 @@ def run_command_lines(job: str) -> list[str]:
             pending_blank = False
 
     finish()
+    # Heredoc bodies are inert shell input, even if they contain what looks
+    # like a canonical owner invocation. Reject the entire run step rather
+    # than accidentally treating heredoc contents as executable commands.
+    # This fail-closed guard also declines unreviewed here-string constructs.
+    if any("<<" in command for command in commands):
+        return []
     return commands
 
 def owner_invoked(job: str, owner: str) -> bool:
@@ -226,7 +232,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all twenty-three mutation controls."""
+    """Verify real workflow policy and fail closed on all twenty-four mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -347,6 +353,14 @@ def main() -> int:
             "          echo\n"
             "          bash scripts/ci/npm-ci-retry.sh frontend",
         ),
+        "heredoc text is not an executed owner": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            "          cat <<'INERT_GUARD_TEXT'\n"
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"\n'
+            "          INERT_GUARD_TEXT",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -356,7 +370,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 23 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 24 mutation controls rejected.")
     return 0
 
 
