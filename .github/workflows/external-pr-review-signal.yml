@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   signal:
     name: External PR review signal
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Emit PR head-change signal

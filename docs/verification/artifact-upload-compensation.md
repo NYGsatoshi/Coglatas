@@ -1,5 +1,39 @@
 # Artifact version upload compensation
 
+## Upload save outcome and compensation boundary
+
+File and Artifact uploads now use an operation-local save outcome. Compensation
+deletes the newly accepted object only when persistence reports NotCommitted and
+successfully discards the failed upload's pending metadata and policy documents.
+An opaque persistence implementation defaults to Unknown. Committed and Unknown
+outcomes retain the stored bytes and emit the fixed warning event 53502 without
+identifiers, paths or exceptions. A failing log provider preserves the original
+upload failure. Existing deletion-failure event 53501 remains unchanged.
+
+EfUnitOfWork owns an upload transaction only without an existing, ambient or
+enlisted transaction. It keeps the existing policy-document save path inside that
+transaction. An acknowledged commit establishes Committed before disposal. Only
+a failure before commit starts followed by acknowledged rollback and successful
+pending-write discard establishes NotCommitted. A commit-start failure remains
+Unknown even if rollback subsequently returns. Rollback and disposal errors do
+not replace the initiating failure. Caller-owned and nonrelational saves retain
+Unknown rather than claiming the eventual transaction outcome.
+
+The original two regressions at 9fa1748f use owned PostgreSQL 18.6, real service
+and storage implementations, a second verification context, and synthetic
+acknowledgement loss after a real commit. Both first attempts failed because
+durable metadata referenced the newly deleted object. They preserve their source
+and original evidence. This is a controlled lost-acknowledgement scenario, not a
+reproduction of a production network failure. Fresh correction qualification is
+required separately.
+
+Conservative retention can leave an orphan when a transaction actually rolled
+back without conclusive evidence. Reconciliation of unknown outcomes and a
+caller-owned transaction's eventual rollback remain operational follow-up work;
+this change does not establish full #535 completion, G01 acceptance or release GO.
+
+## Historical compensation qualification
+
 The existing Artifact version intake path could successfully store new bytes and
 then fail during version-number lookup, metadata staging, audit, notification
 staging or the final save, leaving the new object behind. This repair extends
