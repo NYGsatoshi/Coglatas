@@ -2,6 +2,7 @@ using System.Text.Json;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Files;
+using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 
@@ -19,9 +20,11 @@ public sealed class TenantAdministrationService(
     IUnitOfWork unitOfWork,
     IFileObjectService fileObjects) : ITenantAdministrationService
 {
+    private readonly TenantAuthorizationService _tenantAuthorization = new(tenants);
+
     public async Task<Result<PlatformOverviewResponse>> GetPlatformOverviewAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<PlatformOverviewResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -45,7 +48,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<PlatformUsageResponse>> GetPlatformUsageAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<PlatformUsageResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -160,7 +163,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<TenantUsageResponse>> GetPlatformTenantUsageAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<TenantUsageResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -170,7 +173,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<IReadOnlyList<PlanResponse>>> ListPlansAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<IReadOnlyList<PlanResponse>>.Failure("PlatformAdmin access is required.");
         }
@@ -181,7 +184,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<PlanResponse>> CreatePlanAsync(UpsertPlanRequest request, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<PlanResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -202,7 +205,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<PlanResponse>> UpdatePlanAsync(Guid planId, UpsertPlanRequest request, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<PlanResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -227,7 +230,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result> ArchivePlanAsync(Guid planId, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result.Failure("PlatformAdmin access is required.");
         }
@@ -246,7 +249,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<SubscriptionResponse>> GetTenantSubscriptionAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<SubscriptionResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -259,7 +262,7 @@ public sealed class TenantAdministrationService(
 
     public async Task<Result<SubscriptionResponse>> UpdateTenantSubscriptionAsync(Guid tenantId, UpdateSubscriptionRequest request, CancellationToken cancellationToken = default)
     {
-        if (!IsPlatformAdmin())
+        if (!await IsPlatformAdminAsync(cancellationToken))
         {
             return Result<SubscriptionResponse>.Failure("PlatformAdmin access is required.");
         }
@@ -307,13 +310,19 @@ public sealed class TenantAdministrationService(
             return Result.Failure(message, new ApplicationErrorDetail("AuthenticationRequired", message));
         }
 
-        if (IsPlatformAdmin())
+        if (await IsPlatformAdminAsync(cancellationToken))
         {
             return Result.Success();
         }
 
-        var membership = await tenants.GetTenantUserAsync(currentTenant.TenantId, currentUser.UserId.Value, cancellationToken);
-        if (membership is not { Status: TenantUserStatus.Active, Role: TenantUserRole.Owner or TenantUserRole.Admin })
+        var membership = await tenants.GetCurrentTenantUserAsync(currentTenant.TenantId, currentUser.UserId.Value, cancellationToken);
+        if (membership is not
+        {
+            Status: TenantUserStatus.Active,
+            Role: TenantUserRole.Owner or TenantUserRole.Admin,
+            User: { Status: UserStatus.Active, DeletedAt: null },
+            Tenant: { Status: TenantStatus.Active, DeletedAt: null }
+        })
         {
             const string message = "TenantAdmin access is required.";
             return Result.Failure(message, new ApplicationErrorDetail("Forbidden", message));
@@ -330,9 +339,11 @@ public sealed class TenantAdministrationService(
             : Result<T>.Failure(message, result.ErrorDetail);
     }
 
-    private bool IsPlatformAdmin()
+    private Task<bool> IsPlatformAdminAsync(CancellationToken cancellationToken)
     {
-        return currentUser is { IsAuthenticated: true, SystemRole: SystemRole.PlatformAdmin };
+        return CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)
+            ? _tenantAuthorization.IsPlatformAdminAsync(userId, cancellationToken)
+            : Task.FromResult(false);
     }
 
     private static Result ValidateSettings(UpdateTenantSettingsRequest request)
@@ -353,6 +364,21 @@ public sealed class TenantAdministrationService(
             return Result.Failure("ThemeColor must be 40 characters or fewer.");
         }
 
+        if (!IsWellFormedUtf16(request.DefaultLocale) || !IsWellFormedUtf16(request.TimeZone))
+        {
+            return Result.Failure("Locale and timezone text must be valid UTF-16.");
+        }
+
+        if (request.DefaultLocale?.Trim().EnumerateRunes().Take(21).Count() > 20)
+        {
+            return Result.Failure("DefaultLocale must be 20 characters or fewer.");
+        }
+
+        if (request.TimeZone?.Trim().EnumerateRunes().Take(81).Count() > 80)
+        {
+            return Result.Failure("TimeZone must be 80 characters or fewer.");
+        }
+
         if (request.StorageQuotaBytes is < 0 || request.UserLimit is < 0 || request.ProjectLimit is < 0 || request.FileUploadLimitBytes is < 0)
         {
             return Result.Failure("Quota limits cannot be negative.");
@@ -364,6 +390,30 @@ public sealed class TenantAdministrationService(
         }
 
         return Result.Success();
+    }
+
+    private static bool IsWellFormedUtf16(string? value)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (!char.IsSurrogate(value[index]))
+            {
+                continue;
+            }
+
+            if (!char.IsHighSurrogate(value[index]) || index + 1 >= value.Length ||
+                !char.IsLowSurrogate(value[++index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static Result ValidatePlan(UpsertPlanRequest request, bool requireName)

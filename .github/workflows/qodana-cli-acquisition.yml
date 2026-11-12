@@ -1,0 +1,151 @@
+name: Pinned Quality Tool Acquisition
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qodana-cli-acquisition.yml
+      - .github/workflows/qodana_trusted_gate.yml
+      - .github/workflows/codeql.yml
+      - scripts/ci/install-qodana-cli.sh
+      - scripts/ci/test-install-qodana-cli.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/qodana-cli-acquisition.yml
+      - .github/workflows/qodana_trusted_gate.yml
+      - .github/workflows/codeql.yml
+      - scripts/ci/install-qodana-cli.sh
+      - scripts/ci/test-install-qodana-cli.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-cli:
+    name: Verify pinned Qodana CLI acquisition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run native refusal controls
+        run: python3 -B scripts/ci/test-install-qodana-cli.py
+      - name: Acquire and verify the original pinned release
+        run: bash scripts/ci/install-qodana-cli.sh
+      - name: Execute the installed CLI on Linux
+        shell: bash
+        run: |
+          command -v qodana
+          qodana --version
+      - name: Verify successful fallback with the authenticated release bytes
+        shell: bash
+        run: |
+          python3 -B scripts/ci/test-install-qodana-cli.py \
+            --verified-archive "$(dirname "$(command -v qodana)")/qodana-linux.tar.gz"
+
+  codeql-selector-control:
+    name: Original CodeQL selector after optional warm transfer failure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CODEQL_SELECTOR_CACHE: /tmp/codeql-selector-control-tools-${{ github.run_id }}-${{ github.run_attempt }}
+      CODEQL_ACTION_TEMP: /tmp/codeql-selector-control-action-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up the repository's approved Node toolchain for the component control
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Fetch the unchanged pinned action component
+        id: action_source
+        shell: bash
+        run: |
+          set -euo pipefail
+          action_path="$(mktemp -d "$RUNNER_TEMP/codeql-selector-action.XXXXXXXX")"
+          git init "$action_path"
+          git -C "$action_path" remote add origin https://github.com/github/codeql-action.git
+          git -C "$action_path" fetch --depth=1 origin 9b3254085494b55a0f7c4c2b3d2d52cc712ce370
+          git -C "$action_path" checkout --detach FETCH_HEAD
+          test "$(git -C "$action_path" rev-parse HEAD)" = '9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
+          echo "path=$action_path" >> "$GITHUB_OUTPUT"
+      - name: Prepare the pinned action's different bundled default for this control
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$CODEQL_ACTION_TEMP"
+          printf '%s\n' '{"default_codeql_version_2_27_3_enabled":true}' > "$CODEQL_ACTION_TEMP/cached-feature-flags.json"
+          cache="$CODEQL_SELECTOR_CACHE/CodeQL/2.27.3/x64"
+          if [[ -d "$cache" && -f "$cache.complete" ]]; then
+            test "$("$cache/codeql/codeql" version --format=terse)" = '2.27.3'
+            exit 0
+          fi
+          test ! -e "$cache"
+          test ! -e "$cache.complete"
+          runner_entry="$RUNNER_TOOL_CACHE/CodeQL/2.27.3/x64"
+          if [[ -d "$runner_entry" && ! -L "$runner_entry" && -f "$runner_entry.complete" ]]; then
+            mkdir -p "$cache"
+            cp -R --preserve=mode,timestamps "$runner_entry/." "$cache/"
+            cmp "$runner_entry/codeql/codeql" "$cache/codeql/codeql"
+            test "$("$cache/codeql/codeql" version --format=terse)" = '2.27.3'
+            touch "$cache.complete"
+            echo 'Copied the trusted runner image complete entry into the isolated control cache; original entry retained.'
+            exit 0
+          fi
+          archive="$RUNNER_TEMP/codeql-control-2.27.3.tar.zst"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 20 --max-time 180 --retry 3 --retry-delay 5 --retry-max-time 240 \
+            --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/github/codeql-action/releases/assets/648290290' --output "$archive"
+          printf '%s  %s\n' '5e7607e1b721728955e31f5402d460ad227cbd2ffed0d4cc610116755796150e' "$archive" | sha256sum --check -
+          mkdir -p "$(dirname "$cache")"
+          mkdir "$cache"
+          tar --zstd --extract --file "$archive" --directory "$cache" --no-same-owner
+          test "$("$cache/codeql/codeql" version --format=terse)" = '2.27.3'
+          touch "$cache.complete"
+      - name: Execute the actual warm step with both transfers unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          script="$RUNNER_TEMP/actual-codeql-warm.sh"
+          ruby -ryaml -e 'w = YAML.load_file(".github/workflows/codeql.yml"); s = w.fetch("jobs").fetch("analyze").fetch("steps").find { |x| x["name"] == "Warm the normal CodeQL cache with the verified stable bundle" }; File.write(ARGV.fetch(0), s.fetch("run"))' "$script"
+          mock_bin="$(mktemp -d "$RUNNER_TEMP/codeql-control-transfer.XXXXXXXX")"
+          cat > "$mock_bin/curl" <<'SH'
+          #!/usr/bin/env bash
+          printf 'call\n' >> "$WARM_TRANSFER_LOG"
+          exit 22
+          SH
+          chmod 0755 "$mock_bin/curl"
+          transfer_log="$RUNNER_TEMP/codeql-control-transfers"
+          RUNNER_TOOL_CACHE="$CODEQL_SELECTOR_CACHE" PATH="$mock_bin:$PATH" WARM_TRANSFER_LOG="$transfer_log" bash "$script"
+          test "$(wc -l < "$transfer_log")" -eq 2
+          test ! -e "$CODEQL_SELECTOR_CACHE/CodeQL/2.27.4/x64.complete"
+          test ! -e "$CODEQL_SELECTOR_CACHE/CodeQL/2.27.4/x64/codeql/codeql"
+      - name: Run the normal original resolver with the controlled feature response
+        id: control_init
+        shell: bash
+        env:
+          PINNED_ACTION_PATH: ${{ steps.action_source.outputs.path }}
+          CONTROL_CODEQL_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git -C "$PINNED_ACTION_PATH" rev-parse HEAD)" = '9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
+          test "$(node -p 'process.versions.node.split(".")[0]')" = '26'
+          # Component test on repository Node26; production action runtimes qualify separately.
+          # Inputs match the pinned init manifest defaults and this control's language.
+          env RUNNER_TOOL_CACHE="$CODEQL_SELECTOR_CACHE" INPUT_TOKEN="$CONTROL_CODEQL_TOKEN" \
+            INPUT_LANGUAGES=actions 'INPUT_BUILD-MODE=none' 'INPUT_ANALYSIS-KINDS=code-scanning' \
+            INPUT_DEBUG=false 'INPUT_MATRIX={}' node "$PINNED_ACTION_PATH/lib/init-entry.js"
+      - name: Verify the different selected CLI remains available
+        shell: bash
+        env:
+          SELECTED_CODEQL_VERSION: ${{ steps.control_init.outputs.codeql-version }}
+          SELECTED_CODEQL_PATH: ${{ steps.control_init.outputs.codeql-path }}
+        run: |
+          test "$SELECTED_CODEQL_VERSION" = '2.27.3'
+          test "$SELECTED_CODEQL_PATH" = "$CODEQL_SELECTOR_CACHE/CodeQL/2.27.3/x64/codeql/codeql"
+          test "$("$SELECTED_CODEQL_PATH" version --format=terse)" = '2.27.3'
+          echo 'Normal original resolver selected the controlled different version in the same cache after both optional warm transfers failed. No analysis, live feature-flag response or SARIF import is claimed.'

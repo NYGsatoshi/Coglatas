@@ -6,7 +6,8 @@ import { installChromiumOriginGuard } from './student-council-pilot-origin-guard
 
 // These loopback servers are transport regression fixtures only. They are not
 // product APIs, a public deployment, or a Student Council qualification receipt.
-test('Chromium guard blocks credential bodies on actual 307 and 308 redirect hops', async () => {
+// Node's test runner owns completion and reports callback failures.
+void test('Chromium guard blocks credential bodies on actual 307 and 308 redirect hops', async () => {
   const browser = await chromium.launch();
   let sourceOrigin;
   let sinkOrigin;

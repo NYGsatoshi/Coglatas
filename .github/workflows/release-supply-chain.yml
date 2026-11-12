@@ -20,7 +20,7 @@ env:
 jobs:
   publish-release-image:
     name: sec11-publish-digest-bound-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 90
     permissions:
@@ -238,7 +238,7 @@ jobs:
   sign-release-subject:
     name: sec11-keyless-sign-and-attest
     needs: publish-release-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -351,7 +351,7 @@ jobs:
     needs:
       - publish-release-image
       - sign-release-subject
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -559,7 +559,7 @@ jobs:
   release-assurance-advisory:
     name: sec14-release-assurance-advisory
     needs: publish-release-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -704,7 +704,7 @@ jobs:
     needs:
       - publish-release-image
       - verify-release-subject
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read

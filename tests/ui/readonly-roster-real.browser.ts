@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type BrowserContext, type Frame, type Page } from '@playwright/test';
+import { finishRosterQualification } from './readonly-roster-qualification.mjs';
 
 type Member = { userId: string; role: number; canRead: boolean; canPost: boolean; canManageMembers: boolean;
   canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
@@ -101,6 +100,149 @@ async function captureFailureGeometry(page: Page) {
   });
 }
 
+type LifecycleEvent = { kind: string; atMs: number; status: number | null };
+type LifecycleReceipt = { version: 2; equalTimestampOrder: 'INDETERMINATE'; observed: boolean; panelPresent: boolean | null;
+  truncated: boolean; events: LifecycleEvent[] };
+// Owner-action timestamps are finite, structural and separate from assertions.
+// Neither DOM/actor identity nor a scroll coordinate is retained in the receipt.
+type MobileScrollEvent =
+  | 'MOBILE_SUMMARY_SCROLL_BEGIN' | 'MOBILE_SUMMARY_SCROLL_RETURNED'
+  | 'MOBILE_SUMMARY_VISIBILITY_CHECK' | 'MOBILE_SUMMARY_VISIBLE'
+  | 'MOBILE_LIST_SCROLL_BEGIN' | 'MOBILE_LIST_SCROLL_RETURNED'
+  | 'MOBILE_LIST_VISIBILITY_CHECK' | 'MOBILE_LIST_VISIBLE';
+type LifecycleFreeze = (() => Promise<LifecycleReceipt>) & {
+  markOwnerAction: (kind: MobileScrollEvent) => void;
+};
+
+async function withinMs<T>(work: Promise<T>, fallback: T, timeoutMs = 1000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work.catch(() => fallback),
+      new Promise<T>(resolve => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+async function observeRosterLifecycle(page: Page, conversationPath: string): Promise<LifecycleFreeze> {
+  // Test-only bounded metadata. Neither the real actor/conversation identity nor
+  // the native Request, URL, DOM nodes, body, cookie or error text is retained.
+  const openedAt = Date.now(), networkEvents: LifecycleEvent[] = [];
+  const initialPage = new URL(page.url());
+  let networkTruncated = false;
+  const mark = (kind: string, status: number | null = null) => {
+    if (networkEvents.length >= 24) { networkTruncated = true; return; }
+    networkEvents.push({ kind, atMs: Math.max(0, Math.min(120000, Date.now() - openedAt)), status });
+  };
+  const route = (request: { method(): string; url(): string }) => {
+    if (request.method() !== 'GET') return null;
+    let target: URL;
+    try { target = new URL(request.url()); } catch { return null; }
+    if (target.origin !== initialPage.origin) return null;
+    const path = target.pathname;
+    if (path === conversationPath) return 'CONVERSATION';
+    if (path === conversationPath + '/messages') return 'MESSAGES';
+    if (path === conversationPath + '/members') return 'MEMBERS';
+    return null;
+  };
+  const onRequest = (request: { method(): string; url(): string }) => {
+    const kind = route(request);
+    if (kind) mark(kind + '_REQUEST');
+  };
+  const onResponse = (response: { request(): { method(): string; url(): string }; status(): number }) => {
+    const kind = route(response.request());
+    if (kind) mark(kind + '_RESPONSE', response.status());
+  };
+  // Playwright requestfailed reports transport failure, not HTTP 4xx/5xx.
+  // Only the closed request category is retained; error text remains private.
+  const onRequestFailed = (request: { method(): string; url(): string }) => {
+    const kind = route(request);
+    if (kind) mark(kind + '_FAILED');
+  };
+  // A replaced document must not turn supplementary diagnostics into an owner failure.
+  const observed = await withinMs(page.evaluate(() => {
+    type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
+      truncated: boolean; present: boolean; everPresent: boolean; observer: MutationObserver };
+    const key = '__coglatasRosterLifecycleDiagnostic';
+    const scope = window as typeof window & { [key]?: DiagnosticState };
+    const present = () => document.querySelector('[data-testid="group-members-panel"]') !== null;
+    if (!document.body) return false;
+    // Initial authorized mount can be pending when the browser page finishes navigating.
+    const initiallyPresent = present();
+    const state: DiagnosticState = { events: [], truncated: false, present: initiallyPresent,
+      everPresent: initiallyPresent, observer: null as unknown as MutationObserver };
+    state.observer = new MutationObserver(() => {
+      const nowPresent = present();
+      if (state.present === nowPresent) return;
+      state.present = nowPresent;
+      if (state.events.length >= 16) { state.truncated = true; return; }
+      const kind = nowPresent ? (state.everPresent ? 'PANEL_REMOUNTED' : 'PANEL_MOUNTED') : 'PANEL_REMOVED';
+      if (nowPresent) state.everPresent = true;
+      state.events.push({ kind, atMs: Date.now(), status: null });
+    });
+    state.observer.observe(document.body, { childList: true, subtree: true });
+    scope[key] = state;
+    return true;
+  }), false);
+  const onNavigation = (frame: Frame) => {
+    if (frame !== page.mainFrame()) return;
+    let kind = 'MAIN_FRAME_NAVIGATION';
+    try { if (new URL(frame.url()).pathname !== initialPage.pathname) kind = 'MAIN_FRAME_ROUTE_CHANGED'; }
+    catch { /* Never retain a raw route or navigation error. */ }
+    mark(kind);
+  };
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  page.on('requestfailed', onRequestFailed);
+  page.on('framenavigated', onNavigation);
+  let frozen: LifecycleReceipt | null = null;
+  const freeze = async (): Promise<LifecycleReceipt> => {
+    if (frozen) return frozen;
+    page.off('request', onRequest); page.off('response', onResponse);
+    page.off('requestfailed', onRequestFailed);
+    page.off('framenavigated', onNavigation);
+    let dom: { events: LifecycleEvent[]; truncated: boolean; present: boolean } | null = null;
+    if (observed) {
+      let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        // Instrumentation cannot lengthen the mandatory 120s browser owner or
+        // conceal its primary error after a deleted document/context.
+        dom = await Promise.race([
+          page.evaluate(() => {
+            const key = '__coglatasRosterLifecycleDiagnostic';
+            const scope = window as typeof window & { [key]?: {
+              events: { kind: string; atMs: number; status: null }[];
+              truncated: boolean; present: boolean; observer: MutationObserver } };
+            const state = scope[key];
+            if (!state) return null;
+            state.observer.disconnect(); delete scope[key];
+            return { events: state.events, truncated: state.truncated, present: state.present };
+          }),
+          new Promise<null>(resolve => { snapshotTimer = setTimeout(() => resolve(null), 1000); }),
+        ]);
+      } catch { /* A replaced document is not evidence of a completed lifecycle. */ }
+      finally { if (snapshotTimer !== undefined) clearTimeout(snapshotTimer); }
+    }
+    const combined = [...networkEvents, ...(dom?.events ?? []).map(event => ({
+      kind: event.kind,
+      atMs: Math.max(0, Math.min(120000, event.atMs - openedAt)),
+      status: null
+    }))].sort((a, b) => a.atMs - b.atMs);
+    // Node owner/network and browser DOM clocks have millisecond resolution.
+    // Stable array order for ties is serialization only, never causal order.
+    frozen = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: observed && dom !== null,
+      panelPresent: dom?.present ?? null, truncated: networkTruncated || !!dom?.truncated || combined.length > 32,
+      events: combined.slice(0, 32) };
+    return frozen;
+  };
+  return Object.assign(freeze, {
+    // Synchronous single-category marker; never alters native browser actions.
+    markOwnerAction: (kind: MobileScrollEvent): void => { if (!frozen) mark(kind); },
+  });
+}
+
 test('real ReadOnly overflowing Group roster preserves keyboard boundaries and server authority', async ({ browser, context, page }, testInfo) => {
   const evidence = {
     sourceSha: /^[a-f0-9]{40}$/.test(process.env.TARGET_SHA ?? '') ? process.env.TARGET_SHA : null,
@@ -114,8 +256,11 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     end: null as { top: number; max: number } | null, home: null as number | null,
     viewport: page.viewportSize(),
     failureGeometry: null as Awaited<ReturnType<typeof captureFailureGeometry>> | null,
+    lifecycle: null as LifecycleReceipt | null,
   };
   let ownerContext: BrowserContext | undefined, primaryFailure = false;
+  let qualificationFailure: Error | null = null;
+  let freezeLifecycle: LifecycleFreeze | null = null;
   let pageErrors = 0;
   const failedUiStatuses: number[] = [];
   page.on('pageerror', () => { pageErrors++; });
@@ -170,6 +315,9 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
 
     evidence.phase = 'BROWSER_READONLY_PROJECTION';
     await page.goto(`/app/dm/${owned.conversationId}`);
+    // Begin bounded observation before awaiting the first roster projection.
+    // This can retain early mount/teardown when a same-scope catch-up races the first rows.
+    freezeLifecycle = await observeRosterLifecycle(page, path);
     const panel = page.getByTestId('group-members-panel'), list = panel.locator('.group-members__list');
     const aside = page.locator('.dm-page__group-details');
     const rows = panel.getByTestId('group-member-row');
@@ -196,19 +344,68 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     evidence.outer = { isAside: outer.kind === 'aside', height: outer.height, scrollHeight: outer.scrollHeight };
     expect(outer.scrollHeight).toBeGreaterThan(outer.height);
     if (testInfo.project.name === 'readonly-roster-desktop') expect(outer.kind).toBe('aside');
-    await panel.locator('summary').focus();
+    const summary = panel.locator('summary');
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      // The details panel follows a tall conversation in a separate outer mobile
+      // scrollport. Position it before starting the keyboard sequence; focusing
+      // an entirely offscreen target can race ancestor scrolling in Chromium.
+      // This never sets the roster's scrollTop or bypasses its End/Home handler.
+      // Closed phase labels expose which actual native precondition failed,
+      // never a private DOM string or a substitute for a required assertion.
+      evidence.phase = 'MOBILE_SUMMARY_SCROLL';
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_SCROLL_BEGIN');
+      await summary.scrollIntoViewIfNeeded();
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_SCROLL_RETURNED');
+      evidence.phase = 'MOBILE_SUMMARY_VISIBILITY';
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_VISIBILITY_CHECK');
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_VISIBLE');
+    }
+    evidence.phase = 'SUMMARY_FOCUS';
+    await summary.focus();
+    evidence.phase = 'LIST_TAB_FOCUS';
     await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      evidence.phase = 'MOBILE_LIST_SCROLL';
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_SCROLL_BEGIN');
+      await list.scrollIntoViewIfNeeded();
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_SCROLL_RETURNED');
+      evidence.phase = 'MOBILE_LIST_VISIBILITY';
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_VISIBILITY_CHECK');
+      await expect(list).toBeInViewport();
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_VISIBLE');
+      await expect(list).toBeFocused();
+    }
     evidence.phase = 'END_BOUNDARY';
     await page.keyboard.press('End');
     const end = await list.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));
     evidence.end = end;
     expect(end.max).toBeGreaterThan(0); expect(Math.abs(end.top - end.max), 'End completes without a delayed scroll animation').toBeLessThanOrEqual(1);
+    // At 320x420, the roster lives in an ancestor document scroller. The next
+    // Tab moves the viewport to Leave, so inspect the last row's own scrollport
+    // while its keyboard target is still the list. Desktop keeps the original
+    // full-viewport checks after leaving the list.
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      for (const selector of ['strong', 'small'] as const) {
+        evidence.phase = selector === 'strong' ? 'END_LAST_NAME_VISIBILITY' : 'END_LAST_STATUS_VISIBILITY';
+        const insideScrollport = await list.evaluate((ul, tag) => {
+          const node = ul.querySelector('[data-testid="group-member-row"]:last-child')?.querySelector(tag);
+          if (!node || !node.isConnected) return false;
+          const rect = node.getBoundingClientRect(), clip = ul.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && rect.left >= clip.left && rect.right <= clip.right &&
+            rect.top >= clip.top && rect.bottom <= clip.bottom;
+        }, selector);
+        expect(insideScrollport, `End exposes last member ${selector} inside the roster scrollport`).toBe(true);
+      }
+    }
     evidence.phase = 'END_LEAVE_FOCUS';
     await page.keyboard.press('Tab'); await expect(panel.getByTestId('group-leave')).toBeFocused();
-    evidence.phase = 'END_LAST_NAME_VISIBILITY';
-    await expect(rows.last().locator('strong')).toBeInViewport({ ratio: 1 });
-    evidence.phase = 'END_LAST_STATUS_VISIBILITY';
-    await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    if (testInfo.project.name === 'readonly-roster-desktop') {
+      evidence.phase = 'END_LAST_NAME_VISIBILITY';
+      await expect(rows.last().locator('strong')).toBeInViewport({ ratio: 1 });
+      evidence.phase = 'END_LAST_STATUS_VISIBILITY';
+      await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    }
     evidence.phase = 'END_RETURN_FOCUS';
     await page.keyboard.press('Shift+Tab'); await expect(list).toBeFocused();
     evidence.phase = 'HOME_BOUNDARY';
@@ -226,9 +423,14 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     expect(pageErrors).toBe(0);
     evidence.phase = 'FINAL_HTTP_STATUSES';
     expect(failedUiStatuses).toEqual([]);
+    if (freezeLifecycle) { evidence.lifecycle = await freezeLifecycle(); freezeLifecycle = null; }
     evidence.phase = 'ASSERTIONS_COMPLETE'; evidence.status = 'PASS';
   } catch (error) {
     primaryFailure = true;
+    if (freezeLifecycle) {
+      try { evidence.lifecycle = await freezeLifecycle(); } catch { /* Primary failure remains authoritative. */ }
+      freezeLifecycle = null;
+    }
     let geometryTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       evidence.failureGeometry = await Promise.race([
@@ -240,24 +442,11 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     throw error;
   }
   finally {
-    let cleanupFailed = false, attachmentFailed = false;
-    if (ownerContext) {
-      try { await ownerContext.close(); evidence.ownerContextClosed = true; }
-      catch { cleanupFailed = true; evidence.ownerContextClosed = false; evidence.status = 'NOT_VERIFIED'; }
+    if (freezeLifecycle) {
+      try { evidence.lifecycle = await freezeLifecycle(); } catch { /* Preserve the native owner result. */ }
+      freezeLifecycle = null;
     }
-    try {
-      const receiptPath = testInfo.outputPath('receipt-source.json');
-      await mkdir(dirname(receiptPath), { recursive: true });
-      // This auth-free projection must remain readable by the host-side collector
-      // when the browser container and Actions runner use different Unix users.
-      await writeFile(receiptPath, JSON.stringify(evidence), { flag: 'wx', mode: 0o644 });
-      await testInfo.attach('readonly-roster-structural-receipt.json', {
-        contentType: 'application/json', path: receiptPath,
-      });
-    } catch { attachmentFailed = true; }
-    if (cleanupFailed || attachmentFailed) {
-      testInfo.annotations.push({ type: 'qualification', description: 'Roster cleanup or structural receipt capture failed.' });
-      if (!primaryFailure) throw new Error('Roster cleanup or structural receipt capture failed.');
-    }
+    qualificationFailure = await finishRosterQualification({ ownerContext, evidence, testInfo, primaryFailure });
   }
+  if (qualificationFailure) throw qualificationFailure;
 });

@@ -10,17 +10,20 @@
     "@eslint/js": "10.0.1",
     "@microsoft/eslint-formatter-sarif": "3.1.0",
     "angular-eslint": "22.6.0",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "postcss-scss": "4.0.9",
     "stylelint": "17.16.0",
     "stylelint-config-standard-scss": "17.0.0",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.0",
-    "globals": "17.13.0"
+    "typescript-eslint": "8.72.2",
+    "globals": "17.14.0"
   },
   "scripts": {
     "lint": "node run.mjs",
     "lint:enforce": "node run.mjs --enforce",
     "lint:verbose": "node run.mjs --verbose"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "11.0.4"
   }
 }

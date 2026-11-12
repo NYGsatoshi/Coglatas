@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "kind": "NON_AUTHORIZING_SOURCE_BOUND_RELEASE_AUDIT",
+  "productSha": "876396f0f0944280023209c1788aca5431c26235",
+  "productTree": "4898d68505e49cd3e49c3c16cf4f2c21fca89b91",
+  "specSha": "850a5d9376db11e75235cf55e03ebed4de9c0510",
+  "observedAtUtc": "2026-10-31T20:10:36.313Z",
+  "status": "IMPLEMENTATION_IN_PROGRESS",
+  "technicalReleaseReady": false,
+  "studentCouncilPilot": "RELEASE_NO_GO",
+  "authorizationGranted": false,
+  "gates": [
+    {
+      "requirement": "Required MVP-A and approved Pilot journeys",
+      "source": [
+        "docs/verification/student-council-pilot-scope.md",
+        "https://github.com/NYGsatoshi/Coglatas/issues/615"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Files intake remains closed; full current-scope acceptance is incomplete.",
+      "existingImplementation": [
+        "Workspace/Project/Task, HTTP-authoritative messaging and authorized Files paths"
+      ],
+      "missingImplementation": [
+        "Complete approved intake and remaining MBJ/Pilot acceptance"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Complete approved intake and remaining MBJ/Pilot acceptance"
+      ],
+      "owner": "Product / QA / Owner",
+      "dependency": [
+        "OD-01",
+        "G03",
+        "G05"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G01"
+    },
+    {
+      "requirement": "Exact-SHA CI, quality and review",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/615",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1507"
+      ],
+      "currentState": "FAIL",
+      "blockingReason": "Required GitHub contexts and 48 Main jobs pass; the separately applicable official Sonar Gate fails.",
+      "existingImplementation": [
+        "Exact-Main CI 48/48; six required branch contexts"
+      ],
+      "missingImplementation": [
+        "Official Sonar coverage >=80 and Security A; reviewed current candidate/Main evidence"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        },
+        {
+          "workflowRunId": 41229863147,
+          "newCodeSecurityRating": "E",
+          "analysisId": "99376a5a-5a31-4aed-b1c0-cad7eff479af",
+          "newCodeCoverage": 72.8,
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "qualification": "Historical exact-source official result; no current-SHA transfer.",
+          "officialQualityGate": "FAIL"
+        }
+      ],
+      "requiredAction": [
+        "Official Sonar coverage >=80 and Security A; reviewed current candidate/Main evidence"
+      ],
+      "owner": "QA / Release",
+      "dependency": [
+        "Sonar coverage",
+        "OD-06"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G02"
+    },
+    {
+      "requirement": "Mandatory first-attempt Functional reliability",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1342",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1346",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1365"
+      ],
+      "currentState": "FAIL",
+      "blockingReason": "Current Main Fast/Full/Extended pass; historical mandatory causes remain UNKNOWN and cannot be waived by green reruns.",
+      "existingImplementation": [
+        "Current Functional owners and retained structural diagnostics"
+      ],
+      "missingImplementation": [
+        "Causal repair or formally authorized disposition of historical mandatory reliability failures"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Causal repair or formally authorized disposition of historical mandatory reliability failures"
+      ],
+      "owner": "QA / Product",
+      "dependency": [
+        "Independent source-bound qualification"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G03"
+    },
+    {
+      "requirement": "Integrated SEC-14 and current findings",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/614"
+      ],
+      "currentState": "FAIL",
+      "blockingReason": "Official Sonar Security E; final common-model, finding-policy and release-artifact qualification incomplete.",
+      "existingImplementation": [
+        "Current Qodana, CodeQL, security-scan and bounded security controls"
+      ],
+      "missingImplementation": [
+        "Approved inventory/ratchet and applicable complete Tier B/C evidence"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        },
+        {
+          "workflowRunId": 41229863147,
+          "newCodeSecurityRating": "E",
+          "analysisId": "99376a5a-5a31-4aed-b1c0-cad7eff479af",
+          "newCodeCoverage": 72.8,
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "qualification": "Historical exact-source official result; no current-SHA transfer.",
+          "officialQualityGate": "FAIL"
+        }
+      ],
+      "requiredAction": [
+        "Approved inventory/ratchet and applicable complete Tier B/C evidence"
+      ],
+      "owner": "Security",
+      "dependency": [
+        "OD-06",
+        "G05",
+        "G06"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G04"
+    },
+    {
+      "requirement": "SEC-17 realtime isolation and revocation",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/690"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Representative current transport tests do not qualify the complete event/actor/reconnect matrix; held tests remain excluded.",
+      "existingImplementation": [
+        "Server-authorized SignalR and transactional Outbox; bounded deep/File-policy controls"
+      ],
+      "missingImplementation": [
+        "Full approved catalog and stale-session/reconnect/current-authority evidence"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Full approved catalog and stale-session/reconnect/current-authority evidence"
+      ],
+      "owner": "Security / QA",
+      "dependency": [
+        "Approved mapping",
+        "G06"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G05"
+    },
+    {
+      "requirement": "Formal SEC-ARCH and all-target RLS",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1144",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1148"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Concrete mapping/policy/role/grant and activation approvals remain held; representative fixtures are insufficient.",
+      "existingImplementation": [
+        "Typed Advisory verifier and isolated representative fixtures"
+      ],
+      "missingImplementation": [
+        "Approved all-table classification, application-role DB negatives, runtime/migration integration and separate activation"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Approved all-table classification, application-role DB negatives, runtime/migration integration and separate activation"
+      ],
+      "owner": "Security / Owner",
+      "dependency": [
+        "OD-02"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G06"
+    },
+    {
+      "requirement": "Approved isolated target and named operator",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/615"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Exact host, operator authority and operation window are not established.",
+      "existingImplementation": [
+        "Local Compose preparation and operational runbooks"
+      ],
+      "missingImplementation": [
+        "Approved target identity, rights, window and rollback authority"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Approved target identity, rights, window and rollback authority"
+      ],
+      "owner": "Owner / Operator",
+      "dependency": [
+        "OD-04"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G07"
+    },
+    {
+      "requirement": "HTTPS Golden Path through actual proxy",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/481"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "No execution against an approved HTTPS endpoint; local HTTP success is insufficient.",
+      "existingImplementation": [
+        "Protected public-HTTPS runner and proxy/cookie configuration preparation"
+      ],
+      "missingImplementation": [
+        "Exact approved endpoint TLS/cookie/CSRF/browser acceptance"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Exact approved endpoint TLS/cookie/CSRF/browser acceptance"
+      ],
+      "owner": "Operator / QA",
+      "dependency": [
+        "G07"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G08"
+    },
+    {
+      "requirement": "Strict backup, restore and rollback",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1355"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Historical strict catalog and FK replay failures remain; #1379 strategy alternative stays held.",
+      "existingImplementation": [
+        "Synthetic manifests, strict oracle, bounded recovery tooling and runbook"
+      ],
+      "missingImplementation": [
+        "Reviewed strategy-compliant complete restore, failure controls, target restore and separate rollback rehearsal"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Reviewed strategy-compliant complete restore, failure controls, target restore and separate rollback rehearsal"
+      ],
+      "owner": "Owner / Operator / QA",
+      "dependency": [
+        "OD-03",
+        "G07"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G09"
+    },
+    {
+      "requirement": "Full independent Pilot acceptance",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/615"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "Protected representative successes are not complete independent target acceptance.",
+      "existingImplementation": [
+        "Existing protected synthetic owner suites and partial Pilot receipts"
+      ],
+      "missingImplementation": [
+        "Exact-candidate complete approved journey matrix and independent acceptance"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Exact-candidate complete approved journey matrix and independent acceptance"
+      ],
+      "owner": "Pilot acceptance owner / QA",
+      "dependency": [
+        "G01",
+        "G03",
+        "G04",
+        "G05",
+        "G08",
+        "G09",
+        "G11",
+        "OD-05"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G10"
+    },
+    {
+      "requirement": "Mobile, accessibility, physical-device and IME acceptance",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1342",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1346",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1513"
+      ],
+      "currentState": "NOT_EVALUATED",
+      "blockingReason": "Physical-device/IME acceptance is NOT_EVALUATED; historical keyboard/mobile reliability is unresolved.",
+      "existingImplementation": [
+        "Current synthetic browser/mobile profiles and retained first-failure evidence"
+      ],
+      "missingImplementation": [
+        "Actual supported-device, touch, screen-reader and IME acceptance plus required reliability disposition"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Actual supported-device, touch, screen-reader and IME acceptance plus required reliability disposition"
+      ],
+      "owner": "QA / Physical-device testers",
+      "dependency": [
+        "Approved tester/device session",
+        "G03"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G11"
+    },
+    {
+      "requirement": "School data, privacy, operations and final release approval",
+      "source": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/615"
+      ],
+      "currentState": "BLOCKED",
+      "blockingReason": "No school-data admission, real-user invitation or Owner Release GO is approved.",
+      "existingImplementation": [
+        "Non-authorizing decision packets and operation boundaries"
+      ],
+      "missingImplementation": [
+        "Named school/privacy/incident owners, precise participant/data scope, final Release GO"
+      ],
+      "evidence": [
+        {
+          "productSha": "876396f0f0944280023209c1788aca5431c26235",
+          "mainRunId": 41229863256,
+          "attempt": 1,
+          "qualification": "48 successful Main jobs; gate-specific limits remain in blockingReason"
+        }
+      ],
+      "requiredAction": [
+        "Named school/privacy/incident owners, precise participant/data scope, final Release GO"
+      ],
+      "owner": "School data authority / Owner / Operator",
+      "dependency": [
+        "OD-05",
+        "All technical gates"
+      ],
+      "mergeEligibility": "Preparatory changes only; no held candidate reuse or release authority.",
+      "releaseImpact": "Required for Student Council pilot",
+      "gateId": "G12"
+    }
+  ],
+  "excludedPullRequests": [
+    1558,
+    1556,
+    1560,
+    1502
+  ],
+  "heldPullRequests": [
+    1320,
+    1326,
+    1361,
+    1378,
+    1379,
+    1399,
+    1404,
+    1406,
+    1456,
+    1459,
+    1464,
+    1599,
+    1269,
+    1270,
+    1271,
+    1565
+  ],
+  "notes": [
+    "All original 27 Product and 20 Spec open PRs were fetched with comments/reviews; no existing candidate was promoted.",
+    "ProjectIDE, Avalonia future work and optional optimization remain outside this mission.",
+    "New test-only PR 1610 is independent of excluded PR 1502; its tests are not promoted to Main.",
+    "No previous SHA result is transferred to a new revision."
+  ]
+}

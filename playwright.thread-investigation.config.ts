@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { privatePlaywrightOutput } from './tests/ui/helpers/private-playwright-output.mjs';
 
 const mode = process.env.THREAD_INVESTIGATION_MODE ?? 'matrix';
 if (!['matrix', 'default-fixture'].includes(mode)) { throw new Error('Unknown Thread investigation mode.'); }
@@ -10,7 +11,7 @@ export default defineConfig({
   timeout: mode === 'matrix' ? 120_000 : 30_000,
   expect: { timeout: mode === 'matrix' ? 15_000 : 5_000 }, workers: 1, retries: 0,
   maxFailures: 1, fullyParallel: false, forbidOnly: true,
-  outputDir: '/tmp/coglatas-thread-mechanism-output',
+  outputDir: privatePlaywrightOutput('thread'),
   reporter: [['./tests/diagnostics/thread-matrix-reporter.mjs']],
   use: { baseURL, trace: 'off', screenshot: 'off', video: 'off',
     storageState: { cookies: [], origins: [{ origin: baseURL, localStorage: [{ name: 'coglatas.locale', value: 'en' }] }] } },

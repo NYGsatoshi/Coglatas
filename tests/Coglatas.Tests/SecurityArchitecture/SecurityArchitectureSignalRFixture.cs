@@ -11,6 +11,7 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Coglatas.Tests.PostgreSql;
+using Coglatas.Tests.TestInfrastructure;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -247,8 +248,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
         {
             if (_server.Id != 0 && !_server.HasExited)
             {
-                _server.Kill(entireProcessTree: true);
-                await _server.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                await OwnedChildProcessShutdown.StopAsync(_server, TimeSpan.FromSeconds(10));
             }
         }
         catch (InvalidOperationException) { /* Process may not have started or may have exited. */ }
@@ -263,6 +263,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             Directory.Delete(_directory, recursive: true);
         }
     }
+
 }
 
 internal sealed class RealtimeSocket : IAsyncDisposable
@@ -316,6 +317,11 @@ internal sealed class RealtimeSocket : IAsyncDisposable
         Received(eventId, "Messaging.MessageCreated.v1") &&
         _eventIdentities.TryGetValue(eventId, out var identity) &&
         identity == (tenant, "Message", message, conversation);
+
+    public bool ReceivedAggregateIdentity(Guid eventId, string eventType, Guid tenant, string aggregateType, Guid aggregate) =>
+        Received(eventId, eventType) &&
+        _eventIdentities.TryGetValue(eventId, out var identity) &&
+        identity.Tenant == tenant && identity.AggregateType == aggregateType && identity.Aggregate == aggregate;
 
     internal void RecordIdentity(Guid eventId, Guid tenant, string? aggregateType, Guid aggregate, Guid? conversation)
     {
