@@ -8,7 +8,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Forms;
 
-public sealed class FormServiceTests
+public sealed partial class FormServiceTests
 {
     [Fact]
     public async Task ClosedFormRejectsResponse()
@@ -174,7 +174,7 @@ public sealed class FormServiceTests
             WorkspaceAuthorization = new WorkspaceAuthorizationService(Users, Workspaces);
             GroupAuthorization = new GroupAuthorizationService(Groups, Workspaces, WorkspaceAuthorization);
             ProjectAuthorization = new ProjectAuthorizationService(Projects, WorkspaceAuthorization, GroupAuthorization, Groups);
-            FormAuthorization = new FormAuthorizationService(Users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization);
+            FormAuthorization = new FormAuthorizationService(Users, WorkspaceAuthorization, GroupAuthorization, ProjectAuthorization, Groups, Projects, Forms);
             Service = new FormService(
                 Forms,
                 Workspaces,
@@ -203,6 +203,9 @@ public sealed class FormServiceTests
         private ProjectAuthorizationService ProjectAuthorization { get; }
         private FormAuthorizationService FormAuthorization { get; }
         public FormService Service { get; }
+        public IReadOnlyList<FormResponse> StoredResponses => Forms.Responses;
+        public int AuditCalls => Audit.Calls;
+        public int SaveCalls => UnitOfWork.Calls;
         private Workspace Workspace { get; } = new() { Name = "Workspace", Slug = "workspace", CreatedByUserId = Guid.NewGuid(), Status = WorkspaceStatus.Active };
 
         public static FormFixture Create()
@@ -462,7 +465,13 @@ public sealed class FormServiceTests
 
     private sealed class FakeAuditLogger : IAuditLogger
     {
-        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public int Calls { get; private set; }
+
+        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeNotifications : INotificationService
@@ -472,6 +481,12 @@ public sealed class FormServiceTests
 
     private sealed class FakeUnitOfWork : IUnitOfWork
     {
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
+        public int Calls { get; private set; }
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(1);
+        }
     }
 }

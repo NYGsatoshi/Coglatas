@@ -22,5 +22,8 @@
     "lint": "node run.mjs",
     "lint:enforce": "node run.mjs --enforce",
     "lint:verbose": "node run.mjs --verbose"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "11.0.4"
   }
 }
