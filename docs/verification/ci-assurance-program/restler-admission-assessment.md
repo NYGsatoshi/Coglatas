@@ -16,9 +16,15 @@ Consequently, a new tool is not justified merely by saying existing testing is
 single-request-only. [Schemathesis documents operation chaining through links
 and learned relationships](https://schemathesis.readthedocs.io/en/stable/explanations/stateful/).
 That general upstream capability does not prove actual phase/transition coverage
-in this repository's pinned version. The current successful PR observation ran
-the PR phases, not the deep stateful phase. Exact-source deep transition evidence
-and its current limitations must be reconciled first.
+in this repository's pinned version. In [PR CI 42132259076, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/42132259076),
+at PR #1717 source head `64ba845fe29dd18112400ac741cc98e5fb710801`
+(tested merge `cdf2a90cd34279499846528aa1d2d9a70c11492f`),
+`security-scan` job `127619151736` logged Schemathesis 4.25.2 PR-lane
+`examples,coverage,fuzzing` for `anonymous`, `alpha-restricted` and
+`alpha-owner`; each recorded `Stateful (disabled)`. The scanner lane succeeded.
+This observation is bound to that run/head, **not** deep stateful transition
+coverage, a different source head or RESTler admission. Independent deep
+transition evidence and its limitations must still be reconciled.
 
 ## Candidate and costs
 

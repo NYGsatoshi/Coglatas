@@ -137,6 +137,20 @@ separate historical attempts; retain both. The source tree, original
 version floors, exact review/merge-source identity and required-check
 topology were not changed to bypass the failure.
 
+On a **later, independently accepted failed-jobs rerun**, GitHub's run API
+identifies [#1888 PR CI 43032027040, attempt 3](https://github.com/NYGsatoshi/Coglatas/actions/runs/43032027040)
+as `completed/success` at the **same** head
+`e7909057ac01793c884113462eec71ce6a3bd835`. The latest attempt has
+**17 successful jobs**, including Functional Runtime `130902631918`,
+`frontend-test` `130902695342`, `security-scan` `130902633060`,
+`build-test` `130902634002` and aggregate `functional-fast`
+`130904265196`. The separate current-head Architecture Advisory
+[43032027275](https://github.com/NYGsatoshi/Coglatas/actions/runs/43032027275)
+also completed successfully. This is an exact-source **retry recovery** for
+#1888, not a reclassification of attempts 1 and 2, proof of DNS provider
+root cause, a successful #1880 Functional run, independent source/native
+producer attestation or Owner authorization.
+
 **Current root-cause limit:** The observed error is DNS resolution inside
 the Docker build environment on GitHub Actions Ubuntu runners. This is
 evidence of network/name-resolution failure, **not** independently proven
@@ -158,13 +172,15 @@ unreviewed public mirrors, mark an external DNS failure green or erase
 the original attempts. Network changes require their own reviewed
 owner/scoped PR and fresh exact-head verification.
 
-This observation only changes this dated documentation. The repository's
+The dated DNS follow-up and the separate SEC-05 catalogue correction are
+evidence-only; no executable workflow or protected check changes. The repository's
 registered Security ruleset identity mismatch, independent current-head
 review requirements, source/native case and Artifact producer trust,
 Production/Release HOLD, and **Main unchanged** remain in force.
 
 `DNS_INCIDENT=OBSERVED_TWO_PRS; ROOT_CAUSE=DOCKER_NAME_RESOLUTION_UNATTRIBUTED;
-FUNCTIONAL_CI=FAILED_CLOSED; OWNER_HOLD=true; RELEASE_NO_GO; MERGE=NO`
+PR1888_FUNCTIONAL_ATTEMPTS_1_2=FAILED; PR1888_FUNCTIONAL_ATTEMPT_3=SUCCESS;
+PR1880_FUNCTIONAL_FIRST_ATTEMPT=FAILED; OWNER_HOLD=true; RELEASE_NO_GO; MERGE=NO`
 
 ---
 
