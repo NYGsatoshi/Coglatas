@@ -30,6 +30,7 @@ const staticSuiteFiles = [
   'tests/ui/audit-accessibility.spec.ts',
   'tests/ui/message-thread-context.spec.ts',
   'tests/ui/student-council-group-dm.spec.ts',
+  'tests/ui/group-entry-workspace.spec.ts',
   'tests/ui/student-council-workspace-channels.spec.ts',
   'tests/ui/conversation-read.spec.ts',
   'tests/ui/web-wave-local-workbench.spec.ts',

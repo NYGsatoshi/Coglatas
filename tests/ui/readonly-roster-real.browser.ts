@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { expect, test, type APIRequestContext, type BrowserContext, type Frame, type Page } from '@playwright/test';
+import { finishRosterQualification } from './readonly-roster-qualification.mjs';
 
 type Member = { userId: string; role: number; canRead: boolean; canPost: boolean; canManageMembers: boolean;
   canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
@@ -260,6 +259,7 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     lifecycle: null as LifecycleReceipt | null,
   };
   let ownerContext: BrowserContext | undefined, primaryFailure = false;
+  let qualificationFailure: Error | null = null;
   let freezeLifecycle: LifecycleFreeze | null = null;
   let pageErrors = 0;
   const failedUiStatuses: number[] = [];
@@ -446,24 +446,7 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
       try { evidence.lifecycle = await freezeLifecycle(); } catch { /* Preserve the native owner result. */ }
       freezeLifecycle = null;
     }
-    let cleanupFailed = false, attachmentFailed = false;
-    if (ownerContext) {
-      try { await ownerContext.close(); evidence.ownerContextClosed = true; }
-      catch { cleanupFailed = true; evidence.ownerContextClosed = false; evidence.status = 'NOT_VERIFIED'; }
-    }
-    try {
-      const receiptPath = testInfo.outputPath('receipt-source.json');
-      await mkdir(dirname(receiptPath), { recursive: true });
-      // This auth-free projection must remain readable by the host-side collector
-      // when the browser container and Actions runner use different Unix users.
-      await writeFile(receiptPath, JSON.stringify(evidence), { flag: 'wx', mode: 0o644 });
-      await testInfo.attach('readonly-roster-structural-receipt.json', {
-        contentType: 'application/json', path: receiptPath,
-      });
-    } catch { attachmentFailed = true; }
-    if (cleanupFailed || attachmentFailed) {
-      testInfo.annotations.push({ type: 'qualification', description: 'Roster cleanup or structural receipt capture failed.' });
-      if (!primaryFailure) throw new Error('Roster cleanup or structural receipt capture failed.');
-    }
+    qualificationFailure = await finishRosterQualification({ ownerContext, evidence, testInfo, primaryFailure });
   }
+  if (qualificationFailure) throw qualificationFailure;
 });

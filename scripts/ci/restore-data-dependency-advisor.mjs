@@ -46,13 +46,13 @@ export function syntheticRestoreOrder(manifest) {
     if(!tables.has(t.table))hazards.add("TRIGGER_TABLE_NOT_ARCHIVED");
     if(t.enabled)hazards.add("ENABLED_USER_TRIGGER_REQUIRES_SIDE_EFFECT_PROOF");
   }
-  const ready=[...tables.keys()].filter(x=>deps.get(x).size===0).sort(),order=[];
+  const ready=[...tables.keys()].filter(x=>deps.get(x).size===0).sort(compareCodeUnits),order=[];
   while(ready.length){
     const x=ready.shift();
     order.push(x);
     for(const c of children.get(x)){
       deps.get(c).delete(x);
-      if(deps.get(c).size===0){ready.push(c);ready.sort()}
+      if(deps.get(c).size===0){ready.push(c);ready.sort(compareCodeUnits)}
     }
   }
   if(order.length!==tables.size)hazards.add("CROSS_TABLE_FOREIGN_KEY_CYCLE");
@@ -61,7 +61,7 @@ export function syntheticRestoreOrder(manifest) {
     schema:"coglatas-synthetic-restore-data-order-advisory-v1",
     sourceSha:manifest.sourceSha,catalogSha256:manifest.catalogSha256,archiveTocSha256:manifest.archiveTocSha256,
     status:blocked?"BLOCKED":"REVIEW_ONLY_NOT_RESTORE_VERIFIED",
-    candidateTableDataOrder:blocked?[]:order,selfForeignKeys:selfReferences.sort(),blockingReasons:[...hazards].sort(),
+    candidateTableDataOrder:blocked?[]:order,selfForeignKeys:selfReferences.sort(compareCodeUnits),blockingReasons:[...hazards].sort(compareCodeUnits),
     additionalRequiredEvidence:["EXACT_ORIGINAL_EF_DDL_AND_PG_ARCHIVE","STRICT_SCHEMA_ROLE_RLS_CATALOG_COMPARISON",
       "REAL_POSTGRESQL_TRIGGER_SEQUENCE_ROW_AND_FK_PROOF","RESTORED_APPLICATION_FILES_KEYS_LOGIN_AUDIT",
       "APPROVED_ISOLATED_HTTPS_RESTART_AND_ROLLBACK"]
@@ -118,4 +118,12 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
       process.exitCode=2;
     }
   }
+}
+
+// Match default UTF-16 code-unit ordering, including native string coercion.
+function compareCodeUnits(left, right) {
+  const leftString = `${left}`;
+  const rightString = `${right}`;
+  if (leftString === rightString) return 0;
+  return leftString < rightString ? -1 : 1;
 }

@@ -4,7 +4,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { createRosterControl, rosterAssetPaths, validateRosterInvocation } from './run-real-backend-readonly-roster.mjs';
+import { finishRosterQualification } from './readonly-roster-qualification.mjs';
+import { composeFailureObservation, getComposeProjectName, normalizeExitCode, redactSecrets,
+  selectComposeInvocation } from './real-backend-smoke-compose-helpers.mjs';
 
 const sha = 'b'.repeat(40), token = 'a'.repeat(32), projectName = `coglatas-ui07-roster-${token}`;
 const image = `sha256:${'c'.repeat(64)}`, label = 'coglatas.ui07-roster.run';
@@ -115,7 +121,8 @@ function failureGeometry(viewport) {
     ...Object.fromEntries(['summary', 'list', 'leave', 'firstName', 'firstStatus', 'lastName', 'lastStatus', 'outer', 'aside'].map(name => [name, node()])) };
 }
 
-test('closed wrapper requires exact clean source and rejects selection overrides', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('closed wrapper requires exact clean source and rejects selection overrides', () => {
   const git = args => args[0] === 'rev-parse' ? sha : '';
   assert.equal(validateRosterInvocation({ TARGET_SHA: sha }, [], git), sha);
   for (const [environment, args, reader] of [
@@ -128,7 +135,7 @@ test('closed wrapper requires exact clean source and rejects selection overrides
   ]) assert.throws(() => validateRosterInvocation(environment, args, reader), /CONTRACT_REJECTED/);
 });
 
-test('served asset plan maps the approved Angular base to its unchanged container payload', () => {
+void test('served asset plan maps the approved Angular base to its unchanged container payload', () => {
   const plan = rosterAssetPaths('<base href="/app/"><script src="main-ABC.js"></script>' +
     '<link href="assets/vendor/base.css"><script src="/app/chunk-DEF.js"></script><script src="/api/ui/runtime-config.js"></script>');
   assert.deepEqual(plan, [
@@ -145,7 +152,7 @@ test('served asset plan maps the approved Angular base to its unchanged containe
   }
 });
 
-test('preexisting resource collision never grants cleanup ownership', async () => {
+void test('preexisting resource collision never grants cleanup ownership', async () => {
   const f = setup();
   try {
     f.collision();
@@ -156,7 +163,7 @@ test('preexisting resource collision never grants cleanup ownership', async () =
   } finally { f.dispose(); }
 });
 
-test('fresh labeled resources and actual image proof precede private fixture and scoped cleanup', async () => {
+void test('fresh labeled resources and actual image proof precede private fixture and scoped cleanup', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io);
@@ -182,7 +189,7 @@ test('fresh labeled resources and actual image proof precede private fixture and
   } finally { f.dispose(); }
 });
 
-test('failure stops only verified owned containers and preserves volumes for inspection', async () => {
+void test('failure stops only verified owned containers and preserves volumes for inspection', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io);
@@ -194,7 +201,7 @@ test('failure stops only verified owned containers and preserves volumes for ins
   } finally { f.dispose(); }
 });
 
-test('changed ownership label denies every cleanup operation', async () => {
+void test('changed ownership label denies every cleanup operation', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io);
@@ -205,7 +212,7 @@ test('changed ownership label denies every cleanup operation', async () => {
   } finally { f.dispose(); }
 });
 
-test('cleanup failure and empty admission never retain PASS', async () => {
+void test('cleanup failure and empty admission never retain PASS', async () => {
   for (const partial of [true, false]) {
     const f = setup();
     try {
@@ -218,7 +225,7 @@ test('cleanup failure and empty admission never retain PASS', async () => {
   }
 });
 
-test('tag label or running-image mismatch cannot manufacture source binding', async () => {
+void test('tag label or running-image mismatch cannot manufacture source binding', async () => {
   const f = setup();
   try {
     const docker = f.io.docker;
@@ -239,7 +246,7 @@ test('tag label or running-image mismatch cannot manufacture source binding', as
   } finally { running.dispose(); }
 });
 
-test('late unknown IDs and changed volume birth metadata are never adopted during cleanup', async () => {
+void test('late unknown IDs and changed volume birth metadata are never adopted during cleanup', async () => {
   for (const kind of ['late-container', 'volume-replacement']) {
     const f = setup();
     try {
@@ -253,7 +260,7 @@ test('late unknown IDs and changed volume birth metadata are never adopted durin
   }
 });
 
-test('served asset mismatch prevents fixture SQL and stronger source assurance', async () => {
+void test('served asset mismatch prevents fixture SQL and stronger source assurance', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); f.servedFailure();
@@ -265,7 +272,7 @@ test('served asset mismatch prevents fixture SQL and stronger source assurance',
   } finally { f.dispose(); }
 });
 
-test('two profile receipts are mandatory and bounded failure evidence remains unqualified', async () => {
+void test('two profile receipts are mandatory and bounded failure evidence remains unqualified', async () => {
   for (const [status, count] of [['PASS', 1], ['NOT_VERIFIED', 2]]) {
     const f = setup();
     try {
@@ -279,7 +286,7 @@ test('two profile receipts are mandatory and bounded failure evidence remains un
   }
 });
 
-test('private fields, wrong source and retries reject without publishing their payload', async () => {
+void test('private fields, wrong source and retries reject without publishing their payload', async () => {
   for (const mutate of [value => { value.privateBody = 'must-not-publish'; }, value => { value.sourceSha = 'e'.repeat(40); },
     value => { value.retry = 1; }, value => { value.metrics.height = null; }, value => { value.phase = 'UNREGISTERED_STAGE'; }]) {
     const f = setup();
@@ -294,7 +301,7 @@ test('private fields, wrong source and retries reject without publishing their p
   }
 });
 
-test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
+void test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
   for (const phase of ['MOBILE_SUMMARY_SCROLL', 'MOBILE_SUMMARY_VISIBILITY', 'SUMMARY_FOCUS', 'LIST_TAB_FOCUS',
     'MOBILE_LIST_SCROLL', 'MOBILE_LIST_VISIBILITY',
     'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
@@ -312,7 +319,7 @@ test('finite End, Home and final failure stages remain diagnostic evidence witho
   }
 });
 
-test('finite roster lifecycle events never qualify a failed native owner and reject private or forged metadata', async () => {
+void test('finite roster lifecycle events never qualify a failed native owner and reject private or forged metadata', async () => {
   const event = (kind, atMs, status = null) => ({ kind, atMs, status });
   const valid = { version: 1, observed: true, panelPresent: false, truncated: false, events: [
     event('CONVERSATION_REQUEST', 4),
@@ -377,7 +384,7 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
   }
 });
 
-test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
+void test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
   const lifecycle = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: true,
     panelPresent: false, truncated: false, events: [
       { kind: 'MOBILE_SUMMARY_SCROLL_RETURNED', atMs: 10, status: null },
@@ -409,7 +416,7 @@ test('version two explicitly leaves equal-millisecond events unordered while pre
   }
 });
 
-test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
+void test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
@@ -433,7 +440,7 @@ test('closed numeric failure geometry retains clipping and focus evidence withou
   } finally { f.dispose(); }
 });
 
-test('unknown, textual, unbounded or contradictory geometry is rejected without publication', async () => {
+void test('unknown, textual, unbounded or contradictory geometry is rejected without publication', async () => {
   for (const mutate of [
     geometry => { geometry.privateBody = 'must-not-publish'; },
     geometry => { geometry.summary.text = 'must-not-publish'; },
@@ -473,7 +480,7 @@ test('unknown, textual, unbounded or contradictory geometry is rejected without 
   } finally { qualified.dispose(); }
 });
 
-test('Main reuse requires observed engine identity and matching producer/source/build stamps', async () => {
+void test('Main reuse requires observed engine identity and matching producer/source/build stamps', async () => {
   for (const altered of [false, true]) {
     const f = setup(true);
     try {
@@ -503,7 +510,7 @@ test('Main reuse requires observed engine identity and matching producer/source/
   }
 });
 
-test('an owned node volume created with the initial stack keeps its frozen birth identity', async () => {
+void test('an owned node volume created with the initial stack keeps its frozen birth identity', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources();
@@ -515,7 +522,7 @@ test('an owned node volume created with the initial stack keeps its frozen birth
   } finally { f.dispose(); }
 });
 
-test('unavailable migration metadata preserves its finite capture phase without leaking errors or adopting cleanup resources', async () => {
+void test('unavailable migration metadata preserves its finite capture phase without leaking errors or adopting cleanup resources', async () => {
   const f = setup();
   try {
     await f.control.admit(f.io); f.resources();
@@ -534,4 +541,228 @@ test('unavailable migration metadata preserves its finite capture phase without 
     assert.equal(f.calls.some(x => x.args[1] === 'rm' || x.args[1] === 'stop'), false);
     assert.equal(JSON.stringify(receipt).includes('private-container-diagnostic'), false);
   } finally { f.dispose(); }
+});
+
+function qualificationFixture({ closeFails = false, attachFails = false, writeFails = false, owner = true } = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'coglatas-roster-qualification-'));
+  const path = join(directory, 'receipt-source.json');
+  if (writeFails) writeFileSync(path, 'existing-synthetic-receipt');
+  const evidence = { status: 'PASS', ownerContextClosed: null, sourceSha: sha, lifecycle: null };
+  const calls = [];
+  const input = {
+    ownerContext: owner ? { close: async () => {
+      calls.push('close'); if (closeFails) throw new Error('synthetic-private-cleanup-detail');
+    } } : undefined,
+    evidence, primaryFailure: false,
+    testInfo: {
+      outputPath: name => { assert.equal(name, 'receipt-source.json'); return path; },
+      attach: async (name, options) => {
+        calls.push('attach');
+        assert.equal(name, 'readonly-roster-structural-receipt.json');
+        assert.deepEqual(options, { contentType: 'application/json', path });
+        assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), evidence);
+        if (attachFails) throw new Error('synthetic-private-attachment-detail');
+      },
+      annotations: [],
+    },
+  };
+  return { input, calls, path, dispose: () => rmSync(directory, { recursive: true, force: true }) };
+}
+
+void test('qualification finalization closes the owner before attaching the complete source receipt', async () => {
+  const f = qualificationFixture();
+  try {
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.deepEqual(f.calls, ['close', 'attach']);
+    assert.equal(f.input.evidence.ownerContextClosed, true);
+    assert.deepEqual(f.input.testInfo.annotations, []);
+    assert.equal(JSON.parse(readFileSync(f.path, 'utf8')).sourceSha, sha);
+  } finally { f.dispose(); }
+});
+
+void test('qualification finalization retains an absent owner without fabricating closure', async () => {
+  const f = qualificationFixture({ owner: false });
+  try {
+    f.input.primaryFailure = true;
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.deepEqual(f.calls, ['attach']);
+    assert.equal(f.input.evidence.ownerContextClosed, null);
+  } finally { f.dispose(); }
+});
+
+for (const { name, faults, expectedCalls } of [
+  { name: 'close', faults: { closeFails: true }, expectedCalls: ['close', 'attach'] },
+  { name: 'attachment', faults: { attachFails: true }, expectedCalls: ['close', 'attach'] },
+  { name: 'exclusive receipt write', faults: { writeFails: true }, expectedCalls: ['close'] },
+  { name: 'close and attachment', faults: { closeFails: true, attachFails: true }, expectedCalls: ['close', 'attach'] },
+]) void test(`secondary ${name} failure returns a closed qualification error after cleanup attempts`, async () => {
+  const f = qualificationFixture(faults);
+  try {
+    const failure = await finishRosterQualification(f.input);
+    assert.ok(failure instanceof Error);
+    assert.equal(failure.message, 'Roster cleanup or structural receipt capture failed.');
+    assert.deepEqual(f.calls, expectedCalls);
+    assert.deepEqual(f.input.testInfo.annotations, [{ type: 'qualification', description: failure.message }]);
+    if (faults.writeFails) assert.equal(readFileSync(f.path, 'utf8'), 'existing-synthetic-receipt');
+    else assert.ok(!readFileSync(f.path, 'utf8').includes('synthetic-private-'));
+    if (faults.closeFails) assert.equal(f.input.evidence.status, 'NOT_VERIFIED');
+  } finally { f.dispose(); }
+});
+
+for (const { name, faults } of [
+  { name: 'close', faults: { closeFails: true } },
+  { name: 'attachment', faults: { attachFails: true } },
+  { name: 'write', faults: { writeFails: true } },
+  { name: 'both cleanup and attachment', faults: { closeFails: true, attachFails: true } },
+]) void test(`an existing primary owner failure cannot be replaced by ${name} qualification failure`, async () => {
+  const f = qualificationFixture(faults);
+  try {
+    f.input.primaryFailure = true;
+    assert.equal(await finishRosterQualification(f.input), null);
+    assert.equal(f.input.testInfo.annotations.length, 1);
+    assert.equal(f.calls[0], 'close');
+    if (!faults.writeFails) assert.ok(f.calls.includes('attach'));
+  } finally { f.dispose(); }
+});
+
+const smokeSource = readFileSync(new URL('./run-real-backend-smoke-compose.mjs', import.meta.url), 'utf8');
+const privateComposeText = 'private-cookie-token-password-body-example.test';
+
+async function failedComposeFlow(f, operation, { overflow = false, captureFailure = false, unavailableObserver = false } = {}) {
+  const errors = [], writes = [], actions = [];
+  let upAttempted = false, kills = 0;
+  const source = smokeSource.replace(/^import[\s\S]*?;\r?\n/gmu, '')
+    .replace('export async function runRealBackendSmokeCompose', 'async function runRealBackendSmokeCompose')
+    .replaceAll('import.meta.url', 'runnerUrl');
+  const result = await runInNewContext(`(async () => { ${source}\n return runRealBackendSmokeCompose(control); })()`, {
+    control: f.control, Buffer, setTimeout, clearTimeout, pathToFileURL, getComposeProjectName,
+    normalizeExitCode, redactSecrets, selectComposeInvocation,
+    composeFailureObservation: unavailableObserver ? () => { throw new Error(privateComposeText); } : composeFailureObservation,
+    runnerUrl: new URL('./run-real-backend-smoke-compose.mjs', import.meta.url).href,
+    process: { argv: ['node', '/not-the-direct-entry'], pid: 1, cwd: () => process.cwd(), once: () => undefined,
+      env: { ...f.io.environment, REAL_BACKEND_SMOKE_COMPOSE_PROJECT_NAME: f.projectName,
+        COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER: '1' }, stdout: { write: text => writes.push(text) } },
+    console: { log: () => undefined, error: text => errors.push(text) },
+    spawn: (_command, args) => {
+      const child = new EventEmitter();
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+      child.kill = () => { kills++; return true; };
+      queueMicrotask(async () => {
+        try {
+          let response;
+          if (args[0] === 'compose') {
+            const action = args.find(value => ['version', 'config', 'up'].includes(value));
+            actions.push(action);
+            if (action === 'up') upAttempted = true;
+            response = action === operation.toLowerCase()
+              ? { exitCode: 7, stderr: `Cannot connect to the Docker daemon: ${privateComposeText}` }
+              : { exitCode: 0 };
+          } else response = captureFailure && upAttempted && args[0] === 'volume' && args[1] === 'ls'
+            ? { exitCode: 9, output: privateComposeText }
+            : await f.io.docker(args);
+          if (response.stdout || response.output) child.stdout.emit('data', Buffer.from(response.stdout || response.output));
+          if (response.stderr) child.stderr.emit('data', Buffer.from(response.stderr));
+          if (overflow && response.exitCode === 7) child.stderr.emit('data', Buffer.alloc(2 * 1024 * 1024 + 1));
+          child.emit('close', response.exitCode);
+        } catch (error) { child.emit('error', error); }
+      });
+      return child;
+    },
+  });
+  const observations = errors.filter(value => value.startsWith('UI07_ROSTER_COMPOSE_OBSERVATION '))
+    .map(value => JSON.parse(value.slice('UI07_ROSTER_COMPOSE_OBSERVATION '.length)));
+  return { exitCode: result, observations, errors, writes, actions, kills };
+}
+
+await test('Compose wording observations publish only closed enums and bounded metadata, never raw diagnostics', () => {
+  for (const [text, pattern] of [['Cannot connect to the Docker daemon', 'DAEMON_CONNECTION_TEXT'],
+    ['MANIFEST_UNKNOWN', 'MANIFEST_UNKNOWN_TEXT'], ['manifest unknown', 'MANIFEST_UNKNOWN_TEXT'],
+    ['TOOMANYREQUESTS', 'RATE_LIMIT_TEXT'], ['no space left on device', 'NO_SPACE_TEXT']]) {
+    const output = `${privateComposeText} Password=private-value; Authorization: private-value ${text}`;
+    const value = composeFailureObservation('UP', { exitCode: 7, output, outputOverflow: false });
+    assert.deepEqual(Object.keys(value), ['operation', 'exitCode', 'outputState', 'capturedBytes', 'pattern']);
+    assert.deepEqual(value, { operation: 'UP', exitCode: 7, outputState: 'AVAILABLE', capturedBytes: Buffer.byteLength(output), pattern });
+    assert.equal(JSON.stringify(value).includes(privateComposeText), false);
+    assert.equal(JSON.stringify(value).includes('private-value'), false);
+  }
+});
+
+await test('ambiguous, missing, malformed and overflow Compose observations stay UNKNOWN without coercing private values', () => {
+  const known = 'manifest unknown';
+  for (const result of [{ exitCode: 1, output: privateComposeText, outputOverflow: false },
+    { exitCode: 1, output: `${known} no space left on device`, outputOverflow: false },
+    { exitCode: 1, output: known, outputOverflow: true }, { exitCode: 1, output: known },
+    { exitCode: null, output: known, outputOverflow: false }, { exitCode: 1, output: '', outputOverflow: false },
+    { exitCode: 1, output: { toString: () => { throw new Error(privateComposeText); } }, outputOverflow: false },
+    { exitCode: 1, output: `${known}${'あ'.repeat(800_000)}`, outputOverflow: false }]) {
+    const value = composeFailureObservation('CONFIG', result);
+    assert.equal(value.pattern, 'UNKNOWN');
+    assert.ok(value.capturedBytes >= 0 && value.capturedBytes <= 2 * 1024 * 1024);
+    assert.equal(JSON.stringify(value).includes(privateComposeText), false);
+  }
+  assert.equal(composeFailureObservation('UP', { exitCode: 1, output: `${known}${'あ'.repeat(800_000)}`, outputOverflow: false }).outputState, 'OVERFLOW');
+  for (const operation of ['CONFIG', 'UP']) assert.equal(composeFailureObservation(operation, { exitCode: 0, output: known, outputOverflow: false }), null);
+  assert.equal(composeFailureObservation(privateComposeText, { exitCode: 1, output: known, outputOverflow: false }), null);
+});
+
+for (const operation of ['CONFIG', 'UP']) {
+  await test(`records initial ${operation} failure before later capture while preserving silent output and strict cleanup`, async () => {
+    const f = setup();
+    try {
+      const run = await failedComposeFlow(f, operation);
+      assert.equal(run.exitCode, 1);
+      assert.equal(f.receipt().failurePhase, operation === 'CONFIG' ? 'CONSTRUCTED' : 'ADMITTED');
+      assert.equal(run.observations.length, 1);
+      assert.equal(run.observations[0].operation, operation);
+      assert.equal(run.observations[0].exitCode, 7);
+      assert.equal(run.observations[0].pattern, 'DAEMON_CONNECTION_TEXT');
+      assert.equal(f.receipt().failureClass, 'CONTRACT_OR_EXECUTION_REJECTED');
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.equal(f.receipt().cleanupState, operation === 'CONFIG' ? 'NOT_ADMITTED' : 'PARTIAL_OR_UNVERIFIED_RETAINED');
+      assert.deepEqual(f.receipt().ownedResources, { container: 0, volume: 0, network: 0 });
+      assert.equal(run.actions.includes('up'), operation === 'UP');
+      assert.equal(f.calls.some(call => call.args[1] === 'stop' || call.args[1] === 'rm'), false);
+      assert.deepEqual(run.writes, []);
+      assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+      assert.equal(JSON.stringify(f.receipt()).includes(privateComposeText), false);
+    } finally { f.dispose(); }
+  });
+}
+
+await test('successful CONFIG and UP emit no observation when a later independent capture fails', async () => {
+  const f = setup();
+  try {
+    const run = await failedComposeFlow(f, 'NONE', { captureFailure: true });
+    assert.equal(run.exitCode, 1);
+    assert.deepEqual(run.observations, []);
+    assert.equal(f.receipt().failurePhase, 'STACK_CAPTURE_VOLUME');
+    assert.equal(f.receipt().failureClass, 'DOCKER_COMMAND_FAILED');
+    assert.equal(f.receipt().outcome, 'FAIL');
+    assert.equal(f.receipt().cleanupState, 'PARTIAL_OR_UNVERIFIED_RETAINED');
+    assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+  } finally { f.dispose(); }
+});
+
+await test('overflow, later capture failure and unavailable observation never replace the original UP failure or authorize cleanup', async () => {
+  for (const options of [{ overflow: true }, { captureFailure: true }, { unavailableObserver: true }]) {
+    const f = setup();
+    try {
+      const run = await failedComposeFlow(f, 'UP', options);
+      assert.equal(run.exitCode, 1);
+      assert.equal(f.receipt().failurePhase, 'ADMITTED');
+      assert.equal(f.receipt().failureClass, 'CONTRACT_OR_EXECUTION_REJECTED');
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.equal(f.receipt().cleanupState, 'PARTIAL_OR_UNVERIFIED_RETAINED');
+      assert.equal(run.observations.length, options.unavailableObserver ? 0 : 1);
+      if (options.overflow) {
+        assert.equal(run.kills, 1);
+        assert.equal(run.observations[0].outputState, 'OVERFLOW');
+        assert.equal(run.observations[0].pattern, 'UNKNOWN');
+        assert.equal(run.observations[0].exitCode, 1);
+      }
+      assert.equal(run.errors.some(value => value.includes(privateComposeText)), false);
+      assert.deepEqual(run.writes, []);
+      assert.equal(f.calls.some(call => call.args[1] === 'stop' || call.args[1] === 'rm'), false);
+    } finally { f.dispose(); }
+  }
 });
