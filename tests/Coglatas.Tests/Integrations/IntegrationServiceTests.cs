@@ -8,7 +8,7 @@ using Coglatas.Infrastructure.Security;
 
 namespace Coglatas.Tests.Integrations;
 
-public sealed class IntegrationServiceTests
+public sealed partial class IntegrationServiceTests
 {
     [Fact]
     public async Task ApiTokenRawValueIsReturnedOnlyAtCreation()
@@ -155,6 +155,8 @@ public sealed class IntegrationServiceTests
         private FakeUnitOfWork UnitOfWork { get; } = new();
         public IntegrationService Service { get; }
         public IApiTokenValidator Validator { get; }
+        public int SaveCount => UnitOfWork.SaveCount;
+        public IReadOnlyList<AuditLogEntry> AuditEntries => Audit.Entries;
         private FakeCurrentTenant CurrentTenant => new(TenantId);
         private FakeCurrentUser CurrentUser => new(UserId);
 
@@ -220,6 +222,22 @@ public sealed class IntegrationServiceTests
     }
 
     private sealed class FakeClock : IClock { public DateTimeOffset UtcNow { get; } = new(2026, 6, 7, 0, 0, 0, TimeSpan.Zero); }
-    private sealed class FakeAuditLogger : IAuditLogger { public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class FakeUnitOfWork : IUnitOfWork { public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1); }
+    private sealed class FakeAuditLogger : IAuditLogger
+    {
+        public List<AuditLogEntry> Entries { get; } = [];
+        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken = default)
+        {
+            Entries.Add(entry);
+            return Task.CompletedTask;
+        }
+    }
+    private sealed class FakeUnitOfWork : IUnitOfWork
+    {
+        public int SaveCount { get; private set; }
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            SaveCount++;
+            return Task.FromResult(1);
+        }
+    }
 }

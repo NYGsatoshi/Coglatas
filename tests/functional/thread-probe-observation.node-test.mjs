@@ -572,3 +572,55 @@ await test('legacy24 remains strict and version3 preserves incomplete historical
   while (overflow.events.length < 33) { overflow.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null }); }
   overflow.elapsedMs = Array(33).fill(1); assert.throws(() => validateThreadObservation(overflow));
 });
+
+await test('two denied reads completed before action registration cannot become a fresh denial or a DOM interleaving', async () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let captures = 0;
+  observation.onPreActionDenied(() => { captures++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_ACTION_STARTED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  observation.mark('AUTHORIZED_ACTION_COMPLETED'); page.emit('response', allowed.response);
+  page.emit('requestfinished', allowed.request); observation.mark('AUTHORIZED_READ');
+  observation.mark('ROOT_ASSERTION_STARTED'); observation.mark('ROOT_ASSERTION_PASSED');
+  observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
+  const duringVerification = requestFixture(page, 400); duringVerification.emit();
+  observation.mark('SESSION_VERIFIED');
+  const beforeObserver = requestFixture(page, 400); beforeObserver.emit();
+  for (const prior of [duringVerification, beforeObserver]) {
+    page.emit('response', prior.response); page.emit('requestfinished', prior.request);
+  }
+
+  const nativeWait = page.waitForRequest;
+  let rejectWait, rejectAction;
+  const failedWait = new Promise((resolve, reject) => { rejectWait = reject; });
+  page.waitForRequest = (predicate) => Promise.race([nativeWait(predicate), failedWait]);
+  const nativeAction = new Promise((resolve, reject) => { rejectAction = reject; });
+  const phases = [];
+  const operation = responseToFreshRequest(page, (request) => {
+    if (!matches(request)) { return false; } observation.select(request); return true;
+  }, () => nativeAction, (phase) => { phases.push(phase); observation.mark(phase); });
+  const nativeFailure = new Error('private-canary');
+  const rejection = assert.rejects(operation, (error) => error === nativeFailure);
+  rejectWait(nativeFailure);
+  await Promise.resolve(); await Promise.resolve();
+  rejectAction(nativeFailure);
+  await rejection;
+  const snapshot = observation.finish('FAILED');
+  assert.deepEqual(phases, ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'REQUEST_FAILED', 'ACTION_FAILED']);
+  assert.deepEqual(snapshot.events.filter((event) => event.kind === 'RESPONSE'), [
+    { kind: 'RESPONSE', request: 1, status: 200 },
+    { kind: 'RESPONSE', request: 2, status: 400 },
+    { kind: 'RESPONSE', request: 3, status: 400 },
+  ]);
+  const observerIndex = snapshot.events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+  assert.ok(snapshot.events.every((event, index) => event.kind !== 'RESPONSE' || index < observerIndex));
+  assert.equal(captures, 0, 'responses settled before registration cannot qualify the post-action DOM hook');
+  assert.equal(snapshot.freshRequest, null); assert.equal(snapshot.failureTarget, null);
+  assert.equal(snapshot.classification, 'INCOMPLETE'); assert.equal(snapshot.outcome, 'FAILED');
+  const frozen = JSON.stringify(snapshot);
+  const late = requestFixture(page); late.emit(); page.emit('response', late.response);
+  await Promise.resolve();
+  assert.equal(JSON.stringify(observation.finish('COMPLETED')), frozen);
+  assert.equal(page.listenerCount('request'), 0); assert.equal(page.listenerCount('response'), 0);
+  assert.equal(frozen.includes('private-canary'), false);
+});
