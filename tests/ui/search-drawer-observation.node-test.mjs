@@ -102,7 +102,7 @@ void test('actual Playwright first failure and later retry success retain separa
           async()=>{if(info.retry===0)throw new Error('private-primary');});
       });`);
     writeFileSync(join(root, 'quiet.mjs'), 'export default class { onEnd(){} }');
-    writeFileSync(join(root, 'config.mjs'), `export default ${JSON.stringify({ testDir: root, testMatch: 'fixture.spec.mjs',
+    writeFileSync(join(root, 'config.mjs'), `export default ${JSON.stringify({ build: { external: ['**/*.mjs'] }, testDir: root, testMatch: 'fixture.spec.mjs',
       outputDir: join(root, 'runner-output'), workers: 1, retries: 1, reporter: [[join(root, 'quiet.mjs')]],
       projects: [{ name: 'chromium-mobile' }],
     })};`);
