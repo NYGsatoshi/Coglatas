@@ -58,7 +58,7 @@ JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
 SETUP_NODE = re.compile(r"(?m)^        uses: actions/setup-node@([0-9a-f]{40})\s*(?:#.*)?$")
 # Count *all* setup-node refs, not only SHA-pinned ones. A second unpinned
 # action must not be invisible to the fixed-source policy.
-SETUP_NODE_REFERENCES = re.compile(r"(?m)^        uses:[ \t]*['\"]?actions/setup-node@")
+SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        uses:|      - uses:)[ \t]*['\"]?actions/setup-node@")
 INPUT_CACHE = re.compile(r"(?m)^          package-manager-cache: (\S+)\s*$")
 INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
 
@@ -102,6 +102,26 @@ def run_command_lines(job: str) -> list[str]:
     return commands
 
 
+def owner_invoked(job: str, owner: str) -> bool:
+    """Require an active canonical Bash/Node command, never echo or path mentions."""
+    interpreter = "node" if owner.endswith(".mjs") else "bash"
+    canonical = re.compile(rf"^{interpreter}[ \t]+{re.escape(owner)}(?:[ \t]|$)")
+    # Evaluate per actual YAML step, so an unrelated command cannot lend
+    # execution authority to an inert echo or a test path in another step.
+    for step in re.split(r"(?m)(?=^      - )", job):
+        commands = run_command_lines(step)
+        if any(canonical.match(command) for command in commands):
+            return True
+        # The reviewed real-backend control uses folded YAML run: >-
+        # with node --test and its test-file arguments on separate lines.
+        if (owner == "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
+                and re.search(r"(?m)^        run: >[-+]?[ \t]*$", step)
+                and commands and commands[0] == "node --test"
+                and owner in commands[1:]):
+            return True
+    return False
+
+
 def violations(workflows: dict[str, str], installer: str) -> list[str]:
     """Return all fixed-owner, Node 26 and isolated npm-cache policy violations."""
     issues = []
@@ -125,7 +145,7 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if job is None:
                 issues.append(f"{path}: missing job {job_id}")
                 continue
-            if not any(owner in command for command in run_command_lines(job)):
+            if not owner_invoked(job, owner):
                 issues.append(f"{path}/{job_id}: expected executable package owner missing")
             uses = list(SETUP_NODE.finditer(job))
             references = list(SETUP_NODE_REFERENCES.finditer(job))
@@ -161,7 +181,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all sixteen mutation controls."""
+    """Verify real workflow policy and fail closed on all eighteen mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -203,6 +223,10 @@ def main() -> int:
             "        # run: bash scripts/ci/npm-ci-retry.sh frontend\n"
             "        run: echo disabled",
         ),
+        "owner path in inert echo": one_replacement(
+            workflows, "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: echo bash scripts/ci/npm-ci-retry.sh frontend",
+        ),
         "qodana guard cache regression": one_replacement(
             workflows, "          package-manager-cache: false", "          package-manager-cache: true",
             ".github/workflows/qodana_trusted_gate.yml",
@@ -233,6 +257,13 @@ def main() -> int:
             "        uses: actions/setup-node@v4",
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        "inline unpinned setup-node step": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - uses: actions/setup-node@v4\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -242,7 +273,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 16 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 18 mutation controls rejected.")
     return 0
 
 
