@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   validate-selection:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -61,7 +61,7 @@ jobs:
   domains:
     name: Functional ${{ matrix.domain }}
     needs: validate-selection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: ${{ inputs.gate == 'functional-fast' && 20 || inputs.gate == 'functional-full' && 30 || 120 }}
     strategy:
       fail-fast: false
@@ -139,7 +139,7 @@ jobs:
     name: ${{ inputs.gate }}
     needs: [validate-selection, domains]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

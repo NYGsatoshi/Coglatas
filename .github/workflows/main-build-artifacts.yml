@@ -10,7 +10,7 @@ permissions:
 jobs:
   main-browser-route:
     name: Main browser routing
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       frontend_playwright: ${{ steps.route.outputs.frontend_playwright }}
@@ -35,7 +35,7 @@ jobs:
     concurrency:
       group: main-dotnet-producer-${{ github.ref }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     env:
@@ -54,8 +54,11 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify committed NuGet lockfile policy
+        run: python3 -B scripts/ci/check-nuget-lock-policy.py
+
       - name: Restore authoritative .NET graph in parallel
-        run: dotnet restore Coglatas.slnx --verbosity minimal
+        run: dotnet restore Coglatas.slnx --locked-mode --verbosity minimal
 
       - name: Build authoritative .NET graph in parallel
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m
@@ -120,7 +123,7 @@ jobs:
     concurrency:
       group: main-frontend-producer-${{ github.ref }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 60
 
@@ -235,7 +238,7 @@ jobs:
     needs:
       - main-dotnet-build
       - main-frontend-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     env:
@@ -342,7 +345,7 @@ jobs:
     # Keep this non-required Advisory result outside reusable Main validation and all required aggregators.
     needs: main-validation
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout exact Advisory consumer revision
@@ -364,7 +367,7 @@ jobs:
     name: build-test
     needs: [main-dotnet-build, main-build-artifacts, main-validation, performance-db]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -381,7 +384,7 @@ jobs:
     name: frontend-test
     needs: [main-frontend-build, main-build-artifacts, main-validation]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -398,7 +401,7 @@ jobs:
     name: security-scan
     needs: [main-dotnet-build, main-build-artifacts, main-validation]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -414,7 +417,7 @@ jobs:
   actor-replacement:
     name: Main same-document actor replacement
     needs: main-build-artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout exact Main producer revision
@@ -469,7 +472,7 @@ jobs:
       group: main-qodana-cloud-${{ github.ref }}
       cancel-in-progress: true
     needs: main-build-artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 120
     permissions:
@@ -647,7 +650,7 @@ jobs:
     name: functional-fast
     needs: [main-build-artifacts, functional-fast-domains]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -676,7 +679,7 @@ jobs:
     name: functional-full
     needs: [main-build-artifacts, functional-domains]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Require exact-SHA producer and all Functional domains

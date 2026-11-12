@@ -21,7 +21,7 @@ concurrency:
 jobs:
   route:
     name: API performance routing
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       required: ${{ steps.route.outputs.required }}
@@ -91,7 +91,7 @@ jobs:
         mode: ${{ fromJSON(needs.route.outputs.modes) }}
     needs: route
     if: needs.route.outputs.required == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -129,7 +129,7 @@ jobs:
     name: API bounded variance investigation
     needs: route
     if: needs.route.outputs.assurance_mode == 'active' && github.run_attempt == 1 && ((github.event_name == 'pull_request' && github.event.action == 'opened' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -164,7 +164,7 @@ jobs:
     name: performance-fast
     if: always()
     needs: [route, benchmark]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout tested revision for policy verification
