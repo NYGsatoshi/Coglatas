@@ -539,8 +539,6 @@ public sealed class ProjectService(
             {
                 return Result<MilestoneResponse>.Failure("Milestone title is required.");
             }
-
-            milestone.Name = request.Title.Trim();
         }
 
         if (request.Status.HasValue && request.Status.Value is not (MilestoneStatus.NotStarted or MilestoneStatus.InProgress or MilestoneStatus.Completed))
@@ -556,6 +554,11 @@ public sealed class ProjectService(
             return Result<MilestoneResponse>.Failure(new ApplicationErrorDetail(
                 "MILESTONE_DATE_REQUIRED",
                 "Milestone date is required before progress can become active or completed."));
+        }
+
+        if (request.Title is not null)
+        {
+            milestone.Name = request.Title.Trim();
         }
 
         milestone.Description = request.Description?.Trim() ?? milestone.Description;
@@ -1835,7 +1838,9 @@ public sealed class ProjectService(
 
     private static PagedResponse<T> ToPagedResponse<T>(IReadOnlyList<T> items, int page, int pageSize)
     {
-        return new PagedResponse<T>(items.Skip((page - 1) * pageSize).Take(pageSize).ToList(), page, pageSize, items.Count);
+        var offset = (long)(page - 1) * pageSize;
+        var pageItems = items.Skip((int)Math.Min(offset, items.Count)).Take(pageSize).ToList();
+        return new PagedResponse<T>(pageItems, page, pageSize, items.Count);
     }
 
     private async Task<ProjectResponse> ToProjectAsync(
