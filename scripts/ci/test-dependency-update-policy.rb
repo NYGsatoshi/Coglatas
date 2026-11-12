@@ -149,6 +149,36 @@ def update_errors(config)
     ang22_candidates['groupName'] == 'ANG22 reviewed dependency candidates' &&
     ang22_candidates['enabled'] != false
 
+
+  # The 2026-11-09 Renovate #1650 candidate mutates coglatas-frontend
+  # overrides without updating its lockfile. npm ci rejects those exact
+  # @babel/core/undici versions; preserve the working lock until a fully
+  # qualified two-workspace npm artifact regeneration can be demonstrated.
+  locked_packages = {
+    'Hold legacy Angular Babel override until both npm locks can be regenerated' =>
+      ['@babel/core', 'coglatas-frontend/package.json', '8.0.10'],
+    'Hold legacy Angular undici override until both npm locks can be regenerated' =>
+      ['undici', 'coglatas-frontend/package.json', '8.12.3'],
+    'Hold Syncfusion Inputs pending ANG22 vendor qualification' =>
+      ['@syncfusion/ej2-angular-inputs', 'frontend/package.json', '35.1.42']
+  }
+  locked_packages.each do |name, (package, file, version)|
+    rule = find_rule.call(name)
+    errors << "#{name}: unreviewed dependency change must not bypass lockfile qualification" unless
+      rule.is_a?(Hash) && rule['matchManagers'] == ['npm'] &&
+      rule['matchPackageNames'] == [package] && rule['matchFileNames'] == [file] &&
+      rule['allowedVersions'] == version && rule['enabled'] != false &&
+      !rule.key?('matchUpdateTypes')
+  end
+
+  grid = find_rule.call('Hold AG Grid packages pending coordinated ANG22 qualification')
+  errors << 'AG Grid Angular and core must migrate in one separately reviewed candidate' unless
+    grid.is_a?(Hash) && grid['matchManagers'] == ['npm'] &&
+    grid['matchPackageNames'] == ['ag-grid-angular', 'ag-grid-community'] &&
+    grid['matchFileNames'] == ['frontend/package.json'] &&
+    grid['allowedVersions'] == '36.2.0' && grid['enabled'] != false &&
+    !grid.key?('matchUpdateTypes')
+
   angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
   errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
@@ -277,6 +307,32 @@ abort('Root Playwright test dependency must remain pinned to the reviewed browse
   end &&
   browser_image.include?('FROM mcr.microsoft.com/playwright:v1.64.0-noble')
 
+
+# Preserve the observed installable Main baseline until each proposal has a
+# complete npm lockfile and the separate vendor qualification suite passes.
+legacy = JSON.parse((ROOT / 'coglatas-frontend/package.json').read)
+legacy_lock = JSON.parse((ROOT / 'coglatas-frontend/package-lock.json').read)
+frontend = JSON.parse((ROOT / 'frontend/package.json').read)
+frontend_lock = JSON.parse((ROOT / 'frontend/package-lock.json').read)
+{
+  '@babel/core' => '8.0.10',
+  'undici' => '8.12.3'
+}.each do |name, version|
+  abort("Legacy Angular override #{name} differs from the reviewed npm lockfile") unless
+    legacy.fetch('overrides', {})[name] == version &&
+    legacy_lock.fetch('packages', {}).fetch("node_modules/#{name}", {})['version'] == version
+end
+{
+  '@syncfusion/ej2-angular-inputs' => '35.1.42',
+  'ag-grid-angular' => '36.2.0',
+  'ag-grid-community' => '36.2.0'
+}.each do |name, version|
+  abort("Unqualified Angular vendor dependency #{name} drifted from review baseline") unless
+    frontend.fetch('dependencies', {})[name] == version &&
+    frontend_lock.fetch('packages', {}).fetch('', {}).fetch('dependencies', {})[name] == version &&
+    frontend_lock.fetch('packages', {}).fetch("node_modules/#{name}", {})['version'] == version
+end
+
 errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
@@ -314,6 +370,14 @@ mutations = {
   'unqualified sonar glob version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Sonar glob updates that cannot produce installable locks' }['allowedVersions'] = '14.0.4' },
   'unreviewed ANG22 package in routine group' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['dependencyDashboardApproval'] = false },
   'unreviewed ANG22 package group crossover' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['groupName'] = 'npm compatible (minor and patch)' },
+
+  'allow invalid legacy Babel override without lockfile' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold legacy Angular Babel override until both npm locks can be regenerated' }['allowedVersions'] = '8.1.0' },
+  'widen legacy Babel override to the qualified frontend' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold legacy Angular Babel override until both npm locks can be regenerated' }['matchFileNames'] = ['**/package.json'] },
+  'allow invalid legacy undici override without lockfile' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold legacy Angular undici override until both npm locks can be regenerated' }['allowedVersions'] = '8.12.4' },
+  'disable legacy undici lockfile quarantine' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold legacy Angular undici override until both npm locks can be regenerated' }['enabled'] = false },
+  'allow unreviewed Syncfusion Inputs bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Syncfusion Inputs pending ANG22 vendor qualification' }['allowedVersions'] = '35.1.43' },
+  'allow unreviewed AG Grid major-minor bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold AG Grid packages pending coordinated ANG22 qualification' }['allowedVersions'] = '36.3.0' },
+  'split AG Grid Angular from its core qualification' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold AG Grid packages pending coordinated ANG22 qualification' }['matchPackageNames'].pop },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
   'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
   'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
