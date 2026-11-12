@@ -22,7 +22,7 @@ jobs:
     name: socket-sca-opt-in
     environment: socket-security-scans
     if: vars.SOCKET_SCA_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read

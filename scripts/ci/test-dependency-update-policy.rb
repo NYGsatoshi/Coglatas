@@ -111,6 +111,44 @@ def update_errors(config)
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
+
+  playwright_npm = find_rule.call('Keep Playwright npm updates tied to the reviewed browser image')
+  errors << 'Playwright npm updates must remain aligned with the qualified browser image' unless
+    playwright_npm.is_a?(Hash) && playwright_npm['matchManagers'] == ['npm'] &&
+    playwright_npm['matchPackageNames'] == ['@playwright/test'] &&
+    playwright_npm['matchFileNames'] == ['package.json'] &&
+    playwright_npm['allowedVersions'] == '1.64.1' && playwright_npm['enabled'] != false
+
+  minimatch_lock = find_rule.call('Hold malformed npm minimatch override updates for lockfile repair')
+  errors << 'Known malformed minimatch override lockfile updates must stay quarantined' unless
+    minimatch_lock.is_a?(Hash) && minimatch_lock['matchManagers'] == ['npm'] &&
+    minimatch_lock['matchPackageNames'] == ['minimatch'] &&
+    minimatch_lock['matchFileNames'] == ['coglatas-frontend/package.json', 'scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    minimatch_lock['allowedVersions'] == '11.0.4' && minimatch_lock['enabled'] != false
+
+  sonar_glob = find_rule.call('Hold Sonar glob updates that cannot produce installable locks')
+  errors << 'Known malformed Sonar glob lockfiles must stay quarantined' unless
+    sonar_glob.is_a?(Hash) && sonar_glob['matchManagers'] == ['npm'] &&
+    sonar_glob['matchPackageNames'] == ['glob'] &&
+    sonar_glob['matchFileNames'] == ['scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    sonar_glob['allowedVersions'] == '14.0.3' && sonar_glob['enabled'] != false
+
+  ang22_candidates = find_rule.call('Separate ANG22 reviewed packages from routine npm updates')
+  reviewed_names = %w[
+    @angular/animations @angular/build @angular/cdk @angular/cli @angular/common @angular/compiler
+    @angular/compiler-cli @angular/core @angular/forms @angular/platform-browser
+    @angular/platform-browser-dynamic @angular/router @angular-devkit/architect
+    @angular-devkit/build-angular @angular-devkit/core @lucide/angular
+    @storybook/angular storybook @vitest/coverage-istanbul vitest
+  ].sort
+  errors << 'Contract-pinned Angular 22 dependencies need separate owner-reviewed qualification' unless
+    ang22_candidates.is_a?(Hash) && ang22_candidates['matchManagers'] == ['npm'] &&
+    ang22_candidates.fetch('matchPackageNames', []).sort == reviewed_names &&
+    ang22_candidates['matchUpdateTypes'] == ['minor', 'patch'] &&
+    ang22_candidates['dependencyDashboardApproval'] == true &&
+    ang22_candidates['groupName'] == 'ANG22 reviewed dependency candidates' &&
+    ang22_candidates['enabled'] != false
+
   angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
   errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
@@ -229,6 +267,16 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
+root_npm = JSON.parse((ROOT / 'package.json').read)
+root_lock = JSON.parse((ROOT / 'package-lock.json').read)
+browser_image = (ROOT / 'infra/docker/playwright.Dockerfile').read
+abort('Root Playwright test dependency must remain pinned to the reviewed browser runtime') unless
+  root_npm.fetch('devDependencies', {})['@playwright/test'] == '1.64.1' &&
+  %w[@playwright/test playwright playwright-core].all? do |name|
+    root_lock.fetch('packages', {}).fetch("node_modules/#{name}", {})['version'] == '1.64.1'
+  end &&
+  browser_image.include?('FROM mcr.microsoft.com/playwright:v1.64.0-noble')
+
 errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
@@ -260,6 +308,12 @@ mutations = {
   'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
   'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
+  'unreviewed Playwright npm version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }['allowedVersions'] = '1.65.0' },
+  'drop Playwright root package scope' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }.delete('matchFileNames') },
+  'unqualified minimatch override version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold malformed npm minimatch override updates for lockfile repair' }['allowedVersions'] = '11.0.5' },
+  'unqualified sonar glob version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Sonar glob updates that cannot produce installable locks' }['allowedVersions'] = '14.0.4' },
+  'unreviewed ANG22 package in routine group' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['dependencyDashboardApproval'] = false },
+  'unreviewed ANG22 package group crossover' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['groupName'] = 'npm compatible (minor and patch)' },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
   'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
   'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
