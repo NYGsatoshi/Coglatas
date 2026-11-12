@@ -13,7 +13,7 @@ permissions:
 jobs:
   licensed-image-security:
     name: licensed-image-security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 90
 
