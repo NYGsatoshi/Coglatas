@@ -290,6 +290,11 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/local_runner.py',
             ROOT.as_posix() + '/scripts/performance/local_support.py',
             ROOT.as_posix() + '/scripts/performance/performance-local.py',
+            ROOT.as_posix() + '/scripts/performance/db-compare.py',
+            ROOT.as_posix() + '/scripts/performance/db_class_baselines.py',
+            ROOT.as_posix() + '/scripts/performance/collect-environment.py',
+            ROOT.as_posix() + '/scripts/performance/diagnostic_recovery.py',
+            ROOT.as_posix() + '/scripts/performance/announcement-diagnostic.py',
         })
 
 
@@ -502,6 +507,98 @@ class PythonProcessCoverageTests(unittest.TestCase):
             os.environ.pop('SONAR_PYTHON_SOURCE_ROOT', None)
             with self.assertRaisesRegex(coverage.exceptions.CoverageException, 'SONAR_PYTHON_SOURCE_ROOT'):
                 coverage.Coverage(config_file=str(CONFIG))
+
+
+class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
+    environment = PythonProcessCoverageTests.environment
+    run_python = PythonProcessCoverageTests.run_python
+
+    SUITES = (
+        ('test_performance_db.py', 16),
+        ('test_performance_db_candidate.py', 8),
+        ('test_performance_db_assignment_transition.py', 39),
+        ('test_performance_db_approval_history.py', 4),
+        ('test_performance_environment_class.py', 9),
+        ('test_performance_public_digest.py', 3),
+        ('test_performance_runtime_compatibility.py', 10),
+        ('test_performance_diagnostic_recovery.py', 10),
+    )
+
+    def test_existing_database_suites_have_complete_unique_discovery_and_one_selection(self):
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        loader = unittest.TestLoader()
+
+        def cases(suite):
+            for item in suite:
+                if isinstance(item, unittest.TestSuite):
+                    yield from cases(item)
+                else:
+                    yield item.id()
+
+        for filename, count in self.SUITES:
+            with self.subTest(filename=filename):
+                self.assertEqual(loop.count('tests/ci/' + filename), 1)
+                name = 'canonical_database_' + Path(filename).stem
+                spec = importlib.util.spec_from_file_location(name, ROOT / 'tests/ci' / filename)
+                self.assertIsNotNone(spec)
+                self.assertIsNotNone(spec.loader)
+                module = importlib.util.module_from_spec(spec)
+                with mock.patch.object(sys, 'path', [str(ROOT / 'tests/ci'), str(ROOT / 'scripts/performance'), *sys.path]):
+                    spec.loader.exec_module(module)
+                self.assertFalse(hasattr(module, 'load_tests'), 'A loader hook needs independent completeness review.')
+                declared = []
+                for value in vars(module).values():
+                    if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == name:
+                        declared.extend(cases(loader.loadTestsFromTestCase(value)))
+                selected = list(cases(loader.loadTestsFromModule(module)))
+                self.assertEqual(len(declared), count)
+                self.assertEqual(len(selected), len(set(selected)))
+                self.assertEqual(sorted(selected), sorted(declared))
+
+    def test_selected_database_dispatch_executes_all_cases_without_main_or_test_body_coverage(self):
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        dispatch = workflow.split('; do\n', 1)[1].split('\n          done', 1)[0]
+        discovery = dispatch.split('case "$control" in\n', 1)[1].split('            esac', 1)[0]
+        self.assertEqual(discovery.count('python3 '), 1)
+        self.assertIn('                continue\n', discovery)
+        command = next(line.strip() for line in discovery.splitlines() if line.strip().startswith('python3 '))
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            suite = folder / 'tests/ci'
+            suite.mkdir(parents=True)
+            (suite / 'subject.py').write_text('from pathlib import Path\ndef record(value):\n    with Path("executed.txt").open("a") as output:\n        output.write(value + "\\n")\n', encoding='utf-8')
+            config = folder / 'coverage.ini'
+            config.write_text('[run]\nbranch = True\nparallel = True\ninclude = ' + (suite / 'subject.py').as_posix() + '\n', encoding='utf-8')
+            env = self.environment()
+            env['COVERAGE_RCFILE'] = str(config)
+            env['COVERAGE_PROCESS_START'] = str(config)
+            env['COVERAGE_FILE'] = str(folder / 'data')
+            expected = []
+            for filename, count in self.SUITES:
+                self.assertEqual(discovery.count('tests/ci/' + filename), 1)
+                methods = ''
+                for index in range(count):
+                    identity = filename + ':' + str(index)
+                    expected.append(identity)
+                    methods += '    def test_case_' + str(index) + '(self):\n        record(' + repr(identity) + ')\n'
+                (suite / filename).write_text('import unittest\nfrom subject import record\nclass SyntheticDatabaseTests(unittest.TestCase):\n' + methods, encoding='utf-8')
+                args = shlex.split(command.replace('${control##*/}', filename))
+                self.assertEqual(args[:5], ['python3', '-B', '-m', 'coverage', 'run'])
+                self.assertEqual(args[5:], ['-m', 'unittest', 'discover', '-s', 'tests/ci', '-p', filename])
+                result = self.run_python(args[1:], folder, env)
+                self.assertIn('Ran ' + str(count) + ' tests', result.stderr)
+                self.assertIn('OK', result.stderr)
+            executed = (folder / 'executed.txt').read_text(encoding='utf-8').splitlines()
+            self.assertEqual(sorted(executed), sorted(expected))
+            self.assertEqual(len(executed), 99)
+            shards = list(folder.glob('data.*'))
+            self.assertEqual(len(shards), len(self.SUITES))
+            for shard in shards:
+                measured = coverage.CoverageData(basename=str(shard))
+                measured.read()
+                self.assertTrue(measured.has_arcs())
+                self.assertEqual([Path(name).resolve() for name in measured.measured_files()], [(suite / 'subject.py').resolve()])
 
 
 if __name__ == '__main__':
