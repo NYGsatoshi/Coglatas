@@ -333,12 +333,19 @@
                 <p>{{ t('ide.unsupported') }}</p>
                 <h3>{{ t('ide.properties') }}</h3>
                 <pre tabindex="0">{{ record.data | json }}</pre>
-                <p>
-                  {{ t('ide.related') }}:
-                  @for (d of related(); track d.diagnosticId) {
-                    <code>{{ d.code }} </code>
-                  }
-                </p>
+                <section data-testid="ide-related-diagnostics" [attr.aria-label]="t('ide.related')">
+                  <h3>{{ t('ide.related') }}</h3>
+                  <ul>
+                    @for (d of related(); track d.diagnosticId) {
+                      <li>
+                        <button type="button" (click)="inspectDiagnostic(d)"
+                          [attr.aria-pressed]="store.diagnostic() === d">
+                          {{ t('ide.select') }}: {{ d.code }} · {{ d.ruleId }} v{{ d.ruleVersion }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                </section>
               } @else {
                 <p>{{ store.selection() ? t('ide.unavailable') : t('ide.selectTarget') }}</p>
               }

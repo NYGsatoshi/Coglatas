@@ -79,6 +79,49 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('activates a localized %s related diagnostic button and follows its source location', async locale => {
+    const { c, fixture, root } = await render();
+    c.choose('fail');
+    c.loadResult();
+    const record = c.records().find(item => item.kind === 'coglatas.constraint')!;
+    c.inspectRecord(record);
+    c.i18n.setLocale(locale);
+    fixture.detectChanges();
+    const button = root.querySelector<HTMLButtonElement>('[data-testid="ide-related-diagnostics"] button')!;
+    expect(button.type).toBe('button');
+    expect(button.textContent).toContain(`${locale === 'en' ? 'Inspect diagnostic' : '診断を調べる'}: coglatas.analysis.constraint-false`);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    button.click();
+    fixture.detectChanges();
+    const diagnostic = c.diagnostics()[0];
+    expect(c.store.diagnostic()).toBe(diagnostic);
+    expect(root.querySelector('[data-testid="ide-related-diagnostics"] button')?.getAttribute('aria-pressed')).toBe('true');
+    c.navigate();
+    fixture.detectChanges();
+    expect(c.store.sourceLocation()).toBe(diagnostic.primaryLocation);
+    expect(root.querySelector('[data-testid="ide-source-target"]')?.textContent).toContain(record.identity);
+  });
+
+  it('rejects a retained related-diagnostic button after the accepted bundle is replaced', async () => {
+    const { c, fixture, root, adapter } = await render();
+    c.choose('fail');
+    c.loadResult();
+    c.inspectRecord(c.records().find(item => item.kind === 'coglatas.constraint')!);
+    fixture.detectChanges();
+    const button = root.querySelector<HTMLButtonElement>('[data-testid="ide-related-diagnostics"] button')!;
+    adapter.read.mockImplementationOnce(async () => readPreviewBundle(
+      JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8')),
+    ));
+    await c.reload();
+    c.choose('fail');
+    c.loadResult();
+    // Invoke the old DOM listener before Angular removes the old view.
+    button.click();
+    expect(c.store.diagnostic()).toBeNull();
+    expect(c.store.relatedDiagnostics()).toEqual([]);
+    expect(c.store.sourceTarget()).toBeNull();
+  });
+
   it('is disabled by default and never reads fixtures when disabled', async () => {
     const { root, adapter } = await render(false);
     expect(root.textContent).toContain('preview is disabled');

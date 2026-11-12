@@ -92,15 +92,7 @@ export class ProjectIdeWorkbenchComponent {
     ...(this.store.context()?.declarations ?? []),
     ...(this.store.context()?.relations ?? []),
   ]);
-  readonly related = computed(() =>
-    this.diagnostics().filter(
-      (d) =>
-        (d.primaryLocation.entityId === this.store.inspectedRecord()?.location.entityId &&
-          !!d.primaryLocation.entityId) ||
-        (d.primaryLocation.relationId === this.store.inspectedRecord()?.location.relationId &&
-          !!d.primaryLocation.relationId),
-    ),
-  );
+  readonly related = this.store.relatedDiagnostics;
   readonly t = (
     key: keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
     parameters: Record<string, string | number> = {},

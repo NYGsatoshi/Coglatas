@@ -18,6 +18,34 @@ async function choose(page: Page, key: string) {
 }
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
+  test('opens related Inspector findings with Enter and Space and follows their exact source', async ({ page }) => {
+    await preview(page);
+    await choose(page, 'fail');
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await page.getByRole('button', {
+      name: 'coglatas.constraint · 00000007-0000-4000-8000-000000000001', exact: true,
+    }).click();
+    const related = page.getByTestId('ide-related-diagnostics');
+    const finding = related.getByRole('button', { name: /^Inspect diagnostic: coglatas.analysis.constraint-false/u });
+    await expect(finding).toHaveAttribute('aria-pressed', 'false');
+    await finding.focus();
+    await finding.press('Enter');
+    await expect(finding).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+    await finding.focus();
+    await finding.press('Space');
+    await expect(finding).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+    await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+    await expect(page.getByTestId('ide-source-target')).toBeFocused();
+    await page.getByTestId('ide-context').selectOption('branch-pass');
+    await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await expect(related).toHaveCount(0);
+    await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  });
+
   test('keeps visible filter choices aligned with retained Problems state after panel recreation', async ({ page }) => {
     await preview(page);
     await choose(page, 'fail');
