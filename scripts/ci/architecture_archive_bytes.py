@@ -16,6 +16,7 @@ import re
 import stat
 import sys
 import zipfile
+import zlib
 
 MAX_ARCHIVE = 65536
 MAX_MEMBER = 8192
@@ -88,7 +89,9 @@ def read_bounded(path: Path) -> bytes:
         info = path.lstat()
         require(stat.S_ISREG(info.st_mode) and not path.is_symlink() and
                 0 < info.st_size <= MAX_ARCHIVE, 'ARCHIVE_FILE')
-        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        # A replaced FIFO must never block between lstat and fstat.
+        require(getattr(os, 'O_NONBLOCK', 0) != 0, 'ARCHIVE_FILE')
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
         try:
             opened = os.fstat(fd)
             require(stat.S_ISREG(opened.st_mode) and opened.st_ino == info.st_ino
@@ -138,7 +141,7 @@ def unpack(raw: bytes, digest: str, size: int) -> dict[str, dict]:
                 body = z.read(member)
                 require(len(body) == member.file_size, 'ARCHIVE_MEMBER')
                 reports[member.filename] = parse_document(body, member.filename)
-    except (zipfile.BadZipFile, RuntimeError, EOFError, OSError, ValueError) as exc:
+    except (zipfile.BadZipFile, zlib.error, RuntimeError, EOFError, OSError, ValueError) as exc:
         raise ArchiveRefused('ARCHIVE_FORMAT') from exc
     return reports
 
