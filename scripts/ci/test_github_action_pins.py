@@ -184,5 +184,84 @@ class GithubActionPinsTests(unittest.TestCase):
         self.assertTrue(any("not approved for protected workflows" in error for error in self.errors()))
 
 
+    def test_quoted_uses_keys_still_require_immutable_pins(self) -> None:
+        for key in ("'uses'", '"uses"'):
+            with self.subTest(key=key):
+                self.write_workflow(
+                    "required.yml",
+                    "name: required\non: pull_request\njobs:\n  test:\n"
+                    "    runs-on: ubuntu-latest\n    steps:\n"
+                    f"      - {key}: actions/checkout@{PIN} # v7\n",
+                )
+                self.assertEqual([], self.errors())
+                self.write_workflow(
+                    "required.yml",
+                    "name: required\non: pull_request\njobs:\n  test:\n"
+                    "    runs-on: ubuntu-latest\n    steps:\n"
+                    f"      - {key}: actions/checkout@v7\n",
+                )
+                self.assertTrue(
+                    any("full immutable SHA" in e for e in self.errors())
+                )
+
+    def test_flow_mapping_steps_fail_closed_without_silent_uses_bypass(self) -> None:
+        for step in (
+            "- {uses: actions/checkout@v7}",
+            "- {'uses': actions/checkout@v7}",
+            '- {"uses": actions/checkout@v7}',
+            "- {name: checkout, uses: actions/checkout@v7}",
+            "- {name: noop, run: echo ok}",
+        ):
+            with self.subTest(step=step):
+                self.write_workflow(
+                    "required.yml",
+                    "name: required\non: pull_request\njobs:\n  test:\n"
+                    "    runs-on: ubuntu-latest\n    steps:\n"
+                    f"      {step}\n",
+                )
+                self.assertTrue(
+                    any("unsupported flow-style job or step" in e
+                        for e in self.errors())
+                )
+
+    def test_inline_flow_steps_and_job_reusable_uses_fail_closed(self) -> None:
+        for job in (
+            "  test:\n    runs-on: ubuntu-latest\n"
+            "    steps: [{uses: actions/checkout@v7}]\n",
+            "  reusable: {uses: owner/reusable/.github/workflows/check.yml@v1}\n",
+        ):
+            with self.subTest(job=job):
+                self.write_workflow(
+                    "required.yml",
+                    "name: required\non: pull_request\njobs:\n" + job,
+                )
+                self.assertTrue(
+                    any("unsupported flow-style job or step" in e
+                        for e in self.errors())
+                )
+
+    def test_root_flow_jobs_mapping_fails_closed(self) -> None:
+        self.write_workflow(
+            "required.yml",
+            "name: required\non: pull_request\n"
+            "jobs: {test: {runs-on: ubuntu-latest, "
+            "steps: [{uses: actions/checkout@v7}]}}\n",
+        )
+        self.assertTrue(
+            any("unsupported flow-style job or step" in e
+                for e in self.errors())
+        )
+
+    def test_unrelated_event_flow_mapping_does_not_hide_valid_steps(self) -> None:
+        self.write_workflow(
+            "required.yml",
+            "name: required\non:\n"
+            "  pull_request: {types: [opened]}\n"
+            "jobs:\n  test:\n    runs-on: ubuntu-latest\n"
+            f"    steps:\n      - uses: actions/checkout@{PIN} # v7\n",
+        )
+        self.assertEqual([], self.errors())
+
+
 if __name__ == "__main__":
     unittest.main()
