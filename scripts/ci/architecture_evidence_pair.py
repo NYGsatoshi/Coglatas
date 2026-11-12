@@ -67,7 +67,11 @@ def read_receipt(path: Path, directory: Path, filename: str) -> dict:
         metadata = path.lstat()
         require(stat.S_ISREG(metadata.st_mode) and not path.is_symlink() and
                 0 < metadata.st_size <= MAX_REPORT_BYTES, 'RECEIPT_FILE')
-        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        # Fail closed on a FIFO swapped between lstat and open; a blocking
+        # descriptor would never reach the existing regular-file fstat guard.
+        require(getattr(os, 'O_NONBLOCK', 0) != 0, 'RECEIPT_FILE')
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK |
+                     getattr(os, 'O_NOFOLLOW', 0))
         try:
             actual = os.fstat(fd)
             require(stat.S_ISREG(actual.st_mode) and
