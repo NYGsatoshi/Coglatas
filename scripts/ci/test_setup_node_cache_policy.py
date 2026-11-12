@@ -58,7 +58,7 @@ JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
 SETUP_NODE = re.compile(r"(?m)^        uses: actions/setup-node@([0-9a-f]{40})\s*(?:#.*)?$")
 # Count *all* setup-node refs, not only SHA-pinned ones. A second unpinned
 # action must not be invisible to the fixed-source policy.
-SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        uses:|      - uses:)[ \t]*['\"]?actions/setup-node@")
+SETUP_NODE_REFERENCES = re.compile(r"(?m)^(?:        |      -[ \t]+)uses[ \t]*:[ \t]*['\"]?actions/setup-node@")
 INPUT_CACHE = re.compile(r"(?m)^          package-manager-cache: (\S+)\s*$")
 INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
 
@@ -181,7 +181,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify real workflow policy and fail closed on all eighteen mutation controls."""
+    """Verify real workflow policy and fail closed on all twenty mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -264,6 +264,23 @@ def main() -> int:
             "      - name: Require original SARIF and enforce existing project model gate",
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        # Valid YAML allows whitespace before the mapping colon, including
+        # inline step declarations. Do not let that evade the broad action count.
+        "spaced-key inline unpinned setup-node": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - uses : actions/setup-node@v4\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "spaced-key mapped unpinned setup-node": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - name: Unreviewed spaced-key setup-node\n"
+            "        uses : actions/setup-node@v4\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -273,7 +290,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 18 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 20 mutation controls rejected.")
     return 0
 
 
