@@ -129,6 +129,12 @@ describe('files api mapper', () => {
     expect(safeFileNameFromHeader(null, 'fallback.txt')).toBe('fallback.txt');
   });
 
+  it.each(['%', '%GG', '%E3%81'])('falls back safely for malformed encoded filenames (%s)', (encoded) => {
+    expect(safeFileNameFromHeader(`attachment; filename="report.txt"; filename*=UTF-8''${encoded}`, 'fallback.txt'))
+      .toBe('report.txt');
+    expect(safeFileNameFromHeader(`attachment; filename*=UTF-8''${encoded}`, 'fallback.txt'))
+      .toBe('fallback.txt');
+  });
   it('renders only explicit server sharing states and redacts external counts without inspection authority', () => {
     expect(mapFileSharingPresentation({ accessState: 'Private', sharingVersion: 2, canManageSharing: true }))
       .toEqual({ accessState: 'private', canManageSharing: true, sharingVersion: 2, externalRecipientCount: undefined });

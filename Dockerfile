@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 
-FROM node:24@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a AS frontend-deps
+FROM node:26@sha256:e18c3ccdf7d71619990b0e85639f506e2028a95410999cab24cc373cbd10e0ac AS frontend-deps
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 COPY scripts/ci/verify-npm-lockfile.mjs /usr/local/lib/coglatas/verify-npm-lockfile.mjs
@@ -44,16 +44,20 @@ RUN --mount=type=secret,id=syncfusion_license,required=true \
     ! grep -R -F -q -- "$SYNCFUSION_LICENSE" dist || { echo "Syncfusion license material was found in frontend build output." >&2; exit 1; }; \
     unset SYNCFUSION_LICENSE
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
 WORKDIR /src
 
 COPY Coglatas.slnx ./
 COPY src/Coglatas.Domain/Coglatas.Domain.csproj src/Coglatas.Domain/
+COPY src/Coglatas.UI.Core/Coglatas.UI.Core.csproj src/Coglatas.UI.Core/
 COPY src/Coglatas.Application/Coglatas.Application.csproj src/Coglatas.Application/
 COPY src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj src/Coglatas.Infrastructure/
 COPY src/Coglatas.Web/Coglatas.Web.csproj src/Coglatas.Web/
+COPY src/Coglatas.Application/packages.lock.json src/Coglatas.Application/
+COPY src/Coglatas.Infrastructure/packages.lock.json src/Coglatas.Infrastructure/
+COPY src/Coglatas.Web/packages.lock.json src/Coglatas.Web/
 RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sharing=locked \
-    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj
+    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --locked-mode
 
 COPY . .
 RUN rm -rf src/Coglatas.Web/wwwroot/*
@@ -62,12 +66,16 @@ COPY --from=frontend-build /src/frontend/dist/coglatas-web/ src/Coglatas.Web/www
 # restore layers. Force a restore in the same cache mount as publish so missing
 # NuGet packages are repaired before --no-restore is used.
 RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sharing=locked \
-    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --force && \
+    dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --locked-mode --force && \
     dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15@sha256:bfd912c83295ce66d4b706ebb8541b9f14259b0e76fbb88b2751f58ce2399d2e AS runtime
 WORKDIR /app
-RUN apt-get update \
+RUN apt-get -o Acquire::Retries=0 update \
+    && apt-get -o Acquire::Retries=0 install -y --no-install-recommends --only-upgrade \
+        apt libapt-pkg6.0t64 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 2.8.4ubuntu0.1 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg6.0t64)" ge 2.8.4ubuntu0.1 \
     && apt-get install -y --no-install-recommends \
         curl \
         openssl \
