@@ -110,6 +110,11 @@ jobs:
           node --check scripts/security/run-sec-arch-kafka.mjs
           node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
+      - name: Enforce NuGet locked restore policy and negative controls
+        run: |
+          python3 -B scripts/ci/check-nuget-lock-policy.py
+          python3 -B scripts/ci/test-nuget-lock-policy.py
+
       - name: LegacyNameGuard
         run: python3 scripts/ci/check-coglatas-rename.py
 
@@ -179,7 +184,7 @@ jobs:
 
       - name: Restore authoritative .NET graph
         if: steps.scope.outputs.built == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity normal
 
       - name: Build authoritative .NET graph
         if: steps.scope.outputs.built == 'true'
@@ -483,7 +488,7 @@ jobs:
 
       - name: Restore NuGet packages for consumer tools
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity minimal
 
       - name: Restore .NET tools
         # Database-backed backend tests need EF tooling even when the PR has no
@@ -1005,7 +1010,7 @@ jobs:
 
       - name: Restore
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_dotnet == 'true' || needs.dotnet-build.outputs.avmig_contract == 'true'
-        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --locked-mode --disable-parallel --verbosity normal
 
       - name: Reject vulnerable NuGet packages
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_dotnet == 'true'
