@@ -262,6 +262,67 @@ class GithubActionPinsTests(unittest.TestCase):
         )
         self.assertEqual([], self.errors())
 
+    def test_structural_parser_rejects_indent_quote_and_multiline_flow_bypasses(self) -> None:
+        cases = (
+            'jobs:\n    "test":\n        runs-on: ubuntu-latest\n'
+            '        steps: [{uses: actions/checkout@v7}]\n',
+            "'jobs':\n  test:\n    steps:\n      - {uses: actions/checkout@v7}\n",
+            '"jobs":\n  test:\n    steps:\n      - {"uses": actions/checkout@v7}\n',
+            'jobs:\n  "test":\n    steps:\n      [\n        {uses: actions/checkout@v7}\n      ]\n',
+            'jobs:\n  test:\n    steps:\n      -\n        {uses: actions/checkout@v7}\n',
+            'jobs:\n  "test": {runs-on: ubuntu-latest, steps: []}\n',
+        )
+        for jobs in cases:
+            with self.subTest(jobs=jobs):
+                self.write_workflow("required.yml", "on: pull_request\n" + jobs)
+                self.assertTrue(
+                    any("unsupported flow-style" in e for e in self.errors()),
+                    self.errors(),
+                )
+
+    def test_encoded_uses_key_cannot_hide_from_structural_inventory(self) -> None:
+        self.write_workflow(
+            "required.yml",
+            "on: pull_request\njobs:\n  test:\n    steps:\n"
+            '      - "u\\u0073es": actions/checkout@v7\n',
+        )
+        self.assertTrue(any("cannot parse uses reference" in e for e in self.errors()))
+
+    def test_yaml_merge_and_duplicate_uses_keys_fail_closed(self) -> None:
+        cases = (
+            '      - <<: *unreviewed\n',
+            f'      - uses: actions/checkout@{PIN} # v7\n'
+            '        "uses": actions/checkout@v7\n',
+        )
+        for step in cases:
+            with self.subTest(step=step):
+                self.write_workflow(
+                    "required.yml",
+                    "on: pull_request\njobs:\n  test:\n    steps:\n" + step,
+                )
+                self.assertNotEqual([], self.errors())
+
+    def test_unrelated_flow_and_literal_shell_strings_still_pass(self) -> None:
+        self.write_workflow(
+            "required.yml",
+            "on:\n  pull_request: {types: [opened]}\n"
+            '"jobs":\n  "test":\n    steps:\n'
+            "      - run: |\n"
+            "          echo 'jobs: {fake: true}'\n"
+            "          echo '- {uses: actions/checkout@v7}'\n"
+            f"      - 'uses': actions/checkout@{PIN} # v7\n",
+        )
+        self.assertEqual([], self.errors())
+
+    def test_reject_yaml_with_multiple_documents(self) -> None:
+        self.write_workflow(
+            "required.yml",
+            f"on: pull_request\njobs:\n  test:\n    steps:\n"
+            f"      - uses: actions/checkout@{PIN} # v7\n"
+            "---\njobs:\n  hidden:\n    steps:\n      - uses: actions/checkout@v7\n",
+        )
+        self.assertTrue(any("expected one YAML document" in e for e in self.errors()))
+
 
 if __name__ == "__main__":
     unittest.main()
