@@ -17,6 +17,7 @@ NAMES = frozenset({
     "COGLATAS_SECURITY_ZAP_CSRF_TOKEN",
     "COGLATAS_SECURITY_ZAP_REPORT_DIR",
     "COGLATAS_SECURITY_ZAP_REPORT_FILE",
+    "COGLATAS_SECURITY_ZAP_TASK_ID",
 })
 TOKEN = re.compile(r"\$\{(COGLATAS_SECURITY_ZAP_[A-Z0-9_]+)\}")
 QUOTED = re.compile(r'"([^"\n]*)"')
@@ -32,6 +33,9 @@ def main() -> None:
     values = {name: os.environ.get(name, "") for name in NAMES}
     if not all(values.values()):
         raise SystemExit("SEC-06 plan requires all authenticated scan values")
+    if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+                        values["COGLATAS_SECURITY_ZAP_TASK_ID"]):
+        raise SystemExit("SEC-06 plan requires the role's concrete fixture Task GUID")
 
     def replace_quoted(match: re.Match[str]) -> str:
         value = match.group(1)
