@@ -144,6 +144,11 @@ use the same SDK patch with full reviewed SHA-256 digests. Dependabot's SDK,
 Docker and Compose proposals may be generated separately. The resulting
 candidate cannot merge until it passes the SDK-image parity guard; combine
 the related proposals with registry-verified image digests and rerun CI.
+The root Dockerfile SDK digest is the canonical identity for live SDK consumers.
+The parity guard checks that digest in Compose, development/security images and
+both synthetic logical-recovery pin carriers, including same-version drift.
+Update the recovery runner, receipt validator and positive test fixture together;
+historical receipts remain bound to their original source and image identities.
 
 `scripts/ci/test-dependency-update-policy.rb` is enforced in the existing
 required `publication-readiness` job. It rejects missing update entries, unsupported subdaily cron expressions,

@@ -217,13 +217,30 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py,tests/ci/test_restore_data_dependency_advisor.mjs',
+            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py,tests/ci/test_restore_data_dependency_advisor.mjs,tests/ci/synthetic-trigger-catalog.postgres-test.mjs',
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
             "sonar.issue.ignore.multicriteria", settings,
             "Keep the reviewed Docker rule exception in SonarCloud project settings.",
         )
+
+    def test_recovery_native_test_body_classification_preserves_operational_sources(self) -> None:
+        import fnmatch
+        settings = dict(line.split("=", 1) for line in (ROOT / ".sonarcloud.properties").read_text().splitlines()
+                        if line and not line.startswith("#") and "=" in line)
+        patterns = settings["sonar.coverage.exclusions"].split(",")
+        body = "tests/ci/synthetic-trigger-catalog.postgres-test.mjs"
+        self.assertIn(body, patterns)
+        self.assertIn("from 'node:test'", (ROOT / body).read_text())
+        workflow = WORKFLOW.read_text()
+        self.assertIn("--test-coverage-exclude='**/" + body + "'", workflow)
+        self.assertIn("--test-coverage-exclude='**/scripts/security/zap-attribution.test.cjs'", workflow)
+        self.assertIn("            " + body + " \\", workflow)
+        self.assertIn("            scripts/security/zap-attribution.test.cjs \\", workflow)
+        for source in ["scripts/ci/synthetic-trigger-catalog.mjs", "scripts/ci/run-synthetic-logical-recovery.mjs",
+                       "scripts/ci/synthetic-logical-recovery-receipt.mjs", "scripts/security/zap-attribution.cjs"]:
+            self.assertFalse(any(fnmatch.fnmatchcase(source, pattern) for pattern in patterns), source)
 
     def test_schemathesis_coverage_exception_is_only_live_unit_test_body(self) -> None:
         relative = "scripts/security/test-schemathesis-input-attribution.py"
@@ -328,6 +345,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn("test-workspace-icon-disclosure-policy.py", block)
         self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
         self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
+        self.assertIn("tests/ci/test_security_zap_attribution.py", block)
+        self.assertIn("tests/ci/test_performance_db_ci.py", block)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -338,6 +357,18 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('thread-secondary-reporter-*/**', block)
         self.assertIn("--test-coverage-exclude='**/*.node-test.mjs'", block)
         self.assertIn('verify-sonar-node-coverage.node-test.mjs', block)
+        self.assertNotIn('tests/ui/student-council-pilot-helpers.node-test.mjs', block)
+        pilot = workflow.split('- name: Measure existing Pilot helpers in a separate native cohort', 1)[1].split('- name: Retain original Pilot helper native coverage', 1)[0]
+        self.assertIn('tests/ui/student-council-pilot-helpers.node-test.mjs', pilot)
+        self.assertEqual(pilot.count('--test-coverage-include='), 3)
+        self.assertNotIn('--test-coverage-exclude=', pilot)
+        self.assertIn('validateNodeCoverage(text)', pilot)
+        self.assertIn('assert.equal(checked.sourceFiles, 3)', pilot)
+        self.assertIn('validateNodeCoverage(baseline)', pilot)
+        self.assertIn('Native source reports must be disjoint.', pilot)
+        self.assertIn('relative(root, resolve(root, source))', pilot)
+        self.assertIn('artifacts/sonar-pilot-helper/lcov.info', workflow)
+        self.assertLess(workflow.index('- name: Retain original Pilot helper native coverage'), workflow.index('- name: Begin pinned SonarCloud analysis'))
         self.assertIn('tests/ci/test_restore_data_dependency_advisor.mjs', block)
         self.assertIn("--test-coverage-exclude='**/tests/ci/test_restore_data_dependency_advisor.mjs'", block)
         self.assertNotIn("--test-coverage-exclude='**/scripts/ci/restore-data-dependency-advisor.mjs'", block)
@@ -365,6 +396,8 @@ class SonarSourceScopeTests(unittest.TestCase):
         block = workflow[start:end]
         self.assertEqual(re.findall(r"--test-coverage-exclude=([^\n]+)", block), [
             "'**/*.node-test.mjs' \\",
+            "'**/tests/ci/synthetic-trigger-catalog.postgres-test.mjs' \\",
+            "'**/scripts/security/zap-attribution.test.cjs' \\",
             "'**/tests/ci/test_restore_data_dependency_advisor.mjs' \\",
             '"$coverage_temp_root/thread-secondary-reporter-*/**" \\',
             '"$coverage_temp_root/coglatas-thread-matrix-*/**" \\',

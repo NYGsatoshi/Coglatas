@@ -73,7 +73,7 @@ export async function runRealBackendSmokeCompose(control = null) {
     }
 
     const cleanup = await cleanupOnce(exitCode === 0);
-    if (rosterControl && cleanup?.exitCode !== 0) exitCode = 1;
+    if ((rosterControl || exitCode === 0) && cleanup?.exitCode !== 0) exitCode = 1;
   }
 
   return exitCode;

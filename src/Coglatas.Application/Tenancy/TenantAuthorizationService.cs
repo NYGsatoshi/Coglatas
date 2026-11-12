@@ -13,7 +13,7 @@ public sealed class TenantAuthorizationService(ITenantRepository tenantRepositor
 
     public async Task<bool> CanManageTenantAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var membership = await tenantRepository.GetTenantUserAsync(tenantId, userId, cancellationToken);
+        var membership = await tenantRepository.GetCurrentTenantUserAsync(tenantId, userId, cancellationToken);
         if (membership is not
         {
             Status: TenantUserStatus.Active,
@@ -31,7 +31,7 @@ public sealed class TenantAuthorizationService(ITenantRepository tenantRepositor
 
     public async Task<bool> IsPlatformAdminAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await tenantRepository.GetUserAsync(userId, cancellationToken);
+        var user = await tenantRepository.GetCurrentUserAsync(userId, cancellationToken);
         return user is
         {
             Status: UserStatus.Active,
