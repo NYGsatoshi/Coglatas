@@ -263,7 +263,30 @@ jobs:
             scripts/ci/test_av_mig_contract_boundary_adversarial.py \
             tests/ci/test_performance_assurance.py \
             tests/ci/test_performance_local.py \
+            tests/ci/test_performance_db.py \
+            tests/ci/test_performance_db_candidate.py \
+            tests/ci/test_performance_db_assignment_transition.py \
+            tests/ci/test_performance_db_approval_history.py \
+            tests/ci/test_performance_environment_class.py \
+            tests/ci/test_performance_public_digest.py \
+            tests/ci/test_performance_runtime_compatibility.py \
+            tests/ci/test_performance_diagnostic_recovery.py \
             scripts/ci/test_av_mig_production_cli.py; do
+            case "$control" in
+              tests/ci/test_performance_db.py|\
+              tests/ci/test_performance_db_candidate.py|\
+              tests/ci/test_performance_db_assignment_transition.py|\
+              tests/ci/test_performance_db_approval_history.py|\
+              tests/ci/test_performance_environment_class.py|\
+              tests/ci/test_performance_public_digest.py|\
+              tests/ci/test_performance_runtime_compatibility.py|\
+              tests/ci/test_performance_diagnostic_recovery.py)
+                COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
+                  PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
+                  python3 -B -m coverage run -m unittest discover -s tests/ci -p "${control##*/}"
+                continue
+                ;;
+            esac
             if [[ "$control" == "tests/ci/test_performance_local.py" ]]; then
               COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
                 PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
