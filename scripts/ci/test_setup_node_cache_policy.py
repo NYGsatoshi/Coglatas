@@ -54,6 +54,17 @@ EXPECTED = {
     },
 }
 
+# These are the exact reviewed step predicates; a changed/disabled step
+# cannot borrow execution evidence from another conditional.
+REVIEWED_OWNER_IF = {
+    (".github/workflows/ci.yml", "frontend-build"): "needs.changes.outputs.frontend == 'true'",
+    (".github/workflows/ci.yml", "frontend-test"): "needs.frontend-build.outputs.frontend == 'true'",
+    (".github/workflows/main-build-artifacts.yml", "qodana-cloud"): "steps.qodana_scan.outcome == 'success'",
+    (".github/workflows/qodana_trusted_gate.yml", "qodana-dotnet-community"): "steps.qodana_scan.outcome == 'success'",
+    (".github/workflows/qodana_cloud_quality.yml", "qodana-cloud"): "steps.qodana_scan.outcome == 'success'",
+    (".github/workflows/qodana-signed-shadow.yml", "shadow-producer"): "steps.qodana_scan.outcome == 'success'",
+}
+
 JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
 SETUP_NODE = re.compile(r"(?m)^        uses: actions/setup-node@([0-9a-f]{40})\s*(?:#.*)?$")
 # Count *all* setup-node refs, not only SHA-pinned ones. A second unpinned
@@ -64,6 +75,9 @@ INPUT_CACHE = re.compile(r"(?m)^          package-manager-cache: (\S+)\s*$")
 # so an additional input cannot silently override the reviewed false value.
 INPUT_CACHE_KEYS = re.compile(r"(?m)^          (?:package-manager-cache|['\"]package-manager-cache['\"])[ \t]*:")
 INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          (?:cache|['\"]cache['\"])[ \t]*:")
+# A flow-mapping step can contain an unpinned setup-node action invisible to
+# line-oriented uses scanners. Reject unsupported step forms in guarded jobs.
+FLOW_STEPS = re.compile(r"(?m)^      -[ \t]*\{")
 
 
 def job_blocks(source: str) -> dict[str, str]:
@@ -91,9 +105,10 @@ def run_command_lines(job: str) -> list[str]:
     folded: list[str] = []
     pending_blank = False
     unsupported = False
+    shell_depth = 0
 
     def finish() -> None:
-        nonlocal style, folded, pending_blank, unsupported
+        nonlocal style, folded, pending_blank, unsupported, shell_depth
         if style == "folded" and folded and not unsupported:
             # Strip shell comments only AFTER YAML folding. Earlier removal
             # could falsely promote a later folded line to an invocation.
@@ -104,6 +119,7 @@ def run_command_lines(job: str) -> list[str]:
         folded = []
         pending_blank = False
         unsupported = False
+        shell_depth = 0
 
     for line in job.splitlines():
         run = re.match(r"^        run:[ \t]*(.*)$", line)
@@ -132,8 +148,22 @@ def run_command_lines(job: str) -> list[str]:
         fragment = line[10:]
         if style == "literal":
             command = fragment.split("#", 1)[0].strip()
-            if command:
-                commands.append(command)
+            if not command:
+                continue
+            # A textual command inside if/for/case/while blocks does not prove
+            # unconditional execution. Never promote such nested lines.
+            if re.match(r"^(?:if|for|while|until|case|select)(?:\s|$)", command):
+                shell_depth += 1
+                continue
+            if re.match(r"^(?:fi|done|esac)(?:\s|$)", command):
+                if shell_depth:
+                    shell_depth -= 1
+                else:
+                    unsupported = True
+                continue
+            if shell_depth or fragment.startswith((" ", "\t")):
+                continue
+            commands.append(command)
         else:
             # A nested indent or a separated folded paragraph may have
             # different YAML newline semantics: decline unsupported forms.
@@ -151,13 +181,18 @@ def run_command_lines(job: str) -> list[str]:
         return []
     return commands
 
-def owner_invoked(job: str, owner: str) -> bool:
+def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
     """Require an active canonical Bash/Node command, never echo or path mentions."""
     interpreter = "node" if owner.endswith(".mjs") else "bash"
     canonical = re.compile(rf"^{interpreter}[ \t]+{re.escape(owner)}(?:[ \t]|$)")
     # Evaluate per actual YAML step, so an unrelated command cannot lend
     # execution authority to an inert echo or a test path in another step.
     for step in re.split(r"(?m)(?=^      - )", job):
+        observed_ifs = re.findall(r"(?m)^        if:[ \t]*(.*?)\s*$", step)
+        # Exact reviewed conditions allow necessary frontend routing and
+        # Qodana scan-success gates, but never an inserted false/foreign if.
+        if observed_ifs != ([required_if] if required_if is not None else []):
+            continue
         commands = run_command_lines(step)
         if any(canonical.match(command) for command in commands):
             return True
@@ -199,8 +234,10 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if job is None:
                 issues.append(f"{path}: missing job {job_id}")
                 continue
-            if not owner_invoked(job, owner):
+            if not owner_invoked(job, owner, REVIEWED_OWNER_IF.get((path, job_id))):
                 issues.append(f"{path}/{job_id}: expected executable package owner missing")
+            if FLOW_STEPS.search(job):
+                issues.append(f"{path}/{job_id}: unsupported YAML flow-mapping step")
             uses = list(SETUP_NODE.finditer(job))
             references = list(SETUP_NODE_REFERENCES.finditer(job))
             if (len(uses) != 1 or len(references) != 1
@@ -221,6 +258,28 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
                 issues.append(f"{path}/{job_id}: implicit npm cache must be disabled exactly once")
             if INPUT_EXPLICIT_CACHE.search(step):
                 issues.append(f"{path}/{job_id}: explicit setup-node cache not permitted")
+            # Fail closed on every noncanonical mapping spelling in with.
+            # This includes double-quoted YAML escape sequences that decode
+            # to 'cache', anchors, aliases, extra/duplicate keys and flow maps.
+            with_lines = step.splitlines()
+            locations = [i for i, line in enumerate(with_lines) if line == "        with:"]
+            if len(locations) != 1:
+                issues.append(f"{path}/{job_id}: exactly one canonical setup-node with block required")
+            else:
+                values = []
+                valid_layout = True
+                for raw in with_lines[locations[0] + 1:]:
+                    if not raw.strip() or raw.lstrip().startswith("#"):
+                        continue
+                    if not raw.startswith("          ") or raw[10:].startswith((" ", "\t")):
+                        valid_layout = False
+                        break
+                    values.append(raw[10:].strip())
+                expected_versions = ('node-version: "26"', "node-version: '26'")
+                if (not valid_layout or len(values) != 2
+                        or values.count("package-manager-cache: false") != 1
+                        or sum(value in expected_versions for value in values) != 1):
+                    issues.append(f"{path}/{job_id}: unreviewed setup-node with key or YAML syntax")
     return issues
 
 
@@ -235,7 +294,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all twenty-eight bounded source mutations."""
+    """Verify reviewed policy and reject all thirty-two bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -384,6 +443,33 @@ def main() -> int:
             "          INERT_GUARD_TEXT",
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        "flow mapping with unpinned action": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - {uses: actions/setup-node@v4}\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "escaped double-quoted explicit cache key": one_replacement(
+            workflows,
+            "          package-manager-cache: false",
+            '          package-manager-cache: false\n          "c\\\\x61che": npm',
+        ),
+        "inactive shell branch is not owner execution": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          if false; then\n"
+            "            bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          fi",
+        ),
+        "disabled owner step cannot qualify": one_replacement(
+            workflows,
+            "        if: needs.changes.outputs.frontend == 'true'\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        if: ${{ false }}\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -393,7 +479,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 28 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 32 mutation controls rejected.")
     return 0
 
 
