@@ -100,6 +100,10 @@ def run_command_lines(job: str) -> list[str]:
     Treat blank-separated and more-indented folded forms as unsupported
     rather than trusting a physical line that YAML does not execute alone.
     """
+    # Reject heredoc/here-string syntax in the raw step *before* shell comment
+    # removal: a quoted '#' can otherwise hide the '<<' operator.
+    if any("<<" in line for line in job.splitlines()):
+        return []
     commands: list[str] = []
     style: str | None = None
     folded: list[str] = []
@@ -294,7 +298,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all thirty-two bounded source mutations."""
+    """Verify reviewed policy and reject all thirty-three bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -470,6 +474,14 @@ def main() -> int:
             "        if: ${{ false }}\n"
             "        run: bash scripts/ci/npm-ci-retry.sh frontend",
         ),
+        "quoted hash before inert heredoc": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            "          printf '%s#' <<'INERT_GUARD_TEXT'\n"
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"\n'
+            "          INERT_GUARD_TEXT",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -479,7 +491,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 32 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 33 mutation controls rejected.")
     return 0
 
 
