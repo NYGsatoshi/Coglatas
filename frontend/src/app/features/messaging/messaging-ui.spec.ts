@@ -1183,6 +1183,10 @@ describe('Messaging MVP0 backend wiring', () => {
     await Promise.resolve();
 
     const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
+    const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
+    const close = root.querySelector<HTMLButtonElement>('[data-testid="thread-close"]')!;
+    // Set the desktop-hidden state *before* deletion triggers focus restoration.
+    back.style.display = 'none';
     textarea.focus();
     expect(document.activeElement).toBe(textarea);
 
@@ -1196,9 +1200,8 @@ describe('Messaging MVP0 backend wiring', () => {
     await Promise.resolve();
 
     expect(root.querySelector('[data-testid="open-message-thread-message-own"]')).toBeNull();
-    const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
-    expect(document.activeElement).toBe(back);
-    back.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(close);
+    close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     fixture.detectChanges();
     await Promise.resolve();
 

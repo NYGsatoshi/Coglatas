@@ -266,20 +266,30 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
       current.rootMessage?.isDeleted === true &&
       this.replyDraft?.nativeElement === document.activeElement
     ) {
-      // Move focus before Angular disables the textarea. Deferred focus is
-      // insufficient when the runtime retains the disabled node as active.
-      this.backControl?.nativeElement.focus();
+      // Restore focus after change detection updates the disabled state.
+      // jsdom 31 can retain a newly disabled textarea as the active element,
+      // so focusing the header before Angular applies [disabled] is too early.
+      this.restoreHeaderFocus = 'back';
     }
   }
 
   ngAfterViewChecked(): void {
     if (this.restoreHeaderFocus) {
-      const control = this.restoreHeaderFocus === 'back'
+      const requested = this.restoreHeaderFocus;
+      const control = requested === 'back'
         ? this.backControl?.nativeElement
         : this.closeControl?.nativeElement;
       this.restoreHeaderFocus = null;
       if (control?.isConnected && document.activeElement !== control) {
         control.focus();
+      }
+      // The Back action is hidden on wide screens. Browsers and jsdom 31
+      // cannot focus a display:none button, so use the visible Close action.
+      if (requested === 'back' && document.activeElement !== control) {
+        const close = this.closeControl?.nativeElement;
+        if (close?.isConnected && document.activeElement !== close) {
+          close.focus();
+        }
       }
     }
     const key = this.thread.status === 'closed'
@@ -299,9 +309,19 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
       queueMicrotask(() => document.getElementById(`thread-message-${this.safeId(this.focusMessageId!)}`)?.focus());
     } else if (shouldFocusPanel) {
       queueMicrotask(() => {
+        const panel = this.panel?.nativeElement;
+        if (!panel?.isConnected) {
+          return;
+        }
+        const active = document.activeElement;
+        // The initial panel autofocus is deferred. Do not override a user's
+        // focus on a back/close button or reply field in the meantime.
+        if (active && panel.contains(active) && active !== panel) {
+          return;
+        }
         // Roving tab navigation owns focus while switching the thread panel.
-        if (!document.activeElement?.closest('[role="tablist"]')) {
-          this.panel?.nativeElement.focus();
+        if (!active?.closest('[role="tablist"]')) {
+          panel.focus();
         }
       });
     }
