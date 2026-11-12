@@ -4,6 +4,7 @@ using Coglatas.Application.Files;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace Coglatas.Application.Artifacts;
 
@@ -22,7 +23,8 @@ public sealed class ArtifactService(
     IClock clock,
     IAuditLogger auditLogger,
     INotificationService notifications,
-    IUnitOfWork unitOfWork) : IArtifactService
+    IUnitOfWork unitOfWork,
+    ILogger<ArtifactService>? logger = null) : IArtifactService
 {
     public async Task<Result<IReadOnlyList<ArtifactListItemResponse>>> ListAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -204,6 +206,7 @@ public sealed class ArtifactService(
         }
 
         ArtifactVersion version;
+        var saveOutcome = unitOfWork.BeginUploadSave();
         try
         {
             version = new ArtifactVersion
@@ -245,18 +248,12 @@ public sealed class ArtifactService(
             artifact.CurrentVersionId = version.Id;
             await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionUploaded", "ArtifactVersion", version.Id), cancellationToken);
             await NotifyProjectManagersAsync(artifact.ProjectId, "New artifact version uploaded", artifact.Name, artifact.Id, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            saveOutcome.Disposition = UploadCommitDisposition.Unknown;
+            await unitOfWork.SaveUploadChangesAsync(saveOutcome, cancellationToken);
         }
         catch
         {
-            try
-            {
-                await storage.DeleteAsync(fileObject.StorageKey, CancellationToken.None);
-            }
-            catch
-            {
-                // Preserve the original metadata/audit failure if compensation fails.
-            }
+            await StoredFileCompensation.AfterUploadFailureAsync(storage, fileObject.StorageKey, unitOfWork, saveOutcome, logger);
             throw;
         }
         return Result<ArtifactVersionResponse>.Success(ToVersion(version));
@@ -276,9 +273,17 @@ public sealed class ArtifactService(
         }
 
         var content = await storage.OpenReadAsync(version.FileObject.StorageKey, cancellationToken);
-        await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionDownloaded", "ArtifactVersion", version.Id), cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, version.FileObject.OriginalFileName, version.FileObject.ContentType, version.FileObject.SizeBytes));
+        try
+        {
+            await auditLogger.LogAsync(new AuditLogEntry(userId, "ArtifactVersionDownloaded", "ArtifactVersion", version.Id), cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result<FileDownloadResponse>.Success(new FileDownloadResponse(content, version.FileObject.OriginalFileName, version.FileObject.ContentType, version.FileObject.SizeBytes));
+        }
+        catch
+        {
+            await DownloadResponseStreamCleanup.TryDisposeAsync(content, logger);
+            throw;
+        }
     }
 
     public async Task<Result> DeleteVersionAsync(Guid versionId, CancellationToken cancellationToken = default)
