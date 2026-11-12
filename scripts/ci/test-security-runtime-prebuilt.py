@@ -22,7 +22,7 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
         canonical_source = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         canonical_images = re.findall(
             r"(?m)^FROM (mcr[.]microsoft[.]com/dotnet/sdk:"
-            r"(\\d+[.]\\d+[.]\\d+)@sha256:[a-f0-9]{64}) AS build$",
+            r"(\d+[.]\d+[.]\d+)@sha256:[a-f0-9]{64}) AS build$",
             canonical_source,
         )
         self.assertEqual(1, len(canonical_images))
