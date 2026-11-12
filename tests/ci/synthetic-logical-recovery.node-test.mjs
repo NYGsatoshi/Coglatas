@@ -461,7 +461,7 @@ function closedReceipt(fixture, status = 'ERROR') {
     runtimeMode: 'Test/SaaS', publicPorts: false, restoredTargetMigrations: false,
     postgresVersionNum: null, appImage: null, postgresImage: null, restoreCalls: { target: 0, fault: 0 },
     helperImage: 'node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413',
-    migrationSdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e',
+    migrationSdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb',
     strictCheckpoint: 'NOT_EVALUATED', startupDelta: 'NOT_EVALUATED', api: 'NOT_EVALUATED',
     faultSourcePreserved: false, originalSourceRollback: false, cleanup: false,
     rolesAndRlsQualification: 'NOT_EVALUATED', productionHttps: 'NOT_EVALUATED',
