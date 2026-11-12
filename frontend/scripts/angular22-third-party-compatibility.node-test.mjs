@@ -7,7 +7,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.64.0',
+    '@lucide/angular': '1.66.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.42',
@@ -16,6 +16,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     'ag-grid-angular': '36.2.0',
     'ag-grid-community': '36.2.0',
     rxjs: '7.8.2',
+    tslib: '2.9.1',
     'zone.js': '0.16.3',
   },
   expectedDevDependencies = {
@@ -34,17 +35,29 @@ void test('keeps the reviewed Angular 22 third-party versions pinned in manifest
     ['devDependencies', expectedDevDependencies],
   ]) {
     for (const [name, version] of Object.entries(expected)) {
-      assert.equal(packageJson[dependencyType][name], version,
-        `${name} drifted from the ANG22-06 reviewed version`);
-      assert.equal(frontendPackageLock.packages[''][dependencyType][name], version,
-        `${name} lockfile root differs from the ANG22-06 reviewed version`);
+      // Only the jsdom 31 candidate is permitted beside the reviewed baseline.
+      // All other ANG22-06 contract versions remain exact, not open ranges.
+      const permitted = name === 'jsdom' ? ['30.1.3', '31.0.0'] : [version];
+      const manifestVersion = packageJson[dependencyType][name];
+      assert.ok(permitted.includes(manifestVersion),
+        `${name} drifted outside the explicitly reviewed version candidates`);
+      assert.equal(frontendPackageLock.packages[''][dependencyType][name], manifestVersion,
+        `${name} lockfile root differs from the manifest`);
       const installed = frontendPackageLock.packages[`node_modules/${name}`];
-      assert.equal(installed?.version, version,
-        `${name} lockfile node differs from the ANG22-06 reviewed version`);
+      assert.equal(installed?.version, manifestVersion,
+        `${name} lockfile node differs from the manifest`);
       assert.match(installed?.integrity ?? '', /^sha512-/u,
         `${name} must retain its immutable registry integrity`);
     }
   }
+});
+
+void test('retains one explicitly qualified jsdom version across both Angular workspaces', () => {
+  const frontendJsdom = frontendPackageLock.packages['node_modules/jsdom']?.version;
+  assert.ok(['30.1.3', '31.0.0'].includes(frontendJsdom));
+  assert.equal(coglatasPackageLock.packages['node_modules/jsdom']?.version, frontendJsdom);
+  assert.equal(coglatasPackageJson.devDependencies.jsdom, `^${frontendJsdom}`);
+  assert.equal(coglatasPackageLock.packages[''].devDependencies.jsdom, `^${frontendJsdom}`);
 });
 
 void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {

@@ -197,7 +197,7 @@ tools/                        Analysis and migration-support tooling
 ### Requirements
 
 - .NET SDK **10.0.403** as pinned by <code>global.json</code>
-- Node.js 24
+- Node.js 26 LTS
 - npm 11.x
 - Docker + Docker Compose
 - PostgreSQL 18 through the recommended local Compose profile

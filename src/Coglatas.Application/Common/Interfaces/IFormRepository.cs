@@ -7,6 +7,10 @@ public interface IFormRepository
 {
     Task<IReadOnlyList<InternalForm>> ListAsync(FormListQuery query, CancellationToken cancellationToken = default);
     Task<InternalForm?> GetAsync(Guid formId, CancellationToken cancellationToken = default);
+    Task<InternalForm?> GetCurrentAuthorizationAsync(Guid formId, CancellationToken cancellationToken = default) =>
+        GetAsync(formId, cancellationToken);
+    Task<bool> ReadCurrentAuthorizationAsync(Func<CancellationToken, Task<bool>> authorization,
+        CancellationToken cancellationToken = default) => authorization(cancellationToken);
     Task AddAsync(InternalForm form, CancellationToken cancellationToken = default);
     Task AddQuestionAsync(FormQuestion question, CancellationToken cancellationToken = default);
     Task<FormQuestion?> GetQuestionAsync(Guid formId, Guid questionId, CancellationToken cancellationToken = default);

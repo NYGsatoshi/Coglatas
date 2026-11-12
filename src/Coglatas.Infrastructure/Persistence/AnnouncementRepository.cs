@@ -12,6 +12,23 @@ public sealed class AnnouncementRepository(
     IClock clock,
     ICurrentTenant currentTenant) : IAnnouncementRepository
 {
+    public async Task<T> ReadCurrentAuthorizationAsync<T>(Func<CancellationToken, Task<T>> authorization,
+        CancellationToken cancellationToken = default)
+    {
+        // Keep authority reads independent of previously tracked entities without
+        // detaching caller-owned mutations or changing their persistence behavior.
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await authorization(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
     public async Task<PagedResponse<Announcement>> ListVisibleAsync(Guid userId, bool isSystemAdmin, AnnouncementListQuery query, CancellationToken cancellationToken = default)
     {
         var source = dbContext.VisibleAnnouncementsFor(userId, isSystemAdmin, clock.UtcNow)

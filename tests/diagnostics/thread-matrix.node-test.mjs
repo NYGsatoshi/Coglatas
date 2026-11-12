@@ -66,6 +66,7 @@ void test('actual reporter rejects protected observations and a controlled raw a
     const root = process.cwd(), playwright = pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href;
     const reporter = join(root, 'tests/diagnostics/thread-matrix-reporter.mjs');
     writeFileSync(join(directory, 'config.mjs'), `export default ${JSON.stringify({
+      build: { external: ['**/*.mjs'] },
       testDir: directory, testMatch: 'control.spec.mjs', workers: 1, retries: 0, maxFailures: 1,
       timeout: 120000, expect: { timeout: 15000 },
       reporter: [[reporter]], outputDir: join(directory, 'browser-output'), projects: [{ name: 'mocked-thread-matrix-320-touch', use: {
