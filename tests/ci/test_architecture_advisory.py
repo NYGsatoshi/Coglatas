@@ -18,7 +18,8 @@ SHA = 'a' * 40
 N = module.NAMESPACE
 
 
-def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=False, extra=False, dtd=False):
+def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=False,
+        extra=False, dtd=False, run_outcome='Completed'):
     """Build a bounded synthetic native TRX with configurable negative outcomes."""
     root = ET.Element(N + 'TestRun')
     results = ET.SubElement(root, N + 'Results')
@@ -34,7 +35,7 @@ def trx(*, missing=False, duplicate=False, failed=False, incorrect_counters=Fals
             'testId': str(index), 'testName': module.PREFIX + name,
             'outcome': 'Failed' if failed and index == 0 else 'Passed',
         })
-    summary = ET.SubElement(root, N + 'ResultSummary')
+    summary = ET.SubElement(root, N + 'ResultSummary', {'outcome': run_outcome})
     keys = ('total', 'executed', 'passed', 'failed', 'error', 'timeout', 'aborted', 'inconclusive',
             'notRunnable', 'notExecuted', 'disconnected', 'warning', 'completed',
             'inProgress', 'pending', 'passedButRunAborted')
@@ -69,6 +70,11 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
         for variant in ('failed', 'incorrect_counters'):
             with self.subTest(variant=variant), self.assertRaises(module.ArchitectureEvidenceError):
                 module.verify(trx(**{variant: True}), SHA, '123', 1)
+        for value in ('Failed', 'Aborted', 'InProgress', ''):
+            with self.subTest(run_outcome=value):
+                with self.assertRaises(module.ArchitectureEvidenceError) as failure:
+                    module.verify(trx(run_outcome=value), SHA, '123', 1)
+                self.assertEqual(failure.exception.args[0], 'TRX_RUN_OUTCOME')
 
     def test_rejects_missing_xml_dtd_and_invalid_source(self):
         """Reject malformed encodings, DTD input and invalid source claims."""

@@ -194,6 +194,19 @@ class ArchitectureEvidencePairTests(unittest.TestCase):
                 pair.read_receipt(path, self.root, pair.NATIVE_FILE)
         self.assertEqual(failure.exception.args[0], 'RECEIPT_FILE')
 
+        # Simulate a FIFO inserted just before open: the parser must demand
+        # O_NONBLOCK and refuse the endpoint rather than wait for a writer.
+        def substituted_fifo(target, flags, *args, **kwargs):
+            if Path(target) == path:
+                self.assertTrue(flags & os.O_NONBLOCK)
+                raise OSError('synthetic FIFO instead of receipt')
+            return actual_open(target, flags, *args, **kwargs)
+
+        with patch.object(pair.os, 'open', side_effect=substituted_fifo):
+            with self.assertRaises(pair.EvidencePairRefused) as failure:
+                pair.read_receipt(path, self.root, pair.NATIVE_FILE)
+        self.assertEqual(failure.exception.args[0], 'RECEIPT_FILE')
+
         link = self.root / pair.PARITY_FILE
         try:
             link.symlink_to(path)

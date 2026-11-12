@@ -78,6 +78,11 @@ INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          (?:cache|['\"]cache['\"])[ \t
 # A flow-mapping step can contain an unpinned setup-node action invisible to
 # line-oriented uses scanners. Reject unsupported step forms in guarded jobs.
 FLOW_STEPS = re.compile(r"(?m)^      -[ \t]*\{")
+# YAML block scalar action references evade exact one-setup-node counting.
+# Reject unsupported folded or literal uses scalars in reviewed job steps.
+BLOCK_USES = re.compile(
+    r"(?m)^(?:        |      -[ \t]+)(?:uses|['\"]uses['\"])[ \t]*:[ \t]*[>|][-+]?[ \t]*(?:#.*)?$"
+)
 
 
 def job_blocks(source: str) -> dict[str, str]:
@@ -183,6 +188,11 @@ def run_command_lines(job: str) -> list[str]:
     # This fail-closed guard also declines unreviewed here-string constructs.
     if any("<<" in command for command in commands):
         return []
+    # Early exit or control transfer makes a later owner guard unreachable.
+    # Decline unsupported shell grammar rather than inferring execution.
+    if any(re.search(r"(?:^|[;&|])[ \t]*(?:exit|return|break|continue|exec)(?:[ \t]|;|$)",
+                     command) for command in commands):
+        return []
     return commands
 
 def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
@@ -193,6 +203,10 @@ def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
     # execution authority to an inert echo or a test path in another step.
     for step in re.split(r"(?m)(?=^      - )", job):
         observed_ifs = re.findall(r"(?m)^        if:[ \t]*(.*?)\s*$", step)
+        # Alternate YAML step keys are not the reviewed grammar; in
+        # particular quoted/escaped or spaced `if` disables an owner.
+        if re.search(r"(?m)^        (?:['\"]|\?|[A-Za-z][A-Za-z0-9_-]*[ \t]+:)", step):
+            continue
         # Exact reviewed conditions allow necessary frontend routing and
         # Qodana scan-success gates, but never an inserted false/foreign if.
         if observed_ifs != ([required_if] if required_if is not None else []):
@@ -242,6 +256,8 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
                 issues.append(f"{path}/{job_id}: expected executable package owner missing")
             if FLOW_STEPS.search(job):
                 issues.append(f"{path}/{job_id}: unsupported YAML flow-mapping step")
+            if BLOCK_USES.search(job):
+                issues.append(f"{path}/{job_id}: unsupported folded/literal uses scalar")
             uses = list(SETUP_NODE.finditer(job))
             references = list(SETUP_NODE_REFERENCES.finditer(job))
             if (len(uses) != 1 or len(references) != 1
@@ -298,7 +314,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all thirty-three bounded source mutations."""
+    """Verify reviewed policy and reject all thirty-seven bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -482,6 +498,37 @@ def main() -> int:
             "          INERT_GUARD_TEXT",
             ".github/workflows/qodana-signed-shadow.yml",
         ),
+        "folded mutable setup-node action": one_replacement(
+            workflows,
+            "      - name: Require original SARIF and enforce existing project model gate",
+            "      - name: Unreviewed folded setup-node\n"
+            "        uses: >-\n"
+            "          actions/setup-node@main\n"
+            "        with:\n"
+            "          cache: npm\n\n"
+            "      - name: Require original SARIF and enforce existing project model gate",
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "early exit before Qodana guard": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            '          exit 0\n          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "quoted false condition on toolchain owner": one_replacement(
+            workflows,
+            "        run: node scripts/ci/verify-node-toolchain.mjs",
+            '        "if": ${{ false }}\n'
+            "        run: node scripts/ci/verify-node-toolchain.mjs",
+            ".github/workflows/node-toolchain-preflight.yml",
+        ),
+        "spaced false condition on toolchain owner": one_replacement(
+            workflows,
+            "        run: node scripts/ci/verify-node-toolchain.mjs",
+            "        if : ${{ false }}\n"
+            "        run: node scripts/ci/verify-node-toolchain.mjs",
+            ".github/workflows/node-toolchain-preflight.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -491,7 +538,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 33 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 37 mutation controls rejected.")
     return 0
 
 

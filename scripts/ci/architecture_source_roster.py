@@ -72,8 +72,13 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
         raise SourceRosterError('SOURCE_ENCODING') from exc
     require('/*' not in source and '*/' not in source and '#if' not in source,
             'UNSUPPORTED_SYNTAX')
-    require(source.count('namespace ' + NAMESPACE + ';') == 1 and
-            'using Xunit;' in source, 'SOURCE_NAMESPACE')
+    # Match entire supported C# declarations, not strings in comments.
+    namespaces = re.findall(
+        r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*$',
+        source)
+    require(namespaces == [NAMESPACE] and
+            re.search(r'(?m)^using Xunit;[ \t]*$', source) is not None,
+            'SOURCE_NAMESPACE')
     classes = CLASS.findall(source)
     require(classes == [expected_class], 'SOURCE_CLASS')
     require('[Theory' not in source and '[InlineData' not in source and '[Fact(' not in source,
