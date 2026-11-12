@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   strict-thread-contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout exact PR source without persisted credentials
@@ -24,7 +24,7 @@ jobs:
       - name: Prepare pinned Node toolchain
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
+          node-version: '26'
           # The job uses a separate isolated npm cache, or only runs Node checks.
           package-manager-cache: false
       - name: Install policy-pinned npm

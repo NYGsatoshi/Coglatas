@@ -14,7 +14,7 @@ permissions:
 jobs:
   qodana-dotnet-community:
     name: Qodana Community / .NET
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -92,6 +92,7 @@ jobs:
             scripts/quality/check-qodana-project-model.mjs \
             scripts/quality/qodana-rule-baseline.json \
             scripts/ci/configure-persistent-caches.sh \
+            scripts/ci/install-qodana-cli.sh \
             scripts/ci/cleanup-qodana-containers.sh; do
             restore_from_base "$path"
           done
@@ -134,10 +135,15 @@ jobs:
             echo "pr_mode=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Install checksum-pinned Qodana CLI
+        shell: bash
+        run: bash scripts/ci/install-qodana-cli.sh
+
       - name: Run strict Qodana inspection inventory
         id: qodana_scan
         uses: JetBrains/qodana-action@3e8d76ff0e0241618abd808682f426afe84bab3f # v2026.2.2
         with:
+          use-installed-cli: true
           args: |
             --image jetbrains/qodana-cdnet:2026.2-privileged@sha256:21bbbfeac0e61fe8790cc27d5754b87d57b8032c0c32f84ddeb887027f83ec4f
           pr-mode: ${{ steps.qodana_mode.outputs.pr_mode }}
@@ -163,7 +169,7 @@ jobs:
         if: steps.qodana_scan.outcome == 'success'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
           # The job uses a separate isolated npm cache, or only runs Node checks.
           package-manager-cache: false
 

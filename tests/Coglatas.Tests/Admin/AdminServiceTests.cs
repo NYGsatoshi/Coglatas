@@ -10,7 +10,7 @@ using Coglatas.Infrastructure.Security;
 
 namespace Coglatas.Tests.Admin;
 
-public sealed class AdminServiceTests
+public sealed partial class AdminServiceTests
 {
     [Fact]
     public async Task NormalUserCannotAccessAdminUsers()
@@ -202,13 +202,13 @@ public sealed class AdminServiceTests
         Assert.Equal(
             new[] { fixture.ActorUser.Id, memberId, secondSystemAdmin.Id }.Order().ToArray(),
             fixture.AuthorizationChanges.Items.Select(item => item.UserId).Order().ToArray());
-        Assert.All(fixture.AuthorizationChanges.Items, item =>
+        foreach (var item in fixture.AuthorizationChanges.Items)
         {
             Assert.Equal(project.TenantId, item.TenantId);
             Assert.Equal("project", item.ScopeType);
             Assert.Equal(project.Id, item.ScopeId);
             Assert.Equal("archived", item.Change);
-        });
+        }
     }
 
     [Fact]
@@ -236,6 +236,7 @@ public sealed class AdminServiceTests
 
     private sealed class AdminFixture
     {
+        /// <summary>Builds the existing administrative service with separately observable synthetic dependencies.</summary>
         private AdminFixture(SystemRole actorRole)
         {
             ActorUser = new User
@@ -255,7 +256,7 @@ public sealed class AdminServiceTests
                 Audit,
                 new FakeCurrentUser(ActorUser),
                 Clock,
-                new FakeUserSessionService(),
+                Sessions,
                 UnitOfWork,
                 Tenant,
                 AuthorizationChanges,
@@ -266,6 +267,8 @@ public sealed class AdminServiceTests
         public FakeClock Clock { get; } = new(new DateTimeOffset(2026, 6, 7, 0, 0, 0, TimeSpan.Zero));
         public FakeAuditLogger Audit { get; } = new();
         public FakeUnitOfWork UnitOfWork { get; } = new();
+        /// <summary>Records requested session revocations without implementing real session persistence.</summary>
+        public FakeUserSessionService Sessions { get; } = new();
         public CurrentTenantService Tenant { get; } = new();
         public RecordingAuthorizationChanges AuthorizationChanges { get; } = new();
         public FakeWorkspaceRepository Workspaces { get; } = new();
@@ -436,6 +439,9 @@ public sealed class AdminServiceTests
 
     private sealed class FakeUserSessionService : IUserSessionService
     {
+        /// <summary>Retains exact session-revocation arguments for the existing successful stub response.</summary>
+        public List<(Guid UserId, Guid? ActorUserId, string Reason, Guid? ExceptSessionId, CancellationToken Token)> Revocations { get; } = [];
+
         public Task<SessionValidationResult> ValidateSessionAsync(Guid userId, Guid sessionId, Guid? tenantId, bool requireActiveTenantMembership, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(SessionValidationResult.Success());
@@ -446,8 +452,10 @@ public sealed class AdminServiceTests
             return Task.FromResult(Result.Success());
         }
 
+        /// <summary>Records the revocation request while preserving the original zero-session success result.</summary>
         public Task<Result<int>> RevokeUserSessionsAsync(Guid userId, Guid? actorUserId, string reason, Guid? exceptSessionId = null, CancellationToken cancellationToken = default)
         {
+            Revocations.Add((userId, actorUserId, reason, exceptSessionId, cancellationToken));
             return Task.FromResult(Result<int>.Success(0));
         }
     }

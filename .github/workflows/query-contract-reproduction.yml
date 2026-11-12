@@ -7,7 +7,7 @@ jobs:
   reproduce:
     name: Pinned query contract failure reproduction
     if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ci/query-contract-reproduction'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read

@@ -48,7 +48,7 @@ test('actual Playwright metadata reporter requires completed fast/full/extended 
           }
         });`;
       writeFileSync(join(directory, 'metadata.spec.ts'), `import { test } from ${JSON.stringify(playwright)};\n${declaration}`);
-      writeFileSync(join(directory, 'playwright.config.ts'), `export default {testDir:'.', workers:1, retries:1, reporter:[[${JSON.stringify(reporter)}]]};`);
+      writeFileSync(join(directory, 'playwright.config.ts'), `export default {build:{external:['**/*.mjs']}, testDir:'.', workers:1, retries:1, reporter:[[${JSON.stringify(reporter)}]]};`);
       const result = spawnSync(process.execPath, [cli, 'test', '--pass-with-no-tests'], {
         cwd: directory, encoding: 'utf8', timeout: 30000,
         env: { ...process.env, TARGET_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '100', GITHUB_RUN_ATTEMPT: '1',
