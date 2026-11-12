@@ -75,6 +75,200 @@ describe('RealtimeFacade', () => {
 
     expect(transport.startCalls).toBe(0);
     expect(facade.connectionState()).toBe('Degraded');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+  });
+
+  it('replaces the transport and protected scope when the authenticated actor changes within the same Tenant', async () => {
+    flags.setForTesting({ 'realtime.signalR': true });
+    const original = { ...activeSession(), currentUser: {
+      ...DEFAULT_AUTH_SESSION.currentUser!, userId: '55555555-5555-4555-8555-555555555555',
+    } };
+    auth.setMockSession(original);
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    const starts = transport.startCalls, stops = transport.stopCalls;
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('same-tenant-actor-control', clear);
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser, userId: '66666666-6666-4666-8666-666666666666', displayName: 'Replacement actor' },
+      currentTenant: { ...original.currentTenant! },
+    });
+    await settle();
+    await waitForConnection(facade);
+
+    expect.soft(auth.isAuthenticated()).toBe(true);
+    expect.soft(transport.stopCalls).toBe(stops + 1);
+    expect.soft(transport.startCalls).toBe(starts + 1);
+    expect.soft(clear).toHaveBeenCalledWith('session');
+    expect.soft(activeWorkspace.activeWorkspace()).toBeNull();
+    expect(notificationOpenContext.digestWorkspaceId()).toBeNull();
+  });
+
+  it('keeps the current transport and authorized scope for a same-actor display-name refresh', async () => {
+    flags.setForTesting({ 'realtime.signalR': true });
+    const original = activeSession();
+    auth.setMockSession(original);
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    const starts = transport.startCalls, stops = transport.stopCalls;
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('same-actor-display-control', clear);
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, displayName: 'Updated display name' },
+      currentTenant: { ...original.currentTenant! },
+    });
+    await settle();
+
+    expect(transport.stopCalls).toBe(stops);
+    expect(transport.startCalls).toBe(starts);
+    expect(clear).not.toHaveBeenCalled();
+    expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
+    expect(notificationOpenContext.digestWorkspaceId()).toBe(RESOURCE_ID);
+  });
+
+  it('drops a previous-actor frame before the lifecycle effect runs and accepts the fresh transport frame', async () => {
+    const received: DurableRealtimeEvent[] = [];
+    facade.durableEvents$.subscribe(value => received.push(value));
+    await enableAndAuthenticate();
+    const original = activeSession();
+    const frame = event();
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+    });
+    // The principal signal has changed, but Angular has not run the root effect.
+    transport.events.next(frame);
+    expect(received).toEqual([]);
+
+    await settle();
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+    expect(transport.startCalls).toBe(2);
+    transport.events.next(frame);
+    expect(received.map(value => value.eventId)).toEqual([frame.eventId]);
+  });
+
+  it('waits for the previous actor transport stop before starting the replacement and removes old resource intent', async () => {
+    facade.registerSubscription('previous-actor-workspace', { subscriptionType: 'workspace', resourceId: RESOURCE_ID });
+    await enableAndAuthenticate();
+    expect(transport.startCalls).toBe(1);
+    expect(transport.subscribed.filter(request => request.subscriptionType === 'workspace')).toHaveLength(1);
+    let signalStopStarted!: () => void;
+    const stopStarted = new Promise<void>(resolve => { signalStopStarted = resolve; });
+    let finishStop!: () => void;
+    const stopGate = new Promise<void>(resolve => { finishStop = resolve; });
+    transport.stop = async () => {
+      transport.stopCalls++;
+      signalStopStarted();
+      await stopGate;
+    };
+    const original = activeSession();
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+    });
+    await stopStarted;
+    await settle();
+    expect(transport.startCalls).toBe(1);
+    expect(facade.connectionState()).toBe('Degraded');
+    transport.statuses.next('closed');
+    finishStop();
+    await waitForSubscriptionCount(transport, 'user', 2);
+    await waitForConnection(facade);
+
+    expect(facade.connectionState()).toBe('Connected');
+    expect(transport.startCalls).toBe(2);
+    expect(transport.subscribed.filter(request => request.subscriptionType === 'workspace')).toHaveLength(1);
+  });
+
+  it('clears the previous actor HTTP projection even when the realtime rollout remains disabled', async () => {
+    const original = activeSession();
+    auth.setMockSession(original);
+    await settle();
+    activeWorkspace.setActiveWorkspace(ACTIVE_WORKSPACE);
+    notificationOpenContext.setDigestWorkspace(RESOURCE_ID);
+    const clear = vi.fn();
+    facade.registerProtectedStateClearer('http-only-actor-control', clear);
+
+    auth.setMockSession({ ...original,
+      currentUser: { ...original.currentUser!, userId: '66666666-6666-4666-8666-666666666666' },
+      currentTenant: null,
+    });
+    await settle();
+
+    expect(transport.startCalls).toBe(0);
+    expect(clear).toHaveBeenCalledWith('session');
+    expect(activeWorkspace.activeWorkspace()).toBeNull();
+    expect(notificationOpenContext.digestWorkspaceId()).toBeNull();
+    expect(auth.isAuthenticated()).toBe(true);
+  });
+  it('settles initial presentation only after authoritative catch-ups and keeps it settled on later reconnects', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    flags.setForTesting({ 'realtime.signalR': true });
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    auth.setMockSession(activeSession());
+    await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    release();
+    await waitForConnection(facade);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    transport.statuses.next('reconnecting');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    auth.setMockSession({ ...DEFAULT_AUTH_SESSION, status: 'anonymous', isAuthenticated: false,
+      currentUser: null, currentTenant: null });
+    await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+  });
+
+  it('does not let a superseded Tenant catch-up settle the replacement initial presentation', async () => {
+    let releaseOld!: () => void, releaseNew!: () => void;
+    const old = new Promise<void>(resolve => { releaseOld = resolve; });
+    const fresh = new Promise<void>(resolve => { releaseNew = resolve; });
+    let attempts = 0;
+    facade.registerCatchUp('initial-presentation', () => ++attempts === 1 ? old : fresh);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    auth.setMockSession(activeSession('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
+    await settle();
+    releaseOld(); await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    releaseNew(); await waitForConnection(facade);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+  });
+
+  it('releases HTTP presentation after terminal close during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    transport.statuses.next('closed');
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(auth.isAuthenticated()).toBe(true);
+  });
+
+  it('releases HTTP presentation when the browser goes offline during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(facade.connectionState()).toBe('Offline');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Offline');
   });
 
   it('can invoke one registered feature concurrently from synchronization and authoritative HTTP recovery', async () => {
@@ -1325,6 +1519,7 @@ describe('RealtimeFacade', () => {
 
     expect(facade.connectionState()).toBe('Degraded');
     expect(auth.isAuthenticated()).toBe(true);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
   });
 
   async function enableAndAuthenticate(): Promise<void> {

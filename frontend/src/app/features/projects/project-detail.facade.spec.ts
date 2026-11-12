@@ -7,6 +7,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import {
   ProtectedStateClearReason,
   RealtimeCatchUpContext,
@@ -67,6 +68,7 @@ describe('ProjectDetailFacade canonical Kanban', () => {
       ]
     });
     flags = TestBed.inject(FrontendFeatureFlagsService);
+    TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-1', label: 'Authorized Workspace' });
     facade = TestBed.inject(ProjectDetailFacade);
     http = TestBed.inject(HttpTestingController);
   });

@@ -9,7 +9,8 @@ const sample = () => ({ documentStartedAtMs: 1000, storageReadable: true, storag
   events: [{ atMs: 1001, kind: 'input', composerGeneration: 1, composerPresent: true, draftEnabled: true, sendEnabled: true, draftFocused: true, connection: 'Connected' }],
   eventsTruncated: 0, webSocketObserved: true, controls: [{ atMs: 1002, openedAtMs: 1000, kind: 'AuthorizationInvalidated' }], controlsTruncated: 0 });
 
-test('control diagnostics retain only known invocation discriminants and never their payloads', () => {
+// Node's test runner owns completion and reports callback failures.
+void test('control diagnostics retain only known invocation discriminants and never their payloads', () => {
   assert.deepEqual(messagingControlKinds(control('AuthorizationInvalidated', secret)), ['AuthorizationInvalidated']);
   assert.deepEqual(messagingControlKinds(control('DurableEvent', { eventType: 'Security.AuthorizationStateChanged.v1', body: secret, token: secret })), ['AuthorizationStateChanged']);
   for (const value of [Buffer.from(control('AuthorizationInvalidated')), secret, 'x'.repeat(65537), control(secret),
@@ -31,7 +32,7 @@ test('control diagnostics retain only known invocation discriminants and never t
     'late frames from sockets opened before this document must not be attributed to it');
 });
 
-test('Messaging structural validation rejects arbitrary fields, text, identities, malformed times and unbounded rows', () => {
+void test('Messaging structural validation rejects arbitrary fields, text, identities, malformed times and unbounded rows', () => {
   const data = sample();
   assert.equal(validateMessagingObservation(data), data);
   assert.equal(validateMessagingObservation(null), null);
@@ -98,7 +99,7 @@ function documentFixture(mode = 'available') {
     event: (type) => handlers.get(type)({ target: mountedDraft, get data() { throw new Error(secret); } }) };
 }
 
-test('browser installer observes structure, input and focus while never reading draft values or event data', () => {
+void test('browser installer observes structure, input and focus while never reading draft values or event data', () => {
   const fixture = documentFixture();
   assert.equal(fixture.entries.size, 0, 'the unique diagnostic probe must be removed');
   fixture.event('input');
@@ -123,7 +124,7 @@ test('browser installer observes structure, input and focus while never reading 
   assert.equal(fixture.state.eventsTruncated, 6);
 });
 
-test('pre-input, change and same-signature composer replacement remain private structural tokens', () => {
+void test('pre-input, change and same-signature composer replacement remain private structural tokens', () => {
   const fixture = documentFixture();
   fixture.event('beforeinput');
   fixture.event('change');
@@ -146,7 +147,7 @@ test('pre-input, change and same-signature composer replacement remain private s
   assert.ok(!JSON.stringify(data).includes(secret), 'protected event payloads and textarea content are never read');
 });
 
-test('storage diagnostics distinguish denied access from denied writes without reading persisted values', () => {
+void test('storage diagnostics distinguish denied access from denied writes without reading persisted values', () => {
   for (const [mode, readable, writable] of [['available', true, true], ['unavailable', false, false], ['length-denied', false, true], ['read-only', true, false]]) {
     const fixture = documentFixture(mode);
     assert.equal(fixture.state.storageReadable, readable);
@@ -156,7 +157,7 @@ test('storage diagnostics distinguish denied access from denied writes without r
   }
 });
 
-test('one fixed native Composer fill interval retains timings but never the input or thrown text', async () => {
+void test('one fixed native Composer fill interval retains timings but never the input or thrown text', async () => {
   let timestamp = 1000;
   const tracker = createComposerFillTracker(() => timestamp++);
   assert.equal(tracker.snapshot(), null);
@@ -175,7 +176,7 @@ test('one fixed native Composer fill interval retains timings but never the inpu
   assert.equal(validateComposerFill(null), null);
 });
 
-test('maximum diagnostic buffers fit the unchanged attachment budget without relaxing failure acceptance', () => {
+void test('maximum diagnostic buffers fit the unchanged attachment budget without relaxing failure acceptance', () => {
   const observation = createBrowserObservation('http://127.0.0.1:5080');
   for (let index = 0; index < 80; index += 1) {
     observation.onRequest({url:()=> 'http://127.0.0.1:5080/api/messages/private/thread/messages', method:()=> 'POST'});

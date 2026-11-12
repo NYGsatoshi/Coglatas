@@ -1,5 +1,40 @@
 # Authorized Thread projection failure evidence
 
+## Response-cap publication correction (2026-10-28)
+
+PR #1483 HEAD `ab87395323d7b27e660e7c83a49d58ec1191b72c`, actual tested
+merge `f8cc5f818c252e7a667a3ea38435a5daefd7a89a` (identical full tree),
+[40724559009/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40724559009)
+/ job 122950883099 failed MSG-THREAD-DENIAL publication with
+`Unbound pre-action denial snapshot`. The original owner remains FAIL, retry0;
+recovery was not reached. Original structural ZIP12832887553 SHA-256
+`179b2108fb92a51235003c0f53a624476b9d355a3096d70afed44c8a8f86c68d`
+was independently downloaded and matches the provider digest. It records a
+missing probe and the fixed secondary stage PUBLISH; it cannot reconstruct the
+discarded chronology or establish the historical Product failures' causes.
+
+The current producer can fill its 24-event cap before an earlier request's
+HTTP400 arrives. Its interleaving predicate still sees that request and action,
+but the response cannot be appended. Previously it nevertheless started the DOM
+sample, which then lacked the retained response required by both validators.
+Return the append result from the terminal recorder and start this auxiliary
+sample only when its response was actually retained. Keep the 24-event/4096-byte
+limits, strict JS/Python provenance validation and explicit INCOMPLETE label.
+Unavailable optional data remains null; no invented response or success appears.
+
+Identical new test bytes (SHA-256
+`c36f409f2bde5d2a034a858bb0da86b05501eff09eaafd25052ad59eb3d9b141`)
+produce one deterministic failure against unchanged Main50a7's helper and pass
+with this correction. Controls use distinct requests and single terminal events,
+including the positive last retained slot and the first dropped response.
+Both Node suites pass46/46; the unchanged Python consumer passes18/18; strict
+Functional messaging TypeScript passes. These are synthetic producer controls,
+not real backend acceptance. Current-source review, CI and real owner execution
+remain required. The owner file, fresh Request/HTTP400/complete clearing checks,
+deadlines, retries, Product source and acceptance contract are unchanged.
+`OWNER-FCI06-PREREQUEST-DENIAL` remains unapproved/default C; original #1342/#1365
+and this failed attempt remain immutable. No release or HOLD waiver follows.
+
 Related: #1353. Historical #1342 has not been causally linked.
 
 Main `1301d8128bc5725cbef5fca26c00401031bd2f86`, run `40017100188`,

@@ -32,7 +32,8 @@ async function openEmpty(kind: 'Group' | 'DirectMessage' | 'WorkspaceChannel' = 
         realtimeSignalREnabled: () => false, optimisticMessagingEnabled: () => true,
       } },
       { provide: RealtimeFacade, useValue: {
-        connectionState: signal('Connected'), durableEvents$: events.asObservable(),
+        connectionState: signal('Connected'), initialSynchronizationSettled: signal(true),
+        durableEvents$: events.asObservable(),
         registerProtectedStateClearer: (_owner: string, callback: (reason: Boundary) => void) => {
           clear = callback;
           return () => undefined;
