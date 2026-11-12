@@ -7,7 +7,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class TaskCommandServiceTests
+public sealed partial class TaskCommandServiceTests
 {
     [Fact]
     public async Task StructuredBriefPatchPreservesOmittedFieldsClearsExplicitNullAndReturnsPerFieldProvenance()
@@ -107,13 +107,16 @@ public sealed class TaskCommandServiceTests
         Assert.Null(task.BriefGoal);
         Assert.Null(task.BriefDeliverable);
         Assert.Null(task.BriefConstraints);
+        var observedSources = new List<TaskBriefValueSource>();
         Assert.All(
             new[] { result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints },
             field =>
             {
+                observedSources.Add(field.Source);
                 Assert.Null(field.Value);
                 Assert.Equal(TaskBriefValueSource.NotSet, field.Source);
             });
+        Assert.Equal(new[] { TaskBriefValueSource.NotSet, TaskBriefValueSource.NotSet, TaskBriefValueSource.NotSet }, observedSources);
     }
 
     [Fact]
@@ -579,7 +582,6 @@ public sealed class TaskCommandServiceTests
             new CreateTaskSubtaskRequest(
                 "child",
                 null,
-                TaskPriority.Medium,
                 Goal: new string('x', TaskBriefText.MaximumFieldLength + 1)));
 
         Assert.False(result.IsSuccess);
@@ -920,7 +922,7 @@ public sealed class TaskCommandServiceTests
 
         var result = await fixture.Subresources.CreateSubtaskAsync(
             parent.Id,
-            new CreateTaskSubtaskRequest("child", null, TaskPriority.Medium));
+            new CreateTaskSubtaskRequest("child", null));
 
         Assert.StartsWith("TASK_TRANSITION_GUARD_FAILED|", result.Error);
         Assert.DoesNotContain(
