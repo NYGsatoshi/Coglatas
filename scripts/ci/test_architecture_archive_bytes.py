@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 import warnings
 import zipfile
+import zlib
 
 import architecture_archive_bytes as reader
 
@@ -160,6 +161,27 @@ class ArchitectureArchiveBytesTests(unittest.TestCase):
             with self.subTest(length=len(raw)), self.assertRaises(reader.ArchiveRefused):
                 check(raw)
 
+        # Corrupt compressed data while supplying its new correct ZIP digest;
+        # the decompressor error must become a fixed refusal, not a traceback.
+        archive_bytes = pack()
+        with zipfile.ZipFile(BytesIO(archive_bytes), 'r') as archive:
+            member = archive.infolist()[0]
+            self.assertEqual(member.compress_type, zipfile.ZIP_DEFLATED)
+            compressed_start = (member.header_offset + 30
+                                + len(member.filename.encode('utf-8'))
+                                + len(member.extra))
+            self.assertGreater(member.compress_size, 3)
+        corrupt = bytearray(archive_bytes)
+        corrupt[compressed_start] = 0xff  # invalid DEFLATE block type
+        with self.assertRaises(reader.ArchiveRefused) as refused:
+            check(bytes(corrupt))
+        self.assertEqual(refused.exception.args[0], 'ARCHIVE_FORMAT')
+        with patch.object(zipfile.ZipFile, 'read',
+                          side_effect=zlib.error('synthetic invalid DEFLATE')):
+            with self.assertRaises(reader.ArchiveRefused) as refused:
+                check(pack())
+            self.assertEqual(refused.exception.args[0], 'ARCHIVE_FORMAT')
+
     def test_json_duplicate_keys_unknown_fields_nonfinite_refuse(self) -> None:
         """Only strict JSON schemas without hidden duplicate keys may pass."""
         for payload in (b'{"schema":"x","schema":"y"}', b'{"x":NaN}', b'{"x":1}',
@@ -207,6 +229,19 @@ class ArchitectureArchiveBytesTests(unittest.TestCase):
                 return real_open(target, flags, *args, **kwargs)
 
             with patch.object(reader.os, 'open', side_effect=swap_before_open):
+                with self.assertRaises(reader.ArchiveRefused) as refused:
+                    reader.read_bounded(good)
+            self.assertEqual(refused.exception.args[0], 'ARCHIVE_FILE')
+
+            # Never attempt a potentially blocking FIFO open without
+            # O_NONBLOCK, even when the leaf was a regular file at lstat.
+            def refuse_fifo_substitution(target, flags, *args, **kwargs):
+                if Path(target) == good:
+                    self.assertTrue(flags & os.O_NONBLOCK)
+                    raise OSError('synthetic FIFO substituted before open')
+                return real_open(target, flags, *args, **kwargs)
+
+            with patch.object(reader.os, 'open', side_effect=refuse_fifo_substitution):
                 with self.assertRaises(reader.ArchiveRefused) as refused:
                     reader.read_bounded(good)
             self.assertEqual(refused.exception.args[0], 'ARCHIVE_FILE')
