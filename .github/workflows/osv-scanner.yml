@@ -22,7 +22,7 @@ jobs:
   osv-pr:
     name: osv-new-vulnerabilities
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - name: Checkout candidate and base history
@@ -107,7 +107,7 @@ jobs:
   osv-inventory:
     name: osv-full-inventory
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - name: Checkout Main

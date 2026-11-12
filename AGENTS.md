@@ -54,6 +54,7 @@ Keep the product a modular monolith and preserve project-reference direction. Pu
 - Never log passwords, tokens, secrets, or file contents. Validate upload size, extension, MIME type, ownership, and authorization.
 - Add or update audit records for security-sensitive and important state changes when required by the surrounding workflow.
 - Update active docs when architecture, security behavior, module ownership, deployment behavior, or implementation status changes.
+- When merging pull requests,use squash & merge. Do not use normal merge or rebase unless the repository owner permits them.
 
 ## Frontend Rules
 
