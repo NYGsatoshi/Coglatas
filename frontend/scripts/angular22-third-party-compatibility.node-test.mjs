@@ -11,10 +11,10 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.42',
-    '@syncfusion/ej2-angular-inputs': '35.1.42',
+    '@syncfusion/ej2-angular-inputs': '35.1.43',
     '@syncfusion/ej2-angular-popups': '35.1.42',
-    'ag-grid-angular': '36.2.0',
-    'ag-grid-community': '36.2.0',
+    'ag-grid-angular': '36.3.0',
+    'ag-grid-community': '36.3.0',
     rxjs: '7.8.2',
     tslib: '2.9.1',
     'zone.js': '0.16.3',
@@ -35,8 +35,8 @@ void test('keeps the reviewed Angular 22 third-party versions pinned in manifest
     ['devDependencies', expectedDevDependencies],
   ]) {
     for (const [name, version] of Object.entries(expected)) {
-      // Only the jsdom 31 candidate is permitted beside the reviewed baseline.
-      // All other ANG22-06 contract versions remain exact, not open ranges.
+      // Keep each accepted dependency candidate exact (no semver ranges).
+      // Only jsdom 31 remains a second explicitly permitted migration candidate.
       const permitted = name === 'jsdom' ? ['30.1.3', '31.0.0'] : [version];
       const manifestVersion = packageJson[dependencyType][name];
       assert.ok(permitted.includes(manifestVersion),
