@@ -42,24 +42,6 @@ security_zap_target_regex() { printf 'http://app:8080\n'; }
 security_zap_forbidden_values_json() { printf '["synthetic-private-canary"]\n'; }
 security_scan_health() { return 0; }
 
-# The real SEC-06 runner now admits concrete SEC-05 Task IDs for each role.
-# Use distinct fixed synthetic GUIDs without bypassing its original resolver,
-# role mapping or identifier validation and without starting a database.
-export SEC05_ALPHA_TASK_ID="00000000-0000-4000-8000-0000000000a1"
-export SEC05_BETA_TASK_ID="00000000-0000-4000-8000-0000000000b2"
-[[ "$(security_zap_task_fixture_id alpha-owner)" == "$SEC05_ALPHA_TASK_ID" ]] ||
-  fail "alpha-owner Task fixture admission rejected"
-[[ "$(security_zap_task_fixture_id alpha-restricted)" == "$SEC05_ALPHA_TASK_ID" ]] ||
-  fail "alpha-restricted Task fixture admission rejected"
-[[ "$(security_zap_task_fixture_id beta-owner)" == "$SEC05_BETA_TASK_ID" ]] ||
-  fail "beta-owner Task fixture admission rejected"
-if SEC05_ALPHA_TASK_ID="not-a-guid" security_zap_task_fixture_id alpha-owner >/dev/null 2>&1; then
-  fail "SEC-06 Task fixture accepted an invalid identifier"
-fi
-if security_zap_task_fixture_id unknown-role >/dev/null 2>&1; then
-  fail "SEC-06 Task fixture accepted an unsupported role"
-fi
-
 # Never launch any Docker or scanner binary; every process exit is synthetic.
 docker() {
   if [[ "$1" == rm && "$2" == -f ]]; then
@@ -117,6 +99,32 @@ run_one() {
   [[ "$output" != *"synthetic-private-canary"* ]] ||
     fail "$tool leaked synthetic authorization material into timing/log output"
 }
+
+# The production SEC-06 ZAP runner binds a concrete SEC-05 Task per role.
+# This test has no SEC-05 resolver or live service; use two distinct fixed,
+# well-formed synthetic-only Task IDs to exercise its real role selection.
+# Do not stub or bypass security_zap_task_fixture_id itself.
+export SEC05_ALPHA_TASK_ID="00000000-0000-4000-8000-0000000000a1"
+export SEC05_BETA_TASK_ID="00000000-0000-4000-8000-0000000000b2"
+
+[[ "$(security_zap_task_fixture_id alpha-owner)" == "$SEC05_ALPHA_TASK_ID" ]] ||
+  fail "ZAP alpha-owner lost its exact synthetic Task identity"
+[[ "$(security_zap_task_fixture_id alpha-restricted)" == "$SEC05_ALPHA_TASK_ID" ]] ||
+  fail "ZAP alpha-restricted lost its alpha Task identity"
+[[ "$(security_zap_task_fixture_id beta-owner)" == "$SEC05_BETA_TASK_ID" ]] ||
+  fail "ZAP beta-owner lost its distinct beta Task identity"
+
+# Missing, malformed and unrecognized role identities still must fail closed;
+# the negative controls run only in subshells and cannot mutate positive cases.
+if (unset SEC05_ALPHA_TASK_ID; security_zap_task_fixture_id alpha-owner >/dev/null 2>&1); then
+  fail "ZAP accepted a missing synthetic SEC-05 Task identity"
+fi
+if (export SEC05_ALPHA_TASK_ID=invalid-task-id; security_zap_task_fixture_id alpha-owner >/dev/null 2>&1); then
+  fail "ZAP accepted an invalid synthetic SEC-05 Task GUID"
+fi
+if (security_zap_task_fixture_id unrecognized-role >/dev/null 2>&1); then
+  fail "ZAP accepted an unrecognized role for Task binding"
+fi
 
 run_one schemathesis anonymous 0 0 yes
 run_one schemathesis alpha-restricted 19 0 no
