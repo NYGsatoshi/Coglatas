@@ -405,14 +405,19 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await expect.poll(async () => (await header.boundingBox())?.y).toBeCloseTo(before?.y ?? 0, 1);
 
-    const openerIndex = await bodyViewport.evaluate((viewport) => {
+    const visibleHeaderBounds = await header.boundingBox();
+    if (visibleHeaderBounds === null) {
+      throw new Error('The fixed audit header must expose native bounds before row selection.');
+    }
+    const openerIndex = await bodyViewport.evaluate((viewport, headerBottom) => {
       const viewportBounds = viewport.getBoundingClientRect();
+      const visibleTop = Math.max(viewportBounds.top, headerBottom);
       return Array.from(viewport.querySelectorAll<HTMLButtonElement>('button[data-grid-action="openAuditDetail"]'))
         .findIndex((button) => {
           const bounds = button.getBoundingClientRect();
-          return bounds.top >= viewportBounds.top && bounds.bottom <= viewportBounds.bottom;
+          return bounds.top >= visibleTop && bounds.bottom <= viewportBounds.bottom;
         });
-    });
+    }, visibleHeaderBounds.y + visibleHeaderBounds.height);
     expect(openerIndex).toBeGreaterThanOrEqual(0);
     // Do not let Playwright scroll an offscreen first row back to the top:
     // activate a row already visible in the bounded viewport we are testing.
@@ -420,9 +425,12 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(opener).toBeVisible();
     const openerBounds = await opener.boundingBox();
     const headerBounds = await header.boundingBox();
-    expect(openerBounds?.width ?? 0).toBeGreaterThanOrEqual(24);
-    expect(openerBounds?.height ?? 0).toBeGreaterThanOrEqual(24);
-    expect(openerBounds?.top ?? 0).toBeGreaterThanOrEqual(headerBounds?.bottom ?? 0);
+    if (openerBounds === null || headerBounds === null) {
+      throw new Error('Visible audit opener and header must expose native bounds.');
+    }
+    expect(openerBounds.width).toBeGreaterThanOrEqual(24);
+    expect(openerBounds.height).toBeGreaterThanOrEqual(24);
+    expect(openerBounds.y).toBeGreaterThanOrEqual(headerBounds.y + headerBounds.height);
     const originalScrollTop = await bodyViewport.evaluate((element) => element.scrollTop);
     await opener.click();
     await expect(page.getByTestId('audit-detail-drawer')).toBeVisible();

@@ -8,6 +8,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 
 import {
+  AuthSessionFacade,
   COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
@@ -463,6 +464,82 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(fixture.componentInstance.recipients()).toEqual([]);
     expect(fixture.componentInstance.selectedRecipients()).toEqual([]);
     httpMock.expectOne('/api/conversations').flush({ items: [] });
+  });
+
+  it('discards a pending recipient result immediately after session expiration, before Angular cleanup', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const component = fixture.componentInstance;
+    const facade = TestBed.inject(MessagingFacade);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    component.openCreateDialog();
+    expect(facade.createDialogScopeIdentity()).not.toBeNull();
+    component.onRecipientQueryChange('Expired');
+    const pending = httpMock.expectOne('/api/conversations/recipients?query=Expired');
+
+    TestBed.inject(AuthSessionFacade).markSessionExpired();
+    expect(facade.createDialogScopeIdentity()).toBeNull();
+    if (!pending.cancelled) {
+      pending.flush([{ userId: 'previous-actor', displayName: 'Previous session recipient' }]);
+    }
+    expect(component.recipients()).toEqual([]);
+    expect(component.selectedRecipients()).toEqual([]);
+    fixture.detectChanges();
+    expect(component.createDialogOpen()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous session recipient');
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+  });
+
+  it('discards stale recipient search and does not route an old-scope Direct creation after a Workspace switch', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const workspace = TestBed.inject(ActiveWorkspaceFacade);
+    workspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const component = fixture.componentInstance;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+
+    component.openCreateDialog();
+    component.onRecipientQueryChange('Scoped');
+    const search = httpMock.expectOne('/api/conversations/recipients?query=Scoped');
+    workspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    if (!search.cancelled) {
+      search.flush([{ userId: 'previous-only', displayName: 'Previous Workspace recipient' }]);
+    }
+    expect(component.recipients()).toEqual([]);
+    fixture.detectChanges();
+    expect(component.createDialogOpen()).toBe(false);
+    expect(component.selectedRecipients()).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous Workspace recipient');
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+
+    workspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    fixture.detectChanges();
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+    component.openCreateDialog();
+    component.onRecipientQueryChange('Fresh');
+    httpMock.expectOne('/api/conversations/recipients?query=Fresh').flush([
+      { userId: 'fresh-user', displayName: 'Fresh recipient' }
+    ]);
+    component.selectRecipient('fresh-user');
+    component.createConversation();
+    const pending = httpMock.expectOne('/api/conversations/direct');
+    workspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    if (!pending.cancelled) {
+      pending.flush({ id: 'old-scope-dm', type: 'DirectMessage', workspaceId: 'workspace-a' });
+    }
+    fixture.detectChanges();
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.createDialogOpen()).toBe(false);
+    expect(component.selectedRecipients()).toEqual([]);
   });
 
   it('focuses recipient search and restores the dialog trigger after Escape', async () => {
@@ -1106,6 +1183,10 @@ describe('Messaging MVP0 backend wiring', () => {
     await Promise.resolve();
 
     const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
+    const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
+    const close = root.querySelector<HTMLButtonElement>('[data-testid="thread-close"]')!;
+    // Set the desktop-hidden state *before* deletion triggers focus restoration.
+    back.style.display = 'none';
     textarea.focus();
     expect(document.activeElement).toBe(textarea);
 
@@ -1119,9 +1200,8 @@ describe('Messaging MVP0 backend wiring', () => {
     await Promise.resolve();
 
     expect(root.querySelector('[data-testid="open-message-thread-message-own"]')).toBeNull();
-    const back = root.querySelector<HTMLButtonElement>('[data-testid="thread-back"]')!;
-    expect(document.activeElement).toBe(back);
-    back.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(close);
+    close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     fixture.detectChanges();
     await Promise.resolve();
 

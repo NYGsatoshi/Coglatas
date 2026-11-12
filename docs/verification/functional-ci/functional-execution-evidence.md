@@ -69,12 +69,29 @@ Main calls `functional-full` using the exact Main CI producer. The explicit/
 nightly wrapper calls `functional-extended` at 03:17 JST with current main or
 an exact ancestor of main. It selects the latest trusted exact-SHA Main push
 first, then requires that run
-to be completed and non-cancelled. It never falls back to an older success when
-the latest run is missing, incomplete, or cancelled. Artifact stamps must match.
+to be completed and non-cancelled. An observed `queued` or `in_progress` run
+may complete within the candidate job's existing five-minute timeout, which
+also includes checkout and candidate validation. The resolver rechecks metadata
+at one-second intervals only while that same latest trusted run is active;
+its monotonic cap is five minutes and each HTTP timeout is clipped to the
+remaining cap. It never falls back to an older success. Missing, cancelled,
+malformed, replaced or invalid-state producers and budget expiry fail without
+publishing a producer run ID. API errors fail immediately. This prerequisite
+wait does not retry a Functional test or mark any owner successful. Existing
+completed non-cancelled failure semantics remain unchanged: downstream artifact
+validation and actual owner results still determine acceptance. Artifact stamps must match.
 Missing artifacts block execution. Extended runs use a candidate-specific
 concurrency group and do not
 cancel an explicit candidate run. Failed/cancelled matrix lanes fail the stable
 aggregate even when another lane succeeded.
+
+The first scheduled attempt `40232694152/1` on Main
+`81e40dcbf419ba16fb5b03a89869baaf5f5269b0` failed its producer prerequisite at
+20:51:08 UTC on 2026-10-25 while the exact Main push run was still incomplete;
+Main `40229408647/1` completed successfully at 20:51:47 UTC. No scheduled owner
+executed. That failed attempt remains failed; neither the later Main result
+nor deterministic API/clock controls rewrite it. The bounded correction is
+tracked under #611 and does not close the broader Functional evidence work.
 
 ## Metadata and final decisions
 

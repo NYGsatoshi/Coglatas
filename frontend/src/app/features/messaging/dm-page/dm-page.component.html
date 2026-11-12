@@ -1,4 +1,5 @@
 @let vm = page();
+@let threadNavigationBinding = facade.threadNavigationBinding();
 
 <section class="dm-page" data-testid="dm-page">
   @if (realtime.connectionState() === 'Degraded') {
@@ -77,7 +78,7 @@
         (requestReport)="facade.requestMessageReport($event)"
         (saveForLaterRequested)="facade.saveMessageForLater($event)"
         (confirmReport)="facade.confirmMessageReport($event.messageId, $event.reasonCode)"
-        (openThread)="facade.openThread($event.messageId, $event.triggerElementId)"
+        (openThread)="facade.openThread($event.messageId, $event.triggerElementId, undefined, threadNavigationBinding)"
       />
 
       @if (showComposer()) {
@@ -104,7 +105,7 @@
       />
     }
     </div>
-    @if (vm.conversation.isGroup && canReadBody()) {
+    @if (vm.conversation.isGroup && canReadBody() && realtime.initialSynchronizationSettled()) {
       <aside class="dm-page__group-details" [attr.aria-label]="i18n.translate('messaging.group.details')">
         <app-group-member-panel [conversation]="vm.conversation" [action]="facade.groupAction()"
           (memberAdded)="facade.addGroupMember($event)" (memberRemoved)="facade.removeGroupMember($event)" (left)="facade.leaveGroup()" />

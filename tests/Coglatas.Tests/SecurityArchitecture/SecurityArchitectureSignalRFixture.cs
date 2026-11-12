@@ -11,6 +11,7 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Coglatas.Tests.PostgreSql;
+using Coglatas.Tests.TestInfrastructure;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -247,8 +248,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
         {
             if (_server.Id != 0 && !_server.HasExited)
             {
-                _server.Kill(entireProcessTree: true);
-                await _server.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                await OwnedChildProcessShutdown.StopAsync(_server, TimeSpan.FromSeconds(10));
             }
         }
         catch (InvalidOperationException) { /* Process may not have started or may have exited. */ }
@@ -263,6 +263,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             Directory.Delete(_directory, recursive: true);
         }
     }
+
 }
 
 internal sealed class RealtimeSocket : IAsyncDisposable
@@ -271,6 +272,7 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     private readonly CancellationTokenSource _stopping = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> _invocations = new();
     private readonly ConcurrentDictionary<Guid, int> _events = new();
+    private readonly ConcurrentDictionary<Guid, (Guid Tenant, string? AggregateType, Guid Aggregate, Guid? Conversation)> _eventIdentities = new();
     private readonly ConcurrentDictionary<Guid, (string EventType, int SchemaVersion)> _eventMetadata = new();
     private readonly TaskCompletionSource _handshake = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task? _receiver;
@@ -310,6 +312,25 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     public int DeliveryCount(Guid eventId) => _events.GetValueOrDefault(eventId);
     public bool Received(Guid eventId, string eventType) =>
         _eventMetadata.TryGetValue(eventId, out var metadata) && metadata == (eventType, 1) && Received(eventId);
+    // Typed identity only: no body, raw envelope or credential is retained.
+    public bool ReceivedMessageIdentity(Guid eventId, Guid tenant, Guid message, Guid conversation) =>
+        Received(eventId, "Messaging.MessageCreated.v1") &&
+        _eventIdentities.TryGetValue(eventId, out var identity) &&
+        identity == (tenant, "Message", message, conversation);
+
+    public bool ReceivedAggregateIdentity(Guid eventId, string eventType, Guid tenant, string aggregateType, Guid aggregate) =>
+        Received(eventId, eventType) &&
+        _eventIdentities.TryGetValue(eventId, out var identity) &&
+        identity.Tenant == tenant && identity.AggregateType == aggregateType && identity.Aggregate == aggregate;
+
+    internal void RecordIdentity(Guid eventId, Guid tenant, string? aggregateType, Guid aggregate, Guid? conversation)
+    {
+        var identity = (tenant, aggregateType, aggregate, conversation);
+        var retained = _eventIdentities.GetOrAdd(eventId, identity);
+        if (retained != identity)
+            throw new InvalidOperationException("Synthetic durable replay changed typed envelope identity.");
+    }
+
     public async Task WaitEventAsync(Guid eventId, int minimumCount = 1)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
@@ -384,6 +405,17 @@ internal sealed class RealtimeSocket : IAsyncDisposable
                         var metadata = (eventType, schema.GetInt32());
                         if (_eventMetadata.TryGetValue(eventId, out var previous) && previous != metadata)
                             throw new InvalidOperationException("Synthetic durable replay changed envelope metadata.");
+                        var payload = envelope.GetProperty("payload");
+                        Guid? conversation = null;
+                        if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("conversationId", out var resource) &&
+                            resource.ValueKind == JsonValueKind.String && resource.TryGetGuid(out var direct))
+                            conversation = direct;
+                        else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("message", out var message) &&
+                            message.ValueKind == JsonValueKind.Object && message.TryGetProperty("conversationId", out var messageResource) &&
+                            messageResource.ValueKind == JsonValueKind.String && messageResource.TryGetGuid(out var messageConversation))
+                            conversation = messageConversation;
+                        RecordIdentity(eventId, envelope.GetProperty("tenantId").GetGuid(),
+                            envelope.GetProperty("aggregateType").GetString(), envelope.GetProperty("aggregateId").GetGuid(), conversation);
                         _eventMetadata[eventId] = metadata;
                         _events.AddOrUpdate(eventId, 1, (_, count) => count + 1);
                     }
@@ -404,6 +436,7 @@ internal sealed class RealtimeSocket : IAsyncDisposable
         await _stopping.CancelAsync();
         _socket.Abort();
         if (_receiver is not null) await _receiver;
+        _eventIdentities.Clear();
         _socket.Dispose();
         _stopping.Dispose();
     }

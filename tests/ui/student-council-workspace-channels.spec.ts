@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
+import { installChannelDialogObservation, serializeChannelDialogObservation } from './workspace-channel-directory-real';
 
 const tenantId = '11000000-0000-4000-8000-000000000001';
 const userId = '12000000-0000-4000-8000-000000000001';
@@ -99,6 +100,119 @@ async function installAuthorizedDirectory(page: Page) {
   });
 
   return { creates, invites, setDenied(value: boolean) { denyList = value; } };
+}
+
+
+test('channel-dialog diagnostic attachment accepts only fixed bounded structural data', () => {
+  const event = { atMs: 1, kind: 'click', directoryPresent: true,
+    createPresent: true, createEnabled: true, dialogPresent: false };
+  const valid = { schemaVersion: 1, events: [event], eventsTruncated: 0 };
+  expect(serializeChannelDialogObservation(valid)).toBe(JSON.stringify(valid));
+
+  const secret = 'private-channel-name-or-session-value';
+  const invalid = [
+    { ...valid, channelName: secret },
+    { ...valid, events: [{ ...event, channelName: secret }] },
+    { ...valid, events: [{ ...event, kind: secret }] },
+    { ...valid, events: [{ ...event, kind: { privateText: secret } }] },
+    { ...valid, events: [{ ...event, atMs: Number.NaN }] },
+    { ...valid, events: [{ ...event, atMs: true }] },
+    { ...valid, events: [{ ...event, createEnabled: secret }] },
+    { ...valid, events: new Array(49).fill(event) },
+    { ...valid, eventsTruncated: 1_000_001 },
+    { ...valid, events: [] },
+    { ...valid, unexpectedPayload: { body: secret } }
+  ];
+  for (const payload of invalid) {
+    expect(serializeChannelDialogObservation(payload)).toBeNull();
+  }
+});
+
+test('records a safe click-to-dialog lifecycle in an actual Angular browser page', async ({ page }) => {
+  // Mocked HTTP qualifies the *observer* only; canonical P0 remains real backend.
+  await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
+  await page.addInitScript(installChannelDialogObservation);
+  await installAuthorizedDirectory(page);
+  await page.goto('/app/teams');
+  const directory = page.getByTestId('workspace-channel-directory');
+  await expect(directory).toBeVisible();
+  const trigger = directory.getByTestId('channel-create-open');
+  await expect(trigger).toBeEnabled();
+  await trigger.click();
+  await expect(page.getByTestId('channel-create-dialog')).toBeVisible();
+
+  const observed = await page.evaluate(() => {
+    const read = (window as Window & {
+      __coglatasChannelDialogObservationV1?: () => unknown
+    }).__coglatasChannelDialogObservationV1;
+    return typeof read === 'function' ? read() : null;
+  });
+  const safe = serializeChannelDialogObservation(observed);
+  expect(safe).not.toBeNull();
+  const snapshot = JSON.parse(safe!) as {
+    readonly schemaVersion: number;
+    readonly events: Array<{ readonly kind: string; readonly dialogPresent: boolean }>;
+    readonly eventsTruncated: number;
+  };
+  expect(snapshot.schemaVersion).toBe(1);
+  expect(snapshot.events.length).toBeGreaterThan(0);
+  expect(snapshot.events.length).toBeLessThanOrEqual(48);
+  expect(snapshot.events.some((event) => event.kind === 'click')).toBe(true);
+  expect(snapshot.events.some((event) => event.dialogPresent)).toBe(true);
+  expect(snapshot.eventsTruncated).toBeGreaterThanOrEqual(0);
+});
+
+for (const revoked of [false, true]) {
+  test(`a pre-authorized create click during directory refresh ${revoked ? 'fails closed on revocation' : 'keeps unsent local intent'}`,
+    async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
+      const backend = await installAuthorizedDirectory(page);
+      await page.goto('/app/teams');
+      const directory = page.getByTestId('workspace-channel-directory');
+      await expect(directory).toContainText('general');
+      const create = directory.getByTestId('channel-create-open');
+      await expect(create).toBeEnabled();
+
+      let markReading!: () => void;
+      let releaseReading!: () => void;
+      const reading = new Promise<void>((resolve) => { markReading = () => resolve(); });
+      const release = new Promise<void>((resolve) => { releaseReading = () => resolve(); });
+      // Hold only the next real Angular directory GET at its transport boundary.
+      // The original synthetic route still decides the fresh server capability.
+      await page.route(`**${apiRoot}**`, async (route) => {
+        if (route.request().method() === 'GET') {
+          markReading();
+          await release;
+        }
+        await route.fallback();
+      });
+
+      try {
+        await directory.getByRole('button', { name: 'Refresh', exact: true }).click();
+        await reading;
+        await expect(directory.locator('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+        await expect(create).toBeEnabled();
+        await create.click();
+        const dialog = page.getByTestId('channel-create-dialog');
+        await expect(dialog).toBeVisible();
+        await dialog.getByTestId('channel-create-name').fill('Synthetic unsent during refresh');
+        const submit = dialog.getByTestId('channel-create-submit');
+        await expect(submit).toBeDisabled();
+        expect(backend.creates).toHaveLength(0);
+        backend.setDenied(revoked);
+        releaseReading();
+        if (revoked) {
+          await expect(dialog).toHaveCount(0);
+          await expect(create).toBeDisabled();
+        } else {
+          await expect(submit).toBeEnabled();
+          await expect(dialog.getByTestId('channel-create-name')).toHaveValue('Synthetic unsent during refresh');
+        }
+        expect(backend.creates).toHaveLength(0, 'catch-up must never replay a channel create POST');
+      } finally {
+        releaseReading();
+      }
+    });
 }
 
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {

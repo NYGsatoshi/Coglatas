@@ -11,7 +11,7 @@ jobs:
     # The protected environment owns all fixture values. It must be approved
     # after deployment and configured with the dedicated synthetic account.
     environment: public-https-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
       group: coglatas-public-https-deployment-gate
@@ -41,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Install deployment-gate dependencies without lifecycle scripts
         run: |
