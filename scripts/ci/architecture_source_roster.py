@@ -64,6 +64,50 @@ def regular_bytes(path: Path) -> bytes:
     return raw
 
 
+def code_view(source: str) -> str:
+    """Mask ordinary literals/comments; refuse unreviewed C# lexical forms.
+
+    This is a bounded structural view, not a general C# lexer. Newlines and
+    offsets remain unchanged; hashes continue to use the original bytes.
+    """
+    masked = list(source)
+    index = 0
+    while index < len(source):
+        if source.startswith('//', index):
+            end = source.find('\n', index)
+            end = len(source) if end < 0 else end
+            masked[index:end] = ' ' * (end - index)
+            index = end
+            continue
+        char = source[index]
+        if char in ('"', "'"):
+            require(not (index and source[index - 1] in '@$') and
+                    not source.startswith('"""', index), 'UNSUPPORTED_SYNTAX')
+            start = index
+            index += 1
+            closed = False
+            while index < len(source):
+                require(source[index] != '\n', 'UNSUPPORTED_SYNTAX')
+                if source[index] == '\\':
+                    require(index + 1 < len(source) and source[index + 1] != '\n',
+                            'UNSUPPORTED_SYNTAX')
+                    index += 2
+                elif source[index] == char:
+                    index += 1
+                    closed = True
+                    break
+                else:
+                    index += 1
+            require(closed, 'UNSUPPORTED_SYNTAX')
+            masked[start:index] = ' ' * (index - start)
+            continue
+        # Escaped code identifiers and directives are outside this literal
+        # source grammar; neither may conceal a namespace or active Fact.
+        require(char not in ('\\', '#'), 'UNSUPPORTED_SYNTAX')
+        index += 1
+    return ''.join(masked)
+
+
 def parse_source(raw: bytes, expected_class: str) -> list[str]:
     """Recognize the exact supported C# Fact declaration form; not full Roslyn."""
     try:
@@ -72,16 +116,18 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
         source = raw.decode('utf-8').replace('\r\n', '\n')
     except UnicodeError as exc:
         raise SourceRosterError('SOURCE_ENCODING') from exc
-    require('\r' not in source and '/*' not in source and '*/' not in source and '#if' not in source,
+    require(not any(char in source for char in '\r\x85\u2028\u2029') and
+            '/*' not in source and '*/' not in source and '#if' not in source,
             'UNSUPPORTED_SYNTAX')
+    source = code_view(source)
     # Match complete declarations rather than comments or namespace substrings.
     namespaces = re.findall(
         r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*$',
         source)
     # Unsupported declaration spelling is still a declaration candidate;
     # it must not disappear from the namespace count.
-    namespace_lines = re.findall(r'(?m)^[ \t]*namespace\b[^\n]*$', source)
-    require(namespaces == [NAMESPACE] and len(namespace_lines) == 1 and
+    namespace_keywords = re.findall(r'\bnamespace\b', source)
+    require(namespaces == [NAMESPACE] and len(namespace_keywords) == 1 and
             re.search(r'(?m)^using Xunit;[ \t]*$', source) is not None,
             'SOURCE_NAMESPACE')
     classes = CLASS.findall(source)
