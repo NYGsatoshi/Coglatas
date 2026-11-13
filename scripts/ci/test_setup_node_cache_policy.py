@@ -376,7 +376,7 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             issues.append(f"{path}: unreviewed workflow shell defaults")
         # Explicit mapping keys can decode to defaults without spelling
         # `defaults:`. This fixed grammar supports no explicit root/job keys.
-        if re.search(r"(?m)^ {0,6}\?[ \t]", source):
+        if re.search(r"(?m)^ {0,6}\?(?:[ \t]|$)", source):
             issues.append(f"{path}: unsupported explicit workflow/job YAML key")
         # YAML-escaped job/workflow mapping keys can decode into "defaults".
         # All reviewed guarded workflows use unescaped top-level/job keys.
@@ -503,6 +503,14 @@ def main() -> int:
         ),
         "explicit job default shell key": one_replacement(
             workflows, "    steps:\n", "    ? defaults\n    :\n      run:\n        shell: cat {0}\n    steps:\n",
+            display_path,
+        ),
+        "multiline explicit workflow default shell key": one_replacement(
+            workflows, "jobs:\n", "?\n  defaults\n:\n  run:\n    shell: cat {0}\njobs:\n",
+            display_path,
+        ),
+        "multiline explicit job default shell key": one_replacement(
+            workflows, "    steps:\n", "    ?\n      defaults\n    :\n      run:\n        shell: cat {0}\n    steps:\n",
             display_path,
         ),
         "additional setup-node with noncanonical mapping indentation": one_replacement(
