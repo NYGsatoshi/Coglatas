@@ -4,7 +4,10 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from unittest import mock
 import xml.etree.ElementTree as ET
@@ -145,6 +148,40 @@ class ArchitectureAdvisoryTests(unittest.TestCase):
             with self.assertRaises(module.ArchitectureEvidenceError) as failure:
                 module.read_trx_file(link)
             self.assertEqual(failure.exception.args[0], 'TRX_FILE')
+
+    def test_fifo_replacement_is_refused_without_waiting_for_writer(self):
+        """A real FIFO swapped after lstat must fail within a finite deadline."""
+        code = textwrap.dedent('''\
+            import importlib.util
+            import os
+            from pathlib import Path
+            import sys
+            spec = importlib.util.spec_from_file_location('advisory', sys.argv[1])
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            target = Path(sys.argv[2])
+            original_open = os.open
+            def swap(path, flags, *args, **kwargs):
+                if Path(path) == target:
+                    target.unlink()
+                    os.mkfifo(target)
+                return original_open(path, flags, *args, **kwargs)
+            module.os.open = swap
+            try:
+                module.read_trx_file(target)
+            except module.ArchitectureEvidenceError as error:
+                print(str(error))
+            else:
+                raise SystemExit(1)
+            ''')
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'architecture-tests.trx'
+            target.write_bytes(trx())
+            result = subprocess.run([sys.executable, '-B', '-c', code,
+                                     str(Path(module.__file__)), str(target)],
+                                    capture_output=True, text=True, timeout=5, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'TRX_FILE\n')
 
     def test_native_utf8_bom_is_accepted(self):
         """Accept a single native UTF-8 BOM without weakening the encoding guard."""

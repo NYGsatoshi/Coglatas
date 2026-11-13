@@ -107,7 +107,8 @@ def read_trx_file(path: Path) -> bytes:
     try:
         leaf = path.lstat()
         require(stat.S_ISREG(leaf.st_mode) and 0 < leaf.st_size <= MAX_BYTES, 'TRX_FILE')
-        flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+        flags = (os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) |
+                 getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NONBLOCK', 0))
         with os.fdopen(os.open(path, flags), 'rb') as source:
             opened = os.fstat(source.fileno())
             require(stat.S_ISREG(opened.st_mode) and os.path.samestat(leaf, opened)
