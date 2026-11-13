@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace Coglatas.Domain.ProjectIde;
 
-public enum DraftRenameState { Ready, StaleInput, OutOfScope, Unavailable, Unsupported, InvalidContext, InvalidName, ResourceLimit, NoChange }
+public enum DraftRenameState { Ready, StaleInput, OutOfScope, Unavailable, Unsupported, InvalidContext, ContextConflict, InvalidName, ResourceLimit, NoChange }
 public sealed record DraftRenamePreview(DraftRenameState State, ProjectDraftRenamePlan? Plan);
 
 /// <summary>An immutable checked local Draft replacement. It grants no authorization, persistence or Merge authority.</summary>
@@ -60,6 +60,7 @@ public static class ProjectDraftRename
             return Refuse(DraftRenameState.InvalidContext);
         try { PlanEntityReference.RequireKnownContext(input.Source.Context); PlanEntityReference.RequireKnownContext(nextContext); }
         catch (UnsupportedSourceException) { return Refuse(DraftRenameState.Unsupported); }
+        if (ContextAlreadyKnown(model, nextContext, cancellationToken)) return Refuse(DraftRenameState.ContextConflict);
         if (Encoding.UTF8.GetByteCount(newName) > MaximumNameBytes) return Refuse(DraftRenameState.ResourceLimit);
         // Reuse canonical Unicode validation, including unpaired-surrogate rejection.
         try { CanonicalJson.ValidateUnicode(newName); }
@@ -101,10 +102,23 @@ public static class ProjectDraftRename
         ArgumentNullException.ThrowIfNull(model); ArgumentNullException.ThrowIfNull(proposal); cancellationToken.ThrowIfCancellationRequested();
         if (model.Input.Source.Context.CommittedRevision is not { } basis || proposal.BaseRevision != basis)
             throw new ArgumentException("A Draft fork needs its exact committed base.", nameof(proposal));
+        var context = SourceRevisionContext.Candidate(proposal);
+        if (ContextAlreadyKnown(model, context, cancellationToken)) throw new ArgumentException("Candidate context is already pinned or materialized.", nameof(proposal));
         if (model.Declarations.Count != model.Input.Source.Declarations.Value.GetArrayLength() + model.Input.Source.Documents.Count ||
             model.Relations.Count != model.Input.Source.Relations.Value.GetArrayLength()) throw new InvalidOperationException("Incomplete decoding cannot supply a Draft transition.");
-        var source = DraftSourceTransition.Recontextualize(model, SourceRevisionContext.Candidate(proposal), null, null, cancellationToken);
+        var source = DraftSourceTransition.Recontextualize(model, context, null, null, cancellationToken);
         return new(source, model.Input.Settings);
+    }
+
+    private static bool ContextAlreadyKnown(PartialSemanticModel model, SourceRevisionContext next, CancellationToken cancellationToken)
+    {
+        if (model.Input.HasPinnedContext(next, cancellationToken)) return true;
+        foreach (var snapshot in model.BoundSnapshots)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (snapshot.Source.Context.Equals(next)) return true;
+        }
+        return false;
     }
 }
 

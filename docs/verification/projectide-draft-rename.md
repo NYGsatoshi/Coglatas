@@ -14,7 +14,10 @@ The next candidate must keep the same Proposal, base and captured target head
 and have a different candidate revision. Source/input/context drift, unsupported
 origins, invalid Unicode, name/reference processing bounds and unchanged names
 have explicit outcomes. The plan lists resolved typed incoming reference origins
-and binding coverage. Incomplete binding is not a complete reference inventory.
+and binding coverage, and refuses a next context already declared by a snapshot pin or materialized
+snapshot. The runtime still has to enforce freshness against durable history;
+Core cannot prove absence from inputs it has not received.
+Incomplete binding is not a complete reference inventory.
 The plan preserves compiler settings and carries the whole immutable after input.
 `ApplyToDraft` returns that whole input only for the exact original Source and
 input, or returns nothing. There is no partial field write or persistence API.
@@ -55,5 +58,6 @@ Runtime query/Preview/open/apply authorization, durable Draft persistence, concu
 commit/idempotency/audit, broader typed aliases, incremental indexing, actual Windows
 UI and shared-feature acceptance remain required future work. The ProjectIDE agent
 does not implement Security-branch work; necessary runtime/independent-security
-qualification must be handed off as P0 work. Trust/RLS, Native, Production, Numerical
+qualification is handed off in [P0 #1930](https://github.com/NYGsatoshi/Coglatas/issues/1930).
+Inherited CI/Inspector work remains separate in P0 #1927. Trust/RLS, Native, Production, Numerical
 Assurance and Release restrictions remain unchanged.

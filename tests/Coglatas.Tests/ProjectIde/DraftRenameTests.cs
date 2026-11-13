@@ -79,11 +79,12 @@ public sealed class DraftRenameTests
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData("  ")]
-    [InlineData("観測 🚀 é")]
-    public void DisplayNamesUseExistingSourceUnicodeSemanticsWithoutChangingExternalKeys(string name)
+    [InlineData("empty")]
+    [InlineData("whitespace")]
+    [InlineData("unicode")]
+    public void DisplayNamesUseExistingSourceUnicodeSemanticsWithoutChangingExternalKeys(string scenario)
     {
+        var name = scenario switch { "empty" => "", "whitespace" => "  ", "unicode" => "観測 🚀 é", _ => throw new ArgumentException("Unknown scenario") };
         var input = Draft(); var model = ProjectSemanticBinder.Bind(input);
         var plan = ProjectDraftRename.Preview(model, Target(input), input.InputDigest, name, Next(input)).Plan!;
         var renamed = PlanDeclarationReader.Read(plan.After.Source).Single(item => item.Declaration?.EntityId == EntityId.Parse(Id(10)));
@@ -210,6 +211,47 @@ public sealed class DraftRenameTests
         var model = ProjectSemanticBinder.Bind(draft); Assert.True(model.BindingComplete); Assert.Equal(4097, model.References.Count);
         var preview = ProjectDraftRename.Preview(model, Target(draft), draft.InputDigest, "New", Next(draft));
         Assert.Equal(DraftRenameState.ResourceLimit, preview.State); Assert.Null(preview.Plan);
+    }
+
+    private static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) WithPinnedCandidate(CompilerInputManifest basis, SourceRevisionContext pinnedContext)
+    {
+        var pinned = ProjectSource.Create(pinnedContext, basis.Source.Documents);
+        var declarations = JsonNode.Parse(basis.Source.Declarations.CanonicalText)!.AsArray();
+        var port = declarations[0]!["payload"]!["ports"]![0]!;
+        port["type"] = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = false, expectedKind = "coglatas.project" });
+        port["defaultValue"] = Obj(new { type = port["type"]!.DeepClone(), state = "coglatas.known", value = new
+        {
+            tenantId = Id(1), projectId = Id(2), entityId = Id(6), context = pinned.Context.Data.Value,
+            origin = Target(basis).Data.Value, manifest = new { version = "1", digest = pinned.Digest.Data.Value }
+        } });
+        var settings = JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject();
+        settings["authorizedExternalSnapshots"] = new JsonArray(Obj(new { snapshotId = Id(60), version = "1", context = pinned.Context.Data.Value,
+            digest = pinned.Digest.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
+        var input = Input(settings, ProjectSource.Create(basis.Source.Context, basis.Source.Documents, Json(declarations), basis.Source.Relations,
+            sourceReferences: basis.Source.SourceReferences));
+        return (input, new(ExternalSnapshotId.Parse(Id(60)), "1", new(pinned, true, true, true)));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void NextCandidateCannotAliasAPinnedSnapshotEvenBeforeMaterialization(bool materialized)
+    {
+        var basis = Draft(); var next = Next(basis); var (input, snapshot) = WithPinnedCandidate(basis, next);
+        var model = ProjectSemanticBinder.Bind(input, materialized ? [snapshot] : []);
+        Assert.Equal(materialized, model.BindingComplete);
+        var preview = ProjectDraftRename.Preview(model, Target(input), input.InputDigest, "New", next);
+        Assert.Equal(DraftRenameState.ContextConflict, preview.State); Assert.Null(preview.Plan);
+        Assert.Equal(basis.Source.Context, input.Source.Context);
+    }
+
+    [Fact]
+    public void ForkCannotReplaceAnExistingPinnedCandidateIdentity()
+    {
+        var basis = Committed(); var proposal = Proposal(basis);
+        var (input, snapshot) = WithPinnedCandidate(basis, SourceRevisionContext.Candidate(proposal));
+        var model = ProjectSemanticBinder.Bind(input, [snapshot]); Assert.True(model.BindingComplete);
+        Assert.Throws<ArgumentException>(() => ProjectDraftRename.Fork(model, proposal));
     }
 
     [Fact]
