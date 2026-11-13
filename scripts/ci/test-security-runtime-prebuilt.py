@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify the PR-only no-recompile Docker image contract and routing guards."""
 from pathlib import Path
+import json
 import re
 import unittest
 
@@ -10,10 +11,102 @@ DOCKERFILE = ROOT / "infra/docker/security-runtime-pr-prebuilt.Dockerfile"
 IGNORE = ROOT / "infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerignore"
 
 
+def docker_from_directives(source: str) -> list[str]:
+    """Count logical FROM instructions; refuse unsupported escape directives."""
+    stages = []
+    pending = ""
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if re.match(r"(?i)^#\s*escape\s*=", stripped):
+                return ["UNSUPPORTED_DOCKER_ESCAPE_DIRECTIVE"]
+            continue
+        if not stripped:
+            continue
+        # Docker removes escaped newlines before recognizing instructions,
+        # including a continued or split instruction keyword. Comment-only
+        # and empty continuation lines cannot supply an instruction boundary.
+        part = line if pending else line.lstrip()
+        trimmed = part.rstrip(" \t")
+        if trimmed.endswith("\\"):
+            # Only the reviewed single, final backslash is supported.
+            # Escaped backslashes and trailing whitespace have different
+            # BuildKit continuation semantics; never absorb a following FROM.
+            if trimmed != part or trimmed.endswith("\\\\"):
+                return ["UNSUPPORTED_DOCKER_CONTINUATION"]
+            pending += part[:-1]
+            continue
+        instruction = pending + part
+        pending = ""
+        if re.match(r"(?i)^FROM(?:\s|$)", instruction):
+            stages.append(instruction.strip())
+    if pending:
+        return ["UNTERMINATED_DOCKER_INSTRUCTION"]
+    return stages
+
+
 class SecurityRuntimePrebuiltTests(unittest.TestCase):
     def test_prebuilt_sdk_image_cannot_compile_or_publish_product(self):
         source = DOCKERFILE.read_text(encoding="utf-8")
-        self.assertRegex(source, r"(?m)^FROM mcr[.]microsoft[.]com/dotnet/sdk:10[.]0[.]403@sha256:[a-f0-9]{64}$")
+        # Bind to the independent canonical image and pinned global.json
+        # instead of freezing a superseded SDK patch version in this test.
+        # Reject invalid or multiple canonical build stages fail-closed.
+        toolchain = json.loads((ROOT / "global.json").read_text(encoding="utf-8"))
+        sdk_version = toolchain["sdk"]["version"]
+        canonical_source = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        canonical_images = re.findall(
+            r"(?m)^FROM (mcr[.]microsoft[.]com/dotnet/sdk:"
+            r"(\d+[.]\d+[.]\d+)@sha256:[a-f0-9]{64}) AS build$",
+            canonical_source,
+        )
+        self.assertEqual(1, len(canonical_images))
+        canonical_image, canonical_version = canonical_images[0]
+        self.assertEqual(sdk_version, canonical_version)
+        self.assertEqual("disable", toolchain["sdk"]["rollForward"])
+        self.assertIs(toolchain["sdk"]["allowPrerelease"], False)
+        expected = rf"(?m)^FROM {re.escape(canonical_image)}$"
+        # The prebuilt consumer is one SDK stage only. A second FROM line,
+        # even if the canonical image still appears, must fail closed.
+        self.assertEqual([f"FROM {canonical_image}"], docker_from_directives(source))
+        self.assertRegex(source, expected)
+        # A same-version digest substitution or an old SDK patch must fail.
+        corrupt_digest = canonical_image[:-1] + (
+            "0" if canonical_image[-1] != "0" else "1"
+        )
+        self.assertNotRegex(
+            source.replace(canonical_image, corrupt_digest), expected
+        )
+        old_version = canonical_image.replace(
+            f"/sdk:{sdk_version}@", "/sdk:10.0.403@"
+        )
+        if old_version != canonical_image:
+            self.assertNotRegex(source.replace(canonical_image, old_version), expected)
+        invalid_from_sources = {
+            "additional Docker stage": source + "\nFROM alpine:3.21.7\n",
+            "continued FROM instruction": source + "\nFROM\\\n alpine:3.21.7\n",
+            "split FROM instruction keyword": source + "\nFR\\\nOM alpine:3.21.7\n",
+            "comment inside continued FROM": source + "\nFROM\\\n# comment\n alpine:3.21.7\n",
+            "unreviewed escape directive": "# escape=`\n" + source + "\nFROM`\n alpine:3.21.7\n",
+            "escaped backslash before additional FROM": source + "\nRUN echo " + chr(92) * 2 + "\nFROM alpine:3.21.7\n",
+            "space after continued FROM escape": source + "\nFROM" + chr(92) + " \n alpine:3.21.7\n",
+            "tab after continued FROM escape": source + "\nFROM" + chr(92) + "\t\n alpine:3.21.7\n",
+            "unreviewed stage alias": source.replace(
+                f"FROM {canonical_image}", f"FROM {canonical_image} AS build", 1
+            ),
+            "unpinned SDK stage": source.replace(
+                f"FROM {canonical_image}",
+                f"FROM {canonical_image.split('@sha256:', 1)[0]}", 1
+            ),
+            "unreviewed platform flag": source.replace(
+                f"FROM {canonical_image}",
+                f"FROM --platform=linux/amd64 {canonical_image}", 1
+            ),
+        }
+        for label, mutation in invalid_from_sources.items():
+            with self.subTest(mutation=label):
+                self.assertNotEqual(
+                    [f"FROM {canonical_image}"], docker_from_directives(mutation)
+                )
         self.assertIn("COPY . .", source)
         self.assertIn("dotnet tool restore", source)
         self.assertIn("dotnet restore src/Coglatas.Web/Coglatas.Web.csproj", source)
