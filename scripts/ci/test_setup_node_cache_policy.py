@@ -271,10 +271,13 @@ def canonical_job_steps(job: str) -> str | None:
     This fixed-source policy declines alternate YAML layout rather than
     inferring executable nodes from step-shaped text elsewhere in a job.
     """
-    fields = list(re.finditer(r"(?m)^    (\S[^\n]*)$", job))
+    # YAML comments never terminate a mapping or sequence. Keep them inside
+    # the source region so later steps still receive layout/ref validation.
+    fields = [field for field in re.finditer(r"(?m)^    (\S[^\n]*)$", job)
+              if not field.group(1).startswith('#')]
     for field in fields:
         text = field.group(1)
-        if not text.startswith('#') and not re.match(r"^[A-Za-z][A-Za-z0-9_-]*:", text):
+        if not re.match(r"^[A-Za-z][A-Za-z0-9_-]*:", text):
             return None
     markers = [index for index, field in enumerate(fields) if field.group(1) == 'steps:']
     if len(markers) != 1:
@@ -439,7 +442,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all sixty bounded source mutations."""
+    """Verify reviewed policy and reject all sixty-one bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -460,6 +463,16 @@ def main() -> int:
     inert_job = inert_job.rstrip() + "\n\n    name: |\n" + display_step.rstrip() + "\n"
     display_workflows = workflows.copy()
     display_workflows[display_path] = workflows[display_path].replace(display_job, inert_job, 1)
+    comment_workflows = workflows.copy()
+    comment_job = display_job.rstrip() + (
+        "\n    # Additional setup-node after comment\n"
+        "      -  name: After-comment setup-node\n"
+        "         uses: actions/setup-node@v4\n"
+        "         with:\n"
+        '           node-version: "23"\n'
+        "           cache: npm\n"
+    )
+    comment_workflows[display_path] = workflows[display_path].replace(display_job, comment_job, 1)
 
     controls = {
         "additional setup-node with noncanonical mapping indentation": one_replacement(
@@ -475,6 +488,7 @@ def main() -> int:
             ".github/workflows/node-toolchain-preflight.yml",
         ),
         "reviewed owner relocated into job name scalar": display_workflows,
+        "additional setup-node after job-indented comment": comment_workflows,
         "auto-cache enabled": one_replacement(
             workflows, "          package-manager-cache: false", "          package-manager-cache: true"
         ),
