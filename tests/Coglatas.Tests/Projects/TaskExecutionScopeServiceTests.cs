@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class TaskExecutionScopeServiceTests
+public sealed partial class TaskExecutionScopeServiceTests
 {
     [Fact]
     [Trait("Scope", "Issue357")]
