@@ -110,7 +110,7 @@ public static class ProjectDraftRename
         return new(source, model.Input.Settings);
     }
 
-    private static bool ContextAlreadyKnown(PartialSemanticModel model, SourceRevisionContext next, CancellationToken cancellationToken)
+    internal static bool ContextAlreadyKnown(PartialSemanticModel model, SourceRevisionContext next, CancellationToken cancellationToken)
     {
         if (model.Input.HasPinnedContext(next, cancellationToken)) return true;
         foreach (var snapshot in model.BoundSnapshots)
@@ -166,9 +166,10 @@ internal static class DraftSourceTransition
             cancellationToken.ThrowIfCancellationRequested();
             var node = document!.AsObject();
             EditDeclaration(node["root"]!.AsObject());
+            var digest = node["digest"]!.AsObject();
             node.Remove("digest");
-            node["digest"] = JsonNode.Parse(ContentDigest.Compute(SourceDocument.DigestDomain,
-                Encode(node).ToCanonicalBytes()).Data.CanonicalText);
+            digest["value"] = ContentDigest.Compute(SourceDocument.DigestDomain, Encode(node).ToCanonicalBytes()).Value;
+            node["digest"] = digest;
         }
         foreach (var node in root["declarations"]!.AsArray()) { cancellationToken.ThrowIfCancellationRequested(); EditDeclaration(node!.AsObject()); }
         var relationIndex = model.Relations.ToDictionary(item => SourceFields.Identity<RelationId>(item.Data.Value, "relationId"));
@@ -186,7 +187,7 @@ internal static class DraftSourceTransition
         root["context"] = Context();
         var byDocument = root["documents"]!.AsArray().ToDictionary(node => node!["documentId"]!.GetValue<string>());
         foreach (var entry in root["manifest"]!["documents"]!.AsArray())
-            entry!["digest"] = byDocument[entry["documentId"]!.GetValue<string>()]!["digest"]!.DeepClone();
+            entry!["digest"]!["value"] = byDocument[entry["documentId"]!.GetValue<string>()]!["digest"]!["value"]!.DeepClone();
         cancellationToken.ThrowIfCancellationRequested();
         return ProjectSourceCodec.Decode(Encode(root).ToCanonicalBytes(), source.Data.Limits).RequireSource();
 

@@ -163,6 +163,15 @@
                 <button type="button" [disabled]="historyPage() === 0" (click)="historyPage.set(historyPage() - 1)">{{ t('ide.historyPrevious') }}</button>
                 <button type="button" [disabled]="(historyPage() + 1) * 32 >= history.revisions.length" (click)="historyPage.set(historyPage() + 1)">{{ t('ide.historyNext') }}</button>
               } @else { <p role="status">{{ t('ide.historyUnavailable') }}</p> }
+              @if (store.preparedRevert(); as prepared) {
+                <section data-testid="ide-draft-revert" [attr.aria-label]="t('ide.revertPreview')">
+                  <h3>{{ t('ide.revertPreview') }}</h3>
+                  <p>{{ t('ide.revertNotice') }}</p>
+                  <p>{{ t('ide.revertRevision') }}: {{ contextRevision(prepared.plan.revertedContext) }}</p>
+                  <p>{{ t('ide.baseRevision') }}: {{ contextRevision(prepared.plan.currentContext) }}</p>
+                  <button type="button" (click)="loadPreparedRevert(prepared)">{{ t('ide.loadRevertedDraft') }}</button>
+                </section>
+              }
             }
             @case ('diff') {
               <p>{{ t('ide.diffNotice') }}</p>

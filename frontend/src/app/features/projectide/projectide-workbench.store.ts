@@ -7,6 +7,7 @@ import {
   PreviewCase,
   ProjectLocation,
   PreparedDraftRename,
+  PreparedDraftRevert,
   SemanticChange,
   HistoryRevisionView,
   ReferenceCompletion,
@@ -83,6 +84,17 @@ export class ProjectIdeWorkbenchStore {
         !context.semanticInspection || !bundle.cases.find(item => item.key === context.preparedDiff!.afterCaseKey)?.semanticInspection) return null;
     try { readPreviewBundle(bundle); return context.preparedDiff; } catch { return null; }
   });
+  readonly preparedRevert = computed(() => {
+    const current = this.context(); const bundle = this.bundle();
+    if (this.state() !== 'ready' || !bundle || !current || current !== this.result() || !current.preparedRevert) return null;
+    try { readPreviewBundle(bundle); return current.preparedRevert; } catch { return null; }
+  });
+  loadPreparedRevert(prepared: PreparedDraftRevert): boolean {
+    const bundle = this.bundle();
+    if (!bundle || this.preparedRevert() !== prepared) return false;
+    try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
+    this.choose(prepared.candidateCaseKey); this.loadResult(); return true;
+  }
 
   navigateDiff(change: SemanticChange, side: 'before' | 'after'): boolean {
     const prepared = this.semanticDiff(); const before = this.context(); const bundle = this.bundle();

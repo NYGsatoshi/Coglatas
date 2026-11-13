@@ -30,6 +30,12 @@ Core-generated history metadata feeds Angular and the Windows pure ViewModel.
 Ready reconstruction is separate from Source/Compiler support. Durable storage,
 current historical authority, retention/deletion and Revert remain open.
 
+The [inverse Draft preparation](verification/projectide-draft-revert.md) builds
+a new exact-current-base candidate, preserves later independent records and
+returns atomic conflicts for overlapping edits. Both synthetic clients consume
+the same Core preparation. Persisted, currently authorized and reviewed Revert
+application remains separate #906/#908/P0 #1932 work.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

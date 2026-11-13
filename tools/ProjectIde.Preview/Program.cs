@@ -27,14 +27,22 @@ var compactedHistory = ProjectSourceHistory.Read(historyDelta.AfterRevision, [Pr
 if (compactedHistory.State != HistoryReadState.Ready || !compactedHistory.Source!.Data.Equals(history.Source.Data))
     throw new InvalidOperationException("History checkpoint compaction changed the reconstructed Source.");
 documentAfter = new CompilerInputManifest(history.Source, documentAfter.Settings);
+var revert = ProjectDraftRevert.Preview(ProjectSemanticBinder.Bind(documentBefore), ProjectSemanticBinder.Bind(documentAfter), ProjectSemanticBinder.Bind(documentAfter),
+    documentBefore.InputDigest, documentAfter.InputDigest, documentAfter.InputDigest,
+    new(ProposalId.Parse(Id(140)), CandidateRevisionId.Parse(Id(141)), historyDelta.AfterRevision, historyDelta.AfterRevision), historyRecords);
+var revertPlan = revert.Plan ?? throw new InvalidOperationException("Synthetic inverse Draft preparation failed.");
+var revertedDraft = revertPlan.ApplyToDraft(documentAfter) ?? throw new InvalidOperationException("Synthetic inverse Draft application failed.");
+if (revertedDraft.Source.Context.Proposal?.BaseRevision != historyDelta.AfterRevision ||
+    !revertedDraft.Source.Documents[0].Data.Equals(documentBefore.Source.Documents[0].Data))
+    throw new InvalidOperationException("Synthetic inverse Draft lost its current base or original document.");
 var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
-        "document-before" => documentBefore, "document-after" => documentAfter, _ => Input(name, 100 + index) };
+        "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft, _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -84,6 +92,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         semanticInspection = inspection?.Data.Value,
         referenceCompletions = completions,
         preparedRename = name == "draft-before" ? new { afterCaseKey = "draft-after", plan = renameFixture.Plan.Data.Value } : null,
+        preparedRevert = name == "document-after" ? new { parentCaseKey = "document-before", revertedCaseKey = "document-after", candidateCaseKey = "revert-draft", plan = revertPlan.Data.Value } : null,
         preparedDiff = name switch
         {
             "draft-before" => new { afterCaseKey = "draft-after", comparison = ProjectSemanticDiff.Compare(diffBefore, diffAfter, renameFixture.Before.InputDigest, renameFixture.After.InputDigest).Data.Value },

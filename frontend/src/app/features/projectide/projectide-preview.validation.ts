@@ -234,12 +234,23 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     inspection(value['semanticInspection']) &&
     completions(value['referenceCompletions']) &&
     preparedRename(value['preparedRename']) &&
+    preparedRevert(value['preparedRevert']) &&
     preparedDiff(value['preparedDiff']) &&
     preparedHistory(value['preparedHistory']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );
 }
+
+const preparedRevert = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['parentCaseKey']) || !token(value['revertedCaseKey']) || !token(value['candidateCaseKey']) || !record(value['plan'])) return false;
+  const plan = value['plan'];
+  return ['currentInputDigest', 'candidateInputDigest', 'parentInputDigest', 'revertedInputDigest'].every(key => digest(plan[key])) &&
+    ['currentContext', 'parentContext', 'revertedContext'].every(key => committedContext(plan[key])) &&
+    context(plan['candidateContext']) && record(plan['candidateContext']) && plan['candidateContext']['kind'] === 'coglatas.candidate' &&
+    nonnegative(plan['changedRecordCount']) && (plan['changedRecordCount'] as number) > 0 && (plan['changedRecordCount'] as number) <= 4096;
+};
 
 const preparedDiff = (value: unknown): boolean => {
   if (value === undefined || value === null) return true;

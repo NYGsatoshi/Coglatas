@@ -135,6 +135,23 @@ export interface PreparedDraftRename {
   };
 }
 
+export interface PreparedDraftRevert {
+  readonly parentCaseKey: string;
+  readonly revertedCaseKey: string;
+  readonly candidateCaseKey: string;
+  readonly plan: {
+    readonly currentInputDigest: Digest;
+    readonly candidateInputDigest: Digest;
+    readonly parentInputDigest: Digest;
+    readonly revertedInputDigest: Digest;
+    readonly currentContext: CommittedContext;
+    readonly parentContext: CommittedContext;
+    readonly revertedContext: CommittedContext;
+    readonly candidateContext: CandidateContext;
+    readonly changedRecordCount: number;
+  };
+}
+
 export interface SemanticChange {
   readonly recordType: 'entity' | 'relation' | 'document' | 'source';
   readonly identity: string;
@@ -212,6 +229,7 @@ export interface PreviewCase {
   readonly semanticInspection?: SemanticInspection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly preparedRename?: PreparedDraftRename | null;
+  readonly preparedRevert?: PreparedDraftRevert | null;
   readonly sourceMap: {
     readonly format: string;
     readonly compilerInputId: Identity<'CompilerInput'>;

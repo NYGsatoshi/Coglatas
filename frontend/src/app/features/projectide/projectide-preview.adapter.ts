@@ -36,7 +36,28 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
   for (const item of bundle.cases) if (item.preparedRename && item.semanticInspection) validatePreparedDraftRename(bundle, item);
   for (const item of bundle.cases) if (item.preparedDiff && item.semanticInspection) validateSemanticDiffPair(bundle, item);
   for (const item of bundle.cases) if (item.preparedHistory) validatePreparedHistory(bundle, item);
+  for (const item of bundle.cases) if (item.preparedRevert) validatePreparedRevert(bundle, item);
   return bundle;
+}
+
+/** Binds the Core-prepared candidate. The browser performs no inverse and proves no ancestry or authority. */
+function validatePreparedRevert(bundle: PreviewBundle, current: PreviewCase): void {
+  const prepared = current.preparedRevert!; const plan = prepared.plan;
+  const parent = bundle.cases.find(item => item.key === prepared.parentCaseKey);
+  const reverted = bundle.cases.find(item => item.key === prepared.revertedCaseKey);
+  const candidate = bundle.cases.find(item => item.key === prepared.candidateCaseKey);
+  if (!parent || !reverted || !candidate || candidate === current || parent === reverted || parent === current ||
+      current.context.kind !== 'coglatas.committed' || candidate.context.kind !== 'coglatas.candidate' ||
+      !sameContext(current.context, plan.currentContext) || !sameContext(parent.context, plan.parentContext) ||
+      !sameContext(reverted.context, plan.revertedContext) || !sameContext(candidate.context, plan.candidateContext) ||
+      !sameDigest(current.inputDigest, plan.currentInputDigest) || !sameDigest(parent.inputDigest, plan.parentInputDigest) ||
+      !sameDigest(reverted.inputDigest, plan.revertedInputDigest) || !sameDigest(candidate.inputDigest, plan.candidateInputDigest) ||
+      !sameContext(candidate.context.baseRevision, current.context) || !sameContext(candidate.context.capturedTargetHead, current.context) ||
+      bundle.cases.some(item => item !== candidate && sameContext(item.context, candidate.context)))
+    throw new PreviewReadError('wrong-scope');
+  for (const item of [current, parent, reverted, candidate]) {
+    if (item.freshness !== 'Current' || !sameJson(item.context.branch, current.context.branch)) throw new PreviewReadError('wrong-scope');
+  }
 }
 
 /** Source bindings only; Core owns reconstruction, integrity validation and compaction semantics. */

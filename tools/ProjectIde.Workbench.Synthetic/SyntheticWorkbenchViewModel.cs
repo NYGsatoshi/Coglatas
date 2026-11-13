@@ -17,6 +17,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private long _lastGeneration = -1;
     private long _lifecycle;
     private long _selectionGeneration;
+    private long _revertPreviewGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
     public ProjectSource? Source { get; private set; }
@@ -25,6 +26,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerInspectedSymbol? Selected { get; private set; }
     public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
     public DraftRenamePreview? RenamePreview { get; private set; }
+    public DraftRevertPreview? RevertPreview { get; private set; }
     public ProjectSemanticDiff? SemanticDiff { get; private set; }
     public HistoryReconstruction? History { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
@@ -228,6 +230,33 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
 
+    /// <summary>Prepare an inverse Draft from already-authorized historical bodies, against the accepted current input.</summary>
+    public DraftRevertPreview? PreviewRevert(PartialSemanticModel parent, PartialSemanticModel reverted, ContentDigest expectedParent,
+        ContentDigest expectedReverted, ProposalContext proposal, IEnumerable<ProjectHistoryRevision?> history, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var lifecycle = _lifecycle; var generation = ++_revertPreviewGeneration;
+        if (RevertPreview is not null) { RevertPreview = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration || RevertPreview is not null || State != "Ready" ||
+            _compilation?.Model is not { } model || _desired is null) return null;
+        var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
+            _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
+        RevertPreview = preview; Changed();
+        return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
+    }
+
+    /// <summary>Replace this synthetic local context with its exact prepared new Draft; no shared mutation or effect replay.</summary>
+    public CompilerHostRequest? ApplyPreviewedRevert(ProjectDraftRevertPlan plan, long clientGeneration, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(plan); cancellationToken.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(RevertPreview?.Plan, plan) || _compilation is null || _desired is null ||
+            clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
+        var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
+        BeginSynthetic(request);
+        return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+    }
+
     public ReferenceCompletionPage? CompleteEntityReference(int pageSize = 16, ReferenceCompletionCursor? cursor = null,
         CancellationToken cancellationToken = default)
     {
@@ -317,7 +346,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; ClearSelection(); }
+    private void ClearResult() { _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

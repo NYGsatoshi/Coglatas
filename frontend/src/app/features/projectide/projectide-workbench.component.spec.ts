@@ -79,6 +79,15 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('opens the localized %s inverse Draft and clears the action on denied authority', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('document-after'); c.loadResult(); c.i18n.setLocale(locale); c.open('history'); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-draft-revert"]')?.textContent).toContain(locale === 'en' ? 'Prepared inverse Draft' : '準備済みの逆変更Draft');
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-draft-revert"] button')!.click(); fixture.detectChanges();
+    expect(c.store.context()?.key).toBe('revert-draft'); expect(c.store.context()?.context.kind).toBe('coglatas.candidate');
+    c.choose('document-after'); c.loadResult(); const prepared = c.store.preparedRevert()!;
+    authenticated.set(false); c.loadPreparedRevert(prepared); fixture.detectChanges();
+    expect(c.store.bundle()).toBeNull(); expect(root.textContent).not.toContain('Opaque document annotation');
+  });
   it.each(['en', 'ja'] as const)('opens localized %s history without confusing reconstruction and Compiler support', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('document-before'); c.loadResult(); c.i18n.setLocale(locale); c.open('history'); fixture.detectChanges();
     expect(root.querySelector('[data-testid="ide-history-state"]')?.textContent).toContain('Ready · Unsupported');

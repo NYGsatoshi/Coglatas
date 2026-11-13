@@ -4,7 +4,7 @@ This Product slice advances #908 / A-R2 Q04/Q08-A and HIST-01/02/04/05/12.
 It supplies an actual pure checkpoint/forward-delta reconstruction engine and
 paired synthetic client preparation. It does not complete stored History,
 server Branch/Live operations, historical authorization, retention/deletion,
-atomic revision/audit/required Outbox, Revert, migration or actual Avalonia.
+atomic revision/audit/required Outbox, operational Revert, migration or actual Avalonia.
 Security-side work remains P0 #1932; the ProjectIDE agent does not execute
 SecurityTestImplimation changes. #906 owns governed proposal application.
 
@@ -92,8 +92,11 @@ exercise both locales and Desktop/Mobile keyboard/accessibility controls.
 
 Durable/object storage, transactional atomicity, old-version authorization and
 privacy, tombstones/retention/deletion, real compaction failures/migrations,
-reviewed inverse-change Draft Revert and actual API/UI operational qualification
+persisted/reviewed inverse-Draft application and actual API/UI operational qualification
 remain open in #908/#906/P0 #1932. No acceptance checkbox for the whole program
 is promoted by this slice. Commands, actual source/host counts, original failures,
 immutable artifacts and review/merge evidence are recorded in its PR; listing
 tests here is not a claim that a current run passed.
+
+The separate [local inverse-Draft preparation](projectide-draft-revert.md) now
+uses this reader and exact lineage; it does not activate operational Revert.
