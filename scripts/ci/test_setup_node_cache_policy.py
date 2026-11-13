@@ -98,6 +98,31 @@ def job_blocks(source: str) -> dict[str, str]:
     }
 
 
+def unsafe_literal_shell_fragment(fragment: str) -> bool:
+    """Refuse unreviewed grouping and multiline quotes in Bash literal blocks."""
+    quote: str | None = None
+    escaped = False
+    for index, char in enumerate(fragment):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\" and quote != "'":
+            escaped = True
+            continue
+        if char in ("'", '"'):
+            if quote is None:
+                quote = char
+            elif quote == char:
+                quote = None
+            continue
+        if quote is None:
+            if char == "#" and (index == 0 or fragment[index - 1].isspace()):
+                break
+            if char in "(){}":
+                return True
+    return escaped or quote is not None
+
+
 def run_command_lines(job: str) -> list[str]:
     """Decode reviewed plain, literal and flat folded run scalars fail-closed.
 
@@ -157,6 +182,8 @@ def run_command_lines(job: str) -> list[str]:
             continue
         fragment = line[10:]
         if style == "literal":
+            if unsafe_literal_shell_fragment(fragment):
+                shell_continuation = True
             # Inspect raw Bash syntax before stripping comments: a quoted
             # hash is ordinary data, so it must not conceal an early exit.
             # Conservative rejection is intentional for unsupported grammar.
@@ -164,7 +191,10 @@ def run_command_lines(job: str) -> list[str]:
                 r"(?:^|[;&|])[ \t]*(?:exit|return|break|continue|exec)(?:[ \t]|;|$)",
                 fragment,
             ):
-                shell_continuation = True
+                # The reviewed Qodana guard exits nonzero if SARIF is absent.
+                # That inner refusal is safe: it cannot skip a successful owner.
+                if not (shell_depth and fragment.strip() == "exit 1"):
+                    shell_continuation = True
             command = fragment.split("#", 1)[0].strip()
             if not command:
                 continue
@@ -219,15 +249,22 @@ def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
     canonical = re.compile(rf"^{interpreter}[ \t]+{re.escape(owner)}(?:[ \t]|$)")
     # Evaluate per actual YAML step, so an unrelated command cannot lend
     # execution authority to an inert echo or a test path in another step.
+    # No reviewed owner job has a run-shell defaults override.
+    if re.search(r"(?m)^    (?:defaults|['\"]defaults['\"])[ \t]*:", job):
+        return False
     for step in re.split(r"(?m)(?=^      - )", job):
-        observed_ifs = re.findall(r"(?m)^        if:[ \t]*(.*?)\s*$", step)
+        observed_ifs = re.findall(r"(?m)^(?:        |      -[ \t]+)if:[ \t]*(.*?)\s*$", step)
         # Alternate YAML step keys are not the reviewed grammar; in
         # particular quoted/escaped or spaced `if` disables an owner.
-        if re.search(r"(?m)^        (?:['\"]|\?|[A-Za-z][A-Za-z0-9_-]*[ \t]+:)", step):
+        if re.search(r"(?m)^(?:        |      -[ \t]+)(?:['\"]|\?|[A-Za-z][A-Za-z0-9_-]*[ \t]+:)", step):
             continue
         # Exact reviewed conditions allow necessary frontend routing and
         # Qodana scan-success gates, but never an inserted false/foreign if.
         if observed_ifs != ([required_if] if required_if is not None else []):
+            continue
+        # Only the reviewed Bash shell can execute these canonical owners.
+        shells = re.findall(r"(?m)^        shell:[ \t]*(.*?)\s*$", step)
+        if shells not in ([], ["bash"]) or re.search(r"(?m)^      -[ \t]+shell[ \t]*:", step):
             continue
         commands = run_command_lines(step)
         if any(canonical.match(command) for command in commands):
@@ -264,6 +301,9 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
         if not isinstance(source, str):
             issues.append(f"{path}: missing workflow")
             continue
+        # No reviewed workflow allows a top-level run-shell defaults override.
+        if re.search(r"(?m)^(?:defaults|['\"]defaults['\"])[ \t]*:", source):
+            issues.append(f"{path}: unreviewed workflow shell defaults")
         jobs = job_blocks(source)
         for job_id, owner in targets.items():
             job = jobs.get(job_id)
@@ -332,7 +372,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all forty-three bounded source mutations."""
+    """Verify reviewed policy and reject all fifty-three bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -579,6 +619,89 @@ def main() -> int:
             "          bash scripts/ci/npm-ci-retry.sh frontend\n"
             "          true",
         ),
+        "multiline quoted owner is inert": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            '          echo "\n'
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            '          "\n'
+            "          true",
+        ),
+        "function declaration does not invoke installer": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          unused() {\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          }\n"
+            "          true",
+        ),
+        "skipped brace group does not invoke installer": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          false && {\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          }\n"
+            "          true",
+        ),
+        "skipped subshell does not invoke installer": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          false && (\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          )\n"
+            "          true",
+        ),
+        "owner step shell override is rejected": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        shell: cat {0}\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            ".github/workflows/main-validation.yml",
+        ),
+        "job default shell override is rejected": one_replacement(
+            workflows,
+            "  main-frontend-test:\n    name: Main Frontend\n    runs-on: ubuntu-24.04",
+            "  main-frontend-test:\n    name: Main Frontend\n    runs-on: ubuntu-24.04\n"
+            "    defaults:\n      run:\n        shell: cat {0}",
+            ".github/workflows/main-validation.yml",
+        ),
+        "workflow default shell override is rejected": one_replacement(
+            workflows,
+            "jobs:\n",
+            "defaults:\n  run:\n    shell: cat {0}\njobs:\n",
+            ".github/workflows/main-validation.yml",
+        ),
+        "dash-line false condition on unconditional owner": one_replacement(
+            workflows,
+            "      - name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "      - if: ${{ false }}\n"
+            "        name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            ".github/workflows/main-validation.yml",
+        ),
+        "dash-line quoted false condition on unconditional owner": one_replacement(
+            workflows,
+            "      - name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            '      - "if": ${{ false }}\n'
+            "        name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            ".github/workflows/main-validation.yml",
+        ),
+        "dash-line spaced false condition on unconditional owner": one_replacement(
+            workflows,
+            "      - name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "      - if : ${{ false }}\n"
+            "        name: Install Angular dependencies\n"
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            ".github/workflows/main-validation.yml",
+        ),
         "quoted false condition on toolchain owner": one_replacement(
             workflows,
             "        run: node scripts/ci/verify-node-toolchain.mjs",
@@ -602,7 +725,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 43 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 53 mutation controls rejected.")
     return 0
 
 
