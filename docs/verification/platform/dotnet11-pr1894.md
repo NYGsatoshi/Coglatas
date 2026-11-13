@@ -14,6 +14,6 @@ It is **Draft / NO MERGE / NO DEPLOY**. Main remains on .NET 10.
 
 ## Verification boundary
 
-An isolated workflow regenerates NuGet locks with **nonlocked restore only to produce candidates** for explicit commit and review. This is not a release gate and does not replace canonical `--locked-mode` restore. All five tracked NuGet lockfiles must be regenerated and verified; never edit package hashes by hand.
+All five NuGet lockfiles were regenerated using the exact .NET 11 GA SDK and committed from the successful CI restore. The isolated workflow now **requires the canonical NuGet lock policy and `dotnet restore --locked-mode`** before compilation and architecture/portability tests. This validates only the candidate smoke suite, not the full release gate. Never edit package hashes by hand.
 
 Do not approve this PR until final-HEAD official CI (including locked restore and negative mutation tests), security/release gates, PostgreSQL migrations and rollback, HTTP and OpenAPI contracts, full frontend tests, runtime containers, and branch protection pass. Historical results from #1556 do not establish qualification for #1894.

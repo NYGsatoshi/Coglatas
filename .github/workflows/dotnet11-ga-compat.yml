@@ -59,17 +59,12 @@ jobs:
               provider = next(x for x in packages if x['Include'] == 'Npgsql.EntityFrameworkCore.PostgreSQL')
               assert provider['Version'] == '10.0.3', provider
           PY
-      - name: Regenerate unapproved NuGet lockfile candidates
+      - name: Verify committed NuGet locks with strict locked-mode restore
         shell: bash
         run: |
           set -euo pipefail
-          dotnet restore Coglatas.slnx --disable-parallel --force-evaluate -p:RestoreLockedMode=false
-          for file in $(find src tests tools -name packages.lock.json -print | sort); do
-            echo "COGLATAS_LOCK_BEGIN:$file"
-            base64 -w 0 "$file"
-            echo
-            echo "COGLATAS_LOCK_END:$file"
-          done
+          python3 scripts/ci/check-nuget-lock-policy.py
+          dotnet restore Coglatas.slnx --locked-mode --disable-parallel
       - name: Build .NET 11 candidate (not release acceptance)
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
       - name: Run architecture tests
