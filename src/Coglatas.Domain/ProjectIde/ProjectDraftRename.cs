@@ -110,7 +110,7 @@ public static class ProjectDraftRename
         return new(source, model.Input.Settings);
     }
 
-    private static bool ContextAlreadyKnown(PartialSemanticModel model, SourceRevisionContext next, CancellationToken cancellationToken)
+    internal static bool ContextAlreadyKnown(PartialSemanticModel model, SourceRevisionContext next, CancellationToken cancellationToken)
     {
         if (model.Input.HasPinnedContext(next, cancellationToken)) return true;
         foreach (var snapshot in model.BoundSnapshots)

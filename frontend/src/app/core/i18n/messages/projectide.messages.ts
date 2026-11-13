@@ -1,5 +1,9 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
   'ide.title': 'ProjectIDE Workbench',
+  'ide.revertPreview': 'Prepared inverse Draft',
+  'ide.revertNotice': 'Core prepared a new synthetic Draft against the current snapshot. Loading it does not save, review or merge a Project, change live data or replay effects.',
+  'ide.revertRevision': 'Reversed revision',
+  'ide.loadRevertedDraft': 'Load inverse Draft fixture',
   'ide.history': 'Snapshot History',
   'ide.historyNotice': 'Synthetic history reconstructed by Core. Branch sequence is local to each branch. Reconstruction does not establish Compiler support, current history permission or a live Project revision.',
   'ide.historyCompaction': 'Replacing the chain with a checkpoint preserved the exact Source.',
@@ -139,6 +143,10 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
   string
 > = {
+  'ide.revertPreview': '準備済みの逆変更Draft',
+  'ide.revertNotice': 'Coreが現在のスナップショットを基に新しい合成Draftを準備しました。読み込みではProjectの保存・レビュー・統合、実データの変更、外部処理の再実行は行いません。',
+  'ide.revertRevision': '逆変更の対象リビジョン',
+  'ide.loadRevertedDraft': '逆変更Draft Fixtureを読み込む',
   'ide.symbols': '意味モデルのシンボルと宣言型',
   'ide.references': '取得済みスコープ内の解決済み参照',
   'ide.referenceOrigin': '参照元',

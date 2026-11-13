@@ -19,6 +19,29 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`opens a new Core-prepared inverse Draft with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('document-after');
+        await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
+        await page.getByRole('button', { name: locale === 'en' ? 'Snapshot History' : 'スナップショット履歴', exact: true }).click();
+        await expect(page.getByTestId('ide-draft-revert')).toBeVisible(); await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const action = page.getByTestId('ide-draft-revert').getByRole('button'); await action.focus(); await action.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('revert-draft');
+        await expect(page.getByRole('heading', { name: locale === 'en' ? 'Source' : 'ソース', exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('coglatas.candidate');
+        await expect(page.locator('pre.source-buffer')).not.toContainText('Opaque document annotation');
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
     test(`opens Core-reconstructed historical snapshots with keyboard in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
@@ -458,6 +481,7 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
       name: 'Load result fixture',
       exact: true,
     });
+    await expect(load).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(load).toBeFocused();
     await page.keyboard.press('Enter');

@@ -63,6 +63,7 @@ describe('Core-reconstructed synthetic history', () => {
     const replacement = structuredClone(after.context);
     replacement.branch.branchId = '00000000-0000-0000-0000-000000000099';
     const changed = JSON.parse(JSON.stringify(after).split(after.context.branch.branchId).join(replacement.branch.branchId));
+    delete changed.preparedRevert;
     delete before.preparedDiff;
     bundle.cases[bundle.cases.indexOf(after)] = changed;
     history.revisions[1].context = structuredClone(replacement);
