@@ -161,10 +161,10 @@
                     <li>
                       <p>{{ change.kind }} · {{ change.recordType }} · {{ change.identity }} · {{ change.path }}</p>
                       <details><summary>{{ t('ide.diffBefore') }}</summary>
-                        @if (change.beforePresent) { <pre>{{ change.before | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
+                        @if (change.beforePresent) { <pre tabindex="0">{{ change.before | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
                       </details>
                       <details><summary>{{ t('ide.diffAfter') }}</summary>
-                        @if (change.afterPresent) { <pre>{{ change.after | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
+                        @if (change.afterPresent) { <pre tabindex="0">{{ change.after | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
                       </details>
                       @if (change.beforeLocation?.entityId || change.beforeLocation?.relationId) {
                         <button type="button" (click)="navigateDiff(change, 'before')">{{ t('ide.diffOpenBefore') }}</button>

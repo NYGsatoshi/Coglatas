@@ -117,7 +117,7 @@ public sealed class SemanticDiffTests
     }
 
     [Fact]
-    public void AbsentAndExplicitNullRemainDifferentAndReturnedRowsCannotBeMutated()
+    public void AbsentAndEmptyNameRemainDifferentAndReturnedRowsCannotBeMutated()
     {
         var before = DraftRenameTests.Draft(); var declarations = JsonNode.Parse(before.Source.Declarations.CanonicalText)!.AsArray();
         var requirement = declarations.Single(item => item!["entityId"]!.GetValue<string>() == Id(30))!;
@@ -230,7 +230,7 @@ public sealed class SemanticDiffTests
         view.BeginSynthetic(new(new(input), 2)); Assert.Null(view.SemanticDiff);
         Assert.Null(view.CompareSynthetic(model, input.InputDigest));
         Assert.True(view.TryAccept(await host.CompileAsync(new(new(input), 2))));
-        view.PropertyChanged += (_, _) => { if (view.SemanticDiff is not null) view.Reset(); };
+        view.PropertyChanged += (sender, _) => { if (sender is SyntheticWorkbenchViewModel { SemanticDiff: not null } current) current.Reset(); };
         Assert.Null(view.CompareSynthetic(model, input.InputDigest)); Assert.Null(view.SemanticDiff); Assert.Equal("Empty", view.State);
     }
 
@@ -258,4 +258,93 @@ public sealed class SemanticDiffTests
         Input(JsonNode.Parse(input.Settings.CanonicalText)!.AsObject(), ProjectSource.Create(input.Source.Context, input.Source.Documents,
             declarations is null ? input.Source.Declarations : Json(declarations), relations is null ? input.Source.Relations : Json(relations),
             input.Source.ExtensionDeclarations, input.Source.PackageLock, input.Source.SourceReferences));
+
+    [Fact]
+    public void ContradictoryBodiesUnderOneImmutableVersionCannotClaimCompleteComparison()
+    {
+        var before = DraftRenameTests.Draft(); var declarations = JsonNode.Parse(before.Source.Declarations.CanonicalText)!.AsArray();
+        declarations[0]!["displayName"] = "Contradictory same-version body";
+        var after = With(before, declarations); Assert.Equal(before.Source.Context, after.Source.Context); Assert.NotEqual(before.Source.Digest, after.Source.Digest);
+        var diff = Compare(before, after); Assert.Equal(SemanticDiffState.Incomplete, diff.State); Assert.False(diff.NoChanges);
+        Assert.Single(diff.Changes);
+    }
+
+    [Fact]
+    public void DeepOpaqueSourceIsExplicitlyBoundedBeforeProjectionSerialization()
+    {
+        var before = Source(); var node = JsonNode.Parse(before.Data.CanonicalText)!.AsObject();
+        JsonNode deep = JsonValue.Create("Opaque value")!;
+        for (var i = 0; i < 80; i++) deep = new JsonObject { ["nested"] = deep };
+        node["declarations"]!.AsArray().Add(Obj(new { entityId = Id(90), documentId = Id(4), kind = "example.future", schemaVersion = 1, payload = new { } }));
+        node["declarations"]![0]!["payload"] = deep;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(node.ToJsonString(new() { MaxDepth = 256 }));
+        var source = ProjectSourceCodec.Decode(bytes, new(MaximumDepth: 256)).RequireSource();
+        var input = Input(source: source); var diff = Compare(Input(source: before), input);
+        var projection = diff.Data;
+        Assert.Equal(SemanticDiffState.ResourceLimit, diff.State); Assert.Empty(diff.Changes); Assert.False(diff.NoChanges);
+        Assert.Equal("ResourceLimit", projection.Value.GetProperty("state").GetString());
+    }
+
+    [Theory]
+    [InlineData("model-declarations")]
+    [InlineData("source-documents")]
+    public void PublicCollectionStorageCannotChangeADiffWithoutChangingEitherInput(string surface)
+    {
+        var before = DraftRenameTests.Draft();
+        var after = Input(JsonNode.Parse(before.Settings.CanonicalText)!.AsObject(), ProjectSourceCodec.Decode(before.Source.Data.ToCanonicalBytes()).RequireSource());
+        var beforeModel = ProjectSemanticBinder.Bind(before); var afterModel = ProjectSemanticBinder.Bind(after);
+        var original = after.Source.Data;
+        if (surface == "model-declarations" && afterModel.Declarations is System.Collections.ICollection modelCollection)
+        {
+            var changed = JsonNode.Parse(after.Source.Declarations.CanonicalText)!.AsArray(); changed[0]!["displayName"] = "Poisoned model";
+            var replacement = PlanDeclarationReader.Read(With(after, changed).Source).Single(item => item.Declaration?.EntityId == EntityId.Parse(Id(10)));
+            ((Array)modelCollection.SyncRoot).SetValue(replacement, 1);
+        }
+        if (surface == "source-documents" && after.Source.Documents is System.Collections.ICollection sourceCollection)
+        {
+            var document = after.Source.Documents[0];
+            ((Array)sourceCollection.SyncRoot).SetValue(SourceDocument.Create(document.DocumentId, "Poisoned document", document.Root.Data), 0);
+        }
+        Assert.Equal(original, after.Source.Data); Assert.Equal(before.InputDigest, after.InputDigest);
+        Assert.True(ProjectSemanticDiff.Compare(beforeModel, afterModel, before.InputDigest, after.InputDigest).NoChanges);
+        Assert.False(afterModel.Declarations is System.Collections.ICollection); Assert.False(after.Source.Documents is System.Collections.ICollection);
+        Assert.All(new object[] { afterModel.Relations, afterModel.Symbols, afterModel.References, afterModel.Findings, afterModel.BoundSnapshots, after.Source.Manifest.DocumentIds },
+            collection => Assert.False(collection is System.Collections.ICollection));
+    }
+
+    [Fact]
+    public void ProjectRootMembershipIsAReferenceChangeBetweenStableEntityIdentities()
+    {
+        var basis = DraftRenameTests.Draft(); var document = basis.Source.Documents[0];
+        CompilerInputManifest Membership(int entity)
+        {
+            var root = JsonNode.Parse(document.Root.Data.CanonicalText)!.AsObject(); root["payload"]!["roots"] = new JsonArray(Id(entity));
+            return Input(source: ProjectSource.Create(basis.Source.Context, [SourceDocument.Create(document.DocumentId, document.LogicalName, Json(root))],
+                basis.Source.Declarations, basis.Source.Relations, sourceReferences: basis.Source.SourceReferences));
+        }
+        var change = Assert.Single(Compare(Membership(10), Membership(11)).Changes);
+        Assert.Equal(SemanticChangeKind.Reference, change.Kind); Assert.Equal("/payload/roots", change.Path); Assert.Equal(Id(6), change.Identity);
+    }
+
+    [Fact]
+    public void AbsentAndExplicitNullFieldsRemainDistinctInOriginalProjectionValues()
+    {
+        var basis = DraftRenameTests.Draft(); var declarations = JsonNode.Parse(basis.Source.Declarations.CanonicalText)!.AsArray();
+        declarations.Add(Obj(new { entityId = Id(40), documentId = Id(4), kind = "coglatas.workflow", schemaVersion = 1,
+            payload = new { states = new[] { Id(41) }, initialState = Id(41), maximumTransitions = 1, transitions = Array.Empty<object>() } }));
+        object Reference(int id) => new { tenantId = Id(1), projectId = Id(2), entityId = Id(id), context = basis.Source.Context.Data.Value };
+        var relations = new JsonArray(Obj(new { relationId = Id(21), documentId = Id(4), kind = RelationKinds.Governs, schemaVersion = 1,
+            descriptor = new { descriptorId = RelationKinds.Governs, version = 1 },
+            source = new { kind = "coglatas.entity", expectedKind = "coglatas.workflow", reference = Reference(40) },
+            target = new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = Reference(10) },
+            payload = new { stateId = Id(41), guard = PlanDeclarationTests.Literal(true) } }));
+        var before = With(basis, declarations, relations); relations[0]!["payload"]!["transitionId"] = null;
+        var after = With(basis, declarations, relations);
+        Assert.NotNull(Assert.Single(ProjectSemanticBinder.Bind(before).Relations).Relation);
+        Assert.NotNull(Assert.Single(ProjectSemanticBinder.Bind(after).Relations).Relation);
+        var diff = Compare(before, after); var change = Assert.Single(diff.Changes);
+        Assert.Equal("/payload/transitionId", change.Path); Assert.Null(change.Before); Assert.NotNull(change.After);
+        var row = diff.Data.Value.GetProperty("changes")[0]; Assert.False(row.GetProperty("beforePresent").GetBoolean());
+        Assert.True(row.GetProperty("afterPresent").GetBoolean()); Assert.Equal(System.Text.Json.JsonValueKind.Null, row.GetProperty("after").ValueKind);
+    }
 }

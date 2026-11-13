@@ -47,7 +47,8 @@ function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): v
       before.context.branch.tenantId !== after.context.branch.tenantId || before.context.branch.projectId !== after.context.branch.projectId ||
       !sameDigest(before.inputDigest, diff.beforeInputDigest) || !sameDigest(after.inputDigest, diff.afterInputDigest) ||
       diff.noChanges !== (diff.state === 'Complete' && diff.changes.length === 0) ||
-      (diff.state === 'Complete' && (!before.semanticInspection?.bindingComplete || !after.semanticInspection?.bindingComplete)))
+      (diff.state === 'Complete' && (!before.semanticInspection?.bindingComplete || !after.semanticInspection?.bindingComplete ||
+        (sameContext(before.context, after.context) && !sameDigest(before.sourceDigest, after.sourceDigest)))))
     throw new PreviewReadError('wrong-scope');
   const seen = new Set<string>();
   for (const change of diff.changes) {

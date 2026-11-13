@@ -37,6 +37,13 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
         await page.getByRole('button', { name: tab, exact: true }).click();
         await expect(page.getByTestId('ide-diff-state')).toHaveText('Complete');
         await expect(page.getByTestId('ide-diff-rows')).toContainText('DisplayName');
+        const details = page.getByTestId('ide-diff-rows').locator('details').first(); await details.locator('summary').click();
+        const value = details.locator('pre'); await expect(value).toHaveAttribute('tabindex', '0');
+        // Force overflow on the actual rendered value region; keyboard scrolling must remain available.
+        await value.evaluate(element => { element.style.maxHeight = '1px'; });
+        expect(await value.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+        await value.focus(); await value.press('ArrowDown');
+        await expect.poll(() => value.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
         const button = page.getByRole('button', { name: locale === 'en' ? `Open ${side} snapshot` : side === 'before' ? '変更前のスナップショットを開く' : '変更後のスナップショットを開く', exact: true });
         await button.focus(); await button.press(key);
         await expect(page.getByTestId('ide-context')).toHaveValue(side === 'before' ? 'draft-before' : 'draft-after');

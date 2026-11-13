@@ -17,6 +17,7 @@ Names, hashes and JSON similarity never establish identity. The result preserves
 direction, original values, missing versus present values and side-specific
 Source locations. Name, property and reference changes have distinct categories;
 new identities produce additions/removals. Document names are metadata.
+Project root membership is a reference change between stable EntityIds.
 Arrays remain bounded whole-property comparisons, including port/transition
 collections; this slice does not claim individual nested-ID edit scripts.
 
@@ -37,13 +38,21 @@ never means no changes. Changed extension/package/source-reference data is
 Uninterpreted and incomplete. Unsupported envelope content can also make an
 empty comparison incomplete. No opaque field is guessed to be layout data;
 layout comparison awaits its actual layout contract.
+Two different Source bodies under one supposedly immutable version are also
+Incomplete, retaining original rows without claiming complete version provenance.
 
 Local ceilings: two Source bodies total 2 MiB canonical UTF-8, 8192 decoded
-records across the pair, at most 256 output changes by default (caller range
+records across the pair, 100000 JSON nodes across the pair, Source depth at most
+48 and numeric lexemes at most 100000 characters, at most 256 output changes by default (caller range
 1–1024), and 256 KiB original before/after value bytes. Exceeding output bounds
 discards the entire row list and reports ResourceLimit. Cancellation throws;
 it never returns an empty success. These are provisional technical bounds,
 not measured operational retention thresholds or memory/performance guarantees.
+Depth headroom protects serialization of original opaque values in the result;
+larger Source codec allowances do not bypass the comparison's explicit bounds.
+Source document/manifest and semantic model collections use owned private
+storage with rejecting generic list APIs. Non-generic ICollection.SyncRoot
+cannot expose their retained arrays and change a comparison under stable digests.
 
 The Windows pure .NET synthetic ViewModel prepares the same comparison against
 its exact accepted current input and clears it on result/lifecycle changes.

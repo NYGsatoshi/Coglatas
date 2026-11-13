@@ -65,8 +65,13 @@ public sealed class ProjectSemanticDiff
         if (Encoding.UTF8.GetByteCount(left.Data.CanonicalText) + Encoding.UTF8.GetByteCount(right.Data.CanonicalText) > 2_097_152 ||
             before.Declarations.Count + after.Declarations.Count + before.Relations.Count + after.Relations.Count > 8192)
             return new(SemanticDiffState.ResourceLimit, []);
+        var remainingNodes = 100_000;
+        if (!WithinProjectionBounds(left.Data.Value, 0) || !WithinProjectionBounds(right.Data.Value, 0))
+            return new(SemanticDiffState.ResourceLimit, []);
         var changes = new List<SemanticChange>(); var outputBytes = 0;
-        var complete = before.BindingComplete && after.BindingComplete;
+        // One immutable version cannot supply two different bodies; preserve useful rows without complete credit.
+        var complete = before.BindingComplete && after.BindingComplete &&
+            (!left.Context.Equals(right.Context) || left.Digest.Equals(right.Digest));
         try
         {
             CompareRecords(Declarations(before), Declarations(after));
@@ -99,6 +104,18 @@ public sealed class ProjectSemanticDiff
             return new(complete ? SemanticDiffState.Complete : SemanticDiffState.Incomplete, changes, before, after);
         }
         catch (DiffLimitException) { return new(SemanticDiffState.ResourceLimit, []); }
+
+        bool WithinProjectionBounds(JsonElement value, int depth)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // Leave depth headroom for original values inside the result envelope and reject oversized numeric lexemes.
+            if (depth > 48 || --remainingNodes < 0 || value.ValueKind == JsonValueKind.Number && value.GetRawText().Length > 100_000) return false;
+            if (value.ValueKind == JsonValueKind.Object)
+                foreach (var member in value.EnumerateObject()) { if (!WithinProjectionBounds(member.Value, depth + 1)) return false; }
+            if (value.ValueKind == JsonValueKind.Array)
+                foreach (var child in value.EnumerateArray()) { if (!WithinProjectionBounds(child, depth + 1)) return false; }
+            return true;
+        }
 
         void Add(SemanticChange change)
         {
@@ -168,6 +185,7 @@ public sealed class ProjectSemanticDiff
                 var record = new DiffRecord("entity", item.Data, ProjectLocation.Create(item.DocumentId, model.Input.Source.Context, entityId: id), item.Declaration is not null);
                 if (item.Declaration is { } declaration)
                 {
+                    if (declaration is ProjectPlanDeclaration) record.ReferencePaths.Add("/payload/roots");
                     if (declaration is RequirementPlanDeclaration requirement) Reference(record, "/payload/target", requirement.Target, model.Input.Source.Context);
                     if (declaration is TaskPlanDeclaration task)
                         for (var index = 0; index < task.Ports.Count; index++)

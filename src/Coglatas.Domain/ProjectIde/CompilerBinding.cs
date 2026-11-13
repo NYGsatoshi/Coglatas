@@ -45,12 +45,12 @@ public sealed class PartialSemanticModel
         IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots,
         int logicalOperationsConsumed = 0)
     {
-        Input = input; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = Array.AsReadOnly(declarations.ToArray()); Relations = Array.AsReadOnly(relations.ToArray());
-        Symbols = Array.AsReadOnly(symbols.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray());
-        References = Array.AsReadOnly(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal).ToArray());
-        Findings = Array.AsReadOnly(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
-            .ThenBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal).ToArray());
-        BoundSnapshots = Array.AsReadOnly(snapshots.ToArray());
+        Input = input; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = new ImmutableListView<DeclarationDecodeResult>(declarations); Relations = new ImmutableListView<RelationDecodeResult>(relations);
+        Symbols = new ImmutableListView<CompilerSymbol>(symbols.OrderBy(item => item.Key, StringComparer.Ordinal));
+        References = new ImmutableListView<CompilerBoundReference>(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal));
+        Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
+            .ThenBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
+        BoundSnapshots = new ImmutableListView<RelationScopeSnapshot>(snapshots);
     }
 }
 
