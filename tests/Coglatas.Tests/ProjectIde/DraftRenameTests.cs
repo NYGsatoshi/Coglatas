@@ -181,6 +181,31 @@ public sealed class DraftRenameTests
     }
 
     [Fact]
+    public void UnicodeSetValuesKeepCanonicalBoundsDuringForkAndRename()
+    {
+        var original = ReferenceCompletionTests.CompletionInput(1);
+        var nodes = JsonNode.Parse(original.Source.Declarations.CanonicalText)!.AsArray();
+        var port = nodes[0]!["payload"]!["ports"]![0]!;
+        var textType = Obj(new { kind = "coglatas.text", schemaVersion = 1, nullable = false, acceptsUnknown = false });
+        port["type"] = Obj(new { kind = "coglatas.set", schemaVersion = 1, nullable = false, acceptsUnknown = false,
+            identity = "coglatas.canonical-value", elementType = textType.DeepClone() });
+        port["defaultValue"] = Obj(new { type = port["type"]!.DeepClone(), state = "coglatas.known",
+            value = new JsonArray(Obj(new { type = textType.DeepClone(), state = "coglatas.known", value = new string('界', 800000) })) });
+        var declarations = SourceJson.Parse(nodes.ToJsonString(new System.Text.Json.JsonSerializerOptions
+            { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+        var settings = Settings(); settings["executionProfile"]!["maximumOperations"] = 2000000;
+        var committed = Input(settings, ProjectSource.Create(original.Source.Context, original.Source.Documents, declarations));
+        var model = ProjectSemanticBinder.Bind(committed); Assert.True(model.BindingComplete);
+        Assert.All(model.Declarations, item => Assert.Equal(ValueDecodeStatus.Decoded, item.Status));
+        var draft = ProjectDraftRename.Fork(model, Proposal(committed));
+        var preview = ProjectDraftRename.Preview(ProjectSemanticBinder.Bind(draft), Target(draft), draft.InputDigest, "Renamed", Next(draft));
+        Assert.Equal(DraftRenameState.Ready, preview.State);
+        var beforeValue = committed.Source.Declarations.Value[0].GetProperty("payload").GetProperty("ports")[0].GetProperty("defaultValue").GetProperty("value");
+        var afterValue = preview.Plan!.After.Source.Declarations.Value[0].GetProperty("payload").GetProperty("ports")[0].GetProperty("defaultValue").GetProperty("value");
+        Assert.Equal(beforeValue.GetRawText(), afterValue.GetRawText());
+    }
+
+    [Fact]
     public void ForkRetainsAnExplicitOtherBranchTargetWithoutGrantingCommitAuthority()
     {
         var committed = Committed(); var target = new BranchRef(committed.Source.TenantId, committed.Source.ProjectId, BranchId.Parse(Id(90)));

@@ -208,7 +208,7 @@ internal static class DraftSourceTransition
                     for (var i = 0; i < collection.Entries.Count; i++) RebaseValue(array[i]!["value"]!.AsObject(), collection.Entries[i].Value);
                     if (value.Type.Kind == "coglatas.set")
                     {
-                        var ordered = array.Select(item => (Node: item!, Key: SourceJson.Parse(item!.ToJsonString()).CanonicalText))
+                        var ordered = array.Select(item => (Node: item!, Key: Encode(item!).CanonicalText))
                             .OrderBy(item => item.Key, Comparer<string>.Create(CanonicalJson.ScalarCompare)).ToArray();
                         array.Clear(); foreach (var item in ordered) array.Add(item.Node);
                     }

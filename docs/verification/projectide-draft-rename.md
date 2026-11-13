@@ -30,6 +30,8 @@ manifest digests are recomputed through the existing canonical codec. Known set
 values retain canonical ordering. Previously decoded declarations cannot silently
 become invalid. Existing canonical byte bounds are applied after canonicalization,
 not to a larger intermediate Unicode-escaped representation.
+This also applies to canonical Set identities during both Fork and Rename; a
+large admitted Unicode Set value is preserved without an escape-size exception.
 
 This changes display names, not entity identity, external/public keys, Symbol
 aliases or graph topology. Version/evidence payloads are not invented or repaired.
