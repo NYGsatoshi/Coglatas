@@ -17,6 +17,12 @@ can reuse bounded immutable shapes while rebuilding bindings and validation for
 every input. The offline exporter compares cached and full results; runtime index
 activation and full dependency-directed incremental acceptance remain separate.
 
+A [local semantic Diff](verification/projectide-semantic-diff.md) compares exact
+before/after inputs by typed identity, preserving local versus pinned references
+and explicit incomplete/refused outcomes. The Windows pure ViewModel and offline
+Angular projection share Core comparison; stored History/Revert, current history
+authority and wider #908 acceptance remain open, with Security work in P0 #1932.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

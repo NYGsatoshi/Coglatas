@@ -25,6 +25,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerInspectedSymbol? Selected { get; private set; }
     public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
     public DraftRenamePreview? RenamePreview { get; private set; }
+    public ProjectSemanticDiff? SemanticDiff { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
     public CompilerBoundReference? SelectedReference { get; private set; }
     public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
@@ -272,6 +273,20 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
     }
 
+    /// <summary>Local paired-model display preparation; the caller owns historical authorization/materialization.</summary>
+    public ProjectSemanticDiff? CompareSynthetic(PartialSemanticModel before, ContentDigest expectedBefore,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        SemanticDiff = null;
+        if (_compilation?.Model is not { } after || _desired is null || State != "Ready") return null;
+        var lifecycle = _lifecycle;
+        var diff = ProjectSemanticDiff.Compare(before, after, expectedBefore, _desired.Input.ExpectedInputDigest,
+            cancellationToken: cancellationToken);
+        SemanticDiff = diff; Changed();
+        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
+    }
+
     public void Reset()
     {
         _lifecycle++; ClearContext(); Changed();
@@ -285,7 +300,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _compilation = null; Result = null; Inspection = null; ClearSelection(); }
+    private void ClearResult() { _compilation = null; Result = null; Inspection = null; SemanticDiff = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

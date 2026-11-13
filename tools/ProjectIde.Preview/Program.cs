@@ -7,6 +7,8 @@ if (args.Length != 1) throw new ArgumentException("Supply the output JSON path."
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
+var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
+var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
@@ -61,6 +63,13 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         semanticInspection = inspection?.Data.Value,
         referenceCompletions = completions,
         preparedRename = name == "draft-before" ? new { afterCaseKey = "draft-after", plan = renameFixture.Plan.Data.Value } : null,
+        preparedDiff = name switch
+        {
+            "draft-before" => new { afterCaseKey = "draft-after", comparison = ProjectSemanticDiff.Compare(diffBefore, diffAfter, renameFixture.Before.InputDigest, renameFixture.After.InputDigest).Data.Value },
+            "unsupported" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
+            "fail" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
+            _ => null
+        },
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });

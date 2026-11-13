@@ -79,6 +79,19 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('renders a localized %s difference and rechecks permission before opening its historical side', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('draft-before'); c.loadResult();
+    c.i18n.setLocale(locale); c.open('diff'); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-diff-state"]')?.textContent).toContain('Complete');
+    expect(root.querySelector('[data-testid="ide-diff-rows"]')?.textContent).toContain('DisplayName');
+    const change = c.store.semanticDiff()!.comparison.changes[0];
+    const after = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.includes(locale === 'en' ? 'Open after snapshot' : '変更後のスナップショットを開く'))!;
+    after.click(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('draft-after'); expect(c.panel()).toBe('source');
+    c.choose('draft-before'); c.loadResult(); c.open('diff'); fixture.detectChanges();
+    authenticated.set(false); c.navigateDiff(change, 'before'); fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.semanticDiff()).toBeNull(); expect(root.textContent).not.toContain('Observe renamed');
+  });
+
   it.each(['en', 'ja'] as const)('previews the prepared Draft rename in %s and rechecks permission before loading it', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('draft-before'); c.loadResult();
     c.i18n.setLocale(locale); fixture.detectChanges();
