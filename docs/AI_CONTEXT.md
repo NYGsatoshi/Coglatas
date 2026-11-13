@@ -2,6 +2,10 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [Resource assessment storage repair](verification/projectide-resource-assessment-immutability.md)
+owns diagnostic rows so input IDs and typed locations stay bound to the admitted
+Source. Resolution remains Unsupported; independent qualification is P0 #1938.
+
 The [numeric operand storage repair](verification/projectide-numeric-operand-immutability.md)
 owns unit-factor maps so public access cannot change exact evaluation under a
 retained input basis. This changes no arithmetic or numerical assurance policy;
