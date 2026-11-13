@@ -35,6 +35,20 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
     public IReadOnlyList<CompilerDiagnostic> Problems => Result?.Diagnostics ?? Array.Empty<CompilerDiagnostic>();
 
+    /// <summary>Accepted findings for the exact document and typed record selected in the Inspector.</summary>
+    public IReadOnlyList<CompilerDiagnostic> RelatedProblems
+    {
+        get
+        {
+            var location = SelectedDiagnostic?.Location ?? Selected?.Symbol.Location ?? SelectedReference?.Origin;
+            if (location is null || Resolve(location) != "ready") return Array.Empty<CompilerDiagnostic>();
+            return Problems.Where(diagnostic => diagnostic.Location.Context.Equals(location.Context) &&
+                diagnostic.Location.DocumentId == location.DocumentId &&
+                diagnostic.Location.EntityId == location.EntityId &&
+                diagnostic.Location.RelationId == location.RelationId).ToArray();
+        }
+    }
+
     /// <summary>
     /// Local compiler evidence display only. A complete PASS is never Producer trust,
     /// current authorization, Evidence Eligibility or an operational approval.

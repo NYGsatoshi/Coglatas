@@ -16,6 +16,24 @@ missing/coverage-unknown/ambiguous/unsupported/out-of-scope references remain di
 Only the local Source's symbols are projected; this adds no external-data loader or
 current authorization. Existing compiler reference/evidence limitations remain.
 
+## Inspector to related Problems
+
+The Angular Inspector exposes related diagnostics as native buttons with the
+existing English/Japanese inspect action and selected state. Selecting a finding
+uses the same accepted-object check as Problems, clears the previous source target
+and reference search, and preserves the finding's exact primary location for
+subsequent Source navigation. Keyboard activation uses the native button behavior.
+
+`ProjectIdeWorkbenchStore.relatedDiagnostics` and the pure Windows preparation
+ViewModel's `RelatedProblems` project findings for the selected source record.
+They preserve compiler order and require the exact context, document and typed
+entity/relation identity. Missing/replaced results, unresolved selections and
+reset/disposal expose no related findings. Equal labels or IDs in another document
+do not establish a match. No canonical compiler contract or diagnostic identity
+changes, production adapter, external lookup or Avalonia activation are introduced.
+Developer regressions for this slice are distinct from independent acceptance;
+native UI and exact-head review/CI remain separate gates.
+
 The Angular synthetic exporter adds optional `coglatas.semantic-inspection/1` data
 for completed fixtures. Older fixtures remain readable without fabricated symbols.
 The adapter validates exact input/Source/context, unique symbol identity, actual

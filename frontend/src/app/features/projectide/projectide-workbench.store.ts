@@ -9,6 +9,7 @@ import {
   ReadState,
   Selection,
   SourceRecord,
+  sameContext,
 } from './projectide.contracts';
 import { PreviewReadError, resolveLocation } from './projectide-preview.adapter';
 
@@ -78,6 +79,19 @@ export class ProjectIdeWorkbenchStore {
     return [...context.declarations, ...context.relations].find(
       (record) => record.recordType === selected.kind && record.identity === selected.id,
     ) ?? null;
+  });
+  /** Related findings belong to the accepted result and exact Inspector source record. */
+  readonly relatedDiagnostics = computed(() => {
+    const context = this.context();
+    const record = this.inspectedRecord();
+    if (!context || this.result() !== context || !record ||
+        typeof resolveLocation(context, record.location) === 'string') return [];
+    return context.result.diagnostics.filter(({ primaryLocation: location }) =>
+      sameContext(location.context, record.location.context) &&
+      location.documentId === record.location.documentId &&
+      location.entityId === record.location.entityId &&
+      location.relationId === record.location.relationId,
+    );
   });
   private readonly recordSymbols = computed(() => {
     const record = this.inspectedRecord();
