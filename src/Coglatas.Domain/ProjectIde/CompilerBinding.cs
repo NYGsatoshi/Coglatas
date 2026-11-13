@@ -218,6 +218,16 @@ public static class ProjectSemanticBinder
                             if (item.Value.KnownValue is TypedProjectReference reference)
                                 ResolveValue(reference, ProjectLocation.Create(result.DocumentId, source.Context, item.Path, entityId: entity));
                         }
+            if (result.Declaration is ProjectTestPlanDeclaration test)
+                foreach (var assertion in test.Assertions)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    remainingOperations -= snapshots.Count + pins.Length + 1;
+                    if (remainingOperations < 0)
+                    { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+                    Resolve(assertion.Target, ProjectLocation.Create(result.DocumentId, source.Context,
+                        "/payload/assertions/" + assertion.Key + "/target", entityId: entity), CoreCompilerRules.Declarations, assertion.PortId);
+                }
             if (result.Declaration is RequirementPlanDeclaration requirement)
                 Resolve(requirement.Target, ProjectLocation.Create(result.DocumentId, source.Context, "/payload/target", entityId: entity), CoreCompilerRules.Declarations);
             if (result.Declaration is ProjectPlanDeclaration project)
