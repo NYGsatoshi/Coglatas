@@ -136,7 +136,7 @@ public sealed class NumericEvaluationResult
         QuantizedExactValue? quantization, string reason, SourceJson basis, params NumericOperand[] inputs)
     {
         Status = status; Value = value; Comparison = comparison; Quantization = quantization; Reason = reason; Basis = basis;
-        Inputs = Array.AsReadOnly((NumericOperand[])inputs.Clone());
+        Inputs = new ImmutableListView<NumericOperand>(inputs);
     }
 }
 

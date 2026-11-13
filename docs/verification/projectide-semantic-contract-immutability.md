@@ -18,6 +18,12 @@ with null changed Known to Invalid. The original canonical converted quantity
 still described the first result. These are local in-process counterexamples,
 not demonstrated remote exploitation, a production incident or access authority.
 
+A numeric result also exposed its retained input array. Replacing operand2 with20
+changed a replay of2+3 from5 to23 while the retained value and basis still
+described5. A short-circuited false predicate could expose an evaluated true
+literal instead of its actual false premise. Original clean controls fail for
+both cases; neither changes the already computed value.
+
 ## Owned views preserve existing meaning
 
 The existing ImmutableListView owns the built-in catalog and every descriptor's
@@ -32,6 +38,11 @@ provenance must reproduce its retained canonical result. Caller path mutation,
 empty identity conversion and rejecting generic list edits keep their existing
 behavior. No factor, rounding, compatibility, size or evaluation budget changes.
 
+Numeric results own their ordered inputs, and predicate evaluations own only
+the actually evaluated premises. Known values, comparisons, three-valued truth,
+short-circuit order and input-specific evidence retain their existing meaning.
+These changes add no arithmetic, tolerance, solver or numerical assurance claim.
+
 This is storage integrity for already admitted built-ins. It does not enroll a
 new formal Registry, Producer or Trust/Eligibility policy.
 
@@ -41,7 +52,8 @@ Three initial functional counterexamples fail on the original source. Expanded
 controls reproduce nine failures and two passing ownership/empty controls.
 The corrected controls retain same-input full compilation, canonical descriptor
 lists, catalog lookup, exact conversion replay and existing relation/unit cases.
-Global catalog mutation controls run in a nonparallel collection and restore
+Evaluation replay covers addition, multiplication and comparison; predicate
+controls preserve the actual short-circuited premise. Global catalog mutation controls run in a nonparallel collection and restore
 the original array in finally, including assertion failure paths.
 
 Non-incremental builds, exact source identities, original failures and corrected

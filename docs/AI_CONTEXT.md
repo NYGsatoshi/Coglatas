@@ -3,7 +3,8 @@
 This is the primary entry point for future Codex work on Coglatas.
 
 The [semantic contract storage repair](verification/projectide-semantic-contract-immutability.md)
-owns built-in Relation interpretation lists and exact conversion provenance.
+owns built-in Relation interpretation lists, exact conversion provenance,
+retained numeric inputs and actually evaluated Boolean premises.
 It preserves canonical definitions and numerical meaning; independent
 qualification remains separate P0 #1938 work.
 
