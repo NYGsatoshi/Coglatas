@@ -144,6 +144,31 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
           (reference.state === 'Resolved') !== (reference.symbolKey !== null)) throw new PreviewReadError('wrong-scope');
     }
   }
+  // Legacy readers may omit the optional inspection. Suggestions then stay inert.
+  const pages = inspection ? item.referenceCompletions ?? [] : [];
+  if (new Set(pages.map((page) => page.originKey)).size !== pages.length) throw new PreviewReadError('unsupported');
+  const symbols = new Map(inspection?.symbols.map((symbol) => [symbol.key, symbol]) ?? []);
+  for (const page of pages) {
+    const origin = symbols.get(page.originKey);
+    if (!origin || !sameDigest(page.inputDigest, item.inputDigest) || origin.status !== 'Decoded' ||
+        !origin.location.propertyPath.startsWith('/payload/ports/')) throw new PreviewReadError('wrong-scope');
+    if (page.state === 'Ready') {
+      const type = origin.declaredType;
+      if (!type || Object.keys(type).length !== 5 || type['schemaVersion'] !== 1 ||
+          typeof type['nullable'] !== 'boolean' || typeof type['acceptsUnknown'] !== 'boolean' ||
+          type['kind'] !== 'coglatas.entity-reference' || type['expectedKind'] !== page.expectedKind ||
+          page.coverageComplete !== inspection?.bindingComplete) throw new PreviewReadError('unsupported');
+    } else if (page.candidates.length || page.coverageComplete || page.truncated) throw new PreviewReadError('unsupported');
+    if (new Set(page.candidates.map((candidate) => candidate.symbolKey)).size !== page.candidates.length)
+      throw new PreviewReadError('unsupported');
+    for (const candidate of page.candidates) {
+      const symbol = symbols.get(candidate.symbolKey);
+      const declaration = symbol?.location.entityId ? declarations.get(symbol.location.entityId) : undefined;
+      if (!symbol || symbol.status !== 'Decoded' || symbol.location.propertyPath !== '' || symbol.kind !== page.expectedKind ||
+          !declaration || (declaration.data['displayName'] ?? null) !== candidate.displayName)
+        throw new PreviewReadError('wrong-scope');
+    }
+  }
   for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
     if (
       !sameContext(item.context, entry.location.context) ||

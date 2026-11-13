@@ -99,6 +99,15 @@ export type SourceRecord = SourceRecordFields &
   );
 export type InspectedSymbol = SemanticInspection['symbols'][number];
 export type BoundReference = SemanticInspection['references'][number];
+export interface ReferenceCompletion {
+  readonly originKey: string;
+  readonly inputDigest: Digest;
+  readonly state: 'Ready' | 'StaleInput' | 'OutOfScope' | 'Unavailable' | 'Unsupported' | 'InvalidCursor';
+  readonly expectedKind: string | null;
+  readonly coverageComplete: boolean;
+  readonly truncated: boolean;
+  readonly candidates: readonly { readonly symbolKey: string; readonly displayName: string | null }[];
+}
 
 export interface SemanticInspection {
   readonly format: 'coglatas.semantic-inspection/1';
@@ -147,6 +156,7 @@ export interface PreviewCase {
   readonly declarations: readonly SourceRecord[];
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
+  readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly sourceMap: {
     readonly format: string;
     readonly compilerInputId: Identity<'CompilerInput'>;

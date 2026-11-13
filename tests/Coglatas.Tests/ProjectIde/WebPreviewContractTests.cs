@@ -39,7 +39,24 @@ public sealed class WebPreviewContractTests
         Assert.Equal(result.ResultDigest.Data, SourceJson.Parse(item.GetProperty("resultDigest").GetRawText()));
         Assert.Equal(result.ResultId.ToString(), item.GetProperty("resultId").GetString());
         if (result.Execution == CompilerExecutionState.Completed && compilation.Model is { } model)
-            Assert.Equal(new CompilerSemanticInspection(model).Data, SourceJson.Parse(item.GetProperty("semanticInspection").GetRawText()));
+        {
+            var inspection = new CompilerSemanticInspection(model);
+            Assert.Equal(inspection.Data, SourceJson.Parse(item.GetProperty("semanticInspection").GetRawText()));
+            var pages = item.GetProperty("referenceCompletions").EnumerateArray().ToArray();
+            Assert.Equal(inspection.Symbols.Count(symbol => symbol.Symbol.PortId is not null), pages.Length);
+            foreach (var page in pages)
+            {
+                var origin = inspection.Symbols.Single(symbol => symbol.Symbol.Key == page.GetProperty("originKey").GetString());
+                var expected = inspection.CompleteEntityReference(origin.Symbol.Location, input.InputDigest, 32);
+                Assert.Equal(expected.State.ToString(), page.GetProperty("state").GetString());
+                Assert.Equal(expected.ExpectedKind, page.GetProperty("expectedKind").GetString());
+                Assert.Equal(expected.CoverageComplete, page.GetProperty("coverageComplete").GetBoolean());
+                Assert.Equal(expected.NextCursor is not null, page.GetProperty("truncated").GetBoolean());
+                Assert.Equal(expected.InputDigest.Data, SourceJson.Parse(page.GetProperty("inputDigest").GetRawText()));
+                Assert.Equal(expected.Candidates.Select(candidate => candidate.Symbol.Symbol.Key), page.GetProperty("candidates").EnumerateArray().Select(candidate => candidate.GetProperty("symbolKey").GetString()));
+                Assert.Equal(expected.Candidates.Select(candidate => candidate.DisplayName), page.GetProperty("candidates").EnumerateArray().Select(candidate => candidate.GetProperty("displayName").GetString()));
+            }
+        }
         else Assert.Equal(JsonValueKind.Null, item.GetProperty("semanticInspection").ValueKind);
         foreach (var record in item.GetProperty("declarations").EnumerateArray())
         {

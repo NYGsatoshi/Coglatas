@@ -36,6 +36,15 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         location = ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context,
             relationId: RelationId.Parse(item.GetProperty("relationId").GetString()!)).Data.Value
     }).ToArray();
+    var inspection = result.Execution == CompilerExecutionState.Completed && compilation.Model is { } model
+        ? new CompilerSemanticInspection(model) : null;
+    var completions = inspection?.Symbols.Where(symbol => symbol.Symbol.PortId is not null).Select(symbol =>
+    {
+        var page = inspection.CompleteEntityReference(symbol.Symbol.Location, input.InputDigest, 32);
+        return new { originKey = symbol.Symbol.Key, inputDigest = page.InputDigest.Data.Value, state = page.State.ToString(),
+            expectedKind = page.ExpectedKind, coverageComplete = page.CoverageComplete, truncated = page.NextCursor is not null,
+            candidates = page.Candidates.Select(candidate => new { symbolKey = candidate.Symbol.Symbol.Key, displayName = candidate.DisplayName }).ToArray() };
+    }).ToArray();
     cases.Add(new
     {
         key = name, projectName = name == "other-project" ? "Synthetic Satellite" : "Synthetic Observatory", workspaceName = "Synthetic Lab", workspaceId = Id(90), branchName = name == "branch-pass" ? "Alternate preview branch" : "Preview branch",
@@ -45,7 +54,8 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         result = result.Data.Value, resultId = result.ResultId.ToString(), resultDigest = result.ResultDigest.Data.Value,
         freshness = freshness.State.ToString(), changedDimensions = freshness.ChangedDimensions,
         declarations, relations,
-        semanticInspection = result.Execution == CompilerExecutionState.Completed && compilation.Model is { } model ? new CompilerSemanticInspection(model).Data.Value : (JsonElement?)null,
+        semanticInspection = inspection?.Data.Value,
+        referenceCompletions = completions,
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
@@ -72,7 +82,7 @@ static CompilerInputManifest Input(string name, int revision)
     var declarations = new List<object>
     {
         new { entityId = Id(7), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1, displayName = "Launch readiness", payload = new { predicate, classification = "coglatas.required" } },
-        new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Observe 🌌", payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = "10" }, ports = Array.Empty<object>() } },
+        new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Observe 🌌", payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = "10" }, ports = name == "pass" ? new object[] { new { portId = Id(80), direction = "coglatas.input", type = new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = true, expectedKind = "coglatas.task" }, minimumConnections = 0, maximumConnections = 1 } } : Array.Empty<object>() } },
         new { entityId = Id(9), documentId = Id(4), kind = "coglatas.milestone", schemaVersion = 1, displayName = "First light", payload = new { target = new { type = new { kind = "coglatas.instant", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = "2026-11-01T00:00:00.0000000Z" } } },
         new { entityId = Id(10), documentId = Id(4), kind = "coglatas.workflow", schemaVersion = 1, displayName = "Observation workflow", payload = new { states = new[] { Id(30) }, initialState = Id(30), maximumTransitions = 2, transitions = Array.Empty<object>() } }
     };

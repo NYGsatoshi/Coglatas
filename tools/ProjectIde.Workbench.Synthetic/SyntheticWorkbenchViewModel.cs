@@ -23,6 +23,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerResult? Result { get; private set; }
     public CompilerSemanticInspection? Inspection { get; private set; }
     public CompilerInspectedSymbol? Selected { get; private set; }
+    public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
     public CompilerBoundReference? SelectedReference { get; private set; }
     public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
@@ -199,6 +200,36 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
 
+    public ReferenceCompletionPage? CompleteEntityReference(int pageSize = 16, ReferenceCompletionCursor? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
+        ReferenceCompletion = null;
+        if (Inspection is not { } inspection || Selected is not { } selected || _desired is null ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var generation = _selectionGeneration;
+        var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
+            pageSize, cursor, cancellationToken);
+        ReferenceCompletion = page; Changed();
+        return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
+    }
+
+    /// <summary>Open a suggested declaration without inserting a reference or changing Source.</summary>
+    public bool NavigateCompletion(ReferenceCompletionPage page, ReferenceCompletionCandidate candidate)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(page); ArgumentNullException.ThrowIfNull(candidate);
+        if (!ReferenceEquals(ReferenceCompletion, page) || page.State != ReferenceCompletionState.Ready ||
+            !page.Candidates.Any(item => ReferenceEquals(item, candidate)) || Selected is null ||
+            !page.Origin.Data.Equals(Selected.Symbol.Location.Data) || _desired is null ||
+            !page.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+            Resolve(page.Origin, requireSourceMap: true) != "ready")
+        {
+            SourceTarget = null; NavigationState = "unavailable"; Changed(); return false;
+        }
+        return NavigateTo(candidate.Symbol.Symbol.Location, requireSourceMap: true);
+    }
+
     public bool NavigateReferenceDefinition() => NavigateTo(ReferenceSymbol?.Symbol.Location, requireSourceMap: true);
 
     public bool Navigate() => NavigateTo(SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
@@ -223,6 +254,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private long ClearSelection()
     {
         Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
+        ReferenceCompletion = null;
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }

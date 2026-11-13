@@ -79,6 +79,22 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('opens a localized %s typed candidate and clears it after permission loss', async locale => {
+    const { c, fixture, root, authenticated } = await render();
+    c.choose('pass'); c.loadResult();
+    const task = c.records().find(item => item.kind === 'coglatas.task')!;
+    c.inspectRecord(task); c.i18n.setLocale(locale); fixture.detectChanges();
+    const section = root.querySelector<HTMLElement>('[data-testid="ide-reference-completion"]')!;
+    expect(section.textContent).toContain(locale === 'en' ? 'Typed reference suggestions' : '型に基づく参照候補');
+    const button = section.querySelector<HTMLButtonElement>('button')!;
+    expect(button.type).toBe('button'); button.click(); fixture.detectChanges();
+    expect(c.panel()).toBe('source'); expect(c.store.sourceTarget()).toBe(task);
+    authenticated.set(false); fixture.detectChanges();
+    button.click(); fixture.detectChanges();
+    expect(c.store.referenceCompletions()).toEqual([]); expect(c.store.sourceTarget()).toBeNull();
+    expect(c.store.state()).toBe('denied');
+  });
+
   it.each(['en', 'ja'] as const)('activates a localized %s related diagnostic button and follows its source location', async locale => {
     const { c, fixture, root } = await render();
     c.choose('fail');

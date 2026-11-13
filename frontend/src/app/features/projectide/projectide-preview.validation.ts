@@ -185,6 +185,13 @@ const inspection = (value: unknown): boolean => value === undefined || value ===
 );
 
 /** Structural profile only. Core owns meaning, identities and canonical digest derivation. */
+const completions = (value: unknown): boolean => value === undefined || value === null || list(value, (page) =>
+  record(page) && token(page['originKey']) && digest(page['inputDigest']) &&
+  oneOf(page['state'], ['Ready', 'StaleInput', 'OutOfScope', 'Unavailable', 'Unsupported', 'InvalidCursor']) &&
+  (page['expectedKind'] === null || token(page['expectedKind'])) && typeof page['coverageComplete'] === 'boolean' &&
+  typeof page['truncated'] === 'boolean' && list(page['candidates'], (candidate) => record(candidate) &&
+    token(candidate['symbolKey']) && (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
+
 export function isPreviewCaseShape(value: unknown): value is PreviewCase {
   return (
     record(value) &&
@@ -209,6 +216,7 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     list(value['declarations'], sourceRecord, 100000) &&
     list(value['relations'], sourceRecord, 100000) &&
     inspection(value['semanticInspection']) &&
+    completions(value['referenceCompletions']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );
