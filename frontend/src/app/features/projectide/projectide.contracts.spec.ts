@@ -99,7 +99,7 @@ describe('ProjectIDE Core artifact view contract', () => {
   );
   it('reads only explicitly synthetic exporter artifacts', () => {
     expect(bundle().mode).toBe('synthetic-fixture');
-    expect(bundle().cases).toHaveLength(12);
+    expect(bundle().cases).toHaveLength(14);
   });
   it.each([
     ['fail', 'coglatas.completed', 'coglatas.complete', 'coglatas.fail'],

@@ -51,6 +51,12 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
         await expect(page.getByTestId('ide-source-target')).toBeFocused();
         await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
       }
+      await page.getByTestId('ide-context').selectOption('document-before');
+      await page.getByRole('button', { name: load, exact: true }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('Uninterpreted');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('/extensions');
       await page.getByTestId('ide-context').selectOption('unsupported');
       await page.getByRole('button', { name: load, exact: true }).click();
       await page.getByRole('button', { name: tab, exact: true }).click();

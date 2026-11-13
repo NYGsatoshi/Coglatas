@@ -28,6 +28,15 @@ describe('Core-prepared semantic differences', () => {
     expect(store.semanticDiff()?.comparison.state).toBe('Incomplete');
     expect(store.semanticDiff()?.comparison.changes).toHaveLength(0); expect(store.semanticDiff()?.comparison.noChanges).toBe(false);
   });
+  it('retains Core-generated opaque document changes with exact before/after documents', async () => {
+    const store = await ready('document-before'); const diff = store.semanticDiff()!.comparison;
+    expect(diff.state).toBe('Incomplete'); expect(diff.noChanges).toBe(false); expect(diff.changes).toHaveLength(1);
+    const change = diff.changes[0]; expect(change.recordType).toBe('document'); expect(change.kind).toBe('Uninterpreted');
+    expect(change.path).toBe('/extensions'); expect(change.beforePresent).toBe(false); expect(change.afterPresent).toBe(true);
+    expect(change.after).toEqual({ annotation: 'Opaque document annotation; no inferred layout semantics' });
+    expect(change.beforeLocation?.context).toEqual(diff.beforeContext); expect(change.afterLocation?.context).toEqual(diff.afterContext);
+    expect(store.navigateDiff(change, 'after')).toBe(false);
+  });
   it('clears paired bodies on context, load and denial boundaries', async () => {
     const store = await ready(); const change = store.semanticDiff()!.comparison.changes[0];
     store.choose('pass'); expect(store.semanticDiff()).toBeNull(); expect(store.navigateDiff(change, 'after')).toBe(false);

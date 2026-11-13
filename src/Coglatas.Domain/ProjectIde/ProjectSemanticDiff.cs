@@ -88,13 +88,22 @@ public sealed class ProjectSemanticDiff
                     oldDocument is null ? SemanticChangeKind.Added : newDocument is null ? SemanticChangeKind.Removed : SemanticChangeKind.Property,
                     oldValue, newValue, oldDocument is null ? null : ProjectLocation.Create(id, left.Context),
                     newDocument is null ? null : ProjectLocation.Create(id, right.Context)));
+                SourceJson? Extension(SourceDocument? document) => document is not null && document.Data.Value.TryGetProperty("extensions", out var value)
+                    ? SourceJson.FromElement(value, document.Data.Limits) : null;
+                var oldExtension = Extension(oldDocument); var newExtension = Extension(newDocument);
+                if (!Equals(oldExtension, newExtension))
+                {
+                    complete = false;
+                    Add(new("document", id.ToString(), "/extensions", SemanticChangeKind.Uninterpreted, oldExtension, newExtension,
+                        oldDocument is null ? null : ProjectLocation.Create(id, left.Context), newDocument is null ? null : ProjectLocation.Create(id, right.Context)));
+                }
             }
             // Opaque/package data is retained as uninterpreted; never infer layout, impact or absence of changes from it.
-            foreach (var field in new[] { "extensionDeclarations", "packageLock", "sourceReferences" })
+            foreach (var field in new[] { "extensionDeclarations", "packageLock", "sourceReferences", "extensions" })
             {
-                var oldValue = SourceJson.FromElement(left.Data.Value.GetProperty(field), left.Data.Limits);
-                var newValue = SourceJson.FromElement(right.Data.Value.GetProperty(field), right.Data.Limits);
-                if (!oldValue.Equals(newValue))
+                var oldValue = left.Data.Value.TryGetProperty(field, out var oldField) ? SourceJson.FromElement(oldField, left.Data.Limits) : null;
+                var newValue = right.Data.Value.TryGetProperty(field, out var newField) ? SourceJson.FromElement(newField, right.Data.Limits) : null;
+                if (!Equals(oldValue, newValue))
                 {
                     complete = false;
                     Add(new("source", "", "/" + field, SemanticChangeKind.Uninterpreted, oldValue, newValue, null, null));

@@ -251,7 +251,7 @@ public sealed class SemanticDiffTests
             var diff = Compare(Materialize(before), Materialize(after));
             Assert.Equal(diff.Data, SourceJson.Parse(prepared.GetProperty("comparison").GetRawText())); count++;
         }
-        Assert.Equal(3, count);
+        Assert.Equal(4, count);
     }
 
     internal static CompilerInputManifest With(CompilerInputManifest input, JsonArray? declarations = null, JsonArray? relations = null) =>
@@ -273,7 +273,7 @@ public sealed class SemanticDiffTests
     public void DeepOpaqueSourceIsExplicitlyBoundedBeforeProjectionSerialization()
     {
         var before = Source(); var node = JsonNode.Parse(before.Data.CanonicalText)!.AsObject();
-        JsonNode deep = JsonValue.Create("Opaque value")!;
+        JsonNode deep = JsonValue.Create("Opaque value");
         for (var i = 0; i < 80; i++) deep = new JsonObject { ["nested"] = deep };
         node["declarations"]!.AsArray().Add(Obj(new { entityId = Id(90), documentId = Id(4), kind = "example.future", schemaVersion = 1, payload = new { } }));
         node["declarations"]![0]!["payload"] = deep;
@@ -346,5 +346,35 @@ public sealed class SemanticDiffTests
         Assert.Equal("/payload/transitionId", change.Path); Assert.Null(change.Before); Assert.NotNull(change.After);
         var row = diff.Data.Value.GetProperty("changes")[0]; Assert.False(row.GetProperty("beforePresent").GetBoolean());
         Assert.True(row.GetProperty("afterPresent").GetBoolean()); Assert.Equal(System.Text.Json.JsonValueKind.Null, row.GetProperty("after").ValueKind);
+    }
+
+    [Theory]
+    [InlineData("added")]
+    [InlineData("removed")]
+    [InlineData("changed")]
+    public void DocumentExtensionChangesPreserveTheirDocumentAndOriginalOpaqueValues(string mode)
+    {
+        var basis = DraftRenameTests.Draft(); var document = basis.Source.Documents[0];
+        var oldExtension = mode == "added" ? null : Json(Obj(new { opaque = "Before" }));
+        var newExtension = mode == "removed" ? null : Json(Obj(new { opaque = "After" }));
+        CompilerInputManifest WithExtension(SourceJson? extension) => Input(source: ProjectSource.Create(basis.Source.Context,
+            [SourceDocument.Create(document.DocumentId, document.LogicalName, document.Root.Data, extension)], basis.Source.Declarations, basis.Source.Relations,
+            sourceReferences: basis.Source.SourceReferences));
+        var diff = Compare(WithExtension(oldExtension), WithExtension(newExtension)); var change = Assert.Single(diff.Changes);
+        Assert.Equal(SemanticDiffState.Incomplete, diff.State); Assert.False(diff.NoChanges); Assert.Equal("document", change.RecordType);
+        Assert.Equal(document.DocumentId.ToString(), change.Identity); Assert.Equal("/extensions", change.Path); Assert.Equal(SemanticChangeKind.Uninterpreted, change.Kind);
+        Assert.Equal(oldExtension, change.Before); Assert.Equal(newExtension, change.After);
+        Assert.Equal(document.DocumentId, change.BeforeLocation!.DocumentId); Assert.Equal(document.DocumentId, change.AfterLocation!.DocumentId);
+    }
+
+    [Fact]
+    public void SourceExtensionsAreAlsoVisibleWithoutInferringTheirMeaning()
+    {
+        var before = DraftRenameTests.Draft(); var extension = Json(Obj(new { opaque = "Preserved" }));
+        var after = Input(source: ProjectSource.Create(before.Source.Context, before.Source.Documents, before.Source.Declarations, before.Source.Relations,
+            sourceReferences: before.Source.SourceReferences, extensions: extension));
+        var diff = Compare(before, after); var change = Assert.Single(diff.Changes);
+        Assert.Equal(SemanticDiffState.Incomplete, diff.State); Assert.Equal("source", change.RecordType); Assert.Equal("/extensions", change.Path);
+        Assert.Equal(SemanticChangeKind.Uninterpreted, change.Kind); Assert.Null(change.Before); Assert.Equal(extension, change.After);
     }
 }

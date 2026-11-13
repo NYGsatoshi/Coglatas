@@ -71,15 +71,15 @@ function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): v
           raw = change.path === '/documentId' ? original.location.documentId : original.data;
         } else if (location !== null) throw new PreviewReadError('wrong-scope');
       } else if (change.recordType === 'document') {
-        if (change.path !== '/logicalName') throw new PreviewReadError('unsupported');
+        if (!['/logicalName', '/extensions'].includes(change.path) || (change.path === '/extensions' && change.kind !== 'Uninterpreted')) throw new PreviewReadError('unsupported');
         const document = item.source.documents.find(document => document.documentId === change.identity);
         if (document) {
           if (!location || location.documentId !== document.documentId || !sameContext(location.context, item.context) || location.entityId || location.relationId)
             throw new PreviewReadError('wrong-scope');
-          raw = { logicalName: document.logicalName };
+          raw = document;
         } else if (location !== null) throw new PreviewReadError('wrong-scope');
       } else {
-        if (change.identity !== '' || location !== null || !['/extensionDeclarations', '/packageLock', '/sourceReferences'].includes(change.path) || change.kind !== 'Uninterpreted')
+        if (change.identity !== '' || location !== null || !['/extensionDeclarations', '/packageLock', '/sourceReferences', '/extensions'].includes(change.path) || change.kind !== 'Uninterpreted')
           throw new PreviewReadError('unsupported');
         raw = item.source;
       }
