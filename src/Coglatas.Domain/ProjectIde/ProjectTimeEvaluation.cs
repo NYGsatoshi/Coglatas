@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Globalization;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -18,7 +17,7 @@ public sealed class TimeEvaluationResult<T>
         IEnumerable<T>? candidates = null)
     {
         Status = status; Value = value; Reason = reason; Data = data;
-        Candidates = new ReadOnlyCollection<T>((candidates ?? []).ToArray());
+        Candidates = new ImmutableListView<T>(candidates ?? []);
     }
 }
 
@@ -112,7 +111,7 @@ public sealed class TimeZoneSnapshot
             segments.Add(new(interval, offset)); previous = interval.End;
         }
         if (previous != Validity.End) throw new FormatException("Timezone snapshot has incomplete coverage.");
-        Data = data; Reference = reference; Segments = new ReadOnlyCollection<TimeZoneSegment>(segments);
+        Data = data; Reference = reference; Segments = new ImmutableListView<TimeZoneSegment>(segments);
     }
 
     public static ContentDigest ComputeDigest(SourceJson data) => ContentDigest.Compute("coglatas.timezone-snapshot/1", data.ToCanonicalBytes());

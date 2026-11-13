@@ -2,6 +2,11 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [host and time snapshot storage repair](verification/projectide-host-snapshot-immutability.md)
+owns direct host collections and supplied calendar/timezone collections.
+Compatibility and exact execution bindings stay stable after collection access;
+independent Security and current authority remain separate P0 #1938 work.
+
 The [Compiler envelope storage repair](verification/projectide-compiler-envelope-immutability.md)
 owns Domain input/result/evidence/IR collection storage so typed views stay
 consistent with retained canonical bytes. Host and supplied-snapshot collection

@@ -1,5 +1,6 @@
 using System.Text.Json;
-using System.Collections.ObjectModel;
+using System.Collections.Frozen;
+using System.Collections.Immutable;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Application.ProjectIde.Core;
@@ -20,9 +21,9 @@ public sealed class CompilerHostProfile
         if (values.Length > 4096 || values.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 256 || !value.Contains('.')) || values.Distinct(StringComparer.Ordinal).Count() != values.Length)
             throw new ArgumentException("Capabilities must be bounded unique namespaced tokens.");
         Compiler = compiler;
-        Contracts = new ReadOnlyDictionary<string, CompilerArtifactIdentity>(new Dictionary<string, CompilerArtifactIdentity>(StringComparer.Ordinal)
-        { ["compiler"] = compiler, ["schema"] = schema, ["ruleset"] = ruleset, ["semantics"] = semantics, ["ir"] = ir, ["evaluator"] = evaluator });
-        Capabilities = Array.AsReadOnly(values.Select(value => value!).Order(StringComparer.Ordinal).ToArray());
+        Contracts = new Dictionary<string, CompilerArtifactIdentity>(StringComparer.Ordinal)
+        { ["compiler"] = compiler, ["schema"] = schema, ["ruleset"] = ruleset, ["semantics"] = semantics, ["ir"] = ir, ["evaluator"] = evaluator }.ToFrozenDictionary(StringComparer.Ordinal);
+        Capabilities = values.Select(value => value!).Order(StringComparer.Ordinal).ToImmutableList();
     }
     public bool Supports(CompilerInputManifest input)
     {
@@ -103,7 +104,7 @@ public sealed class CompilerHostRequest
     {
         var frozen = values.Take(maximum + 1).ToArray();
         if (frozen.Length > maximum || frozen.Any(value => value is null)) throw new ArgumentException("Invalid or oversized materialized input collection.");
-        return Array.AsReadOnly(frozen.Select(value => value!).ToArray());
+        return frozen.Select(value => value!).ToImmutableList();
     }
 }
 
@@ -160,7 +161,7 @@ public sealed record CompilerHostFreshnessAssessment(CompilerFreshness State, Co
         var manifestAssessment = Assess(response, input, desired.ClientGeneration);
         var changed = manifestAssessment.ChangedDimensions.ToList();
         if (!execution.Materializations.Equals(desired.Materializations)) changed.Add("coglatas.materializations");
-        return manifestAssessment with { State = changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, ChangedDimensions = changed.AsReadOnly() };
+        return manifestAssessment with { State = changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, ChangedDimensions = changed.ToImmutableList() };
     }
 
     /// <summary>Assesses only the supplied manifest and generation; use the request overload when materializations may have changed.</summary>
@@ -168,11 +169,11 @@ public sealed record CompilerHostFreshnessAssessment(CompilerFreshness State, Co
     {
         ArgumentNullException.ThrowIfNull(response);
         if (response.Compilation is null || desired is null || desiredGeneration is null)
-            return new(CompilerFreshness.Undetermined, response.Compilation?.Result.ResultId, Array.AsReadOnly(new[] { "coglatas.desired-binding-unavailable" }));
+            return new(CompilerFreshness.Undetermined, response.Compilation?.Result.ResultId, ImmutableList.Create("coglatas.desired-binding-unavailable"));
         var changed = new List<string>();
         if (!response.Compilation.Input.InputDigest.Equals(desired.InputDigest)) changed.Add("coglatas.input-manifest");
         if (response.ClientGeneration != desiredGeneration.Value) changed.Add("coglatas.client-generation");
-        return new(changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, response.Compilation.Result.ResultId, changed.AsReadOnly());
+        return new(changed.Count == 0 ? CompilerFreshness.Current : CompilerFreshness.Stale, response.Compilation.Result.ResultId, changed.ToImmutableList());
     }
 }
 
