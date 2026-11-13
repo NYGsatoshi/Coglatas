@@ -8,6 +8,7 @@ version-pinned npm installation, test execution or dependency protections.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -63,6 +64,27 @@ REVIEWED_OWNER_IF = {
     (".github/workflows/qodana_trusted_gate.yml", "qodana-dotnet-community"): "steps.qodana_scan.outcome == 'success'",
     (".github/workflows/qodana_cloud_quality.yml", "qodana-cloud"): "steps.qodana_scan.outcome == 'success'",
     (".github/workflows/qodana-signed-shadow.yml", "shadow-producer"): "steps.qodana_scan.outcome == 'success'",
+}
+
+
+# Source-byte attestation for the original executable owner steps. Deliberate
+# changes to these steps require a reviewed update of this fixed map; the
+# policy does not infer whether arbitrary Bash or YAML is executable.
+REVIEWED_OWNER_STEP_SHA256 = {
+    (".github/workflows/ci.yml", "frontend-build"): "123ccb6742603e4c1ff0e4432f13d6b64b8b70be8446e2377baaac8b0d66758d",
+    (".github/workflows/ci.yml", "frontend-test"): "cac20af64fd6fe3a0e6191ff1c2e14e9f17e6aa39564cccda1fd5852435ac179",
+    (".github/workflows/main-validation.yml", "main-frontend-test"): "88c37339a48c241760916572ac6779c5b08ed2d7f28108cb048467e972f37cd2",
+    (".github/workflows/main-build-artifacts.yml", "main-frontend-build"): "dc667e5fd6cb351cb92a7e0e49ad94b0224b6a6070cf80049fbca49403f20853",
+    (".github/workflows/main-build-artifacts.yml", "qodana-cloud"): "812b06ba91caf89db73969b188e0fb5acc4e3f448e2b7d6ce9937126c88db905",
+    (".github/workflows/node-toolchain-preflight.yml", "node-toolchain-preflight"): "a3296559cc67d75c9f55eea79643180ce81f1d424127c1a9decd5a330aaa0b9f",
+    (".github/workflows/qodana_trusted_gate.yml", "qodana-dotnet-community"): "505d3bd0aad3120d47b03f20670f2ca86907b301d7797c0b95747697560ed650",
+    (".github/workflows/qodana_cloud_quality.yml", "qodana-cloud"): "988295ce32b77c9c82c909dff1d0e2889f4876de1473da18f8fef14b771a32fa",
+    (".github/workflows/qodana-signed-shadow.yml", "shadow-producer"): "4e738fe4bffbc3d81bb9b92df520d2591b1326882ff2e54a998ec34a9b0e7bab",
+    (".github/workflows/sonarcloud-ci.yml", "sonarcloud"): "88f4a9a41cb174ab0cb3f44fd38b9270852c83d36c234c7a9219141e2d171409",
+    (".github/workflows/real-backend-p0-preflight.yml", "real-backend-p0-preflight"): "de1ab8511e0ffcf6c338392786c6f0d8362cb541310a30268f6fa62ef9917b0b",
+    (".github/workflows/thread-functional-typecheck.yml", "strict-thread-contract"): "f8e36440f8bc8d2ccc9e008f0d595bc568b0e7e94e630bbc0cab86d0e86f38c0",
+    (".github/workflows/composer-functional-typecheck.yml", "strict-composer-contract"): "cd760cd04f9cebaa28139a2082b12d875bfa61f4a72b29818423e49426220968",
+    (".github/workflows/licensed-real-backend-acceptance.yml", "licensed-real-backend"): "21c78ccfedf4d24bdae7d66af08cd5189092f800509c80fad1899aa38d8d2c15",
 }
 
 JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
@@ -243,7 +265,9 @@ def run_command_lines(job: str) -> list[str]:
         return []
     return commands
 
-def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
+def owner_invoked(
+    job: str, owner: str, required_if: str | None, reviewed_step_sha256: str
+) -> bool:
     """Require an active canonical Bash/Node command, never echo or path mentions."""
     interpreter = "node" if owner.endswith(".mjs") else "bash"
     canonical = re.compile(rf"^{interpreter}[ \t]+{re.escape(owner)}(?:[ \t]|$)")
@@ -253,6 +277,9 @@ def owner_invoked(job: str, owner: str, required_if: str | None = None) -> bool:
     if re.search(r"(?m)^    (?:defaults|['\"]defaults['\"])[ \t]*:", job):
         return False
     for step in re.split(r"(?m)(?=^      - )", job):
+        # Bind the complete reviewed step, not merely an owner-shaped substring.
+        if hashlib.sha256(step.rstrip().encode("utf-8")).hexdigest() != reviewed_step_sha256:
+            continue
         observed_ifs = re.findall(r"(?m)^(?:        |      -[ \t]+)if:[ \t]*(.*?)\s*$", step)
         # Alternate YAML step keys are not the reviewed grammar; in
         # particular quoted/escaped or spaced `if` disables an owner.
@@ -304,13 +331,20 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
         # No reviewed workflow allows a top-level run-shell defaults override.
         if re.search(r"(?m)^(?:defaults|['\"]defaults['\"])[ \t]*:", source):
             issues.append(f"{path}: unreviewed workflow shell defaults")
+        # YAML-escaped job/workflow mapping keys can decode into "defaults".
+        # All reviewed guarded workflows use unescaped top-level/job keys.
+        if re.search(r'(?m)^ {0,6}"[^"\n]*\\[^"\n]*"[ \t]*:', source):
+            issues.append(f"{path}: unreviewed escaped workflow/job YAML key")
         jobs = job_blocks(source)
         for job_id, owner in targets.items():
             job = jobs.get(job_id)
             if job is None:
                 issues.append(f"{path}: missing job {job_id}")
                 continue
-            if not owner_invoked(job, owner, REVIEWED_OWNER_IF.get((path, job_id))):
+            reviewed_step_sha256 = REVIEWED_OWNER_STEP_SHA256.get((path, job_id))
+            if (reviewed_step_sha256 is None
+                    or not owner_invoked(job, owner, REVIEWED_OWNER_IF.get((path, job_id)),
+                                         reviewed_step_sha256)):
                 issues.append(f"{path}/{job_id}: expected executable package owner missing")
             if FLOW_STEPS.search(job):
                 issues.append(f"{path}/{job_id}: unsupported YAML flow-mapping step")
