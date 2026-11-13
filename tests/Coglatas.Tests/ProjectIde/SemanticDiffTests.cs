@@ -8,6 +8,101 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class SemanticDiffTests
 {
+    [Theory]
+    [InlineData(1, 4500)]
+    [InlineData(256, 2200)]
+    public void OpaqueMemberPathsAndTheWholeProjectionRespectTheExistingBrowserAdmissionBounds(int fields, int keyLength)
+    {
+        CompilerInputManifest Version(int revision, string value)
+        {
+            var root = JsonNode.Parse(Source(revision).Data.CanonicalText)!.AsObject();
+            for (var index = 0; index < fields; index++) root[new string('x', keyLength) + index] = value;
+            return Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        }
+        var before = Version(70, "original"); var after = Version(71, "changed");
+        var diff = Compare(before, after); Assert.Equal(SemanticDiffState.ResourceLimit, diff.State);
+        Assert.Empty(diff.Changes); Assert.False(diff.NoChanges);
+        Assert.Equal("ResourceLimit", diff.Data.Value.GetProperty("state").GetString());
+    }
+    [Theory]
+    [InlineData(4094, SemanticDiffState.Incomplete)]
+    [InlineData(4095, SemanticDiffState.ResourceLimit)]
+    public void OriginalOpaqueFieldPathExactlyAtTheBrowserLimitRemainsReadable(int keyLength, SemanticDiffState expected)
+    {
+        CompilerInputManifest Version(int revision, string value)
+        {
+            var root = JsonNode.Parse(Source(revision).Data.CanonicalText)!.AsObject(); root[new string('x', keyLength) + "0"] = value;
+            return Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        }
+        var diff = Compare(Version(70, "original"), Version(71, "changed")); Assert.Equal(expected, diff.State);
+        if (expected == SemanticDiffState.Incomplete)
+        {
+            Assert.Equal(4096, Assert.Single(diff.Changes).Path.Length);
+            Assert.True(System.Text.Encoding.UTF8.GetByteCount(diff.Data.CanonicalText) <= 600_000);
+        }
+        else Assert.Empty(diff.Changes);
+        Assert.False(diff.NoChanges);
+    }
+    [Theory]
+    [InlineData("source")]
+    [InlineData("source-document-id")]
+    [InlineData("document")]
+    [InlineData("document-digest")]
+    [InlineData("manifest")]
+    [InlineData("manifest-entry")]
+    [InlineData("manifest-digest")]
+    public void OpaqueEnvelopeChangesRetainTheirOriginalValuesRatherThanAnEmptyIncompleteComparison(string surface)
+    {
+        CompilerInputManifest Version(int revision, string value)
+        {
+            var root = JsonNode.Parse(Source(revision).Data.CanonicalText)!.AsObject();
+            var document = root["documents"]![0]!.AsObject();
+            switch (surface)
+            {
+                case "source": root["futureEnvelope"] = value; break;
+                case "source-document-id": root["documentId"] = value; break;
+                case "document":
+                    document["futureEnvelope"] = value;
+                    document.Remove("digest");
+                    document["digest"] = Obj(new { algorithm = "sha-256", value = ContentDigest.Compute(SourceDocument.DigestDomain, Json(document).ToCanonicalBytes()).Value });
+                    root["manifest"]!["documents"]![0]!["digest"]!["value"] = document["digest"]!["value"]!.DeepClone();
+                    break;
+                case "document-digest": document["digest"]!["futureEnvelope"] = value; break;
+                case "manifest": root["manifest"]!["futureEnvelope"] = value; break;
+                case "manifest-entry": root["manifest"]!["documents"]![0]!["futureEnvelope"] = value; break;
+                case "manifest-digest": root["manifest"]!["documents"]![0]!["digest"]!["futureEnvelope"] = value; break;
+            }
+            return Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        }
+        var before = Version(70, "original opaque value"); var after = Version(71, "changed opaque value");
+        var diff = Compare(before, after); Assert.Equal(SemanticDiffState.Incomplete, diff.State); Assert.False(diff.NoChanges);
+        var change = Assert.Single(diff.Changes); Assert.Equal(SemanticChangeKind.Uninterpreted, change.Kind);
+        Assert.Contains("original opaque value", change.Before!.CanonicalText); Assert.Contains("changed opaque value", change.After!.CanonicalText);
+        var reverse = Assert.Single(Compare(after, before).Changes); Assert.Equal(change.Before, reverse.After); Assert.Equal(change.After, reverse.Before);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OpaqueEnvelopeFieldsKeepEscapedPathsAndMissingVersusJsonNull(bool documentEnvelope)
+    {
+        var before = Input(source: Source(70)); var root = JsonNode.Parse(Source(71).Data.CanonicalText)!.AsObject();
+        var envelope = documentEnvelope ? root["documents"]![0]!.AsObject() : root;
+        envelope["future/field~"] = null;
+        if (documentEnvelope)
+        {
+            var digest = envelope["digest"]!.AsObject(); envelope.Remove("digest");
+            digest["value"] = ContentDigest.Compute(SourceDocument.DigestDomain, Json(envelope).ToCanonicalBytes()).Value; envelope["digest"] = digest;
+            root["manifest"]!["documents"]![0]!["digest"]!["value"] = digest["value"]!.DeepClone();
+        }
+        var after = Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        var diff = Compare(before, after); Assert.Equal(SemanticDiffState.Incomplete, diff.State);
+        var change = Assert.Single(diff.Changes); Assert.Equal("/future~1field~0", change.Path);
+        Assert.Equal(documentEnvelope ? "document" : "source", change.RecordType);
+        Assert.Null(change.Before); Assert.Equal("null", change.After!.CanonicalText);
+        Assert.Equal(documentEnvelope, change.AfterLocation is not null);
+        var reverse = Assert.Single(Compare(after, before).Changes); Assert.Null(reverse.After); Assert.Equal(change.After, reverse.Before);
+        var identical = Compare(after, after); Assert.Empty(identical.Changes); Assert.False(identical.NoChanges);
+    }
     internal static ProjectSemanticDiff Compare(CompilerInputManifest before, CompilerInputManifest after, int maximum = 256) =>
         ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(before), ProjectSemanticBinder.Bind(after), before.InputDigest, after.InputDigest, maximum);
 
@@ -251,7 +346,7 @@ public sealed class SemanticDiffTests
             var diff = Compare(Materialize(before), Materialize(after));
             Assert.Equal(diff.Data, SourceJson.Parse(prepared.GetProperty("comparison").GetRawText())); count++;
         }
-        Assert.Equal(4, count);
+        Assert.Equal(5, count);
     }
 
     internal static CompilerInputManifest With(CompilerInputManifest input, JsonArray? declarations = null, JsonArray? relations = null) =>

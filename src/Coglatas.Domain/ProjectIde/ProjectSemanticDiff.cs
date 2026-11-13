@@ -88,31 +88,38 @@ public sealed class ProjectSemanticDiff
                     oldDocument is null ? SemanticChangeKind.Added : newDocument is null ? SemanticChangeKind.Removed : SemanticChangeKind.Property,
                     oldValue, newValue, oldDocument is null ? null : ProjectLocation.Create(id, left.Context),
                     newDocument is null ? null : ProjectLocation.Create(id, right.Context)));
-                SourceJson? Extension(SourceDocument? document) => document is not null && document.Data.Value.TryGetProperty("extensions", out var value)
-                    ? SourceJson.FromElement(value, document.Data.Limits) : null;
-                var oldExtension = Extension(oldDocument); var newExtension = Extension(newDocument);
-                if (!Equals(oldExtension, newExtension))
+                var oldData = oldDocument?.Data; var newData = newDocument?.Data;
+                foreach (var field in UnknownFields(oldData, newData, ["documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest"]))
                 {
-                    complete = false;
-                    Add(new("document", id.ToString(), "/extensions", SemanticChangeKind.Uninterpreted, oldExtension, newExtension,
-                        oldDocument is null ? null : ProjectLocation.Create(id, left.Context), newDocument is null ? null : ProjectLocation.Create(id, right.Context)));
+                    Opaque("document", id.ToString(), "/" + Escape(field), Member(oldData, field), Member(newData, field),
+                        oldDocument is null ? null : ProjectLocation.Create(id, left.Context), newDocument is null ? null : ProjectLocation.Create(id, right.Context));
                 }
+                var oldDigest = Member(oldData, "digest"); var newDigest = Member(newData, "digest");
+                if (!Equals(OpaqueDigest(oldDigest), OpaqueDigest(newDigest)))
+                    Opaque("document", id.ToString(), "/digest", oldDigest, newDigest,
+                        oldDocument is null ? null : ProjectLocation.Create(id, left.Context), newDocument is null ? null : ProjectLocation.Create(id, right.Context));
             }
             // Opaque/package data is retained as uninterpreted; never infer layout, impact or absence of changes from it.
-            foreach (var field in new[] { "extensionDeclarations", "packageLock", "sourceReferences", "extensions" })
+            foreach (var field in UnknownFields(left.Data, right.Data,
+                ["format", "schemaId", "schemaVersion", "canonicalEncodingVersion", "tenantId", "projectId", "context", "documents", "manifest", "declarations", "relations"]))
             {
-                var oldValue = left.Data.Value.TryGetProperty(field, out var oldField) ? SourceJson.FromElement(oldField, left.Data.Limits) : null;
-                var newValue = right.Data.Value.TryGetProperty(field, out var newField) ? SourceJson.FromElement(newField, right.Data.Limits) : null;
-                if (!Equals(oldValue, newValue))
-                {
-                    complete = false;
-                    Add(new("source", "", "/" + field, SemanticChangeKind.Uninterpreted, oldValue, newValue, null, null));
-                }
+                Opaque("source", "", "/" + Escape(field), Member(left.Data, field), Member(right.Data, field), null, null);
             }
+            if (!Equals(OpaqueManifest(left.Manifest.Data), OpaqueManifest(right.Manifest.Data)))
+                Opaque("source", "", "/manifest", left.Manifest.Data, right.Manifest.Data, null, null);
             cancellationToken.ThrowIfCancellationRequested();
-            return new(complete ? SemanticDiffState.Complete : SemanticDiffState.Incomplete, changes, before, after);
+            var comparison = new ProjectSemanticDiff(complete ? SemanticDiffState.Complete : SemanticDiffState.Incomplete, changes, before, after);
+            // Keep returned projections inside the existing browser reader profile,
+            // including paths, locations and repeated context metadata, not just values.
+            try
+            {
+                if (Encoding.UTF8.GetByteCount(comparison.Data.CanonicalText) > 600_000) throw new DiffLimitException();
+            }
+            catch (FormatException) { throw new DiffLimitException(); }
+            cancellationToken.ThrowIfCancellationRequested();
+            return comparison;
         }
-        catch (DiffLimitException) { return new(SemanticDiffState.ResourceLimit, []); }
+        catch (DiffLimitException) { cancellationToken.ThrowIfCancellationRequested(); return new(SemanticDiffState.ResourceLimit, []); }
 
         bool WithinProjectionBounds(JsonElement value, int depth)
         {
@@ -129,9 +136,44 @@ public sealed class ProjectSemanticDiff
         void Add(SemanticChange change)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (change.Path.Length > 4096) throw new DiffLimitException();
             outputBytes += Encoding.UTF8.GetByteCount(change.Before?.CanonicalText ?? "") + Encoding.UTF8.GetByteCount(change.After?.CanonicalText ?? "");
             if (changes.Count >= maximumChanges || outputBytes > 262_144) throw new DiffLimitException();
             changes.Add(change);
+        }
+        void Opaque(string type, string id, string path, SourceJson? oldValue, SourceJson? newValue, ProjectLocation? oldLocation, ProjectLocation? newLocation)
+        {
+            if (Equals(oldValue, newValue)) return;
+            complete = false;
+            Add(new(type, id, path, SemanticChangeKind.Uninterpreted, oldValue, newValue, oldLocation, newLocation));
+        }
+        SourceJson? Member(SourceJson? data, string field) => data is not null && data.Value.TryGetProperty(field, out var value)
+            ? SourceJson.FromElement(value, data.Limits) : null;
+        IEnumerable<string> UnknownFields(SourceJson? oldData, SourceJson? newData, string[] known) =>
+            (oldData?.Value.EnumerateObject().Select(member => member.Name) ?? [])
+                .Union(newData?.Value.EnumerateObject().Select(member => member.Name) ?? [], StringComparer.Ordinal)
+                .Except(known, StringComparer.Ordinal).OrderBy(field => field, StringComparer.Ordinal);
+        SourceJson? OpaqueDigest(SourceJson? digest)
+        {
+            if (digest is null) return null;
+            var opaque = JsonNode.Parse(digest.CanonicalText)!.AsObject(); opaque.Remove("algorithm"); opaque.Remove("value");
+            return opaque.Count == 0 ? null : SourceJson.FromObject(opaque);
+        }
+        SourceJson OpaqueManifest(SourceJson manifest)
+        {
+            var opaque = JsonNode.Parse(manifest.CanonicalText)!.AsObject(); var entries = opaque["documents"]!.AsArray();
+            var projected = new JsonObject();
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var item = entry!.AsObject(); var id = item["documentId"]!.GetValue<string>();
+                item.Remove("documentId"); item.Remove("schemaId"); item.Remove("schemaVersion");
+                var digest = OpaqueDigest(SourceJson.FromObject(item["digest"]!)); item.Remove("digest");
+                if (digest is not null) item["digest"] = JsonNode.Parse(digest.CanonicalText);
+                if (item.Count > 0) projected[id] = item.DeepClone();
+            }
+            opaque["documents"] = projected;
+            return SourceJson.FromObject(opaque);
         }
         void CompareRecords(Dictionary<string, DiffRecord> oldRecords, Dictionary<string, DiffRecord> newRecords)
         {

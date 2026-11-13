@@ -10,6 +10,50 @@ async function ready(key = 'draft-before') {
 }
 
 describe('Core-prepared semantic differences', () => {
+  for (const mode of ['added', 'removed', 'changed'] as const) {
+    it(`preserves an opaque Source documentId member independently from entity ownership: ${mode}`, () => {
+      const bundle = raw(); const before = bundle.cases.find((item: { key: string }) => item.key === 'document-before');
+      const after = bundle.cases.find((item: { key: string }) => item.key === 'document-after');
+      const diff = before.preparedDiff.comparison; const original = diff.changes[0];
+      if (mode !== 'added') before.source.documentId = 'Opaque old hint';
+      if (mode !== 'removed') after.source.documentId = 'Opaque new hint';
+      const change = { ...original, recordType: 'source', identity: '', path: '/documentId', beforeLocation: null, afterLocation: null,
+        beforePresent: mode !== 'added', afterPresent: mode !== 'removed', before: before.source.documentId ?? null, after: after.source.documentId ?? null };
+      diff.changes = [change]; expect(() => readPreviewBundle(bundle)).not.toThrow();
+      if (change.afterPresent) change.after = 'Forged hint'; else change.before = 'Forged hint';
+      expect(() => readPreviewBundle(bundle)).toThrow();
+    });
+  }
+  it('reads the real Core-generated opaque envelopes without claiming semantic equality or a compiler pass', async () => {
+    const store = await ready('envelope-before'); const diff = store.semanticDiff()!.comparison;
+    expect(diff.state).toBe('Incomplete'); expect(diff.noChanges).toBe(false); expect(diff.changes).toHaveLength(5);
+    expect(diff.changes.every(row => row.kind === 'Uninterpreted')).toBe(true);
+    expect(diff.changes.some(row => row.path === '/future~1field~0' && row.before === 'Source original' && row.after === 'Source changed')).toBe(true);
+    expect(diff.changes.some(row => row.recordType === 'source' && row.path === '/documentId' && row.before === 'Opaque Source hint original' && row.after === 'Opaque Source hint changed')).toBe(true);
+    const manifest = diff.changes.find(row => row.path === '/manifest')!;
+    expect(JSON.stringify(manifest.before)).toContain('Manifest Digest original');
+    expect(JSON.stringify(manifest.after)).toContain('Manifest entry changed');
+    expect(store.context()?.semanticInspection?.bindingComplete).toBe(false);
+    expect(store.context()?.result.verdict).not.toBe('coglatas.pass');
+  });
+  for (const surface of ['source', 'document', 'document-digest', 'manifest'] as const) {
+    it(`admits an uninterpreted original envelope value and rejects a forged value: ${surface}`, () => {
+      const bundle = raw(); const before = bundle.cases.find((item: { key: string }) => item.key === 'document-before');
+      const after = bundle.cases.find((item: { key: string }) => item.key === 'document-after');
+      const diff = before.preparedDiff.comparison; const original = structuredClone(diff.changes[0]);
+      const document = surface === 'document' || surface === 'document-digest';
+      const path = surface === 'manifest' ? '/manifest' : surface === 'document-digest' ? '/digest' : '/future~1field~0';
+      const field = surface === 'manifest' ? 'manifest' : surface === 'document-digest' ? 'digest' : 'future/field~';
+      const oldEnvelope = document ? before.source.documents[0] : before.source;
+      const newEnvelope = document ? after.source.documents[0] : after.source;
+      oldEnvelope[field] = { opaque: 'original' }; newEnvelope[field] = { opaque: 'changed' };
+      const change = { ...original, recordType: document ? 'document' : 'source', identity: document ? original.identity : '', path,
+        beforePresent: true, afterPresent: true, before: structuredClone(oldEnvelope[field]), after: structuredClone(newEnvelope[field]),
+        beforeLocation: document ? original.beforeLocation : null, afterLocation: document ? original.afterLocation : null };
+      diff.changes = [change]; expect(() => readPreviewBundle(bundle)).not.toThrow();
+      change.after = { opaque: 'forged' }; expect(() => readPreviewBundle(bundle)).toThrow();
+    });
+  }
   it('displays the exact Core pair and opens each original snapshot', async () => {
     const store = await ready(); const prepared = store.semanticDiff()!;
     expect(prepared.comparison.state).toBe('Complete'); expect(prepared.comparison.noChanges).toBe(false);

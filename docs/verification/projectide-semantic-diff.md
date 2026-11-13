@@ -35,7 +35,13 @@ authority. Missing models, stale expected inputs, foreign scope and resource
 limits return explicit refusal states without rows or pair metadata. Partial,
 invalid, unsupported or unresolved models return Incomplete; an empty list then
 never means no changes. Changed document/Source extensions, extension declarations, package/source-reference data is
-Uninterpreted and incomplete. Unsupported envelope content can also make an
+Uninterpreted and incomplete. Unknown Source and Document envelope members,
+Document Digest members and manifest envelope/reference/Digest members also
+retain their exact original values. Comparison projections exclude derived
+known hash values; they do not discard opaque Digest metadata or emit hash noise
+for ordinary document edits. Manifest metadata is one bounded original-envelope
+row. Source/Document field paths preserve JSON Pointer escaping and distinguish
+absence from a present JSON null. Unsupported unchanged content still makes an
 empty comparison incomplete. No opaque field is guessed to be layout data;
 layout comparison awaits its actual layout contract.
 Two different Source bodies under one supposedly immutable version are also
@@ -44,7 +50,13 @@ Incomplete, retaining original rows without claiming complete version provenance
 Local ceilings: two Source bodies total 2 MiB canonical UTF-8, 8192 decoded
 records across the pair, 100000 JSON nodes across the pair, Source depth at most
 48 and numeric lexemes at most 100000 characters, at most 256 output changes by default (caller range
-1–1024), and 256 KiB original before/after value bytes. Exceeding output bounds
+1–1024), and 256 KiB original before/after value bytes. Paths also respect the
+existing browser profile's 4096 UTF-16-unit ceiling. The complete serialized
+comparison, including paths, locations and repeated context metadata, is bounded
+to 600000 canonical UTF-8 bytes, conservatively within the browser reader's
+existing 600000-character admission ceiling. These checks do not raise or alter
+the browser thresholds. A refused comparison carries no rows/pair identity and
+does not become an admitted prepared web pair. Exceeding output bounds
 discards the entire row list and reports ResourceLimit. Cancellation throws;
 it never returns an empty success. These are provisional technical bounds,
 not measured operational retention thresholds or memory/performance guarantees.
@@ -59,15 +71,18 @@ its exact accepted current input and clears it on result/lifecycle changes.
 Reentrant reset/disposal cannot publish an accepted obsolete comparison. Actual
 Avalonia, native history navigation and runtime authorization remain unactivated.
 
-The offline exporter emits four `coglatas.synthetic-semantic-diff/1` projections
+The offline exporter emits five `coglatas.synthetic-semantic-diff/1` projections
 inside the existing synthetic fixture bundle: a real Core-prepared Draft Rename,
 an equal structure with Compiler FAIL, an incomplete empty comparison, and a
-document extension change that remains explicitly Uninterpreted. Its two added
-document fixtures expand the exact roster to fourteen; the original twelve
-case objects remain unchanged. This
+document extension change and a pair covering seven opaque envelope surfaces that
+remain explicitly Uninterpreted. The two new envelope fixtures expand the
+inverse-Draft bundle from fifteen to seventeen; its original fifteen case
+objects remain unchanged. This
 format is local preview data, not a formal Registry/history artifact adoption.
 Angular checks the entire pair's digests/contexts and each row's original value,
 identity, owning document and location before display/navigation. It does not
+interpret an opaque Source member named `documentId` as entity ownership;
+that location shortcut remains specific to entity/relation rows. It does not
 reimplement semantic comparison. Legacy fixtures without optional inspection
 stay readable with comparison inert. A dedicated localized Diff panel renders
 32 changes per page, distinguishes absence/incompleteness, and opens the exact

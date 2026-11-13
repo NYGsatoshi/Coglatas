@@ -89,6 +89,12 @@ function validatePreparedHistory(bundle: PreviewBundle, anchor: PreviewCase): vo
 }
 
 /** Check projection provenance and original values; .NET alone computes semantic categories/completeness. */
+function opaqueEnvelopePath(path: string, reserved: readonly string[]): boolean {
+  if (!/^\/(?:[^/~]|~[01])*$/u.test(path)) return false;
+  const field = path.slice(1).replace(/~1/gu, '/').replace(/~0/gu, '~');
+  return !reserved.includes(field);
+}
+
 function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): void {
   const prepared = before.preparedDiff!; const diff = prepared.comparison;
   const after = bundle.cases.find(item => item.key === prepared.afterCaseKey);
@@ -121,7 +127,8 @@ function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): v
           raw = change.path === '/documentId' ? original.location.documentId : original.data;
         } else if (location !== null) throw new PreviewReadError('wrong-scope');
       } else if (change.recordType === 'document') {
-        if (!['/logicalName', '/extensions'].includes(change.path) || (change.path === '/extensions' && change.kind !== 'Uninterpreted')) throw new PreviewReadError('unsupported');
+        if (change.path !== '/logicalName' && (change.kind !== 'Uninterpreted' ||
+            !opaqueEnvelopePath(change.path, ['documentId', 'logicalName', 'schemaId', 'schemaVersion', 'root']))) throw new PreviewReadError('unsupported');
         const document = item.source.documents.find(document => document.documentId === change.identity);
         if (document) {
           if (!location || location.documentId !== document.documentId || !sameContext(location.context, item.context) || location.entityId || location.relationId)
@@ -129,11 +136,12 @@ function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): v
           raw = document;
         } else if (location !== null) throw new PreviewReadError('wrong-scope');
       } else {
-        if (change.identity !== '' || location !== null || !['/extensionDeclarations', '/packageLock', '/sourceReferences', '/extensions'].includes(change.path) || change.kind !== 'Uninterpreted')
+        if (change.identity !== '' || location !== null || change.kind !== 'Uninterpreted' ||
+            !opaqueEnvelopePath(change.path, ['format', 'schemaId', 'schemaVersion', 'canonicalEncodingVersion', 'tenantId', 'projectId', 'context', 'documents', 'declarations', 'relations']))
           throw new PreviewReadError('unsupported');
         raw = item.source;
       }
-      if (change.path !== '/documentId') for (const part of change.path.split('/').slice(1)) {
+      if (change.path !== '/documentId' || (change.recordType !== 'entity' && change.recordType !== 'relation')) for (const part of change.path.split('/').slice(1)) {
         const key = part.replace(/~1/gu, '/').replace(/~0/gu, '~');
         raw = typeof raw === 'object' && raw !== null && Object.hasOwn(raw, key) ? (raw as Record<string, unknown>)[key] : undefined;
       }
