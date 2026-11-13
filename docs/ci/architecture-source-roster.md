@@ -36,6 +36,13 @@ simple top-level `public void Method()` syntax with a directly adjacent `[Fact]`
 Broader syntax requires a separately reviewed parser; this is **not a complete
 C# or Roslyn parser**. The source files are not executed by this tool.
 
+LF and CRLF source files use the same declaration grammar and case identities.
+Only the parser view normalizes CRLF; each `sourceFileSha256` still binds the
+original file bytes, so different line endings retain distinct source digests.
+Bare carriage returns remain unsupported. The namespace and Xunit import must
+be complete declarations; comments or an additional foreign namespace cannot
+stand in for the expected declaration.
+
 Output uses SHA-256, with a distinct domain for each fully-qualified case name,
 and a canonical full-roster hash. It also contains a SHA-256 for each source
 file. No raw case name or test title is emitted. These hashes are pseudonymous
@@ -60,6 +67,10 @@ actually ran or that source text matches compiled C# semantics.
 The isolated fixtures check both declared profiles and reject missing/additional
 files, duplicate or added cases, changed namespaces, dynamic test attributes,
 invalid encodings, source-file replacement between check and open, and symlinks.
+Both profiles also verify equal LF/CRLF case identities and distinct raw-byte
+source hashes, while namespace-comment and duplicate-namespace controls refuse
+ambiguous source. These controls preserve the existing composition's stricter
+namespace handling in the original source-owner PR.
 A platform unable to create the symlink must **fail** the guard control rather
 than register a positive result from a skipped test. They qualify only the standalone source parser,
 not the native Architecture suite. No extra runner or artifact owner is activated.
