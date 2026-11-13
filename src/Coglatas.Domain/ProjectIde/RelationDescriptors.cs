@@ -29,7 +29,7 @@ public sealed class RelationKindDescriptor
     public RelationEndpointRole TargetRole { get; }
     public IReadOnlyList<string> SourceKinds { get; }
     public IReadOnlyList<string> TargetKinds { get; }
-    public IReadOnlyList<string> AllowedScopes { get; } = Array.AsReadOnly(new[] { "coglatas.same-project", "coglatas.authorized-pinned-project" });
+    public IReadOnlyList<string> AllowedScopes { get; } = new ImmutableListView<string>(new[] { "coglatas.same-project", "coglatas.authorized-pinned-project" });
     public int SourceEndpointCount => 1;
     public int TargetEndpointCount => 1;
     public int MinimumOutgoing { get; }
@@ -49,10 +49,10 @@ public sealed class RelationKindDescriptor
         RelationEndpointRole targetRole = RelationEndpointRole.Entity, int minimumOutgoing = 0, int? maximumIncoming = null)
     {
         DescriptorId = id; SourceRole = sourceRole; TargetRole = targetRole;
-        SourceKinds = Array.AsReadOnly(sources); TargetKinds = Array.AsReadOnly(targets);
+        SourceKinds = new ImmutableListView<string>(sources); TargetKinds = new ImmutableListView<string>(targets);
         Effect = effect; CyclePolicy = cycles; MinimumOutgoing = minimumOutgoing; MaximumIncoming = maximumIncoming;
-        RequiredCapabilities = Array.AsReadOnly(new[] { id + "/1" });
-        Invariants = Array.AsReadOnly(new[] { "coglatas.typed-endpoints", "coglatas.exact-context", "coglatas.no-equivalent-duplicates" });
+        RequiredCapabilities = new ImmutableListView<string>(new[] { id + "/1" });
+        Invariants = new ImmutableListView<string>(new[] { "coglatas.typed-endpoints", "coglatas.exact-context", "coglatas.no-equivalent-duplicates" });
         Data = SourceJson.FromObject(new
         {
             descriptorId = id, version = Version, sourceRole = RoleToken(sourceRole), targetRole = RoleToken(targetRole),
@@ -86,7 +86,7 @@ public sealed class RelationKindDescriptor
     };
 
     private static readonly string[] Entities = ["coglatas.project", "coglatas.task", "coglatas.milestone", "coglatas.requirement", "coglatas.resource-binding", "coglatas.constraint", "coglatas.workflow"];
-    public static IReadOnlyList<RelationKindDescriptor> BuiltIns { get; } = Array.AsReadOnly(new[]
+    public static IReadOnlyList<RelationKindDescriptor> BuiltIns { get; } = new ImmutableListView<RelationKindDescriptor>(new[]
     {
         new RelationKindDescriptor(RelationKinds.DependsOn, ["coglatas.task"], ["coglatas.task"], RelationEffect.Scheduling, RelationCyclePolicy.Acyclic),
         new RelationKindDescriptor(RelationKinds.Satisfies, ["coglatas.task"], ["coglatas.requirement"], RelationEffect.RequirementClaim),

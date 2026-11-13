@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace Coglatas.Domain.ProjectIde;
 
 public enum PredicateTruth { False, True, Unknown }
@@ -9,7 +7,7 @@ public sealed class PredicateEvaluation
     public PredicateTruth Truth { get; }
     public IReadOnlyList<SourceJson> EvaluatedPremises { get; }
     internal PredicateEvaluation(PredicateTruth truth, List<SourceJson> premises)
-    { Truth = truth; EvaluatedPremises = new ReadOnlyCollection<SourceJson>(premises.ToArray()); }
+    { Truth = truth; EvaluatedPremises = new ImmutableListView<SourceJson>(premises); }
 }
 
 /// <summary>Bounded, pure Boolean Source AST. Reference binding and richer operators remain unsupported.</summary>
