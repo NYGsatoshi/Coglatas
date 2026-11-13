@@ -64,7 +64,7 @@ public sealed partial class CompilerSemanticInspection
             candidates.Add(new(candidate, _displayNames.GetValueOrDefault(candidate.Symbol.EntityId)));
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(ReferenceCompletionState.Ready, Input.InputDigest, origin, type.ExpectedKind, candidates.AsReadOnly(),
+        return new(ReferenceCompletionState.Ready, Input.InputDigest, origin, type.ExpectedKind, new ImmutableListView<ReferenceCompletionCandidate>(candidates),
             _completionCoverageComplete, scanned, offset < Symbols.Count ? new(this, inspected.Symbol.Key, offset) : null);
     }
 }

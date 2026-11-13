@@ -11,6 +11,7 @@ import {
   SemanticChange,
   HistoryRevisionView,
   ReferenceCompletion,
+  RequirementTaskSuggestions,
   ReadState,
   Selection,
   SourceRecord,
@@ -172,6 +173,12 @@ export class ProjectIdeWorkbenchStore {
     const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
   });
+  readonly requirementTaskSuggestions = computed(() => {
+    const result = this.result();
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    const origins = new Set(this.inspectedSymbols().filter(symbol => symbol.kind === 'coglatas.requirement').map(symbol => symbol.key));
+    return (result.requirementTaskSuggestions ?? []).filter(page => origins.has(page.originKey) && page.state === 'Ready' && page.candidateOnly);
+  });
   readonly preparedRename = computed(() => {
     const result = this.result(); const record = this.inspectedRecord(); const prepared = result?.preparedRename;
     if (!result || !result.semanticInspection || result !== this.context() || result.freshness !== 'Current' || !record || !prepared ||
@@ -197,6 +204,20 @@ export class ProjectIdeWorkbenchStore {
     const origin = result?.semanticInspection?.symbols.find((symbol) => symbol.key === page.originKey);
     const symbol = result?.semanticInspection?.symbols.find((symbol) => symbol.key === candidate.symbolKey);
     if (!result || !this.referenceCompletions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
+        typeof resolveLocation(result, origin.location, true) === 'string') {
+      this.navigationState.set('unavailable'); return false;
+    }
+    return this.navigateLocation(symbol.location, true);
+  }
+  navigateTaskSuggestion(page: RequirementTaskSuggestions, candidate: RequirementTaskSuggestions['candidates'][number]): boolean {
+    this.target.set(null);
+    const result = this.result();
+    const origin = result?.semanticInspection?.symbols.find(symbol => symbol.key === page.originKey);
+    const symbol = result?.semanticInspection?.symbols.find(symbol => symbol.key === candidate.symbolKey);
+    const record = this.inspectedRecord();
+    if (!result || !this.requirementTaskSuggestions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
+        record?.recordType !== 'entity' || record.kind !== 'coglatas.requirement' || origin.location.entityId !== record.identity ||
+        origin.location.documentId !== record.location.documentId || origin.location.propertyPath !== '' ||
         typeof resolveLocation(result, origin.location, true) === 'string') {
       this.navigationState.set('unavailable'); return false;
     }

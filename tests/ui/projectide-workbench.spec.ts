@@ -19,6 +19,32 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`opens a reasoned Task candidate without claiming requirement satisfaction in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview'); const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const source = locale === 'en' ? 'Source' : 'ソース';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('requirement-candidates'); await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: source, exact: true }).click();
+        await page.getByRole('button', { name: 'coglatas.requirement · 0000000b-0000-4000-8000-000000000001', exact: true }).click();
+        const suggestions = page.getByTestId('ide-requirement-task-suggestions'); await expect(suggestions).toHaveCount(1);
+        await expect(suggestions).toContainText(locale === 'en' ? 'They do not prove requirement satisfaction' : '要件充足の証明にはなりません');
+        await expect(suggestions).toContainText(locale === 'en' ? 'Reason: declared Task' : '理由: 読み込み済みスナップショット内のTask宣言');
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); const action = suggestions.getByRole('button'); await action.focus(); await action.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('requirement-candidates');
+        await expect(page.getByTestId('ide-source-target')).toContainText('Observe 🌌'); await expect(page.getByTestId('ide-source-target')).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Candidate observation tasks 11');
+        await expect(page.getByTestId('ide-requirement-task-suggestions')).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
     test(`keeps opaque envelope values visible and incomplete in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };

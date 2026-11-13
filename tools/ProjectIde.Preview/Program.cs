@@ -38,13 +38,14 @@ if (revertedDraft.Source.Context.Proposal?.BaseRevision != historyDelta.AfterRev
 var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after" };
+var requirementCandidates = RequirementCandidateInput();
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, _ => Input(name, 100 + index) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -123,6 +124,21 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
+    if (name == "requirement-candidates")
+    {
+        if (inspection is null || ir is null) throw new InvalidOperationException("Task candidates require actual Core inspection and source navigation.");
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["requirementTaskSuggestions"] = JsonSerializer.SerializeToNode(inspection.Symbols.Where(symbol => symbol.Symbol.Kind == "coglatas.requirement").Select(symbol =>
+        {
+            var page = inspection.SuggestRequirementTasks(symbol.Symbol.Location, input.InputDigest, 32);
+            if (page.State != RequirementTaskSuggestionState.Ready || !page.CandidateOnly || page.Candidates.Count == 0)
+                throw new InvalidOperationException("Task candidate fixture did not contain bounded real Core candidates.");
+            return new { originKey = symbol.Symbol.Key, inputDigest = page.InputDigest.Data.Value, state = page.State.ToString(), candidateOnly = page.CandidateOnly,
+                coverageComplete = page.CoverageComplete, truncated = page.NextCursor is not null,
+                candidates = page.Candidates.Select(candidate => new { symbolKey = candidate.Symbol.Symbol.Key, displayName = candidate.DisplayName, reason = candidate.Reason.ToString() }).ToArray() };
+        }).ToArray());
+        cases[^1] = fixture;
+    }
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true });
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
@@ -130,6 +146,18 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static CompilerInputManifest RequirementCandidateInput()
+{
+    var input = Input("requirement-candidates", 160);
+    var declarations = new JsonArray(input.Source.Declarations.Value.EnumerateArray()
+        .Where(item => item.GetProperty("kind").GetString() is "coglatas.task" or "coglatas.milestone")
+        .Select(item => JsonNode.Parse(item.GetRawText())).ToArray());
+    foreach (var number in new[] { 11, 12 })
+        declarations.Add(JsonSerializer.SerializeToNode(new { entityId = Id(number), documentId = Id(4), kind = "coglatas.requirement", schemaVersion = 1,
+            displayName = "Candidate observation tasks " + number, payload = new { target = new { tenantId = Id(1), projectId = Id(2), entityId = Id(6), context = input.Source.Context.Data.Value },
+                condition = Literal(true), evidenceKind = "coglatas.model-proof" } }));
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), input.Settings);
+}
 static CompilerInputManifest EnvelopeInput(int revision, string value)
 {
     var input = Input("envelope", revision);

@@ -196,6 +196,12 @@ const completions = (value: unknown): boolean => value === undefined || value ==
   (page['expectedKind'] === null || token(page['expectedKind'])) && typeof page['coverageComplete'] === 'boolean' &&
   typeof page['truncated'] === 'boolean' && list(page['candidates'], (candidate) => record(candidate) &&
     token(candidate['symbolKey']) && (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
+const taskSuggestions = (value: unknown): boolean => value === undefined || value === null || list(value, page =>
+  record(page) && token(page['originKey']) && digest(page['inputDigest']) && page['candidateOnly'] === true &&
+  oneOf(page['state'], ['Ready', 'StaleInput', 'OutOfScope', 'Unavailable', 'InvalidCursor']) &&
+  typeof page['coverageComplete'] === 'boolean' && typeof page['truncated'] === 'boolean' &&
+  list(page['candidates'], candidate => record(candidate) && token(candidate['symbolKey']) && candidate['reason'] === 'DeclaredTaskInSnapshot' &&
+    (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
 const preparedRename = (value: unknown): boolean => {
   if (value === undefined || value === null) return true;
   if (!record(value) || !token(value['afterCaseKey']) || !record(value['plan'])) return false;
@@ -233,6 +239,7 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     list(value['relations'], sourceRecord, 100000) &&
     inspection(value['semanticInspection']) &&
     completions(value['referenceCompletions']) &&
+    taskSuggestions(value['requirementTaskSuggestions']) &&
     preparedRename(value['preparedRename']) &&
     preparedRevert(value['preparedRevert']) &&
     preparedDiff(value['preparedDiff']) &&
