@@ -163,7 +163,9 @@ def run_command_lines(job: str) -> list[str]:
             # A multiline Bash AND/OR list, pipe or escaped newline changes
             # the reachability of the next physical line. Refuse to credit any
             # owner command in this unsupported shell grammar.
-            if re.search(r"(?:&&|\|\||\||\\)$", command):
+            # Inspect raw literal content: a quoted '#' can hide a trailing
+            # continuation operator from naive shell-comment stripping.
+            if re.search(r"(?:&&|\|\||\||\\)$", fragment.rstrip()):
                 shell_continuation = True
             # A textual command inside if/for/case/while blocks does not prove
             # unconditional execution. Never promote such nested lines.
@@ -322,7 +324,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all thirty-nine bounded source mutations."""
+    """Verify reviewed policy and reject all forty-one bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -539,6 +541,22 @@ def main() -> int:
             "          bash scripts/ci/npm-ci-retry.sh frontend\n"
             "          true",
         ),
+        "quoted hash masks multiline AND-list owner": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          false && printf '%s#' &&\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          true",
+        ),
+        "quoted hash masks escaped newline owner": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          false && printf '%s#' \\\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          true",
+        ),
         "quoted false condition on toolchain owner": one_replacement(
             workflows,
             "        run: node scripts/ci/verify-node-toolchain.mjs",
@@ -562,7 +580,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 39 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 41 mutation controls rejected.")
     return 0
 
 
