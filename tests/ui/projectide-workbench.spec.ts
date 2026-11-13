@@ -19,6 +19,52 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`navigates exact semantic difference snapshots with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const tab = locale === 'en' ? 'Semantic Diff' : '意味差分';
+      for (const [side, key] of [['before', 'Enter'], ['after', 'Space']] as const) {
+        await page.getByTestId('ide-context').selectOption('draft-before');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: tab, exact: true }).click();
+        await expect(page.getByTestId('ide-diff-state')).toHaveText('Complete');
+        await expect(page.getByTestId('ide-diff-rows')).toContainText('DisplayName');
+        const details = page.getByTestId('ide-diff-rows').locator('details').first(); await details.locator('summary').click();
+        const value = details.locator('pre'); await expect(value).toHaveAttribute('tabindex', '0');
+        // Force overflow on the actual rendered value region; keyboard scrolling must remain available.
+        await value.evaluate(element => { element.style.maxHeight = '1px'; });
+        expect(await value.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+        await value.focus(); await value.press('ArrowDown');
+        await expect.poll(() => value.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+        const button = page.getByRole('button', { name: locale === 'en' ? `Open ${side} snapshot` : side === 'before' ? '変更前のスナップショットを開く' : '変更後のスナップショットを開く', exact: true });
+        await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue(side === 'before' ? 'draft-before' : 'draft-after');
+        await expect(page.getByTestId('ide-source-target')).toContainText(side === 'before' ? 'Observe 🌌' : 'Observe renamed 🌌');
+        await expect(page.getByTestId('ide-source-target')).toBeFocused();
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      }
+      await page.getByTestId('ide-context').selectOption('document-before');
+      await page.getByRole('button', { name: load, exact: true }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('Uninterpreted');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('/extensions');
+      await page.getByTestId('ide-context').selectOption('unsupported');
+      await page.getByRole('button', { name: load, exact: true }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete');
+      await expect(page.getByTestId('ide-diff-empty')).toHaveCount(0); expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
     test(`loads a Core-prepared Draft rename with Enter and Space in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale);

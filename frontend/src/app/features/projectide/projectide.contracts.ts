@@ -135,6 +135,32 @@ export interface PreparedDraftRename {
   };
 }
 
+export interface SemanticChange {
+  readonly recordType: 'entity' | 'relation' | 'document' | 'source';
+  readonly identity: string;
+  readonly path: string;
+  readonly kind: 'Added' | 'Removed' | 'DisplayName' | 'Property' | 'Reference' | 'Uninterpreted';
+  readonly beforePresent: boolean;
+  readonly afterPresent: boolean;
+  readonly before: unknown;
+  readonly after: unknown;
+  readonly beforeLocation: ProjectLocation | null;
+  readonly afterLocation: ProjectLocation | null;
+}
+export interface PreparedSemanticDiff {
+  readonly afterCaseKey: string;
+  readonly comparison: {
+    readonly format: 'coglatas.synthetic-semantic-diff/1';
+    readonly state: 'Complete' | 'Incomplete';
+    readonly noChanges: boolean;
+    readonly beforeInputDigest: Digest;
+    readonly afterInputDigest: Digest;
+    readonly beforeContext: RevisionContext;
+    readonly afterContext: RevisionContext;
+    readonly changes: readonly SemanticChange[];
+  };
+}
+
 export interface SemanticInspection {
   readonly format: 'coglatas.semantic-inspection/1';
   readonly compilerInputId: Identity<'CompilerInput'>;
@@ -156,6 +182,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly preparedDiff?: PreparedSemanticDiff | null;
   readonly key: string;
   readonly projectName: string;
   readonly workspaceName: string;

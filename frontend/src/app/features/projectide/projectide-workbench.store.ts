@@ -7,6 +7,7 @@ import {
   PreviewCase,
   ProjectLocation,
   PreparedDraftRename,
+  SemanticChange,
   ReferenceCompletion,
   ReadState,
   Selection,
@@ -64,6 +65,23 @@ export class ProjectIdeWorkbenchStore {
   readonly sourceTarget = computed(() => this.currentTarget()?.record ?? null);
   readonly sourceLocation = computed(() => this.currentTarget()?.location ?? null);
   readonly navigationState = signal('');
+  readonly semanticDiff = computed(() => {
+    const context = this.context(); const bundle = this.bundle();
+    if (this.state() !== 'ready' || !bundle || !context || context !== this.result() || !context.preparedDiff ||
+        !context.semanticInspection || !bundle.cases.find(item => item.key === context.preparedDiff!.afterCaseKey)?.semanticInspection) return null;
+    try { readPreviewBundle(bundle); return context.preparedDiff; } catch { return null; }
+  });
+
+  navigateDiff(change: SemanticChange, side: 'before' | 'after'): boolean {
+    const prepared = this.semanticDiff(); const before = this.context(); const bundle = this.bundle();
+    if (!prepared || !before || !bundle || !prepared.comparison.changes.includes(change)) return false;
+    try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
+    const target = side === 'before' ? before : bundle.cases.find(item => item.key === prepared.afterCaseKey);
+    const location = side === 'before' ? change.beforeLocation : change.afterLocation;
+    if (!target || !location || (!location.entityId && !location.relationId) || typeof resolveLocation(target, location) === 'string') return false;
+    this.choose(target.key); this.loadResult();
+    return this.navigateLocation(location);
+  }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {

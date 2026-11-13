@@ -7,11 +7,24 @@ if (args.Length != 1) throw new ArgumentException("Supply the output JSON path."
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after" };
+var documentOriginal = Input("document-before", 130);
+var documentDeclarations = Json(documentOriginal.Source.Declarations.Value.EnumerateArray()
+    .Where(item => item.GetProperty("kind").GetString() is "coglatas.task" or "coglatas.milestone").ToArray());
+var documentBefore = new CompilerInputManifest(ProjectSource.Create(documentOriginal.Source.Context, documentOriginal.Source.Documents,
+    documentDeclarations, Json(Array.Empty<object>())), documentOriginal.Settings);
+var documentBase = Input("document-after", 131);
+var documentAfter = new CompilerInputManifest(ProjectSource.Create(documentBase.Source.Context,
+    documentBase.Source.Documents.Select(document => SourceDocument.Create(document.DocumentId, document.LogicalName, document.Root.Data,
+        Json(new { annotation = "Opaque document annotation; no inferred layout semantics" }))), documentDeclarations,
+    Json(Array.Empty<object>())), documentBase.Settings);
+var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
+var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
-    var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After, _ => Input(name, 100 + index) };
+    var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
+        "document-before" => documentBefore, "document-after" => documentAfter, _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -61,6 +74,15 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         semanticInspection = inspection?.Data.Value,
         referenceCompletions = completions,
         preparedRename = name == "draft-before" ? new { afterCaseKey = "draft-after", plan = renameFixture.Plan.Data.Value } : null,
+        preparedDiff = name switch
+        {
+            "draft-before" => new { afterCaseKey = "draft-after", comparison = ProjectSemanticDiff.Compare(diffBefore, diffAfter, renameFixture.Before.InputDigest, renameFixture.After.InputDigest).Data.Value },
+            "document-before" => new { afterCaseKey = "document-after", comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(documentBefore),
+                ProjectSemanticBinder.Bind(documentAfter), documentBefore.InputDigest, documentAfter.InputDigest).Data.Value },
+            "unsupported" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
+            "fail" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
+            _ => null
+        },
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });

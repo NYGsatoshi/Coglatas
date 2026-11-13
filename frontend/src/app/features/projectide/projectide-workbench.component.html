@@ -146,6 +146,39 @@
         <section class="panel" [attr.aria-label]="t('ide.' + panel())">
           <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
           @switch (panel()) {
+            @case ('diff') {
+              <p>{{ t('ide.diffNotice') }}</p>
+              @if (store.semanticDiff(); as prepared) {
+                <p role="status" data-testid="ide-diff-state">{{ prepared.comparison.state }}</p>
+                <dl>
+                  <div><dt>{{ t('ide.diffBefore') }}</dt><dd>{{ contextRevision(prepared.comparison.beforeContext) }} · {{ prepared.comparison.beforeInputDigest.value }}</dd></div>
+                  <div><dt>{{ t('ide.diffAfter') }}</dt><dd>{{ contextRevision(prepared.comparison.afterContext) }} · {{ prepared.comparison.afterInputDigest.value }}</dd></div>
+                </dl>
+                @if (prepared.comparison.noChanges) { <p data-testid="ide-diff-empty">{{ t('ide.diffEmpty') }}</p> }
+                @else if (prepared.comparison.state !== 'Complete') { <p role="status">{{ t('ide.diffPartial') }}</p> }
+                <ol data-testid="ide-diff-rows" [start]="diffPage() * 32 + 1">
+                  @for (change of diffRows(); track change.recordType + change.identity + change.path) {
+                    <li>
+                      <p>{{ change.kind }} · {{ change.recordType }} · {{ change.identity }} · {{ change.path }}</p>
+                      <details><summary>{{ t('ide.diffBefore') }}</summary>
+                        @if (change.beforePresent) { <pre tabindex="0">{{ change.before | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
+                      </details>
+                      <details><summary>{{ t('ide.diffAfter') }}</summary>
+                        @if (change.afterPresent) { <pre tabindex="0">{{ change.after | json }}</pre> } @else { <p>{{ t('ide.diffAbsent') }}</p> }
+                      </details>
+                      @if (change.beforeLocation?.entityId || change.beforeLocation?.relationId) {
+                        <button type="button" (click)="navigateDiff(change, 'before')">{{ t('ide.diffOpenBefore') }}</button>
+                      }
+                      @if (change.afterLocation?.entityId || change.afterLocation?.relationId) {
+                        <button type="button" (click)="navigateDiff(change, 'after')">{{ t('ide.diffOpenAfter') }}</button>
+                      }
+                    </li>
+                  }
+                </ol>
+                <button type="button" [disabled]="diffPage() === 0" (click)="diffPage.set(diffPage() - 1)">{{ t('ide.diffPrevious') }}</button>
+                <button type="button" [disabled]="(diffPage() + 1) * 32 >= prepared.comparison.changes.length" (click)="diffPage.set(diffPage() + 1)">{{ t('ide.diffNext') }}</button>
+              } @else { <p role="status">{{ t('ide.diffUnavailable') }}</p> }
+            }
             @case ('overview') {
               <p>{{ t('ide.binding') }}</p>
               <dl>

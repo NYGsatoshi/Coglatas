@@ -34,7 +34,62 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
     validatePreviewCaseBindings(item);
   }
   for (const item of bundle.cases) if (item.preparedRename && item.semanticInspection) validatePreparedDraftRename(bundle, item);
+  for (const item of bundle.cases) if (item.preparedDiff && item.semanticInspection) validateSemanticDiffPair(bundle, item);
   return bundle;
+}
+
+/** Check projection provenance and original values; .NET alone computes semantic categories/completeness. */
+function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): void {
+  const prepared = before.preparedDiff!; const diff = prepared.comparison;
+  const after = bundle.cases.find(item => item.key === prepared.afterCaseKey);
+  if (!after || before.freshness !== 'Current' || after.freshness !== 'Current' ||
+      !sameContext(before.context, diff.beforeContext) || !sameContext(after.context, diff.afterContext) ||
+      before.context.branch.tenantId !== after.context.branch.tenantId || before.context.branch.projectId !== after.context.branch.projectId ||
+      !sameDigest(before.inputDigest, diff.beforeInputDigest) || !sameDigest(after.inputDigest, diff.afterInputDigest) ||
+      diff.noChanges !== (diff.state === 'Complete' && diff.changes.length === 0) ||
+      (diff.state === 'Complete' && (!before.semanticInspection?.bindingComplete || !after.semanticInspection?.bindingComplete ||
+        (sameContext(before.context, after.context) && !sameDigest(before.sourceDigest, after.sourceDigest)))))
+    throw new PreviewReadError('wrong-scope');
+  const seen = new Set<string>();
+  for (const change of diff.changes) {
+    const key = JSON.stringify([change.recordType, change.identity, change.path]);
+    if (seen.has(key) || (change.kind === 'Added' && (change.beforePresent || !change.afterPresent)) ||
+        (change.kind === 'Removed' && (!change.beforePresent || change.afterPresent)) ||
+        (!change.beforePresent && !change.afterPresent)) throw new PreviewReadError('unsupported');
+    seen.add(key);
+    for (const side of ['before', 'after'] as const) {
+      const item = side === 'before' ? before : after;
+      const location = side === 'before' ? change.beforeLocation : change.afterLocation;
+      const present = side === 'before' ? change.beforePresent : change.afterPresent;
+      const projected = change[side];
+      let raw: unknown;
+      if (change.recordType === 'entity' || change.recordType === 'relation') {
+        const records = change.recordType === 'entity' ? item.declarations : item.relations;
+        const original = records.find(record => record.identity === change.identity);
+        if (original) {
+          if (!location || !sameJson(location, original.location)) throw new PreviewReadError('wrong-scope');
+          raw = change.path === '/documentId' ? original.location.documentId : original.data;
+        } else if (location !== null) throw new PreviewReadError('wrong-scope');
+      } else if (change.recordType === 'document') {
+        if (!['/logicalName', '/extensions'].includes(change.path) || (change.path === '/extensions' && change.kind !== 'Uninterpreted')) throw new PreviewReadError('unsupported');
+        const document = item.source.documents.find(document => document.documentId === change.identity);
+        if (document) {
+          if (!location || location.documentId !== document.documentId || !sameContext(location.context, item.context) || location.entityId || location.relationId)
+            throw new PreviewReadError('wrong-scope');
+          raw = document;
+        } else if (location !== null) throw new PreviewReadError('wrong-scope');
+      } else {
+        if (change.identity !== '' || location !== null || !['/extensionDeclarations', '/packageLock', '/sourceReferences', '/extensions'].includes(change.path) || change.kind !== 'Uninterpreted')
+          throw new PreviewReadError('unsupported');
+        raw = item.source;
+      }
+      if (change.path !== '/documentId') for (const part of change.path.split('/').slice(1)) {
+        const key = part.replace(/~1/gu, '/').replace(/~0/gu, '~');
+        raw = typeof raw === 'object' && raw !== null && Object.hasOwn(raw, key) ? (raw as Record<string, unknown>)[key] : undefined;
+      }
+      if (present !== (raw !== undefined) || (present ? !sameJson(raw, projected) : projected !== null)) throw new PreviewReadError('wrong-scope');
+    }
+  }
 }
 
 /** Validates a Core-prepared synthetic pair; it never authorizes or performs a runtime edit. */

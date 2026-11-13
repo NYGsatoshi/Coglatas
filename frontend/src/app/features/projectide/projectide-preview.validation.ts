@@ -234,10 +234,28 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     inspection(value['semanticInspection']) &&
     completions(value['referenceCompletions']) &&
     preparedRename(value['preparedRename']) &&
+    preparedDiff(value['preparedDiff']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );
 }
+
+const preparedDiff = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['afterCaseKey']) || !record(value['comparison'])) return false;
+  const diff = value['comparison'];
+  return diff['format'] === 'coglatas.synthetic-semantic-diff/1' &&
+    oneOf(diff['state'], ['Complete', 'Incomplete']) && typeof diff['noChanges'] === 'boolean' &&
+    digest(diff['beforeInputDigest']) && digest(diff['afterInputDigest']) && context(diff['beforeContext']) && context(diff['afterContext']) &&
+    JSON.stringify(diff).length <= 600000 && list(diff['changes'], change => record(change) &&
+      oneOf(change['recordType'], ['entity', 'relation', 'document', 'source']) && text(change['identity']) &&
+      text(change['path']) && change['path'].length <= 4096 && (change['path'] === '' || (change['path'].startsWith('/') && !/~(?![01])/u.test(change['path']))) &&
+      oneOf(change['kind'], ['Added', 'Removed', 'DisplayName', 'Property', 'Reference', 'Uninterpreted']) &&
+      typeof change['beforePresent'] === 'boolean' && typeof change['afterPresent'] === 'boolean' &&
+      Object.hasOwn(change, 'before') && Object.hasOwn(change, 'after') &&
+      (change['beforeLocation'] === null || isProjectLocationShape(change['beforeLocation'])) &&
+      (change['afterLocation'] === null || isProjectLocationShape(change['afterLocation'])), 1024);
+};
 
 export function isPreviewBundleShape(value: unknown): value is PreviewBundle {
   return (
