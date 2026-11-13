@@ -19,6 +19,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     tslib: '2.9.1',
     'zone.js': '0.16.3',
   },
+  qualifiedJsdomRanges = Object.freeze({ '30.1.3': '^30.1.3', '31.0.0': '^31.0.0', '31.0.1': '^31.0.0' }),
   expectedDevDependencies = {
     '@angular-devkit/build-angular': '22.2.4',
     '@storybook/angular': '10.6.5',
@@ -36,8 +37,8 @@ void test('keeps the reviewed Angular 22 third-party versions pinned in manifest
   ]) {
     for (const [name, version] of Object.entries(expected)) {
       // Keep each accepted dependency candidate exact (no semver ranges).
-      // Only jsdom 31 remains a second explicitly permitted migration candidate.
-      const permitted = name === 'jsdom' ? ['30.1.3', '31.0.0'] : [version];
+      // Explicitly reviewed jsdom candidates retain exact manifest and lockfile matching.
+      const permitted = name === 'jsdom' ? Object.keys(qualifiedJsdomRanges) : [version];
       const manifestVersion = packageJson[dependencyType][name];
       assert.ok(permitted.includes(manifestVersion),
         `${name} drifted outside the explicitly reviewed version candidates`);
@@ -54,10 +55,12 @@ void test('keeps the reviewed Angular 22 third-party versions pinned in manifest
 
 void test('retains one explicitly qualified jsdom version across both Angular workspaces', () => {
   const frontendJsdom = frontendPackageLock.packages['node_modules/jsdom']?.version;
-  assert.ok(['30.1.3', '31.0.0'].includes(frontendJsdom));
+  assert.ok(Object.hasOwn(qualifiedJsdomRanges, frontendJsdom), 'Unreviewed jsdom version');
+  const siblingRange = qualifiedJsdomRanges[frontendJsdom];
   assert.equal(coglatasPackageLock.packages['node_modules/jsdom']?.version, frontendJsdom);
-  assert.equal(coglatasPackageJson.devDependencies.jsdom, `^${frontendJsdom}`);
-  assert.equal(coglatasPackageLock.packages[''].devDependencies.jsdom, `^${frontendJsdom}`);
+  assert.match(coglatasPackageLock.packages['node_modules/jsdom']?.integrity ?? '', /^sha512-/u);
+  assert.equal(coglatasPackageJson.devDependencies.jsdom, siblingRange);
+  assert.equal(coglatasPackageLock.packages[''].devDependencies.jsdom, siblingRange);
 });
 
 void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
