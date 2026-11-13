@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
-using Xunit;
 using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
 using static Coglatas.Tests.ProjectIde.CompilerAnalysisFixtures;
 namespace Coglatas.Tests.ProjectIde;
