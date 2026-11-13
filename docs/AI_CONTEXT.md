@@ -2,6 +2,12 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [validation snapshot storage repair](verification/projectide-validation-snapshot-immutability.md)
+owns semantic/Relation findings, endpoint resolutions, Requirement claims and
+Draft Rename reference origins.
+Public access preserves invalidity, finding meaning and exact claim freshness;
+independent qualification remains P0 #1938.
+
 The [semantic contract storage repair](verification/projectide-semantic-contract-immutability.md)
 owns built-in Relation interpretation lists, exact conversion provenance,
 retained numeric inputs and actually evaluated Boolean premises.

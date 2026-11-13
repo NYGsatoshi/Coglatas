@@ -33,9 +33,9 @@ public sealed class RequirementEvidenceAssessment
         CompilerExecutionState execution, CompilerFreshness freshness, int operations)
     {
         Input = input; Requirement = requirement; Freshness = freshness; LogicalOperationsConsumed = operations;
-        Claims = Array.AsReadOnly(claims.OrderBy(item => item.Result.ResultDigest.Value, StringComparer.Ordinal)
-            .ThenBy(item => item.Requirement.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Target.Data.CanonicalText, StringComparer.Ordinal).ToArray());
-        Findings = Array.AsReadOnly(findings.OrderBy(item => item.Diagnostic.Code, StringComparer.Ordinal).ToArray());
+        Claims = new ImmutableListView<RequirementEvidenceClaim>(claims.OrderBy(item => item.Result.ResultDigest.Value, StringComparer.Ordinal)
+            .ThenBy(item => item.Requirement.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Target.Data.CanonicalText, StringComparer.Ordinal));
+        Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
         Outcome = new(CoreCompilerRules.Requirements, 1, execution, CompilerCoverage.Partial, CompilerVerdict.Inconclusive,
             new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.requirement-evidence-unavailable"));
     }

@@ -27,10 +27,10 @@ public sealed class RelationValidationResult
     public bool IsComplete => Findings.Count == 0;
     internal RelationValidationResult(IEnumerable<RelationFinding> findings, IEnumerable<RelationEndpointResolution> resolutions)
     {
-        Findings = Array.AsReadOnly(findings.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal)
-            .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.State).Distinct().ToArray());
-        Resolutions = Array.AsReadOnly(resolutions.OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal)
-            .ThenByDescending(item => item.IsSource).ToArray());
+        Findings = new ImmutableListView<RelationFinding>(findings.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal)
+            .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.State).Distinct());
+        Resolutions = new ImmutableListView<RelationEndpointResolution>(resolutions.OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal)
+            .ThenByDescending(item => item.IsSource));
     }
 }
 

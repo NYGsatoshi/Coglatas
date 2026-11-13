@@ -22,7 +22,7 @@ public sealed class ProjectDraftRenamePlan
         string? previousName, string newName, IReadOnlyList<CompilerBoundReference> references, bool complete)
     {
         Before = before; After = after; Target = target; PreviousName = previousName; NewName = newName;
-        References = Array.AsReadOnly(references.ToArray()); ReferenceCoverageComplete = complete;
+        References = new ImmutableListView<CompilerBoundReference>(references); ReferenceCoverageComplete = complete;
         Data = SourceJson.FromObject(new
         {
             beforeInputDigest = before.InputDigest.Data.Value, afterInputDigest = after.InputDigest.Data.Value,
