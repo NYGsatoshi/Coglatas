@@ -2,6 +2,11 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [numeric operand storage repair](verification/projectide-numeric-operand-immutability.md)
+owns unit-factor maps so public access cannot change exact evaluation under a
+retained input basis. This changes no arithmetic or numerical assurance policy;
+independent qualification remains P0 #1938.
+
 The [validation snapshot storage repair](verification/projectide-validation-snapshot-immutability.md)
 owns semantic/Relation findings, endpoint resolutions, Requirement claims and
 Draft Rename reference origins.

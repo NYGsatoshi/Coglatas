@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Globalization;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -36,7 +35,7 @@ public sealed class NumericOperand
     {
         Status = status; Amount = amount; Dimension = dimension; Basis = basis; OperationCount = operationCount;
         Reason = reason ?? "coglatas.input-" + status.ToString().ToLowerInvariant();
-        UnitPowers = new ReadOnlyDictionary<string, int>(new SortedDictionary<string, int>(units, StringComparer.Ordinal));
+        UnitPowers = new ImmutableMapView<string, int>(new SortedDictionary<string, int>(units, StringComparer.Ordinal), StringComparer.Ordinal);
         Data = SourceJson.FromObject(new
         {
             format = "coglatas.numeric-operand/1",
