@@ -48,7 +48,7 @@ def main():
                 results.append({'mutation': name, 'result': 'BUILD_FAILED', 'buildExit': build.returncode})
                 print(json.dumps(results[-1]), flush=True)
                 continue
-            process = subprocess.run(['dotnet', 'src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll', '--AvMigContractVerify', 'true', '--AvMigContractPolicy', str(ROOT / 'docs/migration/avalonia/p0-api-boundary.json')], cwd=root, env=environment, capture_output=True, text=True, timeout=60)
+            process = subprocess.run(['dotnet', 'src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll', '--AvMigContractVerify', 'true', '--AvMigContractPolicy', str(ROOT / 'docs/migration/avalonia/p0-api-boundary.json')], cwd=root, env=environment, capture_output=True, text=True, timeout=60)
             output = process.stdout + process.stderr
             (logs / (name + '.log')).write_text(output)
             actual = int(process.returncode != 0)

@@ -48,7 +48,7 @@ export function validateRecoveryReceiptData(value) {
     postgresVersionNum: nullable(count), appImage: nullable(image), postgresImage: nullable(image),
     restoreCalls: child => object(child, fields(['target', 'fault'], oneOf(0, 1))),
     helperImage: fixed('node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413'),
-    migrationSdkImage: fixed('mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb'),
+    migrationSdkImage: fixed('mcr.microsoft.com/dotnet/sdk:11.0.100@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea'),
     strictCheckpoint: oneOf('PASS', 'NOT_EVALUATED'),
     startupDelta: child => child === 'NOT_EVALUATED' || object(child, {
       equalToCheckpoint: boolean, changedTables: count, schemaUnchanged: boolean }),

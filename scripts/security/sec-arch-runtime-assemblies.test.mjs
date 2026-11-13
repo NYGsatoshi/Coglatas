@@ -10,8 +10,8 @@ const names = ['Coglatas.Tests', 'Coglatas.Web', 'Coglatas.Application', 'Coglat
   'Coglatas.Domain', 'Coglatas.SecurityArchitecture'];
 const canonicalPath = (root, name) => resolve(root,
   name === 'Coglatas.Tests' ? 'tests/Coglatas.Tests' : name === 'Coglatas.SecurityArchitecture' ?
-    'tools/Coglatas.SecurityArchitecture' : `src/${name}`, `bin/Release/net10.0/${name}.dll`);
-const copiedPath = (root, name) => resolve(root, `tests/Coglatas.Tests/bin/Release/net10.0/${name}.dll`);
+    'tools/Coglatas.SecurityArchitecture' : `src/${name}`, `bin/Release/net11.0/${name}.dll`);
+const copiedPath = (root, name) => resolve(root, `tests/Coglatas.Tests/bin/Release/net11.0/${name}.dll`);
 
 async function withAssemblies(action) {
   const root = await mkdtemp(resolve(tmpdir(), 'coglatas-runtime-assemblies-'));

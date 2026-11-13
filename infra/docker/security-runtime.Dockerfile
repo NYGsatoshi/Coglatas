@@ -17,4 +17,4 @@ RUN mkdir -p \
       --disable-build-servers \
       -m:1
 
-CMD ["dotnet", "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"]
+CMD ["dotnet", "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll"]

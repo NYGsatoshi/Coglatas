@@ -14,4 +14,4 @@ RUN mkdir -p \
       --disable-parallel \
       /p:RestoreFallbackFolders=
 
-CMD ["dotnet", "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"]
+CMD ["dotnet", "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll"]
