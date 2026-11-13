@@ -2,6 +2,11 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [semantic contract storage repair](verification/projectide-semantic-contract-immutability.md)
+owns built-in Relation interpretation lists and exact conversion provenance.
+It preserves canonical definitions and numerical meaning; independent
+qualification remains separate P0 #1938 work.
+
 The [host and time snapshot storage repair](verification/projectide-host-snapshot-immutability.md)
 owns direct host collections and supplied calendar/timezone collections.
 Compatibility and exact execution bindings stay stable after collection access;

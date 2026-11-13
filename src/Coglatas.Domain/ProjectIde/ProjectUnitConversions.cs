@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 
 namespace Coglatas.Domain.ProjectIde;
 
@@ -93,7 +92,7 @@ public sealed class ConvertedQuantity
         ExactRational amount, UnitConversionDefinition[] provenance)
     {
         Original = original; SourceUnit = sourceUnit; NormalizedUnit = normalizedUnit; Amount = amount;
-        Provenance = new ReadOnlyCollection<UnitConversionDefinition>(provenance);
+        Provenance = new ImmutableListView<UnitConversionDefinition>(provenance);
         Data = SourceJson.FromObject(new
         {
             original = original.Data.Value, sourceUnit = sourceUnit.IdentityData.Value,
