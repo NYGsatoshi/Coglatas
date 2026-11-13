@@ -133,6 +133,14 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
             'SOURCE_NAMESPACE')
     classes = list(CLASS.finditer(source))
     require([match.group(1) for match in classes] == [expected_class], 'SOURCE_CLASS')
+    enclosing_depth = 0
+    for char in source[:classes[0].start()]:
+        if char == '{':
+            enclosing_depth += 1
+        elif char == '}':
+            enclosing_depth -= 1
+        require(enclosing_depth >= 0, 'SOURCE_CLASS')
+    require(enclosing_depth == 0, 'SOURCE_CLASS')
     body = re.match(r'\s*\{', source[classes[0].end():])
     require(body is not None, 'SOURCE_CLASS')
     opening = classes[0].end() + body.end() - 1

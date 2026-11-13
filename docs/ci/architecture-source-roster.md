@@ -37,6 +37,8 @@ Nonblocking admission where supported also refuses a regular-file-to-FIFO
 replacement without waiting for a writer. Each Fact must lie directly inside
 the expected class's matched structural braces; indentation cannot authorize a
 foreign or nested declaring type, or a top-level method.
+The expected class itself must have no enclosing type braces; otherwise its
+reported fully qualified case identities would omit the outer declaring type.
 Broader syntax requires a separately reviewed parser; this is **not a complete
 C# or Roslyn parser**. The source files are not executed by this tool.
 
