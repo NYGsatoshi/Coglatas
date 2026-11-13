@@ -141,7 +141,7 @@ function validateSemanticDiffPair(bundle: PreviewBundle, before: PreviewCase): v
           throw new PreviewReadError('unsupported');
         raw = item.source;
       }
-      if (change.path !== '/documentId') for (const part of change.path.split('/').slice(1)) {
+      if (change.path !== '/documentId' || (change.recordType !== 'entity' && change.recordType !== 'relation')) for (const part of change.path.split('/').slice(1)) {
         const key = part.replace(/~1/gu, '/').replace(/~0/gu, '~');
         raw = typeof raw === 'object' && raw !== null && Object.hasOwn(raw, key) ? (raw as Record<string, unknown>)[key] : undefined;
       }

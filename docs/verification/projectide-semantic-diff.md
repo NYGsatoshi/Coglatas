@@ -74,13 +74,15 @@ Avalonia, native history navigation and runtime authorization remain unactivated
 The offline exporter emits five `coglatas.synthetic-semantic-diff/1` projections
 inside the existing synthetic fixture bundle: a real Core-prepared Draft Rename,
 an equal structure with Compiler FAIL, an incomplete empty comparison, and a
-document extension change and a pair covering six opaque envelope surfaces that
+document extension change and a pair covering seven opaque envelope surfaces that
 remain explicitly Uninterpreted. The two new envelope fixtures expand the
 inverse-Draft bundle from fifteen to seventeen; its original fifteen case
 objects remain unchanged. This
 format is local preview data, not a formal Registry/history artifact adoption.
 Angular checks the entire pair's digests/contexts and each row's original value,
 identity, owning document and location before display/navigation. It does not
+interpret an opaque Source member named `documentId` as entity ownership;
+that location shortcut remains specific to entity/relation rows. It does not
 reimplement semantic comparison. Legacy fixtures without optional inspection
 stay readable with comparison inert. A dedicated localized Diff panel renders
 32 changes per page, distinguishes absence/incompleteness, and opens the exact

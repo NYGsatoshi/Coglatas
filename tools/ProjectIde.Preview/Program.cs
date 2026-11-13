@@ -137,7 +137,7 @@ static CompilerInputManifest EnvelopeInput(int revision, string value)
         .Where(item => item.GetProperty("kind").GetString() is "coglatas.task" or "coglatas.milestone").ToArray());
     var source = ProjectSource.Create(input.Source.Context, input.Source.Documents, declarations, Json(Array.Empty<object>()));
     var root = JsonNode.Parse(source.Data.CanonicalText)!.AsObject(); var document = root["documents"]![0]!.AsObject();
-    root["future/field~"] = "Source " + value; document["future/field~"] = "Document " + value;
+    root["future/field~"] = "Source " + value; root["documentId"] = "Opaque Source hint " + value; document["future/field~"] = "Document " + value;
     var digest = document["digest"]!.AsObject(); digest["futureEnvelope"] = "Document Digest " + value;
     document.Remove("digest"); digest["value"] = ContentDigest.Compute(SourceDocument.DigestDomain, Json(document).ToCanonicalBytes()).Value;
     document["digest"] = digest;

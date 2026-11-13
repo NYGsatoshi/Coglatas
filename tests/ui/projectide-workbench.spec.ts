@@ -30,14 +30,15 @@ test.describe('ProjectIDE synthetic read-only workbench', () => {
       await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
       await page.getByRole('button', { name: locale === 'en' ? 'Semantic Diff' : '意味差分', exact: true }).click();
       await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete'); await expect(page.getByTestId('ide-diff-empty')).toHaveCount(0);
-      const rows = page.getByTestId('ide-diff-rows'); await expect(rows.locator(':scope > li')).toHaveCount(4);
+      const rows = page.getByTestId('ide-diff-rows'); await expect(rows.locator(':scope > li')).toHaveCount(5);
       await expect(rows).toContainText('/future~1field~0'); await expect(rows).toContainText('Uninterpreted');
-      const details = rows.locator('details'); await expect(details).toHaveCount(8);
-      for (let index = 0; index < 8; index++) {
+      const details = rows.locator('details'); await expect(details).toHaveCount(10);
+      for (let index = 0; index < 10; index++) {
         const item = details.nth(index); const summary = item.locator('summary'); await summary.focus(); await summary.press('Enter');
         await expect(item.locator('pre')).toBeVisible(); await expect(item.locator('pre')).toHaveAttribute('tabindex', '0');
       }
       await expect(rows).toContainText('Source original'); await expect(rows).toContainText('Source changed');
+      await expect(rows).toContainText('Opaque Source hint original'); await expect(rows).toContainText('Opaque Source hint changed');
       await expect(rows).toContainText('Document Digest original'); await expect(rows).toContainText('Manifest Digest changed');
       await expect(rows.getByRole('button')).toHaveCount(0); await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
       expect(writes).toEqual([]);

@@ -10,11 +10,26 @@ async function ready(key = 'draft-before') {
 }
 
 describe('Core-prepared semantic differences', () => {
+  for (const mode of ['added', 'removed', 'changed'] as const) {
+    it(`preserves an opaque Source documentId member independently from entity ownership: ${mode}`, () => {
+      const bundle = raw(); const before = bundle.cases.find((item: { key: string }) => item.key === 'document-before');
+      const after = bundle.cases.find((item: { key: string }) => item.key === 'document-after');
+      const diff = before.preparedDiff.comparison; const original = diff.changes[0];
+      if (mode !== 'added') before.source.documentId = 'Opaque old hint';
+      if (mode !== 'removed') after.source.documentId = 'Opaque new hint';
+      const change = { ...original, recordType: 'source', identity: '', path: '/documentId', beforeLocation: null, afterLocation: null,
+        beforePresent: mode !== 'added', afterPresent: mode !== 'removed', before: before.source.documentId ?? null, after: after.source.documentId ?? null };
+      diff.changes = [change]; expect(() => readPreviewBundle(bundle)).not.toThrow();
+      if (change.afterPresent) change.after = 'Forged hint'; else change.before = 'Forged hint';
+      expect(() => readPreviewBundle(bundle)).toThrow();
+    });
+  }
   it('reads the real Core-generated opaque envelopes without claiming semantic equality or a compiler pass', async () => {
     const store = await ready('envelope-before'); const diff = store.semanticDiff()!.comparison;
-    expect(diff.state).toBe('Incomplete'); expect(diff.noChanges).toBe(false); expect(diff.changes).toHaveLength(4);
+    expect(diff.state).toBe('Incomplete'); expect(diff.noChanges).toBe(false); expect(diff.changes).toHaveLength(5);
     expect(diff.changes.every(row => row.kind === 'Uninterpreted')).toBe(true);
     expect(diff.changes.some(row => row.path === '/future~1field~0' && row.before === 'Source original' && row.after === 'Source changed')).toBe(true);
+    expect(diff.changes.some(row => row.recordType === 'source' && row.path === '/documentId' && row.before === 'Opaque Source hint original' && row.after === 'Opaque Source hint changed')).toBe(true);
     const manifest = diff.changes.find(row => row.path === '/manifest')!;
     expect(JSON.stringify(manifest.before)).toContain('Manifest Digest original');
     expect(JSON.stringify(manifest.after)).toContain('Manifest entry changed');

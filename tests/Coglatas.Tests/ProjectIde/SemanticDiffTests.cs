@@ -45,6 +45,7 @@ public sealed class SemanticDiffTests
     }
     [Theory]
     [InlineData("source")]
+    [InlineData("source-document-id")]
     [InlineData("document")]
     [InlineData("document-digest")]
     [InlineData("manifest")]
@@ -59,6 +60,7 @@ public sealed class SemanticDiffTests
             switch (surface)
             {
                 case "source": root["futureEnvelope"] = value; break;
+                case "source-document-id": root["documentId"] = value; break;
                 case "document":
                     document["futureEnvelope"] = value;
                     document.Remove("digest");
