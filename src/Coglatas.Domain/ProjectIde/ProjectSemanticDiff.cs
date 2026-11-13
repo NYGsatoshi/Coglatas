@@ -119,7 +119,7 @@ public sealed class ProjectSemanticDiff
             cancellationToken.ThrowIfCancellationRequested();
             return comparison;
         }
-        catch (DiffLimitException) { return new(SemanticDiffState.ResourceLimit, []); }
+        catch (DiffLimitException) { cancellationToken.ThrowIfCancellationRequested(); return new(SemanticDiffState.ResourceLimit, []); }
 
         bool WithinProjectionBounds(JsonElement value, int depth)
         {
