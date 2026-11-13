@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "contractId": "CI-ASSURANCE-DECISIONS-PR-N",
+  "integrationBranch": "SecurityTestImplimation",
+  "mainModificationAuthorized": false,
+  "governanceSettingsChangeAuthorized": false,
+  "requiredCheckPolicyChangeAuthorized": false,
+  "releaseApprovalGranted": false,
+  "decisionsAlreadyApproved": true,
+  "decisions": [
+    {
+      "id": "D01",
+      "wordingSha256": "ba522b3c7ecec892d34f9197712f6c88867f475564f16d2d106e2c444a73935f"
+    },
+    {
+      "id": "D02",
+      "wordingSha256": "8582cacec99e1232366a5657b059b752519b5ed1f220f8984098a6ff91eb4beb"
+    },
+    {
+      "id": "D03",
+      "wordingSha256": "5d11eabb54248e66ae99ee2b8654b0c48f7bf57b8f326ba59ba23aaaf70899cb"
+    },
+    {
+      "id": "D04",
+      "wordingSha256": "e3c53545f2e7430b5d5e2d02e0c84acdcdbeeac39471087b72e36ba710a821cb"
+    },
+    {
+      "id": "D05",
+      "wordingSha256": "db1f670e43f8c6f69769adf3bd0c85d6acdaf3b71dcb699449a439603314d9a6"
+    },
+    {
+      "id": "D06",
+      "wordingSha256": "1e41f876bd191989e0aa0aab3b07231b6f2828bc584ab105c4bd49be667f66fa"
+    },
+    {
+      "id": "D07",
+      "wordingSha256": "15d136e15e04fbb5fd831ac8c9cd7cb72d9c69b2dfe44fa82fa467a188bd0ee2"
+    },
+    {
+      "id": "D08",
+      "wordingSha256": "344436618160bb778e7cba02edeadbd63a5120a707579061ca69e3d51b513224"
+    },
+    {
+      "id": "D09",
+      "wordingSha256": "45f0ab813df1b6e4c921b77d4d2ef79c0d30d2d47b38e71137f6ff697720a0ac"
+    },
+    {
+      "id": "D10",
+      "wordingSha256": "c91d19beae54b803f68d1174da017d2cbc8aeef0c1980a1382b61a0b0d9fd8b6"
+    },
+    {
+      "id": "D11",
+      "wordingSha256": "5723062cc3ae0698b1b1c97bc4e86510e1727743413764b9c0fbe739fad29dcc"
+    },
+    {
+      "id": "D12",
+      "wordingSha256": "e28a6ee539368f4df456ec793f05a673dfbf7228c3470ade18aa354ba881ffd2"
+    },
+    {
+      "id": "D13",
+      "wordingSha256": "27e4cc10840210dc5c767d796c66d27b98fc8db48b20cd97ec2bb052ac4863d4"
+    },
+    {
+      "id": "D14",
+      "wordingSha256": "9d690ae005a6b30077fb168f264e312acba13a6a19bbe09163bb54dcd7d28518"
+    },
+    {
+      "id": "D15",
+      "wordingSha256": "38171ddbb9489d256c22484027914e6b96870a45338fdcaa3485f156aed5dbff"
+    }
+  ],
+  "requiredDeliverables": [
+    {
+      "id": "N01",
+      "title": "Updated machine-readable capability ledger"
+    },
+    {
+      "id": "N02",
+      "title": "Full workflow and execution applicability matrix"
+    },
+    {
+      "id": "N03",
+      "title": "Exact source-derived test-case completeness reconciliation"
+    },
+    {
+      "id": "N04",
+      "title": "Independent artifact producer and digest verification"
+    },
+    {
+      "id": "N05",
+      "title": "Security finding and exception policy reconciliation"
+    },
+    {
+      "id": "N06",
+      "title": "SAST/SCA/SBOM and native coverage reconciliation"
+    },
+    {
+      "id": "N07",
+      "title": "Source-matched CI performance evidence"
+    },
+    {
+      "id": "N08",
+      "title": "Expected-versus-live governance comparison"
+    },
+    {
+      "id": "N09",
+      "title": "Independent review status"
+    },
+    {
+      "id": "N10",
+      "title": "Owner decision and unresolved HOLD register"
+    },
+    {
+      "id": "N11",
+      "title": "Cross-domain final acceptance decision"
+    },
+    {
+      "id": "N12",
+      "title": "Rollback and evidence preservation plan"
+    }
+  ],
+  "requiredRejectionControls": [
+    "R01",
+    "R02",
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07",
+    "R08",
+    "R09",
+    "R10",
+    "R11",
+    "R12"
+  ],
+  "completionStateNames": [
+    "implementation",
+    "nativeExecution",
+    "coverage",
+    "provenance",
+    "independentReview",
+    "governance",
+    "security",
+    "performance",
+    "nightlyActivation",
+    "release",
+    "ownerApproval"
+  ],
+  "completionStatesIndependent": true,
+  "automaticSuccessImplications": false,
+  "mandatoryUnresolvedRequirementsBlock": true,
+  "exitCriterionCount": 12,
+  "finalEvidenceVerifierImplemented": false,
+  "validationScope": "DOCUMENT_CONTRACT_AND_PRESERVATION_ONLY_NOT_RUNTIME_OR_INTEGRATION_ACCEPTANCE",
+  "documents": [
+    "README.md",
+    "approved-decisions.md",
+    "pr-n-contract.md",
+    "program-status.json",
+    "evidence-preservation.json"
+  ]
+}

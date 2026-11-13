@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "PROGRAM_STATUS": "INCOMPLETE",
+  "SECURITY_BRANCH_INTEGRATION": "HOLD",
+  "MAIN_UNCHANGED": true,
+  "GOVERNANCE_IDENTITY_DRIFT": "OWNER_HOLD",
+  "TRUSTED_SONAR_IMPORT": "NOT_VERIFIED",
+  "PR_J_TO_N_ACCEPTANCE": "OPEN",
+  "INDEPENDENT_REVIEW_COMPLETE": false,
+  "completionStates": {
+    "implementation": {
+      "complete": false,
+      "state": "INCOMPLETE"
+    },
+    "nativeExecution": {
+      "complete": false,
+      "state": "INCOMPLETE"
+    },
+    "coverage": {
+      "complete": false,
+      "state": "INCOMPLETE"
+    },
+    "provenance": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "independentReview": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "governance": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "security": {
+      "complete": false,
+      "state": "INCOMPLETE"
+    },
+    "performance": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "nightlyActivation": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "release": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    },
+    "ownerApproval": {
+      "complete": false,
+      "state": "NOT_VERIFIED"
+    }
+  },
+  "decisionApprovalScope": "D01-D15_ALREADY_APPROVED_NOT_FINAL_INTEGRATION_GOVERNANCE_OR_RELEASE_APPROVAL",
+  "recoveredInputs": [
+    "D01-D15",
+    "COMPLETE_PR_N_CONTRACT",
+    "PROGRAM_EXIT_CRITERIA"
+  ],
+  "holds": [
+    {
+      "id": "GOVERNANCE_IDENTITY",
+      "owner": "Owner",
+      "resolution": "Separately approved exact reconciliation and independent effective-enforcement verification; no settings mutation authorized here."
+    },
+    {
+      "id": "SECURITY_BRANCH_PROTECTION",
+      "owner": "Owner",
+      "resolution": "Separately approved exact branch protection and independent verification; default-branch parity is insufficient."
+    },
+    {
+      "id": "INDEPENDENT_REVIEW",
+      "owner": "Repository maintainers",
+      "resolution": "Complete mandatory exact-source CodeRabbit reviews and resolve findings; no manual fallback."
+    },
+    {
+      "id": "TRUSTED_SONAR_IMPORT",
+      "owner": "#1507",
+      "resolution": "Qualify actual native import through an authorized trust path; Security-targeted skip remains unverified."
+    },
+    {
+      "id": "PR_J_TO_N",
+      "owner": "CI Assurance Program",
+      "resolution": "Accept all applicable obligations with independent evidence; classify future work explicitly."
+    },
+    {
+      "id": "NIGHTLY_ACTIVATION",
+      "owner": "Owner",
+      "resolution": "Classify applicable capabilities; independently verify trusted execution, registration and activation. No default-branch change authorized."
+    },
+    {
+      "id": "FINAL_OWNER_APPROVAL",
+      "owner": "Owner",
+      "resolution": "Explicit verifiable approval of the exact final acceptance and scope; D01-D15 approval is not this decision."
+    }
+  ],
+  "reviewEnvironment": {
+    "defaultDistribution": "Ubuntu-22.04",
+    "defaultFailure": "Wsl/Service/CreateInstance/MountDisk/HCS/ERROR_PATH_NOT_FOUND",
+    "availableExistingDistribution": "Ubuntu",
+    "cliVersion": "0.9.2",
+    "authenticated": true,
+    "reviewCompletionGrantedByAvailability": false,
+    "defaultDistributionOrDiskChanged": false
+  },
+  "qualification": "RECOVERY_CHECKPOINT_NOT_CROSS_DOMAIN_ACCEPTANCE"
+}
