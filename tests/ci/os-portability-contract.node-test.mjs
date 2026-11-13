@@ -68,7 +68,7 @@ test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.6 image', 
   ];
   for (const path of paths) {
     const source = await readFile(path, 'utf8');
-    const imageLines = source.split('\\n')
+    const imageLines = source.split('\n')
       .map((line) => line.trim())
       .filter((line) => line.startsWith('image: postgres'));
     assert.deepEqual(imageLines, [qualifiedImage], `Unqualified PostgreSQL service image in ${path}`);
