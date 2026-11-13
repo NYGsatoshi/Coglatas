@@ -235,6 +235,7 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     completions(value['referenceCompletions']) &&
     preparedRename(value['preparedRename']) &&
     preparedDiff(value['preparedDiff']) &&
+    preparedHistory(value['preparedHistory']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );
@@ -255,6 +256,19 @@ const preparedDiff = (value: unknown): boolean => {
       Object.hasOwn(change, 'before') && Object.hasOwn(change, 'after') &&
       (change['beforeLocation'] === null || isProjectLocationShape(change['beforeLocation'])) &&
       (change['afterLocation'] === null || isProjectLocationShape(change['afterLocation'])), 1024);
+};
+
+const preparedHistory = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !record(value['deltaRecordCounts'])) return false;
+  const counts = value['deltaRecordCounts'];
+  return token(value['headCaseKey']) && value['state'] === 'Ready' &&
+    oneOf(value['sourceAdmissionStatus'], ['StructurallyDecoded', 'Unsupported']) && value['missingAnchorState'] === 'Unavailable' &&
+    value['compactedCheckpointVerified'] === true && list(value['reconstructionPath'], committedContext, 32) &&
+    list(value['revisions'], row => record(row) && token(row['caseKey']) && committedContext(row['context']) &&
+      nonnegative(row['branchSequence']) && digest(row['sourceDigest']) && oneOf(row['storage'], ['Checkpoint', 'TypedDelta']) &&
+      list(row['parents'], committedContext, 8), 256) &&
+    ['documents', 'declarations', 'relations'].every(key => nonnegative(counts[key]) && (counts[key] as number) <= 100000);
 };
 
 export function isPreviewBundleShape(value: unknown): value is PreviewBundle {

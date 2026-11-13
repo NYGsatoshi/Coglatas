@@ -35,7 +35,35 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
   }
   for (const item of bundle.cases) if (item.preparedRename && item.semanticInspection) validatePreparedDraftRename(bundle, item);
   for (const item of bundle.cases) if (item.preparedDiff && item.semanticInspection) validateSemanticDiffPair(bundle, item);
+  for (const item of bundle.cases) if (item.preparedHistory) validatePreparedHistory(bundle, item);
   return bundle;
+}
+
+/** Source bindings only; Core owns reconstruction, integrity validation and compaction semantics. */
+function validatePreparedHistory(bundle: PreviewBundle, anchor: PreviewCase): void {
+  const history = anchor.preparedHistory!; const rows = history.revisions; const path = history.reconstructionPath;
+  const head = bundle.cases.find(item => item.key === history.headCaseKey);
+  if (!head || !rows.length || !path.length || rows[0].caseKey !== anchor.key || rows[0].storage !== 'Checkpoint' ||
+      !sameContext(path[0], anchor.context) || !sameContext(path[path.length - 1], head.context) ||
+      new Set(rows.map(row => row.caseKey)).size !== rows.length) throw new PreviewReadError('wrong-scope');
+  for (const row of rows) {
+    const item = bundle.cases.find(item => item.key === row.caseKey);
+    if (!item || item.freshness !== 'Current' || !sameContext(item.context, row.context) || !sameDigest(item.sourceDigest, row.sourceDigest) ||
+        item.context.branch.tenantId !== anchor.context.branch.tenantId || item.context.branch.projectId !== anchor.context.branch.projectId ||
+        rows.some(other => other !== row && sameContext(other.context, row.context))) throw new PreviewReadError('wrong-scope');
+    for (const parent of row.parents) {
+      const materialized = rows.find(other => sameContext(other.context, parent));
+      if (sameContext(parent, row.context) || parent.branch.tenantId !== anchor.context.branch.tenantId || parent.branch.projectId !== anchor.context.branch.projectId ||
+          (materialized && parent.branch.branchId === row.context.branch.branchId && materialized.branchSequence >= row.branchSequence))
+        throw new PreviewReadError('wrong-scope');
+    }
+  }
+  for (const [index, context] of path.entries()) {
+    const row = rows.find(row => sameContext(row.context, context));
+    if (!row || path.some((other, otherIndex) => otherIndex !== index && sameContext(other, context)) ||
+        (index > 0 && (row.storage !== 'TypedDelta' || row.parents.length !== 1 || !sameContext(row.parents[0], path[index - 1]))))
+      throw new PreviewReadError('wrong-scope');
+  }
 }
 
 /** Check projection provenance and original values; .NET alone computes semantic categories/completeness. */

@@ -26,6 +26,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
     public DraftRenamePreview? RenamePreview { get; private set; }
     public ProjectSemanticDiff? SemanticDiff { get; private set; }
+    public HistoryReconstruction? History { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
     public CompilerBoundReference? SelectedReference { get; private set; }
     public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
@@ -287,6 +288,21 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
     }
 
+    /// <summary>Reconstruct only caller-authorized synthetic history in the accepted Project scope.</summary>
+    public HistoryReconstruction? ReadSyntheticHistory(RevisionRef revision, IEnumerable<ProjectHistoryRevision?> records,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
+        History = null;
+        if (_desired is null || Source is null || State != "Ready" ||
+            revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
+        var lifecycle = _lifecycle;
+        var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle) return null;
+        History = result; Changed();
+        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(History, result) ? result : null;
+    }
+
     public void Reset()
     {
         _lifecycle++; ClearContext(); Changed();
@@ -300,7 +316,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _compilation = null; Result = null; Inspection = null; SemanticDiff = null; ClearSelection(); }
+    private void ClearResult() { _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

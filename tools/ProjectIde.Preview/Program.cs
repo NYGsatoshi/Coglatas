@@ -17,6 +17,16 @@ var documentAfter = new CompilerInputManifest(ProjectSource.Create(documentBase.
     documentBase.Source.Documents.Select(document => SourceDocument.Create(document.DocumentId, document.LogicalName, document.Root.Data,
         Json(new { annotation = "Opaque document annotation; no inferred layout semantics" }))), documentDeclarations,
     Json(Array.Empty<object>())), documentBase.Settings);
+var historyDelta = ProjectSourceDelta.Create(documentBefore.Source, documentAfter.Source);
+var historyRecords = new[] { ProjectHistoryRevision.Checkpoint(documentBefore.Source, 0), ProjectHistoryRevision.ForwardDelta(historyDelta, 1) };
+var history = ProjectSourceHistory.Read(historyDelta.AfterRevision, historyRecords);
+var missingHistory = ProjectSourceHistory.Read(historyDelta.AfterRevision, [historyRecords[1]]);
+if (history.State != HistoryReadState.Ready || !history.Source!.Data.Equals(documentAfter.Source.Data) || missingHistory.State != HistoryReadState.Unavailable)
+    throw new InvalidOperationException("History reconstruction did not preserve the full-reference fixture or explicit missing anchor.");
+var compactedHistory = ProjectSourceHistory.Read(historyDelta.AfterRevision, [ProjectHistoryRevision.Checkpoint(history.Source, 1, [historyDelta.BeforeRevision])]);
+if (compactedHistory.State != HistoryReadState.Ready || !compactedHistory.Source!.Data.Equals(history.Source.Data))
+    throw new InvalidOperationException("History checkpoint compaction changed the reconstructed Source.");
+documentAfter = new CompilerInputManifest(history.Source, documentAfter.Settings);
 var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after" };
@@ -83,6 +93,20 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             "fail" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
             _ => null
         },
+        preparedHistory = name == "document-before" ? new
+        {
+            headCaseKey = "document-after", state = history.State.ToString(), sourceAdmissionStatus = history.SourceAdmissionStatus.ToString(),
+            missingAnchorState = missingHistory.State.ToString(), compactedCheckpointVerified = true,
+            reconstructionPath = history.ReconstructionPath.Select(revision => SourceRevisionContext.Committed(revision).Data.Value).ToArray(),
+            revisions = historyRecords.Select(record => new
+            {
+                caseKey = record.Delta is null ? "document-before" : "document-after", context = SourceRevisionContext.Committed(record.Revision).Data.Value,
+                branchSequence = record.BranchSequence, sourceDigest = record.ExpectedSourceDigest.Data.Value,
+                storage = record.Delta is null ? "Checkpoint" : "TypedDelta",
+                parents = record.Parents.Select(parent => SourceRevisionContext.Committed(parent).Data.Value).ToArray()
+            }).ToArray(),
+            deltaRecordCounts = new { documents = historyDelta.Documents.Count, declarations = historyDelta.Declarations.Count, relations = historyDelta.Relations.Count }
+        } : null,
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });

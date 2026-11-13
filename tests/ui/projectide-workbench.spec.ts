@@ -19,6 +19,32 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`opens Core-reconstructed historical snapshots with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      const history = locale === 'en' ? 'Snapshot History' : 'スナップショット履歴';
+      const source = locale === 'en' ? 'Source' : 'ソース'; const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('document-before'); await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: history, exact: true }).click();
+        await expect(page.getByTestId('ide-history-state')).toContainText('Ready · Unsupported');
+        await expect(page.getByTestId('ide-history-revisions').locator('li')).toHaveCount(2);
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const button = page.getByTestId('ide-history-revisions').getByRole('button').nth(1); await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('document-after');
+        await expect(page.getByRole('heading', { name: source, exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Opaque document annotation');
+        await expect(page.getByTestId('ide-history-revisions')).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
     test(`navigates exact semantic difference snapshots with keyboard in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale);

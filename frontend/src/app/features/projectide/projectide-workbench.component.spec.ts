@@ -79,6 +79,17 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('opens localized %s history without confusing reconstruction and Compiler support', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('document-before'); c.loadResult(); c.i18n.setLocale(locale); c.open('history'); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-history-state"]')?.textContent).toContain('Ready · Unsupported');
+    expect(root.querySelector('[data-testid="ide-history-revisions"]')?.textContent).toContain('TypedDelta');
+    const row = c.store.history()!.revisions[1];
+    const button = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.includes(row.context.revisionId))!;
+    button.click(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('document-after'); expect(c.panel()).toBe('source');
+    c.choose('document-before'); c.loadResult(); c.open('history'); fixture.detectChanges();
+    authenticated.set(false); c.openHistoryRevision(c.store.history()!.revisions[1]); fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.history()).toBeNull(); expect(root.textContent).not.toContain('TypedDelta');
+  });
   it.each(['en', 'ja'] as const)('renders a localized %s difference and rechecks permission before opening its historical side', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('draft-before'); c.loadResult();
     c.i18n.setLocale(locale); c.open('diff'); fixture.detectChanges();
