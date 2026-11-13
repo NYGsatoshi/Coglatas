@@ -346,6 +346,75 @@ public sealed class DraftRevertTests
             DraftRenameTests.Proposal(c, 80), History(before, after, current));
         Assert.Equal(DraftRevertState.ResourceLimit, result.State); Assert.Null(result.Plan); Assert.Empty(result.Conflicts);
     }
+    private static ProjectSource WithDigestMetadata(ProjectSource source, string documentMetadata, string manifestMetadata)
+    {
+        var root = JsonNode.Parse(source.Data.CanonicalText)!.AsObject();
+        root["documents"]![0]!["digest"]!["futureDocumentDigest"] = documentMetadata;
+        root["manifest"]!["documents"]![0]!["digest"]!["futureManifestDigest"] = manifestMetadata;
+        return ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource();
+    }
+    [Fact]
+    public void InvertsOpaqueDigestMetadataWithoutDroppingOrMixingIndependentDigestEnvelopes()
+    {
+        var before = WithDigestMetadata(Revision(60), "document-before", "manifest-before");
+        var after = WithDigestMetadata(Revision(61), "document-after", "manifest-after");
+        var current = WithDigestMetadata(Revision(62, second: "Later"), "document-after", "manifest-after");
+        var result = Preview(before, after, current); Assert.Equal(DraftRevertState.Ready, result.State);
+        var candidate = result.Plan!.After.Source; var documentDigest = candidate.Documents[0].Digest.Data.Value;
+        var manifestDigest = candidate.Manifest.Data.Value.GetProperty("documents")[0].GetProperty("digest");
+        Assert.Equal("document-before", documentDigest.GetProperty("futureDocumentDigest").GetString());
+        Assert.Equal("manifest-before", manifestDigest.GetProperty("futureManifestDigest").GetString());
+        Assert.False(documentDigest.TryGetProperty("futureManifestDigest", out _));
+        Assert.False(manifestDigest.TryGetProperty("futureDocumentDigest", out _));
+        Assert.Equal(documentDigest.GetProperty("value").GetString(), manifestDigest.GetProperty("value").GetString());
+        Assert.Equal("Later", Name(candidate, 8));
+        Assert.Equal(candidate.Data, ProjectSourceCodec.Decode(candidate.Data.ToCanonicalBytes()).RequireSource().Data);
+    }
+    [Fact]
+    public void ForkAndRootRenamePreserveOpaqueDigestFieldsWhileRefreshingOnlyTheKnownHash()
+    {
+        var committed = Input(source: WithDigestMetadata(Revision(60), "document-retained", "manifest-retained"));
+        var draft = ProjectDraftRename.Fork(ProjectSemanticBinder.Bind(committed), DraftRenameTests.Proposal(committed));
+        var preview = ProjectDraftRename.Preview(ProjectSemanticBinder.Bind(draft), DraftRenameTests.Target(draft, 6), draft.InputDigest,
+            "Changed root", DraftRenameTests.Next(draft));
+        Assert.Equal(DraftRenameState.Ready, preview.State); var candidate = preview.Plan!.After.Source;
+        Assert.Equal("document-retained", candidate.Documents[0].Digest.Data.Value.GetProperty("futureDocumentDigest").GetString());
+        var manifestDigest = candidate.Manifest.Data.Value.GetProperty("documents")[0].GetProperty("digest");
+        Assert.Equal("manifest-retained", manifestDigest.GetProperty("futureManifestDigest").GetString());
+        Assert.False(manifestDigest.TryGetProperty("futureDocumentDigest", out _));
+        Assert.NotEqual(committed.Source.Documents[0].Digest.Value, candidate.Documents[0].Digest.Value);
+        Assert.Equal(candidate.Documents[0].Digest.Value, manifestDigest.GetProperty("value").GetString());
+        Assert.False(ProjectSemanticBinder.Bind(preview.Plan.After).BindingComplete);
+    }
+    [Fact]
+    public void LaterManifestDigestMetadataSurvivesAnInverseDocumentContentChange()
+    {
+        ProjectSource Version(int revision, string name, string metadata)
+        {
+            var original = Revision(revision, second: revision == 62 ? "Later" : "Other");
+            var document = SourceDocument.Create(DocumentId.Parse(Id(4)), "project", Json(Obj(new
+                { entityId = Id(6), kind = "coglatas.project", schemaVersion = 1, displayName = name, payload = new { } })));
+            return WithDigestMetadata(ProjectSource.Create(original.Context, [document], original.Declarations), "document-stable", metadata);
+        }
+        var before = Version(60, "Original root", "manifest-stable"); var after = Version(61, "Changed root", "manifest-stable");
+        var current = Version(62, "Changed root", "manifest-later"); var result = Preview(before, after, current);
+        Assert.Equal(DraftRevertState.Ready, result.State); var source = result.Plan!.After.Source;
+        Assert.Equal("Original root", source.Documents[0].Root.Data.Value.GetProperty("displayName").GetString());
+        Assert.Equal("document-stable", source.Documents[0].Digest.Data.Value.GetProperty("futureDocumentDigest").GetString());
+        var digest = source.Manifest.Data.Value.GetProperty("documents")[0].GetProperty("digest");
+        Assert.Equal("manifest-later", digest.GetProperty("futureManifestDigest").GetString());
+        Assert.Equal(source.Documents[0].Digest.Value, digest.GetProperty("value").GetString()); Assert.Equal("Later", Name(source, 8));
+    }
+    [Fact]
+    public void ConflictingOpaqueManifestDigestEditsCannotDisappearAsNoChange()
+    {
+        var before = WithDigestMetadata(Revision(60), "document-stable", "manifest-old");
+        var after = WithDigestMetadata(Revision(61), "document-stable", "manifest-new");
+        var current = WithDigestMetadata(Revision(62), "document-stable", "manifest-further");
+        var result = Preview(before, after, current); Assert.Equal(DraftRevertState.Conflict, result.State); Assert.Null(result.Plan);
+        var conflict = Assert.Single(result.Conflicts); Assert.Equal("manifest-document", conflict.RecordType); Assert.Equal(Id(4), conflict.Identity);
+        Assert.Equal("manifest-further", current.Manifest.Data.Value.GetProperty("documents")[0].GetProperty("digest").GetProperty("futureManifestDigest").GetString());
+    }
     [Fact]
     public async Task ReentrantHistorySupplyCannotReplaceANewerPreviewWithoutChangingTheWorkbenchLifecycle()
     {

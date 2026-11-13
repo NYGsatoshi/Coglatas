@@ -118,7 +118,7 @@ public static class ProjectDraftRevert
             var manifest = root["manifest"]!.AsObject();
             foreach (var version in new[] { oldManifest, afterManifest, manifest })
             {
-                foreach (var entry in version["documents"]!.AsArray()) entry!.AsObject().Remove("digest");
+                foreach (var entry in version["documents"]!.AsArray()) entry!["digest"]!.AsObject().Remove("value");
             }
             var conflicts = new List<DraftRevertConflict>(); var count = 0; var applied = 0;
             Invert(oldRoot, afterRoot, root, "documents", "documentId");
@@ -133,7 +133,7 @@ public static class ProjectDraftRevert
             if (applied == 0) return Refuse(DraftRevertState.NoChange);
             var documents = Rows(root, "documents", "documentId");
             foreach (var entry in root["manifest"]!["documents"]!.AsArray())
-                entry!["digest"] = documents[entry["documentId"]!.GetValue<string>()]["digest"]!.DeepClone();
+                entry!["digest"]!["value"] = documents[entry["documentId"]!.GetValue<string>()]["digest"]!["value"]!.DeepClone();
             var decoded = ProjectSourceCodec.Decode(Encode(root).ToCanonicalBytes(), cancellationToken: cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (decoded.Source is not { } candidate) return Refuse(decoded.Status == SourceDecodeStatus.Invalid ? DraftRevertState.InvalidSource : DraftRevertState.Unsupported);

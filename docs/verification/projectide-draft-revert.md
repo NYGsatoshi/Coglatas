@@ -50,6 +50,14 @@ without semantic interpretation. Current-only metadata and unrelated later
 records remain intact. Structural admission rejects identity collisions or other
 invalid combinations as InvalidSource, without publishing a candidate.
 
+Document and manifest-reference Digest envelopes remain independent. The shared
+Draft transition refreshes only the known hash value, retaining each envelope's
+opaque members. Revert excludes the derived manifest hash value from comparison,
+while retaining unknown digest members for inverse/conflict checks. A metadata-only
+change must not disappear as NoChange, and document digest metadata must not be
+copied over a manifest reference's separate metadata. Retained opaque fields are
+not verified signatures or trust evidence; semantic coverage remains incomplete.
+
 The new candidate always retains the current Compiler settings and pins; old
 settings are not restored when historical rules/configuration differ. Ready
 means structural inverse preparation only. Opaque Source may still have
