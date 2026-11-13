@@ -113,7 +113,14 @@ def job_blocks(source: str) -> dict[str, str]:
     if marker is None:
         return {}
     section = source[marker.end():]
+    # A subsequent root field ends this mapping. Indented job-shaped text
+    # in a top-level name/run-name scalar is display content, never a job.
+    boundary = re.search(r"(?m)^[^\s#]", section)
+    if boundary is not None:
+        section = section[:boundary.start()]
     headings = list(JOB.finditer(section))
+    if len({header.group(1) for header in headings}) != len(headings):
+        return {}
     return {
         header.group(1): section[header.end():headings[index + 1].start() if index + 1 < len(headings) else len(section)]
         for index, header in enumerate(headings)
@@ -367,6 +374,10 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
         # No reviewed workflow allows a top-level run-shell defaults override.
         if re.search(r"(?m)^(?:defaults|['\"]defaults['\"])[ \t]*:", source):
             issues.append(f"{path}: unreviewed workflow shell defaults")
+        # Explicit mapping keys can decode to defaults without spelling
+        # `defaults:`. This fixed grammar supports no explicit root/job keys.
+        if re.search(r"(?m)^ {0,6}\?(?:[ \t]|$)", source):
+            issues.append(f"{path}: unsupported explicit workflow/job YAML key")
         # YAML-escaped job/workflow mapping keys can decode into "defaults".
         # All reviewed guarded workflows use unescaped top-level/job keys.
         if re.search(r'(?m)^ {0,6}"[^"\n]*\\[^"\n]*"[ \t]*:', source):
@@ -442,7 +453,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all sixty-one bounded source mutations."""
+    """Verify reviewed policy and reject every bounded source mutation."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -463,6 +474,16 @@ def main() -> int:
     inert_job = inert_job.rstrip() + "\n\n    name: |\n" + display_step.rstrip() + "\n"
     display_workflows = workflows.copy()
     display_workflows[display_path] = workflows[display_path].replace(display_job, inert_job, 1)
+    # Relocate the whole guarded job, preserving every reviewed byte and
+    # mutation anchor, into a root display scalar outside the jobs mapping.
+    heading = re.search(r"(?m)^  main-frontend-test:[ \t]*$", workflows[display_path])
+    assert heading is not None
+    root_display = (workflows[display_path][:heading.start()] +
+                    workflows[display_path][heading.end() + len(display_job):])
+    root_display = re.sub(r"(?m)^name:[^\n]*\n", "", root_display)
+    root_display += "\nname: |\n  main-frontend-test:" + display_job
+    root_display_workflows = workflows.copy()
+    root_display_workflows[display_path] = root_display
     comment_workflows = workflows.copy()
     comment_job = display_job.rstrip() + (
         "\n    # Additional setup-node after comment\n"
@@ -475,6 +496,23 @@ def main() -> int:
     comment_workflows[display_path] = workflows[display_path].replace(display_job, comment_job, 1)
 
     controls = {
+        "guarded job relocated into workflow name scalar": root_display_workflows,
+        "explicit workflow default shell key": one_replacement(
+            workflows, "jobs:\n", "? defaults\n: \n  run:\n    shell: cat {0}\njobs:\n",
+            display_path,
+        ),
+        "explicit job default shell key": one_replacement(
+            workflows, "    steps:\n", "    ? defaults\n    :\n      run:\n        shell: cat {0}\n    steps:\n",
+            display_path,
+        ),
+        "multiline explicit workflow default shell key": one_replacement(
+            workflows, "jobs:\n", "?\n  defaults\n:\n  run:\n    shell: cat {0}\njobs:\n",
+            display_path,
+        ),
+        "multiline explicit job default shell key": one_replacement(
+            workflows, "    steps:\n", "    ?\n      defaults\n    :\n      run:\n        shell: cat {0}\n    steps:\n",
+            display_path,
+        ),
         "additional setup-node with noncanonical mapping indentation": one_replacement(
             workflows,
             "      - name: Verify Node and npm toolchain policy",

@@ -12,11 +12,31 @@ IGNORE = ROOT / "infra/docker/security-runtime-pr-prebuilt.Dockerfile.dockerigno
 
 
 def docker_from_directives(source: str) -> list[str]:
-    """Return all Docker FROM stages, including unsupported extra or case-varied stages."""
-    return [
-        line.strip() for line in source.splitlines()
-        if re.match(r"(?i)^FROM(?:\s|$)", line.strip())
-    ]
+    """Count logical FROM instructions; refuse unsupported escape directives."""
+    stages = []
+    pending = ""
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if re.match(r"(?i)^#\s*escape\s*=", stripped):
+                return ["UNSUPPORTED_DOCKER_ESCAPE_DIRECTIVE"]
+            continue
+        if not stripped:
+            continue
+        # Docker removes escaped newlines before recognizing instructions,
+        # including a continued or split instruction keyword. Comment-only
+        # and empty continuation lines cannot supply an instruction boundary.
+        part = line if pending else line.lstrip()
+        if part.endswith("\\"):
+            pending += part[:-1]
+            continue
+        instruction = pending + part
+        pending = ""
+        if re.match(r"(?i)^FROM(?:\s|$)", instruction):
+            stages.append(instruction.strip())
+    if pending:
+        return ["UNTERMINATED_DOCKER_INSTRUCTION"]
+    return stages
 
 
 class SecurityRuntimePrebuiltTests(unittest.TestCase):
@@ -57,6 +77,10 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
             self.assertNotRegex(source.replace(canonical_image, old_version), expected)
         invalid_from_sources = {
             "additional Docker stage": source + "\nFROM alpine:3.21.7\n",
+            "continued FROM instruction": source + "\nFROM\\\n alpine:3.21.7\n",
+            "split FROM instruction keyword": source + "\nFR\\\nOM alpine:3.21.7\n",
+            "comment inside continued FROM": source + "\nFROM\\\n# comment\n alpine:3.21.7\n",
+            "unreviewed escape directive": "# escape=`\n" + source + "\nFROM`\n alpine:3.21.7\n",
             "unreviewed stage alias": source.replace(
                 f"FROM {canonical_image}", f"FROM {canonical_image} AS build", 1
             ),
