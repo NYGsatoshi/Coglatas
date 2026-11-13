@@ -1,0 +1,101 @@
+# Playwright two-shard evidence reconciliation — static trial
+
+This experiment does not start a shard or replace protected `frontend-test`. 
+The immutable Angular build producer and the existing full test/check execution
+remain unchanged. It tests a future shard receipt/manifest data contract.
+
+An independent source-and-producer-bound roster supplies the exact set of
+privacy-safe SHA256 test identities and expected PASS/SKIP statuses. Both
+shard receipts must have the same exact tested merged SHA, run ID, attempt,
+immutable Angular artifact ID and roster digest. Shards 1/2 and 2/2 must
+contain nonempty strictly ordered IDs with disjoint complete union. Unknown,
+repeated, missing, skipped-drift, failed, interrupted or retried cases
+are rejected, not counted as a green required gate. Output contains only
+counts, hashes and identity metadata, never paths, names, HTTP data or secrets.
+
+A complete two-shard union that executes **zero passing tests** is refused with
+`NO_PASSED_TESTS`, even when every source-roster status and both shard digests
+agree that all cases were skipped. This prevents a metadata-only `PASS` when no
+browser cases actually ran. The rejection is tested by generating an all-SKIP
+roster and recomputing both matching shard digests, so a digest mismatch cannot
+hide the zero-pass omission. In addition, each individual shard must contain
+at least one `passed` case, or the verifier refuses `SHARD_NO_PASSED_TESTS`.
+The negative control modifies either shard to all-SKIP while keeping positive
+results in the other shard and recomputing both matching source-roster digests.
+The original all-SKIP-union refusal takes precedence when neither shard passes.
+Nonzero PASS count alone still does not attest actual browser execution or
+upstream roster/Artifact provenance.
+
+The manifest verifier intentionally reports `EXTERNAL_VERIFICATION_REQUIRED`
+because JSON metadata does not prove that a GitHub artifact ID exists or belongs
+to a successful same-run producer. A future CI gate must independently query
+the GitHub artifact/run/job APIs and verify uploaded bytes before publishing a
+protected `frontend-test` PASS. The complete original keyboard/search evidence
+retention and all required checks remain unchanged.
+
+No speedup or sharding activation is claimed. Only `SecurityTestImplimation`
+may be modified, never Main.
+
+The fixed aggregate output is also opened relative to no-follow directory file
+descriptors for both `artifacts/` and `artifacts/ci/`, refusing parent
+symlinks and an existing output file. This is Linux-only preparatory CI
+behavior; no shard execution or publication is activated.
+
+Input roster/shard receipt files now use no-follow directory descriptors for
+**every path component**, not only the final filename. They reject
+symbolic-link ancestors, hardlinked evidence, `..` traversal, non-finite JSON,
+and same-file size/mtime/ctime drift while reading. These are fail-closed
+Linux CI controls. They still **do not** independently prove which GitHub
+workflow/job uploaded the bytes: `requiredCheckQualified=false` and
+`EXTERNAL_VERIFICATION_REQUIRED` remain mandatory.
+# CLI privacy qualification after current Security reconciliation
+
+The existing PR #1680 was reconciled locally with Security head
+`3865b09a2d3ea3cb82f450c6d19ec643ffbae01f`; no Main changes were imported.
+Its original twelve Linux controls passed, but a new actual-CLI regression
+exposed a separate argument-parser boundary: default argparse could echo a
+rejected value and mixed `--help`/invalid arguments could exit successfully
+before validation. The initial focused regression failed seven assertions;
+that result remains a failure of the old parser, not shard execution evidence.
+
+The parser now emits only `INVALID_ARGUMENTS` for argument rejection, accepts
+static help only by itself, fixes the help program name and rejects abbreviated
+options. Parsing occurs inside the existing finite error handler. Thirteen
+Linux tests pass, including actual subprocess checks for private argument
+canaries, malformed integers, missing values, unknown/abbreviated options and
+mixed help, with no receipt creation. All existing union/schema/file/privacy
+controls remain. No browser/shard launcher, artifact upload, trusted-provenance
+attestation or protected-check replacement is activated.
+
+Fresh exact-head native CI and independent review remain required. The original
+full frontend run stays authoritative; PR #1717 source-only discovery remains
+a separate dependency. Rollback through a Security-targeted PR by reverting
+this parser/test/documentation repair; retain its original failed regression.
+
+## Node producer → Python consumer contract
+
+A native positive control runs the **existing**
+`scripts/ci/test-playwright-shard-interop.py` Node fixture through
+`tests/ui/playwright-shard-evidence.mjs`, parses its actual two shard receipts,
+and feeds them directly to `playwright_shard_reconcile.reconcile`. Both
+Node-produced shards must agree on one roster, and the Python consumer must
+preserve four test IDs, three PASS, one SKIP, with `outcome=PASS` but
+`requiredCheckQualified=false` and
+`artifactTrust=EXTERNAL_VERIFICATION_REQUIRED`. A mutated Node receipt
+also must be rejected by the actual Python consumer. No separate Playwright
+browser execution, shard launcher, uploader, token or Required Check is added.
+
+This verifies synthetic Node/Python contract compatibility only. It does not
+authenticate the source roster, actual Playwright reporter events, GitHub
+artifact bytes, or who produced a receipt.
+
+## Exact Security integration qualification (2026-11-11)
+
+This existing source-owner PR was reconciled to current `SecurityTestImplimation`
+without importing Main or changing the original full frontend suite, runner,
+scanners or six Required Checks. The four-path delta consists of this verifier,
+its synthetic negative controls, this document and one additive CI Preflight
+step. New source tests require at least one `passed` result and reject all-SKIP
+metadata; they do **not** activate browser sharding. Native CI, independent
+current-head review and external artifact/source producer authentication must
+qualify separately. Prior passing runs belong to earlier immutable SHAs.
