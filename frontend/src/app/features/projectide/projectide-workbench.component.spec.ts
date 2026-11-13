@@ -79,6 +79,21 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('shows reasoned %s Task candidates and rechecks permission without changing the Requirement', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('requirement-candidates'); c.loadResult(); c.i18n.setLocale(locale);
+    const record = c.store.context()!.declarations.find(item => item.kind === 'coglatas.requirement')!;
+    if (record.recordType !== 'entity') throw new Error('Requirement entity fixture required');
+    c.store.select({ kind: 'entity', id: record.identity }); c.open('inspector'); fixture.detectChanges();
+    const source = c.store.context()!.sourceText; const section = root.querySelector('[data-testid="ide-requirement-task-suggestions"]')!;
+    expect(section.textContent).toContain(locale === 'en' ? 'They do not prove requirement satisfaction' : '要件充足の証明にはなりません');
+    expect(section.textContent).toContain(locale === 'en' ? 'Reason: declared Task' : '理由: 読み込み済みスナップショット内のTask宣言');
+    section.querySelector<HTMLButtonElement>('button')!.click(); fixture.detectChanges(); expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()?.entityId).toBe(c.store.context()!.declarations.find(item => item.kind === 'coglatas.task')?.identity);
+    expect(c.store.context()!.sourceText).toBe(source);
+    c.store.select({ kind: 'entity', id: record.identity }); const page = c.store.requirementTaskSuggestions()[0];
+    authenticated.set(false); c.navigateTaskSuggestion(page, page.candidates[0]); fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.bundle()).toBeNull(); expect(c.store.requirementTaskSuggestions()).toEqual([]);
+  });
   it.each(['en', 'ja'] as const)('opens the localized %s inverse Draft and clears the action on denied authority', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('document-after'); c.loadResult(); c.i18n.setLocale(locale); c.open('history'); fixture.detectChanges();
     expect(root.querySelector('[data-testid="ide-draft-revert"]')?.textContent).toContain(locale === 'en' ? 'Prepared inverse Draft' : '準備済みの逆変更Draft');

@@ -7,6 +7,11 @@ by the offline Angular fixture and Windows pure ViewModel. See the
 [scope and remaining #1030 work](verification/projectide-reference-completion.md).
 It opens declarations read-only; runtime editing and actual Avalonia remain gated.
 
+The [Requirement Task candidate preview](verification/projectide-requirement-task-suggestions.md)
+adds bounded reasoned candidates and same-snapshot source navigation in both
+synthetic clients. Candidates are not satisfaction proof; runtime read authority,
+independent Security qualification and broader #1030 acceptance remain separate.
+
 The [local Draft Rename preparation](verification/projectide-draft-rename.md)
 adds a checked immutable display-name change plan, a synthetic Windows local
 application flow and a Core-prepared Angular before/after fixture pair. Runtime

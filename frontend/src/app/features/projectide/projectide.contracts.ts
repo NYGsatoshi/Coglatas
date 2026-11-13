@@ -120,6 +120,15 @@ export interface ReferenceCompletion {
   readonly truncated: boolean;
   readonly candidates: readonly { readonly symbolKey: string; readonly displayName: string | null }[];
 }
+export interface RequirementTaskSuggestions {
+  readonly originKey: string;
+  readonly inputDigest: Digest;
+  readonly state: 'Ready' | 'StaleInput' | 'OutOfScope' | 'Unavailable' | 'InvalidCursor';
+  readonly candidateOnly: true;
+  readonly coverageComplete: boolean;
+  readonly truncated: boolean;
+  readonly candidates: readonly { readonly symbolKey: string; readonly displayName: string | null; readonly reason: 'DeclaredTaskInSnapshot' }[];
+}
 export interface PreparedDraftRename {
   readonly afterCaseKey: string;
   readonly plan: {
@@ -228,6 +237,7 @@ export interface PreviewCase {
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
+  readonly requirementTaskSuggestions?: readonly RequirementTaskSuggestions[] | null;
   readonly preparedRename?: PreparedDraftRename | null;
   readonly preparedRevert?: PreparedDraftRevert | null;
   readonly sourceMap: {

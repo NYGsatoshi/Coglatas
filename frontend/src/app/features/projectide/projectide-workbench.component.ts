@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { BoundReference, Diagnostic, HistoryRevisionView, InspectedSymbol, PreparedDraftRename, PreparedDraftRevert, ReferenceCompletion, SemanticChange, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
+import { BoundReference, Diagnostic, HistoryRevisionView, InspectedSymbol, PreparedDraftRename, PreparedDraftRevert, ReferenceCompletion, RequirementTaskSuggestions, SemanticChange, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -214,6 +214,11 @@ export class ProjectIdeWorkbenchComponent {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateCompletion(page, candidate)) this.open('source', true);
+  }
+  navigateTaskSuggestion(page: RequirementTaskSuggestions, candidate: RequirementTaskSuggestions['candidates'][number]): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateTaskSuggestion(page, candidate)) this.open('source', true);
   }
   loadPreparedRename(prepared: PreparedDraftRename): void {
     this.focusGeneration++;

@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace Coglatas.Domain.ProjectIde;
 
 public sealed record CompilerInspectedSymbol(CompilerSymbol Symbol, SourceJson? DeclaredType);
@@ -30,7 +28,7 @@ public sealed partial class CompilerSemanticInspection
                 type = task.Ports.Single(port => port.PortId == portId).Type.Data;
             symbols.Add(new(symbol, type));
         }
-        Symbols = new ReadOnlyCollection<CompilerInspectedSymbol>(symbols.OrderBy(item => item.Symbol.Key, StringComparer.Ordinal).ToArray());
+        Symbols = new ImmutableListView<CompilerInspectedSymbol>(symbols.OrderBy(item => item.Symbol.Key, StringComparer.Ordinal));
         _uniqueKeys = Symbols.GroupBy(item => item.Symbol.Key, StringComparer.Ordinal)
             .Where(group => group.Count() == 1).Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
         _completionCoverageComplete = BindingComplete && _uniqueKeys.Count == Symbols.Count &&
@@ -39,8 +37,8 @@ public sealed partial class CompilerSemanticInspection
             .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
         _displayNames = declarations.Where(pair => pair.Value.Length == 1 && pair.Value[0].Declaration is not null)
             .ToDictionary(pair => pair.Key, pair => pair.Value[0].Declaration!.DisplayName);
-        References = Array.AsReadOnly(model.References.Where(item => item.Origin.Context.Equals(Input.Source.Context))
-            .OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.State).ToArray());
+        References = new ImmutableListView<CompilerBoundReference>(model.References.Where(item => item.Origin.Context.Equals(Input.Source.Context))
+            .OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.State));
         Data = SourceJson.FromObject(new
         {
             format = "coglatas.semantic-inspection/1", compilerInputId = Input.InputId.ToString(), inputDigest = Input.InputDigest.Data.Value,
@@ -66,7 +64,7 @@ public sealed partial class CompilerSemanticInspection
     public IReadOnlyList<CompilerBoundReference> FindReferences(ProjectLocation target)
     {
         var symbol = Inspect(target);
-        return symbol is null ? Array.Empty<CompilerBoundReference>() : Array.AsReadOnly(References
-            .Where(item => item.State == ReferenceResolutionState.Resolved && item.SymbolKey == symbol.Symbol.Key).ToArray());
+        return symbol is null ? ImmutableListView<CompilerBoundReference>.Empty : new ImmutableListView<CompilerBoundReference>(References
+            .Where(item => item.State == ReferenceResolutionState.Resolved && item.SymbolKey == symbol.Symbol.Key));
     }
 }

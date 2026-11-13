@@ -18,6 +18,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private long _lifecycle;
     private long _selectionGeneration;
     private long _revertPreviewGeneration;
+    private long _taskSuggestionGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
     public ProjectSource? Source { get; private set; }
@@ -25,6 +26,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerSemanticInspection? Inspection { get; private set; }
     public CompilerInspectedSymbol? Selected { get; private set; }
     public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
+    public RequirementTaskSuggestionPage? TaskSuggestions { get; private set; }
     public DraftRenamePreview? RenamePreview { get; private set; }
     public DraftRevertPreview? RevertPreview { get; private set; }
     public ProjectSemanticDiff? SemanticDiff { get; private set; }
@@ -257,6 +259,35 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
 
+    /// <summary>Prepare read-only candidates for the selected Requirement; no evidence or Source change.</summary>
+    public RequirementTaskSuggestionPage? SuggestRequirementTasks(int pageSize = 16, RequirementTaskSuggestionCursor? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var lifecycle = _lifecycle; var selection = _selectionGeneration; var generation = ++_taskSuggestionGeneration;
+        if (TaskSuggestions is not null) { TaskSuggestions = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Inspection is not { } inspection || Selected is not { } selected || _desired is null ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
+        TaskSuggestions = page; Changed();
+        return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
+            ReferenceEquals(TaskSuggestions, page) ? page : null;
+    }
+
+    public bool NavigateTaskSuggestion(RequirementTaskSuggestionPage page, RequirementTaskSuggestion candidate)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(page); ArgumentNullException.ThrowIfNull(candidate);
+        if (!ReferenceEquals(TaskSuggestions, page) || page.State != RequirementTaskSuggestionState.Ready ||
+            !page.Candidates.Any(item => ReferenceEquals(item, candidate)) || Selected is null || _desired is null ||
+            !page.Origin.Data.Equals(Selected.Symbol.Location.Data) || !page.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+            Resolve(page.Origin, requireSourceMap: true) != "ready")
+        { SourceTarget = null; NavigationState = "unavailable"; Changed(); return false; }
+        return NavigateTo(candidate.Symbol.Symbol.Location, requireSourceMap: true);
+    }
+
     public ReferenceCompletionPage? CompleteEntityReference(int pageSize = 16, ReferenceCompletionCursor? cursor = null,
         CancellationToken cancellationToken = default)
     {
@@ -342,6 +373,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     {
         Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
+        TaskSuggestions = null; _taskSuggestionGeneration++;
         RenamePreview = null;
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;

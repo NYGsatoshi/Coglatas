@@ -317,6 +317,24 @@ function validatePreviewCaseBindings(item: PreviewCase): void {
         throw new PreviewReadError('wrong-scope');
     }
   }
+  const taskPages = inspection ? item.requirementTaskSuggestions ?? [] : [];
+  if (new Set(taskPages.map(page => page.originKey)).size !== taskPages.length) throw new PreviewReadError('unsupported');
+  for (const page of taskPages) {
+    const origin = symbols.get(page.originKey);
+    if (!origin || origin.kind !== 'coglatas.requirement' || origin.status !== 'Decoded' || origin.location.propertyPath !== '' ||
+        !sameDigest(page.inputDigest, item.inputDigest) || page.candidateOnly !== true) throw new PreviewReadError('wrong-scope');
+    if (page.state === 'Ready') {
+      if (page.coverageComplete !== inspection?.bindingComplete) throw new PreviewReadError('unsupported');
+    } else if (page.candidates.length || page.coverageComplete || page.truncated) throw new PreviewReadError('unsupported');
+    if (new Set(page.candidates.map(candidate => candidate.symbolKey)).size !== page.candidates.length) throw new PreviewReadError('unsupported');
+    for (const candidate of page.candidates) {
+      const symbol = symbols.get(candidate.symbolKey);
+      const declaration = symbol?.location.entityId ? declarations.get(symbol.location.entityId) : undefined;
+      if (!symbol || symbol.kind !== 'coglatas.task' || symbol.status !== 'Decoded' || symbol.location.propertyPath !== '' ||
+          !declaration || candidate.reason !== 'DeclaredTaskInSnapshot' || (declaration.data['displayName'] ?? null) !== candidate.displayName)
+        throw new PreviewReadError('wrong-scope');
+    }
+  }
   for (const entry of [...(item.sourceMap?.nodes ?? []), ...(item.sourceMap?.relations ?? [])]) {
     if (
       !sameContext(item.context, entry.location.context) ||
