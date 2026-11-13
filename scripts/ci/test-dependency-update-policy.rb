@@ -159,8 +159,11 @@ def update_errors(config)
     storybook['groupSlug'] == 'storybook-coordinated' &&
     storybook['skipInstalls'] == false &&
     storybook['postUpdateOptions'] == ['npmInstallTwice'] &&
-    storybook['enabled'] != false && !storybook.key?('matchFileNames') &&
-    !storybook.key?('allowedVersions') &&
+    # Unknown match restrictions could silently exclude the supplied devDependencies.
+    storybook.keys.sort == %w[
+      description matchManagers matchPackageNames matchUpdateTypes dependencyDashboardApproval
+      groupName groupSlug skipInstalls postUpdateOptions
+    ].sort &&
     rules.index(storybook) > rules.index(npm_updates) &&
     rules.index(storybook) > rules.index(ang22_candidates)
 
@@ -203,20 +206,30 @@ def storybook_alignment_errors(sources = {})
     lock_path = "#{workspace}/package-lock.json"
     manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
     lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
-    direct = manifest.fetch('devDependencies', {})
-    names = (required + (workspace == 'coglatas-frontend' ? addons : []) +
-      direct.keys.grep(/\A@storybook\//)).uniq
-    names.each do |name|
-      version = direct[name]
-      observed_versions << version
-      locked_package = lock.dig('packages', "node_modules/#{name}")
-      valid = version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+\z/) &&
-        lock.dig('packages', '', 'devDependencies', name) == version &&
-        locked_package.is_a?(Hash) && locked_package['version'] == version &&
-        locked_package['integrity'].is_a?(String) &&
-        locked_package['integrity'].start_with?('sha512-')
-      errors << "#{workspace}: #{name} requires the same exact manifest, lock root and installed peer version" unless valid
+    declared = []
+    %w[dependencies devDependencies].each do |section|
+      direct = manifest.fetch(section, {})
+      unless direct.is_a?(Hash)
+        errors << "#{workspace}: #{section} must be a dependency map"
+        next
+      end
+      names = direct.keys.select { |name| name == 'storybook' || name.start_with?('@storybook/') }
+      declared.concat(names)
+      names.each do |name|
+        version = direct[name]
+        observed_versions << version
+        locked_package = lock.dig('packages', "node_modules/#{name}")
+        valid = version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+\z/) &&
+          lock.dig('packages', '', section, name) == version &&
+          locked_package.is_a?(Hash) && locked_package['version'] == version &&
+          locked_package['integrity'].is_a?(String) &&
+          locked_package['integrity'].start_with?('sha512-')
+        errors << "#{workspace}: #{section}/#{name} requires matching exact manifest, lock root and installed peer version" unless valid
+      end
     end
+    missing = (required + (workspace == 'coglatas-frontend' ? addons : [])) - declared
+    errors << "#{workspace}: required Storybook declarations missing: #{missing.join(', ')}" unless missing.empty?
+    errors << "#{workspace}: duplicate Storybook declarations across dependency sections" unless declared.length == declared.uniq.length
   end
   errors << 'Storybook core, Angular integration and addons must have one exact version across both workspaces' unless
     observed_versions.length >= 7 && observed_versions.uniq.length == 1 &&
@@ -369,6 +382,7 @@ mutations = {
   'skip Storybook lockfile installations' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['skipInstalls'] = true },
   'remove Storybook second npm install' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }.delete('postUpdateOptions') },
   'limit Storybook updates to one workspace' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchFileNames'] = ['coglatas-frontend/package.json'] },
+  'exclude Storybook devDependencies with matchDepTypes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchDepTypes'] = ['dependencies'] },
   'allow routine npm grouping to override Storybook' => ->(x) {
     rules = x['packageRules']
     index = rules.index { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }
@@ -391,29 +405,95 @@ mutations.each do |name, change|
   change.call(copy)
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
-# Even when Renovate groups proposed updates, a partial manifest/lockfile
-# update must not be eligible for merge.
+# Derive each negative candidate from its present exact version. This must
+# keep working even after a fully coordinated Storybook patch upgrade.
+def different_storybook_patch_version(version)
+  match = /\A(\d+)\.(\d+)\.(\d+)\z/.match(version.to_s)
+  abort('Expected an exact Storybook version for negative control') unless match
+  "#{match[1]}.#{match[2]}.#{match[3].to_i + 1}"
+end
+
+def assert_storybook_negative_mutations(sources = {})
+  %w[frontend coglatas-frontend].each do |workspace|
+    manifest_path = "#{workspace}/package.json"
+    lock_path = "#{workspace}/package-lock.json"
+    manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+    changed_manifest = JSON.parse(JSON.generate(manifest))
+    current = changed_manifest.fetch('devDependencies').fetch('storybook')
+    changed_manifest['devDependencies']['storybook'] = different_storybook_patch_version(current)
+    abort("Guard missed a partial Storybook core upgrade in #{workspace}") if
+      storybook_alignment_errors(sources.merge(manifest_path => JSON.generate(changed_manifest))).empty?
+
+    lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+    changed_lock = JSON.parse(JSON.generate(lock))
+    current_lock = changed_lock.fetch('packages').fetch('').fetch('devDependencies').fetch('@storybook/angular')
+    changed_lock['packages']['']['devDependencies']['@storybook/angular'] = different_storybook_patch_version(current_lock)
+    abort("Guard missed a mismatched Storybook lock root in #{workspace}") if
+      storybook_alignment_errors(sources.merge(lock_path => JSON.generate(changed_lock))).empty?
+  end
+
+  addon_path = 'coglatas-frontend/package.json'
+  addon_manifest = JSON.parse(sources.fetch(addon_path, nil) || (ROOT / addon_path).read)
+  current_addon = addon_manifest.fetch('devDependencies').fetch('@storybook/addon-a11y')
+  addon_manifest['devDependencies']['@storybook/addon-a11y'] = different_storybook_patch_version(current_addon)
+  abort('Guard missed an independently upgraded Storybook addon') if
+    storybook_alignment_errors(sources.merge(addon_path => JSON.generate(addon_manifest))).empty?
+end
+
+# Move a real scoped package to dependencies, then prove that its root lock
+# section and cross-workspace version still participate in the same guard.
+def assert_storybook_dependency_sections(sources = {})
+  manifest_path = 'frontend/package.json'
+  lock_path = 'frontend/package-lock.json'
+  manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+  lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+  package = '@storybook/angular'
+  version = manifest.fetch('devDependencies').delete(package)
+  lock_version = lock.fetch('packages').fetch('').fetch('devDependencies').delete(package)
+  abort('Synthetic dependency section move lost the reviewed version') unless version == lock_version
+  manifest.fetch('dependencies')[package] = version
+  lock.fetch('packages').fetch('').fetch('dependencies')[package] = version
+  moved_sources = sources.merge(manifest_path => JSON.generate(manifest), lock_path => JSON.generate(lock))
+  abort('Guard rejected a coherent Storybook declaration in dependencies') unless
+    storybook_alignment_errors(moved_sources).empty?
+
+  mismatch = different_storybook_patch_version(version)
+  manifest['dependencies'][package] = mismatch
+  lock['packages']['']['dependencies'][package] = mismatch
+  lock['packages']["node_modules/#{package}"]['version'] = mismatch
+  changed_sources = sources.merge(manifest_path => JSON.generate(manifest), lock_path => JSON.generate(lock))
+  abort('Guard missed a direct Storybook dependency declared in dependencies') if
+    storybook_alignment_errors(changed_sources).empty?
+end
+
+assert_storybook_negative_mutations
+assert_storybook_dependency_sections
+
+# Synthetic coherent future version: exercise the direct-version invariant,
+# not registry integrity or the complete package dependency graph.
+coordinated_sources = {}
+current_storybook = JSON.parse((ROOT / 'frontend/package.json').read).fetch('devDependencies').fetch('storybook')
+candidate_version = different_storybook_patch_version(current_storybook)
 %w[frontend coglatas-frontend].each do |workspace|
   manifest_path = "#{workspace}/package.json"
   lock_path = "#{workspace}/package-lock.json"
   manifest = JSON.parse((ROOT / manifest_path).read)
-  changed_manifest = JSON.parse(JSON.generate(manifest))
-  changed_manifest['devDependencies']['storybook'] = '10.6.7'
-  abort("Guard missed a partial Storybook core upgrade in #{workspace}") if
-    storybook_alignment_errors(manifest_path => JSON.generate(changed_manifest)).empty?
-
   lock = JSON.parse((ROOT / lock_path).read)
-  changed_lock = JSON.parse(JSON.generate(lock))
-  changed_lock['packages']['']['devDependencies']['@storybook/angular'] = '10.6.7'
-  abort("Guard missed a mismatched Storybook lock root in #{workspace}") if
-    storybook_alignment_errors(lock_path => JSON.generate(changed_lock)).empty?
+  %w[dependencies devDependencies].each do |section|
+    manifest.fetch(section, {}).each_key do |name|
+      next unless name == 'storybook' || name.start_with?('@storybook/')
+      manifest.fetch(section)[name] = candidate_version
+      lock.fetch('packages').fetch('').fetch(section)[name] = candidate_version
+      lock.fetch('packages').fetch("node_modules/#{name}")['version'] = candidate_version
+    end
+  end
+  coordinated_sources[manifest_path] = JSON.generate(manifest)
+  coordinated_sources[lock_path] = JSON.generate(lock)
 end
-
-addon_path = 'coglatas-frontend/package.json'
-addon_manifest = JSON.parse((ROOT / addon_path).read)
-addon_manifest['devDependencies']['@storybook/addon-a11y'] = '10.6.7'
-abort('Guard missed an independently upgraded Storybook addon') if
-  storybook_alignment_errors(addon_path => JSON.generate(addon_manifest)).empty?
+abort('Guard rejected a coherent future Storybook direct-version fixture') unless
+  storybook_alignment_errors(coordinated_sources).empty?
+assert_storybook_negative_mutations(coordinated_sources)
+assert_storybook_dependency_sections(coordinated_sources)
 
 %w[frontend/package.json coglatas-frontend/package.json].each do |path|
   original = JSON.parse((ROOT / path).read)
