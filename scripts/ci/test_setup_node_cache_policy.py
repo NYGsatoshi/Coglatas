@@ -157,6 +157,14 @@ def run_command_lines(job: str) -> list[str]:
             continue
         fragment = line[10:]
         if style == "literal":
+            # Inspect raw Bash syntax before stripping comments: a quoted
+            # hash is ordinary data, so it must not conceal an early exit.
+            # Conservative rejection is intentional for unsupported grammar.
+            if re.search(
+                r"(?:^|[;&|])[ \\t]*(?:exit|return|break|continue|exec)(?:[ \\t]|;|$)",
+                fragment,
+            ):
+                shell_continuation = True
             command = fragment.split("#", 1)[0].strip()
             if not command:
                 continue
@@ -324,7 +332,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all forty-one bounded source mutations."""
+    """Verify reviewed policy and reject all forty-three bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -541,6 +549,20 @@ def main() -> int:
             "          bash scripts/ci/npm-ci-retry.sh frontend\n"
             "          true",
         ),
+        "double-quoted hash masks early exit before Qodana guard": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            '          printf "%s#" value; exit 0\n'
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "single-quoted hash masks early exit before Qodana guard": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            "          printf '%s#' value; exit 0\n"
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
         "quoted hash masks multiline AND-list owner": one_replacement(
             workflows,
             "        run: bash scripts/ci/npm-ci-retry.sh frontend",
@@ -580,7 +602,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 41 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 43 mutation controls rejected.")
     return 0
 
 
