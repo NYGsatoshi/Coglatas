@@ -27,7 +27,13 @@ def docker_from_directives(source: str) -> list[str]:
         # including a continued or split instruction keyword. Comment-only
         # and empty continuation lines cannot supply an instruction boundary.
         part = line if pending else line.lstrip()
-        if part.endswith("\\"):
+        trimmed = part.rstrip(" \t")
+        if trimmed.endswith("\\"):
+            # Only the reviewed single, final backslash is supported.
+            # Escaped backslashes and trailing whitespace have different
+            # BuildKit continuation semantics; never absorb a following FROM.
+            if trimmed != part or trimmed.endswith("\\\\"):
+                return ["UNSUPPORTED_DOCKER_CONTINUATION"]
             pending += part[:-1]
             continue
         instruction = pending + part
@@ -81,6 +87,9 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
             "split FROM instruction keyword": source + "\nFR\\\nOM alpine:3.21.7\n",
             "comment inside continued FROM": source + "\nFROM\\\n# comment\n alpine:3.21.7\n",
             "unreviewed escape directive": "# escape=`\n" + source + "\nFROM`\n alpine:3.21.7\n",
+            "escaped backslash before additional FROM": source + "\nRUN echo " + chr(92) * 2 + "\nFROM alpine:3.21.7\n",
+            "space after continued FROM escape": source + "\nFROM" + chr(92) + " \n alpine:3.21.7\n",
+            "tab after continued FROM escape": source + "\nFROM" + chr(92) + "\t\n alpine:3.21.7\n",
             "unreviewed stage alias": source.replace(
                 f"FROM {canonical_image}", f"FROM {canonical_image} AS build", 1
             ),
