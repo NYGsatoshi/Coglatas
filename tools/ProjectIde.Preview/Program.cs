@@ -37,12 +37,14 @@ if (revertedDraft.Source.Context.Proposal?.BaseRevision != historyDelta.AfterRev
     throw new InvalidOperationException("Synthetic inverse Draft lost its current base or original document.");
 var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft" };
+var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
-        "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft, _ => Input(name, 100 + index) };
+        "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -98,6 +100,8 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             "draft-before" => new { afterCaseKey = "draft-after", comparison = ProjectSemanticDiff.Compare(diffBefore, diffAfter, renameFixture.Before.InputDigest, renameFixture.After.InputDigest).Data.Value },
             "document-before" => new { afterCaseKey = "document-after", comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(documentBefore),
                 ProjectSemanticBinder.Bind(documentAfter), documentBefore.InputDigest, documentAfter.InputDigest).Data.Value },
+            "envelope-before" => new { afterCaseKey = "envelope-after", comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(envelopeBefore),
+                ProjectSemanticBinder.Bind(envelopeAfter), envelopeBefore.InputDigest, envelopeAfter.InputDigest).Data.Value },
             "unsupported" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
             "fail" => new { afterCaseKey = name, comparison = ProjectSemanticDiff.Compare(compilation.Model, compilation.Model, input.InputDigest, input.InputDigest).Data.Value },
             _ => null
@@ -126,6 +130,22 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static CompilerInputManifest EnvelopeInput(int revision, string value)
+{
+    var input = Input("envelope", revision);
+    var declarations = Json(input.Source.Declarations.Value.EnumerateArray()
+        .Where(item => item.GetProperty("kind").GetString() is "coglatas.task" or "coglatas.milestone").ToArray());
+    var source = ProjectSource.Create(input.Source.Context, input.Source.Documents, declarations, Json(Array.Empty<object>()));
+    var root = JsonNode.Parse(source.Data.CanonicalText)!.AsObject(); var document = root["documents"]![0]!.AsObject();
+    root["future/field~"] = "Source " + value; document["future/field~"] = "Document " + value;
+    var digest = document["digest"]!.AsObject(); digest["futureEnvelope"] = "Document Digest " + value;
+    document.Remove("digest"); digest["value"] = ContentDigest.Compute(SourceDocument.DigestDomain, Json(document).ToCanonicalBytes()).Value;
+    document["digest"] = digest;
+    var manifest = root["manifest"]!.AsObject(); manifest["futureEnvelope"] = "Manifest " + value;
+    var entry = manifest["documents"]![0]!.AsObject(); entry["futureEnvelope"] = "Manifest entry " + value;
+    entry["digest"]!["futureEnvelope"] = "Manifest Digest " + value; entry["digest"]!["value"] = digest["value"]!.DeepClone();
+    return new(ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource(), input.Settings);
+}
 static (CompilerInputManifest Before, CompilerInputManifest After, ProjectDraftRenamePlan Plan) RenameFixture()
 {
     var original = Input("draft-base", 110);

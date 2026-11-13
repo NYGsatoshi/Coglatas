@@ -19,6 +19,31 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`keeps opaque envelope values visible and incomplete in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview'); await page.getByTestId('ide-context').selectOption('envelope-before');
+      await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
+      await page.getByRole('button', { name: locale === 'en' ? 'Semantic Diff' : '意味差分', exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete'); await expect(page.getByTestId('ide-diff-empty')).toHaveCount(0);
+      const rows = page.getByTestId('ide-diff-rows'); await expect(rows.locator(':scope > li')).toHaveCount(4);
+      await expect(rows).toContainText('/future~1field~0'); await expect(rows).toContainText('Uninterpreted');
+      const details = rows.locator('details'); await expect(details).toHaveCount(8);
+      for (let index = 0; index < 8; index++) {
+        const item = details.nth(index); const summary = item.locator('summary'); await summary.focus(); await summary.press('Enter');
+        await expect(item.locator('pre')).toBeVisible(); await expect(item.locator('pre')).toHaveAttribute('tabindex', '0');
+      }
+      await expect(rows).toContainText('Source original'); await expect(rows).toContainText('Source changed');
+      await expect(rows).toContainText('Document Digest original'); await expect(rows).toContainText('Manifest Digest changed');
+      await expect(rows.getByRole('button')).toHaveCount(0); await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
     test(`opens a new Core-prepared inverse Draft with keyboard in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };

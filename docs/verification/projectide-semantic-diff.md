@@ -35,7 +35,13 @@ authority. Missing models, stale expected inputs, foreign scope and resource
 limits return explicit refusal states without rows or pair metadata. Partial,
 invalid, unsupported or unresolved models return Incomplete; an empty list then
 never means no changes. Changed document/Source extensions, extension declarations, package/source-reference data is
-Uninterpreted and incomplete. Unsupported envelope content can also make an
+Uninterpreted and incomplete. Unknown Source and Document envelope members,
+Document Digest members and manifest envelope/reference/Digest members also
+retain their exact original values. Comparison projections exclude derived
+known hash values; they do not discard opaque Digest metadata or emit hash noise
+for ordinary document edits. Manifest metadata is one bounded original-envelope
+row. Source/Document field paths preserve JSON Pointer escaping and distinguish
+absence from a present JSON null. Unsupported unchanged content still makes an
 empty comparison incomplete. No opaque field is guessed to be layout data;
 layout comparison awaits its actual layout contract.
 Two different Source bodies under one supposedly immutable version are also
@@ -59,12 +65,13 @@ its exact accepted current input and clears it on result/lifecycle changes.
 Reentrant reset/disposal cannot publish an accepted obsolete comparison. Actual
 Avalonia, native history navigation and runtime authorization remain unactivated.
 
-The offline exporter emits four `coglatas.synthetic-semantic-diff/1` projections
+The offline exporter emits five `coglatas.synthetic-semantic-diff/1` projections
 inside the existing synthetic fixture bundle: a real Core-prepared Draft Rename,
 an equal structure with Compiler FAIL, an incomplete empty comparison, and a
-document extension change that remains explicitly Uninterpreted. Its two added
-document fixtures expand the exact roster to fourteen; the original twelve
-case objects remain unchanged. This
+document extension change and a pair covering six opaque envelope surfaces that
+remain explicitly Uninterpreted. The two new envelope fixtures expand the
+inverse-Draft bundle from fifteen to seventeen; its original fifteen case
+objects remain unchanged. This
 format is local preview data, not a formal Registry/history artifact adoption.
 Angular checks the entire pair's digests/contexts and each row's original value,
 identity, owning document and location before display/navigation. It does not
