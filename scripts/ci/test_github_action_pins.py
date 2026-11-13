@@ -290,17 +290,21 @@ class GithubActionPinsTests(unittest.TestCase):
 
     def test_yaml_merge_and_duplicate_uses_keys_fail_closed(self) -> None:
         cases = (
-            '      - <<: *unreviewed\n',
-            f'      - uses: actions/checkout@{PIN} # v7\n'
-            '        "uses": actions/checkout@v7\n',
+            ('      - <<: *unreviewed\n', "YAML merge key unsupported"),
+            (
+                f'      - uses: actions/checkout@{PIN} # v7\n'
+                '        "uses": actions/checkout@v7\n',
+                "duplicate YAML mapping key",
+            ),
         )
-        for step in cases:
+        for step, reason in cases:
             with self.subTest(step=step):
                 self.write_workflow(
                     "required.yml",
                     "on: pull_request\njobs:\n  test:\n    steps:\n" + step,
                 )
-                self.assertNotEqual([], self.errors())
+                errors = self.errors()
+                self.assertTrue(any(reason in error for error in errors), errors)
 
     def test_unrelated_flow_and_literal_shell_strings_still_pass(self) -> None:
         self.write_workflow(
