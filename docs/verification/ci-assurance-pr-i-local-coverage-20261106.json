@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "suiteResults": [
+    {
+      "suite": "tests/ci/test_qodana_sarif_parity.py",
+      "exitCode": 0
+    },
+    {
+      "suite": "tests/ci/test_qodana_artifact_provenance.py",
+      "exitCode": 0
+    },
+    {
+      "suite": "tests/ci/test_qodana_cloud_send_preflight.py",
+      "exitCode": 0
+    },
+    {
+      "suite": "tests/ci/test_qodana_shadow_signature.py",
+      "exitCode": 0
+    },
+    {
+      "suite": "tests/ci/test_qodana_signed_subject.py",
+      "exitCode": 0
+    }
+  ],
+  "subjects": [
+    {
+      "path": "scripts/quality/qodana_sarif_parity.py",
+      "sha256": "46a65bc4ddc50cbee208fb117ae844c82a09523adb35e1428dc7166e156f8a97",
+      "nativeLineRows": 124,
+      "positiveLineRows": 116,
+      "zeroLineRows": 8
+    },
+    {
+      "path": "scripts/quality/verify_qodana_artifact_provenance.py",
+      "sha256": "1de5496176155a8cfc00e8046285a52ce03fbb68adb4d41c78d789fba2a51048",
+      "nativeLineRows": 211,
+      "positiveLineRows": 137,
+      "zeroLineRows": 74
+    },
+    {
+      "path": "scripts/quality/qodana_cloud_send_preflight.py",
+      "sha256": "bfbfaa926483429e796b6b2980ad4316e860c65833105b4442555e59838df3d5",
+      "nativeLineRows": 68,
+      "positiveLineRows": 62,
+      "zeroLineRows": 6
+    },
+    {
+      "path": "scripts/quality/verify_qodana_shadow_signature.py",
+      "sha256": "9bfaebebbeb6dcdfd7bb1644b4ff4846dde7fc6070319224524744a784f3473b",
+      "nativeLineRows": 121,
+      "positiveLineRows": 98,
+      "zeroLineRows": 23
+    },
+    {
+      "path": "scripts/quality/verify_qodana_signed_subject.py",
+      "sha256": "728e98c2a5ce8dce540bec075c33410b17e46f7986804bcce6a8a9da5649a1d6",
+      "nativeLineRows": 119,
+      "positiveLineRows": 101,
+      "zeroLineRows": 18
+    }
+  ],
+  "reportedSubjects": [
+    "scripts/quality/qodana_cloud_send_preflight.py",
+    "scripts/quality/qodana_sarif_parity.py",
+    "scripts/quality/verify_qodana_artifact_provenance.py",
+    "scripts/quality/verify_qodana_shadow_signature.py",
+    "scripts/quality/verify_qodana_signed_subject.py"
+  ],
+  "qualification": "LOCAL_LINUX_NATIVE_OFFLINE_CONTROLS_NOT_LIVE_QODANA_OR_SONAR_IMPORT",
+  "officialSonarImportExecuted": false,
+  "cloudSendExecuted": false,
+  "coverageXmlSha256": "aa8657c20dbd40f465b46fedf90a347cc4e336c8f904dd6955bbfc776a1e1a55",
+  "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "containerImageId": "sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337",
+  "pythonVersion": "3.12.16",
+  "coverageVersion": "7.17.0",
+  "collectorRegression": {
+    "originalWindowsBindMount": "TIMEOUT_15_SECONDS",
+    "sourceOnNativeFilesystemToolsOnBindMount": "TIMEOUT_15_SECONDS",
+    "sourceAndToolsOnNativeFilesystem": "PASS_10_TESTS",
+    "timeoutChanged": false,
+    "causality": "IO_PLACEMENT_ASSOCIATION_REPRODUCED_NOT_FLAKY_CLASSIFICATION"
+  },
+  "preparationFirstAttempt": {
+    "testExecution": "NOT_STARTED",
+    "cause": "SELECTED_IMAGE_HAS_NO_PIP",
+    "log": "qodana-native/collector-install.log"
+  },
+  "originalEvidenceDirectory": "Coglatas-assurance-continuation-evidence-20261106",
+  "rawEvidence": [
+    {
+      "path": "qodana-native-attempt2/collector-install.log",
+      "bytes": 728,
+      "sha256": "e656a41a5ed1965ed5d0603a2d0e29ae84e3f3eec31a2263e0c66f78c5800093"
+    },
+    {
+      "path": "qodana-native-attempt2/coverage.data",
+      "bytes": 81920,
+      "sha256": "69e641b85c67ec7d12e2abe0cf52a2fa4caf00a2ddb5019212bc3f8eec067f93"
+    },
+    {
+      "path": "qodana-native-attempt2/coverage.json",
+      "bytes": 45204,
+      "sha256": "d34d651ea24604def35340c7ab8c5dcda0f8d5c083ea0fb48d45813782ae2d04"
+    },
+    {
+      "path": "qodana-native-attempt2/coverage.xml",
+      "bytes": 30734,
+      "sha256": "aa8657c20dbd40f465b46fedf90a347cc4e336c8f904dd6955bbfc776a1e1a55"
+    },
+    {
+      "path": "qodana-native-attempt2/receipt.json",
+      "bytes": 2308,
+      "sha256": "f02b485cf198146cd635a7b3467d477a35c9aa83ae868cea4dd733f0d384b652"
+    },
+    {
+      "path": "qodana-native-attempt2/report.log",
+      "bytes": 168,
+      "sha256": "20c218e8b004b3964cc6d4e1a8114616926389ab03a238c300ad03068e72a440"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_artifact_provenance.py.stderr.log",
+      "bytes": 438,
+      "sha256": "1b2300741ed6ddcedb0c516baa972d230bc2b355892f1221a392c9514593c2fa"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_artifact_provenance.py.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_cloud_send_preflight.py.stderr.log",
+      "bytes": 513,
+      "sha256": "f0a43188abf3f44f7b6d7db0296752a97a5233d081ca5230e96e5939e05393bf"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_cloud_send_preflight.py.stdout.log",
+      "bytes": 59,
+      "sha256": "ddf5e83c32c18c93be481f07cb79f888318b65d27a07aa600d42f36d50585c72"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_sarif_parity.py.stderr.log",
+      "bytes": 540,
+      "sha256": "673f6d1b550079a6c24d32dcd907b3d172d95f01a92030233f03eeab06c4fc7b"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_sarif_parity.py.stdout.log",
+      "bytes": 66,
+      "sha256": "77717333b24a23529416ed388951aecf7b6df1702aa1e595d2d5c91bb74f4835"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_shadow_signature.py.stderr.log",
+      "bytes": 507,
+      "sha256": "f04dfb00da42b1670f30eee21efda42be8a79e7e440b1e767be2f895c62f85b3"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_shadow_signature.py.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_signed_subject.py.stderr.log",
+      "bytes": 501,
+      "sha256": "b32ae6a3d23116c8655ea0d2182d4784787141e4ef06fce162698262731706d8"
+    },
+    {
+      "path": "qodana-native-attempt2/test_qodana_signed_subject.py.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

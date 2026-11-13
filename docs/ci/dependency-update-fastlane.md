@@ -1,4 +1,24 @@
-# Prompt dependency update PRs — Dependabot-only fast lane
+# Dependency update proposals — Renovate
+
+## Current source-of-truth policy (Security qualification)
+
+The active updater configuration is `.github/renovate.json`, not the
+historical Dependabot schedule reproduced below. At the reviewed Security
+baseline `47dffab4ba29b451c56881c698a932ffeb97bc57`, Renovate has `automerge=false`,
+`prConcurrentLimit=8`, `prHourlyLimit=4`, and dashboard approval for major
+upgrades. This is a configuration observation, not proof that a particular
+version, binary, container, transitive graph or external advisory was discovered.
+
+Retain native manifest/lock, SDK/image, approved Actions pin/allowlist and
+full Required Check admission. Protected Actions and version boundaries must
+be updated through their separately reviewed owner policies; no security
+scanners, automation or approvals are added by this document. The historical
+Dependabot procedures below are **not** live instructions or a current
+daily scan/PR SLA. Consult the source-bound
+[PR-I scanner inventory](../verification/ci-assurance-pr-i-scanner-inventory-20261106.json)
+as a historical snapshot, not evidence of current execution completeness.
+
+## Historical Dependabot-only fast lane (superseded)
 
 ## Objective and risk boundary
 
