@@ -28,7 +28,8 @@ describe('Core-prepared Draft Rename and candidate contexts', () => {
     expect(record.data['displayName']).toBe('Observe 🌌'); expect(store.loadPreparedRename(prepared)).toBe(false);
   });
 
-  it.each(['before-input', 'after-input', 'old-name', 'new-name', 'target', 'origins', 'coverage', 'missing-after', 'proposal', 'base', 'head'])
+  it.each(['before-input', 'after-input', 'old-name', 'new-name', 'target', 'origins', 'coverage', 'missing-after', 'proposal', 'base', 'head',
+    'after-references', 'after-origin', 'after-target', 'after-coverage'])
   ('rejects an inconsistent %s pair before exposing it', mode => {
     const data = raw(); const before = data.cases.find((item: { key: string }) => item.key === 'draft-before');
     const prepared = before.preparedRename; const plan = prepared.plan;
@@ -43,6 +44,11 @@ describe('Core-prepared Draft Rename and candidate contexts', () => {
     if (mode === 'proposal') plan.afterContext.proposalId = before.context.baseRevision.revisionId;
     if (mode === 'base') plan.beforeContext.baseRevision.revisionId = before.context.proposalId;
     if (mode === 'head') plan.afterContext.capturedTargetHead.revisionId = before.context.proposalId;
+    const after = data.cases.find((item: { key: string }) => item.key === 'draft-after');
+    if (mode === 'after-references') after.semanticInspection.references = [];
+    if (mode === 'after-origin') after.semanticInspection.references[0].origin.propertyPath = '/different-origin';
+    if (mode === 'after-target') after.semanticInspection.references[0].symbolKey = after.semanticInspection.symbols.find((item: { kind: string }) => item.kind === 'coglatas.project').key;
+    if (mode === 'after-coverage') after.semanticInspection.bindingComplete = !plan.referenceCoverageComplete;
     expect(() => readPreviewBundle(data)).toThrow();
   });
 
@@ -74,6 +80,11 @@ describe('Core-prepared Draft Rename and candidate contexts', () => {
     expect(assessLocalEvidence(before)).toBe('complete-local-pass');
     Object.assign(context, { baseRevision: null });
     expect(() => assessLocalEvidence(before)).not.toThrow(); expect(assessLocalEvidence(before)).toBe('stale');
+  });
+  it('rechecks the retained after-reference roster when the prepared pair is activated', async () => {
+    const { store, before, after } = await ready(); const prepared = store.preparedRename()!;
+    Object.assign(after.semanticInspection!, { references: [] });
+    expect(store.loadPreparedRename(prepared)).toBe(false); expect(store.context()).toBe(before);
   });
   it('keeps a legacy projection inert when its optional inspection is absent', async () => {
     const data = raw(); for (const item of data.cases) delete item.semanticInspection;

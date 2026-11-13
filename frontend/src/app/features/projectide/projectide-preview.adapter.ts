@@ -61,6 +61,14 @@ function validatePreparedDraftRename(bundle: PreviewBundle, before: PreviewCase)
     throw new PreviewReadError('unsupported');
   const references = before.semanticInspection!.references.filter(item => item.state === 'Resolved' && item.symbolKey === symbol.key);
   if (!sameJson(references.map(item => item.origin), plan.referenceOrigins)) throw new PreviewReadError('wrong-scope');
+  const afterSymbol = after.semanticInspection.symbols.find(item => sameJson(item.location, { ...plan.target, context: after.context }));
+  // This fixture reader admits stable origin paths; Core owns nested value identity derivation.
+  const afterOrigins = after.semanticInspection.references.filter(item => item.state === 'Resolved' && item.symbolKey === afterSymbol?.key)
+    .map(item => item.origin);
+  if (!afterSymbol || afterSymbol.status !== 'Decoded' || afterSymbol.kind !== symbol.kind ||
+      after.semanticInspection.bindingComplete !== plan.referenceCoverageComplete ||
+      !sameJson(afterOrigins, plan.referenceOrigins.map(origin => ({ ...origin, context: after.context }))))
+    throw new PreviewReadError('wrong-scope');
 }
 
 /** Reused by direct navigation so shape validation cannot bypass exact artifact binding. */

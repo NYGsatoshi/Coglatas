@@ -118,6 +118,29 @@ public static class ProjectDraftRename
             cancellationToken.ThrowIfCancellationRequested();
             if (snapshot.Source.Context.Equals(next)) return true;
         }
+        // Unresolved typed references still reserve their explicitly named context.
+        // Reusing it could silently turn a foreign target/origin into a local one.
+        foreach (var item in model.Declarations)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item.Declaration is RequirementPlanDeclaration requirement && requirement.Target.Context.Equals(next)) return true;
+            if (item.Declaration is not TaskPlanDeclaration task) continue;
+            foreach (var port in task.Ports)
+                if (port.DefaultValue is { } value)
+                    foreach (var child in CompilerValueReferenceTraversal.Values(value, ""))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (child.Value.KnownValue is TypedProjectReference reference &&
+                            (reference.Context.Equals(next) || reference.Origin.Context.Equals(next))) return true;
+                    }
+        }
+        foreach (var item in model.Relations)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item.Relation is not { } relation) continue;
+            if (relation.Source.Reference.Context.Equals(next) || relation.Target.Reference.Context.Equals(next) ||
+                relation.Payload is ConstraintRelationPayload constraint && constraint.PredicateReference.Context.Equals(next)) return true;
+        }
         return false;
     }
 }

@@ -15,8 +15,12 @@ and have a different candidate revision. Source/input/context drift, unsupported
 origins, invalid Unicode, name/reference processing bounds and unchanged names
 have explicit outcomes. The plan lists resolved typed incoming reference origins
 and binding coverage, and refuses a next context already declared by a snapshot pin or materialized
-snapshot. The runtime still has to enforce freshness against durable history;
-Core cannot prove absence from inputs it has not received.
+snapshot.
+Decoded reference target/origin contexts are also reserved, even before a pin
+is materialized or a reference resolves. A new local context must not silently
+turn such an existing foreign reference into a local binding. The runtime still
+has to enforce freshness against durable history; Core cannot prove absence from
+inputs it has not received.
 Incomplete binding is not a complete reference inventory.
 The plan preserves compiler settings and carries the whole immutable after input.
 `ApplyToDraft` returns that whole input only for the exact original Source and
@@ -52,8 +56,10 @@ input/context/Proposal/base/head/target/name/reference pairing and offers a
 localized prepared-Draft fixture load. It does not implement arbitrary browser
 name editing or a modifying server API. Permission is checked again on activation;
 stale/copied pairs, selection changes and revoked access cannot load a retained
-pair. Without the optional inspection, legacy projections remain inert. Candidate
-IDs, Proposal, base and captured target are displayed distinctly from committed
+pair. Without the optional inspection, legacy projections remain inert.
+The bounded fixture reader checks both target-reference rosters and the after-symbol
+binding, including at activation; stable origin paths are part of this profile.
+Candidate IDs, Proposal, base and captured target are displayed distinctly from committed
 revision IDs; unsupported Scenario profiles are not guessed into this reader.
 
 Runtime query/Preview/open/apply authorization, durable Draft persistence, concurrent

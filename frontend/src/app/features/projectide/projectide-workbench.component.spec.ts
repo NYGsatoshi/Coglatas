@@ -90,8 +90,10 @@ describe('ProjectIDE Workbench components', () => {
     expect(button.textContent).toContain(locale === 'en' ? 'Load prepared Draft fixture' : '準備済みDraft Fixtureを読み込む');
     button.click(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('draft-after'); expect(c.panel()).toBe('source');
     c.choose('draft-before'); c.loadResult(); c.inspectRecord(c.records().find(item => item.kind === 'coglatas.task')!); fixture.detectChanges();
-    authenticated.set(false); fixture.detectChanges(); c.loadPreparedRename(prepared); fixture.detectChanges();
+    const retained = c.store.preparedRename()!; expect(retained).not.toBeNull();
+    authenticated.set(false); c.loadPreparedRename(retained);
     expect(c.store.context()).toBeNull(); expect(c.store.state()).toBe('denied');
+    fixture.detectChanges();
   });
 
   it.each(['en', 'ja'] as const)('opens a localized %s typed candidate and clears it after permission loss', async locale => {

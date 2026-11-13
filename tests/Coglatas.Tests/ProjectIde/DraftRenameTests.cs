@@ -280,6 +280,54 @@ public sealed class DraftRenameTests
     }
 
     [Fact]
+    public void ForkCannotReuseAContextAlreadyNamedByAnUnresolvedReference()
+    {
+        var basis = Committed(); var proposal = Proposal(basis);
+        var input = WithUnresolvedContext(basis, SourceRevisionContext.Candidate(proposal), "requirement");
+        var model = ProjectSemanticBinder.Bind(input); Assert.False(model.BindingComplete);
+        Assert.Throws<ArgumentException>(() => ProjectDraftRename.Fork(model, proposal));
+    }
+
+    [Theory]
+    [InlineData("requirement")]
+    [InlineData("relation-source")]
+    [InlineData("relation-target")]
+    [InlineData("value-target")]
+    [InlineData("value-origin")]
+    public void NextCandidateCannotCaptureAnExistingUnresolvedReferenceContext(string mode)
+    {
+        var basis = Draft(); var next = Next(basis); var input = WithUnresolvedContext(basis, next, mode);
+        var model = ProjectSemanticBinder.Bind(input); Assert.False(model.BindingComplete);
+        var preview = ProjectDraftRename.Preview(model, Target(input), input.InputDigest, "New", next);
+        Assert.Equal(DraftRenameState.ContextConflict, preview.State); Assert.Null(preview.Plan);
+        Assert.Equal(basis.Source.Context, input.Source.Context);
+    }
+
+    private static CompilerInputManifest WithUnresolvedContext(CompilerInputManifest basis, SourceRevisionContext next, string mode)
+    {
+        var declarations = JsonNode.Parse(basis.Source.Declarations.CanonicalText)!.AsArray();
+        var relations = JsonNode.Parse(basis.Source.Relations.CanonicalText)!.AsArray();
+        if (mode == "requirement")
+            declarations.Single(node => node!["kind"]!.GetValue<string>() == "coglatas.requirement")!["payload"]!["target"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
+        else if (mode.StartsWith("relation-", StringComparison.Ordinal))
+            relations[0]![mode == "relation-source" ? "source" : "target"]!["reference"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
+        else
+        {
+            var port = declarations[0]!["payload"]!["ports"]![0]!;
+            port["type"] = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = false, expectedKind = "coglatas.task" });
+            var target = mode == "value-target" ? next : basis.Source.Context;
+            var origin = mode == "value-origin" ? ProjectLocation.Create(DocumentId.Parse(Id(4)), next, entityId: EntityId.Parse(Id(10))) : Target(basis);
+            port["defaultValue"] = Obj(new { type = port["type"]!.DeepClone(), state = "coglatas.known", value = new
+            {
+                tenantId = Id(1), projectId = Id(2), entityId = Id(10), context = target.Data.Value,
+                origin = origin.Data.Value, manifest = new { version = "1", digest = basis.Source.Digest.Data.Value }
+            } });
+        }
+        return Input(JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject(), ProjectSource.Create(basis.Source.Context,
+            basis.Source.Documents, Json(declarations), Json(relations), sourceReferences: basis.Source.SourceReferences));
+    }
+
+    [Fact]
     public async Task WindowsPreparationAppliesOnlyItsDisplayedPlanThenRequiresFreshCompilation()
     {
         var committed = ReferenceCompletionTests.CompletionInput(1);
