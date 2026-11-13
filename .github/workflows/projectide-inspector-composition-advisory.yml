@@ -14,15 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  synthetic-composition:
-    name: Inspector synthetic composition (${{ matrix.os }})
+  synthetic-composition-ubuntu:
+    name: Inspector synthetic composition (ubuntu-24.04)
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-latest]
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
@@ -117,7 +113,112 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: inspector-synthetic-${{ matrix.os }}-${{ github.run_attempt }}
+          name: inspector-synthetic-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/inspector-context
+            ${{ runner.temp }}/inspector-evidence
+          if-no-files-found: error
+
+  synthetic-composition-windows:
+    name: Inspector synthetic composition (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
+      TEST_HEAD: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+      RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
+      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Preserve committed source bytes on both hosts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind source identities and exact Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $actualRunner = git rev-parse 'HEAD:tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $actualRunner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit unavailable' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product SDK policy unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            workflowHead = $env:WORKFLOW_HEAD
+            productHead = $env:PRODUCT_HEAD
+            testHead = $actualTest
+            runnerBlob = $actualRunner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_HEADLESS_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up exact Product SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/inspector-context/global.json
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Qualify immutable independent sources against Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $status = git -c core.autocrlf=false status --porcelain --untracked-files=normal
+          $status | Set-Content (Join-Path $context 'source-status.txt')
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Immutable independent Test checkout is not clean' }
+          Push-Location $context
+          try {
+            $sdk = dotnet --version
+            if ($LASTEXITCODE -ne 0 -or $sdk -ne '10.0.403') { throw 'Exact Product SDK mismatch' }
+            $sdk | Set-Content 'dotnet-version.txt'
+          } finally { Pop-Location }
+          node --version | Set-Content (Join-Path $context 'node-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Node runtime unavailable' }
+          npm --version | Set-Content (Join-Path $context 'npm-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'npm runtime unavailable' }
+          python --version | Set-Content (Join-Path $context 'python-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
+          python -B tests/candidates/projectide-inspector/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/inspector-composed" --evidence "$env:RUNNER_TEMP/inspector-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Inspector exact-source composition failed; retain original evidence' }
+      - name: Retain original source receipts, discovery and test outcomes
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: inspector-synthetic-windows-latest-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/inspector-context
             ${{ runner.temp }}/inspector-evidence
