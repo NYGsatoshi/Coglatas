@@ -57,7 +57,8 @@ test('Linux database ownership accepts official tagged and digest-pinned Postgre
     /Ubuntu job that directly owns/u);
 });
 
-test('CI PostgreSQL service images pin the qualified 18.6 minor and an identical immutable digest', async () => {
+test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.6 image', async () => {
+  const qualifiedImage = 'image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6';
   const paths = [
     '.github/workflows/ci.yml',
     '.github/workflows/main-validation.yml',
@@ -65,17 +66,13 @@ test('CI PostgreSQL service images pin the qualified 18.6 minor and an identical
     '.github/workflows/sec17-file-policy.yml',
     '.github/workflows/sonarcloud-ci.yml',
   ];
-  const digestPattern = /^\s*image:\s*postgres:18\.6@sha256:([a-f0-9]{64})\s*# PostgreSQL 18\.6\s*$/mu;
-  const digests = [];
   for (const path of paths) {
     const source = await readFile(path, 'utf8');
-    const images = [...source.matchAll(/^\s*image:\s*postgres[^\n]*$/gmu)];
-    assert.equal(images.length, 1, `Unexpected PostgreSQL service count in ${path}`);
-    const match = digestPattern.exec(images[0][0]);
-    assert.ok(match, `Unqualified PostgreSQL version or missing immutable digest in ${path}`);
-    digests.push(match[1]);
+    const imageLines = source.split('\\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('image: postgres'));
+    assert.deepEqual(imageLines, [qualifiedImage], `Unqualified PostgreSQL service image in ${path}`);
   }
-  assert.equal(new Set(digests).size, 1, 'CI PostgreSQL service images must share the same exact digest');
 });
 
 test('workflow rejects ignored OS failures, services, shell overrides, and mutable action refs', async () => {
