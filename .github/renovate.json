@@ -220,6 +220,27 @@
       "groupName": "ANG22 reviewed dependency candidates"
     },
     {
+      "description": "Coordinate Storybook core Angular integration and addons behind owner approval",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "storybook",
+        "@storybook/*"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "dependencyDashboardApproval": true,
+      "groupName": "Storybook coordinated updates",
+      "groupSlug": "storybook-coordinated",
+      "skipInstalls": false,
+      "postUpdateOptions": [
+        "npmInstallTwice"
+      ]
+    },
+    {
       "description": "Group compatible NuGet updates per review",
       "matchManagers": [
         "nuget"

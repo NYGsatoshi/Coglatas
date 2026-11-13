@@ -149,6 +149,21 @@ def update_errors(config)
     ang22_candidates['groupName'] == 'ANG22 reviewed dependency candidates' &&
     ang22_candidates['enabled'] != false
 
+  storybook = find_rule.call('Coordinate Storybook core Angular integration and addons behind owner approval')
+  errors << 'Storybook core, Angular builder and addons must share one reviewed npm group with full lockfile regeneration' unless
+    storybook.is_a?(Hash) && storybook['matchManagers'] == ['npm'] &&
+    storybook['matchPackageNames'] == ['storybook', '@storybook/*'] &&
+    storybook['matchUpdateTypes'] == ['minor', 'patch'] &&
+    storybook['dependencyDashboardApproval'] == true &&
+    storybook['groupName'] == 'Storybook coordinated updates' &&
+    storybook['groupSlug'] == 'storybook-coordinated' &&
+    storybook['skipInstalls'] == false &&
+    storybook['postUpdateOptions'] == ['npmInstallTwice'] &&
+    storybook['enabled'] != false && !storybook.key?('matchFileNames') &&
+    !storybook.key?('allowedVersions') &&
+    rules.index(storybook) > rules.index(npm_updates) &&
+    rules.index(storybook) > rules.index(ang22_candidates)
+
   angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
   errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
@@ -173,6 +188,39 @@ def update_errors(config)
     alerts.is_a?(Hash) && alerts.fetch('labels', []).include?('security') &&
     alerts['prConcurrentLimit'].is_a?(Integer) && alerts['prConcurrentLimit'].positive?
 
+  errors
+end
+
+# A Renovate group does not guarantee that each publisher releases every
+# component together. Reject partial Storybook peer upgrades in either workspace.
+def storybook_alignment_errors(sources = {})
+  errors = []
+  observed_versions = []
+  required = %w[storybook @storybook/angular]
+  addons = %w[@storybook/addon-a11y @storybook/addon-docs @storybook/addon-onboarding]
+  %w[frontend coglatas-frontend].each do |workspace|
+    manifest_path = "#{workspace}/package.json"
+    lock_path = "#{workspace}/package-lock.json"
+    manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+    lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+    direct = manifest.fetch('devDependencies', {})
+    names = (required + (workspace == 'coglatas-frontend' ? addons : []) +
+      direct.keys.grep(/\A@storybook\//)).uniq
+    names.each do |name|
+      version = direct[name]
+      observed_versions << version
+      locked_package = lock.dig('packages', "node_modules/#{name}")
+      valid = version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+\z/) &&
+        lock.dig('packages', '', 'devDependencies', name) == version &&
+        locked_package.is_a?(Hash) && locked_package['version'] == version &&
+        locked_package['integrity'].is_a?(String) &&
+        locked_package['integrity'].start_with?('sha512-')
+      errors << "#{workspace}: #{name} requires the same exact manifest, lock root and installed peer version" unless valid
+    end
+  end
+  errors << 'Storybook core, Angular integration and addons must have one exact version across both workspaces' unless
+    observed_versions.length >= 7 && observed_versions.uniq.length == 1 &&
+    observed_versions.first.is_a?(String)
   errors
 end
 
@@ -277,7 +325,8 @@ abort('Root Playwright test dependency must remain pinned to the reviewed browse
   end &&
   browser_image.include?('FROM mcr.microsoft.com/playwright:v1.64.0-noble')
 
-errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
+errors = update_errors(config) + storybook_alignment_errors + image_errors({}, sdk_version) +
+  node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -314,6 +363,19 @@ mutations = {
   'unqualified sonar glob version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Sonar glob updates that cannot produce installable locks' }['allowedVersions'] = '14.0.4' },
   'unreviewed ANG22 package in routine group' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['dependencyDashboardApproval'] = false },
   'unreviewed ANG22 package group crossover' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['groupName'] = 'npm compatible (minor and patch)' },
+  'drop Storybook addon grouping' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchPackageNames'] = ['storybook', '@storybook/angular'] },
+  'bypass Storybook owner approval' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['dependencyDashboardApproval'] = false },
+  'mix Storybook majors into patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchUpdateTypes'] << 'major' },
+  'skip Storybook lockfile installations' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['skipInstalls'] = true },
+  'remove Storybook second npm install' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }.delete('postUpdateOptions') },
+  'limit Storybook updates to one workspace' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchFileNames'] = ['coglatas-frontend/package.json'] },
+  'allow routine npm grouping to override Storybook' => ->(x) {
+    rules = x['packageRules']
+    index = rules.index { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }
+    storybook = rules.delete_at(index)
+    routine = rules.index { |p| p['description'] == 'Group compatible npm updates per review' }
+    rules.insert(routine, storybook)
+  },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
   'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
   'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
@@ -329,6 +391,30 @@ mutations.each do |name, change|
   change.call(copy)
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
+# Even when Renovate groups proposed updates, a partial manifest/lockfile
+# update must not be eligible for merge.
+%w[frontend coglatas-frontend].each do |workspace|
+  manifest_path = "#{workspace}/package.json"
+  lock_path = "#{workspace}/package-lock.json"
+  manifest = JSON.parse((ROOT / manifest_path).read)
+  changed_manifest = JSON.parse(JSON.generate(manifest))
+  changed_manifest['devDependencies']['storybook'] = '10.6.7'
+  abort("Guard missed a partial Storybook core upgrade in #{workspace}") if
+    storybook_alignment_errors(manifest_path => JSON.generate(changed_manifest)).empty?
+
+  lock = JSON.parse((ROOT / lock_path).read)
+  changed_lock = JSON.parse(JSON.generate(lock))
+  changed_lock['packages']['']['devDependencies']['@storybook/angular'] = '10.6.7'
+  abort("Guard missed a mismatched Storybook lock root in #{workspace}") if
+    storybook_alignment_errors(lock_path => JSON.generate(changed_lock)).empty?
+end
+
+addon_path = 'coglatas-frontend/package.json'
+addon_manifest = JSON.parse((ROOT / addon_path).read)
+addon_manifest['devDependencies']['@storybook/addon-a11y'] = '10.6.7'
+abort('Guard missed an independently upgraded Storybook addon') if
+  storybook_alignment_errors(addon_path => JSON.generate(addon_manifest)).empty?
+
 %w[frontend/package.json coglatas-frontend/package.json].each do |path|
   original = JSON.parse((ROOT / path).read)
   global_override = JSON.parse(JSON.generate(original))
