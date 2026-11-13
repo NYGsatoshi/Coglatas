@@ -18,7 +18,7 @@ public static class PureCoreCompiler
 
     public static CoreCompilation Compile(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
-        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default)
+        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -31,7 +31,7 @@ public static class PureCoreCompiler
             var reparsed = ProjectSourceCodec.Decode(input.Source.Data.ToCanonicalBytes());
             if (reparsed.Source is null || !reparsed.Source.Digest.Equals(input.Source.Digest))
                 throw new UnsupportedSourceException("Source exceeds the supported canonical AST profile.");
-            var model = ProjectSemanticBinder.Bind(input, snapshots, cancellationToken);
+            var model = ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache);
             var validation = CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken);
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = validation.Findings.Select(item => item.Diagnostic).ToList();

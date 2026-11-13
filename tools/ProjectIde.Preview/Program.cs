@@ -5,13 +5,16 @@ using Coglatas.Domain.ProjectIde;
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
 var cases = new List<object>();
+var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After, _ => Input(name, 100 + index) };
-    var compilation = PureCoreCompiler.Compile(input, input.Compiler);
+    var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
+    var reference = PureCoreCompiler.Compile(input, input.Compiler);
+    if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
     var result = name switch
     {
         "not-run" => new CompilerResult(input, CompilerExecutionState.NotRun, CompilerCoverage.None, [], [], [], false),

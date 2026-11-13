@@ -12,6 +12,11 @@ adds a checked immutable display-name change plan, a synthetic Windows local
 application flow and a Core-prepared Angular before/after fixture pair. Runtime
 save/authorization and wider #1030 acceptance remain separate requirements.
 
+An opt-in [incremental declaration decoder](verification/projectide-incremental-declarations.md)
+can reuse bounded immutable shapes while rebuilding bindings and validation for
+every input. The offline exporter compares cached and full results; runtime index
+activation and full dependency-directed incremental acceptance remain separate.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

@@ -55,7 +55,7 @@ public static class PlanDeclarationReader
         return new ReadOnlyCollection<DeclarationDecodeResult>(results);
     }
 
-    private static DeclarationDecodeResult CheckTenant(DeclarationDecodeResult result, TenantId tenant) =>
+    internal static DeclarationDecodeResult CheckTenant(DeclarationDecodeResult result, TenantId tenant) =>
         result.Declaration is ResourceBindingDeclaration resource && resource.TenantId != tenant
             ? new(ValueDecodeStatus.Invalid, null, result.Data, result.DocumentId) : result;
 }

@@ -3,7 +3,7 @@ using Coglatas.Domain.ProjectIde;
 namespace Coglatas.Application.ProjectIde.Core;
 
 /// <summary>Headless .NET adapter. Expensive parsing/compilation is scheduled away from the caller's UI context.</summary>
-public sealed class LocalNetCompilerHost(CompilerHostProfile profile) : ICoreCompilerHost
+public sealed class LocalNetCompilerHost(CompilerHostProfile profile, PlanDeclarationReadCache? declarationCache = null) : ICoreCompilerHost
 {
     private readonly CompilerHostProfile _profile = profile ?? throw new ArgumentNullException(nameof(profile));
     public Task<CompilerHostResponse> CompileAsync(CompilerHostRequest request, CancellationToken cancellationToken = default)
@@ -20,7 +20,7 @@ public sealed class LocalNetCompilerHost(CompilerHostProfile profile) : ICoreCom
         {
             var input = request.Input.Materialize();
             if (!_profile.Supports(input)) return Failure(CompilerHostStatus.Unsupported, "coglatas.host.compatibility-unavailable");
-            var compilation = ProjectCompilation.Compile(input, _profile.Compiler, request.Snapshots, request.Units, request.Calendars, cancellationToken);
+            var compilation = ProjectCompilation.Compile(input, _profile.Compiler, request.Snapshots, request.Units, request.Calendars, cancellationToken, declarationCache);
             if (cancellationToken.IsCancellationRequested) return Failure(CompilerHostStatus.Cancelled, "coglatas.host.cancelled");
             return new(compilation.Result.Execution == CompilerExecutionState.Cancelled ? CompilerHostStatus.Cancelled : CompilerHostStatus.Completed,
                 "coglatas.host.result-produced", input.InputDigest, request.ClientGeneration, attempt, new CompilerHostExecutionReceipt(request, compilation));
