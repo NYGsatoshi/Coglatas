@@ -7,7 +7,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.66.0',
+    '@lucide/angular': '1.72.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.42',
@@ -79,9 +79,9 @@ void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package
 });
 
 void test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity', () => {
-  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.5');
-  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.5');
-  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.5');
+  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.7');
+  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.7');
+  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.7');
   for (const [name, version] of Object.entries({
     '@angular-devkit/architect': '0.2202.5',
     '@angular-devkit/build-angular': '22.2.4',
