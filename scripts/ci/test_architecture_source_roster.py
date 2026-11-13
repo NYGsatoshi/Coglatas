@@ -125,6 +125,8 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
         for declaration in (
             'namespace Other;\n// namespace Coglatas.Architecture.Tests;',
             'namespace Coglatas.Architecture.Tests;\nnamespace Other;',
+            'namespace Coglatas.Architecture.Tests;\nnamespace Other; // additional namespace',
+            'namespace Coglatas.Architecture.Tests;\n    namespace Other;',
         ):
             self.core.write_text(fixture('LayerDependencyTests', 6).replace(
                 'namespace Coglatas.Architecture.Tests;', declaration), encoding='utf-8')

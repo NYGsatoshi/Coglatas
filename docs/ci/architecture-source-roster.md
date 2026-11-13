@@ -42,6 +42,8 @@ original file bytes, so different line endings retain distinct source digests.
 Bare carriage returns remain unsupported. The namespace and Xunit import must
 be complete declarations; comments or an additional foreign namespace cannot
 stand in for the expected declaration.
+Additional indented or trailing-comment namespace declarations are rejected
+rather than silently omitted from the supported declaration count.
 
 Output uses SHA-256, with a distinct domain for each fully-qualified case name,
 and a canonical full-roster hash. It also contains a SHA-256 for each source
