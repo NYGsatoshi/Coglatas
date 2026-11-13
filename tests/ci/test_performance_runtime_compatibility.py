@@ -128,8 +128,6 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         prebuilt = (ROOT / 'infra/docker/runtime-prebuilt.Dockerfile').read_text(encoding='utf-8')
         self.assertEqual(collector.production_runtime_identity(self.image, self.dockerfile, self.packages),
                          collector.production_runtime_identity(self.image, prebuilt, self.packages))
-
-    def test_production_runtime_drops_root_and_provisions_both_writable_volume_roots(self):
         for relative_path in ('Dockerfile', 'infra/docker/runtime-prebuilt.Dockerfile'):
             with self.subTest(recipe=relative_path):
                 dockerfile = (ROOT / relative_path).read_text(encoding='utf-8')
