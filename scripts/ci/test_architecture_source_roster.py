@@ -5,7 +5,10 @@ import importlib.util
 import hashlib
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from unittest import mock
 
@@ -168,6 +171,50 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
             with self.assertRaises(module.SourceRosterError) as caught:
                 module.discover(self.root, 'CORE')
         self.assertEqual(caught.exception.args[0], 'SOURCE_FILE')
+
+    def test_fact_requires_its_actual_direct_declaring_class(self) -> None:
+        """Same-indentation foreign, nested and top-level Facts cannot borrow IDs."""
+        original = fixture('LayerDependencyTests', 6)
+        first = '    [Fact]\n    public void Case0()\n    {\n    }\n'
+        self.assertEqual(original.count(first), 1)
+        for candidate in (
+            original.replace(first, '') + '\ninternal sealed class Other\n{\n' + first + '}\n',
+            original.replace(first, '    internal sealed class Other\n    {\n' + first + '    }\n'),
+            original.replace(first, '') + first,
+        ):
+            with self.subTest(source=candidate[:50]), self.assertRaisesRegex(
+                    module.SourceRosterError, '^FACT_DECLARING_CLASS$'):
+                module.parse_source(candidate.encode('utf-8'), 'LayerDependencyTests')
+
+    def test_fifo_swap_is_denied_without_waiting_for_writer(self) -> None:
+        """Real FIFO replacement must terminate before any writer is available."""
+        code = textwrap.dedent('''\
+            import importlib.util
+            import os
+            from pathlib import Path
+            import sys
+            spec = importlib.util.spec_from_file_location('roster', sys.argv[1])
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            target = Path(sys.argv[2])
+            original_open = os.open
+            def swap(path, flags, *args, **kwargs):
+                if Path(path) == target:
+                    target.unlink()
+                    os.mkfifo(target)
+                return original_open(path, flags, *args, **kwargs)
+            module.os.open = swap
+            try:
+                module.regular_bytes(target)
+            except module.SourceRosterError as error:
+                print(str(error))
+            else:
+                raise SystemExit(1)
+            ''')
+        result = subprocess.run([sys.executable, '-B', '-c', code, str(SCRIPT), str(self.core)],
+                                capture_output=True, text=True, timeout=5, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'SOURCE_FILE\n')
 
     def test_symlinked_source_is_denied(self) -> None:
         """Reject symlinked leaves; unsupported CI platforms must fail, never skip."""
