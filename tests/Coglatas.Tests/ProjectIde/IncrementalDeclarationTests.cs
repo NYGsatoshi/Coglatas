@@ -118,6 +118,39 @@ public sealed class IncrementalDeclarationTests
     }
 
     [Fact]
+    public void AnEarlierCallerCannotMutateRetainedPortsOrNestedValuesAndPoisonLaterCompilations()
+    {
+        var baseline = ReferenceCompletionTests.CompletionInput(1);
+        var nodes = JsonNode.Parse(baseline.Source.Declarations.CanonicalText)!.AsArray();
+        var text = Obj(new { kind = "coglatas.text", schemaVersion = 1, nullable = false, acceptsUnknown = false });
+        var list = Obj(new { kind = "coglatas.list", schemaVersion = 1, nullable = false, acceptsUnknown = false, elementType = text.DeepClone() });
+        var structure = Obj(new { kind = "coglatas.structure", schemaVersion = 1, nullable = false, acceptsUnknown = false,
+            fields = new JsonArray(Obj(new { name = "items", required = true, type = list.DeepClone() })) });
+        var port = nodes[0]!["payload"]!["ports"]![0]!; port["type"] = structure;
+        port["defaultValue"] = Obj(new { type = structure.DeepClone(), state = "coglatas.known", value = new {
+            items = new { type = list.DeepClone(), state = "coglatas.known", value = new JsonArray(Obj(new { type = text.DeepClone(), state = "coglatas.known", value = "kept" })) } } });
+        var input = Input(source: ProjectSource.Create(baseline.Source.Context, baseline.Source.Documents, Json(nodes)));
+        var cache = new PlanDeclarationReadCache(); var first = cache.Read(input.Source);
+        var task = Assert.IsType<TaskPlanDeclaration>(first.Single(item => item.Declaration is TaskPlanDeclaration).Declaration);
+        var definition = Assert.Single(task.Ports);
+        var value = Assert.IsType<ProjectStructureValue>(definition.DefaultValue!.KnownValue);
+        var collection = Assert.IsType<ProjectCollectionValue>(value.Fields["items"].KnownValue);
+        Assert.Throws<NotSupportedException>(() => ((IList<DeclarationDecodeResult>)first).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports)[0] = definition);
+        Assert.Throws<NotSupportedException>(() => ((IList<StructureField>)definition.Type.Fields).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, TypedProjectValue>)value.Fields)["items"] = value.Fields["items"]);
+        Assert.Throws<NotSupportedException>(() => ((IList<TypedProjectValue>)collection.Items).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<ProjectMapEntry>)collection.Entries).Add(new(collection.Items[0], collection.Items[0])));
+        var bytes = task.Data.ToCanonicalBytes(); bytes[0] = (byte)'!';
+        var detached = JsonNode.Parse(task.Data.CanonicalText)!; detached["displayName"] = "Changed by caller";
+        var next = Assert.IsType<TaskPlanDeclaration>(cache.Read(input.Source).Single(item => item.Declaration is TaskPlanDeclaration).Declaration);
+        Assert.Same(task, next); Assert.Equal("Task 0", next.DisplayName);
+        Assert.Equal("kept", collection.Items[0].KnownValue);
+        AssertEquivalent(input, cache);
+    }
+
+    [Fact]
     public async Task ConcurrentLocalHostRequestsAndClearPreserveExactResponsesForWindowsPreparation()
     {
         var inputs = Enumerable.Range(0, 12).Select(index => Input(source: Source(100 + index))).ToArray();
