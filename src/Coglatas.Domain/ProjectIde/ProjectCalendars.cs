@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 
 namespace Coglatas.Domain.ProjectIde;
 
@@ -50,7 +49,7 @@ public sealed class CalendarSnapshot
             if (interval.IsEmpty || !Validity.Contains(interval)) throw new FormatException("Exception interval is empty or outside calendar validity.");
             exceptionList.Add(new(kind, interval));
         }
-        Exceptions = new ReadOnlyCollection<CalendarExceptionInterval>(exceptionList);
+        Exceptions = new ImmutableListView<CalendarExceptionInterval>(exceptionList);
         Reference = reference; Data = data; _zone = zone;
     }
 
@@ -66,7 +65,7 @@ public sealed class CalendarSnapshot
                 throw new FormatException("Calendar intervals must be nonempty, ordered, disjoint and within validity.");
             intervals.Add(interval);
         }
-        return new ReadOnlyCollection<InstantInterval>(intervals);
+        return new ImmutableListView<InstantInterval>(intervals);
     }
 
     public static ContentDigest ComputeDigest(SourceJson data) => ContentDigest.Compute("coglatas.calendar-snapshot/1", data.ToCanonicalBytes());
