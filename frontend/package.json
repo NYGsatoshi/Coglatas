@@ -55,13 +55,13 @@
     "@angular/compiler-cli": "22.2.6",
     "@storybook/angular": "10.6.5",
     "@types/node": "26.6.6",
-    "@vitest/coverage-istanbul": "5.0.5",
+    "@vitest/coverage-istanbul": "5.1.0",
     "axe-core": "4.14.0",
     "jsdom": "31.0.0",
     "prettier": "3.10.1",
     "storybook": "10.6.5",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "allowScripts": {
     "@parcel/watcher@2.6.0": true,
