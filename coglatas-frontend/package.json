@@ -37,7 +37,7 @@
     "@storybook/addon-onboarding": "10.6.5",
     "@storybook/angular": "10.6.5",
     "jsdom": "^31.0.0",
-    "prettier": "^3.9.10",
+    "prettier": "3.10.1",
     "storybook": "10.6.5",
     "typescript": "6.0.3",
     "vitest": "^5.0.5"
@@ -63,7 +63,7 @@
     "webpack-dev-server": "6.1.0",
     "less": "4.9.1",
     "@storybook/builder-webpack5": {
-      "webpack-dev-middleware": "8.6.0"
+      "webpack-dev-middleware": "8.6.1"
     },
     "vite@<8.3.5": "^8.3.5"
   },
