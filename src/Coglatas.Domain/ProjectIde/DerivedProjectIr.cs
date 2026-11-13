@@ -44,7 +44,7 @@ public sealed class DerivedProjectIr
             .OrderBy(item => item.NodeId.ToString(), StringComparer.Ordinal).ToArray();
         if (nodes.Select(item => item.NodeId.Value).Distinct().Count() != nodes.Length)
             throw new InvalidOperationException("IR identity collision; full derivation digests must be investigated.");
-        Nodes = Array.AsReadOnly(nodes);
+        Nodes = new ImmutableListView<ProjectIrNode>(nodes);
         var index = nodes.ToDictionary(item => item.EntityId);
         Relations = SourceJson.FromObject(model.Relations.Select(item => item.Relation ?? throw new InvalidOperationException("Opaque relation cannot be lowered."))
             .OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal).Select(item => new

@@ -2,6 +2,11 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+The [Compiler envelope storage repair](verification/projectide-compiler-envelope-immutability.md)
+owns Domain input/result/evidence/IR collection storage so typed views stay
+consistent with retained canonical bytes. Host and supplied-snapshot collection
+qualification remains separate P0 #1938 work.
+
 ProjectIDE has a bounded, input-bound entity-reference suggestion preview shared
 by the offline Angular fixture and Windows pure ViewModel. See the
 [scope and remaining #1030 work](verification/projectide-reference-completion.md).
