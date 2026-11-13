@@ -186,6 +186,14 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
                     module.SourceRosterError, '^FACT_DECLARING_CLASS$'):
                 module.parse_source(candidate.encode('utf-8'), 'LayerDependencyTests')
 
+    def test_expected_class_is_not_nested_inside_another_type(self) -> None:
+        """The expected class cannot borrow a top-level identity from inside Outer."""
+        original = fixture('LayerDependencyTests', 6)
+        declaration = 'public sealed class LayerDependencyTests'
+        nested = original.replace(declaration, 'internal sealed class Outer\n{\n' + declaration) + '}\n'
+        with self.assertRaisesRegex(module.SourceRosterError, '^SOURCE_CLASS$'):
+            module.parse_source(nested.encode('utf-8'), 'LayerDependencyTests')
+
     def test_fifo_swap_is_denied_without_waiting_for_writer(self) -> None:
         """Real FIFO replacement must terminate before any writer is available."""
         code = textwrap.dedent('''\
