@@ -127,9 +127,12 @@ describe('Independent Inspector identity and lifecycle candidates', () => {
     store.loadResult();
     const replacement = store.result()!.result.diagnostics[0];
     expect(store.selectDiagnostic(replacement)).toBe(true);
+    const newerResult = store.result();
     finish(bundle());
     await previous;
-    expect(store.relatedDiagnostics()).toEqual([replacement]);
+    expect(store.result()).toBe(newerResult);
+    expect(store.relatedDiagnostics()).toHaveLength(1);
+    expect(store.relatedDiagnostics()[0]).toBe(replacement);
     expect(store.selectDiagnostic(original)).toBe(false);
     expect(store.sourceTarget()).toBeNull();
   });
