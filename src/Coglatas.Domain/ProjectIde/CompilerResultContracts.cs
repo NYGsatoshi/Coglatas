@@ -21,7 +21,7 @@ public sealed class CompilerEvidenceBasis
         if (!Enum.IsDefined(kind) || values.Length > 1024 || values.Any(item => item is null)) throw new ArgumentException("Invalid evidence basis.");
         if (kind == CompilerEvidenceKind.Missing ? !ValueFields.IsToken(missingReason ?? "") || values.Length != 0 : values.Length == 0 || missingReason is not null)
             throw new ArgumentException("Evidence requires actual premise digests or an explicit missing reason.");
-        Premises = Array.AsReadOnly(values.Select(item => item!).Distinct().OrderBy(item => item.Value, StringComparer.Ordinal).ToArray());
+        Premises = new ImmutableListView<ContentDigest>(values.Select(item => item!).Distinct().OrderBy(item => item.Value, StringComparer.Ordinal));
         Data = SourceJson.FromObject(new { kind = CompilerContractTokens.Evidence(kind), premises = Premises.Select(item => item.Data.Value).ToArray(), missingReason });
     }
 }
@@ -156,7 +156,7 @@ public sealed class CompilerResult
         if (suppliedArtifacts.Length > 32 || suppliedArtifacts.Any(item => item is null || !item.InputDigest.Equals(input.InputDigest)) ||
             suppliedArtifacts.Select(item => item!.Role).Distinct(StringComparer.Ordinal).Count() != suppliedArtifacts.Length)
             throw new ArgumentException("Artifact references do not bind this result uniquely.");
-        Artifacts = Array.AsReadOnly(suppliedArtifacts.Select(item => item!).OrderBy(item => item.Role, StringComparer.Ordinal).ToArray());
+        Artifacts = new ImmutableListView<CompilerArtifactReference>(suppliedArtifacts.Select(item => item!).OrderBy(item => item.Role, StringComparer.Ordinal));
         var producedDigests = steps.SelectMany(step => step.Data.Value.GetProperty("outputs").EnumerateArray())
             .Select(value => ContentDigest.Parse(SourceJson.FromElement(value))).ToHashSet();
         if (Artifacts.Any(artifact => !producedDigests.Contains(artifact.Digest))) throw new ArgumentException("Artifact digest has no producing stage.");
@@ -181,11 +181,11 @@ public sealed class CompilerResult
             : execution == CompilerExecutionState.Completed && coverage == CompilerCoverage.Complete && allPass && EvidenceComplete ? CompilerVerdict.Pass
             : CompilerVerdict.Inconclusive;
         Input = input; Execution = execution; Coverage = coverage;
-        RuleOutcomes = Array.AsReadOnly(outcomes.OrderBy(item => item.RuleId, StringComparer.Ordinal).ToArray());
-        Diagnostics = Array.AsReadOnly(findings.OrderBy(item => item.StageOrdinal).ThenBy(item => item.RuleId, StringComparer.Ordinal)
+        RuleOutcomes = new ImmutableListView<CompilerRuleOutcome>(outcomes.OrderBy(item => item.RuleId, StringComparer.Ordinal));
+        Diagnostics = new ImmutableListView<CompilerDiagnostic>(findings.OrderBy(item => item.StageOrdinal).ThenBy(item => item.RuleId, StringComparer.Ordinal)
             .ThenBy(item => item.RuleVersion).ThenBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal)
-            .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.Discriminator, StringComparer.Ordinal).ThenBy(item => item.DiagnosticId.ToString(), StringComparer.Ordinal).ToArray());
-        Stages = Array.AsReadOnly(steps);
+            .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.Discriminator, StringComparer.Ordinal).ThenBy(item => item.DiagnosticId.ToString(), StringComparer.Ordinal));
+        Stages = new ImmutableListView<CompilerStageOutcome>(steps);
         EvidenceManifest = SourceJson.FromObject(new
         {
             format = "coglatas.compiler-evidence/1", compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
@@ -215,10 +215,10 @@ public sealed record CompilerFreshnessAssessment(CompilerResultId ResultId, Cont
     public static CompilerFreshnessAssessment Assess(CompilerResult result, CompilerInputManifest? desired)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (desired is null) return new(result.ResultId, null, CompilerFreshness.Undetermined, Array.AsReadOnly(new[] { "coglatas.desired-input-unavailable" }));
+        if (desired is null) return new(result.ResultId, null, CompilerFreshness.Undetermined, new ImmutableListView<string>(["coglatas.desired-input-unavailable"]));
         var changed = result.Input.Data.Value.EnumerateObject().Where(item => !SourceJson.FromElement(item.Value).Equals(SourceJson.FromElement(desired.Data.Value.GetProperty(item.Name))))
             .Select(item => item.Name).Order(StringComparer.Ordinal).ToArray();
-        return new(result.ResultId, desired.InputDigest, result.Input.InputDigest.Equals(desired.InputDigest) ? CompilerFreshness.Current : CompilerFreshness.Stale, Array.AsReadOnly(changed));
+        return new(result.ResultId, desired.InputDigest, result.Input.InputDigest.Equals(desired.InputDigest) ? CompilerFreshness.Current : CompilerFreshness.Stale, new ImmutableListView<string>(changed));
     }
 }
 

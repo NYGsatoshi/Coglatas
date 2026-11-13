@@ -141,7 +141,7 @@ public sealed class CompilerInputManifest
         if (ruleElements.GetArrayLength() > 1024) throw new FormatException("Ruleset exceeds its processing bound.");
         var rules = ruleElements.EnumerateArray().Select(item => new CompilerRuleContract(SourceJson.FromElement(item, settings.Limits))).ToArray();
         fields["rules"] = OrderUnique(rules.Select(item => item.Data).ToArray(), "ruleId");
-        Rules = Array.AsReadOnly(rules.OrderBy(item => item.RuleId, StringComparer.Ordinal).ToArray());
+        Rules = new ImmutableListView<CompilerRuleContract>(rules.OrderBy(item => item.RuleId, StringComparer.Ordinal));
         foreach (var field in new[] { "featureSet", "targets", "analysisScope" })
         {
             var values = SourceFields.Array(settings.Value, field).EnumerateArray().Select(ValueFields.String).ToArray();
