@@ -1,0 +1,16 @@
+// Intended root path after admission: playwright-shadow.config.ts.
+// Inert proposal: no current config or protected frontend job imports this file.
+import original from './playwright.config.ts';
+
+if (process.env.COGLATAS_D10_CAPTURE_SHADOW !== '1' ||
+    process.env.GITHUB_ACTIONS !== 'true' ||
+    process.env.GITHUB_BASE_REF !== 'SecurityTestImplimation' ||
+    process.env.GITHUB_WORKFLOW !== 'Playwright native capture Shadow' ||
+    !Array.isArray(original.reporter)) {
+  throw new Error('D10_SHADOW_CONFIG_REFUSED');
+}
+
+export default {
+  ...original,
+  reporter: [...original.reporter, ['./tests/ui/playwright-shadow-capture-reporter.mjs']],
+};
