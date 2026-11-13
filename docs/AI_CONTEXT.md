@@ -2,6 +2,11 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+ProjectIDE has a bounded, input-bound entity-reference suggestion preview shared
+by the offline Angular fixture and Windows pure ViewModel. See the
+[scope and remaining #1030 work](verification/projectide-reference-completion.md).
+It opens declarations read-only; runtime editing and actual Avalonia remain gated.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

@@ -5,7 +5,7 @@ namespace Coglatas.Domain.ProjectIde;
 public sealed record CompilerInspectedSymbol(CompilerSymbol Symbol, SourceJson? DeclaredType);
 
 /// <summary>Input-bound local declaration/reference projection for inspection, including partial models. No execution or authority.</summary>
-public sealed class CompilerSemanticInspection
+public sealed partial class CompilerSemanticInspection
 {
     public CompilerInputManifest Input { get; }
     public bool BindingComplete { get; }
@@ -31,6 +31,14 @@ public sealed class CompilerSemanticInspection
             symbols.Add(new(symbol, type));
         }
         Symbols = new ReadOnlyCollection<CompilerInspectedSymbol>(symbols.OrderBy(item => item.Symbol.Key, StringComparer.Ordinal).ToArray());
+        _uniqueKeys = Symbols.GroupBy(item => item.Symbol.Key, StringComparer.Ordinal)
+            .Where(group => group.Count() == 1).Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
+        _completionCoverageComplete = BindingComplete && _uniqueKeys.Count == Symbols.Count &&
+            Symbols.All(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
+        _locations = Symbols.GroupBy(item => item.Symbol.Location.Data.CanonicalText, StringComparer.Ordinal)
+            .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
+        _displayNames = declarations.Where(pair => pair.Value.Length == 1 && pair.Value[0].Declaration is not null)
+            .ToDictionary(pair => pair.Key, pair => pair.Value[0].Declaration!.DisplayName);
         References = Array.AsReadOnly(model.References.Where(item => item.Origin.Context.Equals(Input.Source.Context))
             .OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.State).ToArray());
         Data = SourceJson.FromObject(new
@@ -52,8 +60,7 @@ public sealed class CompilerSemanticInspection
     {
         ArgumentNullException.ThrowIfNull(location);
         if (!location.Context.Equals(Input.Source.Context)) return null;
-        var matches = Symbols.Where(item => item.Symbol.Location.Data.Equals(location.Data)).Take(2).ToArray();
-        return matches.Length == 1 ? matches[0] : null;
+        return _locations.GetValueOrDefault(location.Data.CanonicalText);
     }
 
     public IReadOnlyList<CompilerBoundReference> FindReferences(ProjectLocation target)

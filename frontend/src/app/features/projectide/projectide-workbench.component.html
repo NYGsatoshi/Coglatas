@@ -296,6 +296,20 @@
                       </button>
                     }
                     <p>{{ t('ide.references') }}: {{ store.inspectedReferences().length }}</p>
+                    @for (page of store.referenceCompletions(); track page.originKey) {
+                      <section data-testid="ide-reference-completion" [attr.aria-label]="t('ide.completion')">
+                        <h4>{{ t('ide.completion') }} · {{ page.expectedKind }}</h4>
+                        <p>{{ t('ide.completionPreview') }}</p>
+                        @if (!page.coverageComplete) { <p>{{ t('ide.referencePartial') }}</p> }
+                        @if (page.truncated) { <p>{{ t('ide.referenceLimit') }}</p> }
+                        @if (!page.candidates.length) { <p>{{ t('ide.completionEmpty') }}</p> }
+                        @for (candidate of page.candidates; track candidate.symbolKey) {
+                          <button type="button" (click)="navigateCompletion(page, candidate)">
+                            {{ t('ide.goDefinition') }} · {{ candidate.displayName ?? candidate.symbolKey }}
+                          </button>
+                        }
+                      </section>
+                    }
                     @if (store.referenceSearch(); as search) {
                       <div role="status" data-testid="ide-reference-search">
                         @if (search.status === 'searching') {

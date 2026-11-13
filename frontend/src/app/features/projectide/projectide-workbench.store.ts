@@ -6,6 +6,7 @@ import {
   PreviewBundle,
   PreviewCase,
   ProjectLocation,
+  ReferenceCompletion,
   ReadState,
   Selection,
   SourceRecord,
@@ -51,10 +52,14 @@ export class ProjectIdeWorkbenchStore {
   });
   readonly selectedReference = computed(() => this.currentReferenceSelection()?.reference ?? null);
   readonly referenceSymbol = computed(() => this.currentReferenceSelection()?.symbol ?? null);
-  private readonly target = signal<{ record: SourceRecord; location: ProjectLocation } | null>(null);
-  private readonly currentTarget = computed(() =>
-    this.referenceSelection() && !this.currentReferenceSelection() ? null : this.target(),
-  );
+  private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
+    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap'] } | null>(null);
+  private readonly currentTarget = computed(() => {
+    const target = this.target();
+    return target && target.context === this.context() && target.result === this.result() &&
+      target.sourceMap === target.context.sourceMap &&
+      !(this.referenceSelection() && !this.currentReferenceSelection()) ? target : null;
+  });
   readonly sourceTarget = computed(() => this.currentTarget()?.record ?? null);
   readonly sourceLocation = computed(() => this.currentTarget()?.location ?? null);
   readonly navigationState = signal('');
@@ -118,6 +123,23 @@ export class ProjectIdeWorkbenchStore {
     const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (this.result()?.semanticInspection?.references ?? []).filter((reference) => reference.symbolKey !== null && keys.has(reference.symbolKey));
   });
+  readonly referenceCompletions = computed(() => {
+    const result = this.result();
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
+    return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
+  });
+  navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): boolean {
+    this.target.set(null);
+    const result = this.result();
+    const origin = result?.semanticInspection?.symbols.find((symbol) => symbol.key === page.originKey);
+    const symbol = result?.semanticInspection?.symbols.find((symbol) => symbol.key === candidate.symbolKey);
+    if (!result || !this.referenceCompletions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
+        typeof resolveLocation(result, origin.location, true) === 'string') {
+      this.navigationState.set('unavailable'); return false;
+    }
+    return this.navigateLocation(symbol.location, true);
+  }
   readonly referenceRows = computed(() => {
     const result = this.result();
     const record = this.inspectedRecord();
@@ -311,7 +333,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(target);
       return false;
     }
-    this.target.set({ record: target, location });
+    this.target.set({ record: target, location, context, result: this.result(), sourceMap: context.sourceMap });
     this.navigationState.set('ready');
     return true;
   }
