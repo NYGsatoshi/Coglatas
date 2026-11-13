@@ -51,21 +51,26 @@ def safe_name(name: str) -> str:
 
 
 @contextmanager
-def verified_zip(path: Path, expected_digest: str):
-    require(path.is_file() and path.stat().st_size <= MAX_ARCHIVE, "Artifact size is unsupported.")
+def verified_zip(path: Path, expected_digest: str, *, max_archive: int = MAX_ARCHIVE,
+                 max_expanded: int = MAX_EXPANDED, max_members: int = 256):
+    require(type(max_archive) is int and 0 < max_archive <= MAX_ARCHIVE and
+            type(max_expanded) is int and 0 < max_expanded <= MAX_EXPANDED and
+            type(max_members) is int and 0 < max_members <= 256,
+            "Archive profile cannot expand the original limits.")
+    require(path.is_file() and path.stat().st_size <= max_archive, "Artifact size is unsupported.")
     # Parse the exact hashed snapshot, even if the caller replaces its input path.
     with tempfile.TemporaryFile() as snapshot, path.open("rb") as source:
         observed, size = hashlib.sha256(), 0
         while chunk := source.read(1024 * 1024):
             size += len(chunk)
-            require(size <= MAX_ARCHIVE, "Artifact exceeds the bounded input size.")
+            require(size <= max_archive, "Artifact exceeds the bounded input size.")
             snapshot.write(chunk)
             observed.update(chunk)
         require(observed.hexdigest() == expected_digest, "Independent artifact digest differs.")
         snapshot.seek(0)
         with zipfile.ZipFile(snapshot) as archive:
             members, seen, expanded = archive.infolist(), set(), 0
-            require(0 < len(members) <= 256, "ZIP member count is unsupported.")
+            require(0 < len(members) <= max_members, "ZIP member count is unsupported.")
             for member in members:
                 name = safe_name(member.filename)
                 mode = member.external_attr >> 16
@@ -73,7 +78,7 @@ def verified_zip(path: Path, expected_digest: str):
                         "Duplicate, encrypted or linked ZIP member.")
                 seen.add(name)
                 expanded += member.file_size
-                require(0 <= member.file_size <= MAX_ARCHIVE and expanded <= MAX_EXPANDED,
+                require(0 <= member.file_size <= max_archive and expanded <= max_expanded,
                         "ZIP expansion exceeds the bounded input size.")
             yield archive
 
