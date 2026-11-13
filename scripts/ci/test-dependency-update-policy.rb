@@ -324,9 +324,10 @@ abort('Future Syncfusion base install scripts must remain denied unless separate
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
 sdk_version = sdk['version']
-abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &&
-  sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
-  sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
+stable_sdk = sdk_version.is_a?(String) && sdk_version.match?(/\A10\.0\.\d{3}\z/)
+ga11_sdk = sdk_version == '11.0.100'
+abort('SDK must pin stable .NET 10 or exact .NET 11 GA') unless
+  (stable_sdk || ga11_sdk) && sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
 root_npm = JSON.parse((ROOT / 'package.json').read)
 root_lock = JSON.parse((ROOT / 'package-lock.json').read)
@@ -509,7 +510,7 @@ assert_storybook_dependency_sections(coordinated_sources)
 end
 
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
-  /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
+  /mcr\.microsoft\.com\/dotnet\/sdk:[^@\s]+(?=@sha256:)/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 
