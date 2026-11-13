@@ -50,7 +50,13 @@ Incomplete, retaining original rows without claiming complete version provenance
 Local ceilings: two Source bodies total 2 MiB canonical UTF-8, 8192 decoded
 records across the pair, 100000 JSON nodes across the pair, Source depth at most
 48 and numeric lexemes at most 100000 characters, at most 256 output changes by default (caller range
-1–1024), and 256 KiB original before/after value bytes. Exceeding output bounds
+1–1024), and 256 KiB original before/after value bytes. Paths also respect the
+existing browser profile's 4096 UTF-16-unit ceiling. The complete serialized
+comparison, including paths, locations and repeated context metadata, is bounded
+to 600000 canonical UTF-8 bytes, conservatively within the browser reader's
+existing 600000-character admission ceiling. These checks do not raise or alter
+the browser thresholds. A refused comparison carries no rows/pair identity and
+does not become an admitted prepared web pair. Exceeding output bounds
 discards the entire row list and reports ResourceLimit. Cancellation throws;
 it never returns an empty success. These are provisional technical bounds,
 not measured operational retention thresholds or memory/performance guarantees.

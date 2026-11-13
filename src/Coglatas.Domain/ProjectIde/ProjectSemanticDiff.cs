@@ -108,7 +108,16 @@ public sealed class ProjectSemanticDiff
             if (!Equals(OpaqueManifest(left.Manifest.Data), OpaqueManifest(right.Manifest.Data)))
                 Opaque("source", "", "/manifest", left.Manifest.Data, right.Manifest.Data, null, null);
             cancellationToken.ThrowIfCancellationRequested();
-            return new(complete ? SemanticDiffState.Complete : SemanticDiffState.Incomplete, changes, before, after);
+            var comparison = new ProjectSemanticDiff(complete ? SemanticDiffState.Complete : SemanticDiffState.Incomplete, changes, before, after);
+            // Keep returned projections inside the existing browser reader profile,
+            // including paths, locations and repeated context metadata, not just values.
+            try
+            {
+                if (Encoding.UTF8.GetByteCount(comparison.Data.CanonicalText) > 600_000) throw new DiffLimitException();
+            }
+            catch (FormatException) { throw new DiffLimitException(); }
+            cancellationToken.ThrowIfCancellationRequested();
+            return comparison;
         }
         catch (DiffLimitException) { return new(SemanticDiffState.ResourceLimit, []); }
 
@@ -127,6 +136,7 @@ public sealed class ProjectSemanticDiff
         void Add(SemanticChange change)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (change.Path.Length > 4096) throw new DiffLimitException();
             outputBytes += Encoding.UTF8.GetByteCount(change.Before?.CanonicalText ?? "") + Encoding.UTF8.GetByteCount(change.After?.CanonicalText ?? "");
             if (changes.Count >= maximumChanges || outputBytes > 262_144) throw new DiffLimitException();
             changes.Add(change);

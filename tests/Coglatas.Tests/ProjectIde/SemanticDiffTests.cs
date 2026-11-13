@@ -9,6 +9,41 @@ namespace Coglatas.Tests.ProjectIde;
 public sealed class SemanticDiffTests
 {
     [Theory]
+    [InlineData(1, 4500)]
+    [InlineData(256, 2200)]
+    public void OpaqueMemberPathsAndTheWholeProjectionRespectTheExistingBrowserAdmissionBounds(int fields, int keyLength)
+    {
+        CompilerInputManifest Version(int revision, string value)
+        {
+            var root = JsonNode.Parse(Source(revision).Data.CanonicalText)!.AsObject();
+            for (var index = 0; index < fields; index++) root[new string('x', keyLength) + index] = value;
+            return Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        }
+        var before = Version(70, "original"); var after = Version(71, "changed");
+        var diff = Compare(before, after); Assert.Equal(SemanticDiffState.ResourceLimit, diff.State);
+        Assert.Empty(diff.Changes); Assert.False(diff.NoChanges);
+        Assert.Equal("ResourceLimit", diff.Data.Value.GetProperty("state").GetString());
+    }
+    [Theory]
+    [InlineData(4094, SemanticDiffState.Incomplete)]
+    [InlineData(4095, SemanticDiffState.ResourceLimit)]
+    public void OriginalOpaqueFieldPathExactlyAtTheBrowserLimitRemainsReadable(int keyLength, SemanticDiffState expected)
+    {
+        CompilerInputManifest Version(int revision, string value)
+        {
+            var root = JsonNode.Parse(Source(revision).Data.CanonicalText)!.AsObject(); root[new string('x', keyLength) + "0"] = value;
+            return Input(source: ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource());
+        }
+        var diff = Compare(Version(70, "original"), Version(71, "changed")); Assert.Equal(expected, diff.State);
+        if (expected == SemanticDiffState.Incomplete)
+        {
+            Assert.Equal(4096, Assert.Single(diff.Changes).Path.Length);
+            Assert.True(System.Text.Encoding.UTF8.GetByteCount(diff.Data.CanonicalText) <= 600_000);
+        }
+        else Assert.Empty(diff.Changes);
+        Assert.False(diff.NoChanges);
+    }
+    [Theory]
     [InlineData("source")]
     [InlineData("document")]
     [InlineData("document-digest")]
