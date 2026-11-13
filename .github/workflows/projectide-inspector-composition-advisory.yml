@@ -30,6 +30,13 @@ jobs:
       RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
+      - name: Preserve committed source bytes on both hosts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
       - name: Checkout immutable independent Test owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -89,6 +96,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $status = git -c core.autocrlf=false status --porcelain --untracked-files=normal
+          $status | Set-Content (Join-Path $context 'source-status.txt')
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Immutable independent Test checkout is not clean' }
           Push-Location $context
           try {
             $sdk = dotnet --version
