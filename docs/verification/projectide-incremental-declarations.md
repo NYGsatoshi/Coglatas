@@ -15,8 +15,10 @@ not part of a cached verdict. External snapshot decoding is not reused. Resource
 Tenant checks also run on every returned declaration. Unknown/invalid shapes keep
 their original status and Source data; caching does not interpret opaque payloads.
 
-The retained graph owns its collection storage behind IReadOnlyList and
-IReadOnlyDictionary views only. Standard read-only wrappers are insufficient:
+The retained graph owns its collection storage behind read-only list and
+dictionary views. Existing generic IList/IDictionary mutation APIs still reject
+writes with NotSupportedException; the views expose no non-generic ICollection
+or synchronization-storage API. Standard read-only wrappers are insufficient:
 their non-generic ICollection.SyncRoot can expose the mutable backing array or
 dictionary. Declaration/Type lists, nested values, predicates and dimensions use
 private-storage views whose enumeration, Keys and Values expose no such path.

@@ -138,6 +138,13 @@ public sealed class IncrementalDeclarationTests
         AssertNoMutableStorage(first); AssertNoMutableStorage(task.Ports); AssertNoMutableStorage(definition.Type.Fields);
         AssertNoMutableStorage(value.Fields); AssertNoMutableStorage(value.Fields.Keys); AssertNoMutableStorage(value.Fields.Values);
         AssertNoMutableStorage(collection.Items); AssertNoMutableStorage(collection.Entries);
+        Assert.Throws<NotSupportedException>(() => ((IList<DeclarationDecodeResult>)first).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports)[0] = definition);
+        Assert.Throws<NotSupportedException>(() => ((IList<StructureField>)definition.Type.Fields).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, TypedProjectValue>)value.Fields)["items"] = value.Fields["items"]);
+        Assert.Throws<NotSupportedException>(() => ((IList<TypedProjectValue>)collection.Items).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<ProjectMapEntry>)collection.Entries).Add(new(collection.Items[0], collection.Items[0])));
         var bytes = task.Data.ToCanonicalBytes(); bytes[0] = (byte)'!';
         var detached = JsonNode.Parse(task.Data.CanonicalText)!; detached["displayName"] = "Changed by caller";
         var next = Assert.IsType<TaskPlanDeclaration>(cache.Read(input.Source).Single(item => item.Declaration is TaskPlanDeclaration).Declaration);
@@ -165,8 +172,8 @@ public sealed class IncrementalDeclarationTests
     private static void AssertNoMutableStorage(object value)
     {
         Assert.False(value is System.Collections.ICollection);
-        Assert.DoesNotContain(value.GetType().GetInterfaces(), item => item.IsGenericType &&
-            (item.GetGenericTypeDefinition() == typeof(ICollection<>) || item.GetGenericTypeDefinition() == typeof(IDictionary<,>)));
+        foreach (var contract in value.GetType().GetInterfaces().Where(item => item.IsGenericType && item.GetGenericTypeDefinition() == typeof(ICollection<>)))
+            Assert.Equal(true, contract.GetProperty("IsReadOnly")!.GetValue(value));
     }
 
     [Fact]
