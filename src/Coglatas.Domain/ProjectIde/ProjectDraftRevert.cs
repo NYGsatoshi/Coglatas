@@ -135,6 +135,7 @@ public static class ProjectDraftRevert
             foreach (var entry in root["manifest"]!["documents"]!.AsArray())
                 entry!["digest"] = documents[entry["documentId"]!.GetValue<string>()]["digest"]!.DeepClone();
             var decoded = ProjectSourceCodec.Decode(Encode(root).ToCanonicalBytes(), cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (decoded.Source is not { } candidate) return Refuse(decoded.Status == SourceDecodeStatus.Invalid ? DraftRevertState.InvalidSource : DraftRevertState.Unsupported);
             var output = new CompilerInputManifest(candidate, current.Input.Settings); cancellationToken.ThrowIfCancellationRequested();
             return new(DraftRevertState.Ready, new(current.Input, output, after.Input, before.Input, applied), new ImmutableListView<DraftRevertConflict>([]));
