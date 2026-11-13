@@ -22,9 +22,9 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   qualifiedJsdomRanges = Object.freeze({ '30.1.3': '^30.1.3', '31.0.0': '^31.0.0', '31.0.1': '^31.0.0' }),
   expectedDevDependencies = {
     '@angular-devkit/build-angular': '22.2.4',
-    '@storybook/angular': '10.6.5',
+    '@storybook/angular': '10.6.7',
     jsdom: '30.1.3',
-    storybook: '10.6.5',
+    storybook: '10.6.7',
     vitest: '5.1.0',
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -51,6 +51,36 @@ void test('keeps the reviewed Angular 22 third-party versions pinned in manifest
         `${name} must retain its immutable registry integrity`);
     }
   }
+});
+
+
+test('keeps the coordinated Storybook 10.6.7 dependency graph pinned in both workspaces', () => {
+  const version = '10.6.7';
+  const core = ['storybook', '@storybook/angular'];
+  const addons = ['@storybook/addon-a11y', '@storybook/addon-docs', '@storybook/addon-onboarding'];
+  for (const [workspace, manifest, lockfile, direct] of [
+    ['frontend', packageJson, frontendPackageLock, core],
+    ['coglatas-frontend', coglatasPackageJson, coglatasPackageLock, [...core, ...addons]],
+  ]) {
+    for (const name of direct) {
+      assert.equal(manifest.devDependencies[name], version, `${workspace}: ${name} manifest version`);
+      assert.equal(lockfile.packages[''].devDependencies[name], version,
+        `${workspace}: ${name} lockfile root version`);
+    }
+    for (const name of [...direct, '@storybook/builder-webpack5', '@storybook/core-webpack']) {
+      const installed = lockfile.packages[`node_modules/${name}`];
+      assert.equal(installed?.version, version, `${workspace}: ${name} installed version`);
+      assert.match(installed?.integrity ?? '', /^sha512-/u,
+        `${workspace}: ${name} registry integrity`);
+    }
+    assert.equal(lockfile.packages['node_modules/@storybook/angular'].dependencies['@storybook/builder-webpack5'],
+      version, `${workspace}: Angular builder dependency`);
+    assert.equal(lockfile.packages['node_modules/@storybook/builder-webpack5'].dependencies['@storybook/core-webpack'],
+      version, `${workspace}: webpack core dependency`);
+  }
+  assert.equal(coglatasPackageLock.packages['node_modules/@storybook/addon-docs']
+    .dependencies['@storybook/react-dom-shim'], version);
+  assert.equal(coglatasPackageLock.packages['node_modules/@storybook/react-dom-shim']?.version, version);
 });
 
 void test('retains one explicitly qualified jsdom version across both Angular workspaces', () => {
