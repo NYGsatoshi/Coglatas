@@ -25,7 +25,7 @@ jobs:
         os: [ubuntu-24.04, windows-latest]
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: b64d73bbddad949b02b3e17fc80e78ccea47e23b
+      PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
       TEST_HEAD: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
       RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
