@@ -65,11 +65,11 @@ test('CI PostgreSQL service images pin the qualified 18.6 minor and an identical
     '.github/workflows/sec17-file-policy.yml',
     '.github/workflows/sonarcloud-ci.yml',
   ];
-  const digestPattern = /^\\s*image:\\s*postgres:18\\.6@sha256:([a-f0-9]{64})\\s*# PostgreSQL 18\\.6\\s*$/mu;
+  const digestPattern = /^\s*image:\s*postgres:18\.6@sha256:([a-f0-9]{64})\s*# PostgreSQL 18\.6\s*$/mu;
   const digests = [];
   for (const path of paths) {
     const source = await readFile(path, 'utf8');
-    const images = [...source.matchAll(/^\\s*image:\\s*postgres[^\\n]*$/gmu)];
+    const images = [...source.matchAll(/^\s*image:\s*postgres[^\n]*$/gmu)];
     assert.equal(images.length, 1, `Unexpected PostgreSQL service count in ${path}`);
     const match = digestPattern.exec(images[0][0]);
     assert.ok(match, `Unqualified PostgreSQL version or missing immutable digest in ${path}`);
