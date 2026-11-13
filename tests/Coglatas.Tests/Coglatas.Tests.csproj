@@ -32,6 +32,7 @@
     <ProjectReference Include="..\..\src\Coglatas.Web\Coglatas.Web.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.UI.Core\Coglatas.UI.Core.csproj" />
     <ProjectReference Include="../../tools/ProjectIde.Workbench.Synthetic/ProjectIde.Workbench.Synthetic.csproj" />
+    <ProjectReference Include="../../tools/ProjectIde.Tests/ProjectIde.Tests.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.ProjectIde.TestCli;
 
 // Local files only. The manifest must already bind the exact Source and fixed settings.
 var evaluator = new CompilerArtifactIdentity(Json(new { artifactId = "coglatas.local-project-test-evaluator",
@@ -14,8 +15,7 @@ if (args.Length != 3)
     Console.Error.WriteLine("Usage: ProjectIde.Tests SOURCE_JSON INPUT_ENVELOPE_JSON NEW_RESULT_JSON");
     return 3;
 }
-using var cancellation = new CancellationTokenSource();
-Console.CancelKeyPress += Cancel;
+using var cancellation = new ConsoleCancellation();
 try
 {
     SourceJson artifact;
@@ -54,9 +54,7 @@ catch (Exception error) when (error is IOException or UnauthorizedAccessExceptio
     Console.Error.WriteLine("Project Test input/output unavailable; no successful result was published.");
     return 3;
 }
-finally { Console.CancelKeyPress -= Cancel; }
 
-void Cancel(object? sender, ConsoleCancelEventArgs eventArgs) { eventArgs.Cancel = true; cancellation.Cancel(); }
 static SourceJson Failure(string execution, string verdict, string reason) => Json(new
 { format = "coglatas.project-test-cli-failure/1", execution, verdict, reason });
 static async Task<byte[]> ReadBounded(string path, CancellationToken cancellationToken)
