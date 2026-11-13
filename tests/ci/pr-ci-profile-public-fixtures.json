@@ -1,0 +1,828 @@
+{
+  "schema": "coglatas.pr-ci-public-job-metadata-regression.v1",
+  "origin": "Public GitHub Actions REST metadata; selected fields only, not live authenticity proof",
+  "captures": [
+    {
+      "run": {
+        "id": 41690765308,
+        "run_attempt": 1,
+        "name": "PR CI",
+        "path": ".github/workflows/ci.yml",
+        "event": "pull_request",
+        "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+        "head_commit": {
+          "id": "ce57148d8fc233e4134d720d9804e212f73c66bb"
+        },
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "jobs": {
+        "total_count": 17,
+        "jobs": [
+          {
+            "id": 126115719613,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "CI preflight + route",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:20:39Z",
+            "completed_at": "2026-11-03T18:21:26Z",
+            "steps": []
+          },
+          {
+            "id": 126116189098,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "Frontend build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:21:29Z",
+            "completed_at": "2026-11-03T18:25:22Z",
+            "steps": []
+          },
+          {
+            "id": 126116189271,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": ".NET build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:21:29Z",
+            "completed_at": "2026-11-03T18:23:25Z",
+            "steps": []
+          },
+          {
+            "id": 126117302397,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "build-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:23:27Z",
+            "completed_at": "2026-11-03T18:35:52Z",
+            "steps": [
+              {
+                "name": "Test",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:24:57Z",
+                "completed_at": "2026-11-03T18:35:45Z"
+              }
+            ]
+          },
+          {
+            "id": 126117302640,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "ReSharper PR fast lane / ReSharper InspectCode / PR",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:23:28Z",
+            "completed_at": "2026-11-03T18:28:08Z",
+            "steps": []
+          },
+          {
+            "id": 126117303081,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "security-scan",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:23:27Z",
+            "completed_at": "2026-11-03T18:39:19Z",
+            "steps": [
+              {
+                "name": "Download redistributed .NET build for security contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:23:58Z",
+                "completed_at": "2026-11-03T18:24:41Z"
+              },
+              {
+                "name": "Generate and verify SEC-01 / AV-MIG contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:24:59Z",
+                "completed_at": "2026-11-03T18:26:22Z"
+              },
+              {
+                "name": "Build reusable security runtime image",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:26:34Z",
+                "completed_at": "2026-11-03T18:26:58Z"
+              },
+              {
+                "name": "Run isolated security runtime lanes in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:26:58Z",
+                "completed_at": "2026-11-03T18:38:59Z"
+              }
+            ]
+          },
+          {
+            "id": 126118383600,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "frontend-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:25:24Z",
+            "completed_at": "2026-11-03T18:39:09Z",
+            "steps": [
+              {
+                "name": "Run frontend checks in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:26:26Z",
+                "completed_at": "2026-11-03T18:39:04Z"
+              }
+            ]
+          },
+          {
+            "id": 126118383604,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Functional runtime from shared artifacts",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:25:24Z",
+            "completed_at": "2026-11-03T18:27:01Z",
+            "steps": []
+          },
+          {
+            "id": 126119312770,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR same-document actor replacement",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:03Z",
+            "completed_at": "2026-11-03T18:30:07Z",
+            "steps": []
+          },
+          {
+            "id": 126119313555,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / validate-selection",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:03Z",
+            "completed_at": "2026-11-03T18:27:25Z",
+            "steps": []
+          },
+          {
+            "id": 126119545689,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / Functional files",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:27Z",
+            "completed_at": "2026-11-03T18:29:23Z",
+            "steps": []
+          },
+          {
+            "id": 126119545732,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / Functional collaboration",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:28Z",
+            "completed_at": "2026-11-03T18:29:51Z",
+            "steps": []
+          },
+          {
+            "id": 126119545824,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / Functional authz-negative",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:31Z",
+            "completed_at": "2026-11-03T18:29:58Z",
+            "steps": []
+          },
+          {
+            "id": 126119545855,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / Functional core",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:27:28Z",
+            "completed_at": "2026-11-03T18:29:30Z",
+            "steps": []
+          },
+          {
+            "id": 126120951145,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "PR Fast Functional domains / functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:30:13Z",
+            "completed_at": "2026-11-03T18:30:34Z",
+            "steps": []
+          },
+          {
+            "id": 126121284395,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:30:37Z",
+            "completed_at": "2026-11-03T18:30:41Z",
+            "steps": []
+          },
+          {
+            "id": 126124222305,
+            "run_id": 41690765308,
+            "run_attempt": 1,
+            "head_sha": "ce57148d8fc233e4134d720d9804e212f73c66bb",
+            "name": "specification-contract",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:35:54Z",
+            "completed_at": "2026-11-03T18:36:10Z",
+            "steps": []
+          }
+        ]
+      },
+      "expected": {
+        "totalRunnerSeconds": 4070,
+        "securityPathSeconds": 1115,
+        "frontendPathSeconds": 1105
+      }
+    },
+    {
+      "run": {
+        "id": 41697464219,
+        "run_attempt": 1,
+        "name": "PR CI",
+        "path": ".github/workflows/ci.yml",
+        "event": "pull_request",
+        "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+        "head_commit": {
+          "id": "6b720a9b96f14d8c28ac42763887f032c726e56a"
+        },
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "jobs": {
+        "total_count": 17,
+        "jobs": [
+          {
+            "id": 126131672445,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "CI preflight + route",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:49:32Z",
+            "completed_at": "2026-11-03T18:50:36Z",
+            "steps": []
+          },
+          {
+            "id": 126132274928,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": ".NET build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:50:38Z",
+            "completed_at": "2026-11-03T18:52:12Z",
+            "steps": []
+          },
+          {
+            "id": 126132274960,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "Frontend build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:50:39Z",
+            "completed_at": "2026-11-03T18:54:44Z",
+            "steps": []
+          },
+          {
+            "id": 126133144539,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "build-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:52:16Z",
+            "completed_at": "2026-11-03T19:07:18Z",
+            "steps": [
+              {
+                "name": "Test",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:53:52Z",
+                "completed_at": "2026-11-03T19:07:11Z"
+              }
+            ]
+          },
+          {
+            "id": 126133144798,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "security-scan",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:52:15Z",
+            "completed_at": "2026-11-03T19:06:13Z",
+            "steps": [
+              {
+                "name": "Download redistributed .NET build for security contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:52:30Z",
+                "completed_at": "2026-11-03T18:52:34Z"
+              },
+              {
+                "name": "Generate and verify SEC-01 / AV-MIG contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:52:51Z",
+                "completed_at": "2026-11-03T18:54:12Z"
+              },
+              {
+                "name": "Build reusable security runtime image",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:54:23Z",
+                "completed_at": "2026-11-03T18:54:44Z"
+              },
+              {
+                "name": "Run isolated security runtime lanes in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:54:44Z",
+                "completed_at": "2026-11-03T19:05:52Z"
+              }
+            ]
+          },
+          {
+            "id": 126133144939,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "ReSharper PR fast lane / ReSharper InspectCode / PR",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:52:16Z",
+            "completed_at": "2026-11-03T18:54:21Z",
+            "steps": []
+          },
+          {
+            "id": 126134512734,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Functional runtime from shared artifacts",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:54:47Z",
+            "completed_at": "2026-11-03T18:55:42Z",
+            "steps": []
+          },
+          {
+            "id": 126134512998,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "frontend-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:54:46Z",
+            "completed_at": "2026-11-03T19:10:01Z",
+            "steps": [
+              {
+                "name": "Run frontend checks in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:55:36Z",
+                "completed_at": "2026-11-03T19:09:55Z"
+              }
+            ]
+          },
+          {
+            "id": 126135035786,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR same-document actor replacement",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:55:44Z",
+            "completed_at": "2026-11-03T18:58:36Z",
+            "steps": []
+          },
+          {
+            "id": 126135035995,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / validate-selection",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:55:45Z",
+            "completed_at": "2026-11-03T18:56:03Z",
+            "steps": []
+          },
+          {
+            "id": 126135233597,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / Functional collaboration",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:56:06Z",
+            "completed_at": "2026-11-03T18:58:20Z",
+            "steps": []
+          },
+          {
+            "id": 126135233639,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / Functional files",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:56:06Z",
+            "completed_at": "2026-11-03T18:58:18Z",
+            "steps": []
+          },
+          {
+            "id": 126135233725,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / Functional authz-negative",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:56:05Z",
+            "completed_at": "2026-11-03T18:58:13Z",
+            "steps": []
+          },
+          {
+            "id": 126135233834,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / Functional core",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:56:06Z",
+            "completed_at": "2026-11-03T18:58:07Z",
+            "steps": []
+          },
+          {
+            "id": 126136458164,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "PR Fast Functional domains / functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:58:22Z",
+            "completed_at": "2026-11-03T18:58:45Z",
+            "steps": []
+          },
+          {
+            "id": 126136683201,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:58:48Z",
+            "completed_at": "2026-11-03T18:58:52Z",
+            "steps": []
+          },
+          {
+            "id": 126141402868,
+            "run_id": 41697464219,
+            "run_attempt": 1,
+            "head_sha": "6b720a9b96f14d8c28ac42763887f032c726e56a",
+            "name": "specification-contract",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:07:21Z",
+            "completed_at": "2026-11-03T19:07:45Z",
+            "steps": []
+          }
+        ]
+      },
+      "expected": {
+        "totalRunnerSeconds": 3994,
+        "securityPathSeconds": 996,
+        "frontendPathSeconds": 1224
+      }
+    },
+    {
+      "run": {
+        "id": 41697643513,
+        "run_attempt": 1,
+        "name": "PR CI",
+        "path": ".github/workflows/ci.yml",
+        "event": "pull_request",
+        "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+        "head_commit": {
+          "id": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d"
+        },
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "jobs": {
+        "total_count": 17,
+        "jobs": [
+          {
+            "id": 126135326664,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "CI preflight + route",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:56:17Z",
+            "completed_at": "2026-11-03T18:57:19Z",
+            "steps": []
+          },
+          {
+            "id": 126135911567,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "Frontend build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:57:20Z",
+            "completed_at": "2026-11-03T19:00:29Z",
+            "steps": []
+          },
+          {
+            "id": 126135911796,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": ".NET build producer",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:57:21Z",
+            "completed_at": "2026-11-03T18:59:47Z",
+            "steps": []
+          },
+          {
+            "id": 126137241228,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "build-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:59:50Z",
+            "completed_at": "2026-11-03T19:12:17Z",
+            "steps": [
+              {
+                "name": "Test",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T19:01:25Z",
+                "completed_at": "2026-11-03T19:12:10Z"
+              }
+            ]
+          },
+          {
+            "id": 126137241247,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "security-scan",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:59:50Z",
+            "completed_at": "2026-11-03T19:22:54Z",
+            "steps": [
+              {
+                "name": "Download redistributed .NET build for security contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T18:59:56Z",
+                "completed_at": "2026-11-03T19:00:08Z"
+              },
+              {
+                "name": "Generate and verify SEC-01 / AV-MIG contract",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T19:00:33Z",
+                "completed_at": "2026-11-03T19:02:47Z"
+              },
+              {
+                "name": "Build reusable security runtime image",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T19:03:05Z",
+                "completed_at": "2026-11-03T19:03:26Z"
+              },
+              {
+                "name": "Run isolated security runtime lanes in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T19:03:26Z",
+                "completed_at": "2026-11-03T19:22:33Z"
+              }
+            ]
+          },
+          {
+            "id": 126137241340,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "ReSharper PR fast lane / ReSharper InspectCode / PR",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T18:59:49Z",
+            "completed_at": "2026-11-03T19:00:59Z",
+            "steps": []
+          },
+          {
+            "id": 126137621635,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Functional runtime from shared artifacts",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:00:31Z",
+            "completed_at": "2026-11-03T19:01:46Z",
+            "steps": []
+          },
+          {
+            "id": 126137621661,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "frontend-test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:00:36Z",
+            "completed_at": "2026-11-03T19:15:42Z",
+            "steps": [
+              {
+                "name": "Run frontend checks in parallel",
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-11-03T19:01:21Z",
+                "completed_at": "2026-11-03T19:15:37Z"
+              }
+            ]
+          },
+          {
+            "id": 126138342377,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR same-document actor replacement",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:01:50Z",
+            "completed_at": "2026-11-03T19:04:42Z",
+            "steps": []
+          },
+          {
+            "id": 126138342477,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / validate-selection",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:01:48Z",
+            "completed_at": "2026-11-03T19:02:09Z",
+            "steps": []
+          },
+          {
+            "id": 126138559918,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / Functional authz-negative",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:02:12Z",
+            "completed_at": "2026-11-03T19:04:54Z",
+            "steps": []
+          },
+          {
+            "id": 126138559939,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / Functional files",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:02:11Z",
+            "completed_at": "2026-11-03T19:04:01Z",
+            "steps": []
+          },
+          {
+            "id": 126138559962,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / Functional collaboration",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:02:13Z",
+            "completed_at": "2026-11-03T19:04:24Z",
+            "steps": []
+          },
+          {
+            "id": 126138560012,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / Functional core",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:02:12Z",
+            "completed_at": "2026-11-03T19:04:38Z",
+            "steps": []
+          },
+          {
+            "id": 126140069407,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "PR Fast Functional domains / functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:04:56Z",
+            "completed_at": "2026-11-03T19:05:24Z",
+            "steps": []
+          },
+          {
+            "id": 126140346558,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "functional-fast",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:05:26Z",
+            "completed_at": "2026-11-03T19:05:29Z",
+            "steps": []
+          },
+          {
+            "id": 126144137176,
+            "run_id": 41697643513,
+            "run_attempt": 1,
+            "head_sha": "83d8347ddf2b7b0799455d44ec6da53c6066ab4d",
+            "name": "specification-contract",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-03T19:12:19Z",
+            "completed_at": "2026-11-03T19:12:41Z",
+            "steps": []
+          }
+        ]
+      },
+      "expected": {
+        "totalRunnerSeconds": 4374,
+        "securityPathSeconds": 1592,
+        "frontendPathSeconds": 1157
+      }
+    }
+  ]
+}
