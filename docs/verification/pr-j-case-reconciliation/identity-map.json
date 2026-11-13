@@ -1,0 +1,21 @@
+{
+  "schema": "coglatas.pr-j-identity-map.v1",
+  "sourceSha": "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f",
+  "scope": "angular-static",
+  "sdk": {"package": "@playwright/test", "version": "1.64.1", "lockfile": "package-lock.json"},
+  "hashDomain": "coglatas.playwright-test-id.v1\u0000",
+  "relationships": [
+    {"from": "#1717 suite.allTests[].id", "to": "TestCase.id", "evidence": "tests/ui/playwright-full-source-list-reporter.mjs@4ca3d55951fbf3808d00d0c5bf8908d47188157b", "status": "DIRECT_SOURCE_ONLY"},
+    {"from": "Playwright JSON spec.id", "to": "TestCase.id", "evidence": "playwright/lib/runner/index.js:_serializeTestSpec; actual SDK fixture controls", "status": "DIRECT_SDK_CONTROL_VERIFIED"},
+    {"from": "onTestEnd test.id", "to": "TestCase.id", "evidence": "tests/ui/playwright-case-capture.mjs; actual SDK fixture controls", "status": "DIRECT_NATIVE_EVENT"},
+    {"from": "Playwright HTML testId", "to": "TestCase.id", "evidence": "playwright/lib/runner/index.js:_createTestEntry", "status": "SDK_SOURCE_MAPPING_ONLY"},
+    {"from": "JUnit title", "to": "TestCase.id", "evidence": "scripts/ci/verify-playwright-required-tests.mjs", "status": "UNPROVEN_DO_NOT_MAP"},
+    {"from": "Functional journeyId", "to": "TestCase.id", "evidence": "tests/functional/fixtures/functional-evidence-reporter.mjs; scripts/ci/functional_evidence.py; scripts/ci/finalize-functional-lane.py", "status": "UNPROVEN_DO_NOT_MAP"},
+    {"from": "Functional files/FCI04 owner status", "to": "TestCase.id", "evidence": "tests/functional/files/files-owner-reporter.mjs; tests/functional/fixtures/fci04-owner-reporter.mjs", "status": "UNPROVEN_DO_NOT_MAP"}
+  ],
+  "sourceObservation": {"caseCount": 456, "declaredSkipped": 2, "rosterSha256": "f14a75e25bf4eb41dac5e0742207da8d6747c9e3f76601e2735981f45fafec38", "qualification": "LOCAL_LIST_ONLY_NOT_NATIVE_EXECUTION"},
+  "artifactProvenanceVerified": false,
+  "requiredGateQualified": false,
+  "functionalCaseCoverage": "COVERAGE_UNVERIFIED",
+  "prNComplete": false
+}

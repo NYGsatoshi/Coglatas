@@ -18,6 +18,9 @@ function testHash(id) {
     .update(id, 'utf8').digest('hex');
 }
 
+// Reuse the integrated domain-separated scheme for non-shard case observation.
+export { testHash as hashPlaywrightTestId };
+
 function testsOf(tests, label) {
   if (!Array.isArray(tests) || tests.length < 1 ||
       tests.length > MAX_TESTS) deny(label + '_SIZE');
