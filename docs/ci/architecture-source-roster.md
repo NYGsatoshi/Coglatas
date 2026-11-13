@@ -44,6 +44,13 @@ be complete declarations; comments or an additional foreign namespace cannot
 stand in for the expected declaration.
 Additional indented or trailing-comment namespace declarations are rejected
 rather than silently omitted from the supported declaration count.
+The structural view masks ordinary quoted string/character literals and line
+comments before counting code declarations. Verbatim, interpolated and raw
+strings, escaped code identifiers, preprocessor directives, non-LF/CRLF line
+separators and unclosed/multiline ordinary literals are unsupported and refused.
+Namespace-like text in literals cannot authorize a foreign actual declaration,
+including one placed after other tokens on a line. This remains a bounded
+source grammar rather than a full C# parser or compiled-discovery substitute.
 
 Output uses SHA-256, with a distinct domain for each fully-qualified case name,
 and a canonical full-roster hash. It also contains a SHA-256 for each source

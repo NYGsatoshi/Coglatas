@@ -127,12 +127,30 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
             'namespace Coglatas.Architecture.Tests;\nnamespace Other;',
             'namespace Coglatas.Architecture.Tests;\nnamespace Other; // additional namespace',
             'namespace Coglatas.Architecture.Tests;\n    namespace Other;',
+            'namespace Coglatas.Architecture.Tests;\nusing System; namespace Other;',
         ):
             self.core.write_text(fixture('LayerDependencyTests', 6).replace(
                 'namespace Coglatas.Architecture.Tests;', declaration), encoding='utf-8')
             with self.assertRaises(module.SourceRosterError) as failure:
                 module.discover(self.root, 'CORE')
             self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
+
+    def test_namespace_text_in_literals_cannot_authorize_foreign_code(self) -> None:
+        """Literal/comment text is not code; unsupported literal syntax refuses."""
+        original = fixture('LayerDependencyTests', 6)
+        foreign = original.replace('namespace Coglatas.Architecture.Tests;',
+                                   'using System; namespace Other;')
+        forged = foreign.replace('{\n', '{\n    private const string Text = @"\n'
+                                 'namespace Coglatas.Architecture.Tests;\n";\n', 1)
+        for candidate in (forged, original.replace('{\n', '{\n    private string Text = $"text";\n', 1),
+                          original.replace('{\n', '{\n    private string Text = """text""";\n', 1),
+                          '# if false\n' + original + '# endif\n'):
+            with self.subTest(source=candidate[:60]), self.assertRaises(module.SourceRosterError):
+                module.parse_source(candidate.encode('utf-8'), 'LayerDependencyTests')
+        positive = original.replace('    {\n    }',
+                                    '    {\n        _ = "namespace Other;"; // namespace Hidden;\n    }', 1)
+        self.assertEqual(module.parse_source(positive.encode('utf-8'), 'LayerDependencyTests'),
+                         module.parse_source(original.encode('utf-8'), 'LayerDependencyTests'))
 
     def test_source_swap_between_check_and_open_is_denied(self) -> None:
         """A replacement leaf must not masquerade as the previously checked inode."""
