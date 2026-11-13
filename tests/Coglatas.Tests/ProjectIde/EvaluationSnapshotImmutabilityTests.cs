@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
-using Xunit;
 namespace Coglatas.Tests.ProjectIde;
 public sealed class EvaluationSnapshotImmutabilityTests
 {
