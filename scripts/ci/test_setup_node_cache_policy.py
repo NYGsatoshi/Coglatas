@@ -191,7 +191,10 @@ def run_command_lines(job: str) -> list[str]:
                 r"(?:^|[;&|])[ \t]*(?:exit|return|break|continue|exec)(?:[ \t]|;|$)",
                 fragment,
             ):
-                shell_continuation = True
+                # The reviewed Qodana guard exits nonzero if SARIF is absent.
+                # That inner refusal is safe: it cannot skip a successful owner.
+                if not (shell_depth and fragment.strip() == "exit 1"):
+                    shell_continuation = True
             command = fragment.split("#", 1)[0].strip()
             if not command:
                 continue
