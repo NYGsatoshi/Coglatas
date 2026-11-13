@@ -61,7 +61,8 @@ function validatePreparedHistory(bundle: PreviewBundle, anchor: PreviewCase): vo
   for (const [index, context] of path.entries()) {
     const row = rows.find(row => sameContext(row.context, context));
     if (!row || path.some((other, otherIndex) => otherIndex !== index && sameContext(other, context)) ||
-        (index > 0 && (row.storage !== 'TypedDelta' || row.parents.length !== 1 || !sameContext(row.parents[0], path[index - 1]))))
+        (index > 0 && (row.storage !== 'TypedDelta' || row.parents.length !== 1 ||
+          context.branch.branchId !== path[index - 1].branch.branchId || !sameContext(row.parents[0], path[index - 1]))))
       throw new PreviewReadError('wrong-scope');
   }
 }

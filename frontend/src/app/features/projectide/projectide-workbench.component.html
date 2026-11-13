@@ -132,12 +132,12 @@
                 #inspectorButton
                 type="button"
                 [attr.aria-pressed]="panel() === tab"
-                (click)="open(tab)"
+                (click)="open(tab, true)"
               >
                 {{ t('ide.' + tab) }}
               </button>
             } @else {
-              <button type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab)">
+              <button type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab, true)">
                 {{ t('ide.' + tab) }}
               </button>
             }

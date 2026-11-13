@@ -234,6 +234,45 @@ public sealed class SourceHistoryTests
         Assert.Null(view.ReadSyntheticHistory(Ref(input.Source), [checkpoint])); Assert.Null(view.History);
     }
 
+    [Theory]
+    [InlineData("foreign")]
+    [InlineData("cancelled")]
+    [InlineData("exception")]
+    [InlineData("reset")]
+    public async Task WindowsHistoryClearNotifiesBeforeFailureAndHonorsSubscriberReset(string mode)
+    {
+        var input = Input(source: Source(50));
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var profile = new CompilerHostProfile(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString()));
+        var request = new CompilerHostRequest(new(input), 1);
+        using var view = new SyntheticWorkbenchViewModel(); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await new LocalNetCompilerHost(profile).CompileAsync(request)));
+        var checkpoint = ProjectHistoryRevision.Checkpoint(input.Source, 0);
+        Assert.NotNull(view.ReadSyntheticHistory(Ref(input.Source), [checkpoint]));
+        var observedClear = false;
+        view.PropertyChanged += (sender, _) =>
+        {
+            if (sender is not SyntheticWorkbenchViewModel { History: null } current || observedClear) return;
+            observedClear = true;
+            if (mode == "reset") current.Reset();
+        };
+        var invoked = false;
+        IEnumerable<ProjectHistoryRevision> Supply()
+        {
+            invoked = true;
+            if (mode == "exception") throw new IOException("Synthetic materialization failure");
+            yield return checkpoint;
+        }
+        var target = mode == "foreign" ? new RevisionRef(new(input.Source.TenantId, ProjectId.Parse(Id(99)), input.Source.Context.Branch.BranchId), RevisionId.Parse(Id(50))) : Ref(input.Source);
+        if (mode == "cancelled") Assert.Throws<OperationCanceledException>(() => view.ReadSyntheticHistory(target, Supply(), new(true)));
+        else if (mode == "exception") Assert.Throws<IOException>(() => view.ReadSyntheticHistory(target, Supply()));
+        else Assert.Null(view.ReadSyntheticHistory(target, Supply()));
+        Assert.True(observedClear); Assert.Null(view.History);
+        if (mode is "foreign" or "reset") Assert.False(invoked);
+        if (mode == "reset") Assert.Equal("Empty", view.State);
+    }
+
     [Fact]
     public void ExportedHistoryActuallyReconstructsItsExactCaseAndSurvivesCheckpointCompaction()
     {

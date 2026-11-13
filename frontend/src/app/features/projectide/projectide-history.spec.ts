@@ -55,4 +55,21 @@ describe('Core-reconstructed synthetic history', () => {
     Object.assign(row, { sourceDigest: { algorithm: 'sha-256', value: 'a'.repeat(64) } });
     expect(store.openHistoryRevision(row)).toBe(false); expect(store.state()).toBe('unsupported'); expect(store.context()).toBeNull();
   });
+  it('rejects an otherwise bound delta crossing Branches within one Project', () => {
+    const bundle = raw();
+    const before = bundle.cases.find((item: { key: string }) => item.key === 'document-before');
+    const after = bundle.cases.find((item: { key: string }) => item.key === 'document-after');
+    const history = before.preparedHistory;
+    const replacement = structuredClone(after.context);
+    replacement.branch.branchId = '00000000-0000-0000-0000-000000000099';
+    const changed = JSON.parse(JSON.stringify(after).split(after.context.branch.branchId).join(replacement.branch.branchId));
+    delete before.preparedDiff;
+    bundle.cases[bundle.cases.indexOf(after)] = changed;
+    history.revisions[1].context = structuredClone(replacement);
+    history.reconstructionPath[1] = structuredClone(replacement);
+    delete before.preparedHistory;
+    expect(() => readPreviewBundle(bundle)).not.toThrow();
+    before.preparedHistory = history;
+    expect(() => readPreviewBundle(bundle)).toThrow();
+  });
 });

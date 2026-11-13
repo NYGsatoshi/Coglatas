@@ -70,8 +70,9 @@ not a deletion, revocation or capacity exemption.
 
 The Windows pure .NET ViewModel reads the same Core history only within its
 accepted Project scope, rejects foreign requests before invoking a body supply,
-clears history across result/lifecycle changes and cannot publish an obsolete
-result after reentrant reset/disposal. Actual Avalonia is not activated.
+notifies consumers when old history is cleared even if the next read is foreign,
+cancelled or throws, and cannot publish an obsolete result after reentrant
+reset/disposal. Actual Avalonia is not activated.
 
 The offline exporter now creates the existing document-after fixture through
 the real delta/checkpoint Reader, compares it to the full-reference Source,
@@ -80,7 +81,8 @@ All fourteen pre-existing Source/Compiler case objects remain unchanged; only
 optional prepared-history metadata is added. Native contract tests independently
 reconstruct the exact exported pair rather than trusting its success flags.
 
-Angular validates exact case/context/digest/path/parent/sequence bindings and
+Angular validates exact case/context/digest/path/parent/sequence bindings,
+including one-Branch forward-delta paths, and
 shows a localized 32-row History panel, distinct Source-admission status,
 missing-anchor outcome and exact historical Source navigation. It does not
 reimplement reconstruction, confer history capability or present a non-Live

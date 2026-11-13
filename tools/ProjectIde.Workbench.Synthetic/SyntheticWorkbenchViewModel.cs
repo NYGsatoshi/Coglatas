@@ -293,10 +293,11 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
-        History = null;
+        var lifecycle = _lifecycle;
+        if (History is not null) { History = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || History is not null) return null;
         if (_desired is null || Source is null || State != "Ready" ||
             revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
-        var lifecycle = _lifecycle;
         var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
         if (_disposed || lifecycle != _lifecycle) return null;
         History = result; Changed();
