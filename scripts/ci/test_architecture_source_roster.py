@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import os
 from pathlib import Path
 import tempfile
@@ -61,6 +62,30 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
         with self.assertRaises(module.SourceRosterError):
             module.discover(self.root, 'CORE')
 
+    def test_lf_and_crlf_preserve_case_identity_and_raw_source_hashes(self) -> None:
+        """Line endings may vary without normalizing the recorded source bytes."""
+        for profile in ('CORE', 'WITH_NEGATIVE_ORACLE'):
+            if profile == 'WITH_NEGATIVE_ORACLE':
+                self.negative.write_bytes(fixture('LayerDependencyNegativeControls', 1).encode('utf-8'))
+            filenames, _ = module.PROFILES[profile]
+            raw_sources = {name: (self.project / name).read_bytes().replace(b'\r\n', b'\n')
+                           for name in filenames}
+            reports = []
+            for ending in (b'\n', b'\r\n'):
+                for name, raw in raw_sources.items():
+                    (self.project / name).write_bytes(raw.replace(b'\n', ending))
+                report = module.discover(self.root, profile)
+                for name, raw in raw_sources.items():
+                    self.assertEqual(report['sourceFileSha256'][name],
+                                     hashlib.sha256(raw.replace(b'\n', ending)).hexdigest())
+                reports.append(report)
+            self.assertEqual(reports[0]['caseIdHashes'], reports[1]['caseIdHashes'])
+            self.assertEqual(reports[0]['rosterSha256'], reports[1]['rosterSha256'])
+            self.assertNotEqual(reports[0]['sourceFileSha256'], reports[1]['sourceFileSha256'])
+        with self.assertRaises(module.SourceRosterError):
+            module.parse_source(fixture('LayerDependencyTests', 6).replace('\n', '\r').encode('utf-8'),
+                                'LayerDependencyTests')
+
     def test_unexpected_source_or_duplicate_case_is_refused(self) -> None:
         """Additional files and method identity collisions must fail closed."""
         self.core.write_text(fixture('LayerDependencyTests', 5) +
@@ -95,22 +120,17 @@ class ArchitectureSourceRosterTests(unittest.TestCase):
             'namespace Coglatas.Architecture.Tests;', 'namespace Other;'), encoding='utf-8')
         with self.assertRaises(module.SourceRosterError):
             module.discover(self.root, 'CORE')
-        # A comment containing the reviewed namespace must not satisfy
-        # a foreign actual declaration or duplicate namespace claims.
-        self.core.write_text(fixture('LayerDependencyTests', 6).replace(
-            'namespace Coglatas.Architecture.Tests;',
-            'namespace Other;\n// namespace Coglatas.Architecture.Tests;'),
-            encoding='utf-8')
-        with self.assertRaises(module.SourceRosterError) as failure:
-            module.discover(self.root, 'CORE')
-        self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
-        self.core.write_text(fixture('LayerDependencyTests', 6).replace(
-            'namespace Coglatas.Architecture.Tests;',
-            'namespace Coglatas.Architecture.Tests;\nnamespace Other;'),
-            encoding='utf-8')
-        with self.assertRaises(module.SourceRosterError) as failure:
-            module.discover(self.root, 'CORE')
-        self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
+        # Preserve the strict namespace controls already qualified in #1880:
+        # comments and duplicate declarations cannot supply namespace authority.
+        for declaration in (
+            'namespace Other;\n// namespace Coglatas.Architecture.Tests;',
+            'namespace Coglatas.Architecture.Tests;\nnamespace Other;',
+        ):
+            self.core.write_text(fixture('LayerDependencyTests', 6).replace(
+                'namespace Coglatas.Architecture.Tests;', declaration), encoding='utf-8')
+            with self.assertRaises(module.SourceRosterError) as failure:
+                module.discover(self.root, 'CORE')
+            self.assertEqual(failure.exception.args[0], 'SOURCE_NAMESPACE')
 
     def test_source_swap_between_check_and_open_is_denied(self) -> None:
         """A replacement leaf must not masquerade as the previously checked inode."""

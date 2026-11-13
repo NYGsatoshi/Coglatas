@@ -67,12 +67,14 @@ def regular_bytes(path: Path) -> bytes:
 def parse_source(raw: bytes, expected_class: str) -> list[str]:
     """Recognize the exact supported C# Fact declaration form; not full Roslyn."""
     try:
-        source = raw.decode('utf-8')
+        # C# source may use LF or CRLF. Normalize only the parser view;
+        # discover() continues to hash the original unmodified file bytes.
+        source = raw.decode('utf-8').replace('\r\n', '\n')
     except UnicodeError as exc:
         raise SourceRosterError('SOURCE_ENCODING') from exc
-    require('/*' not in source and '*/' not in source and '#if' not in source,
+    require('\r' not in source and '/*' not in source and '*/' not in source and '#if' not in source,
             'UNSUPPORTED_SYNTAX')
-    # Match entire supported C# declarations, not strings in comments.
+    # Match complete declarations rather than comments or namespace substrings.
     namespaces = re.findall(
         r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*$',
         source)
