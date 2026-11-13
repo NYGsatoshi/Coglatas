@@ -70,12 +70,15 @@ per carrier, 32 reconstruction records, 8 MiB of supplied history storage and
 against 8 MiB and 100000 nodes, with the history JSON depth/numeric ceilings.
 At most 4096 inverse record/member operations are considered, including
 corresponding manifest operations. Enumeration is disposed and loops check
-cancellation. These limits are not operational retention or deletion policy.
+cancellation. The composed candidate also obeys the default 4 MiB Source ceiling;
+an oversized composition returns ResourceLimit rather than schema Unsupported.
+These limits are not operational retention or deletion policy.
 
 The Windows synthetic ViewModel prepares only against its accepted current
 compilation. Clearing a previous preparation notifies subscribers before a
 rejected/cancelled/throwing read, and lifecycle checks reject reentrant reset or
-disposal. Only the exact retained plan and a fresh client generation can start
+disposal. A preparation generation also prevents an older read from replacing
+a newer nested preview without a lifecycle change. Only the exact retained plan and a fresh client generation can start
 the next local synthetic compile; prior results and preparation are cleared.
 
 The exporter invokes the real inverse engine and exact application, checks its

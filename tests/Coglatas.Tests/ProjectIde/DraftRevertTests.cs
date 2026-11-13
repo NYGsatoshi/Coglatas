@@ -328,4 +328,44 @@ public sealed class DraftRevertTests
         Assert.Equal(plan.Data, SourceJson.Parse(cases["document-after"].GetProperty("preparedRevert").GetProperty("plan").GetRawText()));
         Assert.Same(plan.After, plan.ApplyToDraft(current)); Assert.Null(plan.ApplyToDraft(candidate));
     }
+    [Fact]
+    public void OversizedCombinedCandidateReturnsResourceLimitRatherThanUnsupported()
+    {
+        ProjectSource Large(int revision, int entity)
+        {
+            var basis = Source(revision);
+            return ProjectSource.Create(basis.Context, basis.Documents, Json(new JsonArray(Obj(new { entityId = Id(entity), documentId = Id(4),
+                kind = "example.future", schemaVersion = 1, payload = new { retained = new string('x', 2200000) } }))));
+        }
+        var before = Large(60, 7); var after = Source(61); var current = Large(62, 8);
+        var settings = Settings(); settings["executionProfile"]!["maximumOperations"] = 10000000;
+        var a = Input(settings, before); var b = Input(settings, after); var c = Input(settings, current);
+        var am = ProjectSemanticBinder.Bind(a); var bm = ProjectSemanticBinder.Bind(b); var cm = ProjectSemanticBinder.Bind(c);
+        Assert.Equal(2, am.Declarations.Count); Assert.Equal(2, cm.Declarations.Count);
+        var result = ProjectDraftRevert.Preview(am, bm, cm, a.InputDigest, b.InputDigest, c.InputDigest,
+            DraftRenameTests.Proposal(c, 80), History(before, after, current));
+        Assert.Equal(DraftRevertState.ResourceLimit, result.State); Assert.Null(result.Plan); Assert.Empty(result.Conflicts);
+    }
+    [Fact]
+    public async Task ReentrantHistorySupplyCannotReplaceANewerPreviewWithoutChangingTheWorkbenchLifecycle()
+    {
+        var a = Input(source: Revision(60)); var b = Input(source: Revision(61, "Changed")); var c = Input(source: Revision(62, "Changed", "Later"));
+        CompilerArtifactIdentity Artifact(string key) => new(SourceJson.Parse(c.Settings.Value.GetProperty(key).GetRawText()));
+        var host = new LocalNetCompilerHost(new(c.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            c.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(c), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var parent = ProjectSemanticBinder.Bind(a); var reverted = ProjectSemanticBinder.Bind(b); var history = History(a.Source, b.Source, c.Source);
+        Func<PartialSemanticModel, PartialSemanticModel, ContentDigest, ContentDigest, ProposalContext, IEnumerable<ProjectHistoryRevision?>, CancellationToken, DraftRevertPreview?> prepare = view.PreviewRevert;
+        DraftRevertPreview? newer = null;
+        IEnumerable<ProjectHistoryRevision> Supply()
+        {
+            newer = prepare(parent, reverted, a.InputDigest, b.InputDigest, DraftRenameTests.Proposal(c, 81), history, CancellationToken.None);
+            foreach (var item in history) yield return item;
+        }
+        Assert.Null(view.PreviewRevert(parent, reverted, a.InputDigest, b.InputDigest, DraftRenameTests.Proposal(c, 80), Supply()));
+        Assert.NotNull(newer); Assert.Same(newer, view.RevertPreview);
+        Assert.Equal(CandidateRevisionId.Parse(Id(81)), view.RevertPreview!.Plan!.After.Source.Context.Proposal!.CandidateRevisionId);
+        Assert.Equal(c.Source.Data, view.Source!.Data);
+    }
 }

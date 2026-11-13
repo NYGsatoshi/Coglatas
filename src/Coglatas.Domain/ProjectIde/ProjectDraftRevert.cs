@@ -106,7 +106,12 @@ public static class ProjectDraftRevert
             var oldRoot = JsonNode.Parse(DraftSourceTransition.Recontextualize(before, next, null, null, cancellationToken).Data.CanonicalText)!.AsObject();
             var afterRoot = JsonNode.Parse(DraftSourceTransition.Recontextualize(after, next, null, null, cancellationToken).Data.CanonicalText)!.AsObject();
             var root = JsonNode.Parse(DraftSourceTransition.Recontextualize(current, next, null, null, cancellationToken).Data.CanonicalText)!.AsObject();
-            SourceJson Encode(JsonNode node) => SourceJson.FromObject(node);
+            SourceJson Encode(JsonNode node)
+            {
+                // Nodes came from admitted bounded JSON; inverse composition can still exceed the output ceiling.
+                try { return SourceJson.FromObject(node); }
+                catch (FormatException) { throw new DraftSourceLimitException(); }
+            }
             Dictionary<string, JsonNode> Rows(JsonObject node, string field, string identity) => node[field]!.AsArray()
                 .ToDictionary(item => item![identity]!.GetValue<string>(), item => item!, StringComparer.Ordinal);
             var oldManifest = oldRoot["manifest"]!.DeepClone().AsObject(); var afterManifest = afterRoot["manifest"]!.DeepClone().AsObject();

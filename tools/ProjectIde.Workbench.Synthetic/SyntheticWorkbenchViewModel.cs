@@ -17,6 +17,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     private long _lastGeneration = -1;
     private long _lifecycle;
     private long _selectionGeneration;
+    private long _revertPreviewGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
     public ProjectSource? Source { get; private set; }
@@ -234,15 +235,15 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         ContentDigest expectedReverted, ProposalContext proposal, IEnumerable<ProjectHistoryRevision?> history, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var lifecycle = _lifecycle;
+        var lifecycle = _lifecycle; var generation = ++_revertPreviewGeneration;
         if (RevertPreview is not null) { RevertPreview = null; Changed(); }
-        if (_disposed || lifecycle != _lifecycle || RevertPreview is not null || State != "Ready" ||
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration || RevertPreview is not null || State != "Ready" ||
             _compilation?.Model is not { } model || _desired is null) return null;
         var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
-        if (_disposed || lifecycle != _lifecycle) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
         RevertPreview = preview; Changed();
-        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(RevertPreview, preview) ? preview : null;
+        return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 
     /// <summary>Replace this synthetic local context with its exact prepared new Draft; no shared mutation or effect replay.</summary>
@@ -345,7 +346,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
