@@ -7,6 +7,11 @@ by the offline Angular fixture and Windows pure ViewModel. See the
 [scope and remaining #1030 work](verification/projectide-reference-completion.md).
 It opens declarations read-only; runtime editing and actual Avalonia remain gated.
 
+The [local Draft Rename preparation](verification/projectide-draft-rename.md)
+adds a checked immutable display-name change plan, a synthetic Windows local
+application flow and a Core-prepared Angular before/after fixture pair. Runtime
+save/authorization and wider #1030 acceptance remain separate requirements.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

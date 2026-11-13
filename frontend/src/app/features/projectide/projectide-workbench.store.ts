@@ -6,13 +6,14 @@ import {
   PreviewBundle,
   PreviewCase,
   ProjectLocation,
+  PreparedDraftRename,
   ReferenceCompletion,
   ReadState,
   Selection,
   SourceRecord,
   sameContext,
 } from './projectide.contracts';
-import { PreviewReadError, resolveLocation } from './projectide-preview.adapter';
+import { PreviewReadError, readPreviewBundle, resolveLocation } from './projectide-preview.adapter';
 
 /** Semantic selection/input generation; DOM panels, focus and filters stay in the component. */
 @Injectable()
@@ -129,6 +130,25 @@ export class ProjectIdeWorkbenchStore {
     const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
   });
+  readonly preparedRename = computed(() => {
+    const result = this.result(); const record = this.inspectedRecord(); const prepared = result?.preparedRename;
+    if (!result || !result.semanticInspection || result !== this.context() || result.freshness !== 'Current' || !record || !prepared ||
+        record.recordType !== 'entity' || record.identity !== prepared.plan.target.entityId ||
+        record.location.documentId !== prepared.plan.target.documentId ||
+        typeof resolveLocation(result, prepared.plan.target, true) === 'string') return null;
+    return prepared;
+  });
+  loadPreparedRename(prepared: PreparedDraftRename): boolean {
+    const bundle = this.bundle(); const result = this.result(); const generation = this.generation;
+    if (!bundle || !result || this.preparedRename() !== prepared) return false;
+    try { readPreviewBundle(bundle); } catch { return false; }
+    const after = bundle.cases.find(item => item.key === prepared.afterCaseKey);
+    if (!after) return false;
+    this.resetSelection();
+    if (this.generation !== generation || this.bundle() !== bundle || this.context() !== result || this.result() !== result) return false;
+    this.result.set(null); this.context.set(after); this.result.set(after);
+    return true;
+  }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): boolean {
     this.target.set(null);
     const result = this.result();

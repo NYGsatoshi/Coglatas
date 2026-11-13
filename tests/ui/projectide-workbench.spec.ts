@@ -18,6 +18,41 @@ async function choose(page: Page, key: string) {
 }
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
+  for (const locale of ['en', 'ja'] as const) {
+    test(`loads a Core-prepared Draft rename with Enter and Space in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname))
+          writes.push(request.method() + ' ' + new URL(request.url()).pathname);
+      });
+      await page.goto('/app/projectide/preview');
+      const source = locale === 'en' ? 'Source' : 'ソース';
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('draft-before');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await expect(page.getByTestId('projectide-workbench')).toContainText('00000032-0000-4000-8000-000000000001');
+        await page.getByRole('button', { name: source, exact: true }).click();
+        await page.getByRole('button', { name: 'coglatas.task · 00000008-0000-4000-8000-000000000001', exact: true }).click();
+        const preview = page.getByTestId('ide-draft-rename');
+        await expect(preview).toContainText('Observe 🌌');
+        await expect(preview).toContainText('Observe renamed 🌌');
+        const button = preview.getByRole('button', { name: locale === 'en' ? 'Load prepared Draft fixture' : '準備済みDraft Fixtureを読み込む', exact: true });
+        await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('draft-after');
+        await expect(page.getByRole('heading', { name: source, exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Observe renamed');
+        await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
   test('opens related Inspector findings with Enter and Space and follows their exact source', async ({ page }) => {
     await preview(page);
     await choose(page, 'fail');

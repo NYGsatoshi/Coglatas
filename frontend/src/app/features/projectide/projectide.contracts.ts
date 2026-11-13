@@ -1,4 +1,4 @@
-import { hasUniquePreviewIdentities, isPreviewCaseShape } from './projectide-preview.validation';
+import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
 
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
 declare const identity: unique symbol;
@@ -7,15 +7,27 @@ export interface Digest {
   readonly algorithm: 'sha-256';
   readonly value: string;
 }
-export interface RevisionContext {
-  readonly kind: 'coglatas.committed';
-  readonly branch: {
+interface BranchContext {
     readonly tenantId: Identity<'Tenant'>;
     readonly projectId: Identity<'Project'>;
     readonly branchId: Identity<'Branch'>;
-  };
+}
+export interface CommittedContext {
+  readonly kind: 'coglatas.committed';
+  readonly branch: BranchContext;
   readonly revisionId: Identity<'Revision'>;
 }
+export interface CandidateContext {
+  readonly kind: 'coglatas.candidate';
+  readonly branch: BranchContext;
+  readonly proposalId: Identity<'Proposal'>;
+  readonly candidateRevisionId: Identity<'CandidateRevision'>;
+  readonly baseRevision: CommittedContext;
+  readonly capturedTargetHead: CommittedContext;
+}
+export type RevisionContext = CommittedContext | CandidateContext;
+export const contextRevision = (context: RevisionContext): string => context.kind === 'coglatas.committed'
+  ? context.revisionId : context.candidateRevisionId;
 export interface ProjectLocation {
   readonly format: 'coglatas.project-location/1';
   readonly schemaVersion: 1;
@@ -108,6 +120,20 @@ export interface ReferenceCompletion {
   readonly truncated: boolean;
   readonly candidates: readonly { readonly symbolKey: string; readonly displayName: string | null }[];
 }
+export interface PreparedDraftRename {
+  readonly afterCaseKey: string;
+  readonly plan: {
+    readonly beforeInputDigest: Digest;
+    readonly afterInputDigest: Digest;
+    readonly beforeContext: CandidateContext;
+    readonly afterContext: CandidateContext;
+    readonly target: ProjectLocation;
+    readonly previousName: string | null;
+    readonly newName: string;
+    readonly referenceCoverageComplete: boolean;
+    readonly referenceOrigins: readonly ProjectLocation[];
+  };
+}
 
 export interface SemanticInspection {
   readonly format: 'coglatas.semantic-inspection/1';
@@ -157,6 +183,7 @@ export interface PreviewCase {
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
+  readonly preparedRename?: PreparedDraftRename | null;
   readonly sourceMap: {
     readonly format: string;
     readonly compilerInputId: Identity<'CompilerInput'>;
@@ -185,12 +212,15 @@ export type Selection =
   | { readonly kind: 'diagnostic'; readonly id: Identity<'Diagnostic'> }
   | { readonly kind: 'entity'; readonly id: Identity<'Entity'> }
   | { readonly kind: 'relation'; readonly id: Identity<'Relation'> };
-export const sameContext = (a: RevisionContext, b: RevisionContext): boolean =>
-  a.kind === b.kind &&
-  a.revisionId === b.revisionId &&
-  a.branch.tenantId === b.branch.tenantId &&
-  a.branch.projectId === b.branch.projectId &&
-  a.branch.branchId === b.branch.branchId;
+export const sameContext = (a: RevisionContext, b: RevisionContext): boolean => {
+  if (!isRevisionContextShape(a) || !isRevisionContextShape(b)) return false;
+  if (a.kind !== b.kind || a.branch.tenantId !== b.branch.tenantId || a.branch.projectId !== b.branch.projectId ||
+      a.branch.branchId !== b.branch.branchId) return false;
+  if (a.kind === 'coglatas.committed' && b.kind === 'coglatas.committed') return a.revisionId === b.revisionId;
+  return a.kind === 'coglatas.candidate' && b.kind === 'coglatas.candidate' && a.proposalId === b.proposalId &&
+    a.candidateRevisionId === b.candidateRevisionId && sameContext(a.baseRevision, b.baseRevision) &&
+    sameContext(a.capturedTargetHead, b.capturedTargetHead);
+};
 export const sameDigest = (a: Digest, b: Digest): boolean =>
   a.algorithm === b.algorithm && a.value === b.value;
 

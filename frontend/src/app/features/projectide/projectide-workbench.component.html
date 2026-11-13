@@ -32,7 +32,7 @@
           <option value="">{{ t('ide.none') }}</option>
           @for (item of store.bundle()!.cases; track item.key) {
             <option [value]="item.key">
-              {{ item.projectName }} · {{ item.branchName }} · {{ item.context.revisionId }} ·
+              {{ item.projectName }} · {{ item.branchName }} · {{ contextRevision(item.context) }} ·
               {{ item.key }}
             </option>
           }
@@ -64,19 +64,24 @@
             </div>
             <div>
               <dt>{{ t('ide.revision') }}</dt>
-              <dd>{{ ctx.context.revisionId }}</dd>
+              <dd>{{ contextRevision(ctx.context) }}</dd>
             </div>
             <div>
               <dt>{{ t('ide.desired') }}</dt>
-              <dd>{{ ctx.desiredContext.revisionId }}</dd>
+              <dd>{{ contextRevision(ctx.desiredContext) }}</dd>
             </div>
+            @if (ctx.context.kind === 'coglatas.candidate') {
+              <div><dt>{{ t('ide.proposal') }}</dt><dd>{{ ctx.context.proposalId }}</dd></div>
+              <div><dt>{{ t('ide.baseRevision') }}</dt><dd>{{ ctx.context.baseRevision.revisionId }}</dd></div>
+              <div><dt>{{ t('ide.capturedTargetHead') }}</dt><dd>{{ ctx.context.capturedTargetHead.revisionId }}</dd></div>
+            }
             <div>
               <dt>{{ t('ide.context') }}</dt>
               <dd>{{ ctx.context.kind }}</dd>
             </div>
             <div>
               <dt>{{ t('ide.candidate') }}</dt>
-              <dd>{{ t('ide.notApplicable') }}</dd>
+              <dd>{{ ctx.context.kind === 'coglatas.candidate' ? ctx.context.candidateRevisionId : t('ide.notApplicable') }}</dd>
             </div>
             <div>
               <dt>{{ t('ide.sourceDigest') }}</dt>
@@ -237,7 +242,7 @@
                       · {{ d.primaryLocation.propertyPath }}
                     </p>
                     <p>
-                      {{ t('ide.revision') }}: {{ d.primaryLocation.context.revisionId }} ·
+                      {{ t('ide.revision') }}: {{ contextRevision(d.primaryLocation.context) }} ·
                       {{ store.result()?.freshness }} · {{ t('ide.evidence') }}:
                       {{ d.evidence.kind }}
                     </p>
@@ -281,7 +286,7 @@
                   </div>
                   <div>
                     <dt>{{ t('ide.revision') }}</dt>
-                    <dd>{{ record.location.context.revisionId }}</dd>
+                    <dd>{{ contextRevision(record.location.context) }}</dd>
                   </div>
                 </dl>
                 @if (store.inspectedSymbols().length || store.referenceRows().length) {
@@ -345,6 +350,16 @@
                   </section>
                 }
                 <p>{{ t('ide.unsupported') }}</p>
+                @if (store.preparedRename(); as prepared) {
+                  <section data-testid="ide-draft-rename" [attr.aria-label]="t('ide.renamePreview')">
+                    <h3>{{ t('ide.renamePreview') }}</h3>
+                    <p>{{ prepared.plan.previousName ?? '—' }} → {{ prepared.plan.newName }}</p>
+                    <p>{{ t('ide.renameFixtureNotice') }}</p>
+                    <p>{{ t('ide.references') }}: {{ prepared.plan.referenceOrigins.length }}</p>
+                    @if (!prepared.plan.referenceCoverageComplete) { <p>{{ t('ide.referencePartial') }}</p> }
+                    <button type="button" (click)="loadPreparedRename(prepared)">{{ t('ide.loadRenamedDraft') }}</button>
+                  </section>
+                }
                 <h3>{{ t('ide.properties') }}</h3>
                 <pre tabindex="0">{{ record.data | json }}</pre>
                 <section data-testid="ide-related-diagnostics" [attr.aria-label]="t('ide.related')">

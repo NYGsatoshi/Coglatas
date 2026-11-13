@@ -24,6 +24,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public CompilerSemanticInspection? Inspection { get; private set; }
     public CompilerInspectedSymbol? Selected { get; private set; }
     public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
+    public DraftRenamePreview? RenamePreview { get; private set; }
     public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
     public CompilerBoundReference? SelectedReference { get; private set; }
     public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
@@ -200,6 +201,31 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
 
+    public DraftRenamePreview? PreviewRename(string name, SourceRevisionContext nextContext, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
+        RenamePreview = null;
+        if (_compilation?.Model is not { } model || _desired is null || Selected is not { } selected ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var generation = _selectionGeneration;
+        var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
+            name, nextContext, cancellationToken);
+        RenamePreview = preview; Changed();
+        return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
+    }
+
+    /// <summary>Replace only this local synthetic Draft and request a fresh compile. No server save or shared Merge.</summary>
+    public CompilerHostRequest? ApplyPreviewedRename(ProjectDraftRenamePlan plan, long clientGeneration, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(plan); cancellationToken.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(RenamePreview?.Plan, plan) || _compilation is null || _desired is null || Selected is null ||
+            !plan.Target.Data.Equals(Selected.Symbol.Location.Data) || Resolve(plan.Target, requireSourceMap: true) != "ready" ||
+            clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
+        var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
+        BeginSynthetic(request);
+        return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+    }
+
     public ReferenceCompletionPage? CompleteEntityReference(int pageSize = 16, ReferenceCompletionCursor? cursor = null,
         CancellationToken cancellationToken = default)
     {
@@ -255,6 +281,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     {
         Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
+        RenamePreview = null;
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }

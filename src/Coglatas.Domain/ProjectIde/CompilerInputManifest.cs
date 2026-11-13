@@ -73,6 +73,16 @@ public sealed class CompilerInputManifest
     public CompilerInputId InputId { get; }
     private static readonly string[] ArtifactFields = ["schema", "compiler", "ruleset", "semantics", "ir", "evaluator"];
     private static readonly string[] SnapshotFields = ["authorizedExternalSnapshots", "resourceSnapshots", "allocationSnapshots", "observations", "evidence"];
+    internal bool HasPinnedContext(SourceRevisionContext context, CancellationToken cancellationToken)
+    {
+        foreach (var field in SnapshotFields)
+            foreach (var pin in Settings.Value.GetProperty(field).EnumerateArray())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (SourceJson.FromElement(pin.GetProperty("context"), Settings.Limits).Equals(context.Data)) return true;
+            }
+        return false;
+    }
     private static readonly string[] LockFields = ["descriptors", "units", "calendars", "timeZones"];
     private static readonly string[] NoneFields = ["scheduler", "solver", "stochastic", "importer"];
 

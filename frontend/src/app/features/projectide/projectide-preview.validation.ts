@@ -1,4 +1,4 @@
-import type { PreviewBundle, PreviewCase, ProjectLocation } from './projectide.contracts';
+import type { PreviewBundle, PreviewCase, ProjectLocation, RevisionContext } from './projectide.contracts';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -17,18 +17,23 @@ const digest = (value: unknown): boolean =>
   value['algorithm'] === 'sha-256' &&
   text(value['value']) &&
   /^[a-f0-9]{64}$/u.test(value['value']);
+const committedContext = (value: unknown): boolean => record(value) && value['kind'] === 'coglatas.committed' &&
+  Object.keys(value).length === 3 && token(value['revisionId']) && branch(value['branch']) &&
+  !['proposalId', 'candidateRevisionId', 'scenarioId', 'scenarioRevisionId', 'baseContext', 'baseRevision', 'capturedTargetHead', 'overlayDigest'].some(key => Object.hasOwn(value, key));
+const branch = (value: unknown): boolean => record(value) && Object.keys(value).length === 3 && token(value['tenantId']) && token(value['projectId']) && token(value['branchId']);
 const context = (value: unknown): boolean => {
-  if (!record(value) || value['kind'] !== 'coglatas.committed' || !token(value['revisionId'])) {
-    return false;
-  }
-  const branch = value['branch'];
-  return (
-    record(branch) &&
-    token(branch['tenantId']) &&
-    token(branch['projectId']) &&
-    token(branch['branchId'])
-  );
+  if (committedContext(value)) return true;
+  if (!record(value) || value['kind'] !== 'coglatas.candidate' || Object.keys(value).length !== 6 || !branch(value['branch']) ||
+      !token(value['proposalId']) || !token(value['candidateRevisionId']) || !committedContext(value['baseRevision']) ||
+      !committedContext(value['capturedTargetHead']) ||
+      ['revisionId', 'scenarioId', 'scenarioRevisionId', 'baseContext', 'overlayDigest'].some(key => Object.hasOwn(value, key))) return false;
+  const scope = value['branch'];
+  const base = value['baseRevision']; const head = value['capturedTargetHead'];
+  if (!record(scope) || !record(base) || !record(head) || !record(base['branch']) || !record(head['branch'])) return false;
+  return scope['tenantId'] === base['branch']['tenantId'] && scope['projectId'] === base['branch']['projectId'] &&
+    ['tenantId', 'projectId', 'branchId'].every(key => scope[key] === head['branch'][key]);
 };
+export const isRevisionContextShape = (value: unknown): value is RevisionContext => context(value);
 
 export function isProjectLocationShape(value: unknown): value is ProjectLocation {
   if (
@@ -191,6 +196,17 @@ const completions = (value: unknown): boolean => value === undefined || value ==
   (page['expectedKind'] === null || token(page['expectedKind'])) && typeof page['coverageComplete'] === 'boolean' &&
   typeof page['truncated'] === 'boolean' && list(page['candidates'], (candidate) => record(candidate) &&
     token(candidate['symbolKey']) && (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
+const preparedRename = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['afterCaseKey']) || !record(value['plan'])) return false;
+  const plan = value['plan'];
+  return digest(plan['beforeInputDigest']) && digest(plan['afterInputDigest']) &&
+    context(plan['beforeContext']) && record(plan['beforeContext']) && plan['beforeContext']['kind'] === 'coglatas.candidate' &&
+    context(plan['afterContext']) && record(plan['afterContext']) && plan['afterContext']['kind'] === 'coglatas.candidate' &&
+    isProjectLocationShape(plan['target']) && (plan['previousName'] === null || text(plan['previousName'])) &&
+    text(plan['newName']) && !/[\uD800-\uDFFF]/u.test(plan['newName']) && new TextEncoder().encode(plan['newName']).length <= 4096 &&
+    typeof plan['referenceCoverageComplete'] === 'boolean' && list(plan['referenceOrigins'], isProjectLocationShape, 4096);
+};
 
 export function isPreviewCaseShape(value: unknown): value is PreviewCase {
   return (
@@ -217,6 +233,7 @@ export function isPreviewCaseShape(value: unknown): value is PreviewCase {
     list(value['relations'], sourceRecord, 100000) &&
     inspection(value['semanticInspection']) &&
     completions(value['referenceCompletions']) &&
+    preparedRename(value['preparedRename']) &&
     sourceMap(value['sourceMap']) &&
     (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
   );
