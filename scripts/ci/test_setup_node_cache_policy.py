@@ -265,6 +265,36 @@ def run_command_lines(job: str) -> list[str]:
         return []
     return commands
 
+def canonical_job_steps(job: str) -> str | None:
+    """Select only the bounded canonical job steps sequence, never display text.
+
+    This fixed-source policy declines alternate YAML layout rather than
+    inferring executable nodes from step-shaped text elsewhere in a job.
+    """
+    fields = list(re.finditer(r"(?m)^    (\S[^\n]*)$", job))
+    for field in fields:
+        text = field.group(1)
+        if not text.startswith('#') and not re.match(r"^[A-Za-z][A-Za-z0-9_-]*:", text):
+            return None
+    markers = [index for index, field in enumerate(fields) if field.group(1) == 'steps:']
+    if len(markers) != 1:
+        return None
+    index = markers[0]
+    end = fields[index + 1].start() if index + 1 < len(fields) else len(job)
+    steps = job[fields[index].end():end]
+    # Exactly one space after the six-space sequence dash is the reviewed
+    # layout. Extra dash spacing changes mapping indentation and would evade
+    # the fixed eight-space uses scanner. Refuse it before counting refs.
+    for line in steps.splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if line.startswith('        '):
+            continue
+        if not re.match(r"^      - [A-Za-z][A-Za-z0-9_-]*:", line):
+            return None
+    return steps
+
+
 def owner_invoked(
     job: str, owner: str, required_if: str | None, reviewed_step_sha256: str
 ) -> bool:
@@ -276,7 +306,10 @@ def owner_invoked(
     # No reviewed owner job has a run-shell defaults override.
     if re.search(r"(?m)^    (?:defaults|['\"]defaults['\"])[ \t]*:", job):
         return False
-    for step in re.split(r"(?m)(?=^      - )", job):
+    steps = canonical_job_steps(job)
+    if steps is None:
+        return False
+    for step in re.split(r"(?m)(?=^      - )", steps):
         # Bind the complete reviewed step, not merely an owner-shaped substring.
         if hashlib.sha256(step.rstrip().encode("utf-8")).hexdigest() != reviewed_step_sha256:
             continue
@@ -406,7 +439,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all fifty-eight bounded source mutations."""
+    """Verify reviewed policy and reject all sixty bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -414,7 +447,34 @@ def main() -> int:
         print("Setup-node cache ownership rejected:\n" + "\n".join(errors))
         return 1
 
+    # Preserve the complete reviewed step bytes inside inert job display text.
+    # A source hash alone must not confer executable-step membership.
+    display_path = ".github/workflows/main-validation.yml"
+    display_job = job_blocks(workflows[display_path])["main-frontend-test"]
+    display_digest = REVIEWED_OWNER_STEP_SHA256[(display_path, "main-frontend-test")]
+    display_step = next(step for step in re.split(r"(?m)(?=^      - )", display_job)
+                        if hashlib.sha256(step.rstrip().encode("utf-8")).hexdigest() == display_digest)
+    inert_job = display_job.replace(display_step,
+                                   "      - name: Disabled owner\n        run: echo disabled\n\n", 1)
+    inert_job = re.sub(r"(?m)^    name: [^\n]*\n", "", inert_job)
+    inert_job = inert_job.rstrip() + "\n\n    name: |\n" + display_step.rstrip() + "\n"
+    display_workflows = workflows.copy()
+    display_workflows[display_path] = workflows[display_path].replace(display_job, inert_job, 1)
+
     controls = {
+        "additional setup-node with noncanonical mapping indentation": one_replacement(
+            workflows,
+            "      - name: Verify Node and npm toolchain policy",
+            "      -  name: Additional setup-node\n"
+            "         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7\n"
+            "         with:\n"
+            '           node-version: "23"\n'
+            "           package-manager-cache: true\n"
+            "           cache: npm\n\n"
+            "      - name: Verify Node and npm toolchain policy",
+            ".github/workflows/node-toolchain-preflight.yml",
+        ),
+        "reviewed owner relocated into job name scalar": display_workflows,
         "auto-cache enabled": one_replacement(
             workflows, "          package-manager-cache: false", "          package-manager-cache: true"
         ),
@@ -787,15 +847,19 @@ def main() -> int:
             ".github/workflows/node-toolchain-preflight.yml",
         ),
     }
-    for label, changed in controls.items():
-        if not violations(changed, installer):
-            raise AssertionError(f"{label} mutation passed the cache ownership check")
-    if not violations(workflows, installer.replace('export NPM_CONFIG_CACHE="$secure_cache"', '')):
-        raise AssertionError("missing isolated npm cache boundary was accepted")
-    if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
-        raise AssertionError("missing npm lifecycle policy boundary was accepted")
+    accepted_mutations = [label for label, changed in controls.items()
+                          if not violations(changed, installer)]
+    if accepted_mutations:
+        raise AssertionError(f"Mutations passed the cache ownership check: {accepted_mutations}")
+    installer_controls = {
+        "missing isolated npm cache boundary": installer.replace('export NPM_CONFIG_CACHE="$secure_cache"', ''),
+        "missing npm lifecycle policy boundary": installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', ''),
+    }
+    for label, changed_installer in installer_controls.items():
+        if not violations(workflows, changed_installer):
+            raise AssertionError(f"{label} was accepted")
 
-    print("Setup-node unused-cache policy PASS; 58 mutation controls rejected.")
+    print(f"Setup-node unused-cache policy PASS; {len(controls) + len(installer_controls)} mutation controls rejected.")
     return 0
 
 
