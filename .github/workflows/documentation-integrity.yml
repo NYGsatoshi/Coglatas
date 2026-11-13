@@ -29,7 +29,7 @@ concurrency:
 jobs:
   qualify:
     name: Documentation integrity qualification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       DOCUMENTATION_SOURCE: f849313aecf480948a6fe9176d73a490f2bec93f

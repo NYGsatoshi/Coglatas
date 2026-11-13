@@ -1,0 +1,76 @@
+name: Architecture Contract (Security Advisory)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [SecurityTestImplimation]
+    paths:
+      - ".github/workflows/architecture-contract-advisory.yml"
+      - "tests/Coglatas.Architecture.Tests/**"
+      - "tests/ci/test_architecture_advisory.py"
+      - "scripts/ci/architecture_advisory.py"
+      - "scripts/ci/architecture_source_roster.py"
+      - "scripts/ci/test_architecture_source_roster.py"
+      - "src/**"
+      - "global.json"
+
+concurrency:
+  group: architecture-advisory-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-contract-advisory:
+    name: architecture-contract-advisory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout tested PR merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require exact checkout revision
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Test fail-closed architecture result reader
+        run: python3 -B tests/ci/test_architecture_advisory.py
+      - name: Verify bounded Architecture source-case roster
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/test_architecture_source_roster.py
+          python3 -B scripts/ci/architecture_source_roster.py --root . --profile WITH_NEGATIVE_ORACLE
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Restore architecture test project
+        run: dotnet restore tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj --disable-parallel --verbosity minimal
+      - name: Run original and negative architecture controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/architecture-trx"
+          dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj \
+            --configuration Release --no-restore --disable-build-servers -m:1 \
+            --logger "trx;LogFileName=architecture-tests.trx" \
+            --results-directory "$RUNNER_TEMP/architecture-trx"
+      - name: Verify exact native TRX case set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/architecture_advisory.py \
+            --trx "$RUNNER_TEMP/architecture-trx/architecture-tests.trx" \
+            --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$RUNNER_TEMP/architecture-advisory-receipt.json"
+      - name: Preserve sanitized advisory receipt
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: architecture-advisory-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/architecture-advisory-receipt.json
+          if-no-files-found: error
+          retention-days: 7
