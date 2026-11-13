@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,11 +39,17 @@ SECRETS_INHERIT = re.compile(r"^\s*secrets\s*:\s*inherit\s*$")
 ENVIRONMENT_FIELD = re.compile(r"^\s*environment\s*:")
 PERMISSIONS_FIELD = re.compile(r"^(?P<indent>\s*)permissions\s*:\s*(?P<value>.*)$")
 WRITE_VALUE = re.compile(r"(?:^|[,{\s])(?:[A-Za-z0-9_-]+\s*:\s*)?write(?:-all)?(?:$|[,}\s])")
+# Match canonical and YAML-quoted "uses" keys alike. A quoted spelling
+# must receive precisely the same immutable-pin and allowlist validation.
+USES_KEY = r"(?:uses|'uses'|\"uses\")"
 USES_LINE = re.compile(
-    r"^\s*(?:-\s*)?uses\s*:\s*(?P<quote>['\"]?)(?P<target>[^'\"#\s]+)(?P=quote)"
+    rf"^\s*(?:-\s*)?{USES_KEY}\s*:\s*(?P<quote>['\"]?)(?P<target>[^'\"#\s]+)(?P=quote)"
     r"\s*(?:#\s*(?P<comment>.*?))?\s*$"
 )
-USES_PREFIX = re.compile(r"^\s*(?:-\s*)?uses\s*:")
+USES_PREFIX = re.compile(rf"^\s*(?:-\s*)?{USES_KEY}\s*:")
+
+# YAML job/step shape is verified by the repository-owned Psych AST adapter.
+# The existing exact line parser stays authoritative for pinned ref/comment text.
 
 
 @dataclass(frozen=True)
@@ -173,17 +180,40 @@ def _parse_uses(workflow: str, text: str) -> tuple[list[UseReference], list[str]
     """Parse workflow ``uses:`` references and return fail-closed parse errors."""
     references: list[UseReference] = []
     errors: list[str] = []
+    helper = Path(__file__).with_name("github_action_yaml_structure.rb")
+    try:
+        result = subprocess.run(
+            ["ruby", str(helper)],
+            input=text, text=True, capture_output=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return references, [f"{workflow}: structural YAML parser unavailable; fail-closed"]
+    if result.returncode != 0:
+        return references, [f"{workflow}: structural YAML parser failed; fail-closed"]
+    try:
+        document = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        return references, [f"{workflow}: invalid structural YAML response; fail-closed"]
+    if not isinstance(document, dict) or not isinstance(document.get("errors"), list) or not isinstance(document.get("uses"), list):
+        return references, [f"{workflow}: invalid structural YAML schema; fail-closed"]
 
-    for line_number, raw in enumerate(text.splitlines(), start=1):
-        clean = _without_comment(raw).strip()
-        if not USES_PREFIX.match(clean):
-            continue
+    source_lines = text.splitlines()
+    for issue in document["errors"]:
+        if not isinstance(issue, dict) or type(issue.get("line")) is not int or not isinstance(issue.get("reason"), str):
+            return references, [f"{workflow}: invalid YAML issue record; fail-closed"]
+        errors.append(f'{workflow}:{issue["line"]}: {issue["reason"]} fail-closed')
 
+    for entry in document["uses"]:
+        if not isinstance(entry, dict) or type(entry.get("line")) is not int or not isinstance(entry.get("target"), str):
+            return references, [f"{workflow}: invalid YAML uses record; fail-closed"]
+        line_number = entry["line"]
+        if not 1 <= line_number <= len(source_lines):
+            return references, [f"{workflow}: invalid YAML uses location; fail-closed"]
+        raw = source_lines[line_number - 1]
         match = USES_LINE.match(raw)
-        if not match:
+        if not match or match.group("target") != entry["target"]:
             errors.append(f"{workflow}:{line_number}: cannot parse uses reference fail-closed")
             continue
-
         target = match.group("target")
         comment = (match.group("comment") or "").strip() or None
         if target.startswith("./"):
