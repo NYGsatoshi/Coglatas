@@ -73,7 +73,9 @@ suite selection or durable cancellation behavior is claimed.
 A declaration permits at most 64 assertions. A local plan permits at most 256
 Tests/1024 assertions; callers may lower these provisional limits. The existing
 canonical byte, type/value, exact-number and Compiler logical bounds remain in
-force. Concurrent executions retain no mutable test context or ambient clock,
+force. All assertion attempts share the run-wide operation budget remaining
+after Compiler binding; each consumes one operation, including exact numeric
+comparison. Exhaustion preserves prior known failures and never yields PASS. Concurrent executions retain no mutable test context or ambient clock,
 PRNG, network or file access in Domain.
 
 ## Actual local CLI

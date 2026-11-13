@@ -275,6 +275,41 @@ public sealed class ProjectTestRunnerTests
         Assert.Equal(verdict, result.Verdict); Assert.Equal(0, result.ExecutedAssertions);
     }
 
+
+    [Fact]
+    public void Assertion_project_identity_must_agree_with_its_exact_context()
+    {
+        var input = Fixture(mutate: (_, assertions, _) => assertions[0]!["target"]!["projectId"] = Id(99));
+        var model = ProjectSemanticBinder.Bind(input);
+        Assert.Equal(ValueDecodeStatus.Invalid, model.Declarations.Single(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test").Status);
+        Assert.DoesNotContain(model.References, reference => reference.Origin.PropertyPath.StartsWith("/payload/assertions/", StringComparison.Ordinal));
+        var result = ProjectTestPlan.Compile(model, Evaluator).Execute(input.InputDigest);
+        Assert.Equal(CompilerVerdict.Error, result.Verdict); Assert.Equal(0, result.ExecutedAssertions);
+    }
+
+    [Theory]
+    [InlineData("2", CompilerVerdict.Inconclusive)]
+    [InlineData("3", CompilerVerdict.Fail)]
+    public void Multiple_assertions_share_the_remaining_run_budget_and_retain_known_failures(string actual, CompilerVerdict verdict)
+    {
+        var original = Fixture(Value("coglatas.decimal", actual), (_, assertions, _) =>
+        {
+            assertions[0] = Assertion(Source().Context, "coglatas.assert-numeric-comparison");
+            var second = assertions[0]!.DeepClone(); second["key"] = "example.second"; assertions.Add(second);
+        });
+        var initial = ProjectSemanticBinder.Bind(original);
+        Assert.True(initial.BindingComplete);
+        var settings = JsonNode.Parse(original.Settings.CanonicalText)!;
+        settings["executionProfile"]!["maximumOperations"] = initial.LogicalOperationsConsumed + 1;
+        var input = new CompilerInputManifest(original.Source, Json(settings));
+        var model = ProjectSemanticBinder.Bind(input);
+        Assert.True(model.BindingComplete); Assert.Equal(1, input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed);
+        var result = ProjectTestPlan.Compile(model, Evaluator).Execute(input.InputDigest);
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, result.Execution);
+        Assert.Equal(CompilerCoverage.Partial, result.Coverage); Assert.Equal(verdict, result.Verdict);
+        Assert.Equal(1, result.ExecutedAssertions); Assert.Equal("coglatas.test-operation-budget-exhausted", result.Reason);
+    }
+
     [Fact]
     public void Wrong_actual_type_is_an_error_and_concurrent_runs_are_deterministic()
     {

@@ -120,7 +120,7 @@ public sealed class ProjectTestPlan
             Data = SourceJson.FromObject(new { format = "coglatas.project-test-plan/1", inputDigest = Input.InputDigest.Data.Value,
             compilerInputId = Input.InputId.ToString(), engine = expectedEvaluator.Data.Value,
             limits = new { limits.MaximumTests, limits.MaximumAssertions }, withinLimits = WithinLimits, discoveryComplete = DiscoveryComplete,
-            bindingComplete = model.BindingComplete, references = model.References.Select(item => new { origin = item.Origin.Data.Value, state = item.State.ToString(), symbolKey = item.SymbolKey }).ToArray(),
+            bindingComplete = model.BindingComplete, bindingLogicalOperationsConsumed = model.LogicalOperationsConsumed, references = model.References.Select(item => new { origin = item.Origin.Data.Value, state = item.State.ToString(), symbolKey = item.SymbolKey }).ToArray(),
             tests = _tests.Select(item => new { declarationDigest = ContentDigest.Compute("coglatas.project-test-declaration/1", item.Data.ToCanonicalBytes()).Data.Value,
                 status = item.Status.ToString() }).ToArray() });
         }
@@ -150,6 +150,7 @@ public sealed class ProjectTestPlan
         if (DiscoveredTests == 0) return Result(CompilerExecutionState.NotRun, CompilerCoverage.None, [], "coglatas.zero-tests");
         var results = new List<ProjectTestCaseResult>();
         var complete = _model.BindingComplete;
+        var remainingOperations = Input.ExecutionProfile.MaximumOperations - _model.LogicalOperationsConsumed;
         foreach (var decoded in _tests)
         {
             var id = SourceFields.Identity<EntityId>(decoded.Data.Value, "entityId");
@@ -168,7 +169,13 @@ public sealed class ProjectTestPlan
                 {
                     results.Add(new(id, assertions, "coglatas.cancelled", false)); return Cancelled();
                 }
-                try { assertions.Add(Evaluate(test, assertion)); }
+                if (remainingOperations <= 0)
+                {
+                    results.Add(new(id, assertions, "coglatas.test-operation-budget-exhausted", false));
+                    return Result(CompilerExecutionState.ResourceExhausted, results.Any(item => item.Assertions.Count != 0) ? CompilerCoverage.Partial : CompilerCoverage.None,
+                        results, "coglatas.test-operation-budget-exhausted");
+                }
+                try { assertions.Add(Evaluate(test, assertion, remainingOperations--)); }
                 catch (FormatException) { return Result(CompilerExecutionState.ResourceExhausted, CompilerCoverage.None, [], "coglatas.test-artifact-bound-exhausted"); }
             }
             var done = assertions.Count > 0 && assertions.All(item => item.Verdict is CompilerVerdict.Pass or CompilerVerdict.Fail);
@@ -186,7 +193,7 @@ public sealed class ProjectTestPlan
         try { return new(this, execution, coverage, freshness, tests, reason); }
         catch (FormatException) { return new(this, CompilerExecutionState.ResourceExhausted, CompilerCoverage.None, freshness, [], "coglatas.test-artifact-bound-exhausted"); }
     }
-    private ProjectTestAssertionResult Evaluate(ProjectTestPlanDeclaration test, ProjectTestAssertion assertion)
+    private ProjectTestAssertionResult Evaluate(ProjectTestPlanDeclaration test, ProjectTestAssertion assertion, int remainingOperations)
     {
         var origin = ProjectLocation.Create(test.DocumentId, Input.Source.Context, "/payload/assertions/" + assertion.Key, entityId: test.EntityId);
         ProjectTestAssertionResult Outcome(CompilerVerdict verdict, string reason, SourceJson? actual = null) => new(origin, verdict, reason, assertion.Data, actual);
@@ -208,7 +215,7 @@ public sealed class ProjectTestPlan
             case "coglatas.assert-numeric-comparison":
                 var numbers = Input.ExecutionProfile.Numbers;
                 var comparison = ProjectNumericOperations.Evaluate(NumericOperand.From(value, numbers), NumericOperand.From(assertion.Expected!, numbers),
-                    NumericOperator.Compare, new(numbers, Math.Min(100_000, Input.ExecutionProfile.MaximumOperations)));
+                    NumericOperator.Compare, new(numbers, Math.Min(100_000, remainingOperations)));
                 if (comparison.Status != NumericEvaluationStatus.Known)
                     return Outcome(comparison.Status == NumericEvaluationStatus.Invalid ? CompilerVerdict.Error : CompilerVerdict.Inconclusive, comparison.Reason, value.Data);
                 passed = assertion.Comparison switch { "coglatas.equal" => comparison.Comparison == 0,
