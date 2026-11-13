@@ -24,18 +24,18 @@ public sealed class RequirementTaskSuggestionTests
         Assert.Equal(input.Source.Data, view.Source!.Data);
         Assert.False(view.NavigateTaskSuggestion(page, page.Candidates[0] with { DisplayName = "Forged" })); Assert.Null(view.SourceTarget);
         Assert.True(view.Select(Origin(view.Inspection!))); Assert.Null(view.TaskSuggestions); Assert.False(view.NavigateTaskSuggestion(page, page.Candidates[0]));
-        view.PropertyChanged += (_, _) => { if (view.TaskSuggestions is not null) view.Reset(); };
+        view.PropertyChanged += (sender, _) => { if (sender is SyntheticWorkbenchViewModel current && current.TaskSuggestions is not null) current.Reset(); };
         Assert.Null(view.SuggestRequirementTasks()); Assert.Null(view.TaskSuggestions); Assert.Equal("Empty", view.State);
     }
     [Fact]
     public async Task WindowsClearNotifiesBeforeCancellationAndAnOlderRequestCannotReplaceANestedNewerPage()
     {
         var input = SuggestionInput(); using var view = await AcceptedView(input); Assert.NotNull(view.SuggestRequirementTasks());
-        var cleared = false; view.PropertyChanged += (_, _) => { if (view.TaskSuggestions is null) cleared = true; };
+        var cleared = false; view.PropertyChanged += (sender, _) => { if (sender is SyntheticWorkbenchViewModel { TaskSuggestions: null }) cleared = true; };
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => view.SuggestRequirementTasks(cancellationToken: cancellation.Token)); Assert.True(cleared); Assert.Null(view.TaskSuggestions);
         Assert.NotNull(view.SuggestRequirementTasks()); RequirementTaskSuggestionPage? nested = null; var called = false;
-        view.PropertyChanged += (_, _) => { if (!called && view.TaskSuggestions is null) { called = true; nested = view.SuggestRequirementTasks(1); } };
+        view.PropertyChanged += (sender, _) => { if (!called && sender is SyntheticWorkbenchViewModel { TaskSuggestions: null } current) { called = true; nested = current.SuggestRequirementTasks(1); } };
         Assert.Null(view.SuggestRequirementTasks()); Assert.NotNull(nested); Assert.Same(nested, view.TaskSuggestions); Assert.Single(nested.Candidates);
     }
     [Theory]
@@ -159,7 +159,7 @@ public sealed class RequirementTaskSuggestionTests
     [Fact]
     public void KnownTasksRemainCandidatesUnderPartialBindingWithoutCompleteCoverageCredit()
     {
-        var input = SuggestionInput(3, partial: true); var inspection = Index(input); var page = inspection.SuggestRequirementTasks(Origin(inspection), input.InputDigest);
+        var input = SuggestionInput(partial: true); var inspection = Index(input); var page = inspection.SuggestRequirementTasks(Origin(inspection), input.InputDigest);
         Assert.Equal(3, page.Candidates.Count); Assert.False(page.CoverageComplete); Assert.True(page.CandidateOnly);
     }
     [Fact]

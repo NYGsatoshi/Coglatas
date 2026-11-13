@@ -5,7 +5,7 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 const raw = () => JSON.parse(readFileSync('public/assets/projectide/preview-v1.json', 'utf8'));
 async function ready() {
-  const store = new ProjectIdeWorkbenchStore(); await store.load(async () => raw()); store.choose('requirement-candidates'); store.loadResult();
+  const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('requirement-candidates'); store.loadResult();
   const record = store.context()!.declarations.find(item => item.kind === 'coglatas.requirement')!;
   if (record.recordType !== 'entity') throw new Error('Requirement entity fixture required');
   store.select({ kind: 'entity', id: record.identity }); return store;
@@ -44,7 +44,7 @@ describe('Core-derived Requirement Task candidates', () => {
   }
   it('keeps legacy inspection-free fixtures readable with candidate queries inert', async () => {
     const data = raw(); for (const item of data.cases) delete item.semanticInspection;
-    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => data); store.choose('requirement-candidates'); store.loadResult();
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(data)); store.choose('requirement-candidates'); store.loadResult();
     const record = store.context()!.declarations.find(item => item.kind === 'coglatas.requirement')!;
     if (record.recordType !== 'entity') throw new Error('Requirement entity fixture required');
     store.select({ kind: 'entity', id: record.identity });
