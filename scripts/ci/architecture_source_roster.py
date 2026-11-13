@@ -48,7 +48,8 @@ def regular_bytes(path: Path) -> bytes:
     try:
         leaf = path.lstat()
         require(stat.S_ISREG(leaf.st_mode), 'SOURCE_FILE')
-        flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+        flags = (os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) |
+                 getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NONBLOCK', 0))
         with os.fdopen(os.open(path, flags), 'rb') as source:
             info = os.fstat(source.fileno())
             require(stat.S_ISREG(info.st_mode) and os.path.samestat(leaf, info)
@@ -130,8 +131,22 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
     require(namespaces == [NAMESPACE] and len(namespace_keywords) == 1 and
             re.search(r'(?m)^using Xunit;[ \t]*$', source) is not None,
             'SOURCE_NAMESPACE')
-    classes = CLASS.findall(source)
-    require(classes == [expected_class], 'SOURCE_CLASS')
+    classes = list(CLASS.finditer(source))
+    require([match.group(1) for match in classes] == [expected_class], 'SOURCE_CLASS')
+    body = re.match(r'\s*\{', source[classes[0].end():])
+    require(body is not None, 'SOURCE_CLASS')
+    opening = classes[0].end() + body.end() - 1
+    depth = 0
+    closing = None
+    for offset in range(opening, len(source)):
+        if source[offset] == '{':
+            depth += 1
+        elif source[offset] == '}':
+            depth -= 1
+            if depth == 0:
+                closing = offset
+                break
+    require(closing is not None, 'SOURCE_CLASS')
     require('[Theory' not in source and '[InlineData' not in source and '[Fact(' not in source,
             'UNSUPPORTED_SYNTAX')
     facts = list(FACT.finditer(source))
@@ -140,6 +155,11 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
     lines = source.splitlines()
     names: list[str] = []
     for match in facts:
+        # Indentation is not declaring-type authority. Every Fact must be a
+        # direct member of this exact class body, not a nested/foreign type.
+        require(opening < match.start() < closing, 'FACT_DECLARING_CLASS')
+        prefix = source[opening + 1:match.start()]
+        require(prefix.count('{') == prefix.count('}'), 'FACT_DECLARING_CLASS')
         # Restrict to one annotated, immediately following zero-argument
         # public void method. Unknown attributes or generated cases fail.
         line_index = source.count('\n', 0, match.start())

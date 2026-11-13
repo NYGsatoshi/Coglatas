@@ -33,6 +33,10 @@ classes, missing methods, and duplicate case names. A bounded source read uses
 one opened descriptor (no-follow where available), comparing its identity
 with the checked file and rechecking descriptor metadata after reading. It accepts only the current
 simple top-level `public void Method()` syntax with a directly adjacent `[Fact]`.
+Nonblocking admission where supported also refuses a regular-file-to-FIFO
+replacement without waiting for a writer. Each Fact must lie directly inside
+the expected class's matched structural braces; indentation cannot authorize a
+foreign or nested declaring type, or a top-level method.
 Broader syntax requires a separately reviewed parser; this is **not a complete
 C# or Roslyn parser**. The source files are not executed by this tool.
 
