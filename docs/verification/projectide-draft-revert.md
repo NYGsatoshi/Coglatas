@@ -33,6 +33,10 @@ fresh candidate context by the existing typed Draft transition visitor. Pinned
 value targets/manifests and opaque data are preserved exactly. No text search
 replaces contexts inside arbitrary payloads.
 
+Preserving an unknown Digest member does not interpret it. Unknown members in
+either document Digests or manifest reference Digests leave semantic binding
+incomplete and cannot qualify a Compiler PASS.
+
 DocumentId, EntityId and RelationId records are compared by typed identity.
 An inverse restores the original record only when its current normalized value
 still equals the selected after-side. A current value already equal to the

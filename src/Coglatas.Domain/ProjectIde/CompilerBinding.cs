@@ -93,7 +93,7 @@ public static class ProjectSemanticBinder
             Add(CoreCompilerRules.Schema, "coglatas.binding.schema-compatibility", RelationFindingState.Unsupported, root);
         if (ValueFields.HasUnknown(source.Data.Value, "format", "schemaId", "schemaVersion", "canonicalEncodingVersion", "tenantId", "projectId", "context", "documents", "manifest", "declarations", "relations", "extensionDeclarations", "packageLock", "sourceReferences") ||
             ValueFields.HasUnknown(source.Manifest.Data.Value, "documents") ||
-            source.Manifest.Data.Value.GetProperty("documents").EnumerateArray().Any(item => ValueFields.HasUnknown(item, "documentId", "schemaId", "schemaVersion", "digest")) ||
+            source.Manifest.Data.Value.GetProperty("documents").EnumerateArray().Any(item => ValueFields.HasUnknown(item, "documentId", "schemaId", "schemaVersion", "digest") || ValueFields.HasUnknown(item.GetProperty("digest"), "algorithm", "value")) ||
             source.Documents.Any(document => ValueFields.HasUnknown(document.Data.Value, "documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest") || ValueFields.HasUnknown(document.Digest.Data.Value, "algorithm", "value")) ||
             source.ExtensionDeclarations.Value.GetArrayLength() != 0 || source.PackageLock.Value.GetArrayLength() != 0)
             Add(CoreCompilerRules.Schema, "coglatas.binding.opaque-source", RelationFindingState.Unsupported, root);

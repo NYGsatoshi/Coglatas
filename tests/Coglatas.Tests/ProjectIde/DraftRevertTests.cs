@@ -416,6 +416,15 @@ public sealed class DraftRevertTests
         Assert.Equal("manifest-further", current.Manifest.Data.Value.GetProperty("documents")[0].GetProperty("digest").GetProperty("futureManifestDigest").GetString());
     }
     [Fact]
+    public void OpaqueManifestReferenceDigestAloneCannotClaimCompleteSemanticCoverage()
+    {
+        var root = JsonNode.Parse(Revision(60).Data.CanonicalText)!.AsObject();
+        root["manifest"]!["documents"]![0]!["digest"]!["futureManifestDigest"] = "Preserved, not interpreted";
+        var source = ProjectSourceCodec.Decode(Json(root).ToCanonicalBytes()).RequireSource(); var input = Input(source: source);
+        Assert.False(ProjectSemanticBinder.Bind(input).BindingComplete);
+        Assert.NotEqual(CompilerVerdict.Pass, CompilerAnalysisFixtures.Compile(input).Result.Verdict);
+    }
+    [Fact]
     public async Task ReentrantHistorySupplyCannotReplaceANewerPreviewWithoutChangingTheWorkbenchLifecycle()
     {
         var a = Input(source: Revision(60)); var b = Input(source: Revision(61, "Changed")); var c = Input(source: Revision(62, "Changed", "Later"));
