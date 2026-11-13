@@ -161,7 +161,7 @@ def run_command_lines(job: str) -> list[str]:
             # hash is ordinary data, so it must not conceal an early exit.
             # Conservative rejection is intentional for unsupported grammar.
             if re.search(
-                r"(?:^|[;&|])[ \\t]*(?:exit|return|break|continue|exec)(?:[ \\t]|;|$)",
+                r"(?:^|[;&|])[ \t]*(?:exit|return|break|continue|exec)(?:[ \t]|;|$)",
                 fragment,
             ):
                 shell_continuation = True
