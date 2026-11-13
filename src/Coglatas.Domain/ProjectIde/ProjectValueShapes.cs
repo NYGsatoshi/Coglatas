@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -39,8 +38,8 @@ public sealed class ProjectCollectionValue
     public IReadOnlyList<ProjectMapEntry> Entries { get; }
     internal ProjectCollectionValue(IEnumerable<TypedProjectValue> items, IEnumerable<ProjectMapEntry> entries)
     {
-        Items = new ReadOnlyCollection<TypedProjectValue>(items.ToArray());
-        Entries = new ReadOnlyCollection<ProjectMapEntry>(entries.ToArray());
+        Items = new ImmutableListView<TypedProjectValue>(items);
+        Entries = new ImmutableListView<ProjectMapEntry>(entries);
     }
 }
 
@@ -48,7 +47,7 @@ public sealed class ProjectStructureValue
 {
     public IReadOnlyDictionary<string, TypedProjectValue> Fields { get; }
     internal ProjectStructureValue(IDictionary<string, TypedProjectValue> fields) =>
-        Fields = new ReadOnlyDictionary<string, TypedProjectValue>(new Dictionary<string, TypedProjectValue>(fields, StringComparer.Ordinal));
+        Fields = new ImmutableMapView<string, TypedProjectValue>(fields, StringComparer.Ordinal);
 }
 
 internal static class ProjectValueShapes

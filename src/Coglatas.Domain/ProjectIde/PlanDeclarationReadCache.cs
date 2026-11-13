@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -47,7 +46,7 @@ public sealed class PlanDeclarationReadCache
             foreach (var declaration in source.Declarations.Value.EnumerateArray())
                 results.Add(ReadOne(SourceJson.FromElement(declaration, source.Data.Limits), SourceFields.Identity<DocumentId>(declaration, "documentId")));
             cancellationToken.ThrowIfCancellationRequested();
-            return new ReadOnlyCollection<DeclarationDecodeResult>(results);
+            return new ImmutableListView<DeclarationDecodeResult>(results);
 
             DeclarationDecodeResult ReadOne(SourceJson data, DocumentId document)
             {

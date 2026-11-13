@@ -135,19 +135,67 @@ public sealed class IncrementalDeclarationTests
         var definition = Assert.Single(task.Ports);
         var value = Assert.IsType<ProjectStructureValue>(definition.DefaultValue!.KnownValue);
         var collection = Assert.IsType<ProjectCollectionValue>(value.Fields["items"].KnownValue);
-        Assert.Throws<NotSupportedException>(() => ((IList<DeclarationDecodeResult>)first).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<PortDefinition>)task.Ports)[0] = definition);
-        Assert.Throws<NotSupportedException>(() => ((IList<StructureField>)definition.Type.Fields).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, TypedProjectValue>)value.Fields)["items"] = value.Fields["items"]);
-        Assert.Throws<NotSupportedException>(() => ((IList<TypedProjectValue>)collection.Items).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<ProjectMapEntry>)collection.Entries).Add(new(collection.Items[0], collection.Items[0])));
+        AssertNoMutableStorage(first); AssertNoMutableStorage(task.Ports); AssertNoMutableStorage(definition.Type.Fields);
+        AssertNoMutableStorage(value.Fields); AssertNoMutableStorage(value.Fields.Keys); AssertNoMutableStorage(value.Fields.Values);
+        AssertNoMutableStorage(collection.Items); AssertNoMutableStorage(collection.Entries);
         var bytes = task.Data.ToCanonicalBytes(); bytes[0] = (byte)'!';
         var detached = JsonNode.Parse(task.Data.CanonicalText)!; detached["displayName"] = "Changed by caller";
         var next = Assert.IsType<TaskPlanDeclaration>(cache.Read(input.Source).Single(item => item.Declaration is TaskPlanDeclaration).Declaration);
         Assert.Same(task, next); Assert.Equal("Task 0", next.DisplayName);
         Assert.Equal("kept", collection.Items[0].KnownValue);
         AssertEquivalent(input, cache);
+    }
+
+    [Fact]
+    public void SynchronizationStorageCannotPoisonTheNextCachedBinding()
+    {
+        var input = ReferenceCompletionTests.CompletionInput(1); var cache = new PlanDeclarationReadCache();
+        var task = Assert.IsType<TaskPlanDeclaration>(cache.Read(input.Source).Single(item => item.Declaration is TaskPlanDeclaration).Declaration);
+        if (task.Ports is System.Collections.ICollection legacy && legacy.SyncRoot is IList<PortDefinition> mutable)
+        {
+            var port = JsonNode.Parse(task.Ports[0].Data.CanonicalText)!;
+            port["type"] = Obj(new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false });
+            mutable[0] = new PortDefinition(Json(port));
+        }
+        var full = new CompilerSemanticInspection(ProjectSemanticBinder.Bind(input));
+        var actual = new CompilerSemanticInspection(ProjectSemanticBinder.Bind(input, declarationCache: cache));
+        Assert.Equal(full.Data, actual.Data); AssertEquivalent(input, cache);
+    }
+
+    private static void AssertNoMutableStorage(object value)
+    {
+        Assert.False(value is System.Collections.ICollection);
+        Assert.DoesNotContain(value.GetType().GetInterfaces(), item => item.IsGenericType &&
+            (item.GetGenericTypeDefinition() == typeof(ICollection<>) || item.GetGenericTypeDefinition() == typeof(IDictionary<,>)));
+    }
+
+    [Fact]
+    public void CompleteFixtureDeclarationGraphsAndDimensionViewsHideMutableStorage()
+    {
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        foreach (var fixture in WebPreviewContractTests.Cases())
+        {
+            using var parsed = System.Text.Json.JsonDocument.Parse((string)fixture[0]);
+            var source = ProjectSourceCodec.Decode(System.Text.Encoding.UTF8.GetBytes(parsed.RootElement.GetProperty("sourceText").GetString()!)).RequireSource();
+            Walk(new PlanDeclarationReadCache().Read(source));
+        }
+        Walk(new Dimension(SourceJson.Parse("{\"coglatas.length\":1}")));
+
+        void Walk(object? value)
+        {
+            if (value is null or string or SourceJson) return;
+            var type = value.GetType();
+            if (type.IsPrimitive || type.IsEnum || !type.IsValueType && !visited.Add(value)) return;
+            if (value is System.Collections.IEnumerable sequence)
+            {
+                AssertNoMutableStorage(value);
+                foreach (var child in sequence) Walk(child);
+            }
+            if (type.Namespace?.StartsWith("Coglatas.Domain.ProjectIde", StringComparison.Ordinal) == true ||
+                type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+                foreach (var property in type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                    .Where(property => property.GetIndexParameters().Length == 0 && property.GetMethod is not null)) Walk(property.GetValue(value));
+        }
     }
 
     [Fact]

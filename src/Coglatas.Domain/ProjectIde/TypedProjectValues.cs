@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -35,7 +34,7 @@ public sealed class TypeReference
         "coglatas.resource-reference" => ExpectedKind is "coglatas.human" or "coglatas.equipment" or "coglatas.facility" or "coglatas.material",
         _ => false
     };
-    public IReadOnlyList<StructureField> Fields { get; } = Array.Empty<StructureField>();
+    public IReadOnlyList<StructureField> Fields { get; } = ImmutableListView<StructureField>.Empty;
     public SourceJson Data { get; }
 
     public TypeReference(SourceJson data, ProjectValueLimits? limits = null)
@@ -100,7 +99,7 @@ public sealed class TypeReference
                 childrenSupported &= type.IsSupported && !ValueFields.HasUnknown(definition, "name", "required", "type");
                 structureFields.Add(new(name, type, required));
             }
-            Fields = new ReadOnlyCollection<StructureField>(structureFields);
+            Fields = new ImmutableListView<StructureField>(structureFields);
             fields.Add("fields");
         }
         if (Kind is "coglatas.entity-reference" or "coglatas.document-reference" or "coglatas.resource-reference" or "coglatas.external-snapshot-reference")

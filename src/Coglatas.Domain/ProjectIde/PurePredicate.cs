@@ -22,7 +22,7 @@ public sealed class PurePredicate
 
     private PurePredicate(SourceJson data, string kind, TypedProjectValue? literal, PurePredicate[] operands)
     {
-        Data = data; Kind = kind; Literal = literal; Operands = new ReadOnlyCollection<PurePredicate>(operands);
+        Data = data; Kind = kind; Literal = literal; Operands = new ImmutableListView<PurePredicate>(operands);
     }
 
     public static PurePredicate Parse(SourceJson data, int maximumNodes = 1024, int maximumDepth = 32)

@@ -15,6 +15,12 @@ not part of a cached verdict. External snapshot decoding is not reused. Resource
 Tenant checks also run on every returned declaration. Unknown/invalid shapes keep
 their original status and Source data; caching does not interpret opaque payloads.
 
+The retained graph owns its collection storage behind IReadOnlyList and
+IReadOnlyDictionary views only. Standard read-only wrappers are insufficient:
+their non-generic ICollection.SyncRoot can expose the mutable backing array or
+dictionary. Declaration/Type lists, nested values, predicates and dimensions use
+private-storage views whose enumeration, Keys and Values expose no such path.
+
 The local .NET host accepts an explicitly caller-owned cache. The default remains
 uncached. This provides the same computation seam to Windows pure preparation;
 it adds no operational transport or actual Avalonia acceptance. The offline Web
