@@ -406,7 +406,7 @@ def one_replacement(
 
 
 def main() -> int:
-    """Verify reviewed policy and reject all fifty-three bounded source mutations."""
+    """Verify reviewed policy and reject all fifty-eight bounded source mutations."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -736,6 +736,42 @@ def main() -> int:
             "        run: bash scripts/ci/npm-ci-retry.sh frontend",
             ".github/workflows/main-validation.yml",
         ),
+        "skipped backtick substitution owner": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: |\n"
+            "          true || echo `\n"
+            "          bash scripts/ci/npm-ci-retry.sh frontend\n"
+            "          `\n"
+            "          true",
+        ),
+        "quoted command-name exit before Qodana guard": one_replacement(
+            workflows,
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            "          ex'it' 0\n"
+            '          node scripts/quality/check-qodana-project-model.mjs "$SARIF"',
+            ".github/workflows/qodana-signed-shadow.yml",
+        ),
+        "encoded workflow defaults shell override": one_replacement(
+            workflows,
+            "jobs:\n",
+            '"de\\x66aults":\n  run:\n    shell: cat {0}\njobs:\n',
+            ".github/workflows/main-validation.yml",
+        ),
+        "encoded job defaults shell override": one_replacement(
+            workflows,
+            "  main-frontend-test:\n    name: Main Frontend\n    runs-on: ubuntu-24.04",
+            "  main-frontend-test:\n    name: Main Frontend\n    runs-on: ubuntu-24.04\n"
+            '    "de\\x66aults":\n'
+            "      run:\n        shell: cat {0}",
+            ".github/workflows/main-validation.yml",
+        ),
+        "decorated installer command not reviewed": one_replacement(
+            workflows,
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend",
+            "        run: bash scripts/ci/npm-ci-retry.sh frontend && true",
+            ".github/workflows/main-validation.yml",
+        ),
         "quoted false condition on toolchain owner": one_replacement(
             workflows,
             "        run: node scripts/ci/verify-node-toolchain.mjs",
@@ -759,7 +795,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 53 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 58 mutation controls rejected.")
     return 0
 
 
