@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 1,
+  "capability": "SEC-05 bounded source-declared native cases",
+  "state": "VERIFIED",
+  "scope": "EXACT_37_CASE_SET_ONLY_NOT_ALL_API_OR_AUTHORIZATION_COVERAGE",
+  "headSha": "64ba845fe29dd18112400ac741cc98e5fb710801",
+  "testedMergeSha": "cdf2a90cd34279499846528aa1d2d9a70c11492f",
+  "runId": 42132259076,
+  "runAttempt": 1,
+  "workflow": ".github/workflows/ci.yml",
+  "producerJobId": 127619151736,
+  "producerJobName": "security-scan",
+  "artifactId": 13465017820,
+  "artifactName": "sec06-zap-evidence",
+  "artifactArchiveSha256": "663c69380449a090a2fb05acfabbb8fbb49233e4f5c3be884cb5e7daaaf065b3",
+  "archiveDigestComparedWithGitHubApi": true,
+  "producerUploadMatchedInJobLog": true,
+  "caseReportSha256": "95ac7bc634df3c6924ab6fe68fcca96e699d3846770715ad0cbab8871bc2937d",
+  "sourceCaseDeclarations": {
+    "scripts/security/authorization-negative-matrix.sh": "c5386ae92568b7aa3e5424db4188e5dfb22b7cb40116532a97ce0bd83329d97d",
+    "scripts/ci/run-security-runtime-smoke.sh": "b0c46cbd21d444d667a3fe8d92bc4c438e4628641974feddc643809f110903dd"
+  },
+  "sourceSelection": "ALL_LITERAL_SEC05_CASE_CALLS_UNIQUE_AND_EXACTLY_MATCHED",
+  "independentComparisonControls": {
+    "positive": 1,
+    "negative": [
+      "counter-drift",
+      "disclosure",
+      "duplicate-case",
+      "failed-case",
+      "missing-case",
+      "mutation",
+      "wrong-route",
+      "wrong-source",
+      "wrong-status"
+    ]
+  },
+  "expectedCaseSet": [
+    "alpha-announcement-audiences",
+    "alpha-mark-beta-announcement-read",
+    "alpha-mutate-beta-attachment-grant",
+    "alpha-mutate-beta-file-grant",
+    "alpha-open-beta-notification",
+    "alpha-read-beta-announcement",
+    "alpha-read-beta-attachment",
+    "alpha-read-beta-conversation",
+    "alpha-read-beta-file",
+    "alpha-read-beta-file-sharing",
+    "alpha-read-beta-message-thread",
+    "alpha-read-beta-project",
+    "alpha-read-beta-task",
+    "alpha-read-beta-task-scope",
+    "alpha-read-beta-workspace",
+    "alpha-read-beta-workspace-management",
+    "alpha-switch-beta",
+    "alpha-wrong-conversation-read",
+    "anon-workspace",
+    "beta-open-alpha-notification",
+    "beta-owner-admin-invites",
+    "beta-read-alpha-conversation",
+    "beta-read-alpha-project",
+    "beta-read-alpha-task",
+    "beta-read-alpha-workspace",
+    "member-admin-audit-grid",
+    "member-audit-claims-evidence",
+    "member-audit-findings",
+    "restricted-admin-invites",
+    "restricted-task-create",
+    "restricted-workspace-management",
+    "stale-membership-workspace",
+    "stale-notification-open",
+    "stale-role-task-create",
+    "task-create-invalid-csrf",
+    "task-create-mass-assignment",
+    "task-create-missing-csrf"
+  ],
+  "actualCaseSet": [
+    "alpha-announcement-audiences",
+    "alpha-mark-beta-announcement-read",
+    "alpha-mutate-beta-attachment-grant",
+    "alpha-mutate-beta-file-grant",
+    "alpha-open-beta-notification",
+    "alpha-read-beta-announcement",
+    "alpha-read-beta-attachment",
+    "alpha-read-beta-conversation",
+    "alpha-read-beta-file",
+    "alpha-read-beta-file-sharing",
+    "alpha-read-beta-message-thread",
+    "alpha-read-beta-project",
+    "alpha-read-beta-task",
+    "alpha-read-beta-task-scope",
+    "alpha-read-beta-workspace",
+    "alpha-read-beta-workspace-management",
+    "alpha-switch-beta",
+    "alpha-wrong-conversation-read",
+    "anon-workspace",
+    "beta-open-alpha-notification",
+    "beta-owner-admin-invites",
+    "beta-read-alpha-conversation",
+    "beta-read-alpha-project",
+    "beta-read-alpha-task",
+    "beta-read-alpha-workspace",
+    "member-admin-audit-grid",
+    "member-audit-claims-evidence",
+    "member-audit-findings",
+    "restricted-admin-invites",
+    "restricted-task-create",
+    "restricted-workspace-management",
+    "stale-membership-workspace",
+    "stale-notification-open",
+    "stale-role-task-create",
+    "task-create-invalid-csrf",
+    "task-create-mass-assignment",
+    "task-create-missing-csrf"
+  ],
+  "caseOutcomes": [
+    {
+      "id": "alpha-announcement-audiences",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-mark-beta-announcement-read",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-mutate-beta-attachment-grant",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-mutate-beta-file-grant",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-open-beta-notification",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-announcement",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-attachment",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-conversation",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-file",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-file-sharing",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-message-thread",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-project",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-task",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-task-scope",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-workspace",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-read-beta-workspace-management",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-switch-beta",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "alpha-wrong-conversation-read",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "anon-workspace",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-open-alpha-notification",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-owner-admin-invites",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-read-alpha-conversation",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-read-alpha-project",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-read-alpha-task",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "beta-read-alpha-workspace",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "member-admin-audit-grid",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "member-audit-claims-evidence",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "member-audit-findings",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "restricted-admin-invites",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "restricted-task-create",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "restricted-workspace-management",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "stale-membership-workspace",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "stale-notification-open",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "stale-role-task-create",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "task-create-invalid-csrf",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "task-create-mass-assignment",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    },
+    {
+      "id": "task-create-missing-csrf",
+      "status": "passed",
+      "retryAttestation": "NOT_AVAILABLE_IN_REPORT"
+    }
+  ],
+  "counts": {
+    "expected": 37,
+    "actual": 37,
+    "failed": 0,
+    "missing": 0,
+    "duplicates": 0
+  },
+  "retryHistory": "NOT_AVAILABLE_IN_REPORT_NO_ZERO_RETRY_CLAIM",
+  "coverageState": "PARTIAL",
+  "gateState": "PARTIAL",
+  "approvalState": "UNVERIFIED",
+  "limitations": [
+    "Case identity and report outcome reconciliation only; runtime assertions are not independently re-executed.",
+    "The source-declared 37 cases are a bounded subset, not every current API route or transition.",
+    "No complete Files/realtime/RLS/release qualification or Owner approval."
+  ]
+}
