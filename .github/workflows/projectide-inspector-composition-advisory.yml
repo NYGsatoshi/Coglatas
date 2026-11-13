@@ -22,7 +22,7 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
-      TEST_HEAD: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+      TEST_HEAD: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
       RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
@@ -36,7 +36,7 @@ jobs:
       - name: Checkout immutable independent Test owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+          ref: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
           fetch-depth: 0
           persist-credentials: false
       - name: Bind source identities and exact Product SDK policy
@@ -127,7 +127,7 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
-      TEST_HEAD: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+      TEST_HEAD: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
       RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
@@ -141,7 +141,7 @@ jobs:
       - name: Checkout immutable independent Test owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 84d782e6cab17dfb9fddd9c69c57e8aca95b8573
+          ref: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
           fetch-depth: 0
           persist-credentials: false
       - name: Bind source identities and exact Product SDK policy
