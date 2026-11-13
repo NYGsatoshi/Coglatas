@@ -195,7 +195,7 @@ public sealed class ProjectTestPlan
     }
     private ProjectTestAssertionResult Evaluate(ProjectTestPlanDeclaration test, ProjectTestAssertion assertion, int remainingOperations)
     {
-        var origin = ProjectLocation.Create(test.DocumentId, Input.Source.Context, "/payload/assertions/" + assertion.Key, entityId: test.EntityId);
+        var origin = ProjectLocation.Create(test.DocumentId, Input.Source.Context, assertion.PropertyPath, entityId: test.EntityId);
         ProjectTestAssertionResult Outcome(CompilerVerdict verdict, string reason, SourceJson? actual = null) => new(origin, verdict, reason, assertion.Data, actual);
         var targetOrigin = ProjectLocation.Create(test.DocumentId, Input.Source.Context, origin.PropertyPath + "/target", entityId: test.EntityId);
         var targetBindings = _references.GetValueOrDefault(targetOrigin.Data.CanonicalText) ?? [];

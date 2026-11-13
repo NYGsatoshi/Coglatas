@@ -226,7 +226,7 @@ public static class ProjectSemanticBinder
                     if (remainingOperations < 0)
                     { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
                     Resolve(assertion.Target, ProjectLocation.Create(result.DocumentId, source.Context,
-                        "/payload/assertions/" + assertion.Key + "/target", entityId: entity), CoreCompilerRules.Declarations, assertion.PortId);
+                        assertion.PropertyPath + "/target", entityId: entity), CoreCompilerRules.Declarations, assertion.PortId);
                 }
             if (result.Declaration is RequirementPlanDeclaration requirement)
                 Resolve(requirement.Target, ProjectLocation.Create(result.DocumentId, source.Context, "/payload/target", entityId: entity), CoreCompilerRules.Declarations);

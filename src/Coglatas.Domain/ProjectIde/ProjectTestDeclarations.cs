@@ -20,6 +20,7 @@ public sealed class ProjectTestAssertion
 {
     public string Key { get; }
     public string Kind { get; }
+    public string PropertyPath => "/payload/assertions/" + Key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
     public PlanEntityReference Target { get; }
     public PortId PortId { get; }
     public TypedProjectValue? Expected { get; }

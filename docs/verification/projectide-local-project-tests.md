@@ -11,7 +11,8 @@ Project Source entity with the existing EntityId, DocumentId, display name and
 revision context. Its payload contains an ordered assertions array. Each
 assertion has a unique namespaced key, a typed pinned target entity
 reference and portId. Assertion locations use
-/payload/assertions/{key}, following the existing identity-keyed port
+/payload/assertions/{escapedKey}, using RFC 6901 escaping for each complete key
+(including slash, tilde and Unicode data), following the existing identity-keyed port
 location convention. The canonical Project Source is the only writable AST;
 repository files are explicit exports/import inputs, never a second writable
 copy. Unknown members/operators/versions remain preserved and unexecutable.

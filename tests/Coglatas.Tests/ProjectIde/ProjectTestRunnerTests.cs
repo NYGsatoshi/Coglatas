@@ -328,6 +328,23 @@ public sealed class ProjectTestRunnerTests
         Assert.Equal("coglatas.assertion-type-mismatch", result.Tests[0].Assertions[0].Reason);
     }
 
+
+    [Theory]
+    [InlineData("example.a/b", "/payload/assertions/example.a~1b")]
+    [InlineData("example.a~b", "/payload/assertions/example.a~0b")]
+    [InlineData("example.a~1b", "/payload/assertions/example.a~01b")]
+    [InlineData("example.テスト/α~β", "/payload/assertions/example.テスト~1α~0β")]
+    public void Assertion_keys_use_one_escaped_pointer_segment(string key, string expectedPath)
+    {
+        var input = Fixture(mutate: (_, assertions, _) => assertions[0]!["key"] = key);
+        var model = ProjectSemanticBinder.Bind(input);
+        var result = ProjectTestPlan.Compile(model, Evaluator).Execute(input.InputDigest);
+        Assert.Equal(CompilerVerdict.Pass, result.Verdict);
+        Assert.Equal(expectedPath, result.Tests[0].Assertions[0].Location.PropertyPath);
+        Assert.Contains(model.References, reference => reference.Origin.PropertyPath == expectedPath + "/target" && reference.State == ReferenceResolutionState.Resolved);
+        Assert.Equal(input.Source.Data, ProjectSourceCodec.Decode(ProjectSourceCodec.Encode(input.Source)).RequireSource().Data);
+    }
+
     [Fact]
     public void Wrong_actual_type_is_an_error_and_concurrent_runs_are_deterministic()
     {
