@@ -1,5 +1,4 @@
 using Coglatas.Domain.ProjectIde;
-using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
 namespace Coglatas.Tests.ProjectIde;
 public sealed class TimeSnapshotImmutabilityTests
 {
