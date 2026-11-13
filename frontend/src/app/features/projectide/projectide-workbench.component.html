@@ -132,12 +132,12 @@
                 #inspectorButton
                 type="button"
                 [attr.aria-pressed]="panel() === tab"
-                (click)="open(tab)"
+                (click)="open(tab, true)"
               >
                 {{ t('ide.' + tab) }}
               </button>
             } @else {
-              <button type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab)">
+              <button type="button" [attr.aria-pressed]="panel() === tab" (click)="open(tab, true)">
                 {{ t('ide.' + tab) }}
               </button>
             }
@@ -146,6 +146,24 @@
         <section class="panel" [attr.aria-label]="t('ide.' + panel())">
           <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
           @switch (panel()) {
+            @case ('history') {
+              <p>{{ t('ide.historyNotice') }}</p>
+              @if (store.history(); as history) {
+                <p role="status" data-testid="ide-history-state">{{ history.state }} · {{ history.sourceAdmissionStatus }}</p>
+                <p>{{ t('ide.historyCompaction') }} · {{ t('ide.historyMissing') }}: {{ history.missingAnchorState }}</p>
+                <ol data-testid="ide-history-revisions" [start]="historyPage() * 32 + 1">
+                  @for (revision of historyRows(); track revision.caseKey) {
+                    <li>
+                      <p>{{ revision.storage }} · {{ revision.context.branch.branchId }} · {{ contextRevision(revision.context) }}</p>
+                      <p>{{ t('ide.historySequence') }}: {{ revision.branchSequence }} · {{ revision.sourceDigest.value }}</p>
+                      <button type="button" (click)="openHistoryRevision(revision)">{{ t('ide.historyOpen') }}: {{ contextRevision(revision.context) }}</button>
+                    </li>
+                  }
+                </ol>
+                <button type="button" [disabled]="historyPage() === 0" (click)="historyPage.set(historyPage() - 1)">{{ t('ide.historyPrevious') }}</button>
+                <button type="button" [disabled]="(historyPage() + 1) * 32 >= history.revisions.length" (click)="historyPage.set(historyPage() + 1)">{{ t('ide.historyNext') }}</button>
+              } @else { <p role="status">{{ t('ide.historyUnavailable') }}</p> }
+            }
             @case ('diff') {
               <p>{{ t('ide.diffNotice') }}</p>
               @if (store.semanticDiff(); as prepared) {

@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { BoundReference, Diagnostic, InspectedSymbol, PreparedDraftRename, ReferenceCompletion, SemanticChange, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
+import { BoundReference, Diagnostic, HistoryRevisionView, InspectedSymbol, PreparedDraftRename, ReferenceCompletion, SemanticChange, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -43,8 +43,10 @@ export class ProjectIdeWorkbenchComponent {
   private readonly adapter = inject(ProjectIdePreviewAdapter);
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
-  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff'>('overview');
+  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history'>('overview');
   readonly diffPage = signal(0);
+  readonly historyPage = signal(0);
+  readonly historyRows = computed(() => this.store.history()?.revisions.slice(this.historyPage() * 32, (this.historyPage() + 1) * 32) ?? []);
   readonly diffRows = computed(() => this.store.semanticDiff()?.comparison.changes.slice(this.diffPage() * 32, (this.diffPage() + 1) * 32) ?? []);
   readonly severity = signal('');
   readonly kind = signal('');
@@ -53,7 +55,7 @@ export class ProjectIdeWorkbenchComponent {
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
-  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff'] as const;
+  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history'] as const;
   readonly canRead = computed(
     () =>
       this.flags.projectIdePreviewEnabled() &&
@@ -151,11 +153,17 @@ export class ProjectIdeWorkbenchComponent {
     this.kind.set('');
     this.search.set('');
     this.diffPage.set(0);
+    this.historyPage.set(0);
   }
   navigateDiff(change: SemanticChange, side: 'before' | 'after'): void {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateDiff(change, side)) { this.diffPage.set(0); this.open('source', true); }
+  }
+  openHistoryRevision(revision: HistoryRevisionView): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.openHistoryRevision(revision)) { this.historyPage.set(0); this.open('source', true); }
   }
   open(panel: (typeof this.tabs)[number], focus = false): void {
     const generation = ++this.focusGeneration;

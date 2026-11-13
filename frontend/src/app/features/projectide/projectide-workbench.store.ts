@@ -8,6 +8,7 @@ import {
   ProjectLocation,
   PreparedDraftRename,
   SemanticChange,
+  HistoryRevisionView,
   ReferenceCompletion,
   ReadState,
   Selection,
@@ -65,6 +66,17 @@ export class ProjectIdeWorkbenchStore {
   readonly sourceTarget = computed(() => this.currentTarget()?.record ?? null);
   readonly sourceLocation = computed(() => this.currentTarget()?.location ?? null);
   readonly navigationState = signal('');
+  readonly history = computed(() => {
+    const context = this.context(); const bundle = this.bundle();
+    if (this.state() !== 'ready' || !bundle || !context || context !== this.result() || !context.preparedHistory) return null;
+    try { readPreviewBundle(bundle); return context.preparedHistory; } catch { return null; }
+  });
+  openHistoryRevision(revision: HistoryRevisionView): boolean {
+    const history = this.history(); const bundle = this.bundle();
+    if (!history || !bundle || !history.revisions.includes(revision)) return false;
+    try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
+    this.choose(revision.caseKey); this.loadResult(); return true;
+  }
   readonly semanticDiff = computed(() => {
     const context = this.context(); const bundle = this.bundle();
     if (this.state() !== 'ready' || !bundle || !context || context !== this.result() || !context.preparedDiff ||

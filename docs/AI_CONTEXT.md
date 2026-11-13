@@ -23,6 +23,13 @@ and explicit incomplete/refused outcomes. The Windows pure ViewModel and offline
 Angular projection share Core comparison; stored History/Revert, current history
 authority and wider #908 acceptance remain open, with Security work in P0 #1932.
 
+The [Source history reconstruction engine](verification/projectide-source-history.md)
+adds typed forward record deltas, bounded exact checkpoint reconstruction,
+known-lineage/integrity checks and verified local checkpoint replacement. Its
+Core-generated history metadata feeds Angular and the Windows pure ViewModel.
+Ready reconstruction is separate from Source/Compiler support. Durable storage,
+current historical authority, retention/deletion and Revert remain open.
+
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.
 Existing manager grants and canonical TaskComment routing remain in place.

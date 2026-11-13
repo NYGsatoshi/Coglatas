@@ -182,6 +182,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly preparedHistory?: PreparedHistory | null;
   readonly preparedDiff?: PreparedSemanticDiff | null;
   readonly key: string;
   readonly projectName: string;
@@ -218,6 +219,25 @@ export interface PreviewCase {
     readonly relations: readonly { readonly location: ProjectLocation }[];
   } | null;
   readonly sourceMapDigest: Digest | null;
+}
+
+export interface HistoryRevisionView {
+  readonly caseKey: string;
+  readonly context: CommittedContext;
+  readonly branchSequence: number;
+  readonly sourceDigest: Digest;
+  readonly storage: 'Checkpoint' | 'TypedDelta';
+  readonly parents: readonly CommittedContext[];
+}
+export interface PreparedHistory {
+  readonly headCaseKey: string;
+  readonly state: 'Ready';
+  readonly sourceAdmissionStatus: 'StructurallyDecoded' | 'Unsupported';
+  readonly missingAnchorState: 'Unavailable';
+  readonly compactedCheckpointVerified: true;
+  readonly reconstructionPath: readonly CommittedContext[];
+  readonly revisions: readonly HistoryRevisionView[];
+  readonly deltaRecordCounts: { readonly documents: number; readonly declarations: number; readonly relations: number };
 }
 export interface PreviewBundle {
   readonly format: 'coglatas.web-preview/1';
