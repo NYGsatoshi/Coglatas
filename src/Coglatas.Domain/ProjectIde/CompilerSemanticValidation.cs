@@ -13,9 +13,9 @@ public sealed class CompilerSemanticValidation
     public int LogicalOperationsConsumed { get; }
     private CompilerSemanticValidation(PartialSemanticModel model, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationFinding> deferred, DerivedProjectIr? ir, int logicalOperationsConsumed)
     {
-        Model = model; LogicalOperationsConsumed = logicalOperationsConsumed; Findings = Array.AsReadOnly(findings.OrderBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal)
-            .ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal).ToArray());
-        DeferredChecks = Array.AsReadOnly(deferred.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Code, StringComparer.Ordinal).ToArray()); Ir = ir;
+        Model = model; LogicalOperationsConsumed = logicalOperationsConsumed; Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal)
+            .ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
+        DeferredChecks = new ImmutableListView<RelationFinding>(deferred.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Code, StringComparer.Ordinal)); Ir = ir;
     }
 
     public static CompilerSemanticValidation Validate(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units = null,
