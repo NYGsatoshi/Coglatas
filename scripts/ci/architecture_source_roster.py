@@ -78,7 +78,10 @@ def parse_source(raw: bytes, expected_class: str) -> list[str]:
     namespaces = re.findall(
         r'(?m)^namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)[ \t]*;[ \t]*$',
         source)
-    require(namespaces == [NAMESPACE] and
+    # Unsupported declaration spelling is still a declaration candidate;
+    # it must not disappear from the namespace count.
+    namespace_lines = re.findall(r'(?m)^[ \t]*namespace\b[^\n]*$', source)
+    require(namespaces == [NAMESPACE] and len(namespace_lines) == 1 and
             re.search(r'(?m)^using Xunit;[ \t]*$', source) is not None,
             'SOURCE_NAMESPACE')
     classes = CLASS.findall(source)
