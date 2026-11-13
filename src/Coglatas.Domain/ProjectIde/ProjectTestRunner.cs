@@ -205,6 +205,14 @@ public sealed class ProjectTestPlan
         if (!_tasks.TryGetValue(assertion.Target.EntityId, out var task)) return Outcome(CompilerVerdict.Error, "coglatas.fixture-requires-task");
         var port = task.Ports.SingleOrDefault(item => item.PortId == assertion.PortId);
         if (port?.DefaultValue is not { } value) return Outcome(CompilerVerdict.NotRun, "coglatas.fixture-default-missing");
+        var typeMatches = assertion.Kind switch
+        {
+            "coglatas.assert-boolean" => value.Type.Kind == "coglatas.boolean",
+            "coglatas.assert-numeric-comparison" => value.Type.Kind is "coglatas.decimal" or "coglatas.rational",
+            "coglatas.assert-collection-count" => value.Type.Kind is "coglatas.list" or "coglatas.sequence" or "coglatas.set" or "coglatas.map",
+            _ => value.Type.Kind is "coglatas.entity-reference" or "coglatas.document-reference" or "coglatas.resource-reference" or "coglatas.external-snapshot-reference"
+        };
+        if (!typeMatches) return Outcome(CompilerVerdict.Error, "coglatas.assertion-type-mismatch", value.Data);
         if (value.State != ValueState.Known) return Outcome(CompilerVerdict.Inconclusive, value.State == ValueState.Unknown ? "coglatas.unknown-actual" : "coglatas.null-actual", value.Data);
         bool passed;
         switch (assertion.Kind)

@@ -310,6 +310,24 @@ public sealed class ProjectTestRunnerTests
         Assert.Equal(1, result.ExecutedAssertions); Assert.Equal("coglatas.test-operation-budget-exhausted", result.Reason);
     }
 
+
+    [Theory]
+    [InlineData("coglatas.assert-numeric-comparison", "coglatas.boolean", false)]
+    [InlineData("coglatas.assert-numeric-comparison", "coglatas.text", false)]
+    [InlineData("coglatas.assert-numeric-comparison", "coglatas.boolean", true)]
+    [InlineData("coglatas.assert-boolean", "coglatas.text", true)]
+    [InlineData("coglatas.assert-collection-count", "coglatas.boolean", true)]
+    [InlineData("coglatas.assert-reference-resolved", "coglatas.boolean", true)]
+    public void Assertions_reject_wrong_types_before_value_evaluation(string assertionKind, string kind, bool unknown)
+    {
+        var value = Value(kind, kind == "coglatas.boolean" ? true : "two");
+        if (unknown) { value["state"] = "coglatas.unknown"; value.Remove("value"); value["reason"] = "example.missing"; value["basis"] = new JsonObject(); }
+        var input = Fixture(value, (_, assertions, _) => assertions[0] = Assertion(Source().Context, assertionKind));
+        var result = Run(input);
+        Assert.Equal(CompilerVerdict.Error, result.Verdict);
+        Assert.Equal("coglatas.assertion-type-mismatch", result.Tests[0].Assertions[0].Reason);
+    }
+
     [Fact]
     public void Wrong_actual_type_is_an_error_and_concurrent_runs_are_deterministic()
     {
