@@ -81,10 +81,9 @@ RUN apt-get -o Acquire::Retries=0 update \
         openssl \
         libssl3t64 \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/storage/uploads
+    && install -d -m 0700 -o "$APP_UID" /app/storage/uploads /app/data/protection-keys
 COPY --from=build /app/publish .
-RUN chown -R 1000:1000 /app
-USER 1000
+USER $APP_UID
 ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "exec dotnet Coglatas.Web.dll --urls http://0.0.0.0:${PORT:-8080}"]
