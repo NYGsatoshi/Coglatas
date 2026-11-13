@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace Coglatas.Domain.ProjectIde;
 
 /// <summary>Read-only typed view of canonical Source. No duplicate writable Task or operational state.</summary>
@@ -40,7 +38,7 @@ public sealed class ProjectPlanDeclaration : PlanDeclaration
     internal ProjectPlanDeclaration(SourceJson data, DocumentId document) : base(data, document)
     {
         Fields("roots", "calendar");
-        Roots = Payload.Value.TryGetProperty("roots", out _) ? EntityIds("roots") : Array.Empty<EntityId>();
+        Roots = Payload.Value.TryGetProperty("roots", out _) ? EntityIds("roots") : ImmutableListView<EntityId>.Empty;
         if (Payload.Value.TryGetProperty("calendar", out _)) Calendar = DeclarationFields.Calendar(Child("calendar"));
     }
 }
@@ -58,7 +56,7 @@ public sealed class TaskPlanDeclaration : PlanDeclaration
         var ports = SourceFields.Array(Payload.Value, "ports").EnumerateArray()
             .Select(port => new PortDefinition(SourceJson.FromElement(port, Data.Limits))).ToArray();
         if (ports.Select(port => port.PortId).Distinct().Count() != ports.Length) throw new FormatException("Duplicate PortId.");
-        Ports = new ReadOnlyCollection<PortDefinition>(ports);
+        Ports = new ImmutableListView<PortDefinition>(ports);
     }
 }
 
@@ -177,7 +175,7 @@ public sealed class WorkflowPlanDeclaration : PlanDeclaration
         if (transitions.Select(item => item.TransitionId).Distinct().Count() != transitions.Length ||
             transitions.Any(item => !States.Contains(item.From) || !States.Contains(item.To)))
             throw new FormatException("Workflow transition identity or endpoint is invalid.");
-        Transitions = new ReadOnlyCollection<WorkflowTransitionDefinition>(transitions);
+        Transitions = new ImmutableListView<WorkflowTransitionDefinition>(transitions);
         // Loops are syntactically bounded here; this is not an executing Workflow engine.
     }
 }
@@ -194,7 +192,7 @@ internal static class DeclarationFields
             return id;
         }).ToArray();
         if (values.Distinct().Count() != values.Length) throw new FormatException("Duplicate declaration identity.");
-        return new ReadOnlyCollection<T>(values);
+        return new ImmutableListView<T>(values);
     }
 
     internal static TypedProjectValue Value(SourceJson data, params string[] kinds)

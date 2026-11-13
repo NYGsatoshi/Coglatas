@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -22,7 +21,7 @@ public sealed class Dimension : IEquatable<Dimension>
             powers.Add(member.Name, power);
         }
         Data = data;
-        Powers = new ReadOnlyDictionary<string, int>(powers);
+        Powers = new ImmutableMapView<string, int>(powers, StringComparer.Ordinal);
     }
 
     public bool Equals(Dimension? other) => other is not null && Data.Equals(other.Data);

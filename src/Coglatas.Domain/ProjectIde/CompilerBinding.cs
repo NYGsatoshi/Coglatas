@@ -57,7 +57,7 @@ public sealed class PartialSemanticModel
 public static class ProjectSemanticBinder
 {
     public static PartialSemanticModel Bind(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
     {
         ArgumentNullException.ThrowIfNull(input); cancellationToken.ThrowIfCancellationRequested();
         foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
@@ -178,7 +178,9 @@ public static class ProjectSemanticBinder
             snapshots.Add(snapshot);
         }
         var local = new RelationScopeSnapshot(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete);
-        var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item => (Snapshot: item, Results: PlanDeclarationReader.Read(item.Source))).ToArray();
+        var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item => (Snapshot: item,
+            Results: declarationCache is not null && ReferenceEquals(item.Source, source)
+                ? declarationCache.Read(source, cancellationToken) : PlanDeclarationReader.Read(item.Source))).ToArray();
         foreach (var set in declarationSets)
         {
             foreach (var result in set.Results)
