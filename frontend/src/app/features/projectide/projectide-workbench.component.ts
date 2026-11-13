@@ -20,7 +20,7 @@ import {
 } from '../../core/i18n/messages/projectide.messages';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
-import { BoundReference, Diagnostic, InspectedSymbol, ReferenceCompletion, SourceRecord, assessLocalEvidence } from './projectide.contracts';
+import { BoundReference, Diagnostic, InspectedSymbol, PreparedDraftRename, ReferenceCompletion, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
@@ -34,6 +34,7 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProjectIdeWorkbenchComponent {
+  readonly contextRevision = contextRevision;
   readonly store = inject(ProjectIdeWorkbenchStore);
   readonly flags = inject(FrontendFeatureFlagsService);
   readonly i18n = inject(I18nService);
@@ -192,6 +193,11 @@ export class ProjectIdeWorkbenchComponent {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateCompletion(page, candidate)) this.open('source', true);
+  }
+  loadPreparedRename(prepared: PreparedDraftRename): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.loadPreparedRename(prepared)) this.open('source', true);
   }
   inspectReference(reference: BoundReference): void {
     this.focusGeneration++;

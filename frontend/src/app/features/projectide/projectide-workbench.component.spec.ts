@@ -79,6 +79,21 @@ async function render(enabled = true, allowed = true, fail = false) {
 }
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('previews the prepared Draft rename in %s and rechecks permission before loading it', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('draft-before'); c.loadResult();
+    c.i18n.setLocale(locale); fixture.detectChanges();
+    const task = c.records().find(item => item.kind === 'coglatas.task')!; c.inspectRecord(task); fixture.detectChanges();
+    const prepared = c.store.preparedRename()!; expect(prepared).not.toBeNull();
+    expect(root.textContent).toContain(prepared.plan.beforeContext.proposalId);
+    expect(root.textContent).toContain(prepared.plan.beforeContext.baseRevision.revisionId);
+    const button = root.querySelector<HTMLButtonElement>('[data-testid="ide-draft-rename"] button')!;
+    expect(button.textContent).toContain(locale === 'en' ? 'Load prepared Draft fixture' : '準備済みDraft Fixtureを読み込む');
+    button.click(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('draft-after'); expect(c.panel()).toBe('source');
+    c.choose('draft-before'); c.loadResult(); c.inspectRecord(c.records().find(item => item.kind === 'coglatas.task')!); fixture.detectChanges();
+    authenticated.set(false); fixture.detectChanges(); c.loadPreparedRename(prepared); fixture.detectChanges();
+    expect(c.store.context()).toBeNull(); expect(c.store.state()).toBe('denied');
+  });
+
   it.each(['en', 'ja'] as const)('opens a localized %s typed candidate and clears it after permission loss', async locale => {
     const { c, fixture, root, authenticated } = await render();
     c.choose('pass'); c.loadResult();
@@ -160,7 +175,7 @@ describe('ProjectIDE Workbench components', () => {
     c.choose('fail');
     fixture.detectChanges();
     expect(root.textContent).toContain('Synthetic Observatory');
-    expect(root.textContent).toContain(c.store.context()!.context.revisionId);
+    expect(root.textContent).toContain(c.contextRevision(c.store.context()!.context));
     expect(root.textContent).toContain(c.store.context()!.workspaceId);
   });
   it('keeps unloaded results NotRun', async () => {

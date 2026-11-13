@@ -58,6 +58,22 @@ public sealed class WebPreviewContractTests
             }
         }
         else Assert.Equal(JsonValueKind.Null, item.GetProperty("semanticInspection").ValueKind);
+        if (item.TryGetProperty("preparedRename", out var prepared) && prepared.ValueKind != JsonValueKind.Null)
+        {
+            var plan = prepared.GetProperty("plan");
+            var preview = ProjectDraftRename.Preview(compilation.Model!, ProjectLocation.Parse(SourceJson.Parse(plan.GetProperty("target").GetRawText())),
+                input.InputDigest, plan.GetProperty("newName").GetString()!, SourceRevisionContext.Parse(SourceJson.Parse(plan.GetProperty("afterContext").GetRawText())));
+            Assert.Equal(DraftRenameState.Ready, preview.State);
+            Assert.Equal(preview.Plan!.Data, SourceJson.Parse(plan.GetRawText()));
+            var afterFixture = Cases().Select(row => JsonDocument.Parse((string)row[0])).ToArray();
+            try
+            {
+                var after = afterFixture.Single(value => value.RootElement.GetProperty("key").GetString() == prepared.GetProperty("afterCaseKey").GetString()).RootElement;
+                Assert.Equal(preview.Plan.After.Source.Data, SourceJson.Parse(after.GetProperty("source").GetRawText()));
+                Assert.Equal(preview.Plan.After.InputDigest.Data, SourceJson.Parse(after.GetProperty("inputDigest").GetRawText()));
+            }
+            finally { foreach (var value in afterFixture) value.Dispose(); }
+        }
         foreach (var record in item.GetProperty("declarations").EnumerateArray())
         {
             var location = ProjectLocation.Parse(SourceJson.Parse(record.GetProperty("location").GetRawText()));

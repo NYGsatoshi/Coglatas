@@ -5,11 +5,12 @@ using Coglatas.Domain.ProjectIde;
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
 var cases = new List<object>();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project" };
+var renameFixture = RenameFixture();
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
-    var input = Input(name, 100 + index);
+    var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After, _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler);
     var result = name switch
     {
@@ -56,6 +57,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         declarations, relations,
         semanticInspection = inspection?.Data.Value,
         referenceCompletions = completions,
+        preparedRename = name == "draft-before" ? new { afterCaseKey = "draft-after", plan = renameFixture.Plan.Data.Value } : null,
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
@@ -66,6 +68,21 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static (CompilerInputManifest Before, CompilerInputManifest After, ProjectDraftRenamePlan Plan) RenameFixture()
+{
+    var original = Input("draft-base", 110);
+    var declarations = original.Source.Declarations.Value.EnumerateArray().Where(item => item.GetProperty("entityId").GetString() is var id && (id == Id(8) || id == Id(9))).ToArray();
+    var source = ProjectSource.Create(original.Source.Context, original.Source.Documents, Json(declarations),
+        sourceReferences: Json(new[] { new { kind = "coglatas.entity-reference", documentId = Id(4), entityId = Id(8) } }));
+    var basis = new CompilerInputManifest(source, original.Settings);
+    var proposal = new ProposalContext(ProposalId.Parse(Id(50)), CandidateRevisionId.Parse(Id(51)), source.Context.CommittedRevision!, source.Context.CommittedRevision!);
+    var before = ProjectDraftRename.Fork(ProjectSemanticBinder.Bind(basis), proposal);
+    var next = SourceRevisionContext.Candidate(new(proposal.ProposalId, CandidateRevisionId.Parse(Id(52)), proposal.BaseRevision, proposal.CapturedTargetHead));
+    var target = ProjectLocation.Create(DocumentId.Parse(Id(4)), before.Source.Context, entityId: EntityId.Parse(Id(8)));
+    var preview = ProjectDraftRename.Preview(ProjectSemanticBinder.Bind(before), target, before.InputDigest, "Observe renamed 🌌", next);
+    var plan = preview.Plan ?? throw new InvalidOperationException("Synthetic Draft Rename preparation failed.");
+    return (before, plan.ApplyToDraft(before) ?? throw new InvalidOperationException("Synthetic Draft Rename application failed."), plan);
+}
 static SourceJson Json(object value) => SourceJson.Parse(JsonSerializer.Serialize(value));
 static object Literal(bool? value) => new
 {

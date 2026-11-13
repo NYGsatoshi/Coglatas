@@ -33,7 +33,34 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
   for (const item of bundle.cases) {
     validatePreviewCaseBindings(item);
   }
+  for (const item of bundle.cases) if (item.preparedRename && item.semanticInspection) validatePreparedDraftRename(bundle, item);
   return bundle;
+}
+
+/** Validates a Core-prepared synthetic pair; it never authorizes or performs a runtime edit. */
+function validatePreparedDraftRename(bundle: PreviewBundle, before: PreviewCase): void {
+  const prepared = before.preparedRename!; const plan = prepared.plan;
+  const after = bundle.cases.find(item => item.key === prepared.afterCaseKey);
+  const context = before.context;
+  if (!after || context.kind !== 'coglatas.candidate' || after.context.kind !== 'coglatas.candidate' ||
+      !sameContext(context, plan.beforeContext) || !sameContext(after.context, plan.afterContext) ||
+      !sameContext(plan.target.context, context) || context.proposalId !== after.context.proposalId ||
+      context.candidateRevisionId === after.context.candidateRevisionId ||
+      !sameContext(context.baseRevision, after.context.baseRevision) ||
+      !sameContext(context.capturedTargetHead, after.context.capturedTargetHead) ||
+      !sameDigest(before.inputDigest, plan.beforeInputDigest) || !sameDigest(after.inputDigest, plan.afterInputDigest) ||
+      before.freshness !== 'Current' || after.freshness !== 'Current' || !before.sourceMap || !after.sourceMap)
+    throw new PreviewReadError('wrong-scope');
+  const symbol = before.semanticInspection?.symbols.find(item => sameJson(item.location, plan.target));
+  const record = before.declarations.find(item => item.identity === plan.target.entityId && item.location.documentId === plan.target.documentId);
+  const renamed = after.declarations.find(item => item.identity === plan.target.entityId && item.location.documentId === plan.target.documentId);
+  if (!symbol || !after.semanticInspection || symbol.status !== 'Decoded' || symbol.location.propertyPath !== '' || !record || !renamed ||
+      record.status !== 'Decoded' || renamed.status !== 'Decoded' || record.kind !== renamed.kind ||
+      (record.data['displayName'] ?? null) !== plan.previousName || renamed.data['displayName'] !== plan.newName ||
+      plan.referenceCoverageComplete !== before.semanticInspection?.bindingComplete)
+    throw new PreviewReadError('unsupported');
+  const references = before.semanticInspection!.references.filter(item => item.state === 'Resolved' && item.symbolKey === symbol.key);
+  if (!sameJson(references.map(item => item.origin), plan.referenceOrigins)) throw new PreviewReadError('wrong-scope');
 }
 
 /** Reused by direct navigation so shape validation cannot bypass exact artifact binding. */

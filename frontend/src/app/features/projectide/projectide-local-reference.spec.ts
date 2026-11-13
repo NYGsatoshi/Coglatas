@@ -44,6 +44,7 @@ describe('Source-backed local reference navigation', () => {
     'external-key', 'target-span', 'wrong-map', 'wrong-map-location', 'wrong-input', 'wrong-source', 'wrong-revision',
   ])('rejects %s and clears a previous target', async (mode) => {
     const { store, result } = await ready();
+    if (result.context.kind !== 'coglatas.committed') throw new Error('Expected the committed reference fixture');
     const inspection = result.semanticInspection!;
     const reference = inspection.references[0];
     const symbol = inspection.symbols.find((item) => item.key === reference.symbolKey)!;
