@@ -8,7 +8,8 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
     '@lucide/angular': '1.72.0',
-    '@microsoft/signalr': '10.0.11',
+    // This major update is explicitly part of the coordinated .NET 11 migration PR.
+    '@microsoft/signalr': '11.0.0',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.42',
     '@syncfusion/ej2-angular-inputs': '35.1.43',
