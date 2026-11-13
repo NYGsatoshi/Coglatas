@@ -61,6 +61,7 @@ INPUT_EXPLICIT_CACHE = re.compile(r"(?m)^          cache:.*$")
 
 
 def job_blocks(source: str) -> dict[str, str]:
+    """Split the fixed workflow jobs into bounded source blocks for policy inspection."""
     marker = re.search(r"(?m)^jobs:\s*$", source)
     if marker is None:
         return {}
@@ -73,6 +74,7 @@ def job_blocks(source: str) -> dict[str, str]:
 
 
 def violations(workflows: dict[str, str], installer: str) -> list[str]:
+    """Return all fixed-owner, Node 26 and isolated npm-cache policy violations."""
     issues = []
     # The isolation contract has to remain true before disabling setup-node's
     # own global cache. Do not assume scripts remain unchanged forever.
@@ -107,8 +109,8 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             if not re.search(r"(?m)^        with:\s*$", step):
                 issues.append(f"{path}/{job_id}: missing setup-node with block")
             versions = re.findall(r"(?m)^          node-version: (\S+)\s*$", step)
-            if versions not in (['"24"'], ["'24'"]):
-                issues.append(f"{path}/{job_id}: Node 24 toolchain not pinned")
+            if versions not in (['"26"'], ["'26'"]):
+                issues.append(f"{path}/{job_id}: Node 26 toolchain not pinned")
             flags = INPUT_CACHE.findall(step)
             if flags != ["false"]:
                 issues.append(f"{path}/{job_id}: implicit npm cache must be disabled exactly once")
@@ -120,6 +122,7 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
 def one_replacement(
     workflows: dict[str, str], before: str, after: str, path: str = ".github/workflows/ci.yml"
 ) -> dict[str, str]:
+    """Mutate one controlled workflow anchor without modifying other source owners."""
     changed = workflows.copy()
     assert changed[path].count(before) >= 1, f"Mutation anchor missing: {before!r}"
     changed[path] = changed[path].replace(before, after, 1)
@@ -127,6 +130,7 @@ def one_replacement(
 
 
 def main() -> int:
+    """Verify real workflow policy and fail closed on all twelve mutation controls."""
     workflows = {path: (ROOT / path).read_text(encoding="utf-8") for path in EXPECTED}
     installer = (ROOT / "scripts/ci/npm-ci-retry.sh").read_text(encoding="utf-8")
     errors = violations(workflows, installer)
@@ -149,8 +153,11 @@ def main() -> int:
             workflows, "          package-manager-cache: false",
             "          package-manager-cache: false\n          package-manager-cache: false",
         ),
+        # Target a job in EXPECTED, not the unrelated first setup-node
+        # occurrence in ci.yml (the actor-replacement helper).
         "lost Node version": one_replacement(
-            workflows, '          node-version: "24"', '          node-version: "23"'
+            workflows, '          node-version: "26"', '          node-version: "23"',
+            ".github/workflows/qodana-signed-shadow.yml",
         ),
         "lost fixed owner": one_replacement(
             workflows, "scripts/ci/npm-ci-retry.sh frontend",
@@ -161,7 +168,7 @@ def main() -> int:
             ".github/workflows/qodana_trusted_gate.yml",
         ),
         "single-quoted typecheck Node drift": one_replacement(
-            workflows, "          node-version: '24'", "          node-version: '23'",
+            workflows, "          node-version: '26'", "          node-version: '23'",
             ".github/workflows/thread-functional-typecheck.yml",
         ),
         "signed shadow cache reenabled": one_replacement(
