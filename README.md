@@ -5,6 +5,7 @@
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
 [![Lines of code](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=nygsatoshi_coglatas&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=nygsatoshi_coglatas)
+[![Main CI](https://github.com/NYGsatoshi/Coglatas/actions/workflows/main-build-artifacts.yml/badge.svg)](https://github.com/NYGsatoshi/Coglatas/actions/workflows/main-build-artifacts.yml)
 [![CodeQL Advanced](https://github.com/NYGsatoshi/Coglatas/actions/workflows/codeql.yml/badge.svg)](https://github.com/NYGsatoshi/Coglatas/actions/workflows/codeql.yml)
 [![API Performance](https://github.com/NYGsatoshi/Coglatas/actions/workflows/performance-api.yml/badge.svg)](https://github.com/NYGsatoshi/Coglatas/actions/workflows/performance-api.yml)
 
