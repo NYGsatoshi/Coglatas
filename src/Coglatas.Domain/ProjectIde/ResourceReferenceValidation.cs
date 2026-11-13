@@ -14,7 +14,7 @@ public sealed class ResourceReferenceAssessment
         IEnumerable<CompilerBindingFinding> findings, CompilerExecutionState execution)
     {
         Reference = reference; Binding = binding; Execution = execution;
-        Findings = Array.AsReadOnly(findings.OrderBy(item => item.Diagnostic.Code, StringComparer.Ordinal).ToArray());
+        Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
     }
 }
 
