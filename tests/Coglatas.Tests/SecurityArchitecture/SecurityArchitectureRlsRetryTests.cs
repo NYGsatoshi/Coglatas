@@ -1,6 +1,5 @@
 using System.Data;
 using System.Net;
-using System.Net.Http.Json;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Tests.PostgreSql;
