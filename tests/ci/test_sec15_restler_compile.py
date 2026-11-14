@@ -112,7 +112,9 @@ class CompileContracts(unittest.TestCase):
                 m.image_id(value)
 
     def test_compiler_has_no_network_or_privileged_mount(self):
-        args = m.compiler_command("sha256:" + "c" * 64, Path("/tmp/input"), Path("/tmp/output"))
+        # These paths only exercise command construction; use a private-root fixture
+        # rather than suggesting that production bind mounts may live under /tmp.
+        args = m.compiler_command("sha256:" + "c" * 64, Path("/var/lib/coglatas-sec15-test/input"), Path("/var/lib/coglatas-sec15-test/output"))
         self.assertIn("--read-only", args)
         self.assertEqual("none", args[args.index("--network") + 1])
         self.assertEqual("ALL", args[args.index("--cap-drop") + 1])
@@ -123,7 +125,7 @@ class CompileContracts(unittest.TestCase):
 
     def test_mount_delimiter_injection_is_rejected(self):
         with self.assertRaises(m.Rejected):
-            m.compiler_command("sha256:" + "d" * 64, Path("/tmp/input,readonly=false"), Path("/tmp/output"))
+            m.compiler_command("sha256:" + "d" * 64, Path("/var/lib/coglatas-sec15-test/input,readonly=false"), Path("/var/lib/coglatas-sec15-test/output"))
 
     def test_duplicate_json_and_nonfinite_are_rejected(self):
         for raw in (b'{"x":1,"x":2}', b'{"x":NaN}', b"", b"null" * 10):
