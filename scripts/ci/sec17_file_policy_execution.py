@@ -11,7 +11,9 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
-from sec_arch_evidence import digest, observed_trx
+from sec_arch_evidence import (digest, observed_trx, read_trusted_execution_trx,
+                               trusted_execution_trx, closed_sec17_execution_summary,
+                               SEC17_FILE_TRX_RELATIVE)
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 
 METHOD = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureFilePolicyTransportTests.ActualWorkspaceFileSharingPolicyReauthorizesEstablishedAndFreshTransportAndReplay"
@@ -48,7 +50,8 @@ def capture(root: Path, trx: Path, candidate: str, now: datetime) -> dict:
     declaration = rb"public\s+Task\s+" + METHOD.rsplit(".", 1)[1].encode() + rb"\s*\(\s*\)"
     if len(re.findall(declaration, source)) != 1:
         raise ValueError("The exact File policy owner source declaration is required.")
-    data = trx.read_bytes()
+    trusted_execution_trx(root, trx, SEC17_FILE_TRX_RELATIVE)
+    data = read_trusted_execution_trx(root, SEC17_FILE_TRX_RELATIVE)
     observed = observe(data, now)
     assemblies = capture_assemblies(root)
     if git("rev-parse", "HEAD") != candidate or git("status", "--porcelain"):
@@ -81,25 +84,11 @@ def selection_status(observed: dict) -> str:
     return "SKIPPED_OR_NOT_EXECUTED" if observed["cases"][0]["outcome"] == "UNVERIFIED" else "EXECUTED"
 
 
-def failure_summary(candidate: str, trx: Path) -> dict:
-    # No native TestOutput/ErrorInfo, exception text, identifiers or payloads
-    # are copied, including when build, selection or evidence capture fails.
-    try:
-        data = trx.read_bytes() if trx.is_file() and trx.stat().st_size <= 64 * 1024 * 1024 else None
-    except OSError:
-        data = None
-    return {
-        "schemaVersion": 1, "verifierId": "SEC-17-FILE-POLICY-EXECUTION",
-        "candidateSha": candidate if re.fullmatch(r"[a-f0-9]{40}", candidate) else None,
-        "outcome": "ERROR", "selectionStatus": "NO_VALID_NATIVE_EXECUTION",
-        "diagnostic": "INVALID_OR_UNAVAILABLE_EXECUTION_EVIDENCE",
-        "executionDigest": digest(data) if data is not None else None,
-        "requiredCaseCount": 1, "observedCaseCount": None,
-        "contractCompletion": "UNVERIFIED", "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
-        "runId": os.environ.get("GITHUB_RUN_ID", "LOCAL"),
-        "runAttempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")
-    }
-
+def failure_summary(candidate: str, trx: Path, root: Path | None = None) -> dict:
+    # Retain the exact source-owned producer identity and sanitized ERROR schema.
+    checked_root = root if root is not None else Path(__file__).resolve().parents[2]
+    return closed_sec17_execution_summary(
+        candidate, trx, checked_root, SEC17_FILE_TRX_RELATIVE, "SEC-17-FILE-POLICY-EXECUTION")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

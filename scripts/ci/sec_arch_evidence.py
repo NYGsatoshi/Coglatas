@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -11,6 +12,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import stat
 import subprocess
 import xml.etree.ElementTree as ET
 
@@ -18,6 +20,10 @@ from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 from sec_arch_http_theory_cases import THEORY_CASES, case_id
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+MAX_TRX_BYTES = 64 * 1024 * 1024
+TRUSTED_TRX_RELATIVE = Path("artifacts/test-results/backend/backend-tests.trx")
+SEC17_DEEP_TRX_RELATIVE = Path("artifacts/sec17-deep/sec17-deep.trx")
+SEC17_FILE_TRX_RELATIVE = Path("artifacts/sec17-file-policy/sec17-file-policy.trx")
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
 CATALOG = {
@@ -261,11 +267,114 @@ def instant(value: str) -> datetime:
     return result.astimezone(timezone.utc)
 
 
+def trusted_execution_trx(root: Path, candidate: Path, expected: Path = TRUSTED_TRX_RELATIVE) -> Path:
+    """Check that a requested CLI file is exactly a registered producer's TRX."""
+    if expected not in (TRUSTED_TRX_RELATIVE, SEC17_DEEP_TRX_RELATIVE, SEC17_FILE_TRX_RELATIVE):
+        raise ValueError("Unsupported execution evidence producer.")
+    # Some Python versions raise RuntimeError for cyclic symlinks instead of
+    # OSError. Normalize it so every capture/closed-summary caller fails safely.
+    try:
+        repository = root.resolve(strict=True)
+        selected = candidate.resolve(strict=True)
+    except RuntimeError:
+        raise ValueError("Execution evidence path resolution failed.") from None
+    trusted = repository / expected
+    # The producer's root and filename come from this source, not from --trx.
+    # Realpath comparison rejects traversal and symlink escapes before the open.
+    if selected != trusted:
+        raise ValueError("Execution evidence does not match the trusted backend report.")
+    return trusted
+
+
+def read_execution_trx(path: Path, *, dir_fd: int | None = None) -> bytes:
+    """Read one unchanged bounded regular file before any XML interpretation."""
+    def identity(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def bounded_regular(info):
+        return stat.S_ISREG(info.st_mode) and 0 <= info.st_size <= MAX_TRX_BYTES
+
+    before = (path.lstat() if dir_fd is None else
+              os.stat(path.name, dir_fd=dir_fd, follow_symlinks=False))
+    if not bounded_regular(before):
+        raise ValueError("Execution evidence must be a bounded regular file.")
+    # Reject special-file replacements without blocking, then verify the opened
+    # descriptor rather than trusting the preceding path check.
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = (os.open(path, flags) if dir_fd is None else
+                  os.open(path.name, flags, dir_fd=dir_fd))
+    with os.fdopen(descriptor, "rb") as source:
+        opened = os.fstat(source.fileno())
+        if not bounded_regular(opened) or identity(opened) != identity(before):
+            raise ValueError("Execution evidence changed before reading.")
+        data = source.read(opened.st_size + 1)
+        after = os.fstat(source.fileno())
+        if (not bounded_regular(after) or identity(after) != identity(opened) or
+                len(data) != opened.st_size):
+            raise ValueError("Execution evidence changed while reading.")
+    return data
+
+
+
+def read_trusted_execution_trx(root: Path, expected: Path) -> bytes:
+    """Anchor canonical producer-directory traversal against ancestor replacement."""
+    if expected not in (TRUSTED_TRX_RELATIVE, SEC17_DEEP_TRX_RELATIVE, SEC17_FILE_TRX_RELATIVE):
+        raise ValueError("Unsupported execution evidence producer.")
+    repository = root.resolve(strict=True)
+    if os.name != "posix":
+        # Portable baseline; POSIX dir_fd provides the stronger pinned-ancestor boundary.
+        return read_execution_trx(repository / expected)
+    if (not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW") or
+            os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd):
+        raise ValueError("Trusted execution evidence directory handles are unavailable.")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    with ExitStack() as stack:
+        parent_fd = os.open(repository, directory_flags)
+        stack.callback(os.close, parent_fd)
+        for component in expected.parts[:-1]:
+            child_fd = os.open(component, directory_flags, dir_fd=parent_fd)
+            stack.callback(os.close, child_fd)
+            parent_fd = child_fd
+        return read_execution_trx(Path(expected.name), dir_fd=parent_fd)
+
+
+def optional_trusted_execution_digest(root: Path, candidate: Path, expected: Path) -> str | None:
+    """Only hash a canonical, bounded, unchanged producer report."""
+    try:
+        trusted_execution_trx(root, candidate, expected)
+        return digest(read_trusted_execution_trx(root, expected))
+    except (OSError, ValueError):
+        # Invalid paths, unreadable reports and changed files never yield a digest.
+        return None
+
+
+def closed_sec17_execution_summary(
+        candidate: str, trx: Path, root: Path, expected: Path, verifier_id: str) -> dict:
+    """Build the shared closed SEC-17 receipt without reading untrusted input."""
+    identifiers = {
+        SEC17_DEEP_TRX_RELATIVE: "SEC-17-BOUNDED-DEEP-EXECUTION",
+        SEC17_FILE_TRX_RELATIVE: "SEC-17-FILE-POLICY-EXECUTION",
+    }
+    if identifiers.get(expected) != verifier_id:
+        raise ValueError("Unsupported SEC-17 evidence producer.")
+    return {
+        "schemaVersion": 1, "verifierId": verifier_id,
+        "candidateSha": candidate if re.fullmatch(r"[a-f0-9]{40}", candidate) else None,
+        "outcome": "ERROR", "selectionStatus": "NO_VALID_NATIVE_EXECUTION",
+        "diagnostic": "INVALID_OR_UNAVAILABLE_EXECUTION_EVIDENCE",
+        "executionDigest": optional_trusted_execution_digest(root, trx, expected),
+        "requiredCaseCount": 1, "observedCaseCount": None,
+        "contractCompletion": "UNVERIFIED", "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
+        "runId": os.environ.get("GITHUB_RUN_ID", "LOCAL"),
+        "runAttempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+    }
+
+
 def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
     expected = EXPECTED if expected_methods is None else expected_methods
     if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):
         raise ValueError("Expected verifier catalogue invalid.")
-    if len(data) > 64 * 1024 * 1024 or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
+    if len(data) > MAX_TRX_BYTES or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
         raise ValueError("Unbounded or unsupported XML input.")
     root = ET.fromstring(data)
     if root.tag != "{" + NS["t"] + "}TestRun":
@@ -349,7 +458,8 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
     if (stamp.is_file() and not binding) or (os.environ.get("GITHUB_ACTIONS") == "true" and not binding):
         raise ValueError("Required build stamp missing or mismatched.")
     assemblies = capture_assemblies(root)
-    data = trx.read_bytes()
+    trusted_execution_trx(root, trx)
+    data = read_trusted_execution_trx(root, TRUSTED_TRX_RELATIVE)
     observed = observed_trx(data, now)
     report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
               "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,

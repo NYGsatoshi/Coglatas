@@ -16,6 +16,9 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
+from test_sec_arch_evidence import (assert_canonical_failure_summary,
+                                    assert_cyclic_symlink_closed_receipt,
+                                    assert_unavailable_capture_is_closed)
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -168,7 +171,7 @@ class DeepExecutionTests(unittest.TestCase):
             result = json.loads(saved)
             self.assertEqual("ERROR", result["outcome"])
             self.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
-            self.assertEqual(evidence.digest(trx.read_bytes()), result["executionDigest"])
+            self.assertIsNone(result["executionDigest"], "A noncanonical CLI file must not be read or hashed.")
             self.assertEqual(1, result["requiredCaseCount"])
             self.assertIsNone(result["observedCaseCount"])
             self.assertIsNone(result["ownerApproval"])
@@ -177,6 +180,12 @@ class DeepExecutionTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     deep.main()
             self.assertEqual(retained, output.read_bytes())
+
+    def test_failure_summary_accepts_only_canonical_producer_trx(self):
+        assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
+
+    def test_cyclic_symlink_is_a_closed_failure_receipt(self):
+        assert_cyclic_symlink_closed_receipt(self, deep)
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -198,13 +207,15 @@ class DeepExecutionTests(unittest.TestCase):
             stamp = root / "artifacts/ci/dotnet-build-sha"
             stamp.parent.mkdir(parents=True)
             stamp.write_text(candidate)
-            trx = root / "artifacts/deep.trx"
+            trx = root / deep.SEC17_DEEP_TRX_RELATIVE
+            trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
             for name in ASSEMBLIES:
                 for path in {assembly_path(root, name), loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
             receipt = deep.capture(root, trx, candidate, NOW)
+            assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])
