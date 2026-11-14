@@ -39,9 +39,22 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
-  async loadScopedSources(): Promise<void> { await this.store.loadScopedSources(); }
-  openScopedSource(record: SourceRecord): void { if (this.store.navigateScopedSource(record)) this.open('source', true); }
-  openScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): void { if (this.store.navigateScopedDiagnostic(region, diagnostic)) this.open('source', true); }
+  async loadScopedSources(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadScopedSources();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  openScopedSource(record: SourceRecord): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateScopedSource(record)) this.open('source', true);
+  }
+  openScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateScopedDiagnostic(region, diagnostic)) this.open('source', true);
+  }
 
   readonly store = inject(ProjectIdeWorkbenchStore);
   readonly flags = inject(FrontendFeatureFlagsService);
@@ -63,6 +76,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
+  private readonly scopedTargetElement = viewChild<ElementRef<HTMLElement>>('scopedTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
   readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests', 'scenario'] as const;
@@ -184,12 +198,13 @@ export class ProjectIdeWorkbenchComponent {
   open(panel: (typeof this.tabs)[number], focus = false): void {
     const generation = ++this.focusGeneration;
     const target = this.store.sourceLocation();
+    const scoped = this.store.scopedSourceTarget();
     this.panel.set(panel);
     if (focus) {
       setTimeout(() => {
         if (generation === this.focusGeneration && this.panel() === panel && this.canRead() &&
-            (panel !== 'source' || this.store.sourceLocation() === target)) {
-          (panel === 'source' && this.store.sourceTarget()
+            (panel !== 'source' || this.store.sourceLocation() === target && this.store.scopedSourceTarget() === scoped)) {
+          (panel === 'source' && scoped ? this.scopedTargetElement() : panel === 'source' && this.store.sourceTarget()
             ? this.sourceTarget()
             : this.heading()
           )?.nativeElement.focus();

@@ -605,7 +605,7 @@
                 </section>
               }
               @if (store.scopedSourceTarget(); as scoped) {
-                <section tabindex="-1" data-testid="ide-scoped-source-target" [attr.aria-label]="t('ide.scopedSources')">
+                <section #scopedTarget tabindex="-1" data-testid="ide-scoped-source-target" [attr.aria-label]="t('ide.scopedSources')">
                   <h3>{{ t('ide.scopedSources') }}</h3>
                   <p>{{ scoped.region.context.branch.projectId }} · {{ scoped.region.context.branch.branchId }} · {{ contextRevision(scoped.region.context) }} · {{ scoped.record.identity }}</p>
                   <pre tabindex="0">{{ scoped.record.data | json }}</pre>

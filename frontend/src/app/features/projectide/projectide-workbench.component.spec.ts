@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve(profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -520,4 +520,20 @@ it('does not apply deferred Source focus after the current result is reloaded', 
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(document.activeElement).toBe(picker);
   expect(c.store.sourceTarget()).toBeNull();
+});
+
+for (const mode of ['focus', 'reload', 'denied'] as const) it('guards scoped content focus and selection: ' + mode, async () => {
+  const { c, fixture, root, authenticated } = await render(true, true, false, 'scoped');
+  c.choose('tests-scoped-base'); c.loadResult(); await c.loadScopedSources();
+  const region = c.store.scopedSources().find(region => region.context.branch.projectId !== c.store.context()!.context.branch.projectId)!;
+  const record = region.records[0];
+  if (mode === 'denied') { authenticated.set(false); c.openScopedSource(record); expect(c.store.context()).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull(); return; }
+  c.openScopedSource(record);
+  if (mode === 'reload') c.loadResult();
+  fixture.detectChanges();
+  const picker = root.querySelector<HTMLSelectElement>('[data-testid="ide-context"]')!;
+  if (mode === 'reload') picker.focus();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(mode === 'focus' ? root.querySelector('[data-testid="ide-scoped-source-target"]') : picker);
+  if (mode === 'reload') expect(c.store.scopedSourceTarget()).toBeNull();
 });
