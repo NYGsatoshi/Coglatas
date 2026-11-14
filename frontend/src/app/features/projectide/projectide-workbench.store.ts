@@ -41,11 +41,11 @@ export class ProjectIdeWorkbenchStore {
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
   } | null>(null);
-  private readonly currentReferenceSelection = computed(() => {
+  private readonly currentReferenceSelection = () => {
     const selected = this.referenceSelection();
     return selected && selected.result === this.context() && selected.result === this.result() &&
-      selected.sourceMap === selected.result.sourceMap ? selected : null;
-  });
+      selected.sourceMap === selected.result.sourceMap && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
+  };
   private referenceQuery: AbortController | null = null;
   private readonly search = signal<{
     result: PreviewCase;
@@ -55,13 +55,13 @@ export class ProjectIdeWorkbenchStore {
     coverageComplete: boolean;
     truncated: boolean;
   } | null>(null);
-  readonly referenceSearch = computed(() => {
+  readonly referenceSearch = () => {
     const search = this.search();
     return search && search.result === this.context() && search.result === this.result() &&
-      search.result.sourceMap === search.sourceMap ? search : null;
-  });
-  readonly selectedReference = computed(() => this.currentReferenceSelection()?.reference ?? null);
-  readonly referenceSymbol = computed(() => this.currentReferenceSelection()?.symbol ?? null);
+      search.result.sourceMap === search.sourceMap && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
+  };
+  readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
+  readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
     result: PreviewCase | null; sourceMap: PreviewCase['sourceMap'] } | null>(null);
   private readonly currentTarget = computed(() => {
@@ -337,7 +337,7 @@ export class ProjectIdeWorkbenchStore {
     return record?.recordType === 'entity' && this.result() === this.context() && this.result()?.freshness === 'Current' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
       symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
   });
-  readonly diagnosticSymbol = computed(() => {
+  readonly diagnosticSymbol = () => {
     const diagnostic = this.diagnostic();
     if (!diagnostic || !(this.result()?.sourceMap || this.hasVerifiedPublication())) return null;
     const location = diagnostic.primaryLocation;
@@ -347,36 +347,37 @@ export class ProjectIdeWorkbenchStore {
       symbol.textSpan?.length === location.textSpan?.length,
     );
     return matches.length === 1 ? matches[0] : null;
-  });
-  readonly inspectedSymbols = computed(() => {
+  };
+  readonly inspectedSymbols = () => {
+    if (this.result()?.result.artifacts.some(a => a.version === 2) && !this.hasVerifiedPublication()) return [];
     if (this.selection()?.kind !== 'diagnostic') return this.recordSymbols();
     const symbol = this.diagnosticSymbol();
     return symbol ? [symbol] : [];
-  });
-  readonly inspectedReferences = computed(() => {
+  };
+  readonly inspectedReferences = () => {
     const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (this.result()?.semanticInspection?.references ?? []).filter((reference) => reference.symbolKey !== null && keys.has(reference.symbolKey));
-  });
-  readonly referenceCompletions = computed(() => {
+  };
+  readonly referenceCompletions = () => {
     const result = this.result();
     if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
-  });
-  readonly requirementTaskSuggestions = computed(() => {
+  };
+  readonly requirementTaskSuggestions = () => {
     const result = this.result();
     if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().filter(symbol => symbol.kind === 'coglatas.requirement').map(symbol => symbol.key));
     return (result.requirementTaskSuggestions ?? []).filter(page => origins.has(page.originKey) && page.state === 'Ready' && page.candidateOnly);
-  });
-  readonly preparedRename = computed(() => {
+  };
+  readonly preparedRename = () => {
     const result = this.result(); const record = this.inspectedRecord(); const prepared = result?.preparedRename;
     if (!result || !result.semanticInspection || result !== this.context() || result.freshness !== 'Current' || !record || !prepared ||
         record.recordType !== 'entity' || record.identity !== prepared.plan.target.entityId ||
         record.location.documentId !== prepared.plan.target.documentId ||
         typeof this.resolveCurrentLocation(result, prepared.plan.target, true) === 'string') return null;
     return prepared;
-  });
+  };
   loadPreparedRename(prepared: PreparedDraftRename): boolean {
     const bundle = this.bundle(); const result = this.result(); const generation = this.generation;
     if (!bundle || !result || this.preparedRename() !== prepared) return false;

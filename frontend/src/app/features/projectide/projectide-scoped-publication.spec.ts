@@ -45,6 +45,19 @@ describe('Actual scoped semantic publication version two', () => {
     Object.assign(store.result()!.result.artifacts[0], { schemaId: 'example.other' });
     expect(store.sourceTarget()).toBeNull(); expect(store.navigateReference('origin')).toBe(false);
   });
+  it('withdraws already-read derived completion and symbol displays after in-place byte mutation', async () => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-publication-true-base'); store.loadResult();
+    expect(await store.loadScopedSources()).toBe(true);
+    const task = store.result()!.declarations.find(row => row.kind === 'coglatas.task')!;
+    if (task.recordType !== 'entity') throw new Error('expected-task-entity');
+    expect(store.select({ kind: 'entity', id: task.identity })).toBe(true);
+    expect(store.inspectedSymbols().length).toBeGreaterThan(0); expect(store.referenceCompletions().length).toBeGreaterThan(0);
+    const symbol = store.inspectedSymbols()[0]; expect(await store.findReferences(symbol)).toBe(true); expect(store.referenceSearch()).not.toBeNull();
+    Object.assign(store.result()!.scopedSources!.publication!.semanticModel, { text: store.result()!.scopedSources!.publication!.semanticModel.text + ' ' });
+    expect(store.hasVerifiedPublication()).toBe(false); expect(store.referenceCompletions()).toEqual([]);
+    expect(store.inspectedSymbols()).toEqual([]); expect(store.inspectedReferences()).toEqual([]); expect(store.referenceSearch()).toBeNull();
+    expect(store.diagnosticSymbol()).toBeNull(); expect(store.requirementTaskSuggestions()).toEqual([]); expect(store.preparedRename()).toBeNull();
+  });
   it('requires actual admission for root reference navigation and clears it across lifecycles', async () => {
     const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-publication-true-base'); store.loadResult();
     expect(store.hasVerifiedPublication()).toBe(false); expect(await store.loadScopedSources()).toBe(true);

@@ -163,6 +163,36 @@ public sealed class CompilerScopedPublicationTests
         var response = await server.CompileAsync(new(new(input), 1)); Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
     }
     [Fact]
+    public async Task PublicTransportTransfersCoreOwnedGraphsAndFreshEquivalentCompilationsPreserveTheirAliases()
+    {
+        Assert.Empty(typeof(CoreCompilation).GetConstructors()); Assert.Empty(typeof(CompilerScopedPublication).GetConstructors());
+        var input = Upgrade(Input()); var first = Compile(input); var second = Compile(input);
+        Assert.NotSame(first.Publication, second.Publication); Assert.Equal(first.Result.Data, second.Result.Data);
+        foreach (var compiled in new[] { first, second }) {
+            Assert.Same(compiled.Publication, compiled.Validation!.Publication);
+            Assert.Same(compiled.Publication!.Scope, compiled.Dependencies!.ScopedIr);
+        }
+        var server = new ServerCompilerHost(Profile(input), new Transport((request, _) => Task.FromResult(new CompilerHostResponse(
+            CompilerHostStatus.Completed, "example.fresh-core-graph", input.InputDigest, request.ClientGeneration, Guid.NewGuid(), new CompilerHostExecutionReceipt(request, second)))));
+        var response = await server.CompileAsync(new(new(input), 3));
+        Assert.Equal(CompilerHostStatus.Completed, response.Status); Assert.Same(second, response.Compilation);
+    }
+    [Fact]
+    public void OnlyPrivateRegionalProducerOutcomesReachPublicationAndCompleteRulesCarryActualTruth()
+    {
+        // The public outcome DTO permits this combination; it is not a global DTO invariant.
+        var possible = new CompilerRuleOutcome(CoreCompilerRules.Constraints, 1, CompilerExecutionState.Completed, CompilerCoverage.Complete,
+            CompilerVerdict.Inconclusive, new(CompilerEvidenceKind.Missing, [], "coglatas.missing-input"));
+        Assert.Equal(CompilerVerdict.Inconclusive, possible.Verdict);
+        foreach (bool? truth in new bool?[] { true, false, null }) {
+            var compiled = Compile(Upgrade(CompilerAnalysisFixtures.Constraint(truth)));
+            foreach (var rule in compiled.Dependencies!.Regions.SelectMany(region => region.Rules))
+                if (rule.Execution == CompilerExecutionState.Completed && rule.Coverage == CompilerCoverage.Complete)
+                    Assert.Contains(rule.Verdict, new[] { CompilerVerdict.Pass, CompilerVerdict.Fail });
+            if (truth is null) Assert.Equal(CompilerVerdict.Inconclusive, compiled.Result.Verdict);
+        }
+    }
+    [Fact]
     public void CancellationPublishesNoNewVersionTwoArtifacts()
     {
         var input = Upgrade(Input()); using var token = new CancellationTokenSource(); token.Cancel();
