@@ -359,6 +359,7 @@ jobs:
             tests/diagnostics/thread-matrix.node-test.mjs \
             tests/ui/group-keyboard-observation.node-test.mjs \
             tests/ui/search-drawer-observation.node-test.mjs \
+            tests/ui/observer-dom-runtime.node-test.mjs \
             tests/ui/group-entry-coverage.node-test.mjs \
             scripts/ci/node-toolchain-qualification.node-test.mjs \
             tests/ci/synthetic-logical-recovery.node-test.mjs \
