@@ -223,6 +223,7 @@ export interface SemanticInspection {
 }
 export interface PreviewCase {
   readonly simulationRun?: import('./projectide-simulation.reader').SimulationFrame | null;
+  readonly simulationComparison?: import('./projectide-simulation-comparison.reader').SimulationComparisonProjection | null;
   readonly simulationDebug?: import('./projectide-recorded-debug.reader').RecordedDebugProjection | null;
   readonly scopedSources?: ScopedSourceProjection | null;
   readonly materializedSnapshots?: Readonly<Record<string, unknown>> | null;

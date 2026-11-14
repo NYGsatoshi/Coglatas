@@ -91,6 +91,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     }
     private void ClearSimulation()
     {
+        ClearSimulationComparison();
         var previous = _simulationDebugger;
         _simulationGeneration++; _debugBusy = false; _simulationDebugger = null; _simulationDebugSnapshot = null;
         _simulationRun = null; SimulationDebugControlReason = "";

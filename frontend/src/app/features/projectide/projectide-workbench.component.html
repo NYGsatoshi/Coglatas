@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
+      <button type="button" (click)="reload('simulation-comparison')">{{ t('ide.comparisonExample') }}</button>
       <button type="button" (click)="reload('simulation-debug')">{{ t('ide.debugExample') }}</button>
       <button type="button" (click)="reload('simulation')">{{ t('ide.simulationExample') }}</button>
       <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
@@ -629,6 +630,35 @@
                     <li><button type="button" (click)="openSimulationEvent(event)">{{ event.sequence }} · {{ event.kind === 'coglatas.task-start' ? t('ide.simulationStart') : t('ide.simulationEnd') }} · {{ event.ticks }} · {{ event.irNodeId }}</button></li>
                   }</ol>
                   <details><summary>{{ t('ide.simulationBytes') }}</summary><code>{{ run.digest.value }}</code><pre tabindex="0">{{ run.data | json }}</pre></details>
+                </section>
+              }
+              @if (ctx.simulationComparison && store.simulation()) {
+                <button type="button" (click)="loadSimulationComparison()" [disabled]="store.simulationComparisonReadState() === 'loading'">{{ t('ide.comparisonLoad') }}</button>
+                @if (store.simulationComparisonReadState() === 'unavailable') { <p role="alert">{{ t('ide.comparisonUnavailable') }}</p> }
+              }
+              @if (store.simulationComparison(); as comparison) {
+                <section #comparisonPanel class="simulation-comparison" tabindex="-1" data-testid="ide-simulation-comparison" aria-labelledby="ide-comparison-heading">
+                  <h3 id="ide-comparison-heading">{{ t('ide.comparisonTitle') }}</h3><p>{{ t('ide.comparisonNotice') }}</p>
+                  <p data-testid="ide-comparison-state">{{ t(comparison.state === 'Complete' ? 'ide.comparisonComplete' : 'ide.comparisonIncomplete') }}</p>
+                  <p>{{ t('ide.comparisonSameInput') }}: {{ t(comparison.sameInput ? 'ide.comparisonYes' : 'ide.comparisonNo') }} · {{ t('ide.comparisonSameLimits') }}: {{ t(comparison.sameLimits ? 'ide.comparisonYes' : 'ide.comparisonNo') }}</p>
+                  <p data-testid="ide-comparison-delta">{{ t('ide.comparisonDelta') }}: {{ comparison.observedElapsedDelta ?? t('ide.comparisonNoDelta') }}</p>
+                  <div class="scenario-results">
+                    @for (row of [comparison.beforeSummary, comparison.afterSummary]; track $index) {
+                      <section [attr.data-testid]="$index === 0 ? 'ide-comparison-before' : 'ide-comparison-after'">
+                        <h4>{{ t($index === 0 ? 'ide.comparisonBefore' : 'ide.comparisonAfter') }}</h4>
+                        <dl><div><dt>{{ t('ide.comparisonRun') }}</dt><dd>{{ row.runId }}</dd></div>
+                          <div><dt>{{ t('ide.context') }}</dt><dd>{{ row.context.kind }} · {{ contextRevision(row.context) }}</dd></div>
+                          <div><dt>{{ t('ide.execution') }} · {{ t('ide.coverage') }} · {{ t('ide.freshness') }}</dt><dd>{{ row.execution }} · {{ row.coverage }} · {{ row.freshness }}</dd></div>
+                          <div><dt>{{ t('ide.comparisonClocks') }}</dt><dd>{{ row.startTicks }} → {{ row.virtualTicks }}</dd></div>
+                          <div><dt>{{ t('ide.comparisonElapsed') }}</dt><dd>{{ row.observedElapsedTicks }}</dd></div>
+                          <div><dt>{{ t('ide.comparisonCounts') }}</dt><dd>{{ row.startedTasks }} / {{ row.completedTasks }} / {{ row.eventCount }}</dd></div>
+                          <div><dt>{{ t('ide.comparisonInput') }}</dt><dd><code>{{ row.inputDigest.value }}</code></dd></div>
+                          <div><dt>{{ t('ide.sourceDigest') }}</dt><dd><code>{{ row.sourceDigest.value }}</code></dd></div>
+                        </dl>
+                      </section>
+                    }
+                  </div>
+                  <details><summary>{{ t('ide.comparisonBytes') }}</summary><code>{{ comparison.digest.value }}</code><pre tabindex="0">{{ comparison.data | json }}</pre></details>
                 </section>
               }
               @if (ctx.simulationDebug && store.simulation()) {
