@@ -12,7 +12,8 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from sec_arch_evidence import (digest, observed_trx, read_trusted_execution_trx,
-                               trusted_execution_trx, SEC17_FILE_TRX_RELATIVE)
+                               trusted_execution_trx, optional_trusted_execution_digest,
+                               SEC17_FILE_TRX_RELATIVE)
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 
 METHOD = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureFilePolicyTransportTests.ActualWorkspaceFileSharingPolicyReauthorizesEstablishedAndFreshTransportAndReplay"
@@ -86,18 +87,14 @@ def selection_status(observed: dict) -> str:
 def failure_summary(candidate: str, trx: Path, root: Path | None = None) -> dict:
     # No native TestOutput/ErrorInfo, exception text, identifiers or payloads
     # are copied, including when build, selection or evidence capture fails.
-    try:
-        checked_root = root if root is not None else Path(__file__).resolve().parents[2]
-        trusted_execution_trx(checked_root, trx, SEC17_FILE_TRX_RELATIVE)
-        data = read_trusted_execution_trx(checked_root, SEC17_FILE_TRX_RELATIVE)
-    except (OSError, ValueError):
-        data = None
+    checked_root = root if root is not None else Path(__file__).resolve().parents[2]
+    execution_digest = optional_trusted_execution_digest(checked_root, trx, SEC17_FILE_TRX_RELATIVE)
     return {
         "schemaVersion": 1, "verifierId": "SEC-17-FILE-POLICY-EXECUTION",
         "candidateSha": candidate if re.fullmatch(r"[a-f0-9]{40}", candidate) else None,
         "outcome": "ERROR", "selectionStatus": "NO_VALID_NATIVE_EXECUTION",
         "diagnostic": "INVALID_OR_UNAVAILABLE_EXECUTION_EVIDENCE",
-        "executionDigest": digest(data) if data is not None else None,
+        "executionDigest": execution_digest,
         "requiredCaseCount": 1, "observedCaseCount": None,
         "contractCompletion": "UNVERIFIED", "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
         "runId": os.environ.get("GITHUB_RUN_ID", "LOCAL"),

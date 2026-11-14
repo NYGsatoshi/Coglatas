@@ -338,6 +338,16 @@ def read_trusted_execution_trx(root: Path, expected: Path) -> bytes:
         return read_execution_trx(Path(expected.name), dir_fd=parent_fd)
 
 
+def optional_trusted_execution_digest(root: Path, candidate: Path, expected: Path) -> str | None:
+    """Only hash a canonical, bounded, unchanged producer report."""
+    try:
+        trusted_execution_trx(root, candidate, expected)
+        return digest(read_trusted_execution_trx(root, expected))
+    except (OSError, ValueError):
+        # Invalid paths, unreadable reports and changed files never yield a digest.
+        return None
+
+
 def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
     expected = EXPECTED if expected_methods is None else expected_methods
     if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):
