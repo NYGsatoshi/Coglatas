@@ -70,7 +70,8 @@ function freeze<T>(value: T): T {
 }
 
 function basis(value: PreviewCase): string {
-  return JSON.stringify({ source: value.source, sourceText: value.sourceText, manifest: value.manifest, declarations: value.declarations,
+  return JSON.stringify({ context: value.context, desiredContext: value.desiredContext, freshness: value.freshness,
+    inputId: value.inputId, inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, source: value.source, sourceText: value.sourceText, manifest: value.manifest, declarations: value.declarations,
     relations: value.relations, inspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
 }
 
@@ -141,7 +142,7 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
     const declaration = tests.find(item => item.identity === original.testId && item.status === 'Decoded');
     const payload = declaration?.data['payload']; const items = record(payload) ? payload['assertions'] : null;
     const matches = Array.isArray(items) ? items.filter(item => record(item) && item['key'] === original.key) : [];
-    const parsed: unknown = JSON.parse(original.text);
+    const parsed: unknown = parse(original.text);
     if (matches.length !== 1 || !record(parsed) || !equal(parsed, matches[0])) return fail();
     originals.set(original.testId + '\0' + original.key, { value: parsed, text: original.text });
   }

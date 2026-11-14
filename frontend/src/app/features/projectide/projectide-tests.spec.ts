@@ -37,7 +37,7 @@ describe('Core-produced local Project Test projection admission', () => {
   });
 
   it.each(['input', 'source', 'plan', 'enum', 'future', 'zero-pass', 'partial-pass', 'stale-pass', 'entity', 'path', 'duplicate-test',
-    'duplicate-assertion', 'counter', 'hidden-failure', 'original-assertion', 'original-declaration', 'engine', 'bytes', 'duplicate-member', 'too-deep', 'unicode', 'input-bytes', 'source-bytes', 'document'])(
+    'duplicate-assertion', 'counter', 'hidden-failure', 'original-assertion', 'original-declaration', 'engine', 'bytes', 'duplicate-member', 'too-deep', 'unicode', 'input-bytes', 'source-bytes', 'document', 'duplicate-assertion-original'])(
     'rejects a substituted %s even when the replacement result digest is recomputed', async mode => {
       const value = current(mode === 'hidden-failure' ? 'tests-fail' : 'tests-pass');
       const p = value.localProjectTests; const run = JSON.parse(p.result.text);
@@ -61,6 +61,10 @@ describe('Core-produced local Project Test projection admission', () => {
       if (mode === 'duplicate-assertion') { run.tests[0].assertions.push(run.tests[0].assertions[0]); run.executedAssertions++; }
       if (mode === 'counter') run.executedAssertions++;
       if (mode === 'hidden-failure') { run.verdict = 'Pass'; run.tests[0].verdict = 'Pass'; }
+      if (mode === 'duplicate-assertion-original') {
+        p.assertions[0].text = p.assertions[0].text.replace('"key":"example.ready"', '"key":"example.ready","key":"example.ready"');
+        run.tests[0].assertions[0].assertionDigest = hash('coglatas.project-test-assertion/1', p.assertions[0].text);
+      }
       if (mode === 'original-assertion') p.assertions[0].text = p.assertions[0].text.replace('example.ready', 'example.other');
       if (mode === 'original-declaration') p.declarations[0].text = '{}';
       if (mode === 'engine') {
@@ -119,6 +123,12 @@ describe('Local Test store lifecycle', () => {
   it('invalidates a result after a nested Source mutation without a signal replacement', async () => {
     const store = await ready(); const assertion = store.localTests()!.run.tests[0].assertions[0];
     Object.assign(store.context()!.source.documents[0], { logicalName: 'changed' });
+    expect(store.localTests()).toBeNull(); expect(store.navigateTestAssertion(assertion)).toBe(false); expect(store.sourceTarget()).toBeNull();
+  });
+  it('invalidates an admitted report when both context headers are replaced in place', async () => {
+    const store = await ready(); const assertion = store.localTests()!.run.tests[0].assertions[0];
+    const other = readPreviewBundle(raw()).cases.find(item => item.key === 'branch-pass')!.context;
+    Object.assign(store.context()!, { context: other, desiredContext: other });
     expect(store.localTests()).toBeNull(); expect(store.navigateTestAssertion(assertion)).toBe(false); expect(store.sourceTarget()).toBeNull();
   });
   it('rejects a late digest admission after permission loss', async () => {
