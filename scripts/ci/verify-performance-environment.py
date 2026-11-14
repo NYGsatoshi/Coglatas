@@ -180,8 +180,10 @@ def main() -> int:
     # duplicate literal that would block every otherwise-compatible SDK patch.
     sdk_config = json.loads((ROOT / "global.json").read_text(encoding="utf-8")).get("sdk", {})
     sdk_version = sdk_config.get("version")
-    if not isinstance(sdk_version, str) or not re.fullmatch(r"10\.0\.\d{3}", sdk_version):
-        fail("global.json SDK must remain an explicit supported .NET 10 version")
+    stable_sdk = isinstance(sdk_version, str) and re.fullmatch(r"10\.0\.\d{3}", sdk_version)
+    ga11_sdk = sdk_version == "11.0.100"
+    if not (stable_sdk or ga11_sdk):
+        fail("global.json SDK must pin stable .NET 10 or the exact .NET 11 GA SDK")
     if sdk_config.get("rollForward") != "disable" or sdk_config.get("allowPrerelease") is not False:
         fail("global.json must require an exact, stable SDK")
 

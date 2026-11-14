@@ -2122,7 +2122,13 @@ public sealed class HttpTenantIsolationTests
         var data = app.Data;
         var path = $"/api/me/workspaces/{data.WorkspaceA.Id:D}/task-notification-preferences";
 
-        foreach (var invalid in new[] { "00:01", "23:59", "24:00" })
+        foreach (var invalid in new[]
+                 {
+                     "", "0:00", "000:00", "00-00",
+                     "a0:00", "0a:00", "00:a0", "00:0a",
+                     "24:00", "99:00", "00:46", "00:59",
+                     "00:01", "23:59"
+                 })
         {
             using var content = JsonContent($$"""{"deadlineDigestLocalTime":"{{invalid}}","expectedVersion":1}""");
             using var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, path, HttpMethod.Patch, content);
@@ -6393,8 +6399,8 @@ public sealed class HttpTenantIsolationTests
                 .Select(row => new { row.Id, row.Action }).Take(101).ToArrayAsync();
             var outbox = await db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
                 .Select(row => new { row.Id, row.PayloadJson, row.Status, row.AttemptCount }).Take(101).ToArrayAsync();
-            Assert.All(new[] { channels.Length, members.Length, channelMembers.Length, posts.Length,
-                threads.Length, audits.Length, outbox.Length }, count => Assert.InRange(count, 0, 100));
+            Assert.All([channels.Length, members.Length, channelMembers.Length, posts.Length,
+                threads.Length, audits.Length, outbox.Length], count => Assert.InRange(count, 0, 100));
             return Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
                 new { channels, members, channelMembers, posts, threads, audits, outbox })));
         }
