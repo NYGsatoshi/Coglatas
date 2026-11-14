@@ -246,6 +246,8 @@ jobs:
             scripts/ci/test-functional-setup-failure-probe.py \
             tests/ci/test_security_zap_attribution.py \
             tests/ci/test_performance_db_ci.py \
+            tests/ci/test_performance_environment.py \
+            tests/ci/test_performance_api_collection.py \
             scripts/quality/test_qodana_reconciliation.py \
             scripts/ci/qodana-packets/test_verify.py \
             scripts/ci/qodana-packets/test_r2_verify.py \

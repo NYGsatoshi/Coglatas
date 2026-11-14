@@ -9,10 +9,10 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
 from pathlib import Path
 from db_probe_import import login, request
 from diagnostic_json import load_json
+from common import performance_opener
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'artifacts/performance/announcement-diagnostic'
@@ -82,7 +82,7 @@ def main():
     ids = {service: subprocess.check_output(['docker', 'ps', '-q', '--filter', f'label=com.docker.compose.project={project}', '--filter', f'label=com.docker.compose.service={service}'], text=True).strip() for service in ['app', 'postgres']}
     assert all(ids.values())
     pids = {service: int(subprocess.check_output(['docker', 'inspect', '--format', '{{.State.Pid}}', cid], text=True)) for service, cid in ids.items()}
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    opener = performance_opener(http.cookiejar.CookieJar())
     base = os.environ['COGLATAS_PERFORMANCE_BASE_URL']
     headers = login(opener, base, fixture)
     route = '/api/announcements?pageSize=5&page=1'

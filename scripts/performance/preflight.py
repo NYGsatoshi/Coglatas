@@ -14,6 +14,7 @@ from common import (
     fixture_hash,
     load_json,
     load_profile,
+    performance_opener,
     validate_fixture_evidence,
     validate_target,
     write_json_atomic,
@@ -23,7 +24,7 @@ from common import (
 def request_ok(url: str, tenant_slug: str, timeout_seconds: float) -> tuple[int, str]:
     request = urllib.request.Request(url, headers={"X-Tenant-Slug": tenant_slug})
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        with performance_opener().open(request, timeout=timeout_seconds) as response:
             body = response.read(4096).decode("utf-8", errors="replace")
             return response.status, body
     except urllib.error.HTTPError as exc:
