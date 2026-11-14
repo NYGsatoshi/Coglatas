@@ -55,13 +55,31 @@ protected ruleset, permissions, existing workflow, Product source, or Main
 branch is altered. The workflow and source/compiled-results receipts explicitly
 set all relevant admission flags to `false` independent of the test outcome.
 
-The original historical three `ICollection.SyncRoot` counterexamples at
-the vulnerable Product SHA `2b2c86a447779c2d9d19e4b88f1274a70737d54e`
-are recorded in #1938 but are **not yet independently replayed in this PR**.
-They must not be marked as executed until separate exact-source negative
-controls and original failure evidence are recorded. A successful corrected
-Product run alone is not independent human review or all of #1938's exit
-criteria. Keep #1938 open until those additional conditions hold.
+The three original `ICollection.SyncRoot` counterexamples were **independently
+replayed** at the exact vulnerable Product commit
+`2b2c86a447779c2d9d19e4b88f1274a70737d54e`, using the unchanged
+candidate Test blob. The separate fixed-SHA historical workflow
+`.github/workflows/projectide-compiler-immutability-historical-red.yml`
+uses `replay_vulnerable.py` (Git blob
+`acd00c742086151dfcaf54bc25765cc9cfb25aa2`) to require precisely three
+compiled TRX failures, zero PASS/skip, and the *specific* original legacy
+synchronization-root invariant. Successful compilation without those exact
+failures, missing TRX, unrelated exceptions, or source drift fail closed.
+The first source-admission attempt failed because this archived commit was
+unadvertised; the corrected workflow fetches only its immutable SHA.
+
+Native [historical RED run 43600806819](https://github.com/NYGsatoshi/Coglatas/actions/runs/43600806819)
+qualified all three expected failing facts on Ubuntu, with source/receipt
+ZIP artifact `14115629643` (SHA-256
+`e59f61b5874b8520b3ea28e65f2819e94219c2a8ea43f2150be371287b59593b`),
+and original failed-test TRX identities. Separately, the corrected Product
+qualified all **nine passing facts on Windows and Ubuntu** in
+[run 43600806818](https://github.com/NYGsatoshi/Coglatas/actions/runs/43600806818).
+Those native results belong to the exact referenced heads and source Git
+blobs; any new PR HEAD must itself pass fresh required checks and native
+advisories. Read-only source/result tests do not amount to independent human
+review or all of #1938's runtime/authorization/Native acceptance criteria.
+Keep #1938 open until every remaining governance exit genuinely holds.
 
 ### Reproduction
 
