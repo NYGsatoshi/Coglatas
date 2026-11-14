@@ -103,13 +103,13 @@ public sealed class Ws01WorkspaceDashboardProjectionPostgreSqlTests
                     item.InProgressProjectCount);
             });
             Assert.Equal(
-                new[] { true, true, false, true, false },
+                [true, true, false, true, false],
                 actorItems.Select(item => item.CanCreateProject));
             Assert.Equal(
-                new[] { true, true, true, true, false },
+                [true, true, true, true, false],
                 actorItems.Select(item => item.CanOpenProjectCreate));
             Assert.Equal(
-                new[] { true, true, true, true, false },
+                [true, true, true, true, false],
                 actorItems.Select(item => item.CanAddFiles));
             Assert.DoesNotContain(actorItems, item => item.Id == graph.ArchivedWorkspace.Id);
             Assert.DoesNotContain(actorItems, item => item.Id == graph.TenantBWorkspace.Id);
