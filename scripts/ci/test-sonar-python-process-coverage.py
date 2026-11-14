@@ -225,6 +225,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/security/finding_policy.py',
             ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
+            ROOT.as_posix() + '/scripts/ci/run-sec15-restler-compile.py',
             ROOT.as_posix() + '/scripts/ci/sec17_deep_execution.py',
             ROOT.as_posix() + '/scripts/ci/sec17_file_policy_execution.py',
             ROOT.as_posix() + '/scripts/ci/runtime_image_identity.py',
@@ -309,6 +310,46 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/announcement-diagnostic.py',
         })
 
+
+    def test_sec15_caller_uses_real_original_coverage_and_preserves_unexecuted_cli(self):
+        tracked = ROOT / 'scripts/ci/run-sec15-restler-compile.py'
+        program = tracked.read_text(encoding='utf-8')
+        functions = {node.name: node for node in ast.parse(program).body
+                     if isinstance(node, ast.FunctionDef)}
+        hit_line = next(node.lineno for node in ast.walk(functions['admit_profile'])
+                        if isinstance(node, ast.Return) and isinstance(node.value, ast.Tuple))
+        zero_line = next(index for index, line in enumerate(program.splitlines(), 1)
+                         if line.strip() == 'sys.exit(execute())')
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            data = folder / 'data'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data)
+            self.run_python([str(ROOT / 'tests/ci/test_sec15_restler_compile.py')], folder, env)
+            self.assertGreater(len(list(folder.glob('data.*'))), 0)
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--keep', '--rcfile=' + str(CONFIG)], folder, env)
+            native = coverage.CoverageData(basename=str(data))
+            native.read()
+            self.assertTrue(native.has_arcs())
+            matches = [name for name in native.measured_files() if Path(name).resolve() == tracked.resolve()]
+            self.assertEqual(len(matches), 1)
+            hit_lines = set(native.lines(matches[0]))
+            self.assertIn(hit_line, hit_lines)
+            self.assertNotIn(zero_line, hit_lines, 'Mocked contract tests must not claim native CLI entry execution.')
+            report = folder / 'coverage.xml'
+            self.run_python(['-m', 'coverage', 'xml', '--rcfile=' + str(CONFIG), '-o', str(report)], folder, env)
+            xml = ET.parse(report).getroot()
+            roots = [Path(node.text or '.') for node in xml.findall('./sources/source')]
+            files = [node for node in xml.findall('.//class')
+                     if tracked.resolve() in {(root / node.attrib['filename']).resolve() for root in roots}]
+            self.assertEqual(len(files), 1)
+            counts = {int(n.attrib['number']): int(n.attrib['hits'])
+                      for n in files[0].findall('./lines/line')}
+            self.assertGreater(counts.get(hit_line, 0), 0)
+            self.assertEqual(counts.get(zero_line), 0)
 
     def test_existing_receipt_cli_controls_measure_tracked_source_and_preserve_zero_branch(self):
         tracked = ROOT / 'scripts/ci/verify-acceptance-image-reuse.py'

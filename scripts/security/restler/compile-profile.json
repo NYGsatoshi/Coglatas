@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "tool": {
+    "repository": "https://github.com/microsoft/restler-fuzzer.git",
+    "commit": "6d984deedbc54aad957fa3da0c7e9e5df23a2aee",
+    "tree": "20fd250ba44d11da62529a0e25d08bf3ba16c951",
+    "declaredVersion": "9.3.1-dev",
+    "sdkImage": "mcr.microsoft.com/dotnet/sdk:8.0.413"
+  },
+  "compiler": {
+    "SwaggerSpecFilePath": [
+      "/input/contract.json"
+    ],
+    "SwaggerSpecConfig": null,
+    "GrammarInputFilePath": null,
+    "GrammarOutputDirectoryPath": "/output/compiled",
+    "CustomDictionaryFilePath": "/input/dictionary.json",
+    "AnnotationFilePath": null,
+    "EngineSettingsFilePath": null,
+    "IncludeOptionalParameters": true,
+    "UseHeaderExamples": false,
+    "UsePathExamples": false,
+    "UseQueryExamples": false,
+    "UseBodyExamples": false,
+    "UseAllExamplePayloads": false,
+    "DiscoverExamples": false,
+    "ExamplesDirectory": "/output/examples",
+    "ExampleConfigFilePath": null,
+    "ExampleConfigFiles": null,
+    "DataFuzzing": true,
+    "ReadOnlyFuzz": false,
+    "ResolveQueryDependencies": true,
+    "ResolveBodyDependencies": true,
+    "ResolveHeaderDependencies": true,
+    "UseRefreshableToken": true,
+    "AllowGetProducers": false,
+    "ApiNamingConvention": null,
+    "TrackFuzzedParameterNames": false,
+    "JsonPropertyMaxDepth": null
+  },
+  "dictionary": {
+    "restler_fuzzable_string": [
+      "sec15-synthetic"
+    ],
+    "restler_fuzzable_string_unquoted": [],
+    "restler_fuzzable_int": [
+      "1"
+    ],
+    "restler_fuzzable_number": [
+      "1.0"
+    ],
+    "restler_fuzzable_bool": [
+      "true"
+    ],
+    "restler_fuzzable_datetime": [
+      "2020-01-01T00:00:00Z"
+    ],
+    "restler_fuzzable_date": [
+      "2020-01-01"
+    ],
+    "restler_fuzzable_uuid4": [
+      "00000000-0000-4000-8000-000000000001"
+    ],
+    "restler_fuzzable_object": [
+      "{}"
+    ],
+    "restler_custom_payload": {},
+    "restler_custom_payload_header": {},
+    "restler_custom_payload_query": {},
+    "restler_custom_payload_uuid4_suffix": {},
+    "shadow_values": {},
+    "restler_fuzzable_datetime_unquoted": [],
+    "restler_fuzzable_date_unquoted": [],
+    "restler_fuzzable_uuid4_unquoted": [],
+    "restler_custom_payload_unquoted": {},
+    "restler_custom_payload_header_unquoted": {}
+  }
+}
