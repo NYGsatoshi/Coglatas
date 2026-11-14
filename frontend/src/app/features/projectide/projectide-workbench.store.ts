@@ -418,7 +418,7 @@ export class ProjectIdeWorkbenchStore {
     if (!after) return false;
     this.resetSelection();
     if (this.generation !== generation || this.bundle() !== bundle || this.context() !== result || this.result() !== result) return false;
-    this.clearScopedSources(); this.result.set(null); this.context.set(after); this.result.set(after);
+    this.clearLocalTests(); this.clearScopedSources(); this.result.set(null); this.context.set(after); this.result.set(after);
     return true;
   }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): boolean {

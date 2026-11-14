@@ -78,6 +78,24 @@ describe('Core-produced local Project Test projection admission', () => {
       if (mode === 'bytes') p.result.text += ' ';
       await expect(readLocalTests(value)).rejects.toThrow();
     });
+  it.each(['prefix', 'escape'])('rejects a noncanonical assertion path after rehashing: %s', async mode => {
+    const value = current(mode === 'escape' ? 'tests-unicode' : 'tests-pass');
+    const p = value.localProjectTests; const run = JSON.parse(p.result.text); const location = run.tests[0].assertions[0].location;
+    location.propertyPath = mode === 'prefix' ? 'x' + location.propertyPath : location.propertyPath.replace('~0', '~');
+    p.result.text = JSON.stringify(run); p.result.digest = hash('coglatas.project-test-run/1', p.result.text);
+    await expect(readLocalTests(value)).rejects.toThrow();
+  });
+  it('rejects a rehashed duplicate decoded assertion key that hides an actual failing assertion', async () => {
+    const b = JSON.parse(readFileSync(resolve('public/assets/projectide/dependency-analysis-v1.json'), 'utf8'));
+    const value = readPreviewBundle(b).cases[0]; const p = value.localProjectTests!;
+    expect((await readLocalTests(value))!.run.verdict).toBe('Fail');
+    const run = JSON.parse(p.result.text); expect(run.tests[0].assertions).toHaveLength(2);
+    run.tests[0].assertions[1] = structuredClone(run.tests[0].assertions[0]);
+    run.tests[0].assertions[1].location.propertyPath = 'x' + run.tests[0].assertions[0].location.propertyPath;
+    run.tests[0].verdict = 'Pass'; run.verdict = 'Pass';
+    Object.assign(p, { result: { text: JSON.stringify(run), digest: hash('coglatas.project-test-run/1', JSON.stringify(run)) } });
+    await expect(readLocalTests(value)).rejects.toThrow();
+  });
   it('keeps missing projections unavailable', async () => {
     expect(await readLocalTests(readPreviewBundle(raw()).cases[0])).toBeNull();
   });

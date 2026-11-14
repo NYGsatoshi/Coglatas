@@ -1,5 +1,10 @@
 # AI Context
 
+[Current Product promotion and review corrections](verification/projectide-product-promotion.md)
+records source-preserving candidate #1955, actual separate-assembly verification
+and review dispositions. Earlier verification records retain historical local
+counts and gate states; current GitHub HEAD/checks remain authoritative.
+
 [Shared semantic simulation debugging](verification/projectide-semantic-simulation-debugger.md)
 adds actual event/Task stepping, exact-point break/resume, immutable control
 snapshots and typed task/wait inspection over the same pure event engine.
@@ -13,7 +18,9 @@ bounded trace prefixes; no outcome assertion or Project/Test PASS is inferred.
 [Paired fixed simulation consumers](verification/projectide-paired-simulation.md)
 connect the Windows pure ViewModel and an Angular original-byte recording reader
 with explicit Source/run admission and exact event origins. Interactive run
-transport, debugger, jobs and full #907 acceptance remain open.
+transport, original-byte Web debugger snapshots/inspection, composites/watch, jobs
+and full #907 acceptance remain open. Core/Windows pure semantic controls are
+implemented in the debugger follow-up above.
 
 [Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)
 adds an opt-in frozen engine/target for elapsed Task DAG definitions after complete

@@ -65,8 +65,9 @@ export async function readPreparedTestEdit(bundle: PreviewBundle, before: Previe
   const [first, second] = await Promise.all([readLocalTests(before), readLocalTests(pair.after)]);
   if (!first || !second || !localTestsMatchCase(before, first) || !localTestsMatchCase(pair.after, second)) return fail();
   const target = pair.prepared.plan.target.entityId!;
+  const beforeDefinition = first.projection.declarations.find(item => item.testId === target);
   const afterDefinition = second.projection.declarations.find(item => item.testId === target);
-  if (!afterDefinition || !(await Promise.all([
+  if (!beforeDefinition || pair.prepared.definitionText !== beforeDefinition.text || !afterDefinition || !(await Promise.all([
     verifyLocalTestDigest('coglatas.project-test-declaration/1', pair.prepared.definitionText, pair.prepared.plan.beforeDeclarationDigest),
     verifyLocalTestDigest('coglatas.project-test-declaration/1', pair.prepared.importedText, pair.prepared.plan.importedDeclarationDigest),
     verifyLocalTestDigest('coglatas.project-test-declaration/1', afterDefinition.text, pair.prepared.plan.afterDeclarationDigest),

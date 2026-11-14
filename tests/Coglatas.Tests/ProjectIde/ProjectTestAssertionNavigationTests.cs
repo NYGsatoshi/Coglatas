@@ -8,6 +8,12 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class ProjectTestAssertionNavigationTests
 {
+    // Exercise the internal resolver across the actual assembly boundary without widening its API.
+    private static string Resolve(CompilerHostRequest request, ProjectSource source, CoreCompilation compilation, ProjectLocation location) =>
+        (string)typeof(SyntheticWorkbenchViewModel).Assembly.GetType("Coglatas.ProjectIde.Workbench.Synthetic.SyntheticSourceNavigation", throwOnError: true)!
+            .GetMethod("Resolve", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(null, new object?[] { request, source, compilation, location, false })!;
+
     [Theory]
     [InlineData("example.check")]
     [InlineData("example.a/b~c")]
@@ -25,10 +31,10 @@ public sealed class ProjectTestAssertionNavigationTests
         Assert.Equal(CompilerVerdict.Fail, compilation.Result.Verdict);
         var diagnostic = Assert.Single(compilation.Result.Diagnostics);
         var request = new CompilerHostRequest(new(input), 1);
-        Assert.Equal("ready", SyntheticSourceNavigation.Resolve(request, input.Source, compilation, diagnostic.Location));
+        Assert.Equal("ready", Resolve(request, input.Source, compilation, diagnostic.Location));
         Assert.Equal(CompilerVerdict.Fail, compilation.Result.Verdict);
         var foreign = ProjectLocation.Create(diagnostic.Location.DocumentId, Source(99).Context, diagnostic.Location.PropertyPath, entityId: diagnostic.Location.EntityId);
-        Assert.Equal("wrong-scope", SyntheticSourceNavigation.Resolve(request, input.Source, compilation, foreign));
+        Assert.Equal("wrong-scope", Resolve(request, input.Source, compilation, foreign));
     }
 
     [Theory]
@@ -46,6 +52,6 @@ public sealed class ProjectTestAssertionNavigationTests
         var compilation = PureCoreCompiler.Compile(input, input.Compiler);
         var location = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context,
             "/payload/assertions/" + (mode == "missing" ? "example.absent" : "example.check") + "/target", entityId: EntityId.Parse(Id(9)));
-        Assert.Equal("invalid-location", SyntheticSourceNavigation.Resolve(new(new(input), 1), input.Source, compilation, location));
+        Assert.Equal("invalid-location", Resolve(new(new(input), 1), input.Source, compilation, location));
     }
 }

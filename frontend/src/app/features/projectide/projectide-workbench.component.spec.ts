@@ -204,6 +204,18 @@ describe('ProjectIDE Workbench components', () => {
     expect(c.store.state()).toBe('denied'); expect(c.store.semanticDiff()).toBeNull(); expect(root.textContent).not.toContain('Observe renamed');
   });
 
+  it('withdraws a pending Test read before loading the prepared rename context', async () => {
+    const { c, fixture } = await render(); c.choose('draft-before'); c.loadResult();
+    const task = c.records().find(item => item.kind === 'coglatas.task')!; c.inspectRecord(task);
+    const prepared = c.store.preparedRename()!; expect(prepared).not.toBeNull();
+    const pending = c.store.loadLocalTests(); expect(c.store.testReadState()).toBe('loading');
+    c.inspectRecord(task); expect(c.store.loadPreparedRename(prepared)).toBe(true);
+    expect(await pending).toBe(false); expect(c.store.context()!.key).toBe('draft-after');
+    expect(c.store.testReadState()).toBe('idle'); expect(c.store.testEditState()).toBe('idle');
+    expect(c.store.scenarioReadState()).toBe('idle'); expect(c.store.localTests()).toBeNull();
+    fixture.detectChanges();
+  });
+
   it.each(['en', 'ja'] as const)('previews the prepared Draft rename in %s and rechecks permission before loading it', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('draft-before'); c.loadResult();
     c.i18n.setLocale(locale); fixture.detectChanges();

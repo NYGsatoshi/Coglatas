@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { webcrypto } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { afterEach, vi } from 'vitest';
 import { readPreviewBundle } from './projectide-preview.adapter';
 import { readPreparedTestEdit, testEditPair } from './projectide-test-edit';
@@ -45,6 +45,12 @@ describe('Canonical Source Test definition preview', () => {
       if (mode === 'future-reference') { const value = JSON.parse(p.importedText); value.payload.assertions[0].target.context = b.cases[1].context; p.importedText = JSON.stringify(value); }
       await expect(readPreparedTestEdit(readPreviewBundle(b), before)).rejects.toThrow();
     });
+  it('rejects substituted export whitespace even with a recomputed declaration digest', async () => {
+    const b = raw(); const before = b.cases[0]; const p = before.preparedTestEdit;
+    p.definitionText += ' ';
+    p.plan.beforeDeclarationDigest = { algorithm: 'sha-256', value: createHash('sha256').update('coglatas.project-test-declaration/1\0' + p.definitionText).digest('hex') };
+    await expect(readPreparedTestEdit(readPreviewBundle(b), before)).rejects.toThrow();
+  });
   it('rejects contexts outside the provided immutable bundle', () => {
     const b = bundle(); expect(() => testEditPair(b, structuredClone(b.cases[0]))).toThrow();
   });

@@ -166,7 +166,7 @@ public sealed class CompilerExecutionPlanTests
         var constructor = typeof(CoreCompilation).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Single();
         var forged = (CoreCompilation)constructor.Invoke(new object?[] { input, original.Model, original.Validation, result, original.LogicalOperationsConsumed, original.Dependencies, original.Publication });
         var server = new ServerCompilerHost(Profile(input, true), new ReplyTransport(request => new(CompilerHostStatus.Completed, "example.forged-stage", input.InputDigest,
-            request.ClientGeneration, Guid.NewGuid(), new CompilerHostExecutionReceipt(request, forged))));
+            request.ClientGeneration, Guid.NewGuid(), CompilerScopedPublicationTests.Receipt(request, forged))));
         var response = await server.CompileAsync(new(new(input), 2)); Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
     }
     [Theory]

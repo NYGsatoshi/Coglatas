@@ -161,16 +161,18 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
     seenTests.add(test['testId']); const declaration = tests.find(item => item.identity === test['testId']);
     if (!declaration) return fail();
     hasFailure ||= test['verdict'] === 'Fail'; hasError ||= test['verdict'] === 'Error';
-    const paths = new Set<string>();
+    const assertionKeys = new Set<string>();
     for (const assertion of test['assertions']) {
       if (!record(assertion) || !isProjectLocationShape(assertion['location']) || !oneOf(assertion['verdict'], verdicts) || !token(assertion['reason']) ||
           !digest(assertion['assertionDigest']) || !(assertion['actualDigest'] === null || digest(assertion['actualDigest']))) return fail();
       const location = assertion['location']; const segments = location.propertyPath.split('/');
-      if (segments.length !== 4 || segments[1] !== 'payload' || segments[2] !== 'assertions' || paths.has(location.propertyPath) ||
+      if (segments.length !== 4 || segments[0] !== '' || segments[1] !== 'payload' || segments[2] !== 'assertions' ||
           location.entityId !== test['testId'] || location.relationId !== undefined || location.textSpan !== undefined ||
           location.documentId !== declaration.location.documentId || !sameContext(location.context, value.context)) return fail();
-      paths.add(location.propertyPath);
-      const key = segments[3].replaceAll('~1', '/').replaceAll('~0', '~'); const original = originals.get(test['testId'] + '\0' + key);
+      const key = segments[3].replaceAll('~1', '/').replaceAll('~0', '~');
+      if (key.replaceAll('~', '~0').replaceAll('/', '~1') !== segments[3] || assertionKeys.has(key)) return fail();
+      assertionKeys.add(key);
+      const original = originals.get(test['testId'] + '\0' + key);
       if (!original) return fail();
       hashes.push(matchesDigest('coglatas.project-test-assertion/1', original.text, assertion['assertionDigest']));
       executed += assertion['verdict'] !== 'NotRun' ? 1 : 0; assertions++;

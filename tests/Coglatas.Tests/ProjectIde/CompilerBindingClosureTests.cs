@@ -252,6 +252,37 @@ public sealed class CompilerBindingClosureTests
         Assert.NotEqual(CompilerVerdict.Pass, PureCoreCompiler.Compile(input, input.Compiler, [snapshot]).Result.Verdict);
     }
 
+    [Fact]
+    public void AnImplicitRootScopeDoesNotInventAManifestVersionForATypedBackReference()
+    {
+        var f = Graph(transitive: false, backToRoot: true);
+        var rootDeclarations = JsonNode.Parse(f.Input.Source.Declarations.CanonicalText)!.AsArray();
+        rootDeclarations[0]!["payload"]!["ports"]![0]!.AsObject().Remove("defaultValue");
+        var rootRelation = Obj(new { relationId = Id(95), documentId = Id(4), kind = RelationKinds.RelatedTo, schemaVersion = 1,
+            descriptor = new { descriptorId = RelationKinds.RelatedTo, version = 1 },
+            source = new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = CompilerAnalysisFixtures.Reference(7, f.Input.Source.Context) },
+            target = new { kind = "coglatas.entity", expectedKind = "coglatas.project", reference = CompilerAnalysisFixtures.Reference(6, f.A) }, payload = new { } });
+        var rootSource = ProjectSource.Create(f.Input.Source.Context, f.Input.Source.Documents, Json(rootDeclarations), Json(new JsonArray(rootRelation)));
+        var original = f.Snapshots.Single().Snapshot.Source; var declarations = JsonNode.Parse(original.Declarations.CanonicalText)!.AsArray();
+        var task = TaskNode(88); var port = task["payload"]!["ports"]![0]!;
+        var type = Obj(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = true, expectedKind = "coglatas.task" });
+        port["type"] = type.DeepClone(); port["defaultValue"] = Obj(new { type, state = "coglatas.known", value = new {
+            tenantId = rootSource.TenantId.ToString(), projectId = rootSource.ProjectId.ToString(), entityId = Id(7), context = rootSource.Context.Data.Value,
+            origin = ProjectLocation.Create(DocumentId.Parse(Id(4)), f.A, entityId: EntityId.Parse(Id(88))).Data.Value,
+            manifest = new { version = "1", digest = rootSource.Digest.Data.Value } } });
+        declarations.Add(task); var dependency = ProjectSource.Create(f.A, original.Documents, Json(declarations), original.Relations);
+        var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
+        settings["authorizedExternalSnapshots"]![0]!["digest"] = JsonNode.Parse(dependency.Digest.Data.CanonicalText);
+        var input = new CompilerInputManifest(rootSource, Json(settings));
+        var root = ProjectSemanticBinder.Bind(input, [new(ExternalSnapshotId.Parse(Id(30)), "1", new(dependency, true, true, true))]);
+        Assert.True(root.BindingComplete); var closure = CompilerBindingClosure.Build(root, input.InputDigest);
+        Assert.Equal(CompilerBindingClosureState.Incomplete, closure.State);
+        var region = Assert.Single(closure.Regions, item => !item.IsRoot);
+        Assert.Contains(region.Findings, finding => finding.Diagnostic.Code == "coglatas.binding.value-reference-manifest-mismatch");
+        Assert.Single(input.Settings.Value.GetProperty("authorizedExternalSnapshots").EnumerateArray());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, Assert.Single(closure.Regions, item => item.IsRoot).Data.Value.GetProperty("snapshot").ValueKind);
+    }
+
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public void TransitiveTypedReferencesRequireTheirExactExistingVersionAndDigest(bool wrongVersion)

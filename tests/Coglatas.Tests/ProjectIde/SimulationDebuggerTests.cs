@@ -47,11 +47,14 @@ public sealed class SimulationDebuggerTests
         var done = Accepted(debugger.Continue(inspected.Stamp)); Assert.Equal(SimulationControlState.Terminated, done.State);
         Assert.Equal(ProjectSimulation.Execute(manifest, manifest.Plan.Input.InputDigest).Data, done.Result!.Data); Assert.Empty(stopped.Events);
     }
-    [Fact]
-    public void StepOverAnAtomicTaskRecordsRelevantParallelStartsAndEndsBeforeItsBoundary()
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void StepOverAnAtomicTaskRecordsRelevantParallelStartsAndEndsBeforeItsBoundary(bool supplementarySpan)
     {
         var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
-        var task = Location(manifest.Plan, 7); var stepped = Accepted(debugger.StepOver(debugger.Snapshot.Stamp, task));
+        var task = Location(manifest.Plan, 7);
+        if (supplementarySpan) task = ProjectLocation.Create(task.DocumentId, task.Context, task.PropertyPath, entityId: task.EntityId, textSpan: new(1234, 0));
+        var stepped = Accepted(debugger.StepOver(debugger.Snapshot.Stamp, task));
         Assert.Equal(SimulationControlState.Paused, stepped.State); Assert.Null(stepped.Result); Assert.Equal(4, stepped.Events.Count); Assert.Equal(105, Clock(stepped));
         Assert.Contains(stepped.Events, e => e.Value.GetProperty("location").GetProperty("entityId").GetString() == Id(8) && e.Value.GetProperty("kind").GetString() == "coglatas.task-end");
         var inspected = Accepted(debugger.Inspect(stepped.Stamp, Location(manifest.Plan, 9))); Assert.Equal("WaitingLag", InspectionState(inspected));

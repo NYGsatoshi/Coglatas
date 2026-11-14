@@ -8,6 +8,13 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class CompilerScopedPublicationTests
 {
+    // Deliberately adversarial transport fixtures may construct a receipt; production callers cannot.
+    internal static CompilerHostExecutionReceipt Receipt(CompilerHostRequest request, CoreCompilation compilation) =>
+        (CompilerHostExecutionReceipt)typeof(CompilerHostExecutionReceipt)
+            .GetConstructor(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                new[] { typeof(CompilerHostRequest), typeof(CoreCompilation) }, null)!
+            .Invoke(new object[] { request, compilation });
+
     internal static CompilerInputManifest Upgrade(CompilerInputManifest input)
     {
         var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject(); settings["semantics"]!["version"] = "2"; settings["ir"]!["version"] = "2";
@@ -158,7 +165,7 @@ public sealed class CompilerScopedPublicationTests
             var constructor = typeof(CoreCompilation).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Single();
             var forged = (CoreCompilation)constructor.Invoke(new object?[] { input, compiled.Model, compiled.Validation, result, compiled.LogicalOperationsConsumed, compiled.Dependencies,
                 mode == "missing-payload" ? null : compiled.Publication });
-            return Task.FromResult(new CompilerHostResponse(CompilerHostStatus.Completed, "example.transport", input.InputDigest, request.ClientGeneration, Guid.NewGuid(), new CompilerHostExecutionReceipt(request, forged)));
+            return Task.FromResult(new CompilerHostResponse(CompilerHostStatus.Completed, "example.transport", input.InputDigest, request.ClientGeneration, Guid.NewGuid(), Receipt(request, forged)));
         }));
         var response = await server.CompileAsync(new(new(input), 1)); Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
     }
@@ -166,6 +173,7 @@ public sealed class CompilerScopedPublicationTests
     public async Task PublicTransportTransfersCoreOwnedGraphsAndFreshEquivalentCompilationsPreserveTheirAliases()
     {
         Assert.Empty(typeof(CoreCompilation).GetConstructors()); Assert.Empty(typeof(CompilerScopedPublication).GetConstructors());
+        Assert.Empty(typeof(CompilerHostExecutionReceipt).GetConstructors());
         var input = Upgrade(Input()); var first = Compile(input); var second = Compile(input);
         Assert.NotSame(first.Publication, second.Publication); Assert.Equal(first.Result.Data, second.Result.Data);
         foreach (var compiled in new[] { first, second }) {
@@ -173,7 +181,7 @@ public sealed class CompilerScopedPublicationTests
             Assert.Same(compiled.Publication!.Scope, compiled.Dependencies!.ScopedIr);
         }
         var server = new ServerCompilerHost(Profile(input), new Transport((request, _) => Task.FromResult(new CompilerHostResponse(
-            CompilerHostStatus.Completed, "example.fresh-core-graph", input.InputDigest, request.ClientGeneration, Guid.NewGuid(), new CompilerHostExecutionReceipt(request, second)))));
+            CompilerHostStatus.Completed, "example.fresh-core-graph", input.InputDigest, request.ClientGeneration, Guid.NewGuid(), Receipt(request, second)))));
         var response = await server.CompileAsync(new(new(input), 3));
         Assert.Equal(CompilerHostStatus.Completed, response.Status); Assert.Same(second, response.Compilation);
     }
