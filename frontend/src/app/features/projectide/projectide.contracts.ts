@@ -1,3 +1,4 @@
+import type { PreparedScenario } from './projectide-scenario';
 import type { PreparedTestEdit } from './projectide-test-edit';
 import type { LocalProjectTestProjection } from './projectide-tests.contracts';
 import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
@@ -27,9 +28,17 @@ export interface CandidateContext {
   readonly baseRevision: CommittedContext;
   readonly capturedTargetHead: CommittedContext;
 }
-export type RevisionContext = CommittedContext | CandidateContext;
+export interface ScenarioContext {
+  readonly kind: 'coglatas.scenario';
+  readonly branch: BranchContext;
+  readonly scenarioId: Identity<'Scenario'>;
+  readonly scenarioRevisionId: Identity<'ScenarioRevision'>;
+  readonly baseContext: CommittedContext | CandidateContext;
+  readonly overlayDigest: Digest;
+}
+export type RevisionContext = CommittedContext | CandidateContext | ScenarioContext;
 export const contextRevision = (context: RevisionContext): string => context.kind === 'coglatas.committed'
-  ? context.revisionId : context.candidateRevisionId;
+  ? context.revisionId : context.kind === 'coglatas.candidate' ? context.candidateRevisionId : context.scenarioRevisionId;
 export interface ProjectLocation {
   readonly format: 'coglatas.project-location/1';
   readonly schemaVersion: 1;
@@ -210,6 +219,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly preparedScenario?: PreparedScenario | null;
   readonly preparedHistory?: PreparedHistory | null;
   readonly preparedDiff?: PreparedSemanticDiff | null;
   readonly key: string;
@@ -296,6 +306,8 @@ export const sameContext = (a: RevisionContext, b: RevisionContext): boolean => 
   if (a.kind !== b.kind || a.branch.tenantId !== b.branch.tenantId || a.branch.projectId !== b.branch.projectId ||
       a.branch.branchId !== b.branch.branchId) return false;
   if (a.kind === 'coglatas.committed' && b.kind === 'coglatas.committed') return a.revisionId === b.revisionId;
+  if (a.kind === 'coglatas.scenario' && b.kind === 'coglatas.scenario') return a.scenarioId === b.scenarioId &&
+    a.scenarioRevisionId === b.scenarioRevisionId && sameContext(a.baseContext, b.baseContext) && sameDigest(a.overlayDigest, b.overlayDigest);
   return a.kind === 'coglatas.candidate' && b.kind === 'coglatas.candidate' && a.proposalId === b.proposalId &&
     a.candidateRevisionId === b.candidateRevisionId && sameContext(a.baseRevision, b.baseRevision) &&
     sameContext(a.capturedTargetHead, b.capturedTargetHead);

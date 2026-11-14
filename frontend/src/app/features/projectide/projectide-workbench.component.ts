@@ -1,3 +1,4 @@
+import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
 import { LocalTestAssertion } from './projectide-tests.contracts';
 import { DOCUMENT, JsonPipe } from '@angular/common';
@@ -45,7 +46,7 @@ export class ProjectIdeWorkbenchComponent {
   private readonly adapter = inject(ProjectIdePreviewAdapter);
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
-  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests'>('overview');
+  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests' | 'scenario'>('overview');
   readonly testPage = signal(0);
   readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
@@ -59,7 +60,7 @@ export class ProjectIdeWorkbenchComponent {
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
-  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests'] as const;
+  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests', 'scenario'] as const;
   readonly canRead = computed(
     () =>
       this.flags.projectIdePreviewEnabled() &&
@@ -133,7 +134,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -145,7 +146,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -240,6 +241,35 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateReference(destination)) this.open('source', true);
   }
+  readonly scenarioRows = computed(() => {
+    const admitted = this.store.scenario();
+    return admitted ? [admitted.baseline, admitted.scenario, admitted.draft].map((value, index) => ({ value, tests: admitted.tests[index],
+      label: this.t((['ide.scenarioBaseline', 'ide.scenarioHypothesis', 'ide.scenarioDraft'] as const)[index]) })) : [];
+  });
+  async loadScenarioComparison(prepared: PreparedScenario): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadScenarioComparison(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('scenario', true);
+  }
+  async loadScenarioStage(prepared: PreparedScenario, stage: 'baseline' | 'scenario' | 'draft'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadScenarioStage(prepared, stage);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('scenario', true);
+  }
+  async exportScenarioAssumptions(prepared: PreparedScenario): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const text = await this.store.exportScenarioAssumptions(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (text === null || generation !== this.focusGeneration || this.store.preparedScenario() !== prepared) return;
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+    try { const link = this.document.createElement('a'); link.href = url; link.download = 'project-scenario-assumptions.json'; link.click(); }
+    finally { URL.revokeObjectURL(url); }
+  }
   async exportTestDefinition(prepared: PreparedTestEdit): Promise<void> {
     if (!this.canRead()) { this.store.clear('denied'); return; }
     const definition = await this.store.exportPreparedTestDefinition(prepared);
@@ -278,6 +308,7 @@ export class ProjectIdeWorkbenchComponent {
   }
   testValue(value: string): string {
     const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      'coglatas.pass': 'ide.testPass', 'coglatas.fail': 'ide.testFail', 'coglatas.inconclusive': 'ide.testInconclusive', 'coglatas.error': 'ide.testError', 'coglatas.not-run': 'ide.testNotRun',
       Pass: 'ide.testPass', Fail: 'ide.testFail', Inconclusive: 'ide.testInconclusive', Error: 'ide.testError', NotRun: 'ide.testNotRun',
       Completed: 'ide.testCompleted', Cancelled: 'ide.testCancelled', TimedOut: 'ide.testTimedOut', ResourceExhausted: 'ide.testExhausted', InternalError: 'ide.testError',
       Complete: 'ide.testComplete', Partial: 'ide.testPartial', None: 'ide.testNone', Current: 'ide.testCurrent', Stale: 'ide.testStale', Undetermined: 'ide.testUndetermined',

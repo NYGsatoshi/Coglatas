@@ -22,6 +22,7 @@
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
     }
     @if (store.state() === 'ready') {
+      <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
       <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
       <button type="button" (click)="reload()">{{ t('ide.testMainExamples') }}</button>
     }
@@ -78,6 +79,10 @@
               <div><dt>{{ t('ide.proposal') }}</dt><dd>{{ ctx.context.proposalId }}</dd></div>
               <div><dt>{{ t('ide.baseRevision') }}</dt><dd>{{ ctx.context.baseRevision.revisionId }}</dd></div>
               <div><dt>{{ t('ide.capturedTargetHead') }}</dt><dd>{{ ctx.context.capturedTargetHead.revisionId }}</dd></div>
+            }
+            @if (ctx.context.kind === 'coglatas.scenario') {
+              <div><dt>{{ t('ide.scenarioId') }}</dt><dd>{{ ctx.context.scenarioId }}</dd></div>
+              <div><dt>{{ t('ide.scenarioBaseline') }}</dt><dd>{{ contextRevision(ctx.context.baseContext) }}</dd></div>
             }
             <div>
               <dt>{{ t('ide.context') }}</dt>
@@ -150,6 +155,53 @@
         <section class="panel" [attr.aria-label]="t('ide.' + panel())">
           <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
           @switch (panel()) {
+            @case ('scenario') {
+              <p>{{ t('ide.scenarioNotice') }}</p>
+              @if (store.preparedScenario(); as prepared) {
+                <button type="button" (click)="loadScenarioComparison(prepared)" [disabled]="store.scenarioReadState() === 'loading'">{{ t('ide.scenarioLoadComparison') }}</button>
+                <button type="button" (click)="exportScenarioAssumptions(prepared)" [disabled]="store.scenarioReadState() === 'loading'">{{ t('ide.scenarioExport') }}</button>
+                <div class="panels">
+                  <button type="button" (click)="loadScenarioStage(prepared, 'baseline')" [disabled]="store.scenarioReadState() === 'loading' || ctx.key === prepared.baselineCaseKey">{{ t('ide.scenarioLoadBaseline') }}</button>
+                  <button type="button" (click)="loadScenarioStage(prepared, 'scenario')" [disabled]="store.scenarioReadState() === 'loading' || ctx.key !== prepared.baselineCaseKey">{{ t('ide.scenarioLoadHypothesis') }}</button>
+                  <button type="button" (click)="loadScenarioStage(prepared, 'draft')" [disabled]="store.scenarioReadState() === 'loading' || ctx.key !== prepared.scenarioCaseKey">{{ t('ide.scenarioLoadDraft') }}</button>
+                </div>
+                @if (store.scenarioReadState() === 'loading') { <p role="status">{{ t('ide.scenarioLoading') }}</p> }
+                @if (store.scenarioReadState() === 'unavailable') { <p role="alert">{{ t('ide.scenarioUnavailable') }}</p> }
+                @if (store.scenario(); as scenario) {
+                  <section data-testid="ide-scenario-assumptions">
+                    <h3>{{ t('ide.scenarioAssumptions') }}</h3>
+                    <ol>@for (assumption of scenario.assumptions; track $index) {
+                      <li><p>{{ assumption.kind }} · {{ assumption.target.entityId }} · {{ assumption.portId }}</p><pre tabindex="0">{{ assumption.value | json }}</pre></li>
+                    }</ol>
+                  </section>
+                  <section data-testid="ide-scenario-changes">
+                    <h3>{{ t('ide.scenarioSourceChanges') }}</h3>
+                    <ol>@for (change of scenario.changes; track change.recordType + change.identity + change.path) {
+                      <li><p>{{ change.kind }} · {{ change.identity }} · {{ change.path }}</p>
+                        <details><summary>{{ t('ide.diffBefore') }}</summary><pre tabindex="0">{{ change.before | json }}</pre></details>
+                        <details><summary>{{ t('ide.diffAfter') }}</summary><pre tabindex="0">{{ change.after | json }}</pre></details>
+                      </li>
+                    }</ol>
+                  </section>
+                  <section data-testid="ide-scenario-results">
+                    <h3>{{ t('ide.scenarioResults') }}</h3>
+                    <div class="scenario-results">@for (row of scenarioRows(); track row.value.key) {
+                      <section [attr.data-testid]="'ide-scenario-result-' + $index"><h4>{{ row.label }}</h4>
+                        <dl>
+                          <div><dt>{{ t('ide.scenarioCompilerVerdict') }}</dt><dd>{{ testValue(row.value.result.verdict) }}</dd></div>
+                          <div><dt>{{ t('ide.scenarioTestVerdict') }}</dt><dd>{{ testValue(row.tests.run.verdict) }}</dd></div>
+                          <div><dt>{{ t('ide.testsExecution') }}</dt><dd>{{ testValue(row.tests.run.execution) }}</dd></div>
+                          <div><dt>{{ t('ide.testsCoverage') }}</dt><dd>{{ testValue(row.tests.run.coverage) }}</dd></div>
+                          <div><dt>{{ t('ide.testsFreshness') }}</dt><dd>{{ testValue(row.tests.run.freshness) }}</dd></div>
+                          <div><dt>{{ t('ide.testsEvidence') }}</dt><dd>{{ testValue(row.tests.run.evidenceKind) }}</dd></div>
+                        </dl>
+                        <details><summary>{{ t('ide.testsDetails') }}</summary><p>{{ t('ide.testsInput') }}: <code>{{ row.tests.run.inputDigest.value }}</code></p></details>
+                      </section>
+                    }</div>
+                  </section>
+                }
+              } @else { <p role="status">{{ t('ide.scenarioUnavailable') }}</p> }
+            }
             @case ('tests') {
               @if (store.preparedTestEdit(); as edit) {
                 <section data-testid="ide-test-edit-preview">

@@ -5,8 +5,10 @@ using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 var testEditProfile = args is [_, "--test-edit"];
-if (args.Length != 1 && !testEditProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit profile.");
+var scenarioProfile = args is [_, "--scenario"];
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit or --scenario profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
+var scenarioFixture = scenarioProfile ? ScenarioFixture() : null;
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
@@ -44,10 +46,11 @@ var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = Envelop
 var requirementCandidates = RequirementCandidateInput();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
+if (scenarioProfile) names = ["tests-scenario-base", "tests-scenario-hypothesis", "tests-scenario-draft"];
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
-    var input = name switch { "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
+    var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
         "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
@@ -154,6 +157,19 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             definitionText = testEditFixture.Exported.CanonicalText, importedText = testEditFixture.Imported.CanonicalText });
         cases[^1] = fixture;
     }
+    if (scenarioProfile)
+    {
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["preparedScenario"] = JsonSerializer.SerializeToNode(new { baselineCaseKey = "tests-scenario-base", scenarioCaseKey = "tests-scenario-hypothesis", draftCaseKey = "tests-scenario-draft",
+            overlay = new { text = scenarioFixture!.Scenario.Overlay.CanonicalText, digest = scenarioFixture.Scenario.OverlayDigest.Data.Value }, draftPlan = scenarioFixture.Draft.Data.Value });
+        if (name is "tests-scenario-base" or "tests-scenario-hypothesis")
+        {
+            var after = name == "tests-scenario-base" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
+            fixture["preparedDiff"] = JsonSerializer.SerializeToNode(new { afterCaseKey = name == "tests-scenario-base" ? "tests-scenario-hypothesis" : "tests-scenario-draft",
+                comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(input), ProjectSemanticBinder.Bind(after), input.InputDigest, after.InputDigest).Data.Value });
+        }
+        cases[^1] = fixture;
+    }
     if (name == "requirement-candidates")
     {
         if (inspection is null || ir is null) throw new InvalidOperationException("Task candidates require actual Core inspection and source navigation.");
@@ -176,6 +192,25 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static PreparedScenarioFixture ScenarioFixture()
+{
+    var basis = LocalTestInput("tests-fail", 750); var model = ProjectSemanticBinder.Bind(basis);
+    var task = model.Declarations.Select(item => item.Declaration).OfType<TaskPlanDeclaration>().Single();
+    var port = task.Ports.Single(); var value = JsonNode.Parse(port.DefaultValue!.Data.CanonicalText)!.AsObject(); value["value"] = true;
+    var change = new ProjectScenarioOverride(ProjectLocation.Create(task.DocumentId, basis.Source.Context, entityId: task.EntityId),
+        ProjectScenarioOverrideKind.TaskInputDefault, Json(value), port.PortId);
+    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(760)), ScenarioRevisionId.Parse(Id(761)), [change]).Plan
+        ?? throw new InvalidOperationException("Scenario preparation unavailable.");
+    var revision = basis.Source.Context.CommittedRevision!;
+    var draft = ProjectScenarios.ToDraft(plan, model, basis.InputDigest, new(ProposalId.Parse(Id(770)), CandidateRevisionId.Parse(Id(771)), revision, revision)).Plan
+        ?? throw new InvalidOperationException("Scenario Draft conversion unavailable.");
+    if (!plan.Materialize(basis)!.Data.Equals(plan.Input.Data) || !draft.ApplyToDraft(basis)!.Data.Equals(draft.After.Data))
+        throw new InvalidOperationException("Scenario application lost its exact base.");
+    var verdicts = new[] { basis, plan.Input, draft.After }.Select(input => ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
+    if (!verdicts.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]))
+        throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
+    return new(plan, draft);
+}
 static PreparedTestEditFixture TestEditFixture()
 {
     var original = LocalTestInput("tests-fail", 250); var basis = original.Source.Context.CommittedRevision!;
@@ -326,3 +361,5 @@ static CompilerInputManifest Input(string name, int revision)
 }
 
 internal sealed record PreparedTestEditFixture(CompilerInputManifest Before, CompilerInputManifest After, ProjectTestEditPlan Plan, SourceJson Exported, SourceJson Imported);
+
+internal sealed record PreparedScenarioFixture(ProjectScenarioPlan Scenario, ProjectScenarioDraftPlan Draft);

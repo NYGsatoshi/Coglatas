@@ -1,3 +1,4 @@
+import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
 import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
@@ -110,6 +111,58 @@ export class ProjectIdeWorkbenchStore {
     this.choose(target.key); this.loadResult();
     return this.navigateLocation(location);
   }
+  private scenarioGeneration = 0;
+  readonly scenarioReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly scenarioSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedScenario } | null>(null);
+  readonly preparedScenario = (): PreparedScenario | null => {
+    const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.state() !== 'ready' || context !== this.result()) return null;
+    try { return scenarioTriplet(bundle, context)?.prepared ?? null; } catch { return null; }
+  };
+  readonly scenario = (): AdmittedScenario | null => {
+    const snapshot = this.scenarioSnapshot(); const context = this.context(); const bundle = this.bundle();
+    return snapshot && bundle && context && this.state() === 'ready' && snapshot.context === context && context === this.result() &&
+      snapshot.bundle === bundle && scenarioMatches(bundle, context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  private async admitScenario(prepared: PreparedScenario) {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    if (!bundle || !context || this.preparedScenario() !== prepared) return null;
+    this.scenarioReadState.set('loading');
+    try {
+      const admitted = await readPreparedScenario(bundle, context);
+      if (generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() || context !== this.result()) return null;
+      if (!admitted || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) throw new Error('stale-scenario');
+      return admitted;
+    } catch {
+      if (generation === this.scenarioGeneration && context === this.context()) { this.scenarioSnapshot.set(null); this.scenarioReadState.set('unavailable'); }
+      return null;
+    }
+  }
+  async loadScenarioComparison(prepared: PreparedScenario): Promise<boolean> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return false;
+    this.scenarioSnapshot.set({ bundle, context, admitted }); this.scenarioReadState.set('ready'); return true;
+  }
+  async exportScenarioAssumptions(prepared: PreparedScenario): Promise<string | null> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return null;
+    this.scenarioReadState.set(this.scenario() ? 'ready' : 'idle'); return prepared.overlay.text;
+  }
+  async loadScenarioStage(prepared: PreparedScenario, stage: 'baseline' | 'scenario' | 'draft'): Promise<boolean> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return false;
+    if (stage === 'scenario' && context !== admitted.baseline || stage === 'draft' && context !== admitted.scenario) { this.scenarioReadState.set('ready'); return false; }
+    const target = admitted[stage]; this.choose(target.key); this.loadResult();
+    if (this.context() !== target || this.result() !== target || this.bundle() !== bundle || !scenarioMatches(bundle, target, admitted)) return false;
+    this.scenarioSnapshot.set({ bundle, context: target, admitted }); this.scenarioReadState.set('ready'); return true;
+  }
+  private clearScenario(): void { this.scenarioGeneration++; this.scenarioSnapshot.set(null); this.scenarioReadState.set('idle'); }
   readonly testEditState = signal<'idle' | 'loading' | 'unavailable'>('idle');
   readonly preparedTestEdit = (): PreparedTestEdit | null => {
     const context = this.context(); const bundle = this.bundle();
@@ -185,7 +238,7 @@ export class ProjectIdeWorkbenchStore {
     if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
     return this.navigateLocation(assertion.location);
   }
-  private clearLocalTests(): void { this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
+  private clearLocalTests(): void { this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {

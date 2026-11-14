@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve(profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -82,6 +82,22 @@ async function render(enabled = true, allowed = true, fail = false, profile: 'ma
 vi.stubGlobal('crypto', webcrypto);
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('separates Scenario assumptions, Source changes and fixed result axes in %s', async locale => {
+    const { c, fixture, root, authenticated } = await render(true, true, false, 'scenario'); c.i18n.setLocale(locale);
+    c.choose('tests-scenario-base'); c.loadResult(); c.open('scenario');
+    const prepared = c.store.preparedScenario()!; await c.loadScenarioComparison(prepared); fixture.detectChanges(); await fixture.whenStable();
+    expect(root.querySelector('[data-testid="ide-scenario-assumptions"]')!.textContent).toContain('true');
+    expect(root.querySelector('[data-testid="ide-scenario-changes"]')!.textContent).toContain('/payload/ports');
+    const baseline = root.querySelector('[data-testid="ide-scenario-result-0"]')!;
+    expect(baseline.textContent).toContain(c.t('ide.testFail')); expect(baseline.textContent).toContain(c.t('ide.testPass'));
+    expect(root.querySelector('[data-testid="ide-scenario-result-1"]')!.textContent).toContain(c.t('ide.testPass'));
+    await c.loadScenarioStage(prepared, 'scenario'); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.context.kind).toBe('coglatas.scenario'); expect(c.store.localTests()).toBeNull(); expect(c.panel()).toBe('scenario');
+    await c.loadScenarioStage(c.store.preparedScenario()!, 'draft'); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.context.kind).toBe('coglatas.candidate');
+    authenticated.set(false); fixture.detectChanges(); expect(c.store.scenario()).toBeNull(); expect(root.querySelector('[data-testid="ide-scenario-results"]')).toBeNull();
+  });
+
   it.each(['en', 'ja'] as const)('loads an exact Core-prepared Test definition edit in %s without retaining the previous result', async locale => {
     const { c, fixture, root, authenticated } = await render(true, true, false, 'test-edit'); c.i18n.setLocale(locale);
     c.choose('tests-edit-before'); c.loadResult(); c.open('tests'); await c.loadLocalTests(); fixture.detectChanges();
