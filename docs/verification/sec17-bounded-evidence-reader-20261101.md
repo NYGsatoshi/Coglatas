@@ -15,9 +15,13 @@ bindings and sanitized diagnostics retain their existing contracts. The SEC-ARCH
 backend producer path `artifacts/test-results/backend/backend-tests.trx` within
 the repository's physical source root. Realpath validation rejects arbitrary
 files, traversal and symlink escapes before the bounded descriptor read. This
-is a scope-specific path restriction, not a general directory sandbox or an
-attacker-reachability, Sonar disposition or complete SEC-14/SEC-17 assurance
-claim. Provider findings and Owner holds remain open.
+is now shared by all three CLI capture entry points: SEC-ARCH, SEC-17 Deep
+and SEC-17 File-policy. Each entry point validates its requested --trx against
+its own fixed workflow producer path, including on the failure-summary path.
+The bounded reader receives a separately constructed, repository-rooted path
+rather than a CLI-derived path. This is a producer-specific path restriction,
+not a general directory sandbox, Sonar disposition or complete SEC-14/SEC-17
+assurance claim. Provider findings and Owner holds remain open.
 
 Local verification uses a separate synthetic Python 3.12 and Git container with
 network disabled during execution. The existing parser/capture and adjoining

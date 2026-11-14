@@ -169,7 +169,7 @@ class FilePolicyExecutionTests(unittest.TestCase):
             result = json.loads(saved)
             self.assertEqual("ERROR", result["outcome"])
             self.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
-            self.assertEqual(evidence.digest(trx.read_bytes()), result["executionDigest"])
+            self.assertIsNone(result["executionDigest"], "A noncanonical CLI file must not be read or hashed.")
             self.assertEqual(1, result["requiredCaseCount"])
             self.assertIsNone(result["observedCaseCount"])
             self.assertIsNone(result["ownerApproval"])
@@ -178,6 +178,18 @@ class FilePolicyExecutionTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     deep.main()
             self.assertEqual(retained, output.read_bytes())
+
+    def test_failure_summary_accepts_only_canonical_producer_trx(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trusted = root / deep.SEC17_FILE_TRX_RELATIVE
+            trusted.parent.mkdir(parents=True, exist_ok=True)
+            trusted.write_bytes(b"synthetic owned report")
+            alternate = root / "artifacts/other.trx"
+            alternate.write_bytes(b"synthetic unrelated report")
+            self.assertEqual(evidence.digest(trusted.read_bytes()),
+                             deep.failure_summary("a" * 40, trusted, root)["executionDigest"])
+            self.assertIsNone(deep.failure_summary("a" * 40, alternate, root)["executionDigest"])
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -199,7 +211,8 @@ class FilePolicyExecutionTests(unittest.TestCase):
             stamp = root / "artifacts/ci/dotnet-build-sha"
             stamp.parent.mkdir(parents=True)
             stamp.write_text(candidate)
-            trx = root / "artifacts/file-policy.trx"
+            trx = root / deep.SEC17_FILE_TRX_RELATIVE
+            trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
             for name in ASSEMBLIES:
                 for path in {assembly_path(root, name), loaded_assembly_path(root, name)}:

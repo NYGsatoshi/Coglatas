@@ -11,7 +11,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
-from sec_arch_evidence import digest, observed_trx, read_execution_trx
+from sec_arch_evidence import digest, observed_trx, read_execution_trx, trusted_execution_trx, SEC17_DEEP_TRX_RELATIVE
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 
 METHOD = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRDeepChurnTests.ConcurrentIndependentDirectScopeTransitionsReauthorizeEveryBoundedReconnectCycle"
@@ -48,7 +48,8 @@ def capture(root: Path, trx: Path, candidate: str, now: datetime) -> dict:
     declaration = rb"public\s+Task\s+" + METHOD.rsplit(".", 1)[1].encode() + rb"\s*\(\s*\)"
     if len(re.findall(declaration, source)) != 1:
         raise ValueError("The exact deep owner source declaration is required.")
-    data = read_execution_trx(trx)
+    trusted_execution_trx(root, trx, SEC17_DEEP_TRX_RELATIVE)
+    data = read_execution_trx(root.resolve(strict=True) / SEC17_DEEP_TRX_RELATIVE)
     observed = observe(data, now)
     assemblies = capture_assemblies(root)
     if git("rev-parse", "HEAD") != candidate or git("status", "--porcelain"):
@@ -80,11 +81,13 @@ def selection_status(observed: dict) -> str:
     return "SKIPPED_OR_NOT_EXECUTED" if observed["cases"][0]["outcome"] == "UNVERIFIED" else "EXECUTED"
 
 
-def failure_summary(candidate: str, trx: Path) -> dict:
+def failure_summary(candidate: str, trx: Path, root: Path | None = None) -> dict:
     # No native TestOutput/ErrorInfo, exception text, identifiers or payloads
     # are copied, including when build, selection or evidence capture fails.
     try:
-        data = read_execution_trx(trx)
+        checked_root = root if root is not None else Path(__file__).resolve().parents[2]
+        trusted_execution_trx(checked_root, trx, SEC17_DEEP_TRX_RELATIVE)
+        data = read_execution_trx(checked_root.resolve(strict=True) / SEC17_DEEP_TRX_RELATIVE)
     except (OSError, ValueError):
         data = None
     return {
