@@ -192,10 +192,13 @@ export class ProjectIdeWorkbenchComponent {
     this.diffPage.set(0);
     this.historyPage.set(0);
   }
-  navigateDiff(change: SemanticChange, side: 'before' | 'after'): void {
-    this.focusGeneration++;
+  async navigateDiff(change: SemanticChange, side: 'before' | 'after'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const navigated = await this.store.navigateDiff(change, side);
+    if (generation !== this.focusGeneration) return;
     if (!this.canRead()) this.store.clear('denied');
-    else if (this.store.navigateDiff(change, side)) { this.diffPage.set(0); this.open('source', true); }
+    else if (navigated) { this.diffPage.set(0); this.open('source', true); }
   }
   openHistoryRevision(revision: HistoryRevisionView): void {
     this.focusGeneration++;

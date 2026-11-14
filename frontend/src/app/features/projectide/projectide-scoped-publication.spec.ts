@@ -48,6 +48,27 @@ describe('Actual scoped semantic publication version two', () => {
     const reload = store.loadScopedSources(); select(); expect(store.navigate()).toBe(false); expect(store.sourceTarget()).toBeNull();
     expect(await reload).toBe(true); select(); expect(store.navigate()).toBe(true); expect(store.sourceTarget()!.identity).toBe(task.identity);
   });
+  it('admits each original v2 semantic-diff destination after switching snapshots', async () => {
+    const fixture = raw(); fixture.cases = fixture.cases.filter((item: { key: string }) => item.key.startsWith('tests-publication-root-'));
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(fixture));
+    for (const side of ['before', 'after'] as const) {
+      store.choose('tests-publication-root-base'); store.loadResult(); expect(await store.loadScopedSources()).toBe(true);
+      const prepared = store.semanticDiff()!; const change = prepared.comparison.changes.find(row => row.beforeLocation?.entityId && row.afterLocation?.entityId)!;
+      expect(change).toBeDefined(); expect(await store.navigateDiff(change, side)).toBe(true);
+      expect(store.hasVerifiedPublication()).toBe(true); expect(store.sourceLocation()).toEqual(side === 'before' ? change.beforeLocation : change.afterLocation);
+      expect(store.context()!.key).toBe(side === 'before' ? 'tests-publication-root-base' : prepared.afterCaseKey);
+    }
+  });
+  it.each(['context', 'denied', 'publication-bytes'])('refuses late or unavailable v2 diff navigation: %s', async mode => {
+    const fixture = raw(); fixture.cases = fixture.cases.filter((item: { key: string }) => item.key.startsWith('tests-publication-root-'));
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(fixture)); store.choose('tests-publication-root-base'); store.loadResult();
+    const prepared = store.semanticDiff()!; const change = prepared.comparison.changes.find(row => row.afterLocation?.entityId)!;
+    if (mode === 'publication-bytes') fixture.cases.find((item: { key: string }) => item.key === prepared.afterCaseKey).scopedSources.publication.sourceMap.text += ' ';
+    const pending = store.navigateDiff(change, 'after');
+    if (mode === 'context') store.choose('tests-publication-root-draft');
+    if (mode === 'denied') store.clear('denied');
+    expect(await pending).toBe(false); expect(store.sourceTarget()).toBeNull(); expect(store.hasVerifiedPublication()).toBe(false);
+  });
   it('enables ordinary root references only with current admitted source maps', async () => {
     const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-publication-root-base'); store.loadResult();
     const reference = store.result()!.semanticInspection!.references.find(r => r.state === 'Resolved')!;

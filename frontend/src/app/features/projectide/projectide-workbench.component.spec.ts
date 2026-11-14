@@ -198,10 +198,20 @@ describe('ProjectIDE Workbench components', () => {
     expect(root.querySelector('[data-testid="ide-diff-rows"]')?.textContent).toContain('DisplayName');
     const change = c.store.semanticDiff()!.comparison.changes[0];
     const after = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.includes(locale === 'en' ? 'Open after snapshot' : '変更後のスナップショットを開く'))!;
-    after.click(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('draft-after'); expect(c.panel()).toBe('source');
+    after.click(); await fixture.whenStable(); fixture.detectChanges(); expect(c.store.context()?.key).toBe('draft-after'); expect(c.panel()).toBe('source');
     c.choose('draft-before'); c.loadResult(); c.open('diff'); fixture.detectChanges();
-    authenticated.set(false); c.navigateDiff(change, 'before'); fixture.detectChanges();
+    authenticated.set(false); await c.navigateDiff(change, 'before'); fixture.detectChanges();
     expect(c.store.state()).toBe('denied'); expect(c.store.semanticDiff()).toBeNull(); expect(root.textContent).not.toContain('Observe renamed');
+  });
+
+  it('rechecks permission after asynchronous v2 diff admission before focusing Source', async () => {
+    const { c, fixture, authenticated } = await render();
+    const raw = JSON.parse(readFileSync(resolve('public/assets/projectide/scoped-publication-v2.json'), 'utf8'));
+    raw.cases = raw.cases.filter((item: { key: string }) => item.key.startsWith('tests-publication-root-'));
+    await c.store.load(async () => readPreviewBundle(raw)); c.choose('tests-publication-root-base'); c.loadResult(); c.open('diff'); fixture.detectChanges();
+    const change = c.store.semanticDiff()!.comparison.changes.find(row => row.afterLocation?.entityId)!;
+    const pending = c.navigateDiff(change, 'after'); authenticated.set(false); await pending; fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.sourceTarget()).toBeNull(); expect(c.panel()).toBe('overview');
   });
 
   it('withdraws a pending Test read before loading the prepared rename context', async () => {

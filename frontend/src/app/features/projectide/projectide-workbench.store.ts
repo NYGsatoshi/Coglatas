@@ -103,7 +103,7 @@ export class ProjectIdeWorkbenchStore {
     this.choose(prepared.candidateCaseKey); this.loadResult(); return true;
   }
 
-  navigateDiff(change: SemanticChange, side: 'before' | 'after'): boolean {
+  async navigateDiff(change: SemanticChange, side: 'before' | 'after'): Promise<boolean> {
     const prepared = this.semanticDiff(); const before = this.context(); const bundle = this.bundle();
     if (!prepared || !before || !bundle || !prepared.comparison.changes.includes(change)) return false;
     try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
@@ -111,6 +111,9 @@ export class ProjectIdeWorkbenchStore {
     const location = side === 'before' ? change.beforeLocation : change.afterLocation;
     if (!target || !location || (!location.entityId && !location.relationId) || typeof resolveLocation(target, location) === 'string') return false;
     this.choose(target.key); this.loadResult();
+    if (target.result.artifacts.some(artifact => artifact.version === 2) && !await this.loadScopedSources()) return false;
+    if (this.bundle() !== bundle || this.context() !== target || this.result() !== target || this.state() !== 'ready') return false;
+    try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
     return this.navigateLocation(location);
   }
   private scopedGeneration = 0;

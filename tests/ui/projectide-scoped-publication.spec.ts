@@ -65,3 +65,27 @@ for (const locale of ['en', 'ja'] as const) {
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
   });
 }
+
+for (const locale of ['en', 'ja'] as const) {
+  test('admits the exact before and after v2 diff sources in ' + locale, async ({ page }) => {
+    const raw = JSON.parse(await readFile('frontend/public/assets/projectide/scoped-publication-v2.json', 'utf8'));
+    raw.cases = raw.cases.filter((item: { key: string }) => item.key.startsWith('tests-publication-root-'));
+    await page.route('**/assets/projectide/scenario-v1.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(raw) }));
+    await page.addInitScript(locale => { localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true }; }, locale);
+    const writes: string[] = []; page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+    await page.goto('/app/projectide/preview');
+    await page.getByRole('button', { name: locale === 'en' ? 'Open Scenario example' : 'シナリオの例を開く', exact: true }).click();
+    for (const side of ['before', 'after'] as const) {
+      await page.getByTestId('ide-context').selectOption('tests-publication-root-base');
+      await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
+      await page.getByRole('button', { name: locale === 'en' ? 'Semantic Diff' : '意味差分', exact: true }).click();
+      const action = page.getByRole('button', { name: side === 'before' ? (locale === 'en' ? 'Open before snapshot' : '変更前のスナップショットを開く') : (locale === 'en' ? 'Open after snapshot' : '変更後のスナップショットを開く'), exact: true }).first();
+      await action.focus(); await action.press(side === 'before' ? 'Enter' : 'Space');
+      await expect(page.getByTestId('ide-context')).toHaveValue(side === 'before' ? 'tests-publication-root-base' : 'tests-publication-root-hypothesis');
+      await expect(page.getByTestId('ide-scoped-region')).toHaveCount(1);
+      await expect(page.getByTestId('ide-source-target')).toBeFocused();
+      await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    }
+    expect(writes).toEqual([]);
+  });
+}
