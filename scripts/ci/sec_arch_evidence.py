@@ -348,6 +348,28 @@ def optional_trusted_execution_digest(root: Path, candidate: Path, expected: Pat
         return None
 
 
+def closed_sec17_execution_summary(
+        candidate: str, trx: Path, root: Path, expected: Path, verifier_id: str) -> dict:
+    """Build the shared closed SEC-17 receipt without reading untrusted input."""
+    identifiers = {
+        SEC17_DEEP_TRX_RELATIVE: "SEC-17-BOUNDED-DEEP-EXECUTION",
+        SEC17_FILE_TRX_RELATIVE: "SEC-17-FILE-POLICY-EXECUTION",
+    }
+    if identifiers.get(expected) != verifier_id:
+        raise ValueError("Unsupported SEC-17 evidence producer.")
+    return {
+        "schemaVersion": 1, "verifierId": verifier_id,
+        "candidateSha": candidate if re.fullmatch(r"[a-f0-9]{40}", candidate) else None,
+        "outcome": "ERROR", "selectionStatus": "NO_VALID_NATIVE_EXECUTION",
+        "diagnostic": "INVALID_OR_UNAVAILABLE_EXECUTION_EVIDENCE",
+        "executionDigest": optional_trusted_execution_digest(root, trx, expected),
+        "requiredCaseCount": 1, "observedCaseCount": None,
+        "contractCompletion": "UNVERIFIED", "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
+        "runId": os.environ.get("GITHUB_RUN_ID", "LOCAL"),
+        "runAttempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+    }
+
+
 def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
     expected = EXPECTED if expected_methods is None else expected_methods
     if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):

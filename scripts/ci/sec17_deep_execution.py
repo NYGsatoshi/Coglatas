@@ -12,7 +12,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from sec_arch_evidence import (digest, observed_trx, read_trusted_execution_trx,
-                               trusted_execution_trx, optional_trusted_execution_digest,
+                               trusted_execution_trx, closed_sec17_execution_summary,
                                SEC17_DEEP_TRX_RELATIVE)
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
 
@@ -84,22 +84,10 @@ def selection_status(observed: dict) -> str:
 
 
 def failure_summary(candidate: str, trx: Path, root: Path | None = None) -> dict:
-    # No native TestOutput/ErrorInfo, exception text, identifiers or payloads
-    # are copied, including when build, selection or evidence capture fails.
+    # Retain the exact source-owned producer identity and sanitized ERROR schema.
     checked_root = root if root is not None else Path(__file__).resolve().parents[2]
-    execution_digest = optional_trusted_execution_digest(checked_root, trx, SEC17_DEEP_TRX_RELATIVE)
-    return {
-        "schemaVersion": 1, "verifierId": "SEC-17-BOUNDED-DEEP-EXECUTION",
-        "candidateSha": candidate if re.fullmatch(r"[a-f0-9]{40}", candidate) else None,
-        "outcome": "ERROR", "selectionStatus": "NO_VALID_NATIVE_EXECUTION",
-        "diagnostic": "INVALID_OR_UNAVAILABLE_EXECUTION_EVIDENCE",
-        "executionDigest": execution_digest,
-        "requiredCaseCount": 1, "observedCaseCount": None,
-        "contractCompletion": "UNVERIFIED", "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
-        "runId": os.environ.get("GITHUB_RUN_ID", "LOCAL"),
-        "runAttempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1")
-    }
-
+    return closed_sec17_execution_summary(
+        candidate, trx, checked_root, SEC17_DEEP_TRX_RELATIVE, "SEC-17-BOUNDED-DEEP-EXECUTION")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
