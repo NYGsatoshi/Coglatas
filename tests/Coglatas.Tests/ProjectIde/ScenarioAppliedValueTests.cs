@@ -14,12 +14,14 @@ public sealed class ScenarioAppliedValueTests
     private static void Check(ProjectScenarioAppliedValues projection, ProjectScenarioPlan scenario, CompilerInputManifest after)
     {
         Assert.Same(after, projection.Input); var row = Assert.Single(projection.Values);
+        var declaredTarget = Assert.IsType<ProjectLocation>(scenario.Changes[0].Override.Target);
+        var declaredValue = Assert.IsType<SourceJson>(scenario.Changes[0].Override.Value);
         Assert.Equal(AppliedDefault(after), row.Value); Assert.Equal(after.Source.Context, row.Target.Context);
-        Assert.Equal(scenario.Changes[0].Override.Target.DocumentId, row.Target.DocumentId);
-        Assert.Equal(scenario.Changes[0].Override.Target.EntityId, row.Target.EntityId);
+        Assert.Equal(declaredTarget.DocumentId, row.Target.DocumentId);
+        Assert.Equal(declaredTarget.EntityId, row.Target.EntityId);
         Assert.Equal(scenario.Changes[0].Override.Kind, row.Kind); Assert.Equal(scenario.Changes[0].Override.PortId, row.PortId);
-        var assumption = Json(Obj(new { target = scenario.Changes[0].Override.Target.Data.Value,
-            kind = row.Kind.ToString(), portId = row.PortId?.ToString(), value = scenario.Changes[0].Override.Value.Value }));
+        var assumption = Json(Obj(new { target = declaredTarget.Data.Value,
+            kind = row.Kind.ToString(), portId = row.PortId?.ToString(), value = declaredValue.Value }));
         Assert.Equal(assumption, row.Assumption);
         Assert.Equal(ContentDigest.Compute("coglatas.local-scenario-assumption/1", assumption.ToCanonicalBytes()), row.AssumptionDigest);
         Assert.Equal(ContentDigest.Compute("coglatas.local-scenario-value/1", row.Value.ToCanonicalBytes()), row.ValueDigest);
@@ -101,9 +103,11 @@ public sealed class ScenarioAppliedValueTests
     public void ExpandedAppliedContextCannotExceedTheOriginalAggregateProcessingBound()
     {
         var f = ScenarioReferenceRebaseTests.Fixture();
-        var value = Obj(new { type = f.Change.Value.Value.GetProperty("type"), state = "coglatas.unknown", reason = "example.missing", basis = new { opaque = "" } });
+        var originalValue = Assert.IsType<SourceJson>(f.Change.Value);
+        var originalTarget = Assert.IsType<ProjectLocation>(f.Change.Target);
+        var value = Obj(new { type = originalValue.Value.GetProperty("type"), state = "coglatas.unknown", reason = "example.missing", basis = new { opaque = "" } });
         var length = ProjectScenarios.MaximumOverrideBytes - System.Text.Encoding.UTF8.GetByteCount(Json(value).CanonicalText)
-            - System.Text.Encoding.UTF8.GetByteCount(f.Change.Target.Data.CanonicalText);
+            - System.Text.Encoding.UTF8.GetByteCount(originalTarget.Data.CanonicalText);
         value["basis"]!["opaque"] = new string('x', length);
         var preview = ProjectScenarios.Prepare(ProjectSemanticBinder.Bind(f.Input, [f.Snapshot]), f.Input.InputDigest,
             ScenarioId.Parse(Id(800)), ScenarioRevisionId.Parse(Id(801)), [f.Change with { Value = Json(value) }]);

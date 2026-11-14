@@ -37,7 +37,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void BreaksBeforeTheExactPointAndResumePassesItOnceWithoutInventingACancelledRun()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         var first = ProjectLocation.Parse(SourceJson.Parse(debugger.Snapshot.Pending!.Value.GetProperty("location").GetRawText()));
         var bp = Breakpoint(manifest, first); Accepted(debugger.SetBreakpoints(debugger.Snapshot.Stamp, [bp]));
         var stopped = Accepted(debugger.Continue(debugger.Snapshot.Stamp));
@@ -51,7 +53,9 @@ public sealed class SimulationDebuggerTests
     [InlineData(false)] [InlineData(true)]
     public void StepOverAnAtomicTaskRecordsRelevantParallelStartsAndEndsBeforeItsBoundary(bool supplementarySpan)
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         var task = Location(manifest.Plan, 7);
         if (supplementarySpan) task = ProjectLocation.Create(task.DocumentId, task.Context, task.PropertyPath, entityId: task.EntityId, textSpan: new(1234, 0));
         var stepped = Accepted(debugger.StepOver(debugger.Snapshot.Stamp, task));
@@ -65,7 +69,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void TaskEndBreakpointRetainsTheLastCommittedClockAndNamesTheUpcomingEndTime()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         var task = Location(manifest.Plan, 7); Accepted(debugger.SetBreakpoints(debugger.Snapshot.Stamp, [Breakpoint(manifest, task, SimulationBreakpointPoint.TaskEnd)]));
         var stopped = Accepted(debugger.Continue(debugger.Snapshot.Stamp)); Assert.Equal(SimulationControlState.Paused, stopped.State); Assert.Equal(3, stopped.Events.Count);
         Assert.Equal(102, Clock(stopped)); Assert.Equal("105", stopped.Pending!.Value.GetProperty("ticks").GetString()); Assert.Equal("coglatas.task-end", stopped.Pending.Value.GetProperty("kind").GetString());
@@ -75,7 +81,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void AParallelBreakpointInterruptsTaskStepOverWithoutTurningTheDagIntoACallStack()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         Accepted(debugger.SetBreakpoints(debugger.Snapshot.Stamp, [Breakpoint(manifest, Location(manifest.Plan, 8))]));
         var stopped = Accepted(debugger.StepOver(debugger.Snapshot.Stamp, Location(manifest.Plan, 7)));
         Assert.Single(stopped.Events); Assert.Equal(SimulationControlState.Paused, stopped.State); Assert.Equal("coglatas.debug.breakpoint", stopped.Reason);
@@ -87,7 +95,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void InspectsAllWaitingCausesOrAnExplicitBoundedSubsetWithoutEvaluatingOutputs()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest, new(MaximumWaitingReasons: 1));
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest, new(MaximumWaitingReasons: 1));
+
         var inspected = Accepted(debugger.Inspect(debugger.Snapshot.Stamp, Location(manifest.Plan, 9))); Assert.Equal("WaitingPrerequisites", InspectionState(inspected));
         var data = inspected.Inspection!.Value; Assert.Equal(2, data.GetProperty("waitingReasonCount").GetInt32()); Assert.Equal(1, data.GetProperty("waitingReasons").GetArrayLength());
         Assert.Equal("Partial", data.GetProperty("waitingCoverage").GetString()); Assert.Equal("coglatas.fixed-input-defaults", data.GetProperty("values").GetString());
@@ -97,7 +107,10 @@ public sealed class SimulationDebuggerTests
     [InlineData("wrong-plan")] [InlineData("wrong-context")] [InlineData("property-path")] [InlineData("future-point")]
     public void UnresolvedBreakpointsRetainTheirReasonAndCannotMoveToAnotherSemanticPoint(string mode)
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest); var location = Location(manifest.Plan, 7);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
+        var location = Location(manifest.Plan, 7);
         if (mode == "wrong-context") location = ProjectLocation.Create(location.DocumentId, Source(44).Context, entityId: location.EntityId);
         if (mode == "property-path") location = ProjectLocation.Create(location.DocumentId, location.Context, "/payload/duration", entityId: location.EntityId);
         var request = new SimulationBreakpoint(Guid.Parse(Id(981)), mode == "wrong-plan" ? ContentDigest.Compute("other-plan", [1]) : manifest.Plan.Digest, location,
@@ -109,7 +122,10 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void SemanticIdentityRemainsAuthoritativeWhenSupplementaryBufferCoordinatesDiffer()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest); var actual = Location(manifest.Plan, 7);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
+        var actual = Location(manifest.Plan, 7);
         var supplementary = ProjectLocation.Create(actual.DocumentId, actual.Context, entityId: actual.EntityId, textSpan: new(1234, 0));
         var admitted = Accepted(debugger.SetBreakpoints(debugger.Snapshot.Stamp, [Breakpoint(manifest, supplementary)]));
         Assert.True(admitted.Breakpoints[0].Resolved); Assert.Equal(actual, admitted.Breakpoints[0].BoundLocation);
@@ -118,17 +134,24 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void StaleWrongRunAndReenteredCommandsCannotPublishNewerStateUnderAnOlderStamp()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest); var initial = debugger.Snapshot;
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
+        var initial = debugger.Snapshot;
         var wrong = debugger.Step(new(ContentDigest.Compute("wrong-run", [1]), 0)); Assert.False(wrong.Accepted); Assert.Null(wrong.Snapshot); Assert.Same(initial, debugger.Snapshot);
-        IEnumerable<SimulationBreakpoint> Reenter() { Accepted(debugger.Step(initial.Stamp)); yield return Breakpoint(manifest, Location(manifest.Plan, 7)); }
-        var refused = debugger.SetBreakpoints(initial.Stamp, Reenter()); Assert.False(refused.Accepted); Assert.Equal("coglatas.debug.stale-control", refused.Reason); Assert.Null(refused.Snapshot);
+        IEnumerable<SimulationBreakpoint> Reenter(ProjectSimulationDebugger subject) { Accepted(subject.Step(initial.Stamp)); yield return Breakpoint(manifest, Location(manifest.Plan, 7)); }
+        var refused = debugger.SetBreakpoints(initial.Stamp, Reenter(debugger)); Assert.False(refused.Accepted); Assert.Equal("coglatas.debug.stale-control", refused.Reason); Assert.Null(refused.Snapshot);
         Assert.Single(debugger.Snapshot.Events); Assert.Empty(debugger.Snapshot.Breakpoints); Assert.False(debugger.Continue(initial.Stamp).Accepted);
     }
     [Fact]
     public async Task ConcurrentCommandsAtOneRevisionAdmitExactlyOneTransition()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest); var stamp = debugger.Snapshot.Stamp;
-        var responses = await Task.WhenAll(Task.Run(() => debugger.Step(stamp)), Task.Run(() => debugger.Step(stamp)));
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
+        var stamp = debugger.Snapshot.Stamp;
+        static Task<SimulationControlResponse> StepOnWorkerAsync(ProjectSimulationDebugger subject, SimulationControlStamp expected) => Task.Run(() => subject.Step(expected));
+        var responses = await Task.WhenAll(StepOnWorkerAsync(debugger, stamp), StepOnWorkerAsync(debugger, stamp));
         Assert.Single(responses, response => response.Accepted); var stale = Assert.Single(responses, response => !response.Accepted);
         Assert.Equal("coglatas.debug.stale-control", stale.Reason); Assert.Null(stale.Snapshot); Assert.Single(debugger.Snapshot.Events); Assert.Equal(1, debugger.Snapshot.Stamp.Revision);
     }
@@ -137,7 +160,9 @@ public sealed class SimulationDebuggerTests
     public void SteppedBoundsRetainExactlyTheSameTerminalPrefixAndResultAsAnUninterruptedRun(string kind)
     {
         var limits = kind switch { "event" => new SimulationRunLimits(MaximumEvents: 2), "time" => new(MaximumElapsedTicks: 2), "trace" => new(MaximumTraceBytes: 2), _ => new(MaximumOperations: 1) };
-        var manifest = Manifest(limits: limits); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest(limits: limits);
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         while (debugger.Snapshot.Result is null) Accepted(debugger.Step(debugger.Snapshot.Stamp));
         Assert.Equal(ProjectSimulation.Execute(manifest, manifest.Plan.Input.InputDigest).Data, debugger.Snapshot.Result!.Data);
         Assert.Equal(CompilerExecutionState.ResourceExhausted, debugger.Snapshot.Result.Execution); Assert.NotEqual(CompilerVerdict.Pass, debugger.Snapshot.Result.Verdict);
@@ -145,7 +170,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void CancellationAfterPauseTerminatesOnlyThisRunAndPreservesItsCommittedPrefix()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
         var before = Accepted(debugger.Step(debugger.Snapshot.Stamp)); using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         var after = Accepted(debugger.Continue(before.Stamp, cancellation.Token)); Assert.Equal(SimulationControlState.Terminated, after.State);
         Assert.Equal(CompilerExecutionState.Cancelled, after.Result!.Execution); Assert.Single(after.Events); Assert.Equal(before.Events[0], after.Events[0]);
@@ -155,18 +182,43 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void ControlAndInspectionLimitsAreExplicitAndDoNotAdvanceOrFalsifyTheRun()
     {
-        var manifest = Manifest(); using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest, new(MaximumCommands: 1, MaximumBreakpoints: 1, MaximumInspectionBytes: 256));
-        var original = debugger.Snapshot; var one = Breakpoint(manifest, Location(manifest.Plan, 7)); var two = Breakpoint(manifest, Location(manifest.Plan, 8), id: 982);
-        Assert.False(debugger.SetBreakpoints(original.Stamp, [one, two]).Accepted); Assert.False(debugger.SetBreakpoints(original.Stamp, [one, one]).Accepted);
-        Assert.Equal("coglatas.debug.inspection-bound", debugger.Inspect(original.Stamp, one.Location).Reason); Assert.Same(original, debugger.Snapshot);
-        var step = Accepted(debugger.Step(original.Stamp)); Assert.Equal("coglatas.debug.command-bound", debugger.Continue(step.Stamp).Reason); Assert.Same(step, debugger.Snapshot); Assert.Null(step.Result);
-        debugger.Dispose(); Assert.Throws<ObjectDisposedException>(() => debugger.Step(step.Stamp));
+        var manifest = Manifest();
+        var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest, new(MaximumCommands: 1, MaximumBreakpoints: 1, MaximumInspectionBytes: 256));
+        var disposed = false;
+        try
+        {
+    var original = debugger.Snapshot; var one = Breakpoint(manifest, Location(manifest.Plan, 7)); var two = Breakpoint(manifest, Location(manifest.Plan, 8), id: 982);
+            Assert.False(debugger.SetBreakpoints(original.Stamp, [one, two]).Accepted); Assert.False(debugger.SetBreakpoints(original.Stamp, [one, one]).Accepted);
+            Assert.Equal("coglatas.debug.inspection-bound", debugger.Inspect(original.Stamp, one.Location).Reason); Assert.Same(original, debugger.Snapshot);
+            var step = Accepted(debugger.Step(original.Stamp)); Assert.Equal("coglatas.debug.command-bound", debugger.Continue(step.Stamp).Reason); Assert.Same(step, debugger.Snapshot); Assert.Null(step.Result);
+            debugger.Dispose(); disposed = true; Assert.Throws<ObjectDisposedException>(() => debugger.Step(step.Stamp));
+        }
+        finally
+        {
+            if (!disposed) debugger.Dispose();
+        }
     }
+    [Fact]
+    public void AReportedNullBreakpointIsRefusedWithoutConsumingACommandOrAdvancingState()
+    {
+        var manifest = Manifest();
+        using var debugger = new ProjectSimulationDebugger(manifest, manifest.Plan.Input.InputDigest);
+
+        var initial = debugger.Snapshot;
+        var refused = debugger.SetBreakpoints(initial.Stamp, [null]);
+        Assert.False(refused.Accepted); Assert.Equal("coglatas.debug.breakpoint-bound-or-duplicate", refused.Reason);
+        Assert.Null(refused.Snapshot); Assert.Same(initial, debugger.Snapshot);
+        var accepted = Accepted(debugger.SetBreakpoints(initial.Stamp, [Breakpoint(manifest, Location(manifest.Plan, 7))]));
+        Assert.Equal(initial.Stamp.Revision + 1, accepted.Stamp.Revision); Assert.Empty(accepted.Events); Assert.Null(accepted.Result);
+    }
+
     [Fact]
     public void IncompleteRuntimePreparationCannotDescribePartiallyIndexedTasksAsReady()
     {
         var plan = ProjectSimulationTests.Plan(); var maximum = 1 + plan.Data.ToCanonicalBytes().Length / 64 + 3;
-        var manifest = Manifest(plan, new(MaximumOperations: maximum)); using var debugger = new ProjectSimulationDebugger(manifest, plan.Input.InputDigest);
+        var manifest = Manifest(plan, new(MaximumOperations: maximum));
+        using var debugger = new ProjectSimulationDebugger(manifest, plan.Input.InputDigest);
+
         var before = debugger.Snapshot; Assert.Equal(CompilerExecutionState.ResourceExhausted, before.Result!.Execution); Assert.Empty(before.Events);
         var inspection = debugger.Inspect(before.Stamp, Location(plan, 7)); Assert.False(inspection.Accepted);
         Assert.Equal("coglatas.debug.preparation-incomplete", inspection.Reason); Assert.Null(inspection.Snapshot); Assert.Same(before, debugger.Snapshot);
@@ -214,7 +266,9 @@ public sealed class SimulationDebuggerTests
     [Fact]
     public void PausedAdjustmentCreatesNewScenarioAndDraftPlansAndRunsWithoutHotReloadingOldState()
     {
-        var plan = ProjectSimulationTests.Plan(); var manifest = Manifest(plan); using var debugger = new ProjectSimulationDebugger(manifest, plan.Input.InputDigest);
+        var plan = ProjectSimulationTests.Plan(); var manifest = Manifest(plan);
+        using var debugger = new ProjectSimulationDebugger(manifest, plan.Input.InputDigest);
+
         var first = Location(plan, 7); Accepted(debugger.SetBreakpoints(debugger.Snapshot.Stamp, [Breakpoint(manifest, first)])); var paused = Accepted(debugger.Continue(debugger.Snapshot.Stamp));
         var original = paused.Data; var model = ProjectSemanticBinder.Bind(plan.Input);
         var duration = JsonNode.Parse(plan.Data.Value.GetProperty("tasks").EnumerateArray().Single(x => x.GetProperty("sourceEntityId").GetString() == Id(7)).GetProperty("duration").GetRawText())!; duration["value"] = "20";

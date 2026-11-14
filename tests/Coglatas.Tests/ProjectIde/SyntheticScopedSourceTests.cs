@@ -67,7 +67,8 @@ public sealed class SyntheticScopedSourceTests
         var fixture = Graph(); var request = new CompilerHostRequest(new(fixture.Input), 1, fixture.Snapshots);
         using var view = new SyntheticWorkbenchViewModel(); view.BeginSynthetic(request); Assert.True(view.TryAccept(await Host(fixture.Input).CompileAsync(request)));
         var entered = false;
-        view.PropertyChanged += (_, _) => { if (!entered && view.ScopedReadState == "Ready") { entered = true; view.Reset(); view.BeginSynthetic(new(new(fixture.Input), 2, fixture.Snapshots)); } };
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender); if (!entered && subject.ScopedReadState == "Ready") { entered = true; subject.Reset(); subject.BeginSynthetic(new(new(fixture.Input), 2, fixture.Snapshots)); } };
         Assert.False(view.LoadSyntheticScopedSources()); Assert.True(entered); Assert.Empty(view.ScopedSources); Assert.Null(view.ScopedSourceTarget); Assert.Equal("Waiting", view.State);
     }
     [Fact]

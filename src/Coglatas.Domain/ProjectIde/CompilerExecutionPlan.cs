@@ -20,7 +20,7 @@ public sealed class CompilerExecutionPlan
     public int LogicalOperationsConsumed { get; }
     internal static bool Requested(CompilerInputManifest input) => input.Settings.Value.GetProperty("targets").EnumerateArray().Any(v => v.GetString() == Target);
     private sealed record TaskRow(string Key, SourceRevisionContext Context, TaskPlanDeclaration Declaration, IrNodeId Node, ProjectLocation Location);
-    private sealed record EdgeRow(string Key, TypedRelation Relation, TaskRow Dependent, TaskRow Prerequisite, DependencyRelationPayload Payload);
+    private sealed record EdgeRow(TypedRelation Relation, TaskRow Dependent, TaskRow Prerequisite, DependencyRelationPayload Payload);
     private CompilerExecutionPlan(CompilerScopedIr scope, TaskRow[] tasks, EdgeRow[] edges, TaskRow[] evaluationOrder, int initial, ref int remaining, CancellationToken token)
     {
         Input = scope.Input; Scope = scope;
@@ -71,7 +71,7 @@ public sealed class CompilerExecutionPlan
             }
             var context = region.Binding.Source.Context; var node = new IrNodeId(context.Branch.TenantId, context.Branch.ProjectId, task.EntityId);
             var location = scope.ResolveNode(context, node) ?? throw new FormatException("Plan Task lacks its exact validated IR origin.");
-            tasks.Add(Key(context, task.EntityId), new(Key(context, task.EntityId), context, task, node, location));
+            tasks.Add(NodeKey(context, task.EntityId), new(NodeKey(context, task.EntityId), context, task, node, location));
         }
         foreach (var region in scope.Regions) foreach (var row in region.Binding.Relations) {
             token.ThrowIfCancellationRequested(); Charge(ref remaining); var relation = row.Relation!;
@@ -79,11 +79,11 @@ public sealed class CompilerExecutionPlan
             if (relation.Kind != RelationKinds.DependsOn || relation.Payload is not DependencyRelationPayload payload || payload.Mode != "coglatas.finish-to-start" ||
                 payload.Lag.State != ValueState.Known || payload.Lag.KnownValue is not ElapsedDuration { Ticks: >= 0 } ||
                 relation.Source.PortId is not null || relation.Target.PortId is not null) return (null, "coglatas.plan.relation-unsupported");
-            if (!tasks.TryGetValue(Key(relation.Source.Reference.Context, relation.Source.Reference.EntityId), out var dependent) ||
-                !tasks.TryGetValue(Key(relation.Target.Reference.Context, relation.Target.Reference.EntityId), out var prerequisite))
+            if (!tasks.TryGetValue(NodeKey(relation.Source.Reference.Context, relation.Source.Reference.EntityId), out var dependent) ||
+                !tasks.TryGetValue(NodeKey(relation.Target.Reference.Context, relation.Target.Reference.EntityId), out var prerequisite))
                 return (null, "coglatas.plan.endpoint-unsupported");
             var key = region.Binding.Source.Context.Data.CanonicalText + "|" + relation.RelationId;
-            edges.Add(key, new(key, relation, dependent, prerequisite, payload));
+            edges.Add(key, new(relation, dependent, prerequisite, payload));
         }
         // This is a stable definition evaluation order, not a linear runtime schedule or call stack.
         var indegree = tasks.Keys.ToDictionary(k => k, _ => 0, StringComparer.Ordinal);
@@ -115,6 +115,6 @@ public sealed class CompilerExecutionPlan
         }
         return true;
     }
-    private static string Key(SourceRevisionContext context, EntityId entity) => context.Data.CanonicalText + "|" + entity;
+    private static string NodeKey(SourceRevisionContext context, EntityId entity) => context.Data.CanonicalText + "|" + entity;
     private static void Charge(ref int remaining) { if (--remaining < 0) throw new FormatException("Plan definition exhausted the root logical budget."); }
 }

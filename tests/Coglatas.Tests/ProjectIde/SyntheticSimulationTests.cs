@@ -46,13 +46,14 @@ public sealed class SyntheticSimulationTests
     public async Task NotificationReentrancyCannotPublishOrRetainAnOldRun(string mode, bool afterPublication)
     {
         var f = await Ready(); using var view = f.View; Assert.True(view.LoadSyntheticScopedSources()); var entered = false;
-        view.PropertyChanged += (_, _) => {
-            if (entered || (view.SimulationRun is not null) != afterPublication) return;
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || (subject.SimulationRun is not null) != afterPublication) return;
             entered = true;
-            if (mode == "reset") view.Reset();
-            if (mode == "dispose") view.Dispose();
-            if (mode == "begin") view.BeginSynthetic(new(f.Request.Input, 2));
-            if (mode == "reload") view.LoadSyntheticScopedSources();
+            if (mode == "reset") subject.Reset();
+            if (mode == "dispose") subject.Dispose();
+            if (mode == "begin") subject.BeginSynthetic(new(f.Request.Input, 2));
+            if (mode == "reload") subject.LoadSyntheticScopedSources();
         };
         Assert.False(view.RunSyntheticSimulation(Guid.Parse(Id(963)))); Assert.True(entered); Assert.Null(view.SimulationRun);
     }

@@ -7,9 +7,11 @@ public enum ProjectScenarioState { Ready, StaleInput, OutOfScope, Unavailable, U
 public enum ProjectScenarioOverrideKind { TaskDuration, TaskInputDefault, MilestoneTarget }
 
 /// <summary>One explicit hypothetical value in an admitted Source, never a permission or operational override.</summary>
-public sealed record ProjectScenarioOverride(ProjectLocation Target, ProjectScenarioOverrideKind Kind, SourceJson Value, PortId? PortId = null)
+public sealed record ProjectScenarioOverride(ProjectLocation? Target, ProjectScenarioOverrideKind Kind, SourceJson? Value, PortId? PortId = null)
 {
-    internal SourceJson Data => SourceJson.FromObject(new { target = Target.Data.Value, kind = Kind.ToString(), portId = PortId?.ToString(), value = Value.Value });
+    internal ProjectLocation RequiredTarget => Target ?? throw new InvalidOperationException("Scenario override target was not validated.");
+    internal SourceJson RequiredValue => Value ?? throw new InvalidOperationException("Scenario override value was not validated.");
+    internal SourceJson Data => SourceJson.FromObject(new { target = RequiredTarget.Data.Value, kind = Kind.ToString(), portId = PortId?.ToString(), value = RequiredValue.Value });
 }
 public sealed record ProjectScenarioChange(ProjectScenarioOverride Override, SourceJson? Before);
 public sealed record ProjectScenarioPreview(ProjectScenarioState State, ProjectScenarioPlan? Plan);
@@ -60,7 +62,7 @@ public static class ProjectScenarios
     private static readonly string[] PinFields = ["authorizedExternalSnapshots", "resourceSnapshots", "allocationSnapshots", "observations", "evidence"];
 
     public static ProjectScenarioPreview Prepare(PartialSemanticModel basis, ContentDigest expectedInput, ScenarioId scenarioId,
-        ScenarioRevisionId revision, IEnumerable<ProjectScenarioOverride> overrides, CancellationToken cancellationToken = default)
+        ScenarioRevisionId revision, IEnumerable<ProjectScenarioOverride?> overrides, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(basis); ArgumentNullException.ThrowIfNull(expectedInput); ArgumentNullException.ThrowIfNull(overrides);
         cancellationToken.ThrowIfCancellationRequested();
@@ -91,7 +93,7 @@ public static class ProjectScenarios
             cancellationToken.ThrowIfCancellationRequested();
             var state = Read(basis, item, out var declaration, out var before);
             if (state != ProjectScenarioState.Ready) return Refuse(state);
-            var decoded = TypedProjectValueCodec.Decode(item.Value);
+            var decoded = TypedProjectValueCodec.Decode(item.RequiredValue);
             if (decoded.Status == ValueDecodeStatus.Unsupported) return Refuse(ProjectScenarioState.Unsupported);
             if (decoded.Value is not { } value) return Refuse(ProjectScenarioState.InvalidOverride);
             var type = item.Kind switch
@@ -110,12 +112,12 @@ public static class ProjectScenarios
                     (SameVersion(reference.Context, scenarioId, revision) || SameVersion(reference.Origin.Context, scenarioId, revision)))
                     return Refuse(ProjectScenarioState.ContextConflict);
             }
-            var id = declaration!.EntityId;
+            var id = declaration.EntityId;
             if (!changed.TryGetValue(id, out var node)) changed.Add(id, node = JsonNode.Parse(declaration.Data.CanonicalText)!.AsObject());
             if (item.Kind == ProjectScenarioOverrideKind.TaskInputDefault)
-                node["payload"]!["ports"]!.AsArray().Single(port => port!["portId"]!.GetValue<string>() == item.PortId!.Value.ToString())!["defaultValue"] = JsonNode.Parse(item.Value.CanonicalText);
-            else node["payload"]![item.Kind == ProjectScenarioOverrideKind.TaskDuration ? "duration" : "target"] = JsonNode.Parse(item.Value.CanonicalText);
-            changes.Add(new(item, before)); anyChange |= !item.Value.Equals(before);
+                node["payload"]!["ports"]!.AsArray().Single(port => port!["portId"]!.GetValue<string>() == item.PortId!.Value.ToString())!["defaultValue"] = JsonNode.Parse(item.RequiredValue.CanonicalText);
+            else node["payload"]![item.Kind == ProjectScenarioOverrideKind.TaskDuration ? "duration" : "target"] = JsonNode.Parse(item.RequiredValue.CanonicalText);
+            changes.Add(new(item, before)); anyChange |= !item.RequiredValue.Equals(before);
         }
         if (!anyChange) return Refuse(ProjectScenarioState.NoChange);
         try
@@ -173,12 +175,12 @@ public static class ProjectScenarios
         {
             cancellationToken.ThrowIfCancellationRequested();
             var old = change.Override;
-            var target = ProjectLocation.Create(old.Target.DocumentId, newBasis.Input.Source.Context, entityId: old.Target.EntityId);
+            var target = ProjectLocation.Create(old.RequiredTarget.DocumentId, newBasis.Input.Source.Context, entityId: old.RequiredTarget.EntityId);
             try
             {
                 var before = change.Before is null ? null : DraftSourceTransition.RebaseValueOrigins(change.Before,
                     previous.Basis.Source.Context, newBasis.Input.Source.Context, cancellationToken);
-                var value = DraftSourceTransition.RebaseValueOrigins(old.Value, previous.Basis.Source.Context, newBasis.Input.Source.Context, cancellationToken);
+                var value = DraftSourceTransition.RebaseValueOrigins(old.RequiredValue, previous.Basis.Source.Context, newBasis.Input.Source.Context, cancellationToken);
                 var item = old with { Target = target, Value = value };
                 if (Read(newBasis, item, out _, out var current) != ProjectScenarioState.Ready || !Equals(current, before))
                     return new(ProjectScenarioState.Conflict, null);
@@ -224,10 +226,10 @@ public static class ProjectScenarios
     }
 
     private static JsonNode JsonSerializerNode(object value) => JsonNode.Parse(SourceJson.FromObject(value).CanonicalText)!;
-    private static string Key(ProjectScenarioOverride value) => value.Target.DocumentId + "/" + value.Target.EntityId + "/" + value.Kind + "/" + value.PortId;
+    private static string Key(ProjectScenarioOverride value) => value.RequiredTarget.DocumentId + "/" + value.RequiredTarget.EntityId + "/" + value.Kind + "/" + value.PortId;
     private static ProjectScenarioState Read(PartialSemanticModel basis, ProjectScenarioOverride item, out PlanDeclaration? declaration, out SourceJson? before)
     {
-        declaration = null; before = null; var target = item.Target;
+        declaration = null; before = null; var target = item.RequiredTarget;
         if (!target.Context.Equals(basis.Input.Source.Context)) return ProjectScenarioState.OutOfScope;
         if (target.EntityId is null || target.RelationId is not null || target.PropertyPath.Length != 0 || target.TextSpan is not null)
             return ProjectScenarioState.InvalidOverride;

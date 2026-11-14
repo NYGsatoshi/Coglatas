@@ -50,14 +50,14 @@ internal sealed class SimulationCursor
         Guard(() => {
             Charge(1 + manifest.Plan.Data.ToCanonicalBytes().Length / 64);
             foreach (var task in manifest.Plan.Data.Value.GetProperty("tasks").EnumerateArray()) {
-                Charge(); var key = Key(task); var location = ProjectLocation.Parse(SourceJson.FromElement(task.GetProperty("location")));
+                Charge(); var key = TaskIdentityKey(task); var location = ProjectLocation.Parse(SourceJson.FromElement(task.GetProperty("location")));
                 var row = new TaskRow(key, task, ElapsedDuration.Parse(task.GetProperty("duration").GetProperty("value").GetString()!).Ticks, location);
                 _tasks.Add(key, row); _locations.Add(LocationKey(location), row);
                 _outgoing.Add(key, []); _incoming.Add(key, []); _pending.Add(key, 0); _readyAt.Add(key, manifest.StartTicks);
             }
             if (_tasks.Count == 0) { Finish(CompilerExecutionState.NotRun, "coglatas.simulation.empty-plan"); return; }
             foreach (var edge in manifest.Plan.Data.Value.GetProperty("dependencies").EnumerateArray()) {
-                Charge(); var dependent = Key(edge.GetProperty("dependent")); var prerequisite = Key(edge.GetProperty("prerequisite"));
+                Charge(); var dependent = TaskIdentityKey(edge.GetProperty("dependent")); var prerequisite = TaskIdentityKey(edge.GetProperty("prerequisite"));
                 _outgoing[prerequisite].Add(new(dependent, ElapsedDuration.Parse(edge.GetProperty("lag").GetProperty("value").GetString()!).Ticks));
                 _incoming[dependent].Add(new(prerequisite, edge)); _pending[dependent]++;
             }
@@ -136,6 +136,6 @@ internal sealed class SimulationCursor
         catch (BoundExceeded error) { Finish(CompilerExecutionState.ResourceExhausted, error.Reason); }
         catch (OverflowException) { Finish(CompilerExecutionState.InternalError, "coglatas.simulation.tick-overflow"); }
     }
-    private static string Key(JsonElement task) => SourceJson.FromElement(task.GetProperty("context")).CanonicalText + "|" + task.GetProperty("irNodeId").GetString();
+    private static string TaskIdentityKey(JsonElement task) => SourceJson.FromElement(task.GetProperty("context")).CanonicalText + "|" + task.GetProperty("irNodeId").GetString();
     private static string LocationKey(ProjectLocation location) => location.Context.Data.CanonicalText + "|" + location.DocumentId + "|" + location.EntityId + "|" + location.RelationId + "|" + location.PropertyPath;
 }

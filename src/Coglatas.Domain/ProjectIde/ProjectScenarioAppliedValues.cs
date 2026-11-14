@@ -58,7 +58,7 @@ public sealed class ProjectScenarioAppliedValues
             foreach (var change in scenario.Changes)
             {
                 cancellationToken.ThrowIfCancellationRequested(); var item = change.Override;
-                var matches = declarations.Where(row => row.Declaration?.EntityId == item.Target.EntityId && row.DocumentId == item.Target.DocumentId).Take(2).ToArray();
+                var matches = declarations.Where(row => row.Declaration?.EntityId == item.RequiredTarget.EntityId && row.DocumentId == item.RequiredTarget.DocumentId).Take(2).ToArray();
                 if (matches.Length != 1) return new(ProjectScenarioState.Unavailable, null);
                 var declaration = matches[0].Declaration; TypedProjectValue? value;
                 if (item.Kind == ProjectScenarioOverrideKind.TaskDuration && declaration is TaskPlanDeclaration duration && item.PortId is null)
@@ -69,12 +69,12 @@ public sealed class ProjectScenarioAppliedValues
                     value = task.Ports.SingleOrDefault(port => port.PortId == portId && port.Direction == PortDirection.Input)?.DefaultValue;
                 else return new(ProjectScenarioState.Unsupported, null);
                 if (value is null) return new(ProjectScenarioState.Unavailable, null);
-                var target = ProjectLocation.Create(item.Target.DocumentId, expected.Source.Context, entityId: item.Target.EntityId);
+                var target = ProjectLocation.Create(item.RequiredTarget.DocumentId, expected.Source.Context, entityId: item.RequiredTarget.EntityId);
                 bytes += Encoding.UTF8.GetByteCount(value.Data.CanonicalText) + (long)Encoding.UTF8.GetByteCount(target.Data.CanonicalText);
                 if (values.Count == ProjectScenarios.MaximumOverrides || bytes > ProjectScenarios.MaximumOverrideBytes)
                     return new(ProjectScenarioState.ResourceLimit, null);
                 var edits = new List<SourceJson>();
-                var transformed = DraftSourceTransition.RebaseValueOrigins(item.Value, scenario.Basis.Source.Context, expected.Source.Context, cancellationToken, edits);
+                var transformed = DraftSourceTransition.RebaseValueOrigins(item.RequiredValue, scenario.Basis.Source.Context, expected.Source.Context, cancellationToken, edits);
                 if (!transformed.Equals(value.Data)) return new(ProjectScenarioState.Conflict, null);
                 values.Add(new(target, item.Kind, item.PortId, item.Data, value.Data, new ImmutableListView<SourceJson>(edits)));
             }

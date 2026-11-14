@@ -68,14 +68,14 @@ public sealed class SyntheticScenarioTests
     public async Task PreviewPublicationCannotSurviveAnInterruptedLifecycleOrSelection(string mode, bool afterPublication)
     {
         var f = await Ready(); using var view = f.View; var entered = false;
-        view.PropertyChanged += (_, _) =>
-        {
-            if (entered || afterPublication && view.ScenarioPreview is null) return; entered = true;
-            if (mode == "reset") view.Reset();
-            if (mode == "dispose") view.Dispose();
-            if (mode == "begin") view.BeginSynthetic(new(new(f.Input), 2));
-            if (mode == "select") view.Select(f.Change.Target);
-            if (mode == "navigate") view.Navigate();
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || afterPublication && subject.ScenarioPreview is null) return; entered = true;
+            if (mode == "reset") subject.Reset();
+            if (mode == "dispose") subject.Dispose();
+            if (mode == "begin") subject.BeginSynthetic(new(new(f.Input), 2));
+            if (mode == "select") subject.Select(Assert.IsType<ProjectLocation>(f.Change.Target));
+            if (mode == "navigate") subject.Navigate();
         };
         Assert.Null(Preview(view, f.Change)); Assert.True(entered); Assert.Null(view.ScenarioPreview); Assert.Null(view.ActiveScenario);
     }
@@ -84,7 +84,8 @@ public sealed class SyntheticScenarioTests
     public async Task ANewerReentrantPreviewIsRetainedWhileTheInterruptedCallerReturnsNothing()
     {
         var f = await Ready(); using var view = f.View; ProjectScenarioPreview? newest = null; var entered = false;
-        view.PropertyChanged += (_, _) => { if (entered || view.ScenarioPreview is null) return; entered = true; newest = Preview(view, f.Change, 702); };
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender); if (entered || subject.ScenarioPreview is null) return; entered = true; newest = Preview(subject, f.Change, 702); };
         Assert.Null(Preview(view, f.Change)); Assert.NotNull(newest); Assert.Same(newest, view.ScenarioPreview);
         Assert.Equal(ScenarioRevisionId.Parse(Id(702)), newest.Plan!.Input.Source.Context.Scenario!.ScenarioRevisionId);
     }
@@ -94,12 +95,12 @@ public sealed class SyntheticScenarioTests
     public async Task InterruptedLoadCannotRestoreTheCapturedScenarioSession(string mode)
     {
         var f = await Ready(); using var view = f.View; var plan = Preview(view, f.Change).Plan!; var entered = false;
-        view.PropertyChanged += (_, _) =>
-        {
-            if (entered || view.State != "Waiting") return; entered = true;
-            if (mode == "reset") view.Reset();
-            if (mode == "dispose") view.Dispose();
-            if (mode == "begin") view.BeginSynthetic(new(new(f.Input), 3));
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || subject.State != "Waiting") return; entered = true;
+            if (mode == "reset") subject.Reset();
+            if (mode == "dispose") subject.Dispose();
+            if (mode == "begin") subject.BeginSynthetic(new(new(f.Input), 3));
         };
         Assert.Null(view.LoadScenario(plan, 2)); Assert.True(entered); Assert.Null(view.ActiveScenario); Assert.Null(view.ScenarioBaselineResult);
     }
@@ -108,7 +109,7 @@ public sealed class SyntheticScenarioTests
     public async Task NewSelectionAndMissingOrStaleBasePreventDraftApplication()
     {
         var f = await Ready(); using var view = f.View; var plan = Preview(view, f.Change).Plan!;
-        Assert.True(view.Select(f.Change.Target)); Assert.Null(view.LoadScenario(plan, 2));
+        Assert.True(view.Select(Assert.IsType<ProjectLocation>(f.Change.Target))); Assert.Null(view.LoadScenario(plan, 2));
         plan = Preview(view, f.Change).Plan!; var request = view.LoadScenario(plan, 2)!; Assert.True(view.TryAccept(await Host(plan.Input).CompileAsync(request)));
         var basis = f.Input.Source.Context.CommittedRevision!; var proposal = new ProposalContext(ProposalId.Parse(Id(710)), CandidateRevisionId.Parse(Id(711)), basis, basis);
         var stale = view.PreviewScenarioDraft(ProjectSemanticBinder.Bind(plan.Input), plan.Input.InputDigest, proposal)!;
@@ -121,7 +122,9 @@ public sealed class SyntheticScenarioTests
     {
         var f = ScenarioReferenceRebaseTests.Fixture();
         var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject(); settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
-        var input = new CompilerInputManifest(f.Input.Source, Json(settings)); using var view = new SyntheticWorkbenchViewModel();
+        var input = new CompilerInputManifest(f.Input.Source, Json(settings));
+        using var view = new SyntheticWorkbenchViewModel();
+
         var initial = new CompilerHostRequest(new(input), 1, [f.Snapshot]); view.BeginSynthetic(initial);
         Assert.True(view.TryAccept(await Host(input).CompileAsync(initial))); Assert.True(view.RunSyntheticTests()); Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
         var baseline = view.TestRun; var preview = Preview(view, f.Change); var plan = preview.Plan!;

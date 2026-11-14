@@ -247,11 +247,10 @@ internal static class DraftSourceTransition
         SourceRevisionContext next, SourceCodecLimits limits, CancellationToken cancellationToken, List<SourceJson>? originEdits = null)
     {
         Visit(root, rootValue, "");
-        void Record(object edit)
+        void Record(List<SourceJson> edits, object edit)
         {
-            if (originEdits is null) return;
-            if (originEdits.Count == ProjectScenarioAppliedValues.MaximumOriginEdits) throw new DraftSourceLimitException();
-            originEdits.Add(SourceJson.FromObject(edit, limits));
+            if (edits.Count == ProjectScenarioAppliedValues.MaximumOriginEdits) throw new DraftSourceLimitException();
+            edits.Add(SourceJson.FromObject(edit, limits));
         }
         static string Escape(string name) => name.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
         SourceJson Encode(JsonNode node)
@@ -269,7 +268,7 @@ internal static class DraftSourceTransition
                     if (reference.Origin.Context.Equals(before))
                     {
                         node["value"]!["origin"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
-                        if (originEdits is not null) Record(new { kind = "OriginContext", path = path + "/value/origin/context" });
+                        if (originEdits is not null) Record(originEdits, new { kind = "OriginContext", path = path + "/value/origin/context" });
                     }
                     break;
                 case TypedProjectValue child:
@@ -287,7 +286,7 @@ internal static class DraftSourceTransition
                     {
                         var ordered = array.Select((item, index) => (Node: item!, Index: index, Key: Encode(item!).CanonicalText))
                             .OrderBy(item => item.Key, Comparer<string>.Create(CanonicalJson.ScalarCompare)).ToArray();
-                        if (originEdits is not null && ordered.Where((item, index) => item.Index != index).Any()) Record(new { kind = "SetOrder", path = path + "/value", order = ordered.Select(item => item.Index).ToArray() });
+                        if (originEdits is not null && ordered.Where((item, index) => item.Index != index).Any()) Record(originEdits, new { kind = "SetOrder", path = path + "/value", order = ordered.Select(item => item.Index).ToArray() });
                         array.Clear(); foreach (var item in ordered) array.Add(item.Node);
                     }
                     break;

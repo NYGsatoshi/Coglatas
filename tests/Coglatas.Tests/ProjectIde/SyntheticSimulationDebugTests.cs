@@ -1,3 +1,4 @@
+using Coglatas.ProjectIde.Workbench.Synthetic;
 using Coglatas.Domain.ProjectIde;
 using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
 
@@ -44,10 +45,11 @@ public sealed class SyntheticSimulationDebugTests
     public async Task StartNotificationsCannotPublishAnInterruptedDebugSession(string mode, bool afterPublication)
     {
         var f = await SyntheticSimulationTests.Ready(); using var view = f.View; Assert.True(view.LoadSyntheticScopedSources()); var entered = false;
-        view.PropertyChanged += (_, _) => {
-            if (entered || (view.SimulationDebug is not null) != afterPublication) return; entered = true;
-            if (mode == "reset") view.Reset(); if (mode == "dispose") view.Dispose();
-            if (mode == "begin") view.BeginSynthetic(new(f.Request.Input, 2)); if (mode == "reload") view.LoadSyntheticScopedSources();
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || (subject.SimulationDebug is not null) != afterPublication) return; entered = true;
+            if (mode == "reset") subject.Reset(); if (mode == "dispose") subject.Dispose();
+            if (mode == "begin") subject.BeginSynthetic(new(f.Request.Input, 2)); if (mode == "reload") subject.LoadSyntheticScopedSources();
         };
         Assert.False(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1004)))); Assert.True(entered); Assert.Null(view.SimulationDebug); Assert.Null(view.SimulationRun);
     }
@@ -58,14 +60,14 @@ public sealed class SyntheticSimulationDebugTests
     {
         var f = await SyntheticSimulationTests.Ready(); using var view = f.View; Assert.True(view.LoadSyntheticScopedSources());
         Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1005)))); var basis = view.SimulationDebug!; var entered = false;
-        void Interrupt() {
+        void Interrupt(SyntheticWorkbenchViewModel subject) {
             if (entered) return; entered = true;
-            if (mode == "reset") view.Reset(); if (mode == "dispose") view.Dispose();
-            if (mode == "begin") view.BeginSynthetic(new(f.Request.Input, 2)); if (mode == "reload") view.LoadSyntheticScopedSources();
+            if (mode == "reset") subject.Reset(); if (mode == "dispose") subject.Dispose();
+            if (mode == "begin") subject.BeginSynthetic(new(f.Request.Input, 2)); if (mode == "reload") subject.LoadSyntheticScopedSources();
         }
-        IEnumerable<SimulationBreakpoint> Reenter() { Interrupt(); yield return new(Guid.Parse(Id(1006)), basis.Manifest.Plan.Digest, Pending(basis), SimulationBreakpointPoint.TaskStart); }
-        if (duringEnumeration) Assert.False(view.SetSyntheticSimulationBreakpoints(basis, Reenter()));
-        else { view.PropertyChanged += (_, _) => Interrupt(); Assert.False(view.StepSyntheticSimulation(basis)); }
+        IEnumerable<SimulationBreakpoint> Reenter(SyntheticWorkbenchViewModel subject) { Interrupt(subject); yield return new(Guid.Parse(Id(1006)), basis.Manifest.Plan.Digest, Pending(basis), SimulationBreakpointPoint.TaskStart); }
+        if (duringEnumeration) Assert.False(view.SetSyntheticSimulationBreakpoints(basis, Reenter(view)));
+        else { view.PropertyChanged += (sender, _) => Interrupt(Assert.IsType<SyntheticWorkbenchViewModel>(sender)); Assert.False(view.StepSyntheticSimulation(basis)); }
         Assert.True(entered); Assert.Null(view.SimulationDebug); Assert.Null(view.SimulationRun); Assert.Empty(basis.Events);
     }
     [Fact]
@@ -73,7 +75,8 @@ public sealed class SyntheticSimulationDebugTests
     {
         var f = await SyntheticSimulationTests.Ready(); using var view = f.View; Assert.True(view.LoadSyntheticScopedSources());
         Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1007)))); var reentered = false;
-        view.PropertyChanged += (_, _) => { if (view.SimulationDebug is not { } current) return; reentered = true; Assert.False(view.StepSyntheticSimulation(current)); };
+        view.PropertyChanged += (sender, _) => {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender); if (subject.SimulationDebug is not { } current) return; reentered = true; Assert.False(subject.StepSyntheticSimulation(current)); };
         Assert.True(view.StepSyntheticSimulation(view.SimulationDebug!)); Assert.True(reentered); Assert.Single(view.SimulationDebug!.Events);
     }
 }

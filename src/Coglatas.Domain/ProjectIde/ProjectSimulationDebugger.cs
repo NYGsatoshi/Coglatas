@@ -108,7 +108,7 @@ public sealed class ProjectSimulationDebugger : IDisposable
         _cursor = new(manifest, expectedInputDigest, cancellationToken);
         _snapshot = Capture("coglatas.debug.prepared");
     }
-    public SimulationControlResponse SetBreakpoints(SimulationControlStamp stamp, IEnumerable<SimulationBreakpoint> requests)
+    public SimulationControlResponse SetBreakpoints(SimulationControlStamp stamp, IEnumerable<SimulationBreakpoint?> requests)
     {
         ArgumentNullException.ThrowIfNull(requests);
         lock (_gate) { if (Refuse(stamp, requireLive: true) is { } early) return early; }
@@ -116,15 +116,18 @@ public sealed class ProjectSimulationDebugger : IDisposable
         var rows = requests.Take(_limits.MaximumBreakpoints + 1).ToArray();
         lock (_gate) {
             if (Refuse(stamp, requireLive: true) is { } refused) return refused;
-            if (rows.Length > _limits.MaximumBreakpoints || rows.Any(item => item is null) || rows.Select(item => item.Id).Distinct().Count() != rows.Length)
+            if (rows.Length > _limits.MaximumBreakpoints || rows.Any(item => item is null))
+                return new(false, "coglatas.debug.breakpoint-bound-or-duplicate", null);
+            var validRows = rows.Select(item => item ?? throw new InvalidOperationException("Validated breakpoint collection contained null.")).ToArray();
+            if (validRows.Select(item => item.Id).Distinct().Count() != validRows.Length)
                 return new(false, "coglatas.debug.breakpoint-bound-or-duplicate", null);
             var bytes = 0;
-            foreach (var row in rows) {
+            foreach (var row in validRows) {
                 var size = System.Text.Encoding.UTF8.GetByteCount(row.Data.CanonicalText);
                 if (size > _limits.MaximumBreakpointBytes - bytes) return new(false, "coglatas.debug.breakpoint-byte-bound", null);
                 bytes += size;
             }
-            _breakpoints = rows.OrderBy(item => item.Id.ToString("D"), StringComparer.Ordinal).Select(item => new SimulationBreakpointResolution(item,
+            _breakpoints = validRows.OrderBy(item => item.Id.ToString("D"), StringComparer.Ordinal).Select(item => new SimulationBreakpointResolution(item,
                 !item.PlanDigest.Equals(_cursor.Manifest.Plan.Digest) ? "coglatas.debug.wrong-plan" :
                 !Enum.IsDefined(item.Point) ? "coglatas.debug.point-unsupported" :
                 _cursor.Resolve(item.Location) is null ? "coglatas.debug.position-unresolved" : "coglatas.debug.resolved", _cursor.Resolve(item.Location))).ToArray();

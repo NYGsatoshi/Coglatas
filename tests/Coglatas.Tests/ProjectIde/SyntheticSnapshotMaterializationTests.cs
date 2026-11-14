@@ -44,7 +44,7 @@ public sealed class SyntheticSnapshotMaterializationTests
     public void ExportStopsBoundedEnumerationAndDoesNotLeakADeniedBody()
     {
         var f = ScenarioReferenceRebaseTests.Fixture(); var moves = 0;
-        IEnumerable<CompilerMaterializedSnapshot> Many() { while (true) { moves++; yield return f.Snapshot; } }
+        IEnumerable<CompilerMaterializedSnapshot> Many() { for (var index = 0; index < int.MaxValue; index++) { moves++; yield return f.Snapshot; } }
         Assert.Throws<FormatException>(() => SyntheticSnapshotMaterialization.Export(f.Input, Many())); Assert.Equal(33, moves);
         var denied = new CompilerMaterializedSnapshot(f.Snapshot.SnapshotId, f.Snapshot.Version, new(f.Snapshot.Snapshot.Source, false, false, false));
         var exported = SyntheticSnapshotMaterialization.Export(f.Input, [denied]);

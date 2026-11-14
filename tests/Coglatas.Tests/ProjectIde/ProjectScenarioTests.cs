@@ -92,6 +92,9 @@ public sealed class ProjectScenarioTests
     }
 
     [Theory]
+    [InlineData("null-row", ProjectScenarioState.InvalidOverride)]
+    [InlineData("null-target", ProjectScenarioState.InvalidOverride)]
+    [InlineData("null-value", ProjectScenarioState.InvalidOverride)]
     [InlineData("negative", ProjectScenarioState.InvalidOverride)]
     [InlineData("type", ProjectScenarioState.InvalidOverride)]
     [InlineData("unsupported", ProjectScenarioState.Unsupported)]
@@ -101,8 +104,11 @@ public sealed class ProjectScenarioTests
     [InlineData("kind", ProjectScenarioState.Unsupported)]
     public void InvalidOverridesHaveNoPartialPlan(string mode, ProjectScenarioState expected)
     {
-        var basis = Fixture(); var change = mode switch
+        var basis = Fixture(); ProjectScenarioOverride? change = mode switch
         {
+            "null-row" => null,
+            "null-target" => Override(basis) with { Target = null },
+            "null-value" => Override(basis) with { Value = null },
             "negative" => new ProjectScenarioOverride(Target(basis), ProjectScenarioOverrideKind.TaskDuration, Duration("-1")),
             "type" => Override(basis) with { Value = Duration("2") },
             "unsupported" => Override(basis) with { Value = Json(Obj(new { type = new { kind = "example.future", schemaVersion = 2, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = true })) },

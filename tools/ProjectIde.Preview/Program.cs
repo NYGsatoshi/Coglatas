@@ -198,12 +198,12 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
                 draft = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Draft, scenarioFixture.Draft.After)) } });
         if (name == scenarioKey + "-base" || name == scenarioKey + "-hypothesis")
         {
-            var after = name == scenarioKey + "-base" ? scenarioFixture!.Scenario.Input : scenarioFixture!.Draft.After;
+            var after = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
             if (inspection is not null && PureCoreCompiler.Compile(after, after.Compiler, snapshots).Result.Execution == CompilerExecutionState.Completed)
                 fixture["preparedDiff"] = JsonSerializer.SerializeToNode(new { afterCaseKey = name == scenarioKey + "-base" ? scenarioKey + "-hypothesis" : scenarioKey + "-draft",
                 comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(input, snapshots), ProjectSemanticBinder.Bind(after, snapshots), input.InputDigest, after.InputDigest).Data.Value });
         }
-        if (snapshots.Count != 0 || scenarioFixture!.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
+        if (snapshots.Count != 0 || scenarioFixture.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
         if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
@@ -423,8 +423,8 @@ static CompilerInputManifest LocalTestInput(string name, int revision)
     var input = Input(name, revision);
     var booleanType = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true };
     var type = booleanType with { kind = name == "tests-error" ? "coglatas.decimal" : "coglatas.boolean" };
-    var value = name == "tests-unknown" ? (object)new { type, state = "coglatas.unknown", reason = "example.missing-input", basis = new { } }
-        : name == "tests-error" ? (object)new { type, state = "coglatas.known", value = "2" } : new { type, state = "coglatas.known", value = name != "tests-fail" };
+    object value = name == "tests-unknown" ? new { type, state = "coglatas.unknown", reason = "example.missing-input", basis = new { } }
+        : name == "tests-error" ? new { type, state = "coglatas.known", value = "2" } : new { type, state = "coglatas.known", value = name != "tests-fail" };
     var task = new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Local input fixture",
         payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
             ports = new[] { new { portId = Id(88), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1, defaultValue = value } } } };

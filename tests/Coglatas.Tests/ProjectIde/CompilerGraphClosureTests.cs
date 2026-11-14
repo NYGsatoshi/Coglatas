@@ -8,7 +8,6 @@ namespace Coglatas.Tests.ProjectIde;
 public sealed class CompilerGraphClosureTests
 {
     private sealed record Fixture(CompilerInputManifest Input, CompilerMaterializedSnapshot[] Snapshots, SourceRevisionContext A, SourceRevisionContext B);
-    private static SourceJson Data(object value) => SourceJson.Parse(System.Text.Json.JsonSerializer.Serialize(value));
     private static object BooleanType() => new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false };
     private static object Port(int id, bool output, int minimum = 0, int maximum = 1) => new { portId = Id(id),
         direction = output ? "coglatas.output" : "coglatas.input", type = BooleanType(), minimumConnections = minimum, maximumConnections = maximum };
@@ -19,7 +18,7 @@ public sealed class CompilerGraphClosureTests
     {
         object Endpoint(SourceRevisionContext context, bool output) => kind == RelationKinds.FlowsTo
             ? new { kind = "coglatas.port", expectedKind = "coglatas.task", reference = CompilerAnalysisFixtures.Reference(7, context), portId = Id(output ? 70 : 71) }
-            : (object)new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = CompilerAnalysisFixtures.Reference(7, context) };
+            : new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = CompilerAnalysisFixtures.Reference(7, context) };
         return Obj(new { relationId = Id(id), documentId = Id(4), kind, schemaVersion = 1,
             descriptor = new { descriptorId = kind, version = 1 }, source = Endpoint(from, true), target = Endpoint(to, false),
             payload = kind == RelationKinds.DependsOn ? Obj(new { mode = "coglatas.finish-to-start",

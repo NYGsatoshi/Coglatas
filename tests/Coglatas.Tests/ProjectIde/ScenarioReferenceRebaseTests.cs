@@ -18,7 +18,7 @@ public sealed class ScenarioReferenceRebaseTests
             manifest = new { version = "1", digest = external.Digest.Data.Value } } });
         var port = Obj(new { portId = Id(8), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1 });
         var initial = opaqueBefore ? Obj(new { type, state = "coglatas.unknown", reason = "example.missing", basis = new { opaqueReference = Value(6) } }) : Value(defaultTarget);
-        if (opaqueBefore) initial["basis"]!["opaqueReference"]!["value"]!["origin"]!["context"] = JsonNode.Parse(Source(5).Context.Data.CanonicalText);
+        if (opaqueBefore) initial["basis"]!["opaqueReference"]!["value"]!["origin"]!["context"] = JsonNode.Parse(Source().Context.Data.CanonicalText);
         var wrappedInitial = Wrap(initial, wrapper); var wrappedChange = Wrap(Value(16), wrapper);
         port["type"] = wrappedInitial["type"]!.DeepClone();
         if (hasDefault) port["defaultValue"] = wrappedInitial;
