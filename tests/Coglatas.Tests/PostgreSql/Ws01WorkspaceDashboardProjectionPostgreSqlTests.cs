@@ -82,14 +82,13 @@ public sealed class Ws01WorkspaceDashboardProjectionPostgreSqlTests
 
             Assert.Equal(5, actorItems.Count);
             Assert.Equal(
-                new WorkspaceRole?[]
-                {
+                [
                     WorkspaceRole.Owner,
                     WorkspaceRole.Admin,
                     WorkspaceRole.Adviser,
                     WorkspaceRole.Member,
                     WorkspaceRole.ReadOnly
-                },
+                ],
                 actorItems.Select(item => item.CurrentUserRole));
             Assert.All(actorItems, item =>
             {

@@ -553,8 +553,7 @@ public sealed class AuditFindingsServiceTests
             var claim = _claims[claimId];
             _claims[claimId] = claim with
             {
-                Evidence = new[]
-                {
+                Evidence = [
                     new AuditEvidenceResponse(
                         evidenceId,
                         1,
@@ -564,7 +563,7 @@ public sealed class AuditFindingsServiceTests
                         "Authorized passage",
                         "Section 1",
                         eventId)
-                }
+                ]
             };
         }
 

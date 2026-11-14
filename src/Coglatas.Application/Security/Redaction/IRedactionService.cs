@@ -61,19 +61,17 @@ public sealed class FieldAccessPolicySnapshot
     private readonly HashSet<string> allowedRestrictedFields;
 
     public static FieldAccessPolicySnapshot StandardAuthorized { get; } = new(
-        new[]
-        {
+        [
             CanonicalDataClassification.Public,
             CanonicalDataClassification.Internal
-        });
+        ]);
 
     public static FieldAccessPolicySnapshot ThroughConfidential { get; } = new(
-        new[]
-        {
+        [
             CanonicalDataClassification.Public,
             CanonicalDataClassification.Internal,
             CanonicalDataClassification.Confidential
-        });
+        ]);
 
     public FieldAccessPolicySnapshot(
         IEnumerable<CanonicalDataClassification> allowedClassifications,
@@ -92,13 +90,12 @@ public sealed class FieldAccessPolicySnapshot
 
     public static FieldAccessPolicySnapshot ThroughRestrictedFields(params string[] fields) =>
         new(
-            new[]
-            {
+            [
                 CanonicalDataClassification.Public,
                 CanonicalDataClassification.Internal,
                 CanonicalDataClassification.Confidential,
                 CanonicalDataClassification.Restricted
-            },
+            ],
             fields);
 
     public bool Allows(CanonicalDataClassification classification, string fieldName)
