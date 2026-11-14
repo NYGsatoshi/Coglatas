@@ -1,0 +1,99 @@
+name: ProjectIDE Compiler historical SyncRoot negative replay
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-compiler-immutability-historical-red.yml
+      - tests/candidates/projectide-compiler-immutability/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-immutability-historical-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  historical-red-ubuntu:
+    name: Historical Compiler SyncRoot RED reproduction (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      VULNERABLE_PRODUCT_HEAD: 2b2c86a447779c2d9d19e4b88f1274a70737d54e
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
+      RED_RUNNER_BLOB: acd00c742086151dfcaf54bc25765cc9cfb25aa2
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot configure committed LF source bytes' }
+      - name: Checkout exact immutable Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind original vulnerable source and independent Test evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Historical Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/SecurityCompilerImmutableBoundaryCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Historical Test source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RED_RUNNER_BLOB) { throw 'Historical replay runner blob mismatch' }
+          git cat-file -e "$($env:VULNERABLE_PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact original vulnerable Product commit absent' }
+          $sdk = git show "$($env:VULNERABLE_PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Historical Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'historical-compiler-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $sdk | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            vulnerableProductHead = $env:VULNERABLE_PRODUCT_HEAD
+            sourceBlob = $case
+            replayRunnerBlob = $runner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'HISTORICAL_COMPILER_SYNCROOT_RED_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact historical Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/historical-compiler-context/global.json
+      - name: Install pinned Python for immutable-source replay
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Require three original named SyncRoot invariant failures
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-compiler-immutability/replay_vulnerable.py --vulnerable-head $env:VULNERABLE_PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/historical-compiler-product" --evidence "$env:RUNNER_TEMP/historical-compiler-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Actual historical RED outcome was not independently qualified' }
+      - name: Retain original negative TRX and source/receipt hashes
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: compiler-immutable-historical-red-ubuntu-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/historical-compiler-context
+            ${{ runner.temp }}/historical-compiler-evidence
+          if-no-files-found: error
+          retention-days: 7
