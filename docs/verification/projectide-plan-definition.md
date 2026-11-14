@@ -1,0 +1,33 @@
+# Explicit immutable plan-definition lowering
+
+Authority: #905 stage7 plan-definition lowering and Slice6 simulation-plan seam, #907 accepted initial loop, #888 IDE-START-01/02. This is a pure Product preparation slice, not a run or native/operational activation. Existing parent #1946 remains subject to required CI; Security/CI qualification extends existing P0 Issues only.
+
+## Frozen request and actual definition
+
+The new explicit coglatas.execution-plan-definition target requires model/IR target2 and a pinned scheduler declaration kind coglatas.plan-lowering with an artifact identity. The initial owned engine is coglatas.elapsed-finish-to-start-plan-lowerer/1. Its digest binds the implemented elapsed-duration, nonnegative elapsed-lag, fixed input-default and stable context/entity ordering contract. The default scheduler remains explicit None. Unknown engine identities/versions/digests cannot claim supported production; the host profile must independently fix the engine rather than infer it from caller data.
+
+After full declared-scope structural validation and actual successful required regional rules, CompilerExecutionPlan lowers every Task in every exact context slot. Task definitions retain original locations, stable IR node IDs, exact typed durations and ports. Dependencies retain original owning locations, dependent-to-prerequisite direction, endpoint contexts/IDs and exact lag. A stable Kahn definition order uses context then entity identity for ties. It is a definition evaluation order, not a linear schedule/call stack; it does not start work or imply simultaneous tasks must run serially. Different captured revisions retain distinct slots even when stable node IDs match.
+
+The supported initial execution model is elapsed Tasks with known nonnegative durations, FinishToStart dependencies with known nonnegative elapsed lag and complete fixed input defaults. Direct/nested Unknown defaults and unbound/output ports refuse this engine. Existing Milestone-to-Task membership is not silently flattened into an elapsed Task DAG. Other dependency modes, working-calendar execution, negative lag, Milestone/Workflow/Resource execution or dataflow require additional compatible lowerers. None is silently discarded. Required constraints must have actual successful required rule outcomes; unsupported/missing evidence, required false/Unknown and incomplete declared scope cannot produce a plan. Project/Test/Constraint declarations remain in the parent complete IR as nonexecuting definitions, with required verification retained. Whole-Project support and full #905/#907 completion remain open.
+
+The definition is timeless and uninstantiated. Duration/lag values are definitions, not computed feasible start/finish instants. #907 must separately bind a virtual-clock/run manifest, event ordering, overflow/event limits, state/trace/debugger and current controls. No external provider, live data, secret, clock read, RNG or run state is created here.
+
+## Publication and budget
+
+Actual original plan bytes/digest are embedded in the normal version2 IR; the ordinary three artifact roles stay unchanged. A separate plan-definition stage binds the actual digest. A requested but unsupported plan has an explicit not-produced reason and NotRun/None stage; overall result coverage/evidence cannot be complete PASS. Known required FAIL remains FAIL. Existing no-plan inputs retain their exact bytes, with no new stage. Result planEligibility remains not-evaluated: producing a definition does not grant current runtime/evidence eligibility.
+
+Preparation indexes, recursive typed-default checks, graph traversal and serialized definition charge the remaining root logical profile. The containing IR and normal receipt retain their existing byte/operation bounds. Cancellation or exhaustion after validated scoped IR discards normal publication and plan instead of declaring partial work produced. No provisional host cap, CI budget/check/scanner threshold or #1128 status changes.
+
+The new isolated exporter profile explicitly uses400k logical operations for its deeper plan-definition examples. A separate retained200k family demonstrates actual baseline production but Scenario/Draft root exhaustion (no normal artifacts, no PASS). These are different stamped synthetic inputs, not a raised default or performance assurance. Existing profiles stay200k and must reexport byte-identically. The new12cases include a three-Task local DAG, a four-Task cross-Project dependency and required Unknown, with actual baseline/hypothesis/Draft Tests as an independent FAIL/PASS/PASS axis.
+
+## Paired fixed readers
+
+Windows pure ViewModel exposes the actual definition only after explicit accepted scoped-source admission and clears it on new input/disposal. Server verification checks the trusted profile, immutable Core-owned scope, embedded data/digest and actual producing stage. Actual wire/job reconstruction remains separately qualified; no transport serializer is introduced.
+
+The Web reader verifies the original plan byte frame and domain hash, exact normal IR embedding, input/source/closure/engine/stage links, strict version-one shapes and complete context/task/dependency/order membership against verified regional IR/Source. It performs no plan scheduling, graph or constraint evaluation. The explicit fixed-source load admits a read-only compiled-definition view or actual not-produced reason. Displays are withdrawn on same-object byte mutation, changed input/result or denial. Showing a definition never starts a run; current authorization, producer trust and eligibility remain separate.
+
+## Evidence and remaining gates
+
+Executable Core tests cover stable order/direction, repeated runs and Source set order, transitive/repeated versions, engine identity changes and host binding, direct/nested Unknown inputs, unsupported whole declarations/modes, required false/Unknown/missing rule, early/late budget exhaustion, cancellation and paired host/Windows admission. Actual Core exporter bytes feed Web and browser tests, not hand-authored results. Validation/review exact-source counts and hashes are recorded in the continuation handoff.
+
+No actual Avalonia/native/independent qualification, runtime execution, Simulation, schedule feasibility, quantitative Impact, formal Registry/Trust/Eligibility acceptance, RLS activation, production or release is claimed. Keep #905/#907/#1032 open, #1144 BLOCKED and #1128 SUSPENDED/NOT_EVALUATED. Security work is P0 handoff only; no main/global workflow/protection/Source-check or Security branch changes.

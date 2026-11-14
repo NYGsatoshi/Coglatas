@@ -1,36 +1,32 @@
 # AI Context
 
+[Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)
+adds an opt-in frozen engine/target for elapsed Task DAG definitions after complete
+required validation. Both fixed readers admit actual bytes and original locations;
+no run starts. Other execution kinds, actual runtime/native activation and full
+#905/#907 acceptance remain open.
+
 [Explicit scoped semantic publication version two](verification/projectide-scoped-publication.md)
-produces actual normal model/IR/map artifacts only for explicit version-two targets
-and complete structural scope; required rule and evidence completeness remain separate.
-Windows pure and Web readers verify the actual payloads. This is developer preparation,
-not formal Registry, executable plan, independent qualification or runtime authority.
+produces actual normal model/IR/map artifacts for explicit paired version-two
+targets and complete structural scope. Required truth/coverage/evidence remain
+separate. The version-one external publication guard remains. No formal Registry,
+producer trust, eligibility or current runtime authority is implied.
 
 [Paired captured scoped-source readers](verification/projectide-scoped-source-readers.md)
-open exact fixed dependency Sources and original scoped findings in Angular and
-the Windows pure ViewModel. Current runtime authority and normal external
-Compiler artifact/PASS publication remain separate incomplete work.
+open exact fixed dependency Sources and original regional findings in Angular and
+the Windows pure ViewModel, with explicit admission and context/version slots.
+Current runtime authorization and actual Avalonia acceptance are separate.
 
-[Scoped IR consolidation](verification/projectide-scoped-ir.md) binds actual
-regional IR/maps to the complete declared graph in separate context slots.
-Normal external publication, both foreign readers and Compiler PASS remain open.
-
-[Whole declared graph validation](verification/projectide-global-graph-closure.md)
-checks cross-owner cycles, connections, duplicates and Governs over exact
-contexts, including incoming edges without root references. Ordinary external
-IR/source-map publication and Compiler PASS remain incomplete.
-
-
-[Root-bound dependency analysis](verification/projectide-dependency-analysis.md)
-connects actual regional semantics, scoped IR and required rule outcomes to the
-normal Compiler. Foreign failures affect root verdicts; consolidated external
-IR/source-map publication and external Compiler PASS remain incomplete.
-
+[Scoped IR consolidation](verification/projectide-scoped-ir.md),
+[whole declared graph validation](verification/projectide-global-graph-closure.md)
+and [root-bound dependency analysis](verification/projectide-dependency-analysis.md)
+validate actual regional IR/maps, cross-owner edges and required rule outcomes
+under the root budget. Normal version-two publication now consumes this scope;
+these older verification records describe their respective original slices.
 
 [Root-bound transitive binding closure](verification/projectide-binding-closure.md)
-follows exact admitted dependency contexts, preserves actual snapshot identities
-and binds every region to the whole root input. Binding completeness remains
-separate from external semantic validation, IR and Compiler PASS.
+follows exact admitted dependency contexts and preserves actual snapshot identities.
+Binding completeness alone does not prove semantic validation, plan or PASS.
 
 [Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
 adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.

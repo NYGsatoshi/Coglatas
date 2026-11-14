@@ -604,6 +604,15 @@
                   }
                 </section>
               }
+              @if (store.planDefinition(); as plan) {
+                <section data-testid="ide-plan-definition"><h3>{{ t('ide.planDefinition') }}</h3>
+                  <p>{{ t('ide.planNotice') }}</p>
+                  <p>{{ t('ide.planTasks') }}: {{ plan.taskCount }} · {{ t('ide.planDependencies') }}: {{ plan.dependencyCount }}</p>
+                  <details><summary>{{ t('ide.planBytes') }}</summary><code>{{ plan.digest.value }}</code><pre tabindex="0">{{ plan.definition | json }}</pre></details>
+                </section>
+              } @else if (store.planNotProducedReason(); as reason) {
+                <p data-testid="ide-plan-not-produced">{{ t('ide.planUnavailable') }}: {{ reason }}</p>
+              }
               @if (store.scopedSourceTarget(); as scoped) {
                 <section #scopedTarget tabindex="-1" data-testid="ide-scoped-source-target" [attr.aria-label]="t('ide.scopedSources')">
                   <h3>{{ t('ide.scopedSources') }}</h3>

@@ -13,6 +13,8 @@ public sealed partial class SyntheticWorkbenchViewModel
     private long _scopedGeneration;
     public string ScopedReadState { get; private set; } = "Idle";
     public IReadOnlyList<ProjectSource> ScopedSources => CurrentScopedSources ? _scopedSourceViews : Array.Empty<ProjectSource>();
+    public CompilerExecutionPlan? ScopedExecutionPlan => CurrentScopedSources && _compilation?.Publication is { } publication && publication.IsDeclaredBy(_compilation.Result) ? publication.ExecutionPlan : null;
+    public string? ScopedPlanNotProducedReason => CurrentScopedSources ? _compilation?.Publication?.PlanNotProducedReason : null;
     public ProjectSource? ScopedSource { get; private set; }
     public ProjectLocation? ScopedSourceTarget { get; private set; }
     public SourceJson? ScopedSourceRecord { get; private set; }

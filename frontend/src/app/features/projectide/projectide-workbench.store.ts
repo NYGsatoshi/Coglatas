@@ -130,6 +130,11 @@ export class ProjectIdeWorkbenchStore {
     }
     return resolveLocation(value, location, requireSourceMap);
   }
+  readonly planDefinition = () => {
+    const plan = this.admittedScoped()?.plan;
+    return plan ? { ...plan, taskCount: (plan.definition['tasks'] as unknown[]).length, dependencyCount: (plan.definition['dependencies'] as unknown[]).length } : null;
+  };
+  readonly planNotProducedReason = () => this.admittedScoped()?.planNotProducedReason ?? null;
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
     const target = this.scopedTarget();

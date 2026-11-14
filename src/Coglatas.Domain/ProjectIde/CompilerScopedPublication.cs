@@ -18,6 +18,8 @@ public sealed class CompilerScopedPublication
     public ContentDigest SourceMapDigest { get; }
     public IReadOnlyList<CompilerArtifactReference> Artifacts { get; }
     public int LogicalOperationsConsumed { get; }
+    public CompilerExecutionPlan? ExecutionPlan { get; }
+    public string? PlanNotProducedReason { get; }
     internal static bool Requested(CompilerInputManifest input) =>
         input.Settings.Value.GetProperty("semantics").GetProperty("artifactId").GetString() == "coglatas.semantic-model" &&
         input.Settings.Value.GetProperty("semantics").GetProperty("version").GetString() == "2" &&
@@ -27,6 +29,7 @@ public sealed class CompilerScopedPublication
     private CompilerScopedPublication(CompilerScopedIr scope, ref int remaining, CancellationToken token)
     {
         Scope = scope; var initial = remaining; token.ThrowIfCancellationRequested();
+        (ExecutionPlan, PlanNotProducedReason) = CompilerExecutionPlan.Prepare(scope, ref remaining, token);
         SemanticModel = SourceJson.FromObject(new
         {
             format = ModelFormat, compilerInputId = Input.InputId.ToString(), inputDigest = Input.InputDigest.Data.Value,
@@ -53,7 +56,8 @@ public sealed class CompilerScopedPublication
             sourceDigest = Input.Source.Digest.Data.Value, closureDigest = scope.Digest.Data.Value,
             semanticModelDigest = SemanticModelDigest.Data.Value, sourceMapDigest = SourceMapDigest.Data.Value,
             regions = scope.Data.Value.GetProperty("regions"),
-            executionPlan = new { kind = "coglatas.not-produced", reason = "coglatas.analysis-and-plan-lowering-required" }
+            executionPlan = ExecutionPlan is { } plan ? (object)new { kind = "coglatas.produced", digest = plan.Digest.Data.Value, definition = plan.Data.Value }
+                : new { kind = "coglatas.not-produced", reason = PlanNotProducedReason ?? "coglatas.analysis-and-plan-lowering-required" }
         }, Input.Source.Data.Limits);
         if (!ProjectSemanticBinder.WithinBudget(Ir.Value, ref remaining, token)) throw new FormatException("Scoped IR publication exhausted the root budget.");
         IrDigest = ContentDigest.Compute(IrFormat, Ir.ToCanonicalBytes());
@@ -72,10 +76,21 @@ public sealed class CompilerScopedPublication
     }
     /// <summary>Checks the exact actual published artifact set and producing stage; not producer trust or current authority.</summary>
     public bool IsDeclaredBy(CompilerResult result) => result.Input.Data.Equals(Input.Data) && result.Artifacts.Count == Artifacts.Count &&
-        Artifacts.All(expected => result.Artifacts.Any(actual => actual.Data.Equals(expected.Data))) &&
+        Artifacts.All(expected => result.Artifacts.Any(actual => actual.Data.Equals(expected.Data))) && PlanDeclaredBy(result) &&
         result.Stages.Count(stage => stage.StageId == "coglatas.scoped-publication") == 1 &&
         result.Stages.Any(stage => stage.StageId == "coglatas.scoped-publication" && stage.Version == 2 && stage.Execution == CompilerExecutionState.Completed &&
             stage.Coverage == CompilerCoverage.Complete && stage.InputDigest.Equals(Input.InputDigest) &&
             stage.Data.Value.GetProperty("outputs").GetArrayLength() == Artifacts.Count &&
             Artifacts.All(artifact => stage.Data.Value.GetProperty("outputs").EnumerateArray().Any(output => SourceJson.FromElement(output).Equals(artifact.Digest.Data))));
+    private bool PlanDeclaredBy(CompilerResult result)
+    {
+        var stages = result.Stages.Where(s => s.StageId == "coglatas.plan-definition").ToArray();
+        if (!CompilerExecutionPlan.Requested(Input)) return ExecutionPlan is null && stages.Length == 0;
+        if (stages.Length != 1 || stages[0].Version != 1 || !stages[0].InputDigest.Equals(Input.InputDigest)) return false;
+        var data = stages[0].Data.Value;
+        return ExecutionPlan is { } plan ? stages[0].Execution == CompilerExecutionState.Completed && stages[0].Coverage == CompilerCoverage.Complete &&
+            data.GetProperty("outputs").GetArrayLength() == 1 && SourceJson.FromElement(data.GetProperty("outputs")[0]).Equals(plan.Digest.Data)
+            : stages[0].Execution == CompilerExecutionState.NotRun && stages[0].Coverage == CompilerCoverage.None &&
+                data.GetProperty("outputs").GetArrayLength() == 0 && data.GetProperty("limitation").GetString() == PlanNotProducedReason;
+    }
 }

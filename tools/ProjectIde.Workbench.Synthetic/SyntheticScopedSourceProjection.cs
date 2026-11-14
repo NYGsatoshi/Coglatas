@@ -37,6 +37,7 @@ public static class SyntheticScopedSourceProjection
                 semanticModel = Frame(publication.SemanticModel, publication.SemanticModelDigest),
                 ir = Frame(publication.Ir, publication.IrDigest), sourceMap = Frame(publication.SourceMap, publication.SourceMapDigest)
             }, new JsonSerializerOptions { MaxDepth = 256 });
+            if (publication.ExecutionPlan is { } plan) node["publication"]!["plan"] = JsonSerializer.SerializeToNode(Frame(plan.Data, plan.Digest));
             for (var index = 0; index < scoped.Regions.Count; index++)
             {
                 var ir = scoped.Regions[index].Validation!.Ir!;

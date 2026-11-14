@@ -33,7 +33,9 @@ public sealed partial class CompilerDependencyAnalysis
                 partial ? new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.dependency-incomplete")
                     : new(CompilerEvidenceKind.ModelProof, [input.InputDigest, analysis.Digest, publication.SemanticModelDigest]));
         }).ToArray();
-        var complete = rules.All(rule => rule.Execution == CompilerExecutionState.Completed && rule.Coverage == CompilerCoverage.Complete);
+        var planRequested = CompilerExecutionPlan.Requested(input);
+        var planComplete = !planRequested || publication.ExecutionPlan is not null;
+        var complete = planComplete && rules.All(rule => rule.Execution == CompilerExecutionState.Completed && rule.Coverage == CompilerCoverage.Complete);
         var stages = new[]
         {
             new CompilerStageOutcome("coglatas.parse-normalize", 1, CompilerExecutionState.Completed, CompilerCoverage.Complete, input.InputDigest, [input.Source.Digest]),
@@ -46,6 +48,12 @@ public sealed partial class CompilerDependencyAnalysis
             new CompilerStageOutcome("coglatas.scoped-publication", 2, CompilerExecutionState.Completed, CompilerCoverage.Complete, input.InputDigest,
                 [publication.SemanticModelDigest, publication.IrDigest, publication.SourceMapDigest])
         };
+        if (planRequested) {
+            stages = [.. stages, new CompilerStageOutcome("coglatas.plan-definition", 1, publication.ExecutionPlan is null ? CompilerExecutionState.NotRun : CompilerExecutionState.Completed,
+                publication.ExecutionPlan is null ? CompilerCoverage.None : CompilerCoverage.Complete, input.InputDigest, publication.ExecutionPlan is { } plan ? [plan.Digest] : [], publication.PlanNotProducedReason)];
+            if (!planComplete) diagnostics.Add(new(input, CoreCompilerRules.Schema, 1, 4, publication.PlanNotProducedReason!, root,
+                new(CompilerEvidenceKind.Missing, [], publication.PlanNotProducedReason!)));
+        }
         CompilerResult result;
         try
         {

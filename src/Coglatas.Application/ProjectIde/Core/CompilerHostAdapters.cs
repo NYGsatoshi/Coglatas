@@ -92,9 +92,16 @@ public sealed class ServerCompilerHost(CompilerHostProfile profile, IServerCompi
                 !publication.IrDigest.Equals(ContentDigest.Compute(CompilerScopedPublication.IrFormat, publication.Ir.ToCanonicalBytes())) ||
                 !publication.SourceMapDigest.Equals(ContentDigest.Compute(CompilerScopedPublication.MapFormat, publication.SourceMap.ToCanonicalBytes()))) return false;
         }
-        else if (result.Artifacts.Any(artifact => artifact.Data.Value.GetProperty("version").GetInt32() != 1) ||
+        if (compilation.Publication?.ExecutionPlan is { } plan) {
+            var embedded = compilation.Publication.Ir.Value.GetProperty("executionPlan");
+            if (!ReferenceEquals(plan.Scope, compilation.Publication.Scope) || !plan.Input.Data.Equals(input.Data) ||
+                !plan.Digest.Equals(ContentDigest.Compute(CompilerExecutionPlan.Format, plan.Data.ToCanonicalBytes())) ||
+                !SourceJson.Parse(embedded.GetProperty("definition").GetRawText()).Equals(plan.Data) ||
+                !SourceJson.Parse(embedded.GetProperty("digest").GetRawText()).Equals(plan.Digest.Data)) return false;
+        }
+        if (compilation.Publication is null && (result.Artifacts.Any(artifact => artifact.Data.Value.GetProperty("version").GetInt32() != 1) ||
             result.Artifacts.Count != 0 && (input.Settings.Value.GetProperty("ir").GetProperty("version").GetString() == "2" ||
-                input.Settings.Value.GetProperty("semantics").GetProperty("version").GetString() == "2")) return false;
+                input.Settings.Value.GetProperty("semantics").GetProperty("version").GetString() == "2"))) return false;
         return true;
     }
 }

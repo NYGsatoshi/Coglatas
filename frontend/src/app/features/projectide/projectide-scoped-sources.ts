@@ -7,14 +7,14 @@ interface Frame { readonly text: string; readonly digest: Digest; }
 export interface ScopedSourceProjection {
   readonly format: 'coglatas.local-scoped-source-projection/1' | 'coglatas.local-scoped-source-projection/2'; readonly inputText: string;
   readonly result: Frame; readonly analysis: Frame; readonly binding: Frame; readonly graph: Frame; readonly ir: Frame; readonly sourceMap: Frame;
-  readonly publication?: { readonly semanticModel: Frame; readonly ir: Frame; readonly sourceMap: Frame };
+  readonly publication?: { readonly semanticModel: Frame; readonly ir: Frame; readonly sourceMap: Frame; readonly plan?: Frame };
   readonly regions: readonly { readonly context: RevisionContext; readonly ir: Frame; readonly sourceMap: Frame; readonly semanticModel?: Frame }[];
 }
 export interface ScopedSourceRegion {
   readonly context: RevisionContext; readonly sourceText: string; readonly records: readonly SourceRecord[]; readonly diagnostics: readonly Diagnostic[];
 }
 export interface AdmittedScopedSources {
-  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean;
+  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean; readonly plan: { readonly definition: Record<string, unknown>; readonly digest: Digest } | null; readonly planNotProducedReason: string | null;
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => equal(v, b[i])) ||
@@ -99,9 +99,10 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
 
   if ([bRegions, aRegions, iRegions, mRegions, transported].some(rows => rows.length !== contexts.length || unique(rows.map(row => row['context'] ?? obj(row['region'])['context'])).length !== contexts.length)) return fail();
   let publishedModel: Record<string, unknown> | null = null;
+  let plan: { definition: Record<string, unknown>; digest: Digest } | null = null; let planNotProducedReason: string | null = null;
   if (published) {
     const payload = projection.publication!;
-    if (!fields(payload, ['semanticModel', 'ir', 'sourceMap']) || obj(settings['semantics'])['version'] !== '2' || obj(settings['ir'])['version'] !== '2') return fail();
+    if (!fields(payload, ['semanticModel', 'ir', 'sourceMap', ...(payload.plan ? ['plan'] : [])]) || obj(settings['semantics'])['version'] !== '2' || obj(settings['ir'])['version'] !== '2') return fail();
     const [model, producedIr, producedMap] = await Promise.all([frame(payload.semanticModel, 'coglatas.semantic-model/2'), frame(payload.ir, 'coglatas.project-ir/2'), frame(payload.sourceMap, 'coglatas.semantic-source-map/2')]);
     for (const [data, format] of [[model, 'coglatas.semantic-model/2'], [producedIr, 'coglatas.project-ir/2'], [producedMap, 'coglatas.semantic-source-map/2']] as const)
       if (data['format'] !== format || data['compilerInputId'] !== v.inputId || !equal(data['inputDigest'], v.inputDigest) || !equal(data['sourceDigest'], v.sourceDigest) || !equal(data['closureDigest'], projection.ir.digest)) return fail();
@@ -113,6 +114,29 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
     const stages = list(result['stages'], 32).map(obj).filter(stage => stage['stageId'] === 'coglatas.scoped-publication');
     if (stages.length !== 1 || stages[0]['version'] !== 2 || stages[0]['execution'] !== 'coglatas.completed' || stages[0]['coverage'] !== 'coglatas.complete' ||
         !equal(stages[0]['inputDigest'], v.inputDigest) || list(stages[0]['outputs'], 3).length !== 3 || expected.some(([, , data]) => !list(stages[0]['outputs'], 3).some(digest => equal(digest, data.digest)))) return fail();
+    const requestedPlan = list(settings['targets'], 256).includes('coglatas.execution-plan-definition');
+    const production = obj(producedIr['executionPlan']);
+    const planStages = list(result['stages'], 32).map(obj).filter(stage => stage['stageId'] === 'coglatas.plan-definition');
+    if (!requestedPlan) {
+      if (payload.plan || planStages.length || !equal(production, { kind: 'coglatas.not-produced', reason: 'coglatas.analysis-and-plan-lowering-required' })) return fail();
+    } else {
+      if (planStages.length !== 1 || planStages[0]['version'] !== 1 || !equal(planStages[0]['inputDigest'], v.inputDigest)) return fail();
+      if (production['kind'] === 'coglatas.produced') {
+        const definition = await frame(payload.plan, 'coglatas.execution-plan-definition/1');
+        const digest = payload.plan!.digest; const engine = obj(settings['scheduler']);
+        if (!fields(production, ['kind', 'digest', 'definition']) || !equal(definition, production['definition']) || !equal(digest, production['digest']) ||
+            !fields(definition, ['format', 'compilerInputId', 'inputDigest', 'sourceDigest', 'closureDigest', 'engine', 'regions', 'tasks', 'dependencies', 'definitionOrder', 'execution']) || definition['format'] !== 'coglatas.execution-plan-definition/1' || definition['compilerInputId'] !== v.inputId || !equal(definition['inputDigest'], v.inputDigest) ||
+            !equal(definition['sourceDigest'], v.sourceDigest) || !equal(definition['closureDigest'], projection.ir.digest) || definition['execution'] !== 'coglatas.not-instantiated' ||
+            !fields(engine, ['kind', 'artifact']) || !fields(definition['engine'], ['artifactId', 'version', 'digest']) || !dig(obj(definition['engine'])['digest']) || engine['kind'] !== 'coglatas.plan-lowering' || !equal(definition['engine'], engine['artifact']) || obj(definition['engine'])['artifactId'] !== 'coglatas.elapsed-finish-to-start-plan-lowerer' || obj(definition['engine'])['version'] !== '1' ||
+            planStages[0]['execution'] !== 'coglatas.completed' || planStages[0]['coverage'] !== 'coglatas.complete' || !equal(planStages[0]['outputs'], [digest])) return fail();
+        plan = { definition, digest };
+      } else {
+        if (payload.plan || !fields(production, ['kind', 'reason']) || production['kind'] !== 'coglatas.not-produced' || typeof production['reason'] !== 'string' ||
+            !production['reason'].startsWith('coglatas.plan.') || planStages[0]['execution'] !== 'coglatas.not-run' || planStages[0]['coverage'] !== 'coglatas.none' ||
+            !equal(planStages[0]['outputs'], []) || planStages[0]['limitation'] !== production['reason'] || result['coverage'] === 'coglatas.complete' || result['verdict'] === 'coglatas.pass') return fail();
+        planNotProducedReason = production['reason'];
+      }
+    }
     const regions = list(model['regions'], 33).map(obj);
     if (regions.length !== contexts.length || contexts.some(context => regions.filter(region => equal(region['context'], context)).length !== 1)) return fail();
     publishedModel = model;
@@ -189,7 +213,45 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
           endpoint['portId'] !== (sourceEndpoint['portId'] ?? null) || sourceEndpoint['portId'] && !list(obj(record.data['payload'])['ports']).some(p => obj(p)['portId'] === sourceEndpoint['portId'])) return fail();
     }
   }
-  const resultAdmission = { basis: captured, projection, regions: admitted, publicationVerified: publishedModel !== null };
+  if (plan) {
+    // Contexts contain only bounded protocol keys. This key is an index, never a content digest or semantic evaluator.
+    const orderedContext = (value: unknown): unknown => Array.isArray(value) ? value.map(orderedContext) : object(value) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, orderedContext(value[key])])) : value;
+    const key = (context: unknown, id: unknown) => JSON.stringify([orderedContext(context), id]);
+    const indexed = (rows: Record<string, unknown>[], makeKey: (row: Record<string, unknown>) => string) => {
+      const result = new Map<string, Record<string, unknown>>();
+      for (const row of rows) { const id = makeKey(row); if (result.has(id)) return fail(); result.set(id, row); } return result;
+    };
+    const tasks = list(plan.definition['tasks']).map(obj); const dependencies = list(plan.definition['dependencies']).map(obj);
+    const contexts = list(plan.definition['regions'], 33).map(obj);
+    if (contexts.some(row => !fields(row, ['context', 'sourceDigest'])) || contexts.length !== admitted.length || admitted.some(region => contexts.filter(row => equal(row['context'], region.context) &&
+        equal(row['sourceDigest'], sourceBodies.find(body => equal(body.context, region.context))!.digest)).length !== 1)) return fail();
+    const records = new Map(admitted.flatMap(region => region.records.map(row => [key(region.context, row.recordType + row.identity), row] as const)));
+    if (tasks.some(row => !fields(row, ['context', 'irNodeId', 'sourceEntityId', 'location', 'duration', 'ports']))) return fail();
+    const taskIndex = indexed(tasks, row => key(row['context'], row['irNodeId']));
+    const expectedTasks = lowered.flatMap(({ region, ir }) => list(ir['nodes']).map(obj).filter(node => node['kind'] === 'coglatas.task').map(node => ({ region, node })));
+    if (tasks.length !== expectedTasks.length) return fail();
+    for (const { region, node } of expectedTasks) {
+      const task = taskIndex.get(key(region.context, node['irNodeId']));
+      if (!task || task['sourceEntityId'] !== node['sourceEntityId'] || !equal(task['location'], records.get(key(region.context, 'entity' + node['sourceEntityId']))?.location) ||
+          !equal(task['duration'], obj(node['payload'])['duration']) || !equal(task['ports'], obj(node['payload'])['ports'])) return fail();
+    }
+    if (dependencies.some(row => !fields(row, ['owner', 'relationId', 'location', 'mode', 'lag', 'dependent', 'prerequisite']) ||
+        !fields(row['dependent'], ['context', 'irNodeId']) || !fields(row['prerequisite'], ['context', 'irNodeId']))) return fail();
+    const edgeIndex = indexed(dependencies, row => key(row['owner'], row['relationId']));
+    const expectedEdges = lowered.flatMap(({ region, ir }) => list(ir['relations']).map(obj).filter(edge => edge['kind'] === 'coglatas.depends-on').map(edge => ({ region, edge })));
+    if (dependencies.length !== expectedEdges.length) return fail();
+    for (const { region, edge } of expectedEdges) {
+      const dep = edgeIndex.get(key(region.context, edge['relationId']));
+      if (!dep || !equal(dep['location'], records.get(key(region.context, 'relation' + edge['relationId']))?.location) || dep['mode'] !== obj(edge['payload'])['mode'] ||
+          !equal(dep['lag'], obj(edge['payload'])['lag']) || !equal(dep['dependent'], { context: obj(edge['source'])['context'], irNodeId: obj(edge['source'])['irNodeId'] }) ||
+          !equal(dep['prerequisite'], { context: obj(edge['target'])['context'], irNodeId: obj(edge['target'])['irNodeId'] })) return fail();
+    }
+    const order = list(plan.definition['definitionOrder']).map(obj);
+    if (order.some(row => !fields(row, ['context', 'irNodeId'])) || order.length !== tasks.length) return fail();
+    const orderIndex = indexed(order, row => key(row['context'], row['irNodeId']));
+    if ([...taskIndex.keys()].some(key => !orderIndex.has(key))) return fail();
+  }
+  const resultAdmission = { basis: captured, projection, regions: admitted, publicationVerified: publishedModel !== null, plan, planNotProducedReason };
   if (!scopedSourcesMatch(value, resultAdmission)) return fail(); return freeze(resultAdmission);
 }
 

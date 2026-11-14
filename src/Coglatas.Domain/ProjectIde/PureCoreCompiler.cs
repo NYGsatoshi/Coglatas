@@ -83,10 +83,12 @@ public static class PureCoreCompiler
                     : [input.InputDigest, input.Source.Digest, ContentDigest.Compute("coglatas.predicate-premises/1", SourceJson.FromObject(actual).ToCanonicalBytes())]);
             }
             var schemaRule = input.Rules.Single(rule => rule.RuleId == CoreCompilerRules.Schema);
+            if (CompilerExecutionPlan.Requested(input) && !CompilerScopedPublication.Requested(input))
+                Finding(schemaRule, "coglatas.plan.requires-version-two", RelationFindingState.Unsupported, root);
             var declarationRule = input.Rules.Single(rule => rule.RuleId == CoreCompilerRules.Declarations);
             var capabilities = RelationKindDescriptor.BuiltIns.SelectMany(item => item.RequiredCapabilities).Prepend("coglatas.core.structural").ToHashSet(StringComparer.Ordinal);
             if (SourceFields.Array(input.Settings.Value, "featureSet").EnumerateArray().Any(value => !capabilities.Contains(ValueFields.String(value))) ||
-                SourceFields.Array(input.Settings.Value, "targets").EnumerateArray().Any(value => ValueFields.String(value) is not ("coglatas.semantic-model" or "coglatas.project-ir")) ||
+                SourceFields.Array(input.Settings.Value, "targets").EnumerateArray().Any(value => ValueFields.String(value) is not ("coglatas.semantic-model" or "coglatas.project-ir" or CompilerExecutionPlan.Target)) ||
                 SourceFields.Array(input.Settings.Value, "analysisScope").EnumerateArray().Any(value => ValueFields.String(value) != "coglatas.source-structure"))
                 Finding(schemaRule, "coglatas.analysis.unsupported-target", RelationFindingState.Unsupported, root);
             var declarations = model.Declarations.Select(item => item.Declaration).OfType<PlanDeclaration>().ToArray();
