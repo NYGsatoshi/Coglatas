@@ -303,5 +303,8 @@ test('source-only opt-in cannot silently change the protected frontend runner', 
   assert.match(sdkTrial, /github\.base_ref == 'SecurityTestImplimation'/);
   assert.match(sdkTrial, /github\.head_ref == 'ci-opt\/playwright-full-source-list-20261105'/);
   assert.match(sdkTrial, /needs\.frontend-build\.outputs\.frontend_playwright == 'true'/);
-  assert.match(sdkTrial, /node --test tests\/ui\/playwright-source-applicability\.node-test\.mjs/);
+  // Inspect exactly the opted-in, uncolored TAP invocation and immutable outcomes.
+  assert.match(sdkTrial, /node --test --test-reporter=tap tests\/ui\/playwright-source-applicability\.node-test\.mjs/);
+  assert.match(sdkTrial, /for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'/);
+  assert.match(sdkTrial, /SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE/);
 });
