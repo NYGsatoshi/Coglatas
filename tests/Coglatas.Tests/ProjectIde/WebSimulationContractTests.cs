@@ -6,6 +6,23 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class WebSimulationContractTests
 {
+    [Fact]
+    public void EntireBundleRetainsOneBodyPerCapturedSourceContextAndSnapshotVersion()
+    {
+        var contexts = new Dictionary<string, string>(StringComparer.Ordinal); var snapshots = new Dictionary<string, string>(StringComparer.Ordinal);
+        static void Retain(Dictionary<string, string> index, string key, string digest) {
+            if (index.TryGetValue(key, out var existing)) Assert.Equal(existing, digest); else index.Add(key, digest);
+        }
+        foreach (var row in Cases()) {
+            using var parsed = JsonDocument.Parse((string)row[0]); var item = parsed.RootElement;
+            Retain(contexts, SourceJson.Parse(item.GetProperty("context").GetRawText()).CanonicalText, item.GetProperty("sourceDigest").GetProperty("value").GetString()!);
+            if (item.TryGetProperty("materializedSnapshots", out var materialized)) foreach (var entry in materialized.GetProperty("entries").EnumerateArray()) {
+                var digest = entry.GetProperty("source").GetProperty("digest").GetProperty("value").GetString()!;
+                Retain(contexts, SourceJson.Parse(entry.GetProperty("context").GetRawText()).CanonicalText, digest);
+                Retain(snapshots, entry.GetProperty("snapshotId").GetString() + "|" + entry.GetProperty("version").GetString(), digest);
+            }
+        }
+    }
     public static IEnumerable<object[]> Cases()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

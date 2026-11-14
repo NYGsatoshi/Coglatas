@@ -33,7 +33,7 @@ if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
 };
 if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-simulation-root"] = ScenarioFixture(publication: true, planTarget: true),
-    ["tests-simulation-external"] = ReferenceScenarioFixture(2200, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
+    ["tests-simulation-external"] = ReferenceScenarioFixture(2600, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
     ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
     ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
 };

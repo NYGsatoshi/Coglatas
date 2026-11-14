@@ -83,6 +83,7 @@ export async function readSimulationRun(value: PreviewCase, sources: AdmittedSco
   if (state === 'Completed') { if (!tasks.length || ends.size !== tasks.length || data['reason'] !== 'coglatas.simulation.completed') return fail(); }
   else if (state === 'ResourceExhausted') {
     if (!['coglatas.simulation.event-bound', 'coglatas.simulation.time-bound', 'coglatas.simulation.operation-bound', 'coglatas.simulation.trace-bound'].includes(data['reason'] as string) || ends.size === tasks.length) return fail();
+    if (data['reason'] === 'coglatas.simulation.event-bound' && count !== limits['maximumEvents']) return fail();
   } else if (state === 'Cancelled') { if (data['reason'] !== 'coglatas.cancelled' || ends.size === tasks.length) return fail(); }
   else if (state === 'InternalError') { if (data['reason'] !== 'coglatas.simulation.tick-overflow') return fail(); }
   else if (state === 'NotRun') { if (tasks.length || count || data['reason'] !== 'coglatas.simulation.empty-plan') return fail(); }

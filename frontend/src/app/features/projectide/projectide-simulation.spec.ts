@@ -21,6 +21,19 @@ function rewrite(value: PreviewCase, edit: (run: any) => void): void {
   const text = JSON.stringify(run); Object.assign(value, { simulationRun: { text, digest: hash('coglatas.simulation-run/1', text) } });
 }
 describe('Actual Core simulation result admission', () => {
+  it('binds each captured Source context and snapshot version to only one body across the entire bundle', () => {
+    const contexts = new Map<string, string>(); const snapshots = new Map<string, string>();
+    const retain = (index: Map<string, string>, key: string, digest: string) => {
+      if (index.has(key)) expect(index.get(key)).toBe(digest); else index.set(key, digest);
+    };
+    for (const value of exported.cases) {
+      retain(contexts, JSON.stringify(value.context), value.sourceDigest.value);
+      for (const entry of value.materializedSnapshots?.entries ?? []) {
+        retain(contexts, JSON.stringify(entry.context), entry.source.digest.value);
+        retain(snapshots, JSON.stringify([entry.snapshotId, entry.version]), entry.source.digest.value);
+      }
+    }
+  });
   it.each(['root', 'external', 'bounded'])('admits actual baseline/hypothesis/Draft run bytes with separate verdicts: %s', async family => {
     const ids = new Set<string>();
     for (const value of bundle(family).cases) {
@@ -38,6 +51,13 @@ describe('Actual Core simulation result admission', () => {
       const sources = (await readScopedSources(value))!; expect(sources.plan).toBeNull(); expect(await readSimulationRun(value, sources)).toBeNull();
       expect(sources.planNotProducedReason).toBe('coglatas.plan.required-validation-incomplete');
     }
+  });
+  it('rejects a rehashed event-bound claim below the actual declared event limit', async () => {
+    const value = bundle('bounded').cases[0];
+    rewrite(value, run => { expect(run.events).toHaveLength(2); run.manifest.limits.maximumEvents = 3; run.reason = 'coglatas.simulation.event-bound'; });
+    const sources = (await readScopedSources(value))!; let rejected = false;
+    try { await readSimulationRun(value, sources); } catch { rejected = true; }
+    expect(rejected).toBe(true);
   });
   it.each(['bytes', 'other-input', 'future', 'engine', 'policy', 'source', 'pass', 'counts', 'duplicate', 'context', 'duration', 'causality', 'event-limit', 'trace-limit'])(
     'rejects altered or rehashed inconsistent run claims: %s', async mode => {
