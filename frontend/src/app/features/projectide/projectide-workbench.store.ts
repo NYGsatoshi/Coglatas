@@ -132,10 +132,16 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   async exportPreparedTestDefinition(prepared: PreparedTestEdit): Promise<string | null> {
-    return (await this.admitTestEdit(prepared))?.definitionText ?? null;
+    const generation = this.testGeneration; const bundle = this.bundle(); const context = this.context();
+    const result = await this.admitTestEdit(prepared);
+    return result && generation === this.testGeneration && bundle === this.bundle() && context === this.context() &&
+      context === this.result() && this.preparedTestEdit() === prepared ? result.definitionText : null;
   }
   async loadPreparedTestEdit(prepared: PreparedTestEdit): Promise<boolean> {
-    const result = await this.admitTestEdit(prepared); if (!result) return false;
+    const generation = this.testGeneration; const bundle = this.bundle(); const context = this.context();
+    const result = await this.admitTestEdit(prepared);
+    if (!result || generation !== this.testGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedTestEdit() !== prepared) return false;
     this.choose(result.after.key); this.loadResult(); return true;
   }
   private testGeneration = 0;

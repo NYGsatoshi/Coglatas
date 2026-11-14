@@ -60,6 +60,8 @@ public sealed class SyntheticProjectTestEditingTests
     [InlineData("begin", true)]
     [InlineData("select", false)]
     [InlineData("select", true)]
+    [InlineData("navigate", false)]
+    [InlineData("navigate", true)]
     public async Task NotificationReentryCannotRetainOrReturnAnInterruptedDefinitionPreview(string mode, bool existing)
     {
         var f = await Ready(); var view = f.View;
@@ -74,6 +76,7 @@ public sealed class SyntheticProjectTestEditingTests
                 if (mode == "dispose") current.Dispose();
                 if (mode == "begin") current.BeginSynthetic(new(new(input), 2));
                 if (mode == "select") current.Select(f.Target);
+                if (mode == "navigate") current.Navigate();
             };
             Assert.Null(view.PreviewTestDefinition(f.Target, f.Definition, f.Next)); Assert.True(entered); Assert.Null(view.TestEditPreview);
         }

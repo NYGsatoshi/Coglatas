@@ -48,6 +48,17 @@ describe('Canonical Source Test definition preview', () => {
   it('rejects contexts outside the provided immutable bundle', () => {
     const b = bundle(); expect(() => testEditPair(b, structuredClone(b.cases[0]))).toThrow();
   });
+  it.each(['load', 'export'])('preserves a newer selection queued between admission and the %s continuation', async operation => {
+    const store = await ready(); const prepared = store.preparedTestEdit()!;
+    const admitted = (await readPreparedTestEdit(store.bundle()!, store.context()!))!;
+    const boundary = store as unknown as { admitTestEdit: () => Promise<typeof admitted> };
+    vi.spyOn(boundary, 'admitTestEdit').mockImplementation(async () => {
+      queueMicrotask(() => { store.choose('tests-edit-before'); store.loadResult(); }); return admitted;
+    });
+    const result = operation === 'load' ? await store.loadPreparedTestEdit(prepared) : await store.exportPreparedTestDefinition(prepared);
+    expect(result).toBe(operation === 'load' ? false : null);
+    expect(store.context()!.key).toBe('tests-edit-before'); expect(store.preparedTestEdit()).toBe(prepared);
+  });
   it('does not restore a prepared candidate after a denied boundary interrupts hashing', async () => {
     const store = await ready(); const p = store.preparedTestEdit()!; let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; }); const original = webcrypto.subtle.digest.bind(webcrypto.subtle);
