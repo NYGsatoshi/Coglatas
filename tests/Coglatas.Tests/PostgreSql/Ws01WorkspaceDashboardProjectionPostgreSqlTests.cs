@@ -82,14 +82,13 @@ public sealed class Ws01WorkspaceDashboardProjectionPostgreSqlTests
 
             Assert.Equal(5, actorItems.Count);
             Assert.Equal(
-                new WorkspaceRole?[]
-                {
+                [
                     WorkspaceRole.Owner,
                     WorkspaceRole.Admin,
                     WorkspaceRole.Adviser,
                     WorkspaceRole.Member,
                     WorkspaceRole.ReadOnly
-                },
+                ],
                 actorItems.Select(item => item.CurrentUserRole));
             Assert.All(actorItems, item =>
             {
@@ -103,13 +102,13 @@ public sealed class Ws01WorkspaceDashboardProjectionPostgreSqlTests
                     item.InProgressProjectCount);
             });
             Assert.Equal(
-                new[] { true, true, false, true, false },
+                [true, true, false, true, false],
                 actorItems.Select(item => item.CanCreateProject));
             Assert.Equal(
-                new[] { true, true, true, true, false },
+                [true, true, true, true, false],
                 actorItems.Select(item => item.CanOpenProjectCreate));
             Assert.Equal(
-                new[] { true, true, true, true, false },
+                [true, true, true, true, false],
                 actorItems.Select(item => item.CanAddFiles));
             Assert.DoesNotContain(actorItems, item => item.Id == graph.ArchivedWorkspace.Id);
             Assert.DoesNotContain(actorItems, item => item.Id == graph.TenantBWorkspace.Id);
