@@ -226,29 +226,52 @@ internal static class DraftSourceTransition
             foreach (var port in task.Ports)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (port.DefaultValue is { } value) RebaseValue(ports[port.PortId]!["defaultValue"]!.AsObject(), value);
+                if (port.DefaultValue is { } value) RebaseValueOrigins(ports[port.PortId]!["defaultValue"]!.AsObject(), value, source.Context, next, source.Data.Limits, cancellationToken);
             }
         }
-        void RebaseValue(JsonObject node, TypedProjectValue value)
+
+    }
+    internal static SourceJson RebaseValueOrigins(SourceJson data, SourceRevisionContext before, SourceRevisionContext next,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var decoded = TypedProjectValueCodec.Decode(data);
+        if (decoded.Value is not { } value) throw new UnsupportedSourceException("Unsupported typed Scenario value.");
+        var node = JsonNode.Parse(data.CanonicalText)!.AsObject();
+        RebaseValueOrigins(node, value, before, next, data.Limits, cancellationToken);
+        try { return SourceJson.FromObject(node, data.Limits); }
+        catch (FormatException) { throw new DraftSourceLimitException(); }
+    }
+
+    private static void RebaseValueOrigins(JsonObject root, TypedProjectValue rootValue, SourceRevisionContext before,
+        SourceRevisionContext next, SourceCodecLimits limits, CancellationToken cancellationToken)
+    {
+        Visit(root, rootValue);
+        SourceJson Encode(JsonNode node)
+        {
+            try { return SourceJson.FromObject(node, limits); }
+            catch (FormatException) { throw new DraftSourceLimitException(); }
+        }
+        void Visit(JsonObject node, TypedProjectValue value)
         {
             cancellationToken.ThrowIfCancellationRequested();
             switch (value.KnownValue)
             {
                 case TypedProjectReference reference:
-                    // The target context and manifest are pinned. Only the declaring origin advances with the Draft.
-                    if (reference.Origin.Context.Equals(source.Context)) node["value"]!["origin"]!["context"] = Context();
+                    // Targets and manifests stay pinned; only an exact local declaring origin advances.
+                    if (reference.Origin.Context.Equals(before)) node["value"]!["origin"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
                     break;
                 case TypedProjectValue child:
-                    RebaseValue(node["value"]!.AsObject(), child); break;
+                    Visit(node["value"]!.AsObject(), child); break;
                 case OptionalProjectValue { Present: true, Value: { } child }:
-                    RebaseValue(node["value"]!["value"]!.AsObject(), child); break;
+                    Visit(node["value"]!["value"]!.AsObject(), child); break;
                 case ProjectStructureValue structure:
-                    foreach (var field in structure.Fields) RebaseValue(node["value"]![field.Key]!.AsObject(), field.Value);
+                    foreach (var field in structure.Fields) Visit(node["value"]![field.Key]!.AsObject(), field.Value);
                     break;
                 case ProjectCollectionValue collection:
                     var array = node["value"]!.AsArray();
-                    for (var i = 0; i < collection.Items.Count; i++) RebaseValue(array[i]!.AsObject(), collection.Items[i]);
-                    for (var i = 0; i < collection.Entries.Count; i++) RebaseValue(array[i]!["value"]!.AsObject(), collection.Entries[i].Value);
+                    for (var i = 0; i < collection.Items.Count; i++) Visit(array[i]!.AsObject(), collection.Items[i]);
+                    for (var i = 0; i < collection.Entries.Count; i++) Visit(array[i]!["value"]!.AsObject(), collection.Entries[i].Value);
                     if (value.Type.Kind == "coglatas.set")
                     {
                         var ordered = array.Select(item => (Node: item!, Key: Encode(item!).CanonicalText))
@@ -259,6 +282,7 @@ internal static class DraftSourceTransition
             }
         }
     }
+
 }
 
 internal sealed class DraftSourceLimitException : Exception

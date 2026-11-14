@@ -2,6 +2,8 @@
 
 [Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
 adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.
+Rebase advances typed declaring origins while preserving pinned reference targets
+and opaque Unknown basis, using the shared Draft visitor.
 Both offline clients separate baseline, assumptions and fresh results; Angular
 checks actual Core-prepared snapshots. Generic browser authoring, Simulation/Impact
 and current server authority remain open.

@@ -174,10 +174,18 @@ public static class ProjectScenarios
             cancellationToken.ThrowIfCancellationRequested();
             var old = change.Override;
             var target = ProjectLocation.Create(old.Target.DocumentId, newBasis.Input.Source.Context, entityId: old.Target.EntityId);
-            var item = old with { Target = target };
-            if (Read(newBasis, item, out _, out var current) != ProjectScenarioState.Ready || !Equals(current, change.Before))
-                return new(ProjectScenarioState.Conflict, null);
-            overrides.Add(item);
+            try
+            {
+                var before = change.Before is null ? null : DraftSourceTransition.RebaseValueOrigins(change.Before,
+                    previous.Basis.Source.Context, newBasis.Input.Source.Context, cancellationToken);
+                var value = DraftSourceTransition.RebaseValueOrigins(old.Value, previous.Basis.Source.Context, newBasis.Input.Source.Context, cancellationToken);
+                var item = old with { Target = target, Value = value };
+                if (Read(newBasis, item, out _, out var current) != ProjectScenarioState.Ready || !Equals(current, before))
+                    return new(ProjectScenarioState.Conflict, null);
+                overrides.Add(item);
+            }
+            catch (UnsupportedSourceException) { return new(ProjectScenarioState.Unsupported, null); }
+            catch (DraftSourceLimitException) { return new(ProjectScenarioState.ResourceLimit, null); }
         }
         return Prepare(newBasis, expectedInput, identity.ScenarioId, revision, overrides, cancellationToken);
     }
