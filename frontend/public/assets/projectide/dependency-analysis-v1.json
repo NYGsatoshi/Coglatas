@@ -927,7 +927,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
+                    "value": "2a14220defd6e60266d8cb55db487b4ca4ee82e2e6f121d9fcac01b1e3bd6702"
                   },
                   {
                     "algorithm": "sha-256",
@@ -972,7 +972,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
+                    "value": "2a14220defd6e60266d8cb55db487b4ca4ee82e2e6f121d9fcac01b1e3bd6702"
                   },
                   {
                     "algorithm": "sha-256",
@@ -1019,7 +1019,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
+                  "value": "2a14220defd6e60266d8cb55db487b4ca4ee82e2e6f121d9fcac01b1e3bd6702"
                 },
                 {
                   "algorithm": "sha-256",
@@ -1076,7 +1076,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
+                  "value": "2a14220defd6e60266d8cb55db487b4ca4ee82e2e6f121d9fcac01b1e3bd6702"
                 },
                 {
                   "algorithm": "sha-256",
@@ -1160,7 +1160,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
+                "value": "2a14220defd6e60266d8cb55db487b4ca4ee82e2e6f121d9fcac01b1e3bd6702"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -1169,10 +1169,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "dcce13cc-807e-8876-a5db-69ca458ef118",
+      "resultId": "687e41fa-45a8-87ce-a6d4-afee4cb8ef10",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "6192c1933167e2694fc057cfbe3fd8ba3a92d3f37900b3d20a26ca4af58c55e0"
+        "value": "ae3df496063f728e4b3cb05362ce6a2f2d11b215b5017c919b96cb0286d608d4"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -3361,7 +3361,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
+                    "value": "47b8a24b8a3e9b838a945d0c9c57278d453d82b65c6db91225d6b67ea0a778d1"
                   },
                   {
                     "algorithm": "sha-256",
@@ -3406,7 +3406,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
+                    "value": "47b8a24b8a3e9b838a945d0c9c57278d453d82b65c6db91225d6b67ea0a778d1"
                   },
                   {
                     "algorithm": "sha-256",
@@ -3453,7 +3453,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
+                  "value": "47b8a24b8a3e9b838a945d0c9c57278d453d82b65c6db91225d6b67ea0a778d1"
                 },
                 {
                   "algorithm": "sha-256",
@@ -3510,7 +3510,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
+                  "value": "47b8a24b8a3e9b838a945d0c9c57278d453d82b65c6db91225d6b67ea0a778d1"
                 },
                 {
                   "algorithm": "sha-256",
@@ -3594,7 +3594,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
+                "value": "47b8a24b8a3e9b838a945d0c9c57278d453d82b65c6db91225d6b67ea0a778d1"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -3603,10 +3603,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "c1d2bde7-3cc6-8ef5-a89b-ff0b71c53e97",
+      "resultId": "b0f1b682-ac03-8865-b0d1-1c9e9f68570b",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "5b963531005ee27443d445fb7e54d6fe8d28251d6d780acfc9e5405a50f00d92"
+        "value": "23a838efcb55c5311028a02f8fd47545122812a52b2093a0744e345420cd1f14"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -5727,11 +5727,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
+                    "value": "288c91bee2e7f02eb4c913df5f799f02e0aebaed26639920fd399ddde2b23d2c"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
+                    "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
                   }
                 ]
               },
@@ -5772,11 +5772,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
+                    "value": "288c91bee2e7f02eb4c913df5f799f02e0aebaed26639920fd399ddde2b23d2c"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
+                    "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
                   }
                 ]
               },
@@ -5819,11 +5819,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
+                  "value": "288c91bee2e7f02eb4c913df5f799f02e0aebaed26639920fd399ddde2b23d2c"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
+                  "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
                 }
               ]
             },
@@ -5876,11 +5876,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
+                  "value": "288c91bee2e7f02eb4c913df5f799f02e0aebaed26639920fd399ddde2b23d2c"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
+                  "value": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a"
                 }
               ]
             },
@@ -5960,7 +5960,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
+                "value": "288c91bee2e7f02eb4c913df5f799f02e0aebaed26639920fd399ddde2b23d2c"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -5969,10 +5969,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "30a2e1c7-a4ec-881c-8ba5-c13c28ac9ea7",
+      "resultId": "dfd40485-e084-81cb-ba8d-e20a90da368a",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "e19c2e946f26c0ab324fb77cb3d3727b4d3ec944d58cb6f42d2a581504a16cf2"
+        "value": "904684943f1535397f853a26409e304e97f93a8f931bc4f8ac8b95048155b3ad"
       },
       "freshness": "Current",
       "changedDimensions": [],

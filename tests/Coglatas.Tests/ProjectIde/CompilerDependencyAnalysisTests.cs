@@ -339,4 +339,74 @@ public sealed class CompilerDependencyAnalysisTests
             item.Evidence.Kind == CompilerEvidenceKind.ModelProof && item.Evidence.Premises.Contains(failure.Digest));
         Assert.False(limited.Result.EvidenceComplete);
     }
+
+    [Fact]
+    public void EstablishedForeignSemanticFailureSurvivesExhaustionBeforeRuleExecution()
+    {
+        var unitData = Data(new { unitId = "unit.mass", version = 1, dimension = new Dictionary<string, int> { ["dimension.mass"] = 1 } });
+        var unit = new UnitDefinition(unitData, ContentDigest.Compute("coglatas.unit-definition/1", unitData.ToCanonicalBytes()));
+        var fixture = ReplaceA(Graph(transitive: false, allConcepts: true), source =>
+        {
+            var declarations = JsonNode.Parse(source.Declarations.CanonicalText)!.AsArray();
+            var port = declarations.Single(item => item!["kind"]!.GetValue<string>() == "coglatas.task")!["payload"]!["ports"]![0]!;
+            port["type"] = Obj(new { kind = "coglatas.quantity", schemaVersion = 1, nullable = false, acceptsUnknown = false, unitId = "unit.mass",
+                dimension = new Dictionary<string, int> { ["dimension.length"] = 1 } });
+            port.AsObject().Remove("defaultValue");
+            return ProjectSource.Create(source.Context, source.Documents, Json(declarations), source.Relations);
+        });
+        var settings = JsonNode.Parse(fixture.Input.Settings.CanonicalText)!.AsObject();
+        settings["units"] = new JsonArray(Obj(new { artifactId = unit.UnitId, version = "1", digest = unit.Digest.Data.Value }));
+        fixture = fixture with { Input = new(fixture.Input.Source, Json(settings)) };
+        var full = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots, units: [unit]);
+        Assert.Equal(CompilerVerdict.Fail, full.Result.Verdict);
+        var semanticCost = full.Dependencies!.Regions.Sum(region => region.Validation!.LogicalOperationsConsumed - region.Validation.Model.LogicalOperationsConsumed);
+        settings["executionProfile"]!["maximumOperations"] = full.Dependencies.Binding.LogicalOperationsConsumed + semanticCost - 1;
+        var limitedInput = new CompilerInputManifest(fixture.Input.Source, Json(settings));
+        var limited = PureCoreCompiler.Compile(limitedInput, limitedInput.Compiler, fixture.Snapshots, units: [unit]);
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, limited.Result.Execution); Assert.Equal(CompilerVerdict.Fail, limited.Result.Verdict);
+        Assert.Empty(limited.Dependencies!.Regions);
+        Assert.Contains(limited.Dependencies.KnownFailures, failure => failure.Context.Equals(fixture.A) &&
+            failure.Diagnostic?.Code == "coglatas.semantic.unit-dimension");
+        Assert.Contains(limited.Result.Diagnostics, diagnostic => diagnostic.Code == "coglatas.analysis.dependency-known-failure" && diagnostic.Evidence.Kind == CompilerEvidenceKind.ModelProof);
+    }
+    [Fact]
+    public void InnerResultPublicationLimitDoesNotSkipALaterRegionsRequiredFalseConstraint()
+    {
+        var fixture = Graph();
+        fixture = ReplaceA(fixture, source =>
+        {
+            var declarations = JsonNode.Parse(source.Declarations.CanonicalText)!.AsArray();
+            declarations.Add(Obj(new { entityId = Id(501), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+            {
+                duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+                ports = Enumerable.Range(10000, 3000).Select(id => new { portId = Id(id), direction = "coglatas.input", minimumConnections = 0, maximumConnections = 1,
+                    type = new { kind = "coglatas.quantity", schemaVersion = 1, nullable = false, acceptsUnknown = false, unitId = "unit.unavailable", dimension = new Dictionary<string, int> { ["dimension.mass"] = 1 } } }).ToArray()
+            } }));
+            return ProjectSource.Create(source.Context, source.Documents, Json(declarations), source.Relations);
+        });
+        var originalB = fixture.Snapshots.Single(snapshot => snapshot.Snapshot.Source.Context.Equals(fixture.B));
+        var template = CompilerAnalysisFixtures.Constraint(false).Source;
+        var constraint = template.Declarations.Value.EnumerateArray().Single(item => item.GetProperty("kind").GetString() == "coglatas.constraint");
+        var relation = JsonNode.Parse(template.Relations.CanonicalText)!.AsArray()[0]!.DeepClone();
+        relation["source"]!["reference"] = CompilerAnalysisFixtures.Reference(7, fixture.B);
+        relation["target"]!["reference"] = CompilerAnalysisFixtures.Reference(6, fixture.B);
+        relation["payload"]!["predicateReference"] = CompilerAnalysisFixtures.Reference(7, fixture.B);
+        relation["payload"]!["version"] = fixture.B.CommittedRevision!.RevisionId.ToString();
+        var b = ProjectSource.Create(fixture.B, originalB.Snapshot.Source.Documents,
+            Data(originalB.Snapshot.Source.Declarations.Value.EnumerateArray().Append(constraint).ToArray()), Json(new JsonArray(relation)));
+        var settings = JsonNode.Parse(fixture.Input.Settings.CanonicalText)!.AsObject();
+        settings["executionProfile"]!["maximumOperations"] = 10000000;
+        settings["executionProfile"]!["maximumDeclarations"] = 10000;
+        foreach (var pin in settings["authorizedExternalSnapshots"]!.AsArray())
+            if (pin!["snapshotId"]!.GetValue<string>() == originalB.SnapshotId.ToString()) pin["digest"] = JsonNode.Parse(b.Digest.Data.CanonicalText);
+        fixture = fixture with { Input = new(fixture.Input.Source, Json(settings)),
+            Snapshots = fixture.Snapshots.Select(snapshot => snapshot == originalB ? new CompilerMaterializedSnapshot(snapshot.SnapshotId, snapshot.Version, new(b, true, true, true)) : snapshot).ToArray() };
+        var result = Compile(fixture); Assert.Equal(CompilerExecutionState.ResourceExhausted, result.Result.Execution);
+        Assert.True(result.LogicalOperationsConsumed < fixture.Input.ExecutionProfile.MaximumOperations);
+        var a = result.Dependencies!.Regions.Single(region => region.Binding.Source.Context.Equals(fixture.A));
+        Assert.Contains(a.Diagnostics, diagnostic => diagnostic.Code == "coglatas.analysis.publication-budget");
+        var later = result.Dependencies.Regions.Single(region => region.Binding.Source.Context.Equals(fixture.B));
+        Assert.Contains(later.Diagnostics, diagnostic => diagnostic.Code == "coglatas.analysis.constraint-false");
+        Assert.Equal(CompilerVerdict.Fail, result.Result.Verdict);
+    }
 }
