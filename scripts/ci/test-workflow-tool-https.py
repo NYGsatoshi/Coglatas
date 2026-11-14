@@ -96,11 +96,37 @@ class InstallerTransportTests(unittest.TestCase):
             raise RuntimeError('Synthetic transport server did not stop.')
 
     def commands(self):
-        commands = [shlex.split(line.strip()) for line in WORKFLOW.read_text(encoding='utf-8').splitlines()
-                    if line.lstrip().startswith('curl ')]
-        self.assertEqual(len(commands), 2, 'Both original installer download commands must be exercised.')
-        self.assertTrue(any('rhysd/actionlint/' in token for token in commands[0]))
-        self.assertTrue(any('zizmorcore/zizmor/' in token for token in commands[1]))
+        lines = WORKFLOW.read_text(encoding='utf-8').splitlines()
+        commands = []
+        for index, raw in enumerate(lines):
+            line = raw.strip()
+            if line.startswith('if ! curl '):
+                line = line[len('if ! '):]
+            elif not line.startswith('curl '):
+                continue
+
+            fragments = [line]
+            offset = index
+            while fragments[-1].endswith('\\'):
+                fragments[-1] = fragments[-1][:-1].rstrip()
+                offset += 1
+                self.assertLess(offset, len(lines), 'Installer curl continuation is truncated.')
+                fragments.append(lines[offset].strip())
+
+            command = ' '.join(fragments)
+            if command.endswith('; then'):
+                command = command[:-len('; then')]
+            commands.append(shlex.split(command))
+
+        self.assertEqual(len(commands), 4, 'Both installer primary and fallback curls must be exercised.')
+        for project in ('rhysd/actionlint/', 'zizmorcore/zizmor/'):
+            matching = [command for command in commands if
+                        any(project in token for token in command)]
+            self.assertEqual(len(matching), 2, project)
+            self.assertEqual(sum(any(token.startswith('https://api.github.com/')
+                                     for token in command) for command in matching), 1, project)
+            self.assertEqual(sum(any(token.startswith('https://github.com/')
+                                     for token in command) for command in matching), 1, project)
         return commands
 
     def transfer(self, command, path, *, trust=True, initial_scheme='https'):
