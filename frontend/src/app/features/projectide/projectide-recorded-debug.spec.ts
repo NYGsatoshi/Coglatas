@@ -60,6 +60,27 @@ describe('Original recorded Core debugger admission', () => {
       if (mode === 'stale-source') { const sources = (await readScopedSources(value))!; const run = await readSimulationRun(value, sources); value.simulationDebug.frames[0].action = 'example.old'; await expect(readRecordedDebug(value, sources, run)).rejects.toThrow(); return; }
       await expect(admit(value)).rejects.toThrow();
     });
+  it.each(['skipped-breakpoint', 'step-over-overrun', 'repeated-resume-stop'])('rejects rehashed command stop violations: %s', async mode => {
+    const value: any = bundle().cases[0]; const original = value.simulationDebug.frames;
+    if (mode === 'skipped-breakpoint') value.simulationDebug.frames = [...original.slice(0, 3), structuredClone(original[10])];
+    if (mode === 'step-over-overrun') {
+      const overrun = structuredClone(original[10]); overrun.action = 'coglatas.task-step-over'; overrun.target = original[9].target;
+      value.simulationDebug.frames = [...original.slice(0, 9), overrun];
+      changeFrame(value, 9, snapshot => snapshot.reason = 'coglatas.debug.task-step-over');
+    }
+    if (mode === 'repeated-resume-stop') value.simulationDebug.frames = [...original.slice(0, 5), structuredClone(original[3]), ...original.slice(5)];
+    value.simulationDebug.frames.forEach((_row: unknown, index: number) => changeFrame(value, index, snapshot => snapshot.revision = index));
+    await expect(admit(value)).rejects.toThrow();
+  });
+  it('preserves breakpoint resume across Inspect before Continue stops at the next breakpoint', async () => {
+    const value: any = bundle().cases[0]; const original = value.simulationDebug.frames;
+    value.simulationDebug.frames = [...original.slice(0, 5), ...original.slice(7)];
+    value.simulationDebug.frames.forEach((_row: unknown, index: number) => changeFrame(value, index, snapshot => snapshot.revision = index));
+    const debug = (await admit(value))!;
+    expect(debug.frames[5].events).toHaveLength(1);
+    expect(debug.frames[5].snapshot['hitBreakpointId']).toBe(JSON.parse(original[7].snapshot.text).hitBreakpointId);
+    expect(debug.frames[5].pending!['kind']).toBe('coglatas.task-end');
+  });
   it('withdraws a late admission when original recording bytes change during hashing', async () => {
     const value: any = bundle().cases[0]; const sources = (await readScopedSources(value))!; const run = await readSimulationRun(value, sources);
     const pending = readRecordedDebug(value, sources, run); value.simulationDebug.frames[0].action = 'example.changed'; await expect(pending).rejects.toThrow();

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
 
-namespace Coglatas.ProjectIde.Preview;
+namespace Coglatas.ProjectIde;
 
 /// <summary>Offline original Core debugger recordings; never a browser or server executor.</summary>
 internal static class SyntheticSimulationDebugRecording

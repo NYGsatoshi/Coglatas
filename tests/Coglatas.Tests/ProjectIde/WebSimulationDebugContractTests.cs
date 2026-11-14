@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Tests.ProjectIde;
@@ -72,6 +73,24 @@ public sealed class WebSimulationDebugContractTests
         var full = ProjectSimulation.Execute(request, input.InputDigest); Assert.Equal(full.Data, debugger.Snapshot.Result!.Data);
         Assert.Equal(full.Data, SourceJson.Parse(item.GetProperty("simulationRun").GetProperty("text").GetString()!));
         Assert.Equal(CompilerVerdict.NotRun, full.Verdict);
+    }
+    [Fact]
+    public void ContinueResumesAcrossInspectionAndStopsAtTheNextActualBreakpoint()
+    {
+        var item = Cases().Select(row => Assert.IsType<JsonObject>(JsonNode.Parse((string)row[0])))
+            .Single(row => Assert.IsAssignableFrom<JsonValue>(row["key"]).GetValue<string>() == "tests-simulation-root-base");
+        var recording = Assert.IsType<JsonObject>(item["simulationDebug"]);
+        var frames = Assert.IsType<JsonArray>(recording["frames"]);
+        // Omit the explicit event step and its inspection: Continue must resume the retained start breakpoint itself.
+        frames.RemoveAt(6); frames.RemoveAt(5);
+        for (var index = 0; index < frames.Count; index++) {
+            var frame = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(frames[index])["snapshot"]);
+            var snapshot = Assert.IsType<JsonObject>(JsonNode.Parse(Assert.IsAssignableFrom<JsonValue>(frame["text"]).GetValue<string>()));
+            snapshot["revision"] = index;
+            var canonical = SourceJson.Parse(snapshot.ToJsonString()); frame["text"] = canonical.CanonicalText;
+            frame["digest"] = JsonNode.Parse(ContentDigest.Compute("coglatas.simulation-debug-snapshot/1", canonical.ToCanonicalBytes()).Data.CanonicalText);
+        }
+        OriginalRecordedCommandsReplayTheActualCoreSnapshotsAndTerminalRunBytes(item.ToJsonString());
     }
     [Fact]
     public void EveryCapturedSourceAndSnapshotVersionKeepsOneBodyAcrossTheWholeDebugBundle()

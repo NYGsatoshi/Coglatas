@@ -66,7 +66,7 @@ export async function readRecordedDebug(value: PreviewCase, sources: AdmittedSco
   const tasks = taskRows.map(obj); const taskIndex = new Map(tasks.map(task => [key(task), task]));
   const edges = edgeRows.map(obj);
   const resolve = (location: unknown): Record<string, unknown> | null => isProjectLocationShape(location) ? tasks.find(task => equal(task['location'], location)) ?? null : null;
-  const frames: RecordedDebugFrame[] = []; let previousOperations = -1; let previousCount = 0;
+  const frames: RecordedDebugFrame[] = []; let previousOperations = -1; let previousCount = 0; let resumeSequence: number | null = null;
   for (const [index, raw] of projection.frames.entries()) {
     if (!fields(raw, ['action', 'target', 'snapshot', 'events', 'inspection']) || typeof raw.action !== 'string' ||
         raw.target !== null && !resolve(raw.target)) return fail();
@@ -117,7 +117,10 @@ export async function readRecordedDebug(value: PreviewCase, sources: AdmittedSco
       if (point['reason'] !== reason || point['resolved'] !== (reason === 'coglatas.debug.resolved') ||
           !equal(point['boundLocation'], reason === 'coglatas.debug.resolved' ? bound!['location'] : null)) return fail();
     }
-    if (breakpointBytes > controlLimits.MaximumBreakpointBytes) return fail();
+    if (breakpointBytes > controlLimits.MaximumBreakpointBytes || breakpoints.some((point, i) => i > 0 &&
+        (obj(breakpoints[i - 1]['request'])['breakpointId'] as string) >= (obj(point['request'])['breakpointId'] as string))) return fail();
+    const matchingBreakpoint = (event: Record<string, unknown>) => breakpoints.find(point => point['resolved'] &&
+      equal(point['boundLocation'], event['location']) && obj(point['request'])['point'] === (event['kind'] === 'coglatas.task-start' ? 1 : 2));
     const hit = snapshot['hitBreakpointId'];
     if (hit !== null) {
       const point = breakpoints.find(point => obj(point['request'])['breakpointId'] === hit);
@@ -144,6 +147,22 @@ export async function readRecordedDebug(value: PreviewCase, sources: AdmittedSco
         if (!task || previous.pending?.['kind'] !== 'coglatas.task-start' || !equal(previous.pending['location'], raw.target) ||
             !['coglatas.debug.task-step-over', 'coglatas.debug.breakpoint'].includes(snapshot['reason'] as string) ||
             !terminal && snapshot['reason'] === 'coglatas.debug.task-step-over' && !ends.has(key(task))) return fail();
+      }
+      if (raw.action === 'coglatas.event-step') resumeSequence = null;
+      if (raw.action === 'coglatas.continue' || raw.action === 'coglatas.task-step-over') {
+        if (raw.action === 'coglatas.task-step-over') resumeSequence = previous.pending!['scheduledSequence'] as number;
+        const added = events.slice(previous.events.length).map(obj); let selectedEnded = false;
+        for (const event of added) {
+          if (selectedEnded || matchingBreakpoint(event) && resumeSequence !== event['scheduledSequence']) return fail();
+          resumeSequence = null;
+          selectedEnded = raw.action === 'coglatas.task-step-over' && event['kind'] === 'coglatas.task-end' && equal(event['location'], raw.target);
+        }
+        if (hit !== null) {
+          if (selectedEnded || !pending || resumeSequence === pending['scheduledSequence'] ||
+              obj(matchingBreakpoint(pending)!['request'])['breakpointId'] !== hit) return fail();
+          resumeSequence = pending['scheduledSequence'] as number;
+        } else if (!added.length && previous.pending && simulation.data['execution'] !== 'Cancelled' &&
+            matchingBreakpoint(previous.pending) && resumeSequence !== previous.pending['scheduledSequence']) return fail();
       }
     }
     if ((raw.action === 'coglatas.inspect-fixed-task' || raw.action === 'coglatas.task-step-over') !== (raw.target !== null)) return fail();

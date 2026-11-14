@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
-using Coglatas.ProjectIde.Preview;
+using Coglatas.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
