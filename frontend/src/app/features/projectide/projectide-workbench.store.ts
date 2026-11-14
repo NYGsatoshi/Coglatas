@@ -1,4 +1,5 @@
 import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
+import { AdmittedSimulation, SimulationEvent, readSimulationRun } from './projectide-simulation.reader';
 import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
@@ -132,6 +133,35 @@ export class ProjectIdeWorkbenchStore {
   }
   readonly planDefinition = () => this.admittedScoped()?.plan ?? null;
   readonly planNotProducedReason = () => this.admittedScoped()?.planNotProducedReason ?? null;
+  private simulationGeneration = 0;
+  readonly simulationReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly simulationSnapshot = signal<AdmittedSimulation | null>(null);
+  readonly simulation = (): AdmittedSimulation | null => {
+    const simulation = this.simulationSnapshot();
+    return simulation && simulation.sources === this.admittedScoped() ? simulation : null;
+  };
+  async loadSimulation(): Promise<boolean> {
+    this.clearSimulation(); const generation = this.simulationGeneration; const context = this.context(); const sources = this.admittedScoped();
+    if (!context || !sources || context !== this.result()) return false;
+    this.simulationReadState.set('loading');
+    try {
+      const run = await readSimulationRun(context, sources);
+      if (generation !== this.simulationGeneration || context !== this.context() || context !== this.result()) return false;
+      if (!run || sources !== this.admittedScoped()) throw new Error('simulation-unavailable');
+      this.simulationSnapshot.set(run); this.simulationReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.simulationGeneration && context === this.context() && context === this.result()) this.simulationReadState.set('unavailable');
+      return false;
+    }
+  }
+  navigateSimulationEvent(event: SimulationEvent): boolean {
+    const run = this.simulation(); const context = this.context(); this.resetSelection();
+    if (!run || !context || !run.events.includes(event)) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, run.sources, event.location);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
+  }
+  private clearSimulation(): void { this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
     const target = this.scopedTarget();
@@ -169,7 +199,7 @@ export class ProjectIdeWorkbenchStore {
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
   private clearScopedSources(): void {
-    this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
+    this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
   }
   private scenarioGeneration = 0;
   readonly scenarioReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');

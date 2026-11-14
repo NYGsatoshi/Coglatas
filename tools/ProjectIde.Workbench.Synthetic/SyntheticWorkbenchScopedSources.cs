@@ -89,7 +89,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     private void ClearScopedSelection() { ScopedSource = null; ScopedSourceTarget = null; ScopedSourceRecord = null; }
     private void ClearScopedSources()
     {
-        _scopedGeneration++; ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
+        _scopedGeneration++; ClearSimulation(); ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
         _scopedSourceViews = Array.Empty<ProjectSource>(); ScopedReadState = "Idle";
     }
 }

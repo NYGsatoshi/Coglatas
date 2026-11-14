@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
+      <button type="button" (click)="reload('simulation')">{{ t('ide.simulationExample') }}</button>
       <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
       <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
       <button type="button" (click)="reload()">{{ t('ide.testMainExamples') }}</button>
@@ -607,12 +608,27 @@
               }
               @if (store.planDefinition(); as plan) {
                 <section data-testid="ide-plan-definition"><h3>{{ t('ide.planDefinition') }}</h3>
-                  <p>{{ t('ide.planNotice') }}</p>
+                  <p>{{ t(ctx.simulationRun ? 'ide.planRecordedNotice' : 'ide.planNotice') }}</p>
                   <p>{{ t('ide.planTasks') }}: {{ plan.taskCount }} · {{ t('ide.planDependencies') }}: {{ plan.dependencyCount }}</p>
                   <details><summary>{{ t('ide.planBytes') }}</summary><code>{{ plan.digest.value }}</code><pre tabindex="0">{{ plan.definition | json }}</pre></details>
                 </section>
               } @else if (store.planNotProducedReason(); as reason) {
                 <p data-testid="ide-plan-not-produced">{{ t('ide.planUnavailable') }}: {{ reason }}</p>
+              }
+              @if (ctx.simulationRun && store.planDefinition()) {
+                <button type="button" (click)="loadSimulation()" [disabled]="store.simulationReadState() === 'loading'">{{ t('ide.simulationLoad') }}</button>
+                @if (store.simulationReadState() === 'unavailable') { <p role="alert">{{ t('ide.simulationUnavailable') }}</p> }
+              }
+              @if (store.simulation(); as run) {
+                <section data-testid="ide-simulation"><h3>{{ t('ide.simulation') }}</h3>
+                  <p>{{ t('ide.simulationNotice') }}</p>
+                  <p>{{ run.runId }} · {{ run.execution }} · {{ run.coverage }} · {{ run.reason }}</p>
+                  <p>{{ t('ide.simulationClock') }}: {{ run.virtualTicks }} · {{ t('ide.simulationCompleted') }}: {{ run.completedTasks }}</p>
+                  <ol>@for (event of run.events; track event.sequence) {
+                    <li><button type="button" (click)="openSimulationEvent(event)">{{ event.sequence }} · {{ event.kind === 'coglatas.task-start' ? t('ide.simulationStart') : t('ide.simulationEnd') }} · {{ event.ticks }} · {{ event.irNodeId }}</button></li>
+                  }</ol>
+                  <details><summary>{{ t('ide.simulationBytes') }}</summary><code>{{ run.digest.value }}</code><pre tabindex="0">{{ run.data | json }}</pre></details>
+                </section>
               }
               @if (store.scopedSourceTarget(); as scoped) {
                 <section #scopedTarget tabindex="-1" data-testid="ide-scoped-source-target" [attr.aria-label]="t('ide.scopedSources')">

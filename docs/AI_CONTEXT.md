@@ -4,7 +4,10 @@
 adds an immutable run manifest and deterministic virtual-clock event engine over
 actually produced elapsed Task DAG plans. It preserves parallelism, joins and
 bounded trace prefixes; no outcome assertion or Project/Test PASS is inferred.
-Paired client run transport/UI, debugger, jobs and full #907 acceptance remain open.
+[Paired fixed simulation consumers](verification/projectide-paired-simulation.md)
+connect the Windows pure ViewModel and an Angular original-byte recording reader
+with explicit Source/run admission and exact event origins. Interactive run
+transport, debugger, jobs and full #907 acceptance remain open.
 
 [Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)
 adds an opt-in frozen engine/target for elapsed Task DAG definitions after complete

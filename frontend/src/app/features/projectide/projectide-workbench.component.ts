@@ -1,3 +1,4 @@
+import { SimulationEvent } from './projectide-simulation.reader';
 import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
@@ -153,7 +154,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -165,10 +166,21 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
+  }
+  async loadSimulation(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadSimulation();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  openSimulationEvent(event: SimulationEvent): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateSimulationEvent(event)) this.open('source', true);
   }
   choose(key: string): void {
     this.focusGeneration++;

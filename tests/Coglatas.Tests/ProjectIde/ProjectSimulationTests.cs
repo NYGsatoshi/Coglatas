@@ -8,7 +8,7 @@ public sealed class ProjectSimulationTests
 {
     private static readonly Guid RunId = Guid.Parse(Id(950));
     private static JsonObject Duration(long ticks) => Obj(new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = ticks.ToString(System.Globalization.CultureInfo.InvariantCulture) });
-    private static CompilerExecutionPlan Plan(long first = 5, long second = 2, long last = 3, long firstLag = 1, long secondLag = 10, bool reverse = false)
+    internal static CompilerExecutionPlan Plan(long first = 5, long second = 2, long last = 3, long firstLag = 1, long secondLag = 10, bool reverse = false)
     {
         var source = Source();
         var declarations = new[] { (7, first), (8, second), (9, last) }.Select(row => Obj(new { entityId = Id(row.Item1), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1,

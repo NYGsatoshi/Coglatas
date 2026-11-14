@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve(profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'simulation' ? 'public/assets/projectide/simulation-v1.json' : profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -552,4 +552,25 @@ for (const locale of ['en', 'ja'] as const) it('opens the actual fixed plan asse
 it('rejects a direct plan example handler after permission is revoked', async () => {
   const { c, authenticated, adapter } = await render(); const calls = adapter.read.mock.calls.length;
   authenticated.set(false); await c.reload('plan'); expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied');
+});
+
+for (const locale of ['en', 'ja'] as const) it('loads the actual recorded simulation explicitly and revokes it in ' + locale, async () => {
+  const { c, fixture, root, adapter, authenticated } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); fixture.detectChanges();
+  const example = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.simulationExample')))!;
+  example.click(); await fixture.whenStable(); fixture.detectChanges();
+  expect(adapter.read).toHaveBeenLastCalledWith(expect.stringContaining('/assets/projectide/simulation-v1.json'), expect.objectContaining({ aborted: false }));
+  c.choose('tests-simulation-root-base'); c.loadResult(); c.open('source'); await c.loadScopedSources(); fixture.detectChanges();
+  expect(root.querySelector('[data-testid="ide-simulation"]')).toBeNull();
+  const load = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.simulationLoad')))!;
+  load.click(); await vi.waitFor(() => expect(c.store.simulationReadState()).toBe('ready')); fixture.detectChanges(); expect(c.store.simulation()!.events).toHaveLength(6);
+  expect(root.querySelector('[data-testid="ide-simulation"]')!.textContent).toContain(c.t('ide.simulationNotice'));
+  c.openSimulationEvent(c.store.simulation()!.events[0]); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-scoped-source-target"]'));
+  authenticated.set(false); fixture.detectChanges(); await fixture.whenStable(); expect(c.store.simulation()).toBeNull();
+  expect(root.querySelector('[data-testid="ide-simulation"]')).toBeNull();
+});
+it('refuses direct simulation handlers after permission revocation', async () => {
+  const { c, adapter, authenticated } = await render(true, true, false, 'simulation'); const calls = adapter.read.mock.calls.length;
+  authenticated.set(false); await c.reload('simulation'); await c.loadSimulation();
+  expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied'); expect(c.store.simulation()).toBeNull();
 });

@@ -7,11 +7,12 @@ using Coglatas.ProjectIde.Workbench.Synthetic;
 var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
-var planProfile = args is [_, "--execution-plan"];
+var simulationProfile = args is [_, "--simulation"];
+var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var publicationProfile = args is [_, "--scoped-publication"];
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -29,6 +30,12 @@ if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-plan-external"] = ReferenceScenarioFixture(1900, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
     ["tests-plan-unknown"] = ReferenceScenarioFixture(2000, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
     ["tests-plan-budget"] = ReferenceScenarioFixture(2100, dependencyConstraint: true, publication: true, truth: true, planTarget: true, planBudget: 200000)
+};
+if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
+    ["tests-simulation-root"] = ScenarioFixture(publication: true, planTarget: true),
+    ["tests-simulation-external"] = ReferenceScenarioFixture(2200, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
+    ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
+    ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
 };
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
@@ -200,6 +207,14 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
         if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
+        if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
+        {
+            var run = ProjectSimulation.Execute(new(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
+                new(MaximumEvents: scenarioKey == "tests-simulation-bounded" ? 2 : 4096)), input.InputDigest);
+            if (run.Execution != (scenarioKey == "tests-simulation-bounded" ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed))
+                throw new InvalidOperationException("Actual simulation fixture did not retain its expected execution boundary.");
+            fixture["simulationRun"] = JsonSerializer.SerializeToNode(new { text = run.Data.CanonicalText, digest = run.Digest.Data.Value });
+        }
         cases[^1] = fixture;
     }
     if (name == "requirement-candidates")
