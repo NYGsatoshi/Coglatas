@@ -79,6 +79,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
+  private readonly comparisonElement = viewChild<ElementRef<HTMLElement>>('comparisonPanel');
   private readonly recordedFrameElement = viewChild<ElementRef<HTMLElement>>('recordedFrame');
   private readonly scopedTargetElement = viewChild<ElementRef<HTMLElement>>('scopedTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
@@ -157,7 +158,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -169,7 +170,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -179,6 +180,16 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) { this.store.clear('denied'); return; }
     await this.store.loadSimulation();
     if (!this.canRead()) this.store.clear('denied');
+  }
+  async loadSimulationComparison(): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadSimulationComparison(); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const comparison = this.store.simulationComparison();
+    if (loaded && comparison) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && comparison === this.store.simulationComparison()) this.comparisonElement()?.nativeElement.focus();
+    });
   }
   async loadRecordedDebug(): Promise<void> {
     const generation = ++this.focusGeneration;
