@@ -153,6 +153,25 @@ class ExecutionInputTests(unittest.TestCase):
                     evidence.trusted_execution_trx(root, requested)
             self.assertNotIn("private path diagnostic", str(failure.exception))
 
+
+    @unittest.skipUnless(os.name == "posix", "Pinned openat traversal requires POSIX.")
+    def test_replaced_producer_directory_cannot_redirect_trusted_read(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as external:
+            root = Path(directory).resolve()
+            producer = root / evidence.TRUSTED_TRX_RELATIVE
+            producer.parent.mkdir(parents=True)
+            producer.write_bytes(b"owned report")
+            test_external = Path(external).resolve()
+            (test_external / producer.name).write_bytes(b"foreign report")
+            self.assertEqual(producer, evidence.trusted_execution_trx(root, producer))
+            self.assertEqual(b"owned report",
+                             evidence.read_trusted_execution_trx(root, evidence.TRUSTED_TRX_RELATIVE))
+            producer.parent.rename(producer.parent.with_name("backend-original"))
+            producer.parent.symlink_to(test_external, target_is_directory=True)
+            with self.assertRaises((OSError, ValueError)):
+                evidence.read_trusted_execution_trx(root, evidence.TRUSTED_TRX_RELATIVE)
+
+
     def test_oversized_input_is_rejected_before_open(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "execution.trx"

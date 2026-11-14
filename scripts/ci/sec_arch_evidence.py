@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -285,7 +286,7 @@ def trusted_execution_trx(root: Path, candidate: Path, expected: Path = TRUSTED_
     return trusted
 
 
-def read_execution_trx(path: Path) -> bytes:
+def read_execution_trx(path: Path, *, dir_fd: int | None = None) -> bytes:
     """Read one unchanged bounded regular file before any XML interpretation."""
     def identity(info):
         return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
@@ -293,13 +294,16 @@ def read_execution_trx(path: Path) -> bytes:
     def bounded_regular(info):
         return stat.S_ISREG(info.st_mode) and 0 <= info.st_size <= MAX_TRX_BYTES
 
-    before = path.lstat()
+    before = (path.lstat() if dir_fd is None else
+              os.stat(path.name, dir_fd=dir_fd, follow_symlinks=False))
     if not bounded_regular(before):
         raise ValueError("Execution evidence must be a bounded regular file.")
     # Reject special-file replacements without blocking, then verify the opened
     # descriptor rather than trusting the preceding path check.
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
-    with os.fdopen(os.open(path, flags), "rb") as source:
+    descriptor = (os.open(path, flags) if dir_fd is None else
+                  os.open(path.name, flags, dir_fd=dir_fd))
+    with os.fdopen(descriptor, "rb") as source:
         opened = os.fstat(source.fileno())
         if not bounded_regular(opened) or identity(opened) != identity(before):
             raise ValueError("Execution evidence changed before reading.")
@@ -309,6 +313,29 @@ def read_execution_trx(path: Path) -> bytes:
                 len(data) != opened.st_size):
             raise ValueError("Execution evidence changed while reading.")
     return data
+
+
+
+def read_trusted_execution_trx(root: Path, expected: Path) -> bytes:
+    """Anchor canonical producer-directory traversal against ancestor replacement."""
+    if expected not in (TRUSTED_TRX_RELATIVE, SEC17_DEEP_TRX_RELATIVE, SEC17_FILE_TRX_RELATIVE):
+        raise ValueError("Unsupported execution evidence producer.")
+    repository = root.resolve(strict=True)
+    if os.name != "posix":
+        # Portable baseline; POSIX dir_fd provides the stronger pinned-ancestor boundary.
+        return read_execution_trx(repository / expected)
+    if (not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW") or
+            os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd):
+        raise ValueError("Trusted execution evidence directory handles are unavailable.")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    with ExitStack() as stack:
+        parent_fd = os.open(repository, directory_flags)
+        stack.callback(os.close, parent_fd)
+        for component in expected.parts[:-1]:
+            child_fd = os.open(component, directory_flags, dir_fd=parent_fd)
+            stack.callback(os.close, child_fd)
+            parent_fd = child_fd
+        return read_execution_trx(Path(expected.name), dir_fd=parent_fd)
 
 
 def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
@@ -400,7 +427,7 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
         raise ValueError("Required build stamp missing or mismatched.")
     assemblies = capture_assemblies(root)
     trusted_execution_trx(root, trx)
-    data = read_execution_trx(root.resolve(strict=True) / TRUSTED_TRX_RELATIVE)
+    data = read_trusted_execution_trx(root, TRUSTED_TRX_RELATIVE)
     observed = observed_trx(data, now)
     report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
               "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,
