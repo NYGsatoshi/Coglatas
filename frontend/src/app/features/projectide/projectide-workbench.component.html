@@ -22,6 +22,7 @@
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
     }
     @if (store.state() === 'ready') {
+      <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
       <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
       <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
       <button type="button" (click)="reload()">{{ t('ide.testMainExamples') }}</button>

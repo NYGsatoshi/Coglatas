@@ -29,7 +29,8 @@ public sealed class CompilerHostProfile
     public bool Supports(CompilerInputManifest input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (!(PlanLowerer?.Data.Equals(input.PlanLowerer?.Data) ?? input.PlanLowerer is null)) return false;
+        if (input.PlanLowerer is { } declared && (PlanLowerer is null || !PlanLowerer.Data.Equals(declared.Data))) return false;
+        if (input.PlanLowerer is null && input.Settings.Value.GetProperty("targets").EnumerateArray().Any(target => target.GetString() == CompilerExecutionPlan.Target)) return false;
         foreach (var pair in Contracts)
             if (!SourceJson.Parse(input.Settings.Value.GetProperty(pair.Key).GetRawText()).Equals(pair.Value.Data)) return false;
         return input.Settings.Value.GetProperty("featureSet").EnumerateArray().All(value => Capabilities.Contains(value.GetString()!, StringComparer.Ordinal));

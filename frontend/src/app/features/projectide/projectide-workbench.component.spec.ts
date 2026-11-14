@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve(profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -536,4 +536,20 @@ for (const mode of ['focus', 'reload', 'denied'] as const) it('guards scoped con
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(document.activeElement).toBe(mode === 'focus' ? root.querySelector('[data-testid="ide-scoped-source-target"]') : picker);
   if (mode === 'reload') expect(c.store.scopedSourceTarget()).toBeNull();
+});
+
+for (const locale of ['en', 'ja'] as const) it('opens the actual fixed plan asset and keeps production separate in ' + locale, async () => {
+  const { c, fixture, root, adapter, authenticated } = await render(true, true, false, 'plan'); c.i18n.setLocale(locale); fixture.detectChanges();
+  const button = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.planExample')))!;
+  expect(button).toBeTruthy(); button.click(); await fixture.whenStable(); fixture.detectChanges();
+  expect(adapter.read).toHaveBeenLastCalledWith(expect.stringContaining('/assets/projectide/execution-plan-v1.json'), expect.objectContaining({ aborted: false }));
+  c.choose('tests-plan-root-base'); c.loadResult(); c.open('source'); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-plan-definition"]')).toBeNull();
+  await c.loadScopedSources(); fixture.detectChanges(); await fixture.whenStable();
+  expect(root.querySelector('[data-testid="ide-plan-definition"]')!.textContent).toContain(c.t('ide.planNotice'));
+  expect(c.store.planDefinition()!.taskCount).toBe(3); authenticated.set(false); fixture.detectChanges(); await fixture.whenStable();
+  expect(root.querySelector('[data-testid="ide-plan-definition"]')).toBeNull(); expect(c.store.planDefinition()).toBeNull();
+});
+it('rejects a direct plan example handler after permission is revoked', async () => {
+  const { c, authenticated, adapter } = await render(); const calls = adapter.read.mock.calls.length;
+  authenticated.set(false); await c.reload('plan'); expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied');
 });

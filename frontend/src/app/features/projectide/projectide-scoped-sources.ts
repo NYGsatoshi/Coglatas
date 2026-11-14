@@ -14,7 +14,7 @@ export interface ScopedSourceRegion {
   readonly context: RevisionContext; readonly sourceText: string; readonly records: readonly SourceRecord[]; readonly diagnostics: readonly Diagnostic[];
 }
 export interface AdmittedScopedSources {
-  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean; readonly plan: { readonly definition: Record<string, unknown>; readonly digest: Digest } | null; readonly planNotProducedReason: string | null;
+  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean; readonly plan: { readonly definition: Record<string, unknown>; readonly digest: Digest; readonly taskCount: number; readonly dependencyCount: number } | null; readonly planNotProducedReason: string | null;
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => equal(v, b[i])) ||
@@ -99,7 +99,7 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
 
   if ([bRegions, aRegions, iRegions, mRegions, transported].some(rows => rows.length !== contexts.length || unique(rows.map(row => row['context'] ?? obj(row['region'])['context'])).length !== contexts.length)) return fail();
   let publishedModel: Record<string, unknown> | null = null;
-  let plan: { definition: Record<string, unknown>; digest: Digest } | null = null; let planNotProducedReason: string | null = null;
+  let plan: { definition: Record<string, unknown>; digest: Digest; taskCount: number; dependencyCount: number } | null = null; let planNotProducedReason: string | null = null;
   if (published) {
     const payload = projection.publication!;
     if (!fields(payload, ['semanticModel', 'ir', 'sourceMap', ...(payload.plan ? ['plan'] : [])]) || obj(settings['semantics'])['version'] !== '2' || obj(settings['ir'])['version'] !== '2') return fail();
@@ -129,7 +129,7 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
             !equal(definition['sourceDigest'], v.sourceDigest) || !equal(definition['closureDigest'], projection.ir.digest) || definition['execution'] !== 'coglatas.not-instantiated' ||
             !fields(engine, ['kind', 'artifact']) || !fields(definition['engine'], ['artifactId', 'version', 'digest']) || !dig(obj(definition['engine'])['digest']) || engine['kind'] !== 'coglatas.plan-lowering' || !equal(definition['engine'], engine['artifact']) || obj(definition['engine'])['artifactId'] !== 'coglatas.elapsed-finish-to-start-plan-lowerer' || obj(definition['engine'])['version'] !== '1' ||
             planStages[0]['execution'] !== 'coglatas.completed' || planStages[0]['coverage'] !== 'coglatas.complete' || !equal(planStages[0]['outputs'], [digest])) return fail();
-        plan = { definition, digest };
+        plan = { definition, digest, taskCount: list(definition['tasks']).length, dependencyCount: list(definition['dependencies']).length };
       } else {
         if (payload.plan || !fields(production, ['kind', 'reason']) || production['kind'] !== 'coglatas.not-produced' || typeof production['reason'] !== 'string' ||
             !production['reason'].startsWith('coglatas.plan.') || planStages[0]['execution'] !== 'coglatas.not-run' || planStages[0]['coverage'] !== 'coglatas.none' ||

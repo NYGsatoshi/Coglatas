@@ -140,6 +140,35 @@ public sealed class CompilerExecutionPlanTests
         Assert.Same(a.Compilation.Publication!.ExecutionPlan, view.ScopedExecutionPlan); Assert.True(view.HasCompleteLocalPass);
         view.BeginSynthetic(new(new(input), 2)); Assert.Null(view.ScopedExecutionPlan);
     }
+    [Fact]
+    public async Task APlanEnabledHostAlsoAcceptsAnOrdinaryNoPlanInputButStillRejectsUnboundPlanRequests()
+    {
+        var input = CompilerScopedPublicationTests.Upgrade(Input()); var profile = Profile(input, true);
+        Assert.True(profile.Supports(input)); Assert.False(profile.Supports(Request(input, engine: false)));
+        var ordinary = await new ServerCompilerHost(profile, new Transport(new LocalNetCompilerHost(profile))).CompileAsync(new(new(input), 1));
+        Assert.Equal(CompilerHostStatus.Completed, ordinary.Status); Assert.Equal(CompilerVerdict.Pass, ordinary.Compilation!.Result.Verdict);
+        Assert.Null(ordinary.Compilation.Publication!.ExecutionPlan);
+        var requested = Request(input); var settings = JsonNode.Parse(requested.Settings.CanonicalText)!.AsObject(); settings["scheduler"]!["artifact"]!["digest"]!["value"] = new string('b',64);
+        Assert.False(profile.Supports(new(input.Source, Json(settings))));
+    }
+    private sealed class ReplyTransport(Func<CompilerHostRequest, CompilerHostResponse> reply) : IServerCompilerTransport {
+        public Task<CompilerHostResponse> SubmitAsync(CompilerHostRequest request, CancellationToken token = default) => Task.FromResult(reply(request));
+    }
+    [Theory]
+    [InlineData("missing")] [InlineData("output")] [InlineData("version")]
+    public async Task ActualPlanProducingStageIsRequiredByPublicationAndServerVerification(string mode)
+    {
+        var input = Dag(); var original = Compile(input); var stages = original.Result.Stages.Where(s => s.StageId != "coglatas.plan-definition").ToList();
+        if (mode != "missing") stages.Add(new("coglatas.plan-definition", mode == "version" ? 2 : 1, CompilerExecutionState.Completed,
+            CompilerCoverage.Complete, input.InputDigest, [mode == "output" ? input.Source.Digest : original.Publication!.ExecutionPlan!.Digest]));
+        var result = new CompilerResult(input, original.Result.Execution, original.Result.Coverage, original.Result.RuleOutcomes, original.Result.Diagnostics, stages, original.Result.EvidenceComplete, original.Result.Artifacts);
+        Assert.False(original.Publication!.IsDeclaredBy(result));
+        var constructor = typeof(CoreCompilation).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Single();
+        var forged = (CoreCompilation)constructor.Invoke(new object?[] { input, original.Model, original.Validation, result, original.LogicalOperationsConsumed, original.Dependencies, original.Publication });
+        var server = new ServerCompilerHost(Profile(input, true), new ReplyTransport(request => new(CompilerHostStatus.Completed, "example.forged-stage", input.InputDigest,
+            request.ClientGeneration, Guid.NewGuid(), new CompilerHostExecutionReceipt(request, forged))));
+        var response = await server.CompileAsync(new(new(input), 2)); Assert.Equal(CompilerHostStatus.InvalidInput, response.Status); Assert.Null(response.Compilation);
+    }
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public void DirectAndNestedUnknownInputDefaultsRemainNotExecutable(bool nested)

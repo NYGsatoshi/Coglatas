@@ -6,10 +6,10 @@ for (const locale of ['en', 'ja'] as const) for (const mode of ['root', 'externa
     const raw = JSON.parse(await readFile('frontend/public/assets/projectide/execution-plan-v1.json', 'utf8'));
     const key = 'tests-plan-' + (mode === 'altered' ? 'root' : mode) + '-base';
     if (mode === 'altered') raw.cases.find((c: { key: string }) => c.key === key).scopedSources.publication.plan.text += ' ';
-    await page.route('**/assets/projectide/scenario-v1.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(raw) }));
+    if (mode === 'altered') await page.route('**/assets/projectide/execution-plan-v1.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(raw) }));
     await page.addInitScript(locale => { localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true }; }, locale);
     const writes: string[] = []; page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
-    await page.goto('/app/projectide/preview'); await page.getByRole('button', { name: locale === 'en' ? 'Open Scenario example' : 'シナリオの例を開く', exact: true }).click();
+    await page.goto('/app/projectide/preview'); await page.getByRole('button', { name: locale === 'en' ? 'Open plan definition example' : '実行定義の例を開く', exact: true }).click();
     await page.getByTestId('ide-context').selectOption(key);
     await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
     await page.getByRole('button', { name: locale === 'en' ? 'Source' : 'ソース', exact: true }).click();

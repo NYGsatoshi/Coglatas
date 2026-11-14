@@ -241,7 +241,8 @@ static CompilerInputManifest PlanTarget(CompilerInputManifest input, int operati
             source = Endpoint(dependent, input.Source.Context), target = Endpoint(prerequisite, target), payload = new { mode = "coglatas.finish-to-start", lag = new {
                 type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "0" } } };
     }
-    var relations = new List<object> { Edge(44, 8, 7, input.Source.Context), Edge(45, 9, 8, input.Source.Context) };
+    var relations = input.Source.Relations.Value.EnumerateArray().Select(row => (object)row).ToList();
+    relations.AddRange(new[] { Edge(44, 8, 7, input.Source.Context), Edge(45, 9, 8, input.Source.Context) });
     var pins = input.Settings.Value.GetProperty("authorizedExternalSnapshots");
     if (pins.GetArrayLength() != 0) relations.Add(Edge(46, 8, 19, SourceRevisionContext.Parse(SourceJson.Parse(pins[0].GetProperty("context").GetRawText()))));
     return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(relations)), Json(settings));
