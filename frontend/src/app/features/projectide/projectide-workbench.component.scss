@@ -114,3 +114,10 @@ pre {
     width: 100%;
   }
 }
+
+.local-tests li,
+.local-tests-summary code { overflow-wrap: anywhere; }
+.local-tests button { max-width: 100%; overflow-wrap: anywhere; text-align: start; }
+
+.scenario-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
+.scenario-results section { min-width: 0; overflow-wrap: anywhere; }

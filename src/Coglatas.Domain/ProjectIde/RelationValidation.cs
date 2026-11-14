@@ -23,10 +23,12 @@ public sealed class RelationValidationResult
 {
     public IReadOnlyList<RelationFinding> Findings { get; }
     public IReadOnlyList<RelationEndpointResolution> Resolutions { get; }
+    public bool ProcessingComplete { get; }
     public bool HasInvalid => Findings.Any(item => item.State == RelationFindingState.Invalid);
     public bool IsComplete => Findings.Count == 0;
-    internal RelationValidationResult(IEnumerable<RelationFinding> findings, IEnumerable<RelationEndpointResolution> resolutions)
+    internal RelationValidationResult(IEnumerable<RelationFinding> findings, IEnumerable<RelationEndpointResolution> resolutions, bool processingComplete = true)
     {
+        ProcessingComplete = processingComplete;
         Findings = new ImmutableListView<RelationFinding>(findings.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal)
             .ThenBy(item => item.Code, StringComparer.Ordinal).ThenBy(item => item.State).Distinct());
         Resolutions = new ImmutableListView<RelationEndpointResolution>(resolutions.OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal)
@@ -39,295 +41,327 @@ public static class RelationGraphValidator
 {
     public static RelationValidationResult Validate(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot?>? externalSnapshots = null,
         IEnumerable<UnitDefinition?>? units = null, RelationValidationLimits? limits = null, CancellationToken cancellationToken = default)
+        => ValidateCore(input, externalSnapshots, units, limits, cancellationToken, false, false, null);
+
+    internal static RelationValidationResult ValidateLocalEdges(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot> snapshots,
+        IEnumerable<UnitDefinition> units, RelationValidationLimits limits, CancellationToken cancellationToken) =>
+        ValidateCore(input, snapshots, units, limits, cancellationToken, false, true, null);
+
+    internal static RelationValidationResult ValidateClosedScope(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot> snapshots,
+        IEnumerable<UnitDefinition> units, RelationValidationLimits limits, CancellationToken cancellationToken, Func<int, bool> spend) =>
+        ValidateCore(input, snapshots, units, limits, cancellationToken, true, false, spend);
+
+    private static RelationValidationResult ValidateCore(RelationScopeSnapshot input, IEnumerable<RelationScopeSnapshot?>? externalSnapshots,
+        IEnumerable<UnitDefinition?>? units, RelationValidationLimits? limits, CancellationToken cancellationToken,
+        bool unionScope, bool deferRequiredPorts, Func<int, bool>? spend)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(input.Source);
         cancellationToken.ThrowIfCancellationRequested();
         limits ??= new();
         if (limits.MaximumDeclarations is < 1 or > 100_000 || limits.MaximumRelations is < 1 or > 100_000 || limits.MaximumSnapshots is < 1 or > 128)
             throw new ArgumentOutOfRangeException(nameof(limits));
-        var source = input.Source;
-        var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
+        var rootSource = input.Source;
+        var root = ProjectLocation.Create(rootSource.Documents[0].DocumentId, rootSource.Context);
+        var processingComplete = true;
+        void Spend(int amount = 1) { if (spend is not null && !spend(amount)) throw new GraphBudgetExceededException(); }
         var findings = new List<RelationFinding>();
         var resolutions = new List<RelationEndpointResolution>();
         void RootFinding(string code, RelationFindingState state) => findings.Add(new(code, state, root));
         RelationValidationResult Finish()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = new RelationValidationResult(findings, resolutions);
+            var result = new RelationValidationResult(findings, resolutions, processingComplete);
             cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
-        var supplied = ReadBounded(externalSnapshots ?? [], limits.MaximumSnapshots + 1, cancellationToken);
-        if (supplied.Length > limits.MaximumSnapshots || supplied.Any(item => item is null))
+        try
         {
-            RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
-            return Finish();
-        }
-        var snapshots = supplied.Select(item => item!).Prepend(input).ToArray();
-        if (
-            snapshots.Sum(item => (long)item.Source.Declarations.Value.GetArrayLength() + item.Source.Documents.Count) > limits.MaximumDeclarations ||
-            snapshots.Sum(item => (long)item.Source.Relations.Value.GetArrayLength()) > limits.MaximumRelations)
-        {
-            RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
-            return Finish();
-        }
-        if (!input.IsAuthorized)
-        {
-            RootFinding("coglatas.relation.scope-unavailable", RelationFindingState.Unknown);
-            return Finish();
-        }
-        if (!input.DeclarationsComplete || !input.RelationsComplete)
-            RootFinding("coglatas.relation.incomplete-coverage", RelationFindingState.Unknown);
-        var suppliedUnits = ReadBounded(units ?? [], limits.MaximumDeclarations + 1, cancellationToken);
-        if (suppliedUnits.Length > limits.MaximumDeclarations || suppliedUnits.Any(item => item is null))
-        {
-            RootFinding("coglatas.relation.unit-budget", RelationFindingState.Unknown);
-            return Finish();
-        }
-        var unitList = suppliedUnits.Select(item => item!).ToArray();
-        var declarations = snapshots.Where(item => item.IsAuthorized).Distinct().ToDictionary(item => item,
-            item =>
+            var supplied = ReadBounded(externalSnapshots ?? [], limits.MaximumSnapshots + 1, cancellationToken);
+            if (supplied.Length > limits.MaximumSnapshots || supplied.Any(item => item is null))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                return PlanDeclarationReader.Read(item.Source).ToDictionary(result =>
+                processingComplete = false; RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
+                return Finish();
+            }
+            var snapshots = supplied.Select(item => item!).Prepend(input).ToArray();
+            if (
+                snapshots.Sum(item => (long)item.Source.Declarations.Value.GetArrayLength() + item.Source.Documents.Count) > limits.MaximumDeclarations ||
+                snapshots.Sum(item => (long)item.Source.Relations.Value.GetArrayLength()) > limits.MaximumRelations)
+            {
+                processingComplete = false; RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown);
+                return Finish();
+            }
+            if (!input.IsAuthorized)
+            {
+                processingComplete = false; RootFinding("coglatas.relation.scope-unavailable", RelationFindingState.Unknown);
+                return Finish();
+            }
+            if (!input.DeclarationsComplete || !input.RelationsComplete)
+                RootFinding("coglatas.relation.incomplete-coverage", RelationFindingState.Unknown);
+            var suppliedUnits = ReadBounded(units ?? [], limits.MaximumDeclarations + 1, cancellationToken);
+            if (suppliedUnits.Length > limits.MaximumDeclarations || suppliedUnits.Any(item => item is null))
+            {
+                processingComplete = false; RootFinding("coglatas.relation.unit-budget", RelationFindingState.Unknown);
+                return Finish();
+            }
+            var unitList = suppliedUnits.Select(item => item!).ToArray();
+            var declarations = snapshots.Where(item => item.IsAuthorized).Distinct().ToDictionary(item => item,
+                item =>
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return EntityIdOf(result.Data);
-                });
-            });
-        cancellationToken.ThrowIfCancellationRequested();
-        var relations = TypedRelationReader.Read(source);
-        var bound = new List<(TypedRelation Relation, PlanDeclaration Source, PlanDeclaration Target)>();
-        foreach (var decoded in relations)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var id = SourceFields.Identity<RelationId>(decoded.Data.Value, "relationId");
-            var document = SourceFields.Identity<DocumentId>(decoded.Data.Value, "documentId");
-            var location = ProjectLocation.Create(document, source.Context, relationId: id);
-            if (decoded.Relation is not { } relation)
-            {
-                findings.Add(new(decoded.Status == ValueDecodeStatus.Invalid ? "coglatas.relation.invalid-shape" : "coglatas.relation.unsupported-descriptor",
-                    decoded.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location));
-                continue;
-            }
-            var from = Resolve(relation.Source, true); var to = Resolve(relation.Target, false);
-            if (from is null || to is null) continue;
-            if (!CompatibleEndpoint(relation.Source, from, relation.Descriptor.SourceRole, relation.Descriptor.SourceKinds) ||
-                !CompatibleEndpoint(relation.Target, to, relation.Descriptor.TargetRole, relation.Descriptor.TargetKinds))
-            {
-                Add("coglatas.relation.endpoint-type", RelationFindingState.Invalid); continue;
-            }
-            bound.Add((relation, from, to));
-            switch (relation.Payload)
-            {
-                case DependencyRelationPayload dependency:
-                    if (relation.Source.IdentityKey == relation.Target.IdentityKey) Add("coglatas.relation.self-dependency", RelationFindingState.Invalid);
-                    if (dependency.Mode != "coglatas.finish-to-start") Add("coglatas.relation.mode-not-lowered", RelationFindingState.Unsupported);
-                    if (dependency.Lag.State == ValueState.Unknown) Add("coglatas.relation.unknown-lag", RelationFindingState.Unknown);
-                    if (dependency.Lag.KnownValue is WorkingDuration working &&
-                        (from is not TaskPlanDeclaration { Duration.KnownValue: WorkingDuration taskWork } || !working.Calendar.Data.Equals(taskWork.Calendar.Data)))
-                        Add("coglatas.relation.calendar-context", RelationFindingState.Unsupported);
-                    break;
-                case RequirementRelationPayload requirement when to is RequirementPlanDeclaration target:
-                    var version = relation.Target.Reference.Context.CommittedRevision?.RevisionId.ToString();
-                    if (version is null) Add("coglatas.relation.requirement-version-contract", RelationFindingState.Unsupported);
-                    else if (requirement.RequirementVersion != version || !requirement.RequirementDigest.Equals(ContentDigest.Compute("coglatas.requirement/1", target.Data.ToCanonicalBytes())))
-                        Add("coglatas.relation.requirement-version", RelationFindingState.Invalid);
-                    if (!requirement.Condition.Data.Equals(target.Condition.Data) || requirement.EvidenceKind != target.EvidenceKind)
-                        Add("coglatas.relation.requirement-context", RelationFindingState.Invalid);
-                    if (!target.Target.Context.Equals(relation.Target.Reference.Context)) Add("coglatas.relation.requirement-target-context", RelationFindingState.Invalid);
-                    // Evidence eligibility/freshness/runs are owned by later Compiler/Tests contracts.
-                    Add("coglatas.relation.evidence-not-evaluated", RelationFindingState.Unknown);
-                    break;
-                case ResourceRelationPayload resource when to is ResourceBindingDeclaration binding:
-                    var expected = relation.Kind == RelationKinds.Consumes ? ResourceBehavior.Consumable : ResourceBehavior.Reusable;
-                    if (binding.Behavior != expected) Add("coglatas.relation.resource-kind", RelationFindingState.Invalid);
-                    var matches = unitList.Where(unit => unit.UnitId == resource.Amount.Type.UnitId).ToArray();
-                    if (matches.Length == 0) Add("coglatas.relation.unit-unavailable", RelationFindingState.Unknown);
-                    else if (matches.Length != 1) Add("coglatas.relation.unit-ambiguous", RelationFindingState.Invalid);
-                    else if (!matches[0].Dimension.Equals(resource.Amount.Type.Dimension)) Add("coglatas.relation.unit-dimension", RelationFindingState.Invalid);
-                    if (resource.Amount.State == ValueState.Unknown || resource.At?.State == ValueState.Unknown ||
-                        resource.Interval is { } interval && (interval.Start.State != ValueState.Known || interval.End.State != ValueState.Known))
-                        Add("coglatas.relation.resource-input-unknown", RelationFindingState.Unknown);
-                    // A binding pins the Resource snapshot but does not materialize capacity/stock units or authorization.
-                    Add("coglatas.relation.resource-snapshot-not-evaluated", RelationFindingState.Unknown);
-                    break;
-                case WorkflowRelationPayload workflow when from is WorkflowPlanDeclaration definition:
-                    if (!definition.States.Contains(workflow.State) || workflow.Transition is { } transition &&
-                        !definition.Transitions.Any(item => item.TransitionId == transition && item.From == workflow.State))
-                        Add("coglatas.relation.workflow-state", RelationFindingState.Invalid);
-                    Add("coglatas.relation.workflow-engine-not-evaluated", RelationFindingState.Unsupported);
-                    break;
-                case ConstraintRelationPayload constraint when from is ConstraintPlanDeclaration definition:
-                    if (!constraint.PredicateReference.Context.Equals(relation.Source.Reference.Context) ||
-                        constraint.PredicateReference.EntityId != definition.EntityId ||
-                        constraint.Version != relation.Source.Reference.Context.CommittedRevision?.RevisionId.ToString() ||
-                        !constraint.PredicateDigest.Equals(ContentDigest.Compute("coglatas.predicate/1", definition.Predicate.Data.ToCanonicalBytes())))
-                        Add("coglatas.relation.predicate-reference", RelationFindingState.Invalid);
-                    Add("coglatas.relation.constraint-not-evaluated", RelationFindingState.Unknown);
-                    break;
-            }
-            if (relation.Kind == RelationKinds.FlowsTo && from is TaskPlanDeclaration outputOwner && to is TaskPlanDeclaration inputOwner)
-            {
-                var output = outputOwner.Ports.Single(item => item.PortId == relation.Source.PortId);
-                var inputPort = inputOwner.Ports.Single(item => item.PortId == relation.Target.PortId);
-                if (output.Direction != PortDirection.Output || inputPort.Direction != PortDirection.Input) Add("coglatas.relation.port-direction", RelationFindingState.Invalid);
-                if (!CompatiblePortType(output.Type, inputPort.Type)) Add("coglatas.relation.port-type", RelationFindingState.Invalid);
-            }
-
-            void Add(string code, RelationFindingState state) => findings.Add(new(code, state, relation.Location));
-            PlanDeclaration? Resolve(RelationEndpoint endpoint, bool isSource)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ReferenceResolutionState state;
-                PlanDeclaration? declaration = null;
-                var reference = endpoint.Reference;
-                if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
-                else
-                {
-                    var exact = snapshots.Where(item => item.Source.Context.Equals(reference.Context)).ToArray();
-                    if (exact.Length == 0)
-                        state = reference.ProjectId == source.ProjectId ? ReferenceResolutionState.OutOfScope : ReferenceResolutionState.UnknownDueToCoverage;
-                    else if (exact.Any(item => !item.IsAuthorized)) state = ReferenceResolutionState.OutOfScope;
-                    else if (exact.Length > 1) state = ReferenceResolutionState.Ambiguous;
-                    else if (endpoint.Role == RelationEndpointRole.Relation) state = ReferenceResolutionState.Unsupported;
-                    else if (!declarations[exact[0]].TryGetValue(reference.EntityId, out var result))
-                        state = exact[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
-                    else if (result.Status != ValueDecodeStatus.Decoded)
-                        state = ReferenceResolutionState.Unsupported;
-                    else if (endpoint.PortId is { } port && (result.Declaration is not TaskPlanDeclaration task || !task.Ports.Any(item => item.PortId == port)))
-                        state = ReferenceResolutionState.MissingWithinCompleteScope;
-                    else { state = ReferenceResolutionState.Resolved; declaration = result.Declaration; }
-                }
-                resolutions.Add(new(relation.RelationId, isSource, state));
-                if (state != ReferenceResolutionState.Resolved)
-                    Add("coglatas.relation.reference-" + ResolutionToken(state), state switch
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    return PlanDeclarationReader.Read(item.Source).ToDictionary(result =>
                     {
-                        ReferenceResolutionState.UnknownDueToCoverage => RelationFindingState.Unknown,
-                        ReferenceResolutionState.Unsupported => RelationFindingState.Unsupported, _ => RelationFindingState.Invalid
+                        cancellationToken.ThrowIfCancellationRequested(); Spend();
+                        return EntityIdOf(result.Data);
                     });
-                return declaration;
+                });
+            cancellationToken.ThrowIfCancellationRequested(); Spend();
+            var owners = unionScope ? snapshots : [input];
+            var relations = owners.SelectMany(owner => TypedRelationReader.Read(owner.Source).Select(decoded => (Owner: owner, Decoded: decoded))).ToArray();
+            var bound = new List<(TypedRelation Relation, PlanDeclaration Source, PlanDeclaration Target)>();
+            foreach (var row in relations)
+            {
+                var decoded = row.Decoded; var source = row.Owner.Source;
+                cancellationToken.ThrowIfCancellationRequested(); Spend();
+                var id = SourceFields.Identity<RelationId>(decoded.Data.Value, "relationId");
+                var document = SourceFields.Identity<DocumentId>(decoded.Data.Value, "documentId");
+                var location = ProjectLocation.Create(document, source.Context, relationId: id);
+                if (decoded.Relation is not { } relation)
+                {
+                    findings.Add(new(decoded.Status == ValueDecodeStatus.Invalid ? "coglatas.relation.invalid-shape" : "coglatas.relation.unsupported-descriptor",
+                        decoded.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location));
+                    continue;
+                }
+                var from = Resolve(relation.Source, true); var to = Resolve(relation.Target, false);
+                if (from is null || to is null) continue;
+                if (!CompatibleEndpoint(relation.Source, from, relation.Descriptor.SourceRole, relation.Descriptor.SourceKinds) ||
+                    !CompatibleEndpoint(relation.Target, to, relation.Descriptor.TargetRole, relation.Descriptor.TargetKinds))
+                {
+                    Add("coglatas.relation.endpoint-type", RelationFindingState.Invalid); continue;
+                }
+                bound.Add((relation, from, to));
+                switch (relation.Payload)
+                {
+                    case DependencyRelationPayload dependency:
+                        if (relation.Source.IdentityKey == relation.Target.IdentityKey) Add("coglatas.relation.self-dependency", RelationFindingState.Invalid);
+                        if (dependency.Mode != "coglatas.finish-to-start") Add("coglatas.relation.mode-not-lowered", RelationFindingState.Unsupported);
+                        if (dependency.Lag.State == ValueState.Unknown) Add("coglatas.relation.unknown-lag", RelationFindingState.Unknown);
+                        if (dependency.Lag.KnownValue is WorkingDuration working &&
+                            (from is not TaskPlanDeclaration { Duration.KnownValue: WorkingDuration taskWork } || !working.Calendar.Data.Equals(taskWork.Calendar.Data)))
+                            Add("coglatas.relation.calendar-context", RelationFindingState.Unsupported);
+                        break;
+                    case RequirementRelationPayload requirement when to is RequirementPlanDeclaration target:
+                        var version = relation.Target.Reference.Context.CommittedRevision?.RevisionId.ToString();
+                        if (version is null) Add("coglatas.relation.requirement-version-contract", RelationFindingState.Unsupported);
+                        else if (requirement.RequirementVersion != version || !requirement.RequirementDigest.Equals(ContentDigest.Compute("coglatas.requirement/1", target.Data.ToCanonicalBytes())))
+                            Add("coglatas.relation.requirement-version", RelationFindingState.Invalid);
+                        if (!requirement.Condition.Data.Equals(target.Condition.Data) || requirement.EvidenceKind != target.EvidenceKind)
+                            Add("coglatas.relation.requirement-context", RelationFindingState.Invalid);
+                        if (!target.Target.Context.Equals(relation.Target.Reference.Context)) Add("coglatas.relation.requirement-target-context", RelationFindingState.Invalid);
+                        // Evidence eligibility/freshness/runs are owned by later Compiler/Tests contracts.
+                        Add("coglatas.relation.evidence-not-evaluated", RelationFindingState.Unknown);
+                        break;
+                    case ResourceRelationPayload resource when to is ResourceBindingDeclaration binding:
+                        var expected = relation.Kind == RelationKinds.Consumes ? ResourceBehavior.Consumable : ResourceBehavior.Reusable;
+                        if (binding.Behavior != expected) Add("coglatas.relation.resource-kind", RelationFindingState.Invalid);
+                        var matches = unitList.Where(unit => unit.UnitId == resource.Amount.Type.UnitId).ToArray();
+                        if (matches.Length == 0) Add("coglatas.relation.unit-unavailable", RelationFindingState.Unknown);
+                        else if (matches.Length != 1) Add("coglatas.relation.unit-ambiguous", RelationFindingState.Invalid);
+                        else if (!matches[0].Dimension.Equals(resource.Amount.Type.Dimension)) Add("coglatas.relation.unit-dimension", RelationFindingState.Invalid);
+                        if (resource.Amount.State == ValueState.Unknown || resource.At?.State == ValueState.Unknown ||
+                            resource.Interval is { } interval && (interval.Start.State != ValueState.Known || interval.End.State != ValueState.Known))
+                            Add("coglatas.relation.resource-input-unknown", RelationFindingState.Unknown);
+                        // A binding pins the Resource snapshot but does not materialize capacity/stock units or authorization.
+                        Add("coglatas.relation.resource-snapshot-not-evaluated", RelationFindingState.Unknown);
+                        break;
+                    case WorkflowRelationPayload workflow when from is WorkflowPlanDeclaration definition:
+                        if (!definition.States.Contains(workflow.State) || workflow.Transition is { } transition &&
+                            !definition.Transitions.Any(item => item.TransitionId == transition && item.From == workflow.State))
+                            Add("coglatas.relation.workflow-state", RelationFindingState.Invalid);
+                        Add("coglatas.relation.workflow-engine-not-evaluated", RelationFindingState.Unsupported);
+                        break;
+                    case ConstraintRelationPayload constraint when from is ConstraintPlanDeclaration definition:
+                        if (!constraint.PredicateReference.Context.Equals(relation.Source.Reference.Context) ||
+                            constraint.PredicateReference.EntityId != definition.EntityId ||
+                            constraint.Version != relation.Source.Reference.Context.CommittedRevision?.RevisionId.ToString() ||
+                            !constraint.PredicateDigest.Equals(ContentDigest.Compute("coglatas.predicate/1", definition.Predicate.Data.ToCanonicalBytes())))
+                            Add("coglatas.relation.predicate-reference", RelationFindingState.Invalid);
+                        Add("coglatas.relation.constraint-not-evaluated", RelationFindingState.Unknown);
+                        break;
+                }
+                if (relation.Kind == RelationKinds.FlowsTo && from is TaskPlanDeclaration outputOwner && to is TaskPlanDeclaration inputOwner)
+                {
+                    var output = outputOwner.Ports.Single(item => item.PortId == relation.Source.PortId);
+                    var inputPort = inputOwner.Ports.Single(item => item.PortId == relation.Target.PortId);
+                    if (output.Direction != PortDirection.Output || inputPort.Direction != PortDirection.Input) Add("coglatas.relation.port-direction", RelationFindingState.Invalid);
+                    if (!CompatiblePortType(output.Type, inputPort.Type)) Add("coglatas.relation.port-type", RelationFindingState.Invalid);
+                }
+
+                void Add(string code, RelationFindingState state) => findings.Add(new(code, state, relation.Location));
+                PlanDeclaration? Resolve(RelationEndpoint endpoint, bool isSource)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    ReferenceResolutionState state;
+                    PlanDeclaration? declaration = null;
+                    var reference = endpoint.Reference;
+                    if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
+                    else
+                    {
+                        var exact = snapshots.Where(item => item.Source.Context.Equals(reference.Context)).ToArray();
+                        if (exact.Length == 0)
+                            state = reference.ProjectId == source.ProjectId ? ReferenceResolutionState.OutOfScope : ReferenceResolutionState.UnknownDueToCoverage;
+                        else if (exact.Any(item => !item.IsAuthorized)) state = ReferenceResolutionState.OutOfScope;
+                        else if (exact.Length > 1) state = ReferenceResolutionState.Ambiguous;
+                        else if (endpoint.Role == RelationEndpointRole.Relation) state = ReferenceResolutionState.Unsupported;
+                        else if (!declarations[exact[0]].TryGetValue(reference.EntityId, out var result))
+                            state = exact[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                        else if (result.Status != ValueDecodeStatus.Decoded)
+                            state = ReferenceResolutionState.Unsupported;
+                        else if (endpoint.PortId is { } port && (result.Declaration is not TaskPlanDeclaration task || !task.Ports.Any(item => item.PortId == port)))
+                            state = ReferenceResolutionState.MissingWithinCompleteScope;
+                        else { state = ReferenceResolutionState.Resolved; declaration = result.Declaration; }
+                    }
+                    resolutions.Add(new(relation.RelationId, isSource, state));
+                    if (state != ReferenceResolutionState.Resolved)
+                        Add("coglatas.relation.reference-" + ResolutionToken(state), state switch
+                        {
+                            ReferenceResolutionState.UnknownDueToCoverage => RelationFindingState.Unknown,
+                            ReferenceResolutionState.Unsupported => RelationFindingState.Unsupported, _ => RelationFindingState.Invalid
+                        });
+                    return declaration;
+                }
+            }
+            CheckCardinality();
+            CheckCycles(RelationKinds.DependsOn);
+            CheckCycles(RelationKinds.FlowsTo);
+            return Finish();
+
+            void CheckCardinality()
+            {
+                var connectionCounts = new Dictionary<(SourceRevisionContext Context, EntityId Entity, PortId Port), int>();
+                foreach (var edge in bound.Where(item => item.Relation.Kind == RelationKinds.FlowsTo))
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    foreach (var endpoint in new[] { edge.Relation.Source, edge.Relation.Target })
+                        if ((unionScope || endpoint.Reference.Context.Equals(rootSource.Context)) && endpoint.PortId is { } port)
+                        {
+                            var key = (endpoint.Reference.Context, endpoint.Reference.EntityId, port);
+                            connectionCounts[key] = connectionCounts.GetValueOrDefault(key) + 1;
+                        }
+                }
+                var keys = new Dictionary<string, TypedRelation>(StringComparer.Ordinal);
+                foreach (var entry in bound)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    var relation = entry.Relation;
+                    var key = SourceJson.FromObject(new { kind = relation.Kind, source = relation.Source.IdentityKey, target = relation.Target.IdentityKey,
+                        payload = relation.Data.Value.GetProperty("payload") }).CanonicalText;
+                    if (!keys.TryAdd(key, relation))
+                    {
+                        if (unionScope) findings.Add(new("coglatas.relation.duplicate", RelationFindingState.Invalid, keys[key].Location));
+                        findings.Add(new("coglatas.relation.duplicate", RelationFindingState.Invalid, relation.Location));
+                    }
+                }
+                foreach (var group in bound.Where(item => item.Relation.Kind == RelationKinds.Governs).GroupBy(item => item.Relation.Target.IdentityKey))
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    if (group.Count() > 1)
+                        foreach (var entry in group)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested(); Spend();
+                            findings.Add(new("coglatas.relation.workflow-cardinality", RelationFindingState.Invalid, entry.Relation.Location));
+                        }
+                }
+                foreach (var owner in owners)
+                foreach (var declarationResult in declarations[owner].Values)
+                {
+                    var source = owner.Source;
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    if (declarationResult.Declaration is not TaskPlanDeclaration task) continue;
+                    foreach (var port in task.Ports)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); Spend();
+                        var count = connectionCounts.GetValueOrDefault((source.Context, task.EntityId, port.PortId));
+                        var location = ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId);
+                        if (port.MaximumConnections is { } maximum && count > maximum)
+                            findings.Add(new("coglatas.relation.port-cardinality", RelationFindingState.Invalid, location));
+                        if (!deferRequiredPorts && count < port.MinimumConnections && port.DefaultValue is null)
+                            findings.Add(new("coglatas.relation.required-port", (unionScope ? snapshots.All(scope => scope.IsAuthorized && scope.DeclarationsComplete && scope.RelationsComplete) : input.DeclarationsComplete && input.RelationsComplete) &&
+                                relations.All(edge => edge.Decoded.Status == ValueDecodeStatus.Decoded) && resolutions.All(item => item.State == ReferenceResolutionState.Resolved)
+                                ? RelationFindingState.Invalid : RelationFindingState.Unknown, location));
+                    }
+                }
+            }
+
+            void CheckCycles(string kind)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); Spend();
+                // Iterative strongly connected components, O(V+E); downstream tails are not cycle members.
+                var edges = bound.Where(item => item.Relation.Kind == kind).Select(item => item.Relation).ToArray();
+                string Vertex(RelationEndpoint endpoint) => SourceJson.FromObject(new { context = endpoint.Reference.Context.Data.Value, entityId = endpoint.Reference.EntityId.ToString() }).CanonicalText;
+                var adjacency = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                var reverse = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                foreach (var edge in edges)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    var from = Vertex(edge.Source); var to = Vertex(edge.Target);
+                    if (!adjacency.ContainsKey(from)) adjacency[from] = [];
+                    if (!adjacency.ContainsKey(to)) adjacency[to] = [];
+                    if (!reverse.ContainsKey(from)) reverse[from] = [];
+                    if (!reverse.ContainsKey(to)) reverse[to] = [];
+                    adjacency[from].Add(to); reverse[to].Add(from);
+                }
+                var visited = new HashSet<string>(StringComparer.Ordinal);
+                var finish = new List<string>();
+                foreach (var start in adjacency.Keys)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    if (!visited.Add(start)) continue;
+                    var stack = new Stack<(string Vertex, int Next)>(); stack.Push((start, 0));
+                    while (stack.TryPop(out var frame))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); Spend();
+                        if (frame.Next == adjacency[frame.Vertex].Count) { finish.Add(frame.Vertex); continue; }
+                        stack.Push((frame.Vertex, frame.Next + 1));
+                        var next = adjacency[frame.Vertex][frame.Next];
+                        if (visited.Add(next)) stack.Push((next, 0));
+                    }
+                }
+                var components = new Dictionary<string, int>(StringComparer.Ordinal);
+                var sizes = new List<int>();
+                for (var i = finish.Count - 1; i >= 0; i--)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    var start = finish[i]; if (components.ContainsKey(start)) continue;
+                    var component = sizes.Count; var size = 0;
+                    var stack = new Stack<string>(); stack.Push(start); components[start] = component;
+                    while (stack.TryPop(out var vertex))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); Spend();
+                        size++;
+                        foreach (var next in reverse[vertex])
+                        {
+                            cancellationToken.ThrowIfCancellationRequested(); Spend();
+                            if (components.TryAdd(next, component)) stack.Push(next);
+                        }
+                    }
+                    sizes.Add(size);
+                }
+                foreach (var edge in edges)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); Spend();
+                    var from = Vertex(edge.Source); var to = Vertex(edge.Target);
+                    if (components[from] == components[to] && (sizes[components[from]] > 1 || from == to))
+                        findings.Add(new(kind == RelationKinds.DependsOn ? "coglatas.relation.dependency-cycle" : "coglatas.relation.dataflow-cycle", RelationFindingState.Invalid, edge.Location));
+                }
             }
         }
-        CheckCardinality();
-        CheckCycles(RelationKinds.DependsOn);
-        CheckCycles(RelationKinds.FlowsTo);
-        return Finish();
-
-        void CheckCardinality()
+        catch (GraphBudgetExceededException)
         {
-            var connectionCounts = new Dictionary<(EntityId Entity, PortId Port), int>();
-            foreach (var edge in bound.Where(item => item.Relation.Kind == RelationKinds.FlowsTo))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                foreach (var endpoint in new[] { edge.Relation.Source, edge.Relation.Target })
-                    if (endpoint.Reference.Context.Equals(source.Context) && endpoint.PortId is { } port)
-                    {
-                        var key = (endpoint.Reference.EntityId, port);
-                        connectionCounts[key] = connectionCounts.GetValueOrDefault(key) + 1;
-                    }
-            }
-            var keys = new Dictionary<string, TypedRelation>(StringComparer.Ordinal);
-            foreach (var entry in bound)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var relation = entry.Relation;
-                var key = SourceJson.FromObject(new { kind = relation.Kind, source = relation.Source.IdentityKey, target = relation.Target.IdentityKey,
-                    payload = relation.Data.Value.GetProperty("payload") }).CanonicalText;
-                if (!keys.TryAdd(key, relation)) findings.Add(new("coglatas.relation.duplicate", RelationFindingState.Invalid, relation.Location));
-            }
-            foreach (var group in bound.Where(item => item.Relation.Kind == RelationKinds.Governs).GroupBy(item => item.Relation.Target.IdentityKey))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (group.Count() > 1)
-                    foreach (var entry in group)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        findings.Add(new("coglatas.relation.workflow-cardinality", RelationFindingState.Invalid, entry.Relation.Location));
-                    }
-            }
-            foreach (var declarationResult in declarations[input].Values)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (declarationResult.Declaration is not TaskPlanDeclaration task) continue;
-                foreach (var port in task.Ports)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var count = connectionCounts.GetValueOrDefault((task.EntityId, port.PortId));
-                    var location = ProjectLocation.Create(task.DocumentId, source.Context, "/payload/ports/" + port.PortId, entityId: task.EntityId);
-                    if (port.MaximumConnections is { } maximum && count > maximum)
-                        findings.Add(new("coglatas.relation.port-cardinality", RelationFindingState.Invalid, location));
-                    if (count < port.MinimumConnections && port.DefaultValue is null)
-                        findings.Add(new("coglatas.relation.required-port", input.DeclarationsComplete && input.RelationsComplete &&
-                            relations.All(edge => edge.Status == ValueDecodeStatus.Decoded) && resolutions.All(item => item.State == ReferenceResolutionState.Resolved)
-                            ? RelationFindingState.Invalid : RelationFindingState.Unknown, location));
-                }
-            }
-        }
-
-        void CheckCycles(string kind)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            // Iterative strongly connected components, O(V+E); downstream tails are not cycle members.
-            var edges = bound.Where(item => item.Relation.Kind == kind).Select(item => item.Relation).ToArray();
-            string Vertex(RelationEndpoint endpoint) => SourceJson.FromObject(new { context = endpoint.Reference.Context.Data.Value, entityId = endpoint.Reference.EntityId.ToString() }).CanonicalText;
-            var adjacency = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            var reverse = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            foreach (var edge in edges)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var from = Vertex(edge.Source); var to = Vertex(edge.Target);
-                if (!adjacency.ContainsKey(from)) adjacency[from] = [];
-                if (!adjacency.ContainsKey(to)) adjacency[to] = [];
-                if (!reverse.ContainsKey(from)) reverse[from] = [];
-                if (!reverse.ContainsKey(to)) reverse[to] = [];
-                adjacency[from].Add(to); reverse[to].Add(from);
-            }
-            var visited = new HashSet<string>(StringComparer.Ordinal);
-            var finish = new List<string>();
-            foreach (var start in adjacency.Keys)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!visited.Add(start)) continue;
-                var stack = new Stack<(string Vertex, int Next)>(); stack.Push((start, 0));
-                while (stack.TryPop(out var frame))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (frame.Next == adjacency[frame.Vertex].Count) { finish.Add(frame.Vertex); continue; }
-                    stack.Push((frame.Vertex, frame.Next + 1));
-                    var next = adjacency[frame.Vertex][frame.Next];
-                    if (visited.Add(next)) stack.Push((next, 0));
-                }
-            }
-            var components = new Dictionary<string, int>(StringComparer.Ordinal);
-            var sizes = new List<int>();
-            for (var i = finish.Count - 1; i >= 0; i--)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var start = finish[i]; if (components.ContainsKey(start)) continue;
-                var component = sizes.Count; var size = 0;
-                var stack = new Stack<string>(); stack.Push(start); components[start] = component;
-                while (stack.TryPop(out var vertex))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    size++;
-                    foreach (var next in reverse[vertex])
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        if (components.TryAdd(next, component)) stack.Push(next);
-                    }
-                }
-                sizes.Add(size);
-            }
-            foreach (var edge in edges)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var from = Vertex(edge.Source); var to = Vertex(edge.Target);
-                if (components[from] == components[to] && (sizes[components[from]] > 1 || from == to))
-                    findings.Add(new(kind == RelationKinds.DependsOn ? "coglatas.relation.dependency-cycle" : "coglatas.relation.dataflow-cycle", RelationFindingState.Invalid, edge.Location));
-            }
+            processingComplete = false; RootFinding("coglatas.relation.budget-exhausted", RelationFindingState.Unknown); return Finish();
         }
     }
+
+    private sealed class GraphBudgetExceededException : Exception { }
 
     private static T[] ReadBounded<T>(IEnumerable<T> source, int maximum, CancellationToken cancellationToken)
     {

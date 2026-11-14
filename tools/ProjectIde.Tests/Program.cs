@@ -2,6 +2,8 @@ using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.ProjectIde.TestCli;
 
+if (args.Length > 0 && args[0] is "--export-test" or "--preview-test-edit") return await ProjectTestDefinitionsCommand.Run(args);
+
 // Local files only. The manifest must already bind the exact Source and fixed settings.
 var evaluator = new CompilerArtifactIdentity(Json(new { artifactId = "coglatas.local-project-test-evaluator",
     version = typeof(ProjectTestPlan).Assembly.GetName().Version!.ToString(),

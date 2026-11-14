@@ -1,3 +1,8 @@
+import { SimulationEvent } from './projectide-simulation.reader';
+import type { ScopedSourceRegion } from './projectide-scoped-sources';
+import { PreparedScenario } from './projectide-scenario';
+import { PreparedTestEdit } from './projectide-test-edit';
+import { LocalTestAssertion } from './projectide-tests.contracts';
 import { DOCUMENT, JsonPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -35,6 +40,23 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
+  async loadScopedSources(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadScopedSources();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  openScopedSource(record: SourceRecord): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateScopedSource(record)) this.open('source', true);
+  }
+  openScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateScopedDiagnostic(region, diagnostic)) this.open('source', true);
+  }
+
   readonly store = inject(ProjectIdeWorkbenchStore);
   readonly flags = inject(FrontendFeatureFlagsService);
   readonly i18n = inject(I18nService);
@@ -43,7 +65,9 @@ export class ProjectIdeWorkbenchComponent {
   private readonly adapter = inject(ProjectIdePreviewAdapter);
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
-  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history'>('overview');
+  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests' | 'scenario'>('overview');
+  readonly testPage = signal(0);
+  readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
   readonly historyPage = signal(0);
   readonly historyRows = computed(() => this.store.history()?.revisions.slice(this.historyPage() * 32, (this.historyPage() + 1) * 32) ?? []);
@@ -53,9 +77,10 @@ export class ProjectIdeWorkbenchComponent {
   readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
+  private readonly scopedTargetElement = viewChild<ElementRef<HTMLElement>>('scopedTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
-  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history'] as const;
+  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests', 'scenario'] as const;
   readonly canRead = computed(
     () =>
       this.flags.projectIdePreviewEnabled() &&
@@ -75,13 +100,13 @@ export class ProjectIdeWorkbenchComponent {
           .includes(this.search().toLowerCase()),
     ),
   );
-  readonly evidenceState = computed(() => {
+  readonly evidenceState = () => {
     const result = this.store.result();
     // The selected case instance belongs to this load generation; a reused key does not.
-    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result);
-  });
-  readonly completePass = computed(() => this.evidenceState() === 'complete-local-pass');
-  readonly evidenceMessage = computed(() => {
+    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result, this.store.hasVerifiedPublication());
+  };
+  readonly completePass = () => this.evidenceState() === 'complete-local-pass';
+  readonly evidenceMessage = () => {
     const keys = {
       'not-loaded': 'ide.evidenceNotLoaded',
       stale: 'ide.evidenceStale',
@@ -92,7 +117,7 @@ export class ProjectIdeWorkbenchComponent {
       'complete-local-pass': 'ide.evidenceLocalPass',
     } as const;
     return this.t(keys[this.evidenceState()]);
-  });
+  };
   readonly records = computed(() => [
     ...(this.store.context()?.declarations ?? []),
     ...(this.store.context()?.relations ?? []),
@@ -103,6 +128,7 @@ export class ProjectIdeWorkbenchComponent {
     parameters: Record<string, string | number> = {},
   ) => this.i18n.translate(key as TranslationKey, parameters);
   constructor() {
+    effect(() => { this.store.localTests(); this.testPage.set(0); });
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => {
       this.focusGeneration++;
@@ -128,7 +154,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -140,10 +166,21 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL('assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
+  }
+  async loadSimulation(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadSimulation();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  openSimulationEvent(event: SimulationEvent): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateSimulationEvent(event)) this.open('source', true);
   }
   choose(key: string): void {
     this.focusGeneration++;
@@ -173,12 +210,13 @@ export class ProjectIdeWorkbenchComponent {
   open(panel: (typeof this.tabs)[number], focus = false): void {
     const generation = ++this.focusGeneration;
     const target = this.store.sourceLocation();
+    const scoped = this.store.scopedSourceTarget();
     this.panel.set(panel);
     if (focus) {
       setTimeout(() => {
         if (generation === this.focusGeneration && this.panel() === panel && this.canRead() &&
-            (panel !== 'source' || this.store.sourceLocation() === target)) {
-          (panel === 'source' && this.store.sourceTarget()
+            (panel !== 'source' || this.store.sourceLocation() === target && this.store.scopedSourceTarget() === scoped)) {
+          (panel === 'source' && scoped ? this.scopedTargetElement() : panel === 'source' && this.store.sourceTarget()
             ? this.sourceTarget()
             : this.heading()
           )?.nativeElement.focus();
@@ -234,6 +272,90 @@ export class ProjectIdeWorkbenchComponent {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateReference(destination)) this.open('source', true);
+  }
+  readonly scenarioRows = computed(() => {
+    const admitted = this.store.scenario();
+    return admitted ? [admitted.baseline, admitted.scenario, admitted.draft].map((value, index) => ({ value, tests: admitted.tests[index],
+      label: this.t((['ide.scenarioBaseline', 'ide.scenarioHypothesis', 'ide.scenarioDraft'] as const)[index]) })) : [];
+  });
+  async loadScenarioComparison(prepared: PreparedScenario): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadScenarioComparison(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('scenario', true);
+  }
+  async loadScenarioStage(prepared: PreparedScenario, stage: 'baseline' | 'scenario' | 'draft'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadScenarioStage(prepared, stage);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('scenario', true);
+  }
+  async exportScenarioAssumptions(prepared: PreparedScenario): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const text = await this.store.exportScenarioAssumptions(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (text === null || generation !== this.focusGeneration || this.store.preparedScenario() !== prepared) return;
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+    try { const link = this.document.createElement('a'); link.href = url; link.download = 'project-scenario-assumptions.json'; link.click(); }
+    finally { URL.revokeObjectURL(url); }
+  }
+  async exportTestDefinition(prepared: PreparedTestEdit): Promise<void> {
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const definition = await this.store.exportPreparedTestDefinition(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (definition === null || this.store.preparedTestEdit() !== prepared) return;
+    const url = URL.createObjectURL(new Blob([definition], { type: 'application/json;charset=utf-8' }));
+    try {
+      const link = this.document.createElement('a'); link.href = url; link.download = 'project-test-' + prepared.plan.target.entityId + '.json';
+      link.click();
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async loadTestEdit(prepared: PreparedTestEdit): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPreparedTestEdit(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('source', true);
+  }
+  async loadLocalTests(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadLocalTests();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  navigateTestAssertion(assertion: LocalTestAssertion): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateTestAssertion(assertion)) this.open('source', true);
+  }
+  testName(identity: string): string {
+    const value = this.store.context()?.declarations.find(item => item.identity === identity)?.data['displayName'];
+    return typeof value === 'string' && value ? value : identity;
+  }
+  assertionName(assertion: LocalTestAssertion): string {
+    return assertion.location.propertyPath.split('/')[3]?.replaceAll('~1', '/').replaceAll('~0', '~') ?? '';
+  }
+  testValue(value: string): string {
+    const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      'coglatas.pass': 'ide.testPass', 'coglatas.fail': 'ide.testFail', 'coglatas.inconclusive': 'ide.testInconclusive', 'coglatas.error': 'ide.testError', 'coglatas.not-run': 'ide.testNotRun',
+      Pass: 'ide.testPass', Fail: 'ide.testFail', Inconclusive: 'ide.testInconclusive', Error: 'ide.testError', NotRun: 'ide.testNotRun',
+      Completed: 'ide.testCompleted', Cancelled: 'ide.testCancelled', TimedOut: 'ide.testTimedOut', ResourceExhausted: 'ide.testExhausted', InternalError: 'ide.testError',
+      Complete: 'ide.testComplete', Partial: 'ide.testPartial', None: 'ide.testNone', Current: 'ide.testCurrent', Stale: 'ide.testStale', Undetermined: 'ide.testUndetermined',
+      'coglatas.model-proof': 'ide.testModelProof', 'coglatas.missing': 'ide.testMissing'
+    };
+    return keys[value] ? this.t(keys[value]) : this.t('ide.testUndetermined');
+  }
+  testReason(value: string): string {
+    const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      'coglatas.local-input-defaults': 'ide.testInputDefaults', 'coglatas.incomplete-test-basis': 'ide.testIncomplete', 'coglatas.zero-tests': 'ide.testZero',
+      'coglatas.cancelled': 'ide.testCancelReason', 'coglatas.stale-input': 'ide.testStaleReason', 'coglatas.evaluator-identity-mismatch': 'ide.testEvaluatorReason',
+      'coglatas.assertion-satisfied': 'ide.testSatisfied', 'coglatas.assertion-counterexample': 'ide.testCounterexample',
+      'coglatas.unknown-actual': 'ide.testUnknown', 'coglatas.unsupported-test': 'ide.testUnsupported'
+    };
+    return keys[value] ? this.t(keys[value]) : value;
   }
   cancel(): void {
     this.focusGeneration++;

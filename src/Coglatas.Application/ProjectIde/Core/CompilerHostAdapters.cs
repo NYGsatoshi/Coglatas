@@ -84,6 +84,24 @@ public sealed class ServerCompilerHost(CompilerHostProfile profile, IServerCompi
              !result.Artifacts.Any(artifact => artifact.Role == "coglatas.ir" && artifact.Digest.Equals(ir.Digest)) ||
              !result.Artifacts.Any(artifact => artifact.Role == "coglatas.source-map" && artifact.Digest.Equals(ir.SourceMapDigest)) ||
              !result.Artifacts.Any(artifact => artifact.Role == "coglatas.semantic-model" && artifact.Digest.Equals(ir.SemanticModelDigest)))) return false;
+        if (compilation.Publication is { } publication)
+        {
+            if (!ReferenceEquals(publication.Scope, compilation.Dependencies?.ScopedIr) || !ReferenceEquals(compilation.Validation?.Publication, publication) ||
+                !publication.Input.Data.Equals(input.Data) || !publication.IsDeclaredBy(result) ||
+                !publication.SemanticModelDigest.Equals(ContentDigest.Compute(CompilerScopedPublication.ModelFormat, publication.SemanticModel.ToCanonicalBytes())) ||
+                !publication.IrDigest.Equals(ContentDigest.Compute(CompilerScopedPublication.IrFormat, publication.Ir.ToCanonicalBytes())) ||
+                !publication.SourceMapDigest.Equals(ContentDigest.Compute(CompilerScopedPublication.MapFormat, publication.SourceMap.ToCanonicalBytes()))) return false;
+        }
+        if (compilation.Publication?.ExecutionPlan is { } plan) {
+            var embedded = compilation.Publication.Ir.Value.GetProperty("executionPlan");
+            if (!ReferenceEquals(plan.Scope, compilation.Publication.Scope) || !plan.Input.Data.Equals(input.Data) ||
+                !plan.Digest.Equals(ContentDigest.Compute(CompilerExecutionPlan.Format, plan.Data.ToCanonicalBytes())) ||
+                !SourceJson.Parse(embedded.GetProperty("definition").GetRawText()).Equals(plan.Data) ||
+                !SourceJson.Parse(embedded.GetProperty("digest").GetRawText()).Equals(plan.Digest.Data)) return false;
+        }
+        if (compilation.Publication is null && (result.Artifacts.Any(artifact => artifact.Data.Value.GetProperty("version").GetInt32() != 1) ||
+            result.Artifacts.Count != 0 && (input.Settings.Value.GetProperty("ir").GetProperty("version").GetString() == "2" ||
+                input.Settings.Value.GetProperty("semantics").GetProperty("version").GetString() == "2"))) return false;
         return true;
     }
 }

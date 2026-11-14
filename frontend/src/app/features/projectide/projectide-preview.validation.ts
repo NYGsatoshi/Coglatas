@@ -21,7 +21,7 @@ const committedContext = (value: unknown): boolean => record(value) && value['ki
   Object.keys(value).length === 3 && token(value['revisionId']) && branch(value['branch']) &&
   !['proposalId', 'candidateRevisionId', 'scenarioId', 'scenarioRevisionId', 'baseContext', 'baseRevision', 'capturedTargetHead', 'overlayDigest'].some(key => Object.hasOwn(value, key));
 const branch = (value: unknown): boolean => record(value) && Object.keys(value).length === 3 && token(value['tenantId']) && token(value['projectId']) && token(value['branchId']);
-const context = (value: unknown): boolean => {
+const baseContext = (value: unknown): boolean => {
   if (committedContext(value)) return true;
   if (!record(value) || value['kind'] !== 'coglatas.candidate' || Object.keys(value).length !== 6 || !branch(value['branch']) ||
       !token(value['proposalId']) || !token(value['candidateRevisionId']) || !committedContext(value['baseRevision']) ||
@@ -32,6 +32,15 @@ const context = (value: unknown): boolean => {
   if (!record(scope) || !record(base) || !record(head) || !record(base['branch']) || !record(head['branch'])) return false;
   return scope['tenantId'] === base['branch']['tenantId'] && scope['projectId'] === base['branch']['projectId'] &&
     ['tenantId', 'projectId', 'branchId'].every(key => scope[key] === head['branch'][key]);
+};
+const context = (value: unknown): boolean => {
+  if (baseContext(value)) return true;
+  if (!record(value) || value['kind'] !== 'coglatas.scenario' || Object.keys(value).length !== 6 || !branch(value['branch']) ||
+      !token(value['scenarioId']) || !token(value['scenarioRevisionId']) || !baseContext(value['baseContext']) ||
+      !digest(value['overlayDigest']) || !record(value['overlayDigest']) || Object.keys(value['overlayDigest']).length !== 2) return false;
+  const scope = value['branch']; const base = value['baseContext'];
+  return record(scope) && record(base) && record(base['branch']) &&
+    ['tenantId', 'projectId', 'branchId'].every(key => scope[key] === base['branch'][key]);
 };
 export const isRevisionContextShape = (value: unknown): value is RevisionContext => context(value);
 

@@ -119,7 +119,10 @@ unsupported Test AST, mismatched envelopes and existing-file preservation.
 Exact-head hosted/native evidence and CodeRabbit review are recorded on the
 associated PR; local execution does not substitute for them.
 
-Paired Angular/Windows Test panels, Test editing/import mapping, richer fixture
+The [paired offline Test result consumers](projectide-local-test-panels.md) now
+cover local result display and Windows pure execution.
+[Explicit definition interchange and local editing](projectide-test-definition-editing.md)
+now cover the initial typed Source replacement path. Full browser editing, richer fixture
 and Scenario selection, shared expression evaluation beyond defaults, units,
 Requirement/Resource/schedule/graph/Simulation assertions, durable jobs, remote
 adapters, current runtime authority and policy-bound server Merge consumption

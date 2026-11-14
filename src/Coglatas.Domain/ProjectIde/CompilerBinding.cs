@@ -39,11 +39,12 @@ public sealed class PartialSemanticModel
     public IReadOnlyList<CompilerBoundReference> References { get; }
     public IReadOnlyList<CompilerBindingFinding> Findings { get; }
     public IReadOnlyList<RelationScopeSnapshot> BoundSnapshots { get; }
+    internal IReadOnlyList<CompilerMaterializedSnapshot> MaterializedSnapshots { get; }
     public bool BindingComplete => Findings.Count == 0 && Input.SourceCoverageComplete;
     public int LogicalOperationsConsumed { get; }
     internal PartialSemanticModel(CompilerInputManifest input, IEnumerable<DeclarationDecodeResult> declarations, IEnumerable<RelationDecodeResult> relations,
         IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots,
-        int logicalOperationsConsumed = 0)
+        int logicalOperationsConsumed = 0, IEnumerable<CompilerMaterializedSnapshot>? materializedSnapshots = null)
     {
         Input = input; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = new ImmutableListView<DeclarationDecodeResult>(declarations); Relations = new ImmutableListView<RelationDecodeResult>(relations);
         Symbols = new ImmutableListView<CompilerSymbol>(symbols.OrderBy(item => item.Key, StringComparer.Ordinal));
@@ -51,13 +52,24 @@ public sealed class PartialSemanticModel
         Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
             .ThenBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
         BoundSnapshots = new ImmutableListView<RelationScopeSnapshot>(snapshots);
+        MaterializedSnapshots = new ImmutableListView<CompilerMaterializedSnapshot>(materializedSnapshots ?? []);
     }
 }
 
 public static class ProjectSemanticBinder
 {
     public static PartialSemanticModel Bind(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized = null,
-        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null) =>
+        BindCore(input, materialized, cancellationToken, declarationCache, null);
+
+    // Only closure construction can reuse the original admitted root as an implicit scope. It invents no snapshot ID/version or pin.
+    internal static PartialSemanticModel BindRegion(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot> materialized,
+        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache) =>
+        BindCore(input, materialized, cancellationToken, declarationCache,
+            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete));
+
+    private static PartialSemanticModel BindCore(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized,
+        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, RelationScopeSnapshot? closureRoot)
     {
         ArgumentNullException.ThrowIfNull(input); cancellationToken.ThrowIfCancellationRequested();
         foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
@@ -67,7 +79,7 @@ public static class ProjectSemanticBinder
         var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
         var findings = new List<CompilerBindingFinding>(); var references = new List<CompilerBoundReference>(); var symbols = new List<CompilerSymbol>();
         var findingIds = new HashSet<Guid>();
-        var snapshots = new List<RelationScopeSnapshot>();
+        var snapshots = new List<RelationScopeSnapshot>(); var admitted = new List<CompilerMaterializedSnapshot>();
         var deniedContexts = new HashSet<SourceRevisionContext>();
         var conflictingContexts = new HashSet<SourceRevisionContext>();
         void Add(string rule, string code, RelationFindingState state, ProjectLocation location)
@@ -79,7 +91,7 @@ public static class ProjectSemanticBinder
             if (findingIds.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
         }
         var remainingOperations = input.ExecutionProfile.MaximumOperations;
-        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations));
+        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted);
         var remainingDeclarations = input.ExecutionProfile.MaximumDeclarations - source.Declarations.Value.GetArrayLength() - source.Documents.Count;
         if (!WithinBudget(source.Data.Value, ref remainingOperations) || !WithinNumericProfile(source.Data.Value, input.ExecutionProfile.Numbers) ||
             source.Declarations.Value.GetArrayLength() + source.Documents.Count > input.ExecutionProfile.MaximumDeclarations ||
@@ -175,7 +187,19 @@ public static class ProjectSemanticBinder
                 Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-unsupported", RelationFindingState.Unsupported, root); continue;
             }
             if (SourceFields.Token(pin, "coverage") != "coglatas.complete") snapshot = snapshot with { DeclarationsComplete = false, RelationsComplete = false };
-            snapshots.Add(snapshot);
+            snapshots.Add(snapshot); admitted.Add(new(item.SnapshotId, item.Version, snapshot));
+        }
+        if (closureRoot is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (closureRoot.Source.TenantId != source.TenantId || !closureRoot.IsAuthorized || closureRoot.Source.Context.Equals(source.Context) ||
+                snapshots.Any(item => item.Source.Context.Equals(closureRoot.Source.Context)))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.closure-root-conflict", RelationFindingState.Unknown, root); return Empty(); }
+            remainingDeclarations -= closureRoot.Source.Declarations.Value.GetArrayLength() + closureRoot.Source.Documents.Count;
+            if (remainingDeclarations < 0 || !WithinBudget(closureRoot.Source.Data.Value, ref remainingOperations, cancellationToken) ||
+                !WithinNumericProfile(closureRoot.Source.Data.Value, input.ExecutionProfile.Numbers))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+            snapshots.Add(closureRoot);
         }
         var local = new RelationScopeSnapshot(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete);
         var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item => (Snapshot: item,
@@ -265,7 +289,7 @@ public static class ProjectSemanticBinder
                 entityId = SourceFields.String(reference, "entityId"), context = source.Context.Data.Value })), location, CoreCompilerRules.Declarations);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations));
+        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted);
 
         void ResolveValue(TypedProjectReference reference, ProjectLocation origin)
         {

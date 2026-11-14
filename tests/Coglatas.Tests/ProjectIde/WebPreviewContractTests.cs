@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.ProjectIde.Workbench.Synthetic;
 
 namespace Coglatas.Tests.ProjectIde;
 
@@ -17,6 +18,8 @@ public sealed class WebPreviewContractTests
         Assert.Equal(contexts.Length, contexts.Distinct(StringComparer.Ordinal).Count());
         foreach (var item in data.RootElement.GetProperty("cases").EnumerateArray()) yield return [item.GetRawText()];
     }
+    internal static IReadOnlyList<CompilerMaterializedSnapshot> Snapshots(JsonElement item, CompilerInputManifest input) =>
+        item.TryGetProperty("materializedSnapshots", out var data) ? SyntheticSnapshotMaterialization.Read(input, SourceJson.Parse(data.GetRawText())) : [];
     [Theory]
     [MemberData(nameof(Cases))]
     public void BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(string fixture)
@@ -27,7 +30,8 @@ public sealed class WebPreviewContractTests
         var input = CompilerInputManifest.ReadEnvelope(source, SourceJson.Parse(item.GetProperty("manifest").GetRawText()));
         Assert.Equal(input.InputId.ToString(), item.GetProperty("inputId").GetString());
         Assert.Equal(source.Digest.Data, SourceJson.Parse(item.GetProperty("sourceDigest").GetRawText()));
-        var compilation = PureCoreCompiler.Compile(input, input.Compiler);
+        var snapshots = Snapshots(item, input);
+        var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
         var result = item.GetProperty("key").GetString() switch
         {
             "not-run" => new CompilerResult(input, CompilerExecutionState.NotRun, CompilerCoverage.None, [], [], [], false),

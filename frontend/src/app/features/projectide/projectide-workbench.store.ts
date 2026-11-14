@@ -1,3 +1,9 @@
+import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
+import { AdmittedSimulation, SimulationEvent, readSimulationRun } from './projectide-simulation.reader';
+import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
+import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
+import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
+import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
 import { computed, Injectable, signal } from '@angular/core';
 import {
   BoundReference,
@@ -36,11 +42,11 @@ export class ProjectIdeWorkbenchStore {
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
   } | null>(null);
-  private readonly currentReferenceSelection = computed(() => {
+  private readonly currentReferenceSelection = () => {
     const selected = this.referenceSelection();
     return selected && selected.result === this.context() && selected.result === this.result() &&
-      selected.sourceMap === selected.result.sourceMap ? selected : null;
-  });
+      selected.sourceMap === selected.result.sourceMap && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
+  };
   private referenceQuery: AbortController | null = null;
   private readonly search = signal<{
     result: PreviewCase;
@@ -50,13 +56,13 @@ export class ProjectIdeWorkbenchStore {
     coverageComplete: boolean;
     truncated: boolean;
   } | null>(null);
-  readonly referenceSearch = computed(() => {
+  readonly referenceSearch = () => {
     const search = this.search();
     return search && search.result === this.context() && search.result === this.result() &&
-      search.result.sourceMap === search.sourceMap ? search : null;
-  });
-  readonly selectedReference = computed(() => this.currentReferenceSelection()?.reference ?? null);
-  readonly referenceSymbol = computed(() => this.currentReferenceSelection()?.symbol ?? null);
+      search.result.sourceMap === search.sourceMap && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
+  };
+  readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
+  readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
     result: PreviewCase | null; sourceMap: PreviewCase['sourceMap'] } | null>(null);
   private readonly currentTarget = computed(() => {
@@ -65,8 +71,8 @@ export class ProjectIdeWorkbenchStore {
       target.sourceMap === target.context.sourceMap &&
       !(this.referenceSelection() && !this.currentReferenceSelection()) ? target : null;
   });
-  readonly sourceTarget = computed(() => this.currentTarget()?.record ?? null);
-  readonly sourceLocation = computed(() => this.currentTarget()?.location ?? null);
+  readonly sourceTarget = () => this.currentTarget() && (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? this.currentTarget()!.record : null;
+  readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
   readonly navigationState = signal('');
   readonly history = computed(() => {
     const context = this.context(); const bundle = this.bundle();
@@ -107,6 +113,222 @@ export class ProjectIdeWorkbenchStore {
     this.choose(target.key); this.loadResult();
     return this.navigateLocation(location);
   }
+  private scopedGeneration = 0;
+  readonly scopedReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly scopedSnapshot = signal<{ context: PreviewCase; admitted: AdmittedScopedSources } | null>(null);
+  private readonly scopedTarget = signal<{ context: PreviewCase; admitted: AdmittedScopedSources; region: ScopedSourceRegion; record: SourceRecord; location: ProjectLocation } | null>(null);
+  private admittedScoped(): AdmittedScopedSources | null {
+    const snapshot = this.scopedSnapshot(); const context = this.context();
+    return snapshot && context && this.state() === 'ready' && context === this.result() && snapshot.context === context &&
+      scopedSourcesMatch(context, snapshot.admitted) ? snapshot.admitted : null;
+  }
+  readonly hasVerifiedPublication = (): boolean => this.admittedScoped()?.publicationVerified === true;
+  private resolveCurrentLocation(value: PreviewCase, location: ProjectLocation, requireSourceMap = false) {
+    if (requireSourceMap && value.result.artifacts.some(artifact => artifact.version === 2)) {
+      if (!sameContext(location.context, value.context)) return 'wrong-scope' as const;
+      const admitted = value === this.context() && value === this.result() ? this.admittedScoped() : null;
+      return admitted?.publicationVerified ? resolveScopedSource(value, admitted, location)?.record ?? 'unavailable' : 'unavailable';
+    }
+    return resolveLocation(value, location, requireSourceMap);
+  }
+  readonly planDefinition = () => this.admittedScoped()?.plan ?? null;
+  readonly planNotProducedReason = () => this.admittedScoped()?.planNotProducedReason ?? null;
+  private simulationGeneration = 0;
+  readonly simulationReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly simulationSnapshot = signal<AdmittedSimulation | null>(null);
+  readonly simulation = (): AdmittedSimulation | null => {
+    const simulation = this.simulationSnapshot();
+    return simulation && simulation.sources === this.admittedScoped() ? simulation : null;
+  };
+  async loadSimulation(): Promise<boolean> {
+    this.clearSimulation(); const generation = this.simulationGeneration; const context = this.context(); const sources = this.admittedScoped();
+    if (!context || !sources || context !== this.result()) return false;
+    this.simulationReadState.set('loading');
+    try {
+      const run = await readSimulationRun(context, sources);
+      if (generation !== this.simulationGeneration || context !== this.context() || context !== this.result()) return false;
+      if (!run || sources !== this.admittedScoped()) throw new Error('simulation-unavailable');
+      this.simulationSnapshot.set(run); this.simulationReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.simulationGeneration && context === this.context() && context === this.result()) this.simulationReadState.set('unavailable');
+      return false;
+    }
+  }
+  navigateSimulationEvent(event: SimulationEvent): boolean {
+    const run = this.simulation(); const context = this.context(); this.resetSelection();
+    if (!run || !context || !run.events.includes(event)) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, run.sources, event.location);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
+  }
+  private clearSimulation(): void { this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
+  readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
+  readonly scopedSourceTarget = () => {
+    const target = this.scopedTarget();
+    return target && target.context === this.context() && target.context === this.result() && this.admittedScoped() === target.admitted ? target : null;
+  };
+  async loadScopedSources(): Promise<boolean> {
+    this.clearScopedSources(); this.resetSelection();
+    const generation = this.scopedGeneration; const context = this.context();
+    if (!context || context !== this.result() || this.state() !== 'ready') return false;
+    this.scopedReadState.set('loading');
+    try {
+      const admitted = await readScopedSources(context);
+      if (generation !== this.scopedGeneration || context !== this.context() || context !== this.result()) return false;
+      if (!admitted || !scopedSourcesMatch(context, admitted)) throw new Error('scoped-input-unavailable');
+      this.scopedSnapshot.set({ context, admitted }); this.scopedReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.scopedGeneration && context === this.context() && context === this.result()) {
+        this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('unavailable');
+      }
+      return false;
+    }
+  }
+  navigateScopedSource(record: SourceRecord): boolean {
+    const context = this.context(); const admitted = this.admittedScoped(); this.resetSelection();
+    if (!context || !admitted || !admitted.regions.some(region => region.records.includes(record))) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, admitted, record.location);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted, ...target, location: record.location }); this.navigationState.set('ready'); return true;
+  }
+  navigateScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): boolean {
+    const context = this.context(); const admitted = this.admittedScoped(); this.resetSelection();
+    if (!context || !admitted || !admitted.regions.includes(region) || !region.diagnostics.includes(diagnostic)) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, admitted, diagnostic.primaryLocation);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
+  }
+  private clearScopedSources(): void {
+    this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
+  }
+  private scenarioGeneration = 0;
+  readonly scenarioReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly scenarioSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedScenario } | null>(null);
+  readonly preparedScenario = (): PreparedScenario | null => {
+    const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.state() !== 'ready' || context !== this.result()) return null;
+    try { return scenarioTriplet(bundle, context)?.prepared ?? null; } catch { return null; }
+  };
+  readonly scenario = (): AdmittedScenario | null => {
+    const snapshot = this.scenarioSnapshot(); const context = this.context(); const bundle = this.bundle();
+    return snapshot && bundle && context && this.state() === 'ready' && snapshot.context === context && context === this.result() &&
+      snapshot.bundle === bundle && scenarioMatches(bundle, context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  private async admitScenario(prepared: PreparedScenario) {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    if (!bundle || !context || this.preparedScenario() !== prepared) return null;
+    this.scenarioReadState.set('loading');
+    try {
+      const admitted = await readPreparedScenario(bundle, context);
+      if (generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() || context !== this.result()) return null;
+      if (!admitted || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) throw new Error('stale-scenario');
+      return admitted;
+    } catch {
+      if (generation === this.scenarioGeneration && context === this.context()) { this.scenarioSnapshot.set(null); this.scenarioReadState.set('unavailable'); }
+      return null;
+    }
+  }
+  async loadScenarioComparison(prepared: PreparedScenario): Promise<boolean> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return false;
+    this.scenarioSnapshot.set({ bundle, context, admitted }); this.scenarioReadState.set('ready'); return true;
+  }
+  async exportScenarioAssumptions(prepared: PreparedScenario): Promise<string | null> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return null;
+    this.scenarioReadState.set(this.scenario() ? 'ready' : 'idle'); return prepared.overlay.text;
+  }
+  async loadScenarioStage(prepared: PreparedScenario, stage: 'baseline' | 'scenario' | 'draft'): Promise<boolean> {
+    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const admitted = await this.admitScenario(prepared);
+    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return false;
+    if (stage === 'scenario' && context !== admitted.baseline || stage === 'draft' && context !== admitted.scenario) { this.scenarioReadState.set('ready'); return false; }
+    const target = admitted[stage]; this.choose(target.key); this.loadResult();
+    if (this.context() !== target || this.result() !== target || this.bundle() !== bundle || !scenarioMatches(bundle, target, admitted)) return false;
+    this.scenarioSnapshot.set({ bundle, context: target, admitted }); this.scenarioReadState.set('ready'); return true;
+  }
+  private clearScenario(): void { this.scenarioGeneration++; this.scenarioSnapshot.set(null); this.scenarioReadState.set('idle'); }
+  readonly testEditState = signal<'idle' | 'loading' | 'unavailable'>('idle');
+  readonly preparedTestEdit = (): PreparedTestEdit | null => {
+    const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.state() !== 'ready' || context !== this.result()) return null;
+    try { return testEditPair(bundle, context)?.prepared ?? null; } catch { return null; }
+  };
+  private async admitTestEdit(prepared: PreparedTestEdit) {
+    const generation = this.testGeneration; const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.preparedTestEdit() !== prepared) return null;
+    this.testEditState.set('loading');
+    try {
+      readPreviewBundle(bundle); const result = await readPreparedTestEdit(bundle, context);
+      if (generation !== this.testGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return null;
+      readPreviewBundle(bundle);
+      if (!result || result.prepared !== prepared || this.preparedTestEdit() !== prepared || !bundle.cases.includes(result.after)) throw new Error('stale-test-edit');
+      this.testEditState.set('idle'); return result;
+    } catch {
+      if (generation === this.testGeneration && context === this.context()) this.testEditState.set('unavailable');
+      return null;
+    }
+  }
+  async exportPreparedTestDefinition(prepared: PreparedTestEdit): Promise<string | null> {
+    const generation = this.testGeneration; const bundle = this.bundle(); const context = this.context();
+    const result = await this.admitTestEdit(prepared);
+    return result && generation === this.testGeneration && bundle === this.bundle() && context === this.context() &&
+      context === this.result() && this.preparedTestEdit() === prepared ? result.definitionText : null;
+  }
+  async loadPreparedTestEdit(prepared: PreparedTestEdit): Promise<boolean> {
+    const generation = this.testGeneration; const bundle = this.bundle(); const context = this.context();
+    const result = await this.admitTestEdit(prepared);
+    if (!result || generation !== this.testGeneration || bundle !== this.bundle() || context !== this.context() ||
+        context !== this.result() || this.preparedTestEdit() !== prepared) return false;
+    this.choose(result.after.key); this.loadResult(); return true;
+  }
+  private testGeneration = 0;
+  readonly testReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
+  private readonly testSnapshot = signal<{ context: PreviewCase; result: PreviewCase; admitted: AdmittedLocalTests; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
+  readonly localTests = (): AdmittedLocalTests | null => {
+    const snapshot = this.testSnapshot();
+    return snapshot && this.state() === 'ready' && snapshot.context === this.context() && snapshot.result === this.result() && snapshot.sourceMap === snapshot.context.sourceMap && snapshot.source === snapshot.context.source &&
+      snapshot.manifest === snapshot.context.manifest && snapshot.declarations === snapshot.context.declarations && localTestsMatchCase(snapshot.context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadLocalTests(): Promise<boolean> {
+    this.clearLocalTests(); this.resetSelection();
+    const generation = this.testGeneration; const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || context !== this.result() || this.state() !== 'ready') {
+      this.testReadState.set('unavailable'); return false;
+    }
+    const materialization = { sourceMap: context.sourceMap, source: context.source, manifest: context.manifest, declarations: context.declarations };
+    this.testReadState.set('loading');
+    try {
+      readPreviewBundle(bundle);
+      const admitted = await readLocalTests(context);
+      if (generation !== this.testGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
+      if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
+        this.clearLocalTests(); this.testReadState.set('unavailable'); return false;
+      }
+      readPreviewBundle(bundle);
+      if (!admitted) { this.testReadState.set('unavailable'); return false; }
+      if (!localTestsMatchCase(context, admitted)) throw new Error('stale-local-tests');
+      this.testSnapshot.set({ context, result: context, admitted, ...materialization }); this.testReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.testGeneration && context === this.context() && context === this.result()) {
+        this.testSnapshot.set(null); this.testReadState.set('unsupported');
+      }
+      return false;
+    }
+  }
+  navigateTestAssertion(assertion: LocalTestAssertion): boolean {
+    const admitted = this.localTests(); this.resetSelection();
+    if (!admitted || !admitted.run.tests.some(test => test.assertions.includes(assertion))) { this.navigationState.set('unavailable'); return false; }
+    try { readPreviewBundle(this.bundle()); } catch { this.clear('unsupported'); return false; }
+    if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
+    return this.navigateLocation(assertion.location);
+  }
+  private clearLocalTests(): void { this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {
@@ -147,9 +369,9 @@ export class ProjectIdeWorkbenchStore {
     return record?.recordType === 'entity' && this.result() === this.context() && this.result()?.freshness === 'Current' ? (this.result()?.semanticInspection?.symbols ?? []).filter((symbol) =>
       symbol.location.entityId === record.identity && symbol.location.documentId === record.location.documentId) : [];
   });
-  readonly diagnosticSymbol = computed(() => {
+  readonly diagnosticSymbol = () => {
     const diagnostic = this.diagnostic();
-    if (!diagnostic || !this.result()?.sourceMap) return null;
+    if (!diagnostic || !(this.result()?.sourceMap || this.hasVerifiedPublication())) return null;
     const location = diagnostic.primaryLocation;
     const matches = this.recordSymbols().filter(({ location: symbol }) =>
       symbol.propertyPath === location.propertyPath &&
@@ -157,36 +379,37 @@ export class ProjectIdeWorkbenchStore {
       symbol.textSpan?.length === location.textSpan?.length,
     );
     return matches.length === 1 ? matches[0] : null;
-  });
-  readonly inspectedSymbols = computed(() => {
+  };
+  readonly inspectedSymbols = () => {
+    if (this.result()?.result.artifacts.some(a => a.version === 2) && !this.hasVerifiedPublication()) return [];
     if (this.selection()?.kind !== 'diagnostic') return this.recordSymbols();
     const symbol = this.diagnosticSymbol();
     return symbol ? [symbol] : [];
-  });
-  readonly inspectedReferences = computed(() => {
+  };
+  readonly inspectedReferences = () => {
     const keys = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (this.result()?.semanticInspection?.references ?? []).filter((reference) => reference.symbolKey !== null && keys.has(reference.symbolKey));
-  });
-  readonly referenceCompletions = computed(() => {
+  };
+  readonly referenceCompletions = () => {
     const result = this.result();
-    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
-  });
-  readonly requirementTaskSuggestions = computed(() => {
+  };
+  readonly requirementTaskSuggestions = () => {
     const result = this.result();
-    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().filter(symbol => symbol.kind === 'coglatas.requirement').map(symbol => symbol.key));
     return (result.requirementTaskSuggestions ?? []).filter(page => origins.has(page.originKey) && page.state === 'Ready' && page.candidateOnly);
-  });
-  readonly preparedRename = computed(() => {
+  };
+  readonly preparedRename = () => {
     const result = this.result(); const record = this.inspectedRecord(); const prepared = result?.preparedRename;
     if (!result || !result.semanticInspection || result !== this.context() || result.freshness !== 'Current' || !record || !prepared ||
         record.recordType !== 'entity' || record.identity !== prepared.plan.target.entityId ||
         record.location.documentId !== prepared.plan.target.documentId ||
-        typeof resolveLocation(result, prepared.plan.target, true) === 'string') return null;
+        typeof this.resolveCurrentLocation(result, prepared.plan.target, true) === 'string') return null;
     return prepared;
-  });
+  };
   loadPreparedRename(prepared: PreparedDraftRename): boolean {
     const bundle = this.bundle(); const result = this.result(); const generation = this.generation;
     if (!bundle || !result || this.preparedRename() !== prepared) return false;
@@ -195,7 +418,7 @@ export class ProjectIdeWorkbenchStore {
     if (!after) return false;
     this.resetSelection();
     if (this.generation !== generation || this.bundle() !== bundle || this.context() !== result || this.result() !== result) return false;
-    this.result.set(null); this.context.set(after); this.result.set(after);
+    this.clearScopedSources(); this.result.set(null); this.context.set(after); this.result.set(after);
     return true;
   }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): boolean {
@@ -204,7 +427,7 @@ export class ProjectIdeWorkbenchStore {
     const origin = result?.semanticInspection?.symbols.find((symbol) => symbol.key === page.originKey);
     const symbol = result?.semanticInspection?.symbols.find((symbol) => symbol.key === candidate.symbolKey);
     if (!result || !this.referenceCompletions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
-        typeof resolveLocation(result, origin.location, true) === 'string') {
+        typeof this.resolveCurrentLocation(result, origin.location, true) === 'string') {
       this.navigationState.set('unavailable'); return false;
     }
     return this.navigateLocation(symbol.location, true);
@@ -218,22 +441,22 @@ export class ProjectIdeWorkbenchStore {
     if (!result || !this.requirementTaskSuggestions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
         record?.recordType !== 'entity' || record.kind !== 'coglatas.requirement' || origin.location.entityId !== record.identity ||
         origin.location.documentId !== record.location.documentId || origin.location.propertyPath !== '' ||
-        typeof resolveLocation(result, origin.location, true) === 'string') {
+        typeof this.resolveCurrentLocation(result, origin.location, true) === 'string') {
       this.navigationState.set('unavailable'); return false;
     }
     return this.navigateLocation(symbol.location, true);
   }
-  readonly referenceRows = computed(() => {
+  readonly referenceRows = () => {
     const result = this.result();
     const record = this.inspectedRecord();
-    if (!record || result !== this.context() || result?.freshness !== 'Current') return [];
+    if (!record || result !== this.context() || result?.freshness !== 'Current' || result.result.artifacts.some(a => a.version === 2) && !this.hasVerifiedPublication()) return [];
     const incoming = new Set(this.inspectedReferences());
     return (result.semanticInspection?.references ?? []).filter(({ origin, state, symbolKey }, index, references) =>
       state === 'Resolved' && symbolKey !== null && (incoming.has(references[index]) ||
         (this.selection()?.kind !== 'diagnostic' && origin.documentId === record.location.documentId &&
           (record.recordType === 'entity' ? origin.entityId : origin.relationId) === record.identity)),
     );
-  });
+  };
   async load(read: (signal: AbortSignal) => Promise<PreviewBundle>): Promise<void> {
     const generation = this.generation + 1;
     this.clear('loading');
@@ -258,11 +481,15 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   choose(key: string): void {
+    this.clearScopedSources();
+    this.clearLocalTests();
     this.resetSelection();
     this.result.set(null);
     this.context.set(this.bundle()?.cases.find((c) => c.key === key) ?? null);
   }
   loadResult(): void {
+    this.clearScopedSources();
+    this.clearLocalTests();
     this.resetSelection();
     this.result.set(this.context());
   }
@@ -302,7 +529,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set('unavailable');
       return false;
     }
-    const definition = resolveLocation(result, symbol.location, true);
+    const definition = this.resolveCurrentLocation(result, symbol.location, true);
     if (typeof definition === 'string') {
       this.navigationState.set(definition);
       return false;
@@ -335,7 +562,7 @@ export class ProjectIdeWorkbenchStore {
         break;
       }
       originChecks++;
-      if (typeof resolveLocation(result, reference.origin, true) === 'string') {
+      if (typeof this.resolveCurrentLocation(result, reference.origin, true) === 'string') {
         coverageComplete = false;
         continue;
       }
@@ -384,9 +611,9 @@ export class ProjectIdeWorkbenchStore {
         reference.state !== 'Resolved' || reference.symbolKey === null) return 'unavailable';
     const matches = inspection.symbols.filter((symbol) => symbol.key === reference.symbolKey);
     if (matches.length !== 1 || matches[0].status !== 'Decoded') return 'unavailable';
-    const origin = resolveLocation(result, reference.origin, true);
+    const origin = this.resolveCurrentLocation(result, reference.origin, true);
     if (typeof origin === 'string') return origin;
-    const definition = resolveLocation(result, matches[0].location, true);
+    const definition = this.resolveCurrentLocation(result, matches[0].location, true);
     return typeof definition === 'string' ? definition : matches[0];
   }
   clearSelection(): void {
@@ -405,13 +632,14 @@ export class ProjectIdeWorkbenchStore {
     return this.navigateLocation(this.diagnosticSymbol()?.location);
   }
   private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false): boolean {
+    this.scopedTarget.set(null);
     this.target.set(null);
     const context = this.context();
     if (!context || !location) {
       this.navigationState.set('unavailable');
       return false;
     }
-    const target = resolveLocation(context, location, requireSourceMap);
+    const target = this.resolveCurrentLocation(context, location, requireSourceMap);
     if (typeof target === 'string') {
       this.navigationState.set(target);
       return false;
@@ -421,6 +649,8 @@ export class ProjectIdeWorkbenchStore {
     return true;
   }
   clear(state: ReadState = 'idle'): void {
+    this.clearScopedSources();
+    this.clearLocalTests();
     this.generation++;
     const controller = this.controller;
     this.controller = null;
@@ -433,6 +663,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);
     this.referenceSelection.set(null);

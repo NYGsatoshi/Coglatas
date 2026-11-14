@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { signal } from '@angular/core';
@@ -13,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false) {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'simulation' ? 'public/assets/projectide/simulation-v1.json' : profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -78,7 +79,83 @@ async function render(enabled = true, allowed = true, fail = false) {
   };
 }
 
+vi.stubGlobal('crypto', webcrypto);
+
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('separates Scenario assumptions, Source changes and fixed result axes in %s', async locale => {
+    const { c, fixture, root, authenticated } = await render(true, true, false, 'scenario'); c.i18n.setLocale(locale);
+    c.choose('tests-scenario-base'); c.loadResult(); c.open('scenario');
+    const prepared = c.store.preparedScenario()!; await c.loadScenarioComparison(prepared); fixture.detectChanges(); await fixture.whenStable();
+    expect(root.querySelector('[data-testid="ide-scenario-assumptions"]')!.textContent).toContain('true');
+    expect(root.querySelector('[data-testid="ide-scenario-changes"]')!.textContent).toContain('/payload/ports');
+    const baseline = root.querySelector('[data-testid="ide-scenario-result-0"]')!;
+    expect(baseline.textContent).toContain(c.t('ide.testFail')); expect(baseline.textContent).toContain(c.t('ide.testPass'));
+    expect(root.querySelector('[data-testid="ide-scenario-result-1"]')!.textContent).toContain(c.t('ide.testPass'));
+    await c.loadScenarioStage(prepared, 'scenario'); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.context.kind).toBe('coglatas.scenario'); expect(c.store.localTests()).toBeNull(); expect(c.panel()).toBe('scenario');
+    await c.loadScenarioStage(c.store.preparedScenario()!, 'draft'); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.context.kind).toBe('coglatas.candidate');
+    authenticated.set(false); fixture.detectChanges(); expect(c.store.scenario()).toBeNull(); expect(root.querySelector('[data-testid="ide-scenario-results"]')).toBeNull();
+  });
+
+  it.each(['en', 'ja'] as const)('loads an exact Core-prepared Test definition edit in %s without retaining the previous result', async locale => {
+    const { c, fixture, root, authenticated } = await render(true, true, false, 'test-edit'); c.i18n.setLocale(locale);
+    c.choose('tests-edit-before'); c.loadResult(); c.open('tests'); await c.loadLocalTests(); fixture.detectChanges();
+    const prepared = c.store.preparedTestEdit()!; expect(prepared).toBeTruthy();
+    expect(root.querySelector('[data-testid="ide-test-definition"]')!.textContent).toContain('"kind":"coglatas.project-test"');
+    expect(c.store.localTests()!.run.verdict).toBe('Fail'); await c.loadTestEdit(prepared); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.key).toBe('tests-edit-after'); expect(c.store.localTests()).toBeNull();
+    expect(root.querySelector('pre.source-buffer')!.textContent).toContain('coglatas.candidate');
+    c.open('tests'); await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.localTests()!.run.verdict).toBe('Pass');
+    authenticated.set(false); fixture.detectChanges(); expect(c.store.preparedTestEdit()).toBeNull(); expect(c.store.localTests()).toBeNull();
+  });
+
+  it.each([
+    ['tests-pass', 'Passed'], ['tests-fail', 'Failed'], ['tests-unknown', 'Inconclusive'], ['tests-empty', 'Not run'],
+    ['tests-unsupported', 'Not run'], ['tests-cancelled', 'Cancelled'], ['tests-stale', 'Stale'], ['tests-evaluator-mismatch', 'Not run'],
+    ['tests-error', 'Error'], ['tests-exhausted', 'Resource limit reached'], ['tests-unicode', 'Passed'], ['tests-many', 'Passed'],
+  ])('shows the actual local %s axes separately from Compiler verdict', async (key, outcome) => {
+    const { c, fixture, root } = await render(); c.choose(key); c.loadResult(); c.open('tests');
+    expect(c.store.localTests()).toBeNull(); await c.loadLocalTests(); fixture.detectChanges();
+    const summary = root.querySelector('[data-testid="ide-tests-summary"]')!;
+    expect(summary.textContent).toContain(outcome);
+    expect(summary.textContent).toContain('Tests discovered: ' + c.store.localTests()!.run.discoveredTests);
+    expect(summary.textContent).toContain('Assertions evaluated: ' + c.store.localTests()!.run.executedAssertions);
+    expect(c.store.result()!.result.verdict).toBe(key === 'tests-unsupported' ? 'coglatas.inconclusive' : 'coglatas.pass');
+  });
+  it.each(['en', 'ja'] as const)('opens an assertion from the %s Tests panel and clears it when read permission is lost', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('tests-fail'); c.loadResult(); c.i18n.setLocale(locale);
+    c.open('tests'); await c.loadLocalTests(); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')!.textContent).toContain(locale === 'en' ? 'Failed' : '失敗');
+    const action = Array.from(root.querySelectorAll('button')).find(item => item.textContent?.includes(locale === 'en' ? 'Open assertion in Source' : 'アサーションのソースを開く'))!;
+    action.click(); fixture.detectChanges(); await fixture.whenStable();
+    const target = root.querySelector('[data-testid="ide-source-target"]'); expect(target).toBeTruthy();
+    expect(root.querySelector('[data-testid="ide-source-location"]')!.textContent).toContain('/payload/assertions/example.ready');
+    authenticated.set(false); fixture.detectChanges();
+    expect(c.store.localTests()).toBeNull(); expect(c.store.sourceTarget()).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-rows"]')).toBeNull();
+  });
+  it('pages actual Core-produced Test rows without changing the full result counts', async () => {
+    const { c, fixture, root } = await render(); c.choose('tests-many'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests(); fixture.detectChanges();
+    const rows = () => root.querySelector('[data-testid="ide-test-rows"]')!.querySelectorAll(':scope > li');
+    expect(rows()).toHaveLength(32); expect(c.store.localTests()!.run.discoveredTests).toBe(33);
+    Array.from(root.querySelectorAll('button')).find(item => item.textContent?.trim() === 'Next Tests')!.click(); fixture.detectChanges();
+    expect(rows()).toHaveLength(1); expect(c.store.localTests()!.run.executedAssertions).toBe(33);
+    Array.from(root.querySelectorAll('button')).find(item => item.textContent?.trim() === 'Previous Tests')!.click(); fixture.detectChanges();
+    expect(rows()).toHaveLength(32);
+  });
+  it('does not display missing or corrupted local Test projections as successful checks', async () => {
+    const { c, fixture, root } = await render(); c.choose('pass'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.testReadState()).toBe('unavailable');
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')).toBeNull();
+    c.choose('tests-pass'); c.loadResult(); c.open('tests');
+    Object.assign(c.store.context()!.localProjectTests!.result, { text: '{}' });
+    await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.testReadState()).toBe('unsupported');
+    expect(root.querySelector('[role="alert"]')!.textContent).toContain('could not be verified');
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')).toBeNull();
+  });
+
   it.each(['en', 'ja'] as const)('shows reasoned %s Task candidates and rechecks permission without changing the Requirement', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('requirement-candidates'); c.loadResult(); c.i18n.setLocale(locale);
     const record = c.store.context()!.declarations.find(item => item.kind === 'coglatas.requirement')!;
@@ -443,4 +520,57 @@ it('does not apply deferred Source focus after the current result is reloaded', 
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(document.activeElement).toBe(picker);
   expect(c.store.sourceTarget()).toBeNull();
+});
+
+for (const mode of ['focus', 'reload', 'denied'] as const) it('guards scoped content focus and selection: ' + mode, async () => {
+  const { c, fixture, root, authenticated } = await render(true, true, false, 'scoped');
+  c.choose('tests-scoped-base'); c.loadResult(); await c.loadScopedSources();
+  const region = c.store.scopedSources().find(region => region.context.branch.projectId !== c.store.context()!.context.branch.projectId)!;
+  const record = region.records[0];
+  if (mode === 'denied') { authenticated.set(false); c.openScopedSource(record); expect(c.store.context()).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull(); return; }
+  c.openScopedSource(record);
+  if (mode === 'reload') c.loadResult();
+  fixture.detectChanges();
+  const picker = root.querySelector<HTMLSelectElement>('[data-testid="ide-context"]')!;
+  if (mode === 'reload') picker.focus();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(mode === 'focus' ? root.querySelector('[data-testid="ide-scoped-source-target"]') : picker);
+  if (mode === 'reload') expect(c.store.scopedSourceTarget()).toBeNull();
+});
+
+for (const locale of ['en', 'ja'] as const) it('opens the actual fixed plan asset and keeps production separate in ' + locale, async () => {
+  const { c, fixture, root, adapter, authenticated } = await render(true, true, false, 'plan'); c.i18n.setLocale(locale); fixture.detectChanges();
+  const button = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.planExample')))!;
+  expect(button).toBeTruthy(); button.click(); await fixture.whenStable(); fixture.detectChanges();
+  expect(adapter.read).toHaveBeenLastCalledWith(expect.stringContaining('/assets/projectide/execution-plan-v1.json'), expect.objectContaining({ aborted: false }));
+  c.choose('tests-plan-root-base'); c.loadResult(); c.open('source'); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-plan-definition"]')).toBeNull();
+  await c.loadScopedSources(); fixture.detectChanges(); await fixture.whenStable();
+  expect(root.querySelector('[data-testid="ide-plan-definition"]')!.textContent).toContain(c.t('ide.planNotice'));
+  expect(c.store.planDefinition()!.taskCount).toBe(3); authenticated.set(false); fixture.detectChanges(); await fixture.whenStable();
+  expect(root.querySelector('[data-testid="ide-plan-definition"]')).toBeNull(); expect(c.store.planDefinition()).toBeNull();
+});
+it('rejects a direct plan example handler after permission is revoked', async () => {
+  const { c, authenticated, adapter } = await render(); const calls = adapter.read.mock.calls.length;
+  authenticated.set(false); await c.reload('plan'); expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied');
+});
+
+for (const locale of ['en', 'ja'] as const) it('loads the actual recorded simulation explicitly and revokes it in ' + locale, async () => {
+  const { c, fixture, root, adapter, authenticated } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); fixture.detectChanges();
+  const example = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.simulationExample')))!;
+  example.click(); await fixture.whenStable(); fixture.detectChanges();
+  expect(adapter.read).toHaveBeenLastCalledWith(expect.stringContaining('/assets/projectide/simulation-v1.json'), expect.objectContaining({ aborted: false }));
+  c.choose('tests-simulation-root-base'); c.loadResult(); c.open('source'); await c.loadScopedSources(); fixture.detectChanges();
+  expect(root.querySelector('[data-testid="ide-simulation"]')).toBeNull();
+  const load = [...root.querySelectorAll('button')].find(button => button.textContent?.includes(c.t('ide.simulationLoad')))!;
+  load.click(); await vi.waitFor(() => expect(c.store.simulationReadState()).toBe('ready')); fixture.detectChanges(); expect(c.store.simulation()!.events).toHaveLength(6);
+  expect(root.querySelector('[data-testid="ide-simulation"]')!.textContent).toContain(c.t('ide.simulationNotice'));
+  c.openSimulationEvent(c.store.simulation()!.events[0]); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-scoped-source-target"]'));
+  authenticated.set(false); fixture.detectChanges(); await fixture.whenStable(); expect(c.store.simulation()).toBeNull();
+  expect(root.querySelector('[data-testid="ide-simulation"]')).toBeNull();
+});
+it('refuses direct simulation handlers after permission revocation', async () => {
+  const { c, adapter, authenticated } = await render(true, true, false, 'simulation'); const calls = adapter.read.mock.calls.length;
+  authenticated.set(false); await c.reload('simulation'); await c.loadSimulation();
+  expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied'); expect(c.store.simulation()).toBeNull();
 });

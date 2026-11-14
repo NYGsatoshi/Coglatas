@@ -1,9 +1,42 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
-if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
+var testEditProfile = args is [_, "--test-edit"];
+var dependencyProfile = args is [_, "--dependency-analysis"];
+var graphProfile = args is [_, "--graph-closure"];
+var simulationProfile = args is [_, "--simulation"];
+var planProfile = args is [_, "--execution-plan"] || simulationProfile;
+var publicationProfile = args is [_, "--scoped-publication"];
+var scopedProfile = args is [_, "--scoped-sources"];
+var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation profile.");
+var testEditFixture = testEditProfile ? TestEditFixture() : null;
+var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
+{
+    ["tests-scenario"] = ScenarioFixture(), ["tests-reference"] = ReferenceScenarioFixture(900),
+    ["tests-nested-reference"] = ReferenceScenarioFixture(1000, nested: true),
+    ["tests-missing-reference"] = ReferenceScenarioFixture(1100, admission: "missing"),
+    ["tests-denied-reference"] = ReferenceScenarioFixture(1200, admission: "denied")
+} : null;
+if (dependencyProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-dependency"] = ReferenceScenarioFixture(1300, dependencyConstraint: true) };
+if (scopedProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-scoped"] = ReferenceScenarioFixture(1500, dependencyConstraint: true, additionalVersion: true) };
+if (graphProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-graph"] = ReferenceScenarioFixture(1400, graphCycle: true) };
+if (publicationProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-publication-root"] = ScenarioFixture(publication: true), ["tests-publication-true"] = ReferenceScenarioFixture(1600, dependencyConstraint: true, publication: true, truth: true), ["tests-publication-false"] = ReferenceScenarioFixture(1700, dependencyConstraint: true, publication: true, truth: false), ["tests-publication-unknown"] = ReferenceScenarioFixture(1800, dependencyConstraint: true, publication: true, truth: null) };
+if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
+    ["tests-plan-root"] = ScenarioFixture(publication: true, planTarget: true),
+    ["tests-plan-external"] = ReferenceScenarioFixture(1900, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
+    ["tests-plan-unknown"] = ReferenceScenarioFixture(2000, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
+    ["tests-plan-budget"] = ReferenceScenarioFixture(2100, dependencyConstraint: true, publication: true, truth: true, planTarget: true, planBudget: 200000)
+};
+if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
+    ["tests-simulation-root"] = ScenarioFixture(publication: true, planTarget: true),
+    ["tests-simulation-external"] = ReferenceScenarioFixture(2600, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
+    ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
+    ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
+};
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
@@ -39,15 +72,21 @@ var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
+if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
+if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
+    var scenarioKey = scenarioProfile ? scenarioFixtures!.Keys.Single(key => name == key + "-base" || name == key + "-hypothesis" || name == key + "-draft") : null;
+    var scenarioFixture = scenarioKey is null ? null : scenarioFixtures![scenarioKey];
+    var snapshots = scenarioFixture?.Snapshots ?? [];
     // Displayed committed revisions must never identify two different Sources.
-    var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
+    var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, _ => Input(name, 100 + index) };
-    var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
-    var reference = PureCoreCompiler.Compile(input, input.Compiler);
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + index) };
+    if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
+    var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, declarationCache: declarationCache);
+    var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
     var result = name switch
     {
@@ -124,6 +163,60 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
+    if (name.StartsWith("tests-", StringComparison.Ordinal))
+    {
+        var plan = ProjectTestPlan.Compile(compilation.Model!, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
+        using var cancellation = new CancellationTokenSource();
+        if (name == "tests-cancelled") cancellation.Cancel();
+        var expected = name == "tests-stale" ? ContentDigest.Compute("coglatas.synthetic-stale-test-input/1", []) : input.InputDigest;
+        var testRun = plan.Execute(expected, cancellation.Token);
+        var testDeclarations = PlanDeclarationReader.Read(input.Source).Where(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test")
+            .OrderBy(item => item.Data.Value.GetProperty("entityId").GetString(), StringComparer.Ordinal).ToArray();
+        var projection = new { format = "coglatas.local-test-projection/1", inputText = input.Data.CanonicalText,
+            plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
+            result = new { text = testRun.Data.CanonicalText, digest = testRun.Digest.Data.Value },
+            declarations = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
+            assertions = testDeclarations.Where(item => item.Declaration is ProjectTestPlanDeclaration)
+                .SelectMany(item => ((ProjectTestPlanDeclaration)item.Declaration!).Assertions.Select(assertion => new
+                { testId = item.Data.Value.GetProperty("entityId").GetString(), key = assertion.Key, text = assertion.Data.CanonicalText })).ToArray() };
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection); cases[^1] = fixture;
+    }
+    if (name == "tests-edit-before")
+    {
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["preparedTestEdit"] = JsonSerializer.SerializeToNode(new { afterCaseKey = "tests-edit-after", plan = testEditFixture!.Plan.Data.Value,
+            definitionText = testEditFixture.Exported.CanonicalText, importedText = testEditFixture.Imported.CanonicalText });
+        cases[^1] = fixture;
+    }
+    if (scenarioProfile)
+    {
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["preparedScenario"] = JsonSerializer.SerializeToNode(new { baselineCaseKey = scenarioKey + "-base", scenarioCaseKey = scenarioKey + "-hypothesis", draftCaseKey = scenarioKey + "-draft",
+            overlay = new { text = scenarioFixture!.Scenario.Overlay.CanonicalText, digest = scenarioFixture.Scenario.OverlayDigest.Data.Value }, draftPlan = scenarioFixture.Draft.Data.Value,
+            appliedValues = new { scenario = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Scenario, scenarioFixture.Scenario.Input)),
+                draft = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Draft, scenarioFixture.Draft.After)) } });
+        if (name == scenarioKey + "-base" || name == scenarioKey + "-hypothesis")
+        {
+            var after = name == scenarioKey + "-base" ? scenarioFixture!.Scenario.Input : scenarioFixture!.Draft.After;
+            if (inspection is not null && PureCoreCompiler.Compile(after, after.Compiler, snapshots).Result.Execution == CompilerExecutionState.Completed)
+                fixture["preparedDiff"] = JsonSerializer.SerializeToNode(new { afterCaseKey = name == scenarioKey + "-base" ? scenarioKey + "-hypothesis" : scenarioKey + "-draft",
+                comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(input, snapshots), ProjectSemanticBinder.Bind(after, snapshots), input.InputDigest, after.InputDigest).Data.Value });
+        }
+        if (snapshots.Count != 0 || scenarioFixture!.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
+            fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
+        if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
+            fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
+        if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
+        {
+            var run = ProjectSimulation.Execute(new(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
+                new(MaximumEvents: scenarioKey == "tests-simulation-bounded" ? 2 : 4096)), input.InputDigest);
+            if (run.Execution != (scenarioKey == "tests-simulation-bounded" ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed))
+                throw new InvalidOperationException("Actual simulation fixture did not retain its expected execution boundary.");
+            fixture["simulationRun"] = JsonSerializer.SerializeToNode(new { text = run.Data.CanonicalText, digest = run.Digest.Data.Value });
+        }
+        cases[^1] = fixture;
+    }
     if (name == "requirement-candidates")
     {
         if (inspection is null || ir is null) throw new InvalidOperationException("Task candidates require actual Core inspection and source navigation.");
@@ -145,7 +238,230 @@ Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
+static object AppliedValues(ProjectScenarioAppliedValuesPreview preview)
+{
+    var projection = preview.Projection ?? throw new InvalidOperationException($"Scenario applied values unavailable: {preview.State}");
+    return new { text = projection.Data.CanonicalText, digest = projection.Digest.Data.Value };
+}
+
+static CompilerInputManifest PlanTarget(CompilerInputManifest input, int operations = 400000) {
+    var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject(); settings["targets"]!.AsArray().Add(CompilerExecutionPlan.Target);
+    settings["scheduler"] = JsonSerializer.SerializeToNode(new { kind = "coglatas.plan-lowering", artifact = CompilerExecutionPlan.Engine.Data.Value });
+    settings["executionProfile"]!["maximumOperations"] = operations;
+    var declarations = input.Source.Declarations.Value.EnumerateArray().Select(row => (object)row).Concat(new[] { PlanTask(7), PlanTask(9) }).ToArray();
+    object Edge(int id, int dependent, int prerequisite, SourceRevisionContext target) {
+        object Endpoint(int entity, SourceRevisionContext context) => new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = new {
+            tenantId = context.Branch.TenantId.ToString(), projectId = context.Branch.ProjectId.ToString(), entityId = Id(entity), context = context.Data.Value } };
+        return new { relationId = Id(id), documentId = Id(4), kind = RelationKinds.DependsOn, schemaVersion = 1, descriptor = new { descriptorId = RelationKinds.DependsOn, version = 1 },
+            source = Endpoint(dependent, input.Source.Context), target = Endpoint(prerequisite, target), payload = new { mode = "coglatas.finish-to-start", lag = new {
+                type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "0" } } };
+    }
+    var relations = input.Source.Relations.Value.EnumerateArray().Select(row => (object)row).ToList();
+    relations.AddRange(new[] { Edge(44, 8, 7, input.Source.Context), Edge(45, 9, 8, input.Source.Context) });
+    var pins = input.Settings.Value.GetProperty("authorizedExternalSnapshots");
+    if (pins.GetArrayLength() != 0) relations.Add(Edge(46, 8, 19, SourceRevisionContext.Parse(SourceJson.Parse(pins[0].GetProperty("context").GetRawText()))));
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(relations)), Json(settings));
+}
+static object PlanTask(int id) => new { entityId = Id(id), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new {
+    duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" }, ports = Array.Empty<object>() } };
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool planTarget = false)
+{
+    var fixtureRevision = planTarget ? 2200 : 750;
+    var basis = LocalTestInput("tests-fail", fixtureRevision);
+    if (publication) { var settings = JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject(); settings["semantics"]!["version"] = "2"; settings["ir"]!["version"] = "2"; basis = new(basis.Source, Json(settings)); }
+    if (planTarget) basis = PlanTarget(basis);
+    var model = ProjectSemanticBinder.Bind(basis);
+    var task = model.Declarations.Select(item => item.Declaration).OfType<TaskPlanDeclaration>().Single(item => item.EntityId == EntityId.Parse(Id(8)));
+    var port = task.Ports.Single(); var value = JsonNode.Parse(port.DefaultValue!.Data.CanonicalText)!.AsObject(); value["value"] = true;
+    var change = new ProjectScenarioOverride(ProjectLocation.Create(task.DocumentId, basis.Source.Context, entityId: task.EntityId),
+        ProjectScenarioOverrideKind.TaskInputDefault, Json(value), port.PortId);
+    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(fixtureRevision + 10)), ScenarioRevisionId.Parse(Id(fixtureRevision + 11)), [change]).Plan
+        ?? throw new InvalidOperationException("Scenario preparation unavailable.");
+    var revision = basis.Source.Context.CommittedRevision!;
+    var draft = ProjectScenarios.ToDraft(plan, model, basis.InputDigest, new(ProposalId.Parse(Id(fixtureRevision + 20)), CandidateRevisionId.Parse(Id(fixtureRevision + 21)), revision, revision)).Plan
+        ?? throw new InvalidOperationException("Scenario Draft conversion unavailable.");
+    if (!plan.Materialize(basis)!.Data.Equals(plan.Input.Data) || !draft.ApplyToDraft(basis)!.Data.Equals(draft.After.Data))
+        throw new InvalidOperationException("Scenario application lost its exact base.");
+    var verdicts = new[] { basis, plan.Input, draft.After }.Select(input => ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
+    if (!verdicts.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]))
+        throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
+    return new(plan, draft);
+}
+static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000)
+{
+    var template = Input("reference-scenario", revision); var context = template.Source.Context;
+    var suppliedSnapshot = planTarget ? revision + 300 : 230;
+    var externalContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(202)), BranchId.Parse(Id(203))), RevisionId.Parse(Id(planTarget ? revision + 100 : 204))));
+    var external = ProjectSource.Create(externalContext, template.Source.Documents, Json(new[] { new { entityId = Id(16), documentId = Id(4), kind = "coglatas.project", schemaVersion = 1, payload = new { } } }));
+    if (dependencyConstraint)
+    {
+        var predicate = Literal(truth);
+        var constraint = new { entityId = Id(17), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1,
+            payload = new { predicate, classification = "coglatas.required" } };
+        object Ref(int entity) => new { tenantId = Id(1), projectId = Id(202), entityId = Id(entity), context = externalContext.Data.Value };
+        var relation = new { relationId = Id(18), documentId = Id(4), kind = RelationKinds.Constrains, schemaVersion = 1,
+            descriptor = new { descriptorId = RelationKinds.Constrains, version = 1 },
+            source = new { kind = "coglatas.entity", expectedKind = "coglatas.constraint", reference = Ref(17) },
+            target = new { kind = "coglatas.entity", expectedKind = "coglatas.project", reference = Ref(16) },
+            payload = new { predicateReference = Ref(17), version = externalContext.CommittedRevision!.RevisionId.ToString(),
+                predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(predicate).ToCanonicalBytes()).Data.Value } };
+        external = ProjectSource.Create(externalContext, external.Documents,
+            Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(constraint).ToArray()), Json(new[] { relation }));
+    }
+    if (planTarget) external = ProjectSource.Create(external.Context, external.Documents, Json(external.Declarations.Value.EnumerateArray().Select(row => (object)row).Append(PlanTask(19)).ToArray()), external.Relations);
+    ProjectSource? versionedDependency = null;
+    if (additionalVersion)
+    {
+        var nextContext = SourceRevisionContext.Committed(new(externalContext.Branch, RevisionId.Parse(Id(205))));
+        var documents = external.Documents.Select(document =>
+        {
+            var root = JsonNode.Parse(document.Root.Data.CanonicalText)!.AsObject(); root["displayName"] = "Second captured revision";
+            return SourceDocument.Create(document.DocumentId, document.LogicalName + "-version-2", Json(root));
+        });
+        versionedDependency = ProjectSource.Create(nextContext, documents, external.Declarations);
+    }
+    ProjectSource? graphDependency = null;
+    if (graphCycle)
+    {
+        var bContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(302)), BranchId.Parse(Id(303))), RevisionId.Parse(Id(304))));
+        var graphTask = new { entityId = Id(77), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new
+        {
+            duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+            ports = Array.Empty<object>()
+        } };
+        object Endpoint(SourceRevisionContext ctx) => new { kind = "coglatas.entity", expectedKind = "coglatas.task", reference = new
+            { tenantId = ctx.Branch.TenantId.ToString(), projectId = ctx.Branch.ProjectId.ToString(), entityId = Id(77), context = ctx.Data.Value } };
+        object Edge(SourceRevisionContext from, SourceRevisionContext to) => new { relationId = Id(78), documentId = Id(4), kind = RelationKinds.DependsOn,
+            schemaVersion = 1, descriptor = new { descriptorId = RelationKinds.DependsOn, version = 1 }, source = Endpoint(from), target = Endpoint(to),
+            payload = new { mode = "coglatas.finish-to-start", lag = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false },
+                state = "coglatas.known", value = "0" } } };
+        graphDependency = ProjectSource.Create(bContext, template.Source.Documents, Json(new[] { graphTask }), Json(new[] { Edge(bContext, externalContext) }));
+        external = ProjectSource.Create(externalContext, external.Documents,
+            Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(graphTask).ToArray()), Json(new[] { Edge(externalContext, bContext) }));
+    }
+    var referenceType = JsonSerializer.SerializeToNode(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = true, expectedKind = "coglatas.project" })!.AsObject();
+    JsonObject ReferenceValue(int target) => JsonSerializer.SerializeToNode(new { type = referenceType, state = "coglatas.known", value = new {
+        tenantId = Id(1), projectId = Id(202), entityId = Id(target), context = externalContext.Data.Value,
+        origin = ProjectLocation.Create(DocumentId.Parse(Id(4)), context, entityId: EntityId.Parse(Id(8))).Data.Value,
+        manifest = new { version = "1", digest = external.Digest.Data.Value } } })!.AsObject();
+    JsonObject NestedValue(bool after)
+    {
+        var childType = new JsonObject { ["kind"] = "coglatas.structure", ["schemaVersion"] = 1, ["nullable"] = false, ["acceptsUnknown"] = true,
+            ["fields"] = new JsonArray(new JsonObject { ["name"] = "ref/~field", ["required"] = true, ["type"] = referenceType.DeepClone() }) };
+        JsonObject Child(int target) => new() { ["type"] = childType.DeepClone(), ["state"] = "coglatas.known", ["value"] = new JsonObject { ["ref/~field"] = ReferenceValue(target) } };
+        var type = new JsonObject { ["kind"] = "coglatas.list", ["schemaVersion"] = 1, ["nullable"] = false, ["acceptsUnknown"] = true, ["elementType"] = childType.DeepClone() };
+        var items = new JsonArray(Child(6)); if (after) items.Add(Child(16));
+        return new() { ["type"] = type, ["state"] = "coglatas.known", ["value"] = items };
+    }
+    var beforeValue = nested ? NestedValue(false) : ReferenceValue(6); var afterValue = nested ? NestedValue(true) : ReferenceValue(16);
+    var booleanType = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false };
+    object Boolean(bool value) => new { type = booleanType, state = "coglatas.known", value };
+    var ports = new JsonArray(JsonSerializer.SerializeToNode(new { portId = Id(88), direction = "coglatas.input", type = beforeValue["type"]!.DeepClone(), minimumConnections = 0, maximumConnections = 1, defaultValue = beforeValue }));
+    if (!nested) ports.Add(JsonSerializer.SerializeToNode(new { portId = Id(89), direction = "coglatas.input", type = booleanType, minimumConnections = 0, maximumConnections = 1, defaultValue = Boolean(false) }));
+    var task = new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Pinned reference hypothesis",
+        payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" }, ports } };
+    object Target() => new { tenantId = Id(1), projectId = Id(2), entityId = Id(8), context = context.Data.Value };
+    var assertions = nested ? new object[] { new { key = "example.collection", kind = "coglatas.assert-collection-count", target = Target(), portId = Id(88), expectedCount = 2 } } :
+        new object[] { new { key = "example.reference", kind = "coglatas.assert-reference-resolved", target = Target(), portId = Id(88) },
+            new { key = "example.ready", kind = "coglatas.assert-boolean", target = Target(), portId = Id(89), expected = Boolean(true) } };
+    var test = new { entityId = Id(10), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = 1, displayName = "Pinned reference assertions", payload = new { assertions } };
+    var settings = JsonNode.Parse(template.Settings.CanonicalText)!.AsObject(); settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+    if (publication) { settings["semantics"]!["version"] = "2"; settings["ir"]!["version"] = "2"; }
+    settings["authorizedExternalSnapshots"] = JsonSerializer.SerializeToNode(new[] { new { snapshotId = Id(suppliedSnapshot), version = "1", digest = external.Digest.Data.Value,
+        context = externalContext.Data.Value, coverage = "coglatas.complete", asOf = (string?)null } });
+    if (graphDependency is not null) settings["authorizedExternalSnapshots"]!.AsArray().Add(JsonSerializer.SerializeToNode(new
+        { snapshotId = Id(231), version = "1", digest = graphDependency.Digest.Data.Value, context = graphDependency.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
+    if (versionedDependency is not null) settings["authorizedExternalSnapshots"]!.AsArray().Add(JsonSerializer.SerializeToNode(new
+        { snapshotId = Id(232), version = "2", digest = versionedDependency.Digest.Data.Value, context = versionedDependency.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
+    if (additionalVersion) { var alias = settings["authorizedExternalSnapshots"]![0]!.DeepClone(); alias["snapshotId"] = Id(233); settings["authorizedExternalSnapshots"]!.AsArray().Add(alias); }
+    var basis = new CompilerInputManifest(ProjectSource.Create(context, template.Source.Documents, Json(new object[] { task, test })), Json(settings));
+    if (planTarget) basis = PlanTarget(basis, planBudget);
+    IReadOnlyList<CompilerMaterializedSnapshot> snapshots = admission == "missing" ? [] : [new(ExternalSnapshotId.Parse(Id(suppliedSnapshot)), "1", new(external, admission == "available", true, true))];
+    if (graphDependency is not null) snapshots = [..snapshots, new(ExternalSnapshotId.Parse(Id(231)), "1", new(graphDependency, true, true, true))];
+    if (versionedDependency is not null) snapshots = [..snapshots, new(ExternalSnapshotId.Parse(Id(232)), "2", new(versionedDependency, true, true, true))];
+    var model = ProjectSemanticBinder.Bind(basis, snapshots);
+    var target = ProjectLocation.Create(DocumentId.Parse(Id(4)), context, entityId: EntityId.Parse(Id(8)));
+    var changes = new List<ProjectScenarioOverride> { new(target, ProjectScenarioOverrideKind.TaskInputDefault, Json(afterValue), PortId.Parse(Id(88))) };
+    if (!nested) changes.Add(new(target, ProjectScenarioOverrideKind.TaskInputDefault, Json(Boolean(true)), PortId.Parse(Id(89))));
+    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(revision + 10)), ScenarioRevisionId.Parse(Id(revision + 11)), changes).Plan
+        ?? throw new InvalidOperationException("Reference Scenario preparation unavailable.");
+    var committed = context.CommittedRevision!;
+    var draft = ProjectScenarios.ToDraft(plan, model, basis.InputDigest, new(ProposalId.Parse(Id(revision + 20)), CandidateRevisionId.Parse(Id(revision + 21)), committed, committed)).Plan
+        ?? throw new InvalidOperationException("Reference Scenario Draft unavailable.");
+    var runs = new[] { basis, plan.Input, draft.After }.Select(input => ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input, snapshots), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
+    if (admission == "available" ? !runs.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]) : runs.Any(result => result == CompilerVerdict.Pass))
+        throw new InvalidOperationException("Reference Scenario verdicts did not preserve actual snapshot admission.");
+    if (dependencyConstraint && !(planTarget && planBudget == 200000) && new[] { basis, plan.Input, draft.After }.Any(input =>
+        PureCoreCompiler.Compile(input, input.Compiler, snapshots).Result.Verdict != (truth == true ? CompilerVerdict.Pass : truth == false ? CompilerVerdict.Fail : CompilerVerdict.Inconclusive)))
+        throw new InvalidOperationException("The actual Compiler predicate/plan result did not match the fixture: " + string.Join(";", new[] { basis, plan.Input, draft.After }.Select(input => { var result = PureCoreCompiler.Compile(input, input.Compiler, snapshots); return result.Result.Verdict + ":ops=" + result.LogicalOperationsConsumed + ":max=" + input.ExecutionProfile.MaximumOperations + ":scope=" + (result.Dependencies?.ScopedIr is not null) + ":" + result.Publication?.PlanNotProducedReason + ":" + string.Join(",", result.Result.Diagnostics.Select(d => d.Code)); })));
+    if (graphCycle)
+        foreach (var input in new[] { basis, plan.Input, draft.After })
+        {
+            var compiled = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
+            if (compiled.Result.Verdict != CompilerVerdict.Fail ||
+                compiled.Dependencies?.Graph?.Findings.Count(finding => finding.Code == "coglatas.relation.dependency-cycle") != 2)
+                throw new InvalidOperationException("Both independently owned dependency-cycle edges must fail every actual Compiler result.");
+        }
+    return new(plan, draft, snapshots);
+}
+
+static PreparedTestEditFixture TestEditFixture()
+{
+    var original = LocalTestInput("tests-fail", 250); var basis = original.Source.Context.CommittedRevision!;
+    var proposal = new ProposalContext(ProposalId.Parse(Id(430)), CandidateRevisionId.Parse(Id(431)), basis, basis);
+    var before = ProjectDraftRename.Fork(ProjectSemanticBinder.Bind(original), proposal); var model = ProjectSemanticBinder.Bind(before);
+    var target = ProjectLocation.Create(DocumentId.Parse(Id(4)), before.Source.Context, entityId: EntityId.Parse(Id(10)));
+    var exported = ProjectTestEditing.Export(model, target, before.InputDigest).Definition ?? throw new InvalidOperationException("Test definition export unavailable.");
+    var edited = JsonNode.Parse(exported.CanonicalText)!.AsObject(); edited["payload"]!["assertions"]![0]!["expected"]!["value"] = false;
+    var imported = Json(edited); var next = SourceRevisionContext.Candidate(new(proposal.ProposalId, CandidateRevisionId.Parse(Id(432)), basis, basis));
+    var plan = ProjectTestEditing.Preview(model, target, before.InputDigest, imported, next).Plan ?? throw new InvalidOperationException("Test edit preview unavailable.");
+    return new(before, plan.ApplyToDraft(before) ?? throw new InvalidOperationException("Test edit application unavailable."), plan, exported, imported);
+}
+static CompilerInputManifest LocalTestInput(string name, int revision)
+{
+    var input = Input(name, revision);
+    var booleanType = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true };
+    var type = booleanType with { kind = name == "tests-error" ? "coglatas.decimal" : "coglatas.boolean" };
+    var value = name == "tests-unknown" ? (object)new { type, state = "coglatas.unknown", reason = "example.missing-input", basis = new { } }
+        : name == "tests-error" ? (object)new { type, state = "coglatas.known", value = "2" } : new { type, state = "coglatas.known", value = name != "tests-fail" };
+    var task = new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Local input fixture",
+        payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+            ports = new[] { new { portId = Id(88), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1, defaultValue = value } } } };
+    var test = new { entityId = Id(10), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = name == "tests-unsupported" ? 2 : 1,
+        displayName = "Input assertion", payload = new { assertions = new[] { new { key = "example.ready", kind = "coglatas.assert-boolean", portId = Id(88),
+            target = new { tenantId = Id(1), projectId = Id(2), entityId = Id(8), context = input.Source.Context.Data.Value },
+            expected = new { type = booleanType, state = "coglatas.known", value = true } } } } };
+    var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject();
+    if (name != "tests-evaluator-mismatch") settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+    var testNode = JsonSerializer.SerializeToNode(test)!.AsObject();
+    var assertions = testNode["payload"]!["assertions"]!.AsArray();
+    if (name == "tests-unicode") assertions[0]!["key"] = "example.テスト/α~β"; // Intentional Unicode key fixture.
+    if (name == "tests-exhausted") { var second = assertions[0]!.DeepClone(); second["key"] = "example.second"; assertions.Add(second); }
+    object[] declarations = name == "tests-empty" ? [task] : [task, testNode];
+    if (name == "tests-many") declarations = new object[] { task }.Concat(Enumerable.Range(300, 33).Select(number =>
+    { var copy = testNode.DeepClone(); copy["entityId"] = Id(number); copy["displayName"] = "Input assertion " + number; return (object)copy; })).ToArray();
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), Json(settings));
+}
+static CompilerInputManifest TestAssertionNavigationInput()
+{
+    var input = Input("test-assertion-navigation", 170);
+    object Test(int identity, string[] keys) => new
+    {
+        entityId = Id(identity), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = 1,
+        displayName = "Local assertion navigation " + identity,
+        payload = new { assertions = keys.Select(key => new
+        {
+            key, kind = "coglatas.assert-boolean",
+            target = new { tenantId = Id(1), projectId = Id(2), entityId = Id(99), context = input.Source.Context.Data.Value },
+            portId = Id(88),
+            expected = new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = true }
+        }).ToArray() }
+    };
+    // Unicode is intentional assertion-key test data, including RFC 6901 escape characters.
+    var declarations = new[] { Test(10, ["example.check", "example.a/b~c", "example.テスト/α~β"]), Test(11, ["example.foreign"]) };
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), input.Settings);
+}
 static CompilerInputManifest RequirementCandidateInput()
 {
     var input = Input("requirement-candidates", 160);
@@ -238,3 +554,7 @@ static CompilerInputManifest Input(string name, int revision)
     settings["executionProfile"] = JsonSerializer.SerializeToNode(new { purpose = "coglatas.normal", maximumOperations = 200000, maximumDeclarations = 10000, maximumRelations = 20000, maximumDigits = 256, maximumScale = 256, rounding = "coglatas.ties-to-even" });
     return new(source, SourceJson.Parse(settings.ToJsonString()));
 }
+
+internal sealed record PreparedTestEditFixture(CompilerInputManifest Before, CompilerInputManifest After, ProjectTestEditPlan Plan, SourceJson Exported, SourceJson Imported);
+
+internal sealed record PreparedScenarioFixture(ProjectScenarioPlan Scenario, ProjectScenarioDraftPlan Draft, IReadOnlyList<CompilerMaterializedSnapshot>? Snapshots = null);
