@@ -42,8 +42,10 @@ public sealed class WebSimulationComparisonContractTests
     [MemberData(nameof(Cases))]
     public void PairedRecordingBytesReproduceTheActualCoreComparison(string beforeFixture, string afterFixture)
     {
-        using var a = JsonDocument.Parse(beforeFixture); using var b = JsonDocument.Parse(afterFixture);
-        var before = ActualRun(a.RootElement); var after = ActualRun(b.RootElement);
+        using var a = JsonDocument.Parse(beforeFixture);
+        using var b = JsonDocument.Parse(afterFixture);
+        var before = ActualRun(a.RootElement);
+        var after = ActualRun(b.RootElement);
         var comparison = ProjectSimulationRunComparison.Compare(before, before.Digest, after, after.Digest);
         var expected = a.RootElement.GetProperty("simulationComparison");
         Assert.Equal(comparison.Data.CanonicalText, expected.GetProperty("text").GetString());

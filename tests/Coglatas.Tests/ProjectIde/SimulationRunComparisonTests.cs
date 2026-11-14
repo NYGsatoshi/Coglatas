@@ -28,12 +28,13 @@ public sealed class SimulationRunComparisonTests
         ProjectSimulation.Execute(new(plan, Guid.Parse(Id(id)), start, limits), expected ?? plan.Input.InputDigest);
     private static ProjectSimulationRunComparison Compare(ProjectSimulationRun before, ProjectSimulationRun after) =>
         ProjectSimulationRunComparison.Compare(before, before.Digest, after, after.Digest);
-    private static void Refused(ProjectSimulationRunComparison comparison, string reason)
+    private static string Refused(ProjectSimulationRunComparison comparison)
     {
-        Assert.Equal(SimulationRunComparisonState.Refused, comparison.State); Assert.Equal(reason, comparison.Reason);
+        Assert.Equal(SimulationRunComparisonState.Refused, comparison.State);
         Assert.Null(comparison.Before); Assert.Null(comparison.After); Assert.Null(comparison.SameInput); Assert.Null(comparison.SameLimits); Assert.Null(comparison.ObservedElapsedDelta);
         Assert.Equal(JsonValueKind.Null, comparison.Data.Value.GetProperty("before").ValueKind);
         Assert.Equal(JsonValueKind.Null, comparison.Data.Value.GetProperty("after").ValueKind);
+        return comparison.Reason;
     }
     private static CompilerExecutionPlan Captured(ProjectSource root, ProjectSource captured, int snapshotId, string version)
     {
@@ -94,22 +95,22 @@ public sealed class SimulationRunComparisonTests
     public void ExpectedRecordingDigestsAreCheckedBeforeReturningAnySummary()
     {
         var before = Run(Plan(OneTaskSource()), 1000); var after = Run(Plan(OneTaskSource(revision: 10)), 1001);
-        Refused(ProjectSimulationRunComparison.Compare(before, before.Manifest.Digest, after, after.Digest), "coglatas.comparison.wrong-run");
-        Refused(ProjectSimulationRunComparison.Compare(before, before.Digest, after, after.Manifest.Digest), "coglatas.comparison.wrong-run");
+        Assert.Equal("coglatas.comparison.wrong-run", Refused(ProjectSimulationRunComparison.Compare(before, before.Manifest.Digest, after, after.Digest)));
+        Assert.Equal("coglatas.comparison.wrong-run", Refused(ProjectSimulationRunComparison.Compare(before, before.Digest, after, after.Manifest.Digest)));
     }
     [Fact]
     public void SameRunIdentityMayRepeatOnlyTheSameImmutableRecording()
     {
         var plan = Plan(OneTaskSource()); var before = Run(plan, 1000); var replay = ProjectSimulation.Execute(before.Manifest, plan.Input.InputDigest);
         var same = Compare(before, replay); Assert.Equal(SimulationRunComparisonState.Complete, same.State); Assert.Equal(0, same.ObservedElapsedDelta);
-        var conflict = Run(Plan(OneTaskSource(20, revision: 10)), 1000); Refused(Compare(before, conflict), "coglatas.comparison.run-identity-conflict");
+        var conflict = Run(Plan(OneTaskSource(20, revision: 10)), 1000); Assert.Equal("coglatas.comparison.run-identity-conflict", Refused(Compare(before, conflict)));
     }
     [Theory]
     [InlineData(1, 2, 30)] [InlineData(1, 20, 3)] [InlineData(10, 2, 3)]
     public void DifferentRootBranchesProjectsAndTenantsReturnNoComparison(int tenant, int project, int branch)
     {
         var before = Run(Plan(OneTaskSource()), 1000); var after = Run(Plan(OneTaskSource(tenant: tenant, project: project, branch: branch)), 1001);
-        Refused(Compare(before, after), "coglatas.comparison.different-root-branch");
+        Assert.Equal("coglatas.comparison.different-root-branch", Refused(Compare(before, after)));
     }
     [Fact]
     public void AStableSourceMayBeComparedUnderDifferentFixedInputSettings()
@@ -126,31 +127,31 @@ public sealed class SimulationRunComparisonTests
     public void AReusedRootContextCannotNameTwoDifferentSourceBodies()
     {
         var before = Run(Plan(OneTaskSource()), 1000); var after = Run(Plan(OneTaskSource(20)), 1001);
-        Refused(Compare(before, after), "coglatas.comparison.capture-identity-conflict");
+        Assert.Equal("coglatas.comparison.capture-identity-conflict", Refused(Compare(before, after)));
     }
     [Theory]
     [InlineData(1900, "one")] [InlineData(1901, "two")]
     public void ACapturedContextKeepsOneSourceBodyAcrossBothRunInputs(int afterId, string afterVersion)
     {
-        var beforeCapture = OneTaskSource(5, revision: 50, project: 20, branch: 30, name: "before");
-        var afterCapture = OneTaskSource(5, revision: 50, project: 20, branch: 30, name: "after");
+        var beforeCapture = OneTaskSource(revision: 50, project: 20, branch: 30, name: "before");
+        var afterCapture = OneTaskSource(revision: 50, project: 20, branch: 30, name: "after");
         var before = Run(Captured(OneTaskSource(), beforeCapture, 1900, "one"), 1000);
         var after = Run(Captured(OneTaskSource(revision: 10), afterCapture, afterId, afterVersion), 1001);
-        Refused(Compare(before, after), "coglatas.comparison.capture-identity-conflict");
+        Assert.Equal("coglatas.comparison.capture-identity-conflict", Refused(Compare(before, after)));
     }
     [Fact]
     public void OneSnapshotVersionCannotSilentlyMoveToAnotherCapturedContext()
     {
         var before = Run(Captured(OneTaskSource(), OneTaskSource(revision: 50, project: 20, branch: 30), 1900, "one"), 1000);
         var after = Run(Captured(OneTaskSource(revision: 10), OneTaskSource(revision: 51, project: 20, branch: 30), 1900, "one"), 1001);
-        Refused(Compare(before, after), "coglatas.comparison.capture-identity-conflict");
+        Assert.Equal("coglatas.comparison.capture-identity-conflict", Refused(Compare(before, after)));
     }
     [Fact]
     public void RootAndCapturedSourceIdentitiesShareTheSameConflictCheck()
     {
         var before = Run(Plan(OneTaskSource()), 1000);
         var after = Run(Captured(OneTaskSource(revision: 10), OneTaskSource(20), 1900, "one"), 1001);
-        Refused(Compare(before, after), "coglatas.comparison.capture-identity-conflict");
+        Assert.Equal("coglatas.comparison.capture-identity-conflict", Refused(Compare(before, after)));
     }
     [Fact]
     public void EqualCapturedBodiesMayKeepTheirIdentityAcrossSeparateInputs()
@@ -165,7 +166,7 @@ public sealed class SimulationRunComparisonTests
     {
         var plan = Plan(OneTaskSource()); var before = Run(plan, 1000); var engine = JsonNode.Parse(ProjectSimulation.Engine.Data.CanonicalText)!; engine["version"] = "2";
         var unsupported = ProjectSimulation.Execute(new(plan, Guid.Parse(Id(1001)), engine: new(Json(engine))), plan.Input.InputDigest);
-        Assert.Equal(CompilerExecutionState.NotRun, unsupported.Execution); Refused(Compare(before, unsupported), "coglatas.comparison.engine-unsupported");
+        Assert.Equal(CompilerExecutionState.NotRun, unsupported.Execution); Assert.Equal("coglatas.comparison.engine-unsupported", Refused(Compare(before, unsupported)));
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => ProjectSimulationRunComparison.Compare(before, before.Digest, before, before.Digest, cancellation.Token));
     }
@@ -183,7 +184,7 @@ public sealed class SimulationRunComparisonTests
         var run = Run(plan, 1000);
         Assert.Equal(CompilerExecutionState.Completed, run.Execution);
         if (count == ProjectSimulationRunComparison.MaximumCapturedInputsPerRun) Assert.Equal(SimulationRunComparisonState.Complete, Compare(run, run).State);
-        else Refused(Compare(run, run), "coglatas.comparison.capture-bound");
+        else Assert.Equal("coglatas.comparison.capture-bound", Refused(Compare(run, run)));
     }
     [Fact]
     public void RepeatedProjectionRetainsBothOriginalRecordingsAndTheirDigests()
