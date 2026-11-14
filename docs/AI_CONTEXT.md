@@ -1,5 +1,10 @@
 # AI Context
 
+## Immutable recorded-run comparison candidate (#907)
+
+The Product candidate shares `ProjectSimulationRunComparison` across an Angular original-byte reader/panel and a Windows pure ViewModel adapter. It compares two fixed admitted model recordings; it starts no simulation and grants no live read/control/export authority. Complete and partial records, input equality and bounds equality stay distinct; no outcome PASS or real-world performance assertion follows from an elapsed delta. See `docs/verification/projectide-run-comparison.md` for fixed-capture identity, byte/work limits, lifecycle qualification and remaining actual UI/backend/independent Security work. The new exporter profile is separate; the ten prior profiles must remain byte-identical. Keep full #907 open and preserve all activation holds. Security/shared-CI work remains P0 handoff under the ProjectIDE-only Owner scope.
+
+
 [Original Core recorded debugger consumption](verification/projectide-recorded-debug-web.md)
 adds explicit bounded snapshot/inspection admission and previous/next browsing in
 the offline Angular Workbench, backed by actual Core command replay. Breakpoint

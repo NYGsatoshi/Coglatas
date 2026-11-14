@@ -9,12 +9,13 @@ var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
 var debugProfile = args is [_, "--simulation-debug"];
-var simulationProfile = args is [_, "--simulation"] || debugProfile;
+var comparisonProfile = args is [_, "--simulation-comparison"];
+var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var publicationProfile = args is [_, "--scoped-publication"];
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -40,6 +41,7 @@ if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
 };
 var cases = new List<object>();
+var comparisonRuns = new Dictionary<string, ProjectSimulationRun>(StringComparer.Ordinal);
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
 var documentOriginal = Input("document-before", 130);
@@ -221,6 +223,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             if (run.Execution != (scenarioKey == "tests-simulation-bounded" ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed))
                 throw new InvalidOperationException("Actual simulation fixture did not retain its expected execution boundary.");
             fixture["simulationRun"] = JsonSerializer.SerializeToNode(new { text = run.Data.CanonicalText, digest = run.Digest.Data.Value });
+            if (comparisonProfile) comparisonRuns.Add(name, run);
         }
         cases[^1] = fixture;
     }
@@ -239,6 +242,20 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         }).ToArray());
         cases[^1] = fixture;
     }
+}
+if (comparisonProfile)
+{
+    var paired = 0;
+    foreach (var key in scenarioFixtures!.Keys)
+        foreach (var (beforeKey, afterKey) in new[] { (key + "-base", key + "-hypothesis"), (key + "-hypothesis", key + "-draft") }) {
+            if (!comparisonRuns.TryGetValue(beforeKey, out var before) || !comparisonRuns.TryGetValue(afterKey, out var after)) continue;
+            var comparison = ProjectSimulationRunComparison.Compare(before, before.Digest, after, after.Digest);
+            var expected = key == "tests-simulation-bounded" ? SimulationRunComparisonState.Incomplete : SimulationRunComparisonState.Complete;
+            if (comparison.State != expected) throw new InvalidOperationException("Actual run comparison did not retain its expected completeness: " + comparison.Reason);
+            var row = cases.OfType<JsonObject>().Single(item => item["key"]!.GetValue<string>() == beforeKey);
+            row["simulationComparison"] = JsonSerializer.SerializeToNode(new { afterCaseKey = afterKey, text = comparison.Data.CanonicalText, digest = comparison.Digest.Data.Value }); paired++;
+        }
+    if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true });
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);

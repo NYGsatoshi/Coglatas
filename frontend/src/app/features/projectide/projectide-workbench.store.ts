@@ -1,3 +1,4 @@
+import { AdmittedSimulationComparison, readSimulationComparison } from './projectide-simulation-comparison.reader';
 import { AdmittedRecordedDebug, RecordedDebugFrame, readRecordedDebug } from './projectide-recorded-debug.reader';
 import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
 import { AdmittedSimulation, SimulationEvent, readSimulationRun } from './projectide-simulation.reader';
@@ -165,6 +166,38 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
+  private comparisonGeneration = 0;
+  readonly simulationComparisonReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly comparisonSnapshot = signal<{ bundle: PreviewBundle; beforeCase: PreviewCase; afterCase: PreviewCase; admitted: AdmittedSimulationComparison } | null>(null);
+  readonly simulationComparison = (): AdmittedSimulationComparison | null => {
+    const snapshot = this.comparisonSnapshot();
+    return snapshot && snapshot.bundle === this.bundle() && snapshot.beforeCase === this.context() && snapshot.beforeCase === this.result() &&
+      snapshot.bundle.cases.includes(snapshot.beforeCase) && snapshot.bundle.cases.includes(snapshot.afterCase) &&
+      snapshot.beforeCase.simulationComparison?.afterCaseKey === snapshot.afterCase.key &&
+      snapshot.admitted.before === this.simulation() && scopedSourcesMatch(snapshot.afterCase, snapshot.admitted.after.sources) ? snapshot.admitted : null;
+  };
+  async loadSimulationComparison(): Promise<boolean> {
+    this.clearSimulationComparison(); const generation = this.comparisonGeneration;
+    const beforeCase = this.context(); const before = this.simulation(); const bundle = this.bundle();
+    const afterCase = bundle?.cases.find(value => value.key === beforeCase?.simulationComparison?.afterCaseKey);
+    if (!bundle || !beforeCase || !before || !afterCase || beforeCase !== this.result() || !bundle.cases.includes(beforeCase)) return false;
+    const current = () => generation === this.comparisonGeneration && bundle === this.bundle() && beforeCase === this.context() && beforeCase === this.result();
+    this.simulationComparisonReadState.set('loading');
+    try {
+      const sources = await readScopedSources(afterCase); if (!current()) return false;
+      if (!sources) throw new Error('comparison-unavailable');
+      const after = await readSimulationRun(afterCase, sources); if (!current()) return false;
+      if (!after) throw new Error('comparison-unavailable');
+      const admitted = await readSimulationComparison(beforeCase, before, afterCase, after); if (!current()) return false;
+      if (!admitted || before !== this.simulation() || !bundle.cases.includes(afterCase) || !scopedSourcesMatch(afterCase, after.sources)) throw new Error('comparison-unavailable');
+      this.comparisonSnapshot.set({ bundle, beforeCase, afterCase, admitted }); this.simulationComparisonReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.simulationComparisonReadState.set('unavailable'); return false;
+    }
+  }
+  private clearSimulationComparison(): void {
+    this.comparisonGeneration++; this.comparisonSnapshot.set(null); this.simulationComparisonReadState.set('idle');
+  }
   private recordedDebugGeneration = 0;
   readonly recordedDebugReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly recordedDebugSnapshot = signal<AdmittedRecordedDebug | null>(null);
@@ -206,7 +239,7 @@ export class ProjectIdeWorkbenchStore {
   private clearRecordedDebug(): void {
     this.scopedTarget.set(null); this.recordedDebugGeneration++; this.recordedDebugSnapshot.set(null); this.recordedDebugIndex.set(0); this.recordedDebugReadState.set('idle');
   }
-  private clearSimulation(): void { this.clearRecordedDebug(); this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
+  private clearSimulation(): void { this.clearSimulationComparison(); this.clearRecordedDebug(); this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
     const target = this.scopedTarget();

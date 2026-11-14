@@ -121,3 +121,5 @@ pre {
 
 .scenario-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
 .scenario-results section { min-width: 0; overflow-wrap: anywhere; }
+
+.simulation-comparison { min-width: 0; overflow-wrap: anywhere; }
