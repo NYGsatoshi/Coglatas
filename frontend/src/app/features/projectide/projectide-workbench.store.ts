@@ -124,7 +124,7 @@ export class ProjectIdeWorkbenchStore {
   }
   readonly hasVerifiedPublication = (): boolean => this.admittedScoped()?.publicationVerified === true;
   private resolveCurrentLocation(value: PreviewCase, location: ProjectLocation, requireSourceMap = false) {
-    if (requireSourceMap && value.result.artifacts.some(artifact => artifact.version === 2)) {
+    if (value.result.artifacts.some(artifact => artifact.version === 2)) {
       if (!sameContext(location.context, value.context)) return 'wrong-scope' as const;
       const admitted = value === this.context() && value === this.result() ? this.admittedScoped() : null;
       return admitted?.publicationVerified ? resolveScopedSource(value, admitted, location)?.record ?? 'unavailable' : 'unavailable';

@@ -35,6 +35,19 @@ describe('Actual scoped semantic publication version two', () => {
     if (mode === 'substituted-region') projection.regions[1] = raw().cases.find((c: { key: string }) => c.key === 'tests-publication-false-base').scopedSources.regions[1];
     await expect(readScopedSources(value)).rejects.toThrow();
   });
+  it('refuses ordinary declaration navigation until the current v2 publication is admitted, including reload', async () => {
+    const fixture = raw(); fixture.cases = fixture.cases.filter((item: { key: string }) => item.key.startsWith('tests-publication-root-'));
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(fixture));
+    store.choose('tests-publication-root-base'); store.loadResult();
+    const task = store.result()!.declarations.find(row => row.kind === 'coglatas.task')!;
+    if (task.recordType !== 'entity') throw new Error('expected-task-entity');
+    const select = () => expect(store.select({ kind: 'entity', id: task.identity })).toBe(true);
+    select(); expect(store.navigate()).toBe(false); expect(store.sourceTarget()).toBeNull(); expect(store.navigationState()).toBe('unavailable');
+    const loading = store.loadScopedSources(); select(); expect(store.navigate()).toBe(false); expect(store.sourceTarget()).toBeNull();
+    expect(await loading).toBe(true); select(); expect(store.navigate()).toBe(true); expect(store.sourceTarget()!.identity).toBe(task.identity);
+    const reload = store.loadScopedSources(); select(); expect(store.navigate()).toBe(false); expect(store.sourceTarget()).toBeNull();
+    expect(await reload).toBe(true); select(); expect(store.navigate()).toBe(true); expect(store.sourceTarget()!.identity).toBe(task.identity);
+  });
   it('enables ordinary root references only with current admitted source maps', async () => {
     const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-publication-root-base'); store.loadResult();
     const reference = store.result()!.semanticInspection!.references.find(r => r.state === 'Resolved')!;

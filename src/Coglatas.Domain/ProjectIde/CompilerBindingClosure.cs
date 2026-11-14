@@ -118,9 +118,12 @@ public sealed class CompilerBindingClosure
                 if (--remaining < 1) return Finish(CompilerBindingClosureState.ResourceLimit);
                 var next = pending.First(); pending.Remove(next.Key); var context = next.Value;
                 if (!visited.Add(context)) continue;
-                if (visited.Count > 33 || !registry.TryGetValue(context, out var candidates) || candidates.Length != 1)
+                if (visited.Count > 33 || !registry.TryGetValue(context, out var candidates))
                     return Finish(visited.Count > 33 ? CompilerBindingClosureState.ResourceLimit : CompilerBindingClosureState.Incomplete);
-                var snapshot = candidates[0];
+                var snapshot = candidates.OrderBy(item => item.SnapshotId.ToString(), StringComparer.Ordinal).First();
+                if (candidates.Any(item => item.Version != snapshot.Version || !item.Snapshot.Source.Data.Equals(snapshot.Snapshot.Source.Data) ||
+                    item.Snapshot.DeclarationsComplete != snapshot.Snapshot.DeclarationsComplete || item.Snapshot.RelationsComplete != snapshot.Snapshot.RelationsComplete))
+                    return Finish(CompilerBindingClosureState.Incomplete);
                 var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject();
                 var pins = settings["authorizedExternalSnapshots"]!.AsArray();
                 foreach (var pin in pins.Where(pin => SourceRevisionContext.Parse(SourceJson.Parse(pin!["context"]!.ToJsonString())).Equals(context)).ToArray()) pins.Remove(pin);

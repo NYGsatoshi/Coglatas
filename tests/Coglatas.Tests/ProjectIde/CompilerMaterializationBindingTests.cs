@@ -186,6 +186,26 @@ public sealed class CompilerMaterializationBindingTests
     }
 
     [Fact]
+    public void EquivalentAdmittedAliasesPublishOneDeterministicRegionWithoutChangingBinding()
+    {
+        var f = Fixture(); var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject();
+        var aliasPin = settings["authorizedExternalSnapshots"]![0]!.DeepClone(); aliasPin["snapshotId"] = Id(31);
+        settings["authorizedExternalSnapshots"]!.AsArray().Add(aliasPin);
+        var alias = new CompilerMaterializedSnapshot(ExternalSnapshotId.Parse(Id(31)), "1", f.Body.Snapshot);
+        var input = CompilerScopedPublicationTests.Upgrade(Input(settings));
+        var forward = PureCoreCompiler.Compile(input, input.Compiler, [f.Body, alias]);
+        var reverse = PureCoreCompiler.Compile(input, input.Compiler, [alias, f.Body]);
+        Assert.Equal(2, forward.Model!.BoundSnapshots.Count); Assert.Empty(forward.Model.References);
+        var publication = Assert.IsType<CompilerScopedPublication>(forward.Publication);
+        Assert.Equal(2, publication.Scope.Regions.Count); Assert.Equal(CompilerVerdict.Pass, forward.Result.Verdict);
+        var region = Assert.Single(publication.Scope.Regions, item => !item.Binding.IsRoot);
+        var expectedId = new[] { f.Body.SnapshotId.ToString(), alias.SnapshotId.ToString() }.OrderBy(id => id, StringComparer.Ordinal).First();
+        Assert.Equal(expectedId, region.Binding.Data.Value.GetProperty("snapshot").GetProperty("snapshotId").GetString());
+        Assert.Equal(forward.Result.Data, reverse.Result.Data);
+        Assert.Equal(publication.SemanticModel, Assert.IsType<CompilerScopedPublication>(reverse.Publication).SemanticModel);
+    }
+
+    [Fact]
     public void ExactBodyAdmitsSymbolsWithoutChangingInputIdentityOrProvingExternalClosure()
     {
         var f = Fixture(); var before = f.Input.ToEnvelope(); var model = ProjectSemanticBinder.Bind(f.Input, [f.Body]);
