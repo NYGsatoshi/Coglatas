@@ -10,7 +10,7 @@ jobs:
   resharper-inspectcode:
     name: ReSharper InspectCode / PR
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
 
@@ -113,6 +113,8 @@ jobs:
               lower = path.lower()
               return (
                   path == "Coglatas.slnx"
+                  # Editing the ReSharper gate must inspect the Entry source probed by verify.
+                  or path == ".github/workflows/resharper_pr.yml"
                   or p.name.lower() in global_names
                   or lower.endswith((".props", ".targets", ".dotsettings", ".sln", ".slnx"))
               )
