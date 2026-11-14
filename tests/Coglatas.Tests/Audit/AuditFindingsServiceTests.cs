@@ -111,7 +111,7 @@ public sealed class AuditFindingsServiceTests
 
         var result = await fixture.Service.UpdateTriageAsync(
             finding.Id,
-            new UpdateAuditFindingTriageRequest(nextStatus, null));
+            new UpdateAuditFindingTriageRequest(nextStatus));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("ReasonRequired", result.ErrorDetail?.Code);
