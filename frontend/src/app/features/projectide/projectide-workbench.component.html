@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
+      <button type="button" (click)="reload('simulation-debug')">{{ t('ide.debugExample') }}</button>
       <button type="button" (click)="reload('simulation')">{{ t('ide.simulationExample') }}</button>
       <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
       <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
@@ -628,6 +629,43 @@
                     <li><button type="button" (click)="openSimulationEvent(event)">{{ event.sequence }} · {{ event.kind === 'coglatas.task-start' ? t('ide.simulationStart') : t('ide.simulationEnd') }} · {{ event.ticks }} · {{ event.irNodeId }}</button></li>
                   }</ol>
                   <details><summary>{{ t('ide.simulationBytes') }}</summary><code>{{ run.digest.value }}</code><pre tabindex="0">{{ run.data | json }}</pre></details>
+                </section>
+              }
+              @if (ctx.simulationDebug && store.simulation()) {
+                <button type="button" (click)="loadRecordedDebug()" [disabled]="store.recordedDebugReadState() === 'loading'">{{ t('ide.debugLoad') }}</button>
+                @if (store.recordedDebugReadState() === 'unavailable') { <p role="alert">{{ t('ide.debugUnavailable') }}</p> }
+              }
+              @if (store.recordedDebug(); as debug) {
+                <section data-testid="ide-recorded-debug"><h3>{{ t('ide.debugTitle') }}</h3><p>{{ t('ide.debugNotice') }}</p>
+                  @if (store.recordedDebugFrame(); as frame) {
+                    <div #recordedFrame tabindex="-1" data-testid="ide-recorded-debug-frame">
+                      <h4>{{ t('ide.debugFrame') }} {{ store.recordedDebugPosition() + 1 }} / {{ debug.frames.length }}</h4>
+                      <p>{{ t('ide.debugState') }}: {{ t(frame.state === 'Ready' ? 'ide.debugReady' : frame.state === 'Paused' ? 'ide.debugPaused' : 'ide.debugTerminated') }}</p>
+                      <p>{{ frame.action }} · {{ frame.reason }}</p>
+                      <p>{{ t('ide.debugCommittedClock') }}: {{ frame.virtualTicks }} · {{ t('ide.debugPrefix') }}: {{ frame.events.length }}</p>
+                      @if (frame.pending; as pending) {
+                        <p>{{ t('ide.debugPending') }}: {{ pending['kind'] }} · {{ pending['ticks'] }} · {{ pending['irNodeId'] }}</p>
+                        <button type="button" (click)="openRecordedDebugLocation(frame, pending['location'])">{{ t('ide.debugPendingSource') }}</button>
+                      }
+                      @if (frame.inspection; as inspection) {
+                        <section data-testid="ide-recorded-debug-inspection"><h5>{{ t('ide.debugInspection') }}</h5>
+                          <p>{{ inspection['state'] }} · {{ t('ide.debugWaiting') }}: {{ inspection['waitingReasonCount'] }} · {{ inspection['waitingCoverage'] }}</p>
+                          <p>{{ t('ide.debugDefaults') }}</p><pre tabindex="0">{{ inspection['ports'] | json }}</pre>
+                          <pre tabindex="0">{{ inspection['waitingReasons'] | json }}</pre>
+                          <button type="button" (click)="openRecordedDebugLocation(frame, inspection['location'])">{{ t('ide.debugInspectedSource') }}</button>
+                        </section>
+                      }
+                      <details><summary>{{ t('ide.debugBreakpoints') }}</summary><pre tabindex="0">{{ frame.breakpoints | json }}</pre></details>
+                      <details><summary>{{ t('ide.debugEvents') }}</summary><ol>
+                        @for (event of frame.events; track event.sequence) {
+                          <li><button type="button" (click)="openRecordedDebugLocation(frame, event.location)">{{ event.sequence }} · {{ event.kind }} · {{ event.ticks }} · {{ event.irNodeId }}</button></li>
+                        }
+                      </ol></details>
+                      <details><summary>{{ t('ide.debugSnapshot') }}</summary><pre tabindex="0">{{ frame.snapshot | json }}</pre></details>
+                    </div>
+                    <button type="button" (click)="selectRecordedDebugFrame(store.recordedDebugPosition() - 1)" [disabled]="store.recordedDebugPosition() <= 0">{{ t('ide.debugPrevious') }}</button>
+                    <button type="button" (click)="selectRecordedDebugFrame(store.recordedDebugPosition() + 1)" [disabled]="store.recordedDebugPosition() + 1 >= debug.frames.length">{{ t('ide.debugNext') }}</button>
+                  }
                 </section>
               }
               @if (store.scopedSourceTarget(); as scoped) {

@@ -1,18 +1,20 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.ProjectIde.Preview;
 using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
-var simulationProfile = args is [_, "--simulation"];
+var debugProfile = args is [_, "--simulation-debug"];
+var simulationProfile = args is [_, "--simulation"] || debugProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var publicationProfile = args is [_, "--scoped-publication"];
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -209,8 +211,13 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
         if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
         {
-            var run = ProjectSimulation.Execute(new(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
-                new(MaximumEvents: scenarioKey == "tests-simulation-bounded" ? 2 : 4096)), input.InputDigest);
+            var request = new SimulationRunManifest(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
+                new(MaximumEvents: scenarioKey == "tests-simulation-bounded" ? 2 : 4096));
+            ProjectSimulationRun run;
+            if (debugProfile) {
+                var recorded = SyntheticSimulationDebugRecording.Capture(request); run = recorded.Run;
+                fixture["simulationDebug"] = JsonSerializer.SerializeToNode(recorded.Recording.Value);
+            } else run = ProjectSimulation.Execute(request, input.InputDigest);
             if (run.Execution != (scenarioKey == "tests-simulation-bounded" ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed))
                 throw new InvalidOperationException("Actual simulation fixture did not retain its expected execution boundary.");
             fixture["simulationRun"] = JsonSerializer.SerializeToNode(new { text = run.Data.CanonicalText, digest = run.Digest.Data.Value });

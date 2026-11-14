@@ -1,3 +1,4 @@
+import { AdmittedRecordedDebug, RecordedDebugFrame, readRecordedDebug } from './projectide-recorded-debug.reader';
 import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
 import { AdmittedSimulation, SimulationEvent, readSimulationRun } from './projectide-simulation.reader';
 import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
@@ -164,7 +165,48 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
-  private clearSimulation(): void { this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
+  private recordedDebugGeneration = 0;
+  readonly recordedDebugReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedDebugSnapshot = signal<AdmittedRecordedDebug | null>(null);
+  private readonly recordedDebugIndex = signal(0);
+  readonly recordedDebug = (): AdmittedRecordedDebug | null => {
+    const debug = this.recordedDebugSnapshot(); return debug && debug.simulation === this.simulation() ? debug : null;
+  };
+  readonly recordedDebugFrame = (): RecordedDebugFrame | null => this.recordedDebug()?.frames[this.recordedDebugIndex()] ?? null;
+  readonly recordedDebugPosition = () => this.recordedDebugFrame() ? this.recordedDebugIndex() : -1;
+  async loadRecordedDebug(): Promise<boolean> {
+    this.clearRecordedDebug(); this.resetSelection();
+    const generation = this.recordedDebugGeneration; const context = this.context(); const sources = this.admittedScoped(); const run = this.simulation();
+    if (!context || !sources || !run || context !== this.result()) return false;
+    this.recordedDebugReadState.set('loading');
+    try {
+      const debug = await readRecordedDebug(context, sources, run);
+      if (generation !== this.recordedDebugGeneration || context !== this.context() || context !== this.result() || run !== this.simulation()) return false;
+      if (!debug) throw new Error('recorded-debug-unavailable');
+      this.recordedDebugSnapshot.set(debug); this.recordedDebugReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.recordedDebugGeneration && context === this.context() && context === this.result()) this.recordedDebugReadState.set('unavailable');
+      return false;
+    }
+  }
+  selectRecordedDebugFrame(debug: AdmittedRecordedDebug, index: number): boolean {
+    if (debug !== this.recordedDebug() || !Number.isSafeInteger(index) || index < 0 || index >= debug.frames.length) return false;
+    this.resetSelection(); this.recordedDebugIndex.set(index); return true;
+  }
+  navigateRecordedDebugLocation(frame: RecordedDebugFrame, location: ProjectLocation): boolean {
+    const debug = this.recordedDebug(); const context = this.context(); this.resetSelection();
+    if (!debug || !context || frame !== this.recordedDebugFrame() ||
+        !(frame.pending?.['location'] === location || frame.inspection?.['location'] === location || frame.events.some(event => event.location === location))) {
+      this.navigationState.set('unavailable'); return false;
+    }
+    const target = resolveScopedSource(context, debug.simulation.sources, location);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted: debug.simulation.sources, ...target, location }); this.navigationState.set('ready'); return true;
+  }
+  private clearRecordedDebug(): void {
+    this.scopedTarget.set(null); this.recordedDebugGeneration++; this.recordedDebugSnapshot.set(null); this.recordedDebugIndex.set(0); this.recordedDebugReadState.set('idle');
+  }
+  private clearSimulation(): void { this.clearRecordedDebug(); this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
     const target = this.scopedTarget();

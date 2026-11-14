@@ -1,3 +1,5 @@
+import { RecordedDebugFrame } from './projectide-recorded-debug.reader';
+import { isProjectLocationShape } from './projectide-preview.validation';
 import { SimulationEvent } from './projectide-simulation.reader';
 import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
@@ -77,6 +79,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
+  private readonly recordedFrameElement = viewChild<ElementRef<HTMLElement>>('recordedFrame');
   private readonly scopedTargetElement = viewChild<ElementRef<HTMLElement>>('scopedTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
@@ -154,7 +157,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -166,7 +169,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -176,6 +179,28 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) { this.store.clear('denied'); return; }
     await this.store.loadSimulation();
     if (!this.canRead()) this.store.clear('denied');
+  }
+  async loadRecordedDebug(): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedDebug();
+    if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (loaded) this.selectRecordedDebugFrame(0);
+  }
+  selectRecordedDebugFrame(index: number): void {
+    const generation = ++this.focusGeneration; const debug = this.store.recordedDebug();
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (!debug || !this.store.selectRecordedDebugFrame(debug, index)) return;
+    setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && debug === this.store.recordedDebug() && index === this.store.recordedDebugPosition())
+        this.recordedFrameElement()?.nativeElement.focus();
+    });
+  }
+  openRecordedDebugLocation(frame: RecordedDebugFrame, location: unknown): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (isProjectLocationShape(location) && this.store.navigateRecordedDebugLocation(frame, location)) this.open('source', true);
   }
   openSimulationEvent(event: SimulationEvent): void {
     this.focusGeneration++;

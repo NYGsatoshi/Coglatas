@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' | 'simulation-debug' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve(profile === 'simulation' ? 'public/assets/projectide/simulation-v1.json' : profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'simulation-debug' ? 'public/assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'public/assets/projectide/simulation-v1.json' : profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -596,3 +596,30 @@ it('refuses direct simulation handlers after permission revocation', async () =>
   authenticated.set(false); await c.reload('simulation'); await c.loadSimulation();
   expect(adapter.read.mock.calls.length).toBe(calls); expect(c.store.state()).toBe('denied'); expect(c.store.simulation()).toBeNull();
 });
+
+  it.each(['en', 'ja'] as const)('browses original recorded debug frames and exact Task source in %s', async locale => {
+    const { c, fixture, root } = await render(true, true, false, 'simulation-debug');
+    c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('source');
+    await c.store.loadScopedSources(); await c.loadSimulation(); await c.loadRecordedDebug(); fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve, 20)); fixture.detectChanges();
+    const frame = root.querySelector('[data-testid="ide-recorded-debug-frame"]') as HTMLElement;
+    expect(frame).toBe(document.activeElement); expect(frame.textContent).toContain(locale === 'en' ? 'Last committed virtual tick' : '最後に確定した仮想tick');
+    expect(frame.textContent).toContain(locale === 'en' ? 'Future pending transition' : '未来の保留遷移');
+    const next = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === (locale === 'en' ? 'Next recorded frame' : '次の記録フレーム'))!;
+    next.click(); fixture.detectChanges(); next.click(); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 20));
+    expect(c.store.recordedDebugPosition()).toBe(2); expect(frame).toBe(document.activeElement);
+    expect(root.querySelector('[data-testid="ide-recorded-debug-inspection"]')?.textContent).toContain('WaitingPrerequisites');
+    const selected = c.store.recordedDebugFrame()!;
+    c.openRecordedDebugLocation(selected, selected.inspection!['location']); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 20));
+    expect(root.querySelector('[data-testid="ide-scoped-source-target"]')).toBe(document.activeElement);
+    expect(c.store.scopedSourceTarget()!.record.identity).toBe('00000008-0000-4000-8000-000000000001');
+    c.selectRecordedDebugFrame(3); c.choose('tests-simulation-root-draft'); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 20));
+    expect(c.store.recordedDebug()).toBeNull(); expect(root.querySelector('[data-testid="ide-recorded-debug-frame"]')).toBeNull();
+  });
+  it('withdraws recorded debug admission and direct navigation after permission loss', async () => {
+    const { c, fixture, authenticated } = await render(true, true, false, 'simulation-debug');
+    c.choose('tests-simulation-root-base'); c.loadResult(); await c.store.loadScopedSources(); await c.loadSimulation();
+    const pending = c.loadRecordedDebug(); authenticated.set(false); await pending; fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.recordedDebug()).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull();
+    await c.loadRecordedDebug(); c.selectRecordedDebugFrame(0); expect(c.store.recordedDebug()).toBeNull();
+  });
