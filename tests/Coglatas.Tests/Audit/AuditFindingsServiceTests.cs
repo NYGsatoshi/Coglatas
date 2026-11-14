@@ -25,7 +25,7 @@ public sealed class AuditFindingsServiceTests
 
         Assert.True(result.IsSuccess, result.Error ?? result.ErrorDetail?.Message);
         Assert.Equal(
-            new[] { openCritical.Id, reviewingHigh.Id, openMedium.Id, resolvedCritical.Id },
+            [openCritical.Id, reviewingHigh.Id, openMedium.Id, resolvedCritical.Id],
             result.Value!.Findings.Select(item => item.FindingId));
         Assert.Equal("Critical", result.Value.Findings[0].Severity);
         Assert.Equal(40, result.Value.Findings[0].ConfidencePercent);
@@ -82,7 +82,7 @@ public sealed class AuditFindingsServiceTests
             fixture.ArtifactVersionId,
             MyReviews: true));
         Assert.True(myReviews.IsSuccess, myReviews.Error ?? myReviews.ErrorDetail?.Message);
-        Assert.Equal(new[] { overdue.Id, done.Id }, myReviews.Value!.Findings.Select(item => item.FindingId));
+        Assert.Equal([overdue.Id, done.Id], myReviews.Value!.Findings.Select(item => item.FindingId));
 
         var overdueResult = await fixture.Service.ListAsync(new AuditFindingsQuery(
             fixture.ArtifactVersionId,

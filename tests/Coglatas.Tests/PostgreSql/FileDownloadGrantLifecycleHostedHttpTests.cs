@@ -352,7 +352,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 Assert.True(!entry.Contains(marker, StringComparison.OrdinalIgnoreCase),
                     "Sharing/grant denial audit disclosed protected content or credentials.");
         }
-        Assert.True(reasons.SequenceEqual(new[] { "current_authorization_failed", "policy_changed" }),
+        Assert.True(reasons.SequenceEqual(["current_authorization_failed", "policy_changed"]),
             "Revoked sharing must deny current authority; regrant must not revive the old policy stamp.");
     }
 
