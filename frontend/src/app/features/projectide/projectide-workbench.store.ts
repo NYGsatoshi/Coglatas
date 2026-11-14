@@ -1,3 +1,4 @@
+import { AdmittedTraceProfile, readSimulationTraceProfile } from './projectide-simulation-trace-profile.reader';
 import { AdmittedSimulationComparison, readSimulationComparison } from './projectide-simulation-comparison.reader';
 import { AdmittedRecordedDebug, RecordedDebugFrame, readRecordedDebug } from './projectide-recorded-debug.reader';
 import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
@@ -166,6 +167,31 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
+  private traceProfileGeneration = 0;
+  readonly simulationTraceProfileReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly traceProfileSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedTraceProfile } | null>(null);
+  readonly simulationTraceProfile = (): AdmittedTraceProfile | null => {
+    const snapshot = this.traceProfileSnapshot();
+    return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.simulation === this.simulation() ? snapshot.admitted : null;
+  };
+  async loadSimulationTraceProfile(): Promise<boolean> {
+    this.clearSimulationTraceProfile(); const generation = this.traceProfileGeneration;
+    const context = this.context(); const run = this.simulation(); const bundle = this.bundle();
+    if (!bundle || !context || !run || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.traceProfileGeneration && bundle === this.bundle() && context === this.context() && context === this.result();
+    this.simulationTraceProfileReadState.set('loading');
+    try {
+      const admitted = await readSimulationTraceProfile(context, run); if (!current()) return false;
+      if (!admitted || run !== this.simulation() || !bundle.cases.includes(context)) throw new Error('simulation-trace-profile-unavailable');
+      this.traceProfileSnapshot.set({ bundle, context, admitted }); this.simulationTraceProfileReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.simulationTraceProfileReadState.set('unavailable'); return false;
+    }
+  }
+  private clearSimulationTraceProfile(): void {
+    this.traceProfileGeneration++; this.traceProfileSnapshot.set(null); this.simulationTraceProfileReadState.set('idle');
+  }
   private comparisonGeneration = 0;
   readonly simulationComparisonReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly comparisonSnapshot = signal<{ bundle: PreviewBundle; beforeCase: PreviewCase; afterCase: PreviewCase; admitted: AdmittedSimulationComparison } | null>(null);
@@ -239,7 +265,7 @@ export class ProjectIdeWorkbenchStore {
   private clearRecordedDebug(): void {
     this.scopedTarget.set(null); this.recordedDebugGeneration++; this.recordedDebugSnapshot.set(null); this.recordedDebugIndex.set(0); this.recordedDebugReadState.set('idle');
   }
-  private clearSimulation(): void { this.clearSimulationComparison(); this.clearRecordedDebug(); this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
+  private clearSimulation(): void { this.clearSimulationTraceProfile(); this.clearSimulationComparison(); this.clearRecordedDebug(); this.simulationGeneration++; this.simulationSnapshot.set(null); this.simulationReadState.set('idle'); }
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
     const target = this.scopedTarget();

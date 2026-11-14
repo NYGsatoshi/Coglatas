@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
+      <button type="button" (click)="reload('simulation-profile')">{{ t('ide.profileExample') }}</button>
       <button type="button" (click)="reload('simulation-comparison')">{{ t('ide.comparisonExample') }}</button>
       <button type="button" (click)="reload('simulation-debug')">{{ t('ide.debugExample') }}</button>
       <button type="button" (click)="reload('simulation')">{{ t('ide.simulationExample') }}</button>
@@ -630,6 +631,24 @@
                     <li><button type="button" (click)="openSimulationEvent(event)">{{ event.sequence }} · {{ event.kind === 'coglatas.task-start' ? t('ide.simulationStart') : t('ide.simulationEnd') }} · {{ event.ticks }} · {{ event.irNodeId }}</button></li>
                   }</ol>
                   <details><summary>{{ t('ide.simulationBytes') }}</summary><code>{{ run.digest.value }}</code><pre tabindex="0">{{ run.data | json }}</pre></details>
+                </section>
+              }
+              @if (ctx.simulationTraceProfile && store.simulation()) {
+                <button type="button" (click)="loadSimulationTraceProfile()" [disabled]="store.simulationTraceProfileReadState() === 'loading'">{{ t('ide.profileLoad') }}</button>
+                @if (store.simulationTraceProfileReadState() === 'unavailable') { <p role="alert">{{ t('ide.profileUnavailable') }}</p> }
+              }
+              @if (store.simulationTraceProfile(); as profile) {
+                <section #traceProfilePanel class="simulation-trace-profile" tabindex="-1" data-testid="ide-trace-profile" aria-labelledby="ide-profile-heading">
+                  <h3 id="ide-profile-heading">{{ t('ide.profileTitle') }}</h3><p>{{ t('ide.profileNotice') }}</p>
+                  <p data-testid="ide-profile-state">{{ t(profile.state === 'Complete' ? 'ide.profileComplete' : 'ide.profileIncomplete') }}</p>
+                  <p>{{ t('ide.profilePeriod') }}: {{ profile.startTicks }} → {{ profile.throughTicks }} · {{ t('ide.profileTick') }}</p>
+                  <p>{{ t('ide.profileAsOf') }}: {{ profile.simulation.runId }} · <code>{{ profile.simulation.digest.value }}</code></p>
+                  <dl>@for (row of traceProfileRows; track row.key) {
+                    <div [attr.data-testid]="'ide-profile-' + row.key"><dt>{{ t(row.label) }}</dt>
+                      <dd>{{ profile.metrics[row.key] }} {{ t(row.unit) }}<p>{{ t(row.definition) }}</p></dd>
+                    </div>
+                  }</dl>
+                  <details><summary>{{ t('ide.profileBytes') }}</summary><code>{{ profile.digest.value }}</code><pre tabindex="0">{{ profile.data | json }}</pre></details>
                 </section>
               }
               @if (ctx.simulationComparison && store.simulation()) {
