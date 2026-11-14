@@ -109,7 +109,7 @@ public sealed partial class TaskCommandServiceTests
         Assert.Null(task.BriefConstraints);
         var observedSources = new List<TaskBriefValueSource>();
         Assert.All(
-            new[] { result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints },
+            [result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints],
             field =>
             {
                 observedSources.Add(field.Source);

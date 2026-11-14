@@ -55,7 +55,7 @@ public sealed class FileActivityRepositoryPostgreSqlTests
             await AddVersionAsync(database, file.Id, secondId, 2, initial.CreatedAt.AddMinutes(2));
             await AddVersionAsync(database, file.Id, thirdId, 3, initial.CreatedAt.AddMinutes(1));
             var versions = await repository.ListFileVersionsAsync(tenant.Id, file.Id, 100);
-            Assert.Equal(new[] { thirdId, secondId, file.Id }, versions.Select(version => version.Id));
+            Assert.Equal([thirdId, secondId, file.Id], versions.Select(version => version.Id));
             Assert.All(versions, version => Assert.Equal(file.Id, version.FileObjectId));
             Assert.Equal(2, (await repository.GetFileVersionAsync(tenant.Id, file.Id, secondId))?.VersionNumber);
             Assert.Equal(thirdId, Assert.Single(await repository.ListFileVersionsAsync(tenant.Id, file.Id, 1)).Id);

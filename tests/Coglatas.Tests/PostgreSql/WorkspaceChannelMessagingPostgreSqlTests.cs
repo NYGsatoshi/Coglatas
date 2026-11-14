@@ -17,7 +17,7 @@ namespace Coglatas.Tests.PostgreSql;
 
 [Collection("PostgreSqlTaskV1")]
 [Trait("Category", "PostgreSQLIntegration")]
-public sealed class WorkspaceChannelMessagingPostgreSqlTests
+public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
 {
     [PostgreSqlFact]
     public Task CanonicalWorkspaceGeneralPersistsMessagesAndSameConversationReplies() => WithScenarioAsync(async scenario =>
