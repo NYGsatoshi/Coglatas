@@ -12,6 +12,14 @@ public interface IFileObjectService
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    // Default is fail closed for adapters that have not adopted the private review candidate.
+    Task<Result<PagedResponse<FilteredFileListItemResponse>>> ListFilteredFileObjectsAsync(
+        Guid workspaceId, string? scope, Guid? projectId, Guid? folderId, bool? atRoot,
+        int page, int pageSize, string? sort, string? direction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result<PagedResponse<FilteredFileListItemResponse>>.Failure(
+            new ApplicationErrorDetail("FileScopeUnavailable", "Files not found.")));
+
     Task<Result<FileObjectResponse>> GetFileObjectAsync(Guid fileObjectId, CancellationToken cancellationToken = default);
 
     Task<Result<FileDownloadGrantResponse>> RequestFileObjectDownloadGrantAsync(

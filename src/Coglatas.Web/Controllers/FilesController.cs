@@ -15,15 +15,54 @@ public sealed class FilesController(
     IFileObjectService files,
     IFileSelectionSnapshotService selectionSnapshots,
     IFileSharingService sharing,
-    IFileActivityService activity) : ControllerBase
+    IFileActivityService activity,
+    IFileFilterReviewHost? fileFilterReviewHost = null) : ControllerBase
 {
     [HttpGet("api/files")]
     public async Task<IActionResult> List(
         [FromQuery] Guid workspaceId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [FromQuery] string? scope = null,
+        [FromQuery] string? projectId = null,
+        [FromQuery] string? folderId = null,
+        [FromQuery] string? atRoot = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? direction = null)
     {
+        var optIn = scope is not null || projectId is not null || folderId is not null || atRoot is not null ||
+            sort is not null || direction is not null ||
+            new[] { "scope", "projectId", "folderId", "atRoot", "sort", "direction" }.Any(Request.Query.ContainsKey);
+        if (optIn)
+        {
+            // Deliberately absent from production DI. Only an isolated local review host opts in.
+            if (fileFilterReviewHost is null)
+                return NotFound(CanonicalErrorEnvelope.FromResult(HttpContext, StatusCodes.Status404NotFound,
+                    new ApplicationErrorDetail("FileScopeUnavailable", "Files not found."), "Files not found.", "FileScopeUnavailable"));
+            Response.Headers.CacheControl = "no-store, private";
+            Response.Headers.Vary = "Cookie";
+            if (new[] { "scope", "projectId", "folderId", "atRoot", "sort", "direction" }.Any(name =>
+                    Request.Query.TryGetValue(name, out var values) &&
+                    (values.Count != 1 || string.IsNullOrWhiteSpace(values[0]))))
+                return InvalidFileFilter();
+            Guid parsedProject = default, parsedFolder = default;
+            bool parsedRoot = default;
+            if ((projectId is not null && !Guid.TryParse(projectId, out parsedProject)) ||
+                (folderId is not null && !Guid.TryParse(folderId, out parsedFolder)) ||
+                (atRoot is not null && !bool.TryParse(atRoot, out parsedRoot)))
+                return InvalidFileFilter();
+            var filtered = await files.ListFilteredFileObjectsAsync(workspaceId, scope,
+                projectId is null ? null : parsedProject, folderId is null ? null : parsedFolder,
+                atRoot is null ? null : parsedRoot, page, pageSize, sort, direction, cancellationToken);
+            if (!filtered.IsSuccess)
+            {
+                var status = filtered.ErrorDetail?.Code == "ValidationFailed" ? StatusCodes.Status400BadRequest : StatusCodes.Status404NotFound;
+                return StatusCode(status, CanonicalErrorEnvelope.FromResult(HttpContext, status,
+                    filtered.ErrorDetail, filtered.Error, "FileScopeUnavailable"));
+            }
+            return ToFileMetadataActionResult(filtered, "FileList");
+        }
         return ToFileMetadataActionResult(
             await files.ListFileObjectsAsync(workspaceId, page, pageSize, cancellationToken),
             "FileList");
@@ -202,6 +241,10 @@ public sealed class FilesController(
     {
         return OkOrBad(await files.DeleteFileObjectAsync(fileObjectId, reason, cancellationToken));
     }
+
+    private IActionResult InvalidFileFilter() => BadRequest(CanonicalErrorEnvelope.FromResult(
+        HttpContext, StatusCodes.Status400BadRequest,
+        new ApplicationErrorDetail("ValidationFailed", "File filter is invalid."), "File filter is invalid.", "ValidationFailed"));
 
     private IActionResult OkOrBad(Result result) =>
         result.IsSuccess
