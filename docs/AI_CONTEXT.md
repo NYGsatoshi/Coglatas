@@ -1,5 +1,12 @@
 # AI Context
 
+[Original Core recorded debugger consumption](verification/projectide-recorded-debug-web.md)
+adds explicit bounded snapshot/inspection admission and previous/next browsing in
+the offline Angular Workbench, backed by actual Core command replay. Breakpoint
+resume, Task stop boundaries and exact retained inspection follow Core history;
+no browser scheduler, live controls or server authority is introduced. Shared
+CI replay parity remains P0 #1959 and current-access controls remain P0 #1951.
+
 [Current Product promotion and review corrections](verification/projectide-product-promotion.md)
 records source-preserving candidate #1955, actual separate-assembly verification
 and review dispositions. Earlier verification records retain historical local
@@ -8,8 +15,9 @@ counts and gate states; current GitHub HEAD/checks remain authoritative.
 [Shared semantic simulation debugging](verification/projectide-semantic-simulation-debugger.md)
 adds actual event/Task stepping, exact-point break/resume, immutable control
 snapshots and typed task/wait inspection over the same pure event engine.
-Windows pure controls fence current snapshot/lifecycle; Angular debug snapshot
-consumption, composites/watch/jobs/native and full #907 acceptance remain open.
+Windows pure controls fence current snapshot/lifecycle; the recorded Angular
+consumer above remains distinct from live controls. Composites/watch/jobs/native
+and full #907 acceptance remain open.
 
 [Bounded pure elapsed simulation](verification/projectide-pure-simulation.md)
 adds an immutable run manifest and deterministic virtual-clock event engine over
@@ -18,8 +26,7 @@ bounded trace prefixes; no outcome assertion or Project/Test PASS is inferred.
 [Paired fixed simulation consumers](verification/projectide-paired-simulation.md)
 connect the Windows pure ViewModel and an Angular original-byte recording reader
 with explicit Source/run admission and exact event origins. Interactive run
-transport, original-byte Web debugger snapshots/inspection, composites/watch, jobs
-and full #907 acceptance remain open. Core/Windows pure semantic controls are
+transport, composites/watch, jobs and full #907 acceptance remain open. Core/Windows pure semantic controls are
 implemented in the debugger follow-up above.
 
 [Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)

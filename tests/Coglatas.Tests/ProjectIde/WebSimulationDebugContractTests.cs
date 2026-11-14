@@ -93,6 +93,28 @@ public sealed class WebSimulationDebugContractTests
         OriginalRecordedCommandsReplayTheActualCoreSnapshotsAndTerminalRunBytes(item.ToJsonString());
     }
     [Fact]
+    public void BreakpointUpdatesPreserveInspectionAndResumeAcrossContinue()
+    {
+        var item = Cases().Select(row => Assert.IsType<JsonObject>(JsonNode.Parse((string)row[0])))
+            .Single(row => Assert.IsAssignableFrom<JsonValue>(row["key"]).GetValue<string>() == "tests-simulation-root-base");
+        var recording = Assert.IsType<JsonObject>(item["simulationDebug"]);
+        var frames = Assert.IsType<JsonArray>(recording["frames"]);
+        frames.RemoveAt(6); frames.RemoveAt(5);
+        var retained = Assert.IsType<JsonObject>(frames[4]!.DeepClone());
+        retained["action"] = "coglatas.recorded-set-breakpoints"; retained["target"] = null;
+        var retainedSnapshot = Assert.IsType<JsonObject>(JsonNode.Parse(Assert.IsAssignableFrom<JsonValue>(Assert.IsType<JsonObject>(retained["snapshot"])["text"]).GetValue<string>()));
+        retainedSnapshot["reason"] = "coglatas.debug.breakpoints-set";
+        Assert.IsType<JsonObject>(retained["snapshot"])["text"] = retainedSnapshot.ToJsonString(); frames.Insert(5, retained);
+        for (var index = 0; index < frames.Count; index++) {
+            var frame = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(frames[index])["snapshot"]);
+            var snapshot = Assert.IsType<JsonObject>(JsonNode.Parse(Assert.IsAssignableFrom<JsonValue>(frame["text"]).GetValue<string>()));
+            snapshot["revision"] = index;
+            var canonical = SourceJson.Parse(snapshot.ToJsonString()); frame["text"] = canonical.CanonicalText;
+            frame["digest"] = JsonNode.Parse(ContentDigest.Compute("coglatas.simulation-debug-snapshot/1", canonical.ToCanonicalBytes()).Data.CanonicalText);
+        }
+        OriginalRecordedCommandsReplayTheActualCoreSnapshotsAndTerminalRunBytes(item.ToJsonString());
+            }
+    [Fact]
     public void EveryCapturedSourceAndSnapshotVersionKeepsOneBodyAcrossTheWholeDebugBundle()
     {
         var contexts = new Dictionary<string, string>(StringComparer.Ordinal); var versions = new Dictionary<string, string>(StringComparer.Ordinal);

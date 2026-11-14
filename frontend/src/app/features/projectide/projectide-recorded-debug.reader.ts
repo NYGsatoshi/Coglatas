@@ -138,6 +138,7 @@ export async function readRecordedDebug(value: PreviewCase, sources: AdmittedSco
       if (raw.action === 'coglatas.inspect-fixed-task' || raw.action === 'coglatas.recorded-set-breakpoints') {
         if (events.length !== previous.events.length || snapshot['logicalOperationsConsumed'] !== previous.snapshot['logicalOperationsConsumed'] || snapshot['state'] !== previous.state || !equal(pending, previous.pending) || hit !== null ||
             snapshot['reason'] !== (raw.action === 'coglatas.inspect-fixed-task' ? 'coglatas.debug.inspected' : 'coglatas.debug.breakpoints-set')) return fail();
+        if (raw.action === 'coglatas.recorded-set-breakpoints' && !equal(snapshot['inspectionDigest'], previous.snapshot['inspectionDigest'])) return fail();
       } else if (raw.action === 'coglatas.event-step') {
         if (events.length - previous.events.length > 1 || !terminal && events.length === previous.events.length || snapshot['reason'] !== 'coglatas.debug.event-step') return fail();
       } else if (raw.action === 'coglatas.continue') {
@@ -169,8 +170,9 @@ export async function readRecordedDebug(value: PreviewCase, sources: AdmittedSco
     let inspection: Record<string, unknown> | null = null;
     if (raw.inspection !== null) {
       inspection = obj(await frame(raw.inspection, 'coglatas.simulation-task-inspection/1', controlLimits.MaximumInspectionBytes));
-      if (!equal(snapshot['inspectionDigest'], raw.inspection.digest) || raw.action !== 'coglatas.inspect-fixed-task') return fail();
-      inspectFrame(inspection, resolve(raw.target)!, now, starts, ends, edges, projection.manifest.digest, sources.plan.digest);
+      if (!equal(snapshot['inspectionDigest'], raw.inspection.digest)) return fail();
+      if (raw.action === 'coglatas.inspect-fixed-task') inspectFrame(inspection, resolve(raw.target)!, now, starts, ends, edges, projection.manifest.digest, sources.plan.digest);
+      else if (raw.action !== 'coglatas.recorded-set-breakpoints' || !previous?.inspection || !equal(inspection, previous.inspection)) return fail();
     } else if (snapshot['inspectionDigest'] !== null || raw.action === 'coglatas.inspect-fixed-task') return fail();
     frames.push({ action: raw.action, target: raw.target, revision: index, state: snapshot['state'] as RecordedDebugFrame['state'], reason: snapshot['reason'] as string,
       virtualTicks: snapshot['virtualTicks'] as string, events: events as unknown as SimulationEvent[], pending, breakpoints, inspection, snapshot });

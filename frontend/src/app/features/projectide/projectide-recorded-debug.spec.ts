@@ -81,6 +81,32 @@ describe('Original recorded Core debugger admission', () => {
     expect(debug.frames[5].snapshot['hitBreakpointId']).toBe(JSON.parse(original[7].snapshot.text).hitBreakpointId);
     expect(debug.frames[5].pending!['kind']).toBe('coglatas.task-end');
   });
+  function retainInspectionAcrossBreakpointUpdate(value: any): void {
+    const original = value.simulationDebug.frames; const retained = structuredClone(original[4]);
+    retained.action = 'coglatas.recorded-set-breakpoints'; retained.target = null;
+    value.simulationDebug.frames = [...original.slice(0, 5), retained, ...original.slice(7)];
+    changeFrame(value, 5, snapshot => snapshot.reason = 'coglatas.debug.breakpoints-set');
+    value.simulationDebug.frames.forEach((_row: unknown, index: number) => changeFrame(value, index, snapshot => snapshot.revision = index));
+  }
+  it('retains exact inspection and breakpoint resume across a breakpoint update', async () => {
+    const value: any = bundle().cases[0]; retainInspectionAcrossBreakpointUpdate(value);
+    const debug = (await admit(value))!;
+    expect(debug.frames[5].inspection).toEqual(debug.frames[4].inspection);
+    expect(debug.frames[5].snapshot['inspectionDigest']).toEqual(debug.frames[4].snapshot['inspectionDigest']);
+    expect(debug.frames[6].events).toHaveLength(1);
+    expect(debug.frames[6].pending!['kind']).toBe('coglatas.task-end');
+  });
+  it.each(['dropped', 'changed', 'rehashed-bytes', 'invented'])('rejects breakpoint updates with %s inspection', async mode => {
+    const value: any = bundle().cases[0]; retainInspectionAcrossBreakpointUpdate(value);
+    if (mode === 'dropped') changeFrame(value, 5, (snapshot, row) => { row.inspection = null; snapshot.inspectionDigest = null; });
+    if (mode === 'changed' || mode === 'rehashed-bytes') changeFrame(value, 5, (snapshot, row) => {
+      if (mode === 'changed') { const inspection = JSON.parse(row.inspection.text); inspection.state = 'Running'; row.inspection.text = JSON.stringify(inspection); }
+      else row.inspection.text += ' ';
+      row.inspection.digest = hash('coglatas.simulation-task-inspection/1', row.inspection.text); snapshot.inspectionDigest = row.inspection.digest;
+    });
+    if (mode === 'invented') changeFrame(value, 1, (snapshot, row) => { row.inspection = structuredClone(value.simulationDebug.frames[2].inspection); snapshot.inspectionDigest = row.inspection.digest; });
+    await expect(admit(value)).rejects.toThrow();
+  });
   it('withdraws a late admission when original recording bytes change during hashing', async () => {
     const value: any = bundle().cases[0]; const sources = (await readScopedSources(value))!; const run = await readSimulationRun(value, sources);
     const pending = readRecordedDebug(value, sources, run); value.simulationDebug.frames[0].action = 'example.changed'; await expect(pending).rejects.toThrow();
