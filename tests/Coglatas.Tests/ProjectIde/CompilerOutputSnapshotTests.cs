@@ -78,7 +78,7 @@ public sealed class CompilerOutputSnapshotTests
         if (surface == "dictionary") Assert.Throws<NotSupportedException>(() => dictionary.Clear());
         if (surface == "keys") Assert.Throws<NotSupportedException>(() => dictionary.Keys.Clear());
         if (surface == "values") Assert.Throws<NotSupportedException>(() => dictionary.Values.Clear());
-        if (surface == "entries-copy") { var copy = new KeyValuePair<string, SourceJson>[dictionary.Count]; ((ICollection<KeyValuePair<string, SourceJson>>)dictionary).CopyTo(copy, 0); copy[0] = default; }
+        if (surface == "entries-copy") { var copy = new KeyValuePair<string, SourceJson>[dictionary.Count]; dictionary.CopyTo(copy, 0); copy[0] = default; }
         if (surface == "bytes-copy") { var copy = body.ToCanonicalBytes(); copy[0] = 0; }
         Assert.Equal(3, captured.Bodies.Count); Assert.Same(body, captured.Bodies["coglatas.ir"]); Assert.Equal(bytes, body.ToCanonicalBytes()); Assert.Same(data, captured.Data); Assert.Same(digest, captured.Digest);
     }
