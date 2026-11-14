@@ -414,17 +414,17 @@ export class ProjectIdeWorkbenchStore {
     }
     return this.navigateLocation(symbol.location, true);
   }
-  readonly referenceRows = computed(() => {
+  readonly referenceRows = () => {
     const result = this.result();
     const record = this.inspectedRecord();
-    if (!record || result !== this.context() || result?.freshness !== 'Current') return [];
+    if (!record || result !== this.context() || result?.freshness !== 'Current' || result.result.artifacts.some(a => a.version === 2) && !this.hasVerifiedPublication()) return [];
     const incoming = new Set(this.inspectedReferences());
     return (result.semanticInspection?.references ?? []).filter(({ origin, state, symbolKey }, index, references) =>
       state === 'Resolved' && symbolKey !== null && (incoming.has(references[index]) ||
         (this.selection()?.kind !== 'diagnostic' && origin.documentId === record.location.documentId &&
           (record.recordType === 'entity' ? origin.entityId : origin.relationId) === record.identity)),
     );
-  });
+  };
   async load(read: (signal: AbortSignal) => Promise<PreviewBundle>): Promise<void> {
     const generation = this.generation + 1;
     this.clear('loading');
