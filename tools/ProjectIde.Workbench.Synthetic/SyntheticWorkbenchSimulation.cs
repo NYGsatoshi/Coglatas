@@ -77,6 +77,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (!Current()) return false;
             SimulationDebugControlReason = response.Reason;
             if (!response.Accepted) { Changed(); return false; }
+            if (!ReferenceEquals(_simulationRun, response.Snapshot!.Result)) ClearSimulationTraceProfile();
             _simulationDebugSnapshot = response.Snapshot!; _simulationRun = response.Snapshot!.Result; Changed();
             return !_disposed && generation == _simulationGeneration && ReferenceEquals(_simulationDebugger, debugger) && ReferenceEquals(SimulationDebug, response.Snapshot);
         }
@@ -91,7 +92,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     }
     private void ClearSimulation()
     {
-        ClearSimulationComparison();
+        ClearSimulationComparison(); ClearSimulationTraceProfile();
         var previous = _simulationDebugger;
         _simulationGeneration++; _debugBusy = false; _simulationDebugger = null; _simulationDebugSnapshot = null;
         _simulationRun = null; SimulationDebugControlReason = "";
