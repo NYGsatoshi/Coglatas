@@ -1,0 +1,25 @@
+name: Synthetic Physical Recovery HTTP Guard
+on:
+  pull_request:
+    paths:
+      - 'scripts/ci/synthetic-physical-recovery-probe.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
+      - '.github/workflows/synthetic-physical-recovery-http-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ci/synthetic-physical-recovery-probe.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
+      - '.github/workflows/synthetic-physical-recovery-http-guard.yml'
+permissions:
+  contents: read
+jobs:
+  redirect-denial-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify loopback redirect boundaries
+        run: python3 -m unittest discover -s tests/ci -p 'test_synthetic_physical_recovery_http_guard.py' -v
