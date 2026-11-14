@@ -1,7 +1,9 @@
 """False-green controls for observed SEC-ARCH execution capture."""
 
 import copy
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
+import io
 import json
 import os
 from pathlib import Path
@@ -62,6 +64,45 @@ def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, 
         capture_module.capture(root, invalid_input, candidate, now)
     summary = capture_module.failure_summary(candidate, invalid_input)
     test.assertIsNone(summary["executionDigest"])
+
+
+
+def assert_canonical_failure_summary(test, capture_module, producer_path):
+    """Both SEC-17 captures admit their own producer and reject other reports."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        trusted = root / producer_path
+        trusted.parent.mkdir(parents=True, exist_ok=True)
+        trusted.write_bytes(b"synthetic owned report")
+        alternate = root / "artifacts/other.trx"
+        alternate.write_bytes(b"synthetic unrelated report")
+        test.assertEqual(evidence.digest(trusted.read_bytes()),
+                         capture_module.failure_summary("a" * 40, trusted, root)["executionDigest"])
+        test.assertIsNone(capture_module.failure_summary("a" * 40, alternate, root)["executionDigest"])
+
+
+def assert_cyclic_symlink_closed_receipt(test, capture_module):
+    """Exercise the actual CLI failure receipt without leaking the requested path."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        loop = root / "loop.trx"
+        try:
+            loop.symlink_to(loop)
+        except (OSError, NotImplementedError):
+            test.skipTest("Creating a synthetic symlink is unavailable on this platform.")
+        output = root / "closed.json"
+        argv = ["capture", "--trx", str(loop), "--candidate-sha", "a" * 40, "--output", str(output)]
+        captured = io.StringIO()
+        with patch.object(sys, "argv", argv), patch.object(
+                capture_module, "capture", side_effect=ValueError("private input failure")), redirect_stdout(captured):
+            test.assertEqual(1, capture_module.main())
+        receipt = json.loads(output.read_text(encoding="utf-8"))
+        test.assertEqual("ERROR", receipt["outcome"])
+        test.assertEqual("NO_VALID_NATIVE_EXECUTION", receipt["selectionStatus"])
+        test.assertIsNone(receipt["executionDigest"])
+        combined = captured.getvalue() + output.read_text(encoding="utf-8")
+        test.assertNotIn(str(loop), combined)
+        test.assertNotIn("private input failure", combined)
 
 
 class ExecutionInputTests(unittest.TestCase):

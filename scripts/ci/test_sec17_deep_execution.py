@@ -16,7 +16,9 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec_arch_evidence import assert_unavailable_capture_is_closed
+from test_sec_arch_evidence import (assert_canonical_failure_summary,
+                                    assert_cyclic_symlink_closed_receipt,
+                                    assert_unavailable_capture_is_closed)
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -180,37 +182,10 @@ class DeepExecutionTests(unittest.TestCase):
             self.assertEqual(retained, output.read_bytes())
 
     def test_failure_summary_accepts_only_canonical_producer_trx(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            trusted = root / deep.SEC17_DEEP_TRX_RELATIVE
-            trusted.parent.mkdir(parents=True, exist_ok=True)
-            trusted.write_bytes(b"synthetic owned report")
-            alternate = root / "artifacts/other.trx"
-            alternate.write_bytes(b"synthetic unrelated report")
-            self.assertEqual(evidence.digest(trusted.read_bytes()),
-                             deep.failure_summary("a" * 40, trusted, root)["executionDigest"])
-            self.assertIsNone(deep.failure_summary("a" * 40, alternate, root)["executionDigest"])
+        assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
 
     def test_cyclic_symlink_is_a_closed_failure_receipt(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            loop = root / "loop.trx"
-            try:
-                loop.symlink_to(loop)
-            except (OSError, NotImplementedError):
-                self.skipTest("Creating a synthetic symlink is unavailable on this platform.")
-            output = root / "closed.json"
-            argv = ["capture", "--trx", str(loop), "--candidate-sha", "a" * 40, "--output", str(output)]
-            captured = io.StringIO()
-            with patch.object(sys, "argv", argv), patch.object(
-                    deep, "capture", side_effect=ValueError("private input failure")), redirect_stdout(captured):
-                self.assertEqual(1, deep.main())
-            receipt = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual("ERROR", receipt["outcome"])
-            self.assertEqual("NO_VALID_NATIVE_EXECUTION", receipt["selectionStatus"])
-            self.assertIsNone(receipt["executionDigest"])
-            self.assertNotIn(str(loop), captured.getvalue() + output.read_text(encoding="utf-8"))
-            self.assertNotIn("private input failure", captured.getvalue() + output.read_text(encoding="utf-8"))
+        assert_cyclic_symlink_closed_receipt(self, deep)
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
