@@ -360,7 +360,7 @@ public sealed class CompilerDependencyAnalysisTests
         var full = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots, units: [unit]);
         Assert.Equal(CompilerVerdict.Fail, full.Result.Verdict);
         var semanticCost = full.Dependencies!.Regions.Sum(region => region.Validation!.LogicalOperationsConsumed - region.Validation.Model.LogicalOperationsConsumed);
-        settings["executionProfile"]!["maximumOperations"] = full.Dependencies.Binding.LogicalOperationsConsumed + semanticCost - 1;
+        settings["executionProfile"]!["maximumOperations"] = full.Dependencies.Binding.LogicalOperationsConsumed + full.Dependencies.Graph!.LogicalOperationsConsumed + semanticCost - 1;
         var limitedInput = new CompilerInputManifest(fixture.Input.Source, Json(settings));
         var limited = PureCoreCompiler.Compile(limitedInput, limitedInput.Compiler, fixture.Snapshots, units: [unit]);
         Assert.Equal(CompilerExecutionState.ResourceExhausted, limited.Result.Execution); Assert.Equal(CompilerVerdict.Fail, limited.Result.Verdict);

@@ -7,12 +7,12 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 vi.stubGlobal('crypto', webcrypto);
 afterEach(() => vi.restoreAllMocks());
-const bundle = () => readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/dependency-analysis-v1.json'), 'utf8')));
+const bundle = (file: string) => readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide', file), 'utf8')));
 
 describe('Actual Core dependency failures', () => {
-  it('retains Compiler FAIL across the exact baseline, Scenario and Draft while local Tests can pass', async () => {
+  it.each([['dependency-analysis-v1.json', 'tests-dependency'], ['graph-closure-v1.json', 'tests-graph']])('retains %s Compiler FAIL across baseline, Scenario and Draft while local Tests can pass', async (file, prefix) => {
     const store = new ProjectIdeWorkbenchStore();
-    await store.load(async () => bundle()); store.choose('tests-dependency-base'); store.loadResult();
+    await store.load(async () => bundle(file)); store.choose(prefix + '-base'); store.loadResult();
     expect(store.result()!.result.verdict).toBe('coglatas.fail');
     const prepared = store.preparedScenario()!;
     expect(await store.loadScenarioComparison(prepared)).toBe(true);

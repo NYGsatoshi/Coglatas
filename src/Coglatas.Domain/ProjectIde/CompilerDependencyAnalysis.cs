@@ -68,6 +68,7 @@ public sealed class CompilerDependencyAnalysis
     public const string Format = "coglatas.compiler-dependency-analysis/1";
     public CompilerInputManifest Input { get; }
     public CompilerBindingClosure Binding { get; }
+    public CompilerGraphClosure? Graph { get; }
     public CompilerDependencyAnalysisState State { get; }
     public IReadOnlyList<CompilerDependencyRegion> Regions { get; }
     public IReadOnlyList<CompilerDependencyFailure> KnownFailures { get; }
@@ -76,11 +77,11 @@ public sealed class CompilerDependencyAnalysis
     public SourceJson Data { get; }
     public ContentDigest Digest { get; }
     private CompilerDependencyAnalysis(CompilerBindingClosure binding, CompilerDependencyAnalysisState state,
-        IEnumerable<CompilerDependencyRegion> regions, int consumed, IEnumerable<CompilerDependencyFailure> knownFailures)
+        IEnumerable<CompilerDependencyRegion> regions, int consumed, IEnumerable<CompilerDependencyFailure> knownFailures, CompilerGraphClosure? graph)
     {
-        Input = binding.Input; Binding = binding; State = state; LogicalOperationsConsumed = consumed;
+        Input = binding.Input; Binding = binding; Graph = graph; State = state; LogicalOperationsConsumed = consumed;
         Regions = new ImmutableListView<CompilerDependencyRegion>(regions.OrderBy(item => item.Binding.Source.Context.Data.CanonicalText, StringComparer.Ordinal));
-        KnownFailures = new ImmutableListView<CompilerDependencyFailure>(knownFailures.OrderBy(item => item.RuleId, StringComparer.Ordinal).ThenBy(item => item.Digest.Value, StringComparer.Ordinal));
+        KnownFailures = new ImmutableListView<CompilerDependencyFailure>(knownFailures.DistinctBy(item => item.Digest).OrderBy(item => item.RuleId, StringComparer.Ordinal).ThenBy(item => item.Digest.Value, StringComparer.Ordinal));
         // Fixed-width certificate digests permit bounded streaming even when diagnostic publication cannot fit.
         using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
         {
@@ -93,7 +94,7 @@ public sealed class CompilerDependencyAnalysis
             format = Format, rootInputDigest = Input.InputDigest.Data.Value, bindingClosureDigest = binding.Digest.Data.Value,
             state = state.ToString(), logicalOperationsConsumed = consumed, knownFailureDigest = KnownFailureDigest.Data.Value,
             regions = Regions.Select(item => new { digest = item.Digest.Data.Value, region = item.Data.Value }).ToArray(),
-            globalGraphProof = "coglatas.not-produced"
+            globalGraph = graph?.Data.Value
         }, Input.Source.Data.Limits);
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
     }
@@ -105,7 +106,8 @@ public sealed class CompilerDependencyAnalysis
             local.Result.Execution != CompilerExecutionState.Completed || !model.BindingComplete)
             return local;
         var externalKeys = model.Symbols.Where(symbol => !symbol.Context.Equals(input.Source.Context)).Select(symbol => symbol.Key).ToHashSet(StringComparer.Ordinal);
-        if (!model.References.Any(reference => reference.SymbolKey is { } key && externalKeys.Contains(key))) return local;
+        if (input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() == 0 &&
+            !model.References.Any(reference => reference.SymbolKey is { } key && externalKeys.Contains(key))) return local;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -121,14 +123,26 @@ public sealed class CompilerDependencyAnalysis
             var knownFailures = new Dictionary<string, CompilerDependencyFailure>(StringComparer.Ordinal);
             var semanticFailures = new List<CompilerDependencyFailure>();
             var publicationLimited = false;
+            CompilerGraphClosure? graph = null;
             if (state == CompilerDependencyAnalysisState.Evaluated)
             {
+                graph = CompilerGraphClosure.Build(closure, validation.ReadUnits, remaining, cancellationToken);
+                remaining -= graph.LogicalOperationsConsumed;
+                if (graph.State == CompilerGraphClosureState.ResourceLimit) state = CompilerDependencyAnalysisState.ResourceLimit;
+                var regionIndex = closure.Regions.ToDictionary(region => region.Source.Context);
+                foreach (var finding in graph.Findings.Where(finding => finding.State == RelationFindingState.Invalid))
+                {
+                    var region = regionIndex[finding.Location.Context];
+                    var diagnostic = new CompilerDiagnostic(region.Model.Input, CoreCompilerRules.Relations, 1, 2, finding.Code,
+                        finding.Location, new(CompilerEvidenceKind.ModelProof, [region.Model.Input.InputDigest, region.Source.Digest]));
+                    semanticFailures.Add(new(region, new(RelationFindingState.Invalid, diagnostic)));
+                }
                 // Validate all exact regional edge owners before interpreting any cross-region attachment.
                 foreach (var region in closure.Regions)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (remaining <= 0) { state = CompilerDependencyAnalysisState.ResourceLimit; break; }
-                    var checkedRegion = CompilerSemanticValidation.ValidateRegion(region.Model, validation.ReadUnits, validation.ReadCalendars, cancellationToken, remaining);
+                    var checkedRegion = CompilerSemanticValidation.ValidateRegion(region.Model, validation.ReadUnits, validation.ReadCalendars, cancellationToken, remaining, graph);
                     remaining -= checkedRegion.LogicalOperationsConsumed - region.Model.LogicalOperationsConsumed;
                     prepared.Add((region, checkedRegion));
                     foreach (var finding in checkedRegion.Findings.Where(item => item.State == RelationFindingState.Invalid))
@@ -168,12 +182,12 @@ public sealed class CompilerDependencyAnalysis
                 }
             }
             CompilerDependencyAnalysis analysis;
-            try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures)); }
+            try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph); }
             catch (FormatException)
             {
                 // Discard an oversized publication; its evaluated prefix never becomes a complete receipt.
                 state = CompilerDependencyAnalysisState.ResourceLimit;
-                analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures));
+                analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph);
             }
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = local.Result.Diagnostics.ToList();

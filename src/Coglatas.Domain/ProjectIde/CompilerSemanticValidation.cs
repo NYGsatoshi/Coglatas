@@ -23,14 +23,14 @@ public sealed class CompilerSemanticValidation
 
     public static CompilerSemanticValidation Validate(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units = null,
         IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default)
-        => ValidateCore(model, units, calendars, cancellationToken, null, false);
+        => ValidateCore(model, units, calendars, cancellationToken, null, false, null);
 
     internal static CompilerSemanticValidation ValidateRegion(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units,
-        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int remainingOperations)
-        => ValidateCore(model, units, calendars, cancellationToken, remainingOperations, true);
+        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int remainingOperations, CompilerGraphClosure? graphClosure = null)
+        => ValidateCore(model, units, calendars, cancellationToken, remainingOperations, true, graphClosure);
 
     private static CompilerSemanticValidation ValidateCore(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units,
-        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int? remainingOperations, bool scopedRegion)
+        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int? remainingOperations, bool scopedRegion, CompilerGraphClosure? graphClosure)
     {
         ArgumentNullException.ThrowIfNull(model); cancellationToken.ThrowIfCancellationRequested();
         var input = model.Input; var source = input.Source;
@@ -84,7 +84,8 @@ public sealed class CompilerSemanticValidation
                 !zonePins.Any(pin => pin.ArtifactId == "coglatas.time-zone/" + calendar.TimeZone.TimeZoneId && pin.Version == calendar.TimeZone.Version && pin.Digest.Equals(calendar.TimeZone.RulesDigest)))
                 Add("coglatas.semantic.calendar-pin", RelationFindingState.Invalid, root);
         var externalKeys = model.Symbols.Where(symbol => !symbol.Context.Equals(source.Context)).Select(symbol => symbol.Key).ToHashSet(StringComparer.Ordinal);
-        if (!scopedRegion && model.References.Any(reference => reference.SymbolKey is not null && externalKeys.Contains(reference.SymbolKey)))
+        var hasDeclaredSnapshots = input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0;
+        if (!scopedRegion && (hasDeclaredSnapshots || model.References.Any(reference => reference.SymbolKey is not null && externalKeys.Contains(reference.SymbolKey))))
             Add("coglatas.semantic.external-closure-not-lowered", RelationFindingState.Unsupported, root);
         foreach (var declaration in model.Declarations)
         {
@@ -102,13 +103,19 @@ public sealed class CompilerSemanticValidation
         {
             remaining -= model.Declarations.Count + model.Relations.Count * 4;
             if (remaining < 0) { Add("coglatas.semantic.budget-exhausted", RelationFindingState.Unknown, root); return Result(null); }
-            var graph = RelationGraphValidator.Validate(new(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete), model.BoundSnapshots, unitList,
-                new(input.ExecutionProfile.MaximumDeclarations, input.ExecutionProfile.MaximumRelations), cancellationToken);
-            foreach (var finding in graph.Findings)
+            var limits = new RelationValidationLimits(input.ExecutionProfile.MaximumDeclarations, input.ExecutionProfile.MaximumRelations);
+            var graphFindings = graphClosure is not null
+                ? graphClosure.Findings.Where(finding => finding.Location.Context.Equals(source.Context))
+                : (hasDeclaredSnapshots || scopedRegion
+                    ? RelationGraphValidator.ValidateLocalEdges(new(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete), model.BoundSnapshots, unitList, limits, cancellationToken)
+                    : RelationGraphValidator.Validate(new(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete), model.BoundSnapshots, unitList, limits, cancellationToken)).Findings;
+            foreach (var finding in graphFindings)
             {
-                if (finding.Code is "coglatas.relation.evidence-not-evaluated" or "coglatas.relation.constraint-not-evaluated" or "coglatas.relation.resource-snapshot-not-evaluated") deferred.Add(finding);
+                if (CompilerGraphClosure.IsDeferred(finding.Code)) deferred.Add(finding);
                 else Add(finding.Code, finding.State, finding.Location);
             }
+            if (graphClosure is not null && graphClosure.State != CompilerGraphClosureState.Evaluated)
+                Add("coglatas.relation.closure-unavailable", RelationFindingState.Unknown, root);
         }
         cancellationToken.ThrowIfCancellationRequested();
         DerivedProjectIr? ir = null;

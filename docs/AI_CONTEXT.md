@@ -1,9 +1,15 @@
 # AI Context
 
+[Whole declared graph validation](verification/projectide-global-graph-closure.md)
+checks cross-owner cycles, connections, duplicates and Governs over exact
+contexts, including incoming edges without root references. Ordinary external
+IR/source-map publication and Compiler PASS remain incomplete.
+
+
 [Root-bound dependency analysis](verification/projectide-dependency-analysis.md)
 connects actual regional semantics, scoped IR and required rule outcomes to the
-normal Compiler. Foreign failures affect root verdicts; global cross-region
-graph validation/publication and external Compiler PASS remain incomplete.
+normal Compiler. Foreign failures affect root verdicts; consolidated external
+IR/source-map publication and external Compiler PASS remain incomplete.
 
 
 [Root-bound transitive binding closure](verification/projectide-binding-closure.md)

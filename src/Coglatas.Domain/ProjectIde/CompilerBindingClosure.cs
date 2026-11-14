@@ -42,28 +42,34 @@ public sealed class CompilerBindingClosure
     public CompilerInputManifest Input { get; }
     public CompilerBindingClosureState State { get; }
     public IReadOnlyList<CompilerBindingRegion> Regions { get; }
+    public bool IncludesDeclaredSnapshots { get; }
     public int LogicalOperationsConsumed { get; }
     public SourceJson Data { get; }
     public ContentDigest Digest { get; }
-    private CompilerBindingClosure(CompilerInputManifest input, CompilerBindingClosureState state, IEnumerable<CompilerBindingRegion> regions, int consumed)
+    private CompilerBindingClosure(CompilerInputManifest input, CompilerBindingClosureState state, IEnumerable<CompilerBindingRegion> regions, int consumed, bool includesDeclaredSnapshots)
     {
-        Input = input; State = state; LogicalOperationsConsumed = consumed;
+        Input = input; State = state; LogicalOperationsConsumed = consumed; IncludesDeclaredSnapshots = includesDeclaredSnapshots;
         Regions = new ImmutableListView<CompilerBindingRegion>(regions.OrderBy(item => item.Source.Context.Data.CanonicalText, StringComparer.Ordinal));
         Data = SourceJson.FromObject(new { format = Format, compilerInputId = input.InputId.ToString(), inputDigest = input.InputDigest.Data.Value,
             context = input.Source.Context.Data.Value, state = state.ToString(), logicalOperationsConsumed = consumed,
             regions = Regions.Select(item => new { digest = item.Digest.Data.Value, region = item.Data.Value }).ToArray()
         }, input.Source.Data.Limits);
+        if (IncludesDeclaredSnapshots)
+        {
+            var data = JsonNode.Parse(Data.CanonicalText)!.AsObject(); data["scope"] = "coglatas.declared-snapshots";
+            Data = SourceJson.FromObject(data, input.Source.Data.Limits);
+        }
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
     }
     public static CompilerBindingClosure Build(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken = default,
         PlanDeclarationReadCache? declarationCache = null)
-        => BuildCore(root, expectedInput, cancellationToken, declarationCache, null);
+        => BuildCore(root, expectedInput, cancellationToken, declarationCache, null, false);
 
     internal static CompilerBindingClosure BuildWithinBudget(PartialSemanticModel root, int remainingOperations, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache)
-        => BuildCore(root, root.Input.InputDigest, cancellationToken, declarationCache, remainingOperations);
+        => BuildCore(root, root.Input.InputDigest, cancellationToken, declarationCache, remainingOperations, true);
 
     private static CompilerBindingClosure BuildCore(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken,
-        PlanDeclarationReadCache? declarationCache, int? remainingOperations)
+        PlanDeclarationReadCache? declarationCache, int? remainingOperations, bool includeDeclaredSnapshots)
     {
         ArgumentNullException.ThrowIfNull(root); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
         var input = root.Input; var remaining = remainingOperations ?? input.ExecutionProfile.MaximumOperations - root.LogicalOperationsConsumed;
@@ -71,7 +77,7 @@ public sealed class CompilerBindingClosure
         CompilerBindingClosure Finish(CompilerBindingClosureState state)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var value = new CompilerBindingClosure(input, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining));
+            var value = new CompilerBindingClosure(input, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), includeDeclaredSnapshots);
             cancellationToken.ThrowIfCancellationRequested(); return value;
         }
         if (!input.InputDigest.Equals(expectedInput)) return Finish(CompilerBindingClosureState.StaleInput);
@@ -83,6 +89,14 @@ public sealed class CompilerBindingClosure
             var registry = root.MaterializedSnapshots.GroupBy(item => item.Snapshot.Source.Context).ToDictionary(group => group.Key, group => group.ToArray());
             var visited = new HashSet<SourceRevisionContext> { input.Source.Context };
             var pending = new SortedDictionary<string, SourceRevisionContext>(StringComparer.Ordinal);
+            if (includeDeclaredSnapshots)
+                foreach (var pin in input.Settings.Value.GetProperty("authorizedExternalSnapshots").EnumerateArray())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!ProjectSemanticBinder.WithinBudget(pin, ref remaining, cancellationToken)) return Finish(CompilerBindingClosureState.ResourceLimit);
+                    var context = SourceRevisionContext.Parse(SourceJson.FromElement(pin.GetProperty("context")));
+                    if (!visited.Contains(context)) pending.TryAdd(context.Data.CanonicalText, context);
+                }
             bool Discover(PartialSemanticModel model)
             {
                 foreach (var reference in model.References)

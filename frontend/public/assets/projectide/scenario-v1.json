@@ -5913,7 +5913,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "850b20e06ab8a6d36e5c9a36165b5f8607d6bb3e9740f53adf32a285f2926b27"
+                    "value": "bfe0e520aef6556ed8121596506f5f2330b24bff69bdb0317f0cbb3471c649b1"
                   },
                   {
                     "algorithm": "sha-256",
@@ -5958,7 +5958,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "850b20e06ab8a6d36e5c9a36165b5f8607d6bb3e9740f53adf32a285f2926b27"
+                    "value": "bfe0e520aef6556ed8121596506f5f2330b24bff69bdb0317f0cbb3471c649b1"
                   },
                   {
                     "algorithm": "sha-256",
@@ -6005,7 +6005,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "850b20e06ab8a6d36e5c9a36165b5f8607d6bb3e9740f53adf32a285f2926b27"
+                  "value": "bfe0e520aef6556ed8121596506f5f2330b24bff69bdb0317f0cbb3471c649b1"
                 },
                 {
                   "algorithm": "sha-256",
@@ -6062,7 +6062,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "850b20e06ab8a6d36e5c9a36165b5f8607d6bb3e9740f53adf32a285f2926b27"
+                  "value": "bfe0e520aef6556ed8121596506f5f2330b24bff69bdb0317f0cbb3471c649b1"
                 },
                 {
                   "algorithm": "sha-256",
@@ -6146,7 +6146,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "850b20e06ab8a6d36e5c9a36165b5f8607d6bb3e9740f53adf32a285f2926b27"
+                "value": "bfe0e520aef6556ed8121596506f5f2330b24bff69bdb0317f0cbb3471c649b1"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -6155,10 +6155,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "502d2bd9-794e-820d-a1d7-b2a73c87ee1e",
+      "resultId": "0e6ae345-deb2-8473-8325-fe3a5a7db0d9",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "0a8ce0b6daf782f55f567aa855463f4e44c36867833a8f83edf5765a5de8f0f8"
+        "value": "aeb0869ef7d3320f2bdc53f29969f500518a48531f8b57f999a634a83ba021a6"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -8248,7 +8248,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "89b735528c323179a604b0170f8722235b0a374ff105253268673238957daa18"
+                    "value": "5dac9ac3b37a2981d3c93354b2379191057a620aa4c1fab2695bf64a81f56ce5"
                   },
                   {
                     "algorithm": "sha-256",
@@ -8293,7 +8293,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "89b735528c323179a604b0170f8722235b0a374ff105253268673238957daa18"
+                    "value": "5dac9ac3b37a2981d3c93354b2379191057a620aa4c1fab2695bf64a81f56ce5"
                   },
                   {
                     "algorithm": "sha-256",
@@ -8340,7 +8340,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "89b735528c323179a604b0170f8722235b0a374ff105253268673238957daa18"
+                  "value": "5dac9ac3b37a2981d3c93354b2379191057a620aa4c1fab2695bf64a81f56ce5"
                 },
                 {
                   "algorithm": "sha-256",
@@ -8397,7 +8397,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "89b735528c323179a604b0170f8722235b0a374ff105253268673238957daa18"
+                  "value": "5dac9ac3b37a2981d3c93354b2379191057a620aa4c1fab2695bf64a81f56ce5"
                 },
                 {
                   "algorithm": "sha-256",
@@ -8481,7 +8481,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "89b735528c323179a604b0170f8722235b0a374ff105253268673238957daa18"
+                "value": "5dac9ac3b37a2981d3c93354b2379191057a620aa4c1fab2695bf64a81f56ce5"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -8490,10 +8490,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "ca206baa-0778-8448-892e-8616f1192e84",
+      "resultId": "90b56819-65d5-8b5b-851b-acfb5b9154bd",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "79a680470b6baf44c1ee71ad3bcc698a263449f74f0d0ec17ebd44f77f4e41b8"
+        "value": "9a6e91f1d5616ec5fcb780bc0dae20226d1bb35a1b35f47c4c04c2cc8412bb57"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -10514,7 +10514,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "b0b711d16fff77fdf2b16597afc83e6d0f5734d76b6d08dee93d718df632874c"
+                    "value": "904fa9c838cc6d3035fbf3909f95a3b4f43b757a4148bb1493612fc4b5ca1c05"
                   }
                 ]
               },
@@ -10559,7 +10559,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "b0b711d16fff77fdf2b16597afc83e6d0f5734d76b6d08dee93d718df632874c"
+                    "value": "904fa9c838cc6d3035fbf3909f95a3b4f43b757a4148bb1493612fc4b5ca1c05"
                   }
                 ]
               },
@@ -10606,7 +10606,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "b0b711d16fff77fdf2b16597afc83e6d0f5734d76b6d08dee93d718df632874c"
+                  "value": "904fa9c838cc6d3035fbf3909f95a3b4f43b757a4148bb1493612fc4b5ca1c05"
                 }
               ]
             },
@@ -10663,7 +10663,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "b0b711d16fff77fdf2b16597afc83e6d0f5734d76b6d08dee93d718df632874c"
+                  "value": "904fa9c838cc6d3035fbf3909f95a3b4f43b757a4148bb1493612fc4b5ca1c05"
                 }
               ]
             },
@@ -10743,7 +10743,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "b0b711d16fff77fdf2b16597afc83e6d0f5734d76b6d08dee93d718df632874c"
+                "value": "904fa9c838cc6d3035fbf3909f95a3b4f43b757a4148bb1493612fc4b5ca1c05"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -10752,10 +10752,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "6b3a50d5-bbcf-8f7f-aad3-448acce3bcdd",
+      "resultId": "e8b3ee8b-9ad8-823a-a716-292d5cca84b6",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "0ad9a79a8adebab18b50487a3577116581b2eb058a25c817f274d2fccc8e564d"
+        "value": "65113300ad2bf485d4ef8d65221f771b224285723d84d05f2fadb349605732e2"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -12574,11 +12574,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "30f39123675aea604d7f18fc85925b084d622019314de447472992193216e5ff"
+                    "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
+                    "value": "b00b0db995c6018104b461ad860e7b68a37226f2a029e1203bf395c171d466a7"
                   }
                 ]
               },
@@ -12619,11 +12619,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "30f39123675aea604d7f18fc85925b084d622019314de447472992193216e5ff"
+                    "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
+                    "value": "b00b0db995c6018104b461ad860e7b68a37226f2a029e1203bf395c171d466a7"
                   }
                 ]
               },
@@ -12666,11 +12666,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "30f39123675aea604d7f18fc85925b084d622019314de447472992193216e5ff"
+                  "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
+                  "value": "b00b0db995c6018104b461ad860e7b68a37226f2a029e1203bf395c171d466a7"
                 }
               ]
             },
@@ -12723,11 +12723,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "30f39123675aea604d7f18fc85925b084d622019314de447472992193216e5ff"
+                  "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
+                  "value": "b00b0db995c6018104b461ad860e7b68a37226f2a029e1203bf395c171d466a7"
                 }
               ]
             },
@@ -12807,7 +12807,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "30f39123675aea604d7f18fc85925b084d622019314de447472992193216e5ff"
+                "value": "b00b0db995c6018104b461ad860e7b68a37226f2a029e1203bf395c171d466a7"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -12816,10 +12816,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "6c21e8c1-c002-8d72-973b-a125113eaa35",
+      "resultId": "8950aee1-6763-8038-b575-2934a9769dbc",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "02c20f6c83931a081d90048be5c3c2e6fcb8bbae9d4debdcfc0bc68d30fcb6bb"
+        "value": "7d9243af492b02ff1ebd4508b7751bb3e39b467cf94f83541e016d7b58bb9e10"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -15253,7 +15253,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "4ff4d4c584782c019f16690e03e82b5a42b42b7cdeab92b30b28d817cee7920c"
+                    "value": "2176d68e46a218efb571c163c9f9b11cff5079c7d6993ff9c951ba31e690c044"
                   },
                   {
                     "algorithm": "sha-256",
@@ -15298,7 +15298,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "4ff4d4c584782c019f16690e03e82b5a42b42b7cdeab92b30b28d817cee7920c"
+                    "value": "2176d68e46a218efb571c163c9f9b11cff5079c7d6993ff9c951ba31e690c044"
                   },
                   {
                     "algorithm": "sha-256",
@@ -15345,7 +15345,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "4ff4d4c584782c019f16690e03e82b5a42b42b7cdeab92b30b28d817cee7920c"
+                  "value": "2176d68e46a218efb571c163c9f9b11cff5079c7d6993ff9c951ba31e690c044"
                 },
                 {
                   "algorithm": "sha-256",
@@ -15402,7 +15402,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "4ff4d4c584782c019f16690e03e82b5a42b42b7cdeab92b30b28d817cee7920c"
+                  "value": "2176d68e46a218efb571c163c9f9b11cff5079c7d6993ff9c951ba31e690c044"
                 },
                 {
                   "algorithm": "sha-256",
@@ -15486,7 +15486,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "4ff4d4c584782c019f16690e03e82b5a42b42b7cdeab92b30b28d817cee7920c"
+                "value": "2176d68e46a218efb571c163c9f9b11cff5079c7d6993ff9c951ba31e690c044"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -15495,10 +15495,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "2fa301b6-da66-80c1-a521-96f57cd1eba5",
+      "resultId": "d0ff723f-e374-8254-9e2f-1efdf6d6eb42",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "64117f1ef290c1a98a8a19a6d1c249a4f1172436e95659b9a5b145f77dd2dc77"
+        "value": "c7f258ac92ad7af9d7b878710cfe15b64e01a105d8dda1cc79373db3663455d5"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -17662,7 +17662,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "fd8547c2ae7851daf8f1f015f4b2842286ee302b0eb8036eafcf38f792bc7d4e"
+                    "value": "87c123233f175f50566d71ba4ebabd74af7c806ae040f22d8ba3b5b367544920"
                   }
                 ]
               },
@@ -17707,7 +17707,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "fd8547c2ae7851daf8f1f015f4b2842286ee302b0eb8036eafcf38f792bc7d4e"
+                    "value": "87c123233f175f50566d71ba4ebabd74af7c806ae040f22d8ba3b5b367544920"
                   }
                 ]
               },
@@ -17754,7 +17754,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "fd8547c2ae7851daf8f1f015f4b2842286ee302b0eb8036eafcf38f792bc7d4e"
+                  "value": "87c123233f175f50566d71ba4ebabd74af7c806ae040f22d8ba3b5b367544920"
                 }
               ]
             },
@@ -17811,7 +17811,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "fd8547c2ae7851daf8f1f015f4b2842286ee302b0eb8036eafcf38f792bc7d4e"
+                  "value": "87c123233f175f50566d71ba4ebabd74af7c806ae040f22d8ba3b5b367544920"
                 }
               ]
             },
@@ -17891,7 +17891,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "fd8547c2ae7851daf8f1f015f4b2842286ee302b0eb8036eafcf38f792bc7d4e"
+                "value": "87c123233f175f50566d71ba4ebabd74af7c806ae040f22d8ba3b5b367544920"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -17900,10 +17900,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "f77fb62c-2adb-8e9a-bf95-8c320cbc133b",
+      "resultId": "635b139c-e91f-8202-843c-692c63531011",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "334cad088bd4dbbe6edcdfa12cb5cefda8532be64d31eeeb9727671fe3bfb2f5"
+        "value": "1f26f436d3b391b713118b9223a8f72d973ec6f8f3a434b39aa9651416b15239"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -19532,6 +19532,57 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "6584a9130c4ab701c7936de19759db9335038c1f09d101a9dd10e06310b6b64a"
+            },
+            "diagnosticId": "6584a913-0c4a-8701-8793-6de19759db93",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "0000044c-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -19700,6 +19751,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "6584a913-0c4a-8701-8793-6de19759db93"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -19748,18 +19807,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "85825cdbf0149a8e3077913ba1cce74553dc89b7c375e8b48c165ce77231d11c"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "8be272dc30cda17677f3ebd20d2c3e8835b18c6826da21ba5711b3edcc423911"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -19841,24 +19891,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "85825cdbf0149a8e3077913ba1cce74553dc89b7c375e8b48c165ce77231d11c"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "8be272dc30cda17677f3ebd20d2c3e8835b18c6826da21ba5711b3edcc423911"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -19960,7 +20001,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "16cd08fac49b207167e0caba225a2d75698c2a9056e058b255e77f9b27ece8b9"
+                "value": "0b5893103f0369ec6329a0a955c4b8a05914e2d7b669470fb802f5420d9515f2"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -19969,10 +20010,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "f50a3e6c-25a0-8fe9-ad73-396bc1cfec51",
+      "resultId": "1ca3d09b-8e38-808b-8266-a1cad9b526a9",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "165446e2d5897586dbcb4827c7578ce120ab4ff93e182f3aba4daaa453299977"
+        "value": "bccd8de6a41d08482269b7fefc44a5bfc8232f89d6cb0a27c5cc753f82c3dc23"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -21785,6 +21826,71 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "21e39c20197152e41eebffc03c775a9c686f37d711f5c326c138e702940a7396"
+            },
+            "diagnosticId": "21e39c20-1971-82e4-9eeb-ffc03c775a9c",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "baseContext": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "0000044c-0000-4000-8000-000000000001"
+                },
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.scenario",
+                "overlayDigest": {
+                  "algorithm": "sha-256",
+                  "value": "052334121d7539d4ea89247e1a805d4e377c073620f6d894e488664a77485671"
+                },
+                "scenarioId": "00000456-0000-4000-8000-000000000001",
+                "scenarioRevisionId": "00000457-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -21995,6 +22101,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "21e39c20-1971-82e4-9eeb-ffc03c775a9c"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -22043,18 +22157,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "62941b714f69751d426e69eceabdb8be45fbc5c1f786a220d2655f1ac68f4142"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "917c726b8ec2e59c4a4a9957d11691aa09894b5de281b720358481dc4f017e4a"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -22136,24 +22241,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "62941b714f69751d426e69eceabdb8be45fbc5c1f786a220d2655f1ac68f4142"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "917c726b8ec2e59c4a4a9957d11691aa09894b5de281b720358481dc4f017e4a"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -22255,7 +22351,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "9821e43f758ae758eeb87544c8ac8eb494a6ec7340e2570987655dfba751f54b"
+                "value": "6139c48a9ddfe06d35c393116cc195951338223e49a693a715d68006e9ab8bcd"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -22264,10 +22360,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "a0bcdf95-e9cb-8ba0-ad45-004f56b5a121",
+      "resultId": "7432ec36-182d-8bab-a0d0-26324cc474d6",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "b11a66f0c9a936421b5d9fab5fb46cfae8a1e6ce7d62a16d352549e55a321e23"
+        "value": "90fd08d6f68b482f8bacced9d978d8093e171d332342d1086dd5c3713d3936ec"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -23992,6 +24088,76 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "70f50e19d3b077cd54301359ec391c68e9aab72e68c5f87319579a305f93b99b"
+            },
+            "diagnosticId": "70f50e19-d3b0-87cd-9430-1359ec391c68",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "baseRevision": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "0000044c-0000-4000-8000-000000000001"
+                },
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "candidateRevisionId": "00000461-0000-4000-8000-000000000001",
+                "capturedTargetHead": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "0000044c-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.candidate",
+                "proposalId": "00000460-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -24217,6 +24383,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "70f50e19-d3b0-87cd-9430-1359ec391c68"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -24265,18 +24439,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "86f11973d322a408d69c1079b7bab566734f596d451e36fddb243f1997dec777"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "bc65be2dccfea3528a7db1c993fb7e3861e2042fda080498655b9baa718f5452"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -24358,24 +24523,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "86f11973d322a408d69c1079b7bab566734f596d451e36fddb243f1997dec777"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "bc65be2dccfea3528a7db1c993fb7e3861e2042fda080498655b9baa718f5452"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -24477,7 +24633,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "55337f6024ed906e69dbc6ab3af119289236e056caf875fd810f2e7e6d065f3e"
+                "value": "576d2ae87685e661d055c59c0a8272e55501f0a8e3a49bf6298e2f35aea1d426"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -24486,10 +24642,10 @@
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "88495f7e-3dc8-844b-98ee-3031ea7f6432",
+      "resultId": "259164d0-d21b-8da5-aaa0-538be9a489d6",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "f9d20ea58b858e9ef409648a3a4612999d181b4528aa7b1b294ff157de557aae"
+        "value": "a36539ba40c36bc55c366f1e832061c3a64b669d0ee7bc10e8418763d7c4d13f"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -26111,6 +26267,57 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "5a8282c7daa176c76c9ce3bec2422ad568e78995e70fb7e192f3f30cd1d28f18"
+            },
+            "diagnosticId": "5a8282c7-daa1-86c7-ac9c-e3bec2422ad5",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.committed",
+                "revisionId": "000004b0-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -26296,6 +26503,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "5a8282c7-daa1-86c7-ac9c-e3bec2422ad5"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -26353,18 +26568,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "57e30402f6d54d08b6c7f43d0efdcdd659019f97df65c1bba397627b1e045876"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "744fb24c235488e67479379f411532ea22f28b01ab6dfbc2f05c4edc7c146c4f"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -26446,24 +26652,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "57e30402f6d54d08b6c7f43d0efdcdd659019f97df65c1bba397627b1e045876"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "744fb24c235488e67479379f411532ea22f28b01ab6dfbc2f05c4edc7c146c4f"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -26556,7 +26753,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "8ca103c4cf984d29cc3e9867d768acd75f9b47e95063c317487707b3900e1b44"
+                "value": "b49c71779ffa8586b7c746e0159f31b18e7969c0a0dc016a0d1359880b7c360a"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -26565,10 +26762,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "d5058a36-b5da-882f-8521-10922d640b88",
+      "resultId": "47ebd1af-e0b6-8e99-9e07-4620e113b8bb",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "32b07b1218233a59166394db1079f504c5d38d3a577d4534e53701eb2b0c8a24"
+        "value": "d3a120c29205383bbed4996608f37ad745a94ab8f4c47625974445fd0ce7b728"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -28470,6 +28667,71 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "da4491672e7ad2f0f47982e7209fc8799cd0bfe7d1df42cf1dc2e12589eabb50"
+            },
+            "diagnosticId": "da449167-2e7a-82f0-b479-82e7209fc879",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "baseContext": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "000004b0-0000-4000-8000-000000000001"
+                },
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.scenario",
+                "overlayDigest": {
+                  "algorithm": "sha-256",
+                  "value": "7218289e4d89600abf146d1c6f0ac19b0460fb8db0b730916ce2fca667e4627c"
+                },
+                "scenarioId": "000004ba-0000-4000-8000-000000000001",
+                "scenarioRevisionId": "000004bb-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -28697,6 +28959,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "da449167-2e7a-82f0-b479-82e7209fc879"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -28754,18 +29024,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "04eb87226ed6c1829f5861eca76215db7934b14a41d87db42d1a6fa9e6c76f15"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "48c36e5ee263f1465409197489fa80ad6460fea861b114212345573b8202c5cf"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -28847,24 +29108,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "04eb87226ed6c1829f5861eca76215db7934b14a41d87db42d1a6fa9e6c76f15"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "48c36e5ee263f1465409197489fa80ad6460fea861b114212345573b8202c5cf"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -28957,7 +29209,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "9383e7597e4c78bf8030bf36f05d48980cd3df8589c32cd7f0b84b99da78cef6"
+                "value": "902ebc11345ed71997aa30f3fd78729871ad9d307c1f12939c9d736d00aaa920"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -28966,10 +29218,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "145e0036-42df-8e1d-8666-adcd459506ef",
+      "resultId": "73fb233a-ec10-8c05-b561-9c118a91d5d2",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "21ff3f7ec7d771dd3c19d61e688d85eb3f757850b6c711938c193bb9145db603"
+        "value": "0ba6a3f9b7c9f63c5659523b0340e0106d166453d96bc14717ef5a936346feda"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -30788,6 +31040,76 @@
           },
           {
             "arguments": [],
+            "code": "coglatas.semantic.external-closure-not-lowered",
+            "derivationDigest": {
+              "algorithm": "sha-256",
+              "value": "dea3ddd842021e14ec6145b1b0fd411cb6360fdf9013012e343ed4110ca54547"
+            },
+            "diagnosticId": "dea3ddd8-4202-8e14-ac61-45b1b0fd411c",
+            "discriminator": "",
+            "evidence": {
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.semantic.external-closure-not-lowered",
+              "premises": []
+            },
+            "findingKey": {
+              "algorithm": "sha-256",
+              "value": "faa9fffd86eb09539fb89368a51a3b0fc8beeaba76b16adc1c5fd57326840716"
+            },
+            "messageKey": "coglatas.semantic.external-closure-not-lowered",
+            "primaryLocation": {
+              "canonicalEncodingVersion": 1,
+              "context": {
+                "baseRevision": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "000004b0-0000-4000-8000-000000000001"
+                },
+                "branch": {
+                  "branchId": "00000003-0000-4000-8000-000000000001",
+                  "projectId": "00000002-0000-4000-8000-000000000001",
+                  "tenantId": "00000001-0000-4000-8000-000000000001"
+                },
+                "candidateRevisionId": "000004c5-0000-4000-8000-000000000001",
+                "capturedTargetHead": {
+                  "branch": {
+                    "branchId": "00000003-0000-4000-8000-000000000001",
+                    "projectId": "00000002-0000-4000-8000-000000000001",
+                    "tenantId": "00000001-0000-4000-8000-000000000001"
+                  },
+                  "kind": "coglatas.committed",
+                  "revisionId": "000004b0-0000-4000-8000-000000000001"
+                },
+                "kind": "coglatas.candidate",
+                "proposalId": "000004c4-0000-4000-8000-000000000001"
+              },
+              "documentId": "00000004-0000-4000-8000-000000000001",
+              "format": "coglatas.project-location/1",
+              "propertyPath": "",
+              "schemaId": "coglatas.project-location",
+              "schemaVersion": 1
+            },
+            "protection": "coglatas.input-scope",
+            "quickFixes": [],
+            "relatedLocations": [],
+            "ruleId": "coglatas.core.relations",
+            "ruleVersion": 1,
+            "rulesetDigest": {
+              "algorithm": "sha-256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "severity": "coglatas.error",
+            "stageOrdinal": 2,
+            "suppression": {
+              "kind": "coglatas.none"
+            }
+          },
+          {
+            "arguments": [],
             "code": "coglatas.analysis.semantic-closure-unavailable",
             "derivationDigest": {
               "algorithm": "sha-256",
@@ -31030,6 +31352,14 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
+                "missingReason": "coglatas.semantic.external-closure-not-lowered",
+                "premises": []
+              },
+              "diagnosticId": "dea3ddd8-4202-8e14-ac61-45b1b0fd411c"
+            },
+            {
+              "basis": {
+                "kind": "coglatas.missing",
                 "missingReason": "coglatas.analysis.semantic-closure-unavailable",
                 "premises": []
               },
@@ -31087,18 +31417,9 @@
             },
             {
               "basis": {
-                "kind": "coglatas.model-proof",
-                "missingReason": null,
-                "premises": [
-                  {
-                    "algorithm": "sha-256",
-                    "value": "6a294a177e53c34f86653d2c7787f0bbd1e9a530501aa1d4d412d5d41fc0f27f"
-                  },
-                  {
-                    "algorithm": "sha-256",
-                    "value": "ad39ad3a2d5d0394a45788bd3862f0e27358ff8a42a81049838d00fb85b66ef2"
-                  }
-                ]
+                "kind": "coglatas.missing",
+                "missingReason": "coglatas.analysis.incomplete-basis",
+                "premises": []
               },
               "ruleId": "coglatas.core.relations",
               "ruleVersion": 1
@@ -31180,24 +31501,15 @@
             "version": 1
           },
           {
-            "coverage": "coglatas.complete",
+            "coverage": "coglatas.partial",
             "evidence": {
-              "kind": "coglatas.model-proof",
-              "missingReason": null,
-              "premises": [
-                {
-                  "algorithm": "sha-256",
-                  "value": "6a294a177e53c34f86653d2c7787f0bbd1e9a530501aa1d4d412d5d41fc0f27f"
-                },
-                {
-                  "algorithm": "sha-256",
-                  "value": "ad39ad3a2d5d0394a45788bd3862f0e27358ff8a42a81049838d00fb85b66ef2"
-                }
-              ]
+              "kind": "coglatas.missing",
+              "missingReason": "coglatas.analysis.incomplete-basis",
+              "premises": []
             },
             "execution": "coglatas.completed",
             "ruleId": "coglatas.core.relations",
-            "verdict": "coglatas.pass",
+            "verdict": "coglatas.inconclusive",
             "version": 1
           },
           {
@@ -31290,7 +31602,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "469b7346f909851dbd9ef5bb96b722d97c4cd3c9576d5c6db73483de6e6adc8f"
+                "value": "962ffb195a7de9cff2645e6de6269c9bb2af5dcf6f1178929a16f25e2cad9889"
               }
             ],
             "stageId": "coglatas.analysis",
@@ -31299,10 +31611,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "86a308e7-721e-80bd-93a3-d6a941f1b5c7",
+      "resultId": "16680d43-d7dd-81b4-9032-d848ab0b0d1b",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "bfc41f563542be289cdca818f44570da789f13314de78c99eb136ec3875eb203"
+        "value": "4e7a182bd056e12d64c5d400cca97775dbcf55ad332640c091c7ddde1e6267de"
       },
       "freshness": "Current",
       "changedDimensions": [],
