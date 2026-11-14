@@ -26,13 +26,14 @@ public static class PureCoreCompiler
         return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
     }
 
-    internal static CoreCompilation CompileRegion(PartialSemanticModel model, IEnumerable<UnitDefinition> units, IEnumerable<CalendarSnapshot> calendars,
-        int remainingOperations, CancellationToken cancellationToken) =>
-        CompileSingle(model.Input, model.Input.Compiler, null, units, calendars, cancellationToken, null, model, remainingOperations);
+    internal static CoreCompilation CompileRegion(PartialSemanticModel model, CompilerSemanticValidation validation,
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken) =>
+        CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments);
 
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
-        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null)
+        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null, CompilerSemanticValidation? preparedValidation = null,
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -47,8 +48,8 @@ public static class PureCoreCompiler
                 throw new UnsupportedSourceException("Source exceeds the supported canonical AST profile.");
             var model = boundRegion ?? ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache);
             var initialRemaining = operationBudget ?? input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;
-            var validation = boundRegion is null ? CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken)
-                : CompilerSemanticValidation.ValidateRegion(model, units, calendars, cancellationToken, initialRemaining);
+            var validation = preparedValidation ?? (boundRegion is null ? CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken)
+                : CompilerSemanticValidation.ValidateRegion(model, units, calendars, cancellationToken, initialRemaining));
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = validation.Findings.Select(item => item.Diagnostic).ToList();
             var ids = diagnostics.Select(item => item.DiagnosticId.Value).ToHashSet();
@@ -59,7 +60,8 @@ public static class PureCoreCompiler
                 if (finding.State == RelationFindingState.Invalid) facts.Failed = true; else facts.Incomplete = true;
                 if (finding.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)) facts.Execution = CompilerExecutionState.ResourceExhausted;
             }
-            var remaining = initialRemaining - (validation.LogicalOperationsConsumed - model.LogicalOperationsConsumed);
+            var remaining = initialRemaining - (preparedValidation is null ? validation.LogicalOperationsConsumed - model.LogicalOperationsConsumed : 0);
+            var alreadyConsumedSemantics = preparedValidation is null ? 0 : validation.LogicalOperationsConsumed - model.LogicalOperationsConsumed;
             var bindingExhausted = model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var semanticExhausted = validation.Findings.Any(item => item.Diagnostic.StageOrdinal == 2 && item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var exhausted = validation.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
@@ -112,7 +114,7 @@ public static class PureCoreCompiler
                     foreach (var constraint in declarations.OfType<ConstraintPlanDeclaration>())
                     {
                         var location = ProjectLocation.Create(constraint.DocumentId, input.Source.Context, entityId: constraint.EntityId);
-                        if (!attached.Contains(constraint.EntityId))
+                        if (!(constraintAttachments?.Contains((input.Source.Context, constraint.EntityId)) ?? attached.Contains(constraint.EntityId)))
                         {
                             if (constraint.IsRequired) Finding(rule, "coglatas.analysis.unattached-required-constraint", RelationFindingState.Unknown, location);
                             continue;
@@ -194,10 +196,10 @@ public static class PureCoreCompiler
                     new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"));
                 result = new(input, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, limited, [diagnostic],
                     [new CompilerStageOutcome("coglatas.publication", 1, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, input.InputDigest, [], "coglatas.analysis.publication-budget")], false);
-                return new(input, model, null, result, model.LogicalOperationsConsumed + initialRemaining - Math.Max(0, remaining));
+                return new(input, model, null, result, model.LogicalOperationsConsumed + alreadyConsumedSemantics + initialRemaining - Math.Max(0, remaining));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return new(input, model, validation, result, model.LogicalOperationsConsumed + initialRemaining - Math.Max(0, remaining));
+            return new(input, model, validation, result, model.LogicalOperationsConsumed + alreadyConsumedSemantics + initialRemaining - Math.Max(0, remaining));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         { return new(input, null, null, new(input, CompilerExecutionState.Cancelled, CompilerCoverage.None, [], [], [], false)); }

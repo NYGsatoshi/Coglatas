@@ -927,11 +927,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                    "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "f8ddeaa3cc9a97a29e37c46f49c03371940e3667c5ac0f68dc8bbfe8891377ca"
+                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                   }
                 ]
               },
@@ -972,11 +972,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                    "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "f8ddeaa3cc9a97a29e37c46f49c03371940e3667c5ac0f68dc8bbfe8891377ca"
+                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                   }
                 ]
               },
@@ -1019,11 +1019,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                  "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "f8ddeaa3cc9a97a29e37c46f49c03371940e3667c5ac0f68dc8bbfe8891377ca"
+                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                 }
               ]
             },
@@ -1076,11 +1076,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                  "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "f8ddeaa3cc9a97a29e37c46f49c03371940e3667c5ac0f68dc8bbfe8891377ca"
+                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                 }
               ]
             },
@@ -1160,7 +1160,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "f8ddeaa3cc9a97a29e37c46f49c03371940e3667c5ac0f68dc8bbfe8891377ca"
+                "value": "d05eb81f552ccc91085c44ef1e750fccfa31fe392f1565ec28fd7ac5f1a7b7d6"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -1169,10 +1169,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "333cce85-ee5b-8ce1-a8b1-2fa830ba0436",
+      "resultId": "dcce13cc-807e-8876-a5db-69ca458ef118",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "8f765ea368b8c9340063655c8d4e8c8b81b97e0490183023f2a3e19279389a8b"
+        "value": "6192c1933167e2694fc057cfbe3fd8ba3a92d3f37900b3d20a26ca4af58c55e0"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -3361,11 +3361,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
+                    "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "f6964b1df2c363a5ef6d91962601658f59af48da9f5852efbac5a4e52cf3ece2"
+                    "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
                   }
                 ]
               },
@@ -3406,11 +3406,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
+                    "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "f6964b1df2c363a5ef6d91962601658f59af48da9f5852efbac5a4e52cf3ece2"
+                    "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
                   }
                 ]
               },
@@ -3453,11 +3453,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
+                  "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "f6964b1df2c363a5ef6d91962601658f59af48da9f5852efbac5a4e52cf3ece2"
+                  "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
                 }
               ]
             },
@@ -3510,11 +3510,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
+                  "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "f6964b1df2c363a5ef6d91962601658f59af48da9f5852efbac5a4e52cf3ece2"
+                  "value": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525"
                 }
               ]
             },
@@ -3594,7 +3594,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "f6964b1df2c363a5ef6d91962601658f59af48da9f5852efbac5a4e52cf3ece2"
+                "value": "3cfb09a5be8ec7a3e52087823e134f32c9721c53c16e65a0efb5e1b88cfdbaa4"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -3603,10 +3603,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "f67b1d27-1d71-80cc-9f6c-85d1cd7a404d",
+      "resultId": "c1d2bde7-3cc6-8ef5-a89b-ff0b71c53e97",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "d5c896155de891891f3a4d61f9a3f6694cef71e159583d7aa0e6df7ff53087e1"
+        "value": "5b963531005ee27443d445fb7e54d6fe8d28251d6d780acfc9e5405a50f00d92"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -5731,7 +5731,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "5a40488d990e0c643d56e6965b13cadc926d64c6d85693f9412dbdfd6a6e8f4b"
+                    "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
                   }
                 ]
               },
@@ -5776,7 +5776,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "5a40488d990e0c643d56e6965b13cadc926d64c6d85693f9412dbdfd6a6e8f4b"
+                    "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
                   }
                 ]
               },
@@ -5823,7 +5823,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "5a40488d990e0c643d56e6965b13cadc926d64c6d85693f9412dbdfd6a6e8f4b"
+                  "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
                 }
               ]
             },
@@ -5880,7 +5880,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "5a40488d990e0c643d56e6965b13cadc926d64c6d85693f9412dbdfd6a6e8f4b"
+                  "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
                 }
               ]
             },
@@ -5960,7 +5960,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "5a40488d990e0c643d56e6965b13cadc926d64c6d85693f9412dbdfd6a6e8f4b"
+                "value": "72a5e5f4d69f7010bc957c1d96eff96e589d77342594da15185af8321309b37b"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -5969,10 +5969,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "6cd75acf-fb2f-85e9-abf6-1789447351c2",
+      "resultId": "30a2e1c7-a4ec-881c-8ba5-c13c28ac9ea7",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "0664190db03bc8eb03d04fef7fb002311f675492bca0c202e2007e86c58eecfd"
+        "value": "e19c2e946f26c0ab324fb77cb3d3727b4d3ec944d58cb6f42d2a581504a16cf2"
       },
       "freshness": "Current",
       "changedDimensions": [],

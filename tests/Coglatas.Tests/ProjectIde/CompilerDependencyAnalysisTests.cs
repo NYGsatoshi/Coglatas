@@ -280,11 +280,13 @@ public sealed class CompilerDependencyAnalysisTests
         Assert.Equal(CompilerVerdict.Fail, view.Result.Verdict); view.Reset(); Assert.Null(view.Result); Assert.Empty(view.Problems);
     }
 
-    [Fact]
-    public void AnotherContextsConstraintWithTheSameEntityIdDoesNotAttachTheLocalRequiredPredicate()
+    [Theory]
+    [InlineData(true, CompilerVerdict.Inconclusive)]
+    [InlineData(false, CompilerVerdict.Fail)]
+    public void AnotherContextsConstraintWithTheSameEntityIdDoesNotAttachTheLocalRequiredPredicate(bool remoteTruth, CompilerVerdict expected)
     {
         var fixture = Constraint(false, attached: false);
-        var remotePredicate = CompilerAnalysisFixtures.Predicate(true);
+        var remotePredicate = CompilerAnalysisFixtures.Predicate(remoteTruth);
         var b = ProjectSource.Create(fixture.B, fixture.Input.Source.Documents, Data(new[] { new
         {
             entityId = Id(7), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1,
@@ -304,11 +306,37 @@ public sealed class CompilerDependencyAnalysisTests
         settings["authorizedExternalSnapshots"]!.AsArray().Add(Obj(new { snapshotId = Id(31), version = "1", digest = b.Digest.Data.Value,
             context = b.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
         fixture = fixture with { Input = new(fixture.Input.Source, Json(settings)), Snapshots = [..fixture.Snapshots, new(ExternalSnapshotId.Parse(Id(31)), "1", new(b, true, true, true))] };
-        var result = Compile(fixture); Assert.Equal(CompilerVerdict.Inconclusive, result.Result.Verdict);
+        var result = Compile(fixture); Assert.Equal(expected, result.Result.Verdict);
+        var remote = result.Dependencies!.Regions.Single(item => item.Binding.Source.Context.Equals(fixture.B));
+        Assert.Equal(!remoteTruth, remote.Diagnostics.Any(item => item.Code == "coglatas.analysis.constraint-false"));
         var a = result.Dependencies!.Regions.Single(item => item.Binding.Source.Context.Equals(fixture.A));
         Assert.NotNull(a.Validation!.Ir);
         Assert.Contains(a.Diagnostics, item => item.Code == "coglatas.analysis.unattached-required-constraint");
         Assert.DoesNotContain(a.Diagnostics, item => item.Code == "coglatas.analysis.constraint-false");
         Assert.Equal(fixture.B.Data, SourceJson.Parse(a.Validation.Ir.Relations.Value.EnumerateArray().Single().GetProperty("source").GetProperty("context").GetRawText()));
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void KnownRequiredDependencyFailuresSurviveRegionalAndAggregatePublicationLimits(bool aggregate)
+    {
+        var fixture = Constraint(false); var full = Compile(fixture); var proof = full.Dependencies!;
+        var maxRegion = proof.Regions.Max(region => region.Data.ToCanonicalBytes().Length);
+        var limit = aggregate ? Math.Max(maxRegion, proof.Binding.Data.ToCanonicalBytes().Length) + 100
+            : proof.Binding.Data.ToCanonicalBytes().Length + 100;
+        Assert.True(proof.Data.ToCanonicalBytes().Length > limit);
+        if (aggregate) Assert.All(proof.Regions, region => Assert.True(region.Data.ToCanonicalBytes().Length <= limit));
+        else Assert.Contains(proof.Regions, region => region.Data.ToCanonicalBytes().Length > limit);
+        var source = ProjectSourceCodec.Decode(fixture.Input.Source.Data.ToCanonicalBytes(), new(MaximumBytes: limit)).RequireSource();
+        var limited = Compile(fixture with { Input = new(source, fixture.Input.Settings) });
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, limited.Result.Execution);
+        Assert.Equal(CompilerVerdict.Fail, limited.Result.Verdict); Assert.Equal(CompilerCoverage.Partial, limited.Result.Coverage);
+        var retained = limited.Dependencies!; Assert.Equal(CompilerDependencyAnalysisState.ResourceLimit, retained.State);
+        Assert.Empty(retained.Regions);
+        var failure = Assert.Single(retained.KnownFailures, item => item.RuleId == CoreCompilerRules.Constraints);
+        Assert.Equal(fixture.A, failure.Context);
+        Assert.Contains(limited.Result.Diagnostics, item => item.Code == "coglatas.analysis.dependency-known-failure" &&
+            item.Evidence.Kind == CompilerEvidenceKind.ModelProof && item.Evidence.Premises.Contains(failure.Digest));
+        Assert.False(limited.Result.EvidenceComplete);
     }
 }
