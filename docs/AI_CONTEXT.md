@@ -1,5 +1,10 @@
 # AI Context
 
+[Root-bound transitive binding closure](verification/projectide-binding-closure.md)
+follows exact admitted dependency contexts, preserves actual snapshot identities
+and binds every region to the whole root input. Binding completeness remains
+separate from external semantic validation, IR and Compiler PASS.
+
 [Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
 adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.
 Rebase advances typed declaring origins while preserving pinned reference targets
