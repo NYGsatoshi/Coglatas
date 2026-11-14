@@ -1,3 +1,4 @@
+import type { ScopedSourceProjection } from './projectide-scoped-sources';
 import type { PreparedScenario } from './projectide-scenario';
 import type { PreparedTestEdit } from './projectide-test-edit';
 import type { LocalProjectTestProjection } from './projectide-tests.contracts';
@@ -219,6 +220,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly scopedSources?: ScopedSourceProjection | null;
   readonly materializedSnapshots?: Readonly<Record<string, unknown>> | null;
   readonly preparedScenario?: PreparedScenario | null;
   readonly preparedHistory?: PreparedHistory | null;

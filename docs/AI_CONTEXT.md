@@ -1,5 +1,10 @@
 # AI Context
 
+[Paired captured scoped-source readers](verification/projectide-scoped-source-readers.md)
+open exact fixed dependency Sources and original scoped findings in Angular and
+the Windows pure ViewModel. Current runtime authority and normal external
+Compiler artifact/PASS publication remain separate incomplete work.
+
 [Scoped IR consolidation](verification/projectide-scoped-ir.md) binds actual
 regional IR/maps to the complete declared graph in separate context slots.
 Normal external publication, both foreign readers and Compiler PASS remain open.

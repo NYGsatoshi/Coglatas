@@ -185,7 +185,7 @@ function validatePreparedDraftRename(bundle: PreviewBundle, before: PreviewCase)
 }
 
 /** Reused by direct navigation so shape validation cannot bypass exact artifact binding. */
-function validatePreviewCaseBindings(item: PreviewCase): void {
+export function validatePreviewCaseBindings(item: PreviewCase): void {
   if (!hasUniquePreviewIdentities(item)) {
     throw new PreviewReadError('unsupported');
   }

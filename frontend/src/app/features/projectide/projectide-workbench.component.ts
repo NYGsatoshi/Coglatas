@@ -1,3 +1,4 @@
+import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
 import { LocalTestAssertion } from './projectide-tests.contracts';
@@ -38,6 +39,10 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
+  async loadScopedSources(): Promise<void> { await this.store.loadScopedSources(); }
+  openScopedSource(record: SourceRecord): void { if (this.store.navigateScopedSource(record)) this.open('source', true); }
+  openScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): void { if (this.store.navigateScopedDiagnostic(region, diagnostic)) this.open('source', true); }
+
   readonly store = inject(ProjectIdeWorkbenchStore);
   readonly flags = inject(FrontendFeatureFlagsService);
   readonly i18n = inject(I18nService);

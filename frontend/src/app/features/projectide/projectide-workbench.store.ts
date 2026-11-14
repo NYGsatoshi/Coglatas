@@ -1,3 +1,4 @@
+import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
 import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
@@ -110,6 +111,54 @@ export class ProjectIdeWorkbenchStore {
     if (!target || !location || (!location.entityId && !location.relationId) || typeof resolveLocation(target, location) === 'string') return false;
     this.choose(target.key); this.loadResult();
     return this.navigateLocation(location);
+  }
+  private scopedGeneration = 0;
+  readonly scopedReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly scopedSnapshot = signal<{ context: PreviewCase; admitted: AdmittedScopedSources } | null>(null);
+  private readonly scopedTarget = signal<{ context: PreviewCase; admitted: AdmittedScopedSources; region: ScopedSourceRegion; record: SourceRecord; location: ProjectLocation } | null>(null);
+  private admittedScoped(): AdmittedScopedSources | null {
+    const snapshot = this.scopedSnapshot(); const context = this.context();
+    return snapshot && context && this.state() === 'ready' && context === this.result() && snapshot.context === context &&
+      scopedSourcesMatch(context, snapshot.admitted) ? snapshot.admitted : null;
+  }
+  readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
+  readonly scopedSourceTarget = () => {
+    const target = this.scopedTarget();
+    return target && target.context === this.context() && target.context === this.result() && this.admittedScoped() === target.admitted ? target : null;
+  };
+  async loadScopedSources(): Promise<boolean> {
+    this.clearScopedSources(); this.resetSelection();
+    const generation = this.scopedGeneration; const context = this.context();
+    if (!context || context !== this.result() || this.state() !== 'ready') return false;
+    this.scopedReadState.set('loading');
+    try {
+      const admitted = await readScopedSources(context);
+      if (generation !== this.scopedGeneration || context !== this.context() || context !== this.result()) return false;
+      if (!admitted || !scopedSourcesMatch(context, admitted)) throw new Error('scoped-input-unavailable');
+      this.scopedSnapshot.set({ context, admitted }); this.scopedReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.scopedGeneration && context === this.context() && context === this.result()) {
+        this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('unavailable');
+      }
+      return false;
+    }
+  }
+  navigateScopedSource(record: SourceRecord): boolean {
+    const context = this.context(); const admitted = this.admittedScoped(); this.resetSelection();
+    if (!context || !admitted || !admitted.regions.some(region => region.records.includes(record))) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, admitted, record.location);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted, ...target, location: record.location }); this.navigationState.set('ready'); return true;
+  }
+  navigateScopedDiagnostic(region: ScopedSourceRegion, diagnostic: Diagnostic): boolean {
+    const context = this.context(); const admitted = this.admittedScoped(); this.resetSelection();
+    if (!context || !admitted || !admitted.regions.includes(region) || !region.diagnostics.includes(diagnostic)) { this.navigationState.set('unavailable'); return false; }
+    const target = resolveScopedSource(context, admitted, diagnostic.primaryLocation);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
+  }
+  private clearScopedSources(): void {
+    this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
   }
   private scenarioGeneration = 0;
   readonly scenarioReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
@@ -327,7 +376,7 @@ export class ProjectIdeWorkbenchStore {
     if (!after) return false;
     this.resetSelection();
     if (this.generation !== generation || this.bundle() !== bundle || this.context() !== result || this.result() !== result) return false;
-    this.result.set(null); this.context.set(after); this.result.set(after);
+    this.clearScopedSources(); this.result.set(null); this.context.set(after); this.result.set(after);
     return true;
   }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): boolean {
@@ -390,12 +439,14 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   choose(key: string): void {
+    this.clearScopedSources();
     this.clearLocalTests();
     this.resetSelection();
     this.result.set(null);
     this.context.set(this.bundle()?.cases.find((c) => c.key === key) ?? null);
   }
   loadResult(): void {
+    this.clearScopedSources();
     this.clearLocalTests();
     this.resetSelection();
     this.result.set(this.context());
@@ -539,6 +590,7 @@ export class ProjectIdeWorkbenchStore {
     return this.navigateLocation(this.diagnosticSymbol()?.location);
   }
   private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false): boolean {
+    this.scopedTarget.set(null);
     this.target.set(null);
     const context = this.context();
     if (!context || !location) {
@@ -555,6 +607,7 @@ export class ProjectIdeWorkbenchStore {
     return true;
   }
   clear(state: ReadState = 'idle'): void {
+    this.clearScopedSources();
     this.clearLocalTests();
     this.generation++;
     const controller = this.controller;
@@ -568,6 +621,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);
     this.referenceSelection.set(null);

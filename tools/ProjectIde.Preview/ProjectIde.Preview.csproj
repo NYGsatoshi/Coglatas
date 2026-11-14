@@ -3,4 +3,5 @@
   <ItemGroup><ProjectReference Include="../../src/Coglatas.Domain/Coglatas.Domain.csproj" /></ItemGroup>
   <ItemGroup><Compile Include="../ProjectIde.Workbench.Synthetic/SyntheticProjectTestConfiguration.cs" Link="Workbench/Synthetic/SyntheticProjectTestConfiguration.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../ProjectIde.Workbench.Synthetic/SyntheticSnapshotMaterialization.cs" Link="Workbench/Synthetic/SyntheticSnapshotMaterialization.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../ProjectIde.Workbench.Synthetic/SyntheticScopedSourceProjection.cs" Link="Workbench/Synthetic/SyntheticScopedSourceProjection.cs" /></ItemGroup>
 </Project>

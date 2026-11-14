@@ -7,8 +7,9 @@ using Coglatas.ProjectIde.Workbench.Synthetic;
 var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
-var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis or --graph-closure profile.");
+var scopedProfile = args is [_, "--scoped-sources"];
+var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile;
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -18,6 +19,7 @@ var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenario
     ["tests-denied-reference"] = ReferenceScenarioFixture(1200, admission: "denied")
 } : null;
 if (dependencyProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-dependency"] = ReferenceScenarioFixture(1300, dependencyConstraint: true) };
+if (scopedProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-scoped"] = ReferenceScenarioFixture(1500, dependencyConstraint: true, additionalVersion: true) };
 if (graphProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-graph"] = ReferenceScenarioFixture(1400, graphCycle: true) };
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
@@ -186,6 +188,8 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         }
         if (snapshots.Count != 0 || scenarioFixture!.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
+        if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
+            fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
         cases[^1] = fixture;
     }
     if (name == "requirement-candidates")
@@ -235,7 +239,7 @@ static PreparedScenarioFixture ScenarioFixture()
         throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
     return new(plan, draft);
 }
-static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false)
+static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false)
 {
     var template = Input("reference-scenario", revision); var context = template.Source.Context;
     var externalContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(202)), BranchId.Parse(Id(203))), RevisionId.Parse(Id(204))));
@@ -254,6 +258,17 @@ static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool neste
                 predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(predicate).ToCanonicalBytes()).Data.Value } };
         external = ProjectSource.Create(externalContext, external.Documents,
             Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(constraint).ToArray()), Json(new[] { relation }));
+    }
+    ProjectSource? versionedDependency = null;
+    if (additionalVersion)
+    {
+        var nextContext = SourceRevisionContext.Committed(new(externalContext.Branch, RevisionId.Parse(Id(205))));
+        var documents = external.Documents.Select(document =>
+        {
+            var root = JsonNode.Parse(document.Root.Data.CanonicalText)!.AsObject(); root["displayName"] = "Second captured revision";
+            return SourceDocument.Create(document.DocumentId, document.LogicalName + "-version-2", Json(root));
+        });
+        versionedDependency = ProjectSource.Create(nextContext, documents, external.Declarations);
     }
     ProjectSource? graphDependency = null;
     if (graphCycle)
@@ -305,9 +320,13 @@ static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool neste
         context = externalContext.Data.Value, coverage = "coglatas.complete", asOf = (string?)null } });
     if (graphDependency is not null) settings["authorizedExternalSnapshots"]!.AsArray().Add(JsonSerializer.SerializeToNode(new
         { snapshotId = Id(231), version = "1", digest = graphDependency.Digest.Data.Value, context = graphDependency.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
+    if (versionedDependency is not null) settings["authorizedExternalSnapshots"]!.AsArray().Add(JsonSerializer.SerializeToNode(new
+        { snapshotId = Id(232), version = "2", digest = versionedDependency.Digest.Data.Value, context = versionedDependency.Context.Data.Value, coverage = "coglatas.complete", asOf = (string?)null }));
+    if (additionalVersion) { var alias = settings["authorizedExternalSnapshots"]![0]!.DeepClone(); alias["snapshotId"] = Id(233); settings["authorizedExternalSnapshots"]!.AsArray().Add(alias); }
     var basis = new CompilerInputManifest(ProjectSource.Create(context, template.Source.Documents, Json(new object[] { task, test })), Json(settings));
     IReadOnlyList<CompilerMaterializedSnapshot> snapshots = admission == "missing" ? [] : [new(ExternalSnapshotId.Parse(Id(230)), "1", new(external, admission == "available", true, true))];
     if (graphDependency is not null) snapshots = [..snapshots, new(ExternalSnapshotId.Parse(Id(231)), "1", new(graphDependency, true, true, true))];
+    if (versionedDependency is not null) snapshots = [..snapshots, new(ExternalSnapshotId.Parse(Id(232)), "2", new(versionedDependency, true, true, true))];
     var model = ProjectSemanticBinder.Bind(basis, snapshots);
     var target = ProjectLocation.Create(DocumentId.Parse(Id(4)), context, entityId: EntityId.Parse(Id(8)));
     var changes = new List<ProjectScenarioOverride> { new(target, ProjectScenarioOverrideKind.TaskInputDefault, Json(afterValue), PortId.Parse(Id(88))) };

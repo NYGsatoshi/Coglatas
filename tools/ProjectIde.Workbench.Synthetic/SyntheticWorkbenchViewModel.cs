@@ -328,7 +328,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var generation = ++_selectionGeneration;
-        SourceTarget = null;
+        SourceTarget = null; ClearScopedSelection();
         NavigationState = location is null ? "unavailable" : Resolve(location, requireSourceMap);
         if (NavigationState == "ready") SourceTarget = location;
         Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
@@ -371,7 +371,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private void ClearContext() { ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
-        ClearTestEdit(); ClearScenarioPreview();
+        ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
         SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
         TaskSuggestions = null; _taskSuggestionGeneration++;
@@ -379,7 +379,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

@@ -197,7 +197,7 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
 export { parse as parseLocalTestJson, matchesDigest as verifyLocalTestDigest };
 
 /** Synthetic bytes and input pins only. Admission labels do not establish current access or producer trust. */
-async function readSnapshotMaterialization(value: PreviewCase): Promise<boolean> {
+export async function readSnapshotMaterialization(value: PreviewCase): Promise<boolean> {
   const manifest = value.manifest['manifest']; const settings = record(manifest) ? manifest['settings'] : null;
   const pins = record(settings) ? settings['authorizedExternalSnapshots'] : null;
   if (!Array.isArray(pins) || pins.length > 32) return fail();
@@ -208,6 +208,7 @@ async function readSnapshotMaterialization(value: PreviewCase): Promise<boolean>
       !equal(raw['inputDigest'], value.inputDigest) || !Array.isArray(raw['entries']) || raw['entries'].length > 32 ||
       new TextEncoder().encode(JSON.stringify(raw)).byteLength > 4_194_304) return fail();
   let complete = true; let bytes = 0; const seen = new Set<string>();
+  const covered: { context: unknown; version: unknown; digest: unknown }[] = [];
   for (const entry of raw['entries']) {
     if (!record(entry) || !token(entry['snapshotId']) || !token(entry['version']) || !isRevisionContextShape(entry['context']) || seen.has(entry['snapshotId'])) return fail();
     seen.add(entry['snapshotId']);
@@ -227,6 +228,8 @@ async function readSnapshotMaterialization(value: PreviewCase): Promise<boolean>
         !Array.isArray(body['documents']) || !Array.isArray(body['declarations']) || !Array.isArray(body['relations']) ||
         !(await matchesDigest('coglatas.project-source/1', source['text'] as string, source['digest'] as Digest))) return fail();
     complete &&= entry['declarationsComplete'] && entry['relationsComplete'] && matching[0]['coverage'] === 'coglatas.complete';
+    covered.push({ context, version: entry['version'], digest: source['digest'] });
   }
-  return complete && pins.length === seen.size;
+  return complete && pins.every(pin => record(pin) && pin['coverage'] === 'coglatas.complete' && covered.some(source =>
+    equal(source.context, pin['context']) && source.version === pin['version'] && equal(source.digest, pin['digest'])));
 }

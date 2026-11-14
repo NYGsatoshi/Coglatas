@@ -41,7 +41,12 @@ internal static class SyntheticSourceNavigation
         }
         else if (mapArtifacts.Length != 0) return "wrong-scope";
         else if (requireSourceMap) return "unavailable";
-        var target = records[0];
+        return ValidatePath(source, records[0], location);
+    }
+
+    internal static string ValidatePath(ProjectSource source, JsonElement record, ProjectLocation location)
+    {
+        var target = record;
         var segments = location.PropertyPath.Length == 0 ? [] : location.PropertyPath[1..].Split('/');
         for (var position = 0; position < segments.Length; position++)
         {
@@ -51,7 +56,7 @@ internal static class SyntheticSourceNavigation
             else if (target.ValueKind == JsonValueKind.Array && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) &&
                 index.ToString(CultureInfo.InvariantCulture) == key && index < target.GetArrayLength()) target = target[index];
             else if (position == 2 && segments[0] == "payload" && target.ValueKind == JsonValueKind.Array &&
-                (segments[1] == "ports" || segments[1] == "assertions" && records[0].GetProperty("kind").GetString() == "coglatas.project-test"))
+                (segments[1] == "ports" || segments[1] == "assertions" && record.GetProperty("kind").GetString() == "coglatas.project-test"))
             {
                 // Typed source paths use stable PortId or assertion key, after RFC 6901 unescaping.
                 var field = segments[1] == "ports" ? "portId" : "key";
