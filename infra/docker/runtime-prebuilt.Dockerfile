@@ -1,22 +1,33 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14@sha256:1a48394b6f29d3a32c79d9edecd4abda0ecbe8776d567dbfc4590ed6979c740c AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0@sha256:bc0d6653979efba491ab3d6f589d691f96c309c3c3ef81325efa6978e7b7f242 AS runtime
 WORKDIR /app
 
-RUN apt-get -o Acquire::Retries=0 update \
+# The pinned .NET 11 runtime uses Ubuntu 26.04 (resolute), whose libapt ABI is 7.0.
+# Keep a fail-closed APT security floor; do not silently skip the library upgrade.
+# Pebble is an unused inherited supervisor: our ENTRYPOINT runs dotnet directly.
+# Its bundled Go stdlib is vulnerable; do not ship the unused binary.
+RUN set -eu; \
+    . /etc/os-release; \
+    test "$ID" = ubuntu; \
+    test "$VERSION_CODENAME" = resolute; \
+    apt-get -o Acquire::Retries=0 update \
     && apt-get -o Acquire::Retries=0 install -y --no-install-recommends --only-upgrade \
-        apt libapt-pkg6.0t64 \
-    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 2.8.4ubuntu0.1 \
-    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg6.0t64)" ge 2.8.4ubuntu0.1 \
+        apt libapt-pkg7.0 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 3.2.1ubuntu0.1 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg7.0)" ge 3.2.1ubuntu0.1 \
     && apt-get install -y --no-install-recommends \
         curl \
         openssl \
         libssl3t64 \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/storage/uploads
+    && rm -f /usr/bin/pebble \
+    && test ! -e /usr/bin/pebble \
+    && install -d -m 0700 -o "$APP_UID" /app/storage/uploads /app/data/protection-keys
 
 COPY artifacts/main-runtime/publish/ ./
 RUN rm -rf /app/wwwroot && mkdir -p /app/wwwroot
 COPY artifacts/main-runtime/frontend/ /app/wwwroot/
 
+USER $APP_UID
 ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "exec dotnet Coglatas.Web.dll --urls http://0.0.0.0:${PORT:-8080}"]

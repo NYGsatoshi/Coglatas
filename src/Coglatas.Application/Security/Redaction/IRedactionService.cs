@@ -57,23 +57,21 @@ public enum CanonicalDataClassification
 /// </summary>
 public sealed class FieldAccessPolicySnapshot
 {
-    private readonly HashSet<CanonicalDataClassification> allowedClassifications;
-    private readonly HashSet<string> allowedRestrictedFields;
+    private readonly HashSet<CanonicalDataClassification> _allowedClassifications;
+    private readonly HashSet<string> _allowedRestrictedFields;
 
     public static FieldAccessPolicySnapshot StandardAuthorized { get; } = new(
-        new[]
-        {
+        [
             CanonicalDataClassification.Public,
             CanonicalDataClassification.Internal
-        });
+        ]);
 
     public static FieldAccessPolicySnapshot ThroughConfidential { get; } = new(
-        new[]
-        {
+        [
             CanonicalDataClassification.Public,
             CanonicalDataClassification.Internal,
             CanonicalDataClassification.Confidential
-        });
+        ]);
 
     public FieldAccessPolicySnapshot(
         IEnumerable<CanonicalDataClassification> allowedClassifications,
@@ -81,9 +79,9 @@ public sealed class FieldAccessPolicySnapshot
     {
         ArgumentNullException.ThrowIfNull(allowedClassifications);
 
-        this.allowedClassifications = new HashSet<CanonicalDataClassification>(allowedClassifications);
-        this.allowedClassifications.Add(CanonicalDataClassification.Public);
-        this.allowedRestrictedFields = new HashSet<string>(
+        _allowedClassifications = new HashSet<CanonicalDataClassification>(allowedClassifications);
+        _allowedClassifications.Add(CanonicalDataClassification.Public);
+        _allowedRestrictedFields = new HashSet<string>(
             (allowedRestrictedFields ?? Array.Empty<string>())
                 .Where(field => !string.IsNullOrWhiteSpace(field))
                 .Select(NormalizeFieldName),
@@ -92,24 +90,23 @@ public sealed class FieldAccessPolicySnapshot
 
     public static FieldAccessPolicySnapshot ThroughRestrictedFields(params string[] fields) =>
         new(
-            new[]
-            {
+            [
                 CanonicalDataClassification.Public,
                 CanonicalDataClassification.Internal,
                 CanonicalDataClassification.Confidential,
                 CanonicalDataClassification.Restricted
-            },
+            ],
             fields);
 
     public bool Allows(CanonicalDataClassification classification, string fieldName)
     {
-        if (!allowedClassifications.Contains(classification))
+        if (!_allowedClassifications.Contains(classification))
         {
             return false;
         }
 
         return classification != CanonicalDataClassification.Restricted ||
-               allowedRestrictedFields.Contains(NormalizeFieldName(fieldName));
+               _allowedRestrictedFields.Contains(NormalizeFieldName(fieldName));
     }
 
     private static string NormalizeFieldName(string name) =>

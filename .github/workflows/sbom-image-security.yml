@@ -114,6 +114,7 @@ jobs:
           docker run --rm --entrypoint sh "$IMAGE_DIGEST" -c '
             test -s /app/Coglatas.Web.dll &&
             test -s /app/Coglatas.Web.deps.json &&
+            test ! -e /usr/bin/pebble &&
             test ! -e /run/secrets &&
             test ! -e /app/.env &&
             ! env | grep -q "^SYNCFUSION_LICENSE=" &&
