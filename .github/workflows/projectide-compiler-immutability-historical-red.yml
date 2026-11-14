@@ -51,7 +51,14 @@ jobs:
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RED_RUNNER_BLOB) { throw 'Historical replay runner blob mismatch' }
           git cat-file -e "$($env:VULNERABLE_PRODUCT_HEAD)^{commit}"
-          if ($LASTEXITCODE -ne 0) { throw 'Exact original vulnerable Product commit absent' }
+          if ($LASTEXITCODE -ne 0) {
+            # A historical commit is not necessarily reachable from advertised branch tips.
+            # Request only the fixed, read-only immutable Product SHA; never fetch PR input.
+            git -c core.autocrlf=false fetch --no-tags --depth=1 origin $env:VULNERABLE_PRODUCT_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Exact historical Product object fetch failed' }
+            git cat-file -e "$($env:VULNERABLE_PRODUCT_HEAD)^{commit}"
+            if ($LASTEXITCODE -ne 0) { throw 'Exact historical Product commit still absent' }
+          }
           $sdk = git show "$($env:VULNERABLE_PRODUCT_HEAD):global.json"
           if ($LASTEXITCODE -ne 0) { throw 'Historical Product SDK policy absent' }
           $context = Join-Path $env:RUNNER_TEMP 'historical-compiler-context'
