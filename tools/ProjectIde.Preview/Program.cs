@@ -13,10 +13,11 @@ var comparisonProfile = args is [_, "--simulation-comparison"];
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
-var publicationProfile = args is [_, "--scoped-publication"];
+var outputSnapshotProfile = args is [_, "--compiler-outputs"];
+var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -28,7 +29,7 @@ var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenario
 if (dependencyProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-dependency"] = ReferenceScenarioFixture(1300, dependencyConstraint: true) };
 if (scopedProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-scoped"] = ReferenceScenarioFixture(1500, dependencyConstraint: true, additionalVersion: true) };
 if (graphProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-graph"] = ReferenceScenarioFixture(1400, graphCycle: true) };
-if (publicationProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-publication-root"] = ScenarioFixture(publication: true), ["tests-publication-true"] = ReferenceScenarioFixture(1600, dependencyConstraint: true, publication: true, truth: true), ["tests-publication-false"] = ReferenceScenarioFixture(1700, dependencyConstraint: true, publication: true, truth: false), ["tests-publication-unknown"] = ReferenceScenarioFixture(1800, dependencyConstraint: true, publication: true, truth: null) };
+if (publicationProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-publication-root"] = ScenarioFixture(publication: true), ["tests-publication-true"] = ReferenceScenarioFixture(1600, dependencyConstraint: true, publication: true, truth: true, uniqueDependencyIdentity: outputSnapshotProfile), ["tests-publication-false"] = ReferenceScenarioFixture(1700, dependencyConstraint: true, publication: true, truth: false, uniqueDependencyIdentity: outputSnapshotProfile), ["tests-publication-unknown"] = ReferenceScenarioFixture(1800, dependencyConstraint: true, publication: true, truth: null, uniqueDependencyIdentity: outputSnapshotProfile) };
 if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-plan-root"] = ScenarioFixture(publication: true, planTarget: true),
     ["tests-plan-external"] = ReferenceScenarioFixture(1900, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
@@ -212,6 +213,16 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
         if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
+        if (outputSnapshotProfile) {
+            object Capture(CompilerOutputSnapshotMode mode, int budget) {
+                var capture = ProjectCompilerOutputSnapshot.Read(compilation, compilation.Result.ResultDigest, mode, budget, desiredInput: input);
+                return new { text = capture.Data.CanonicalText, digest = capture.Digest.Data.Value, retainedBodyBytes = capture.RetainedBodyBytes,
+                    bodies = capture.Bodies.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new { role = pair.Key, text = pair.Value.CanonicalText,
+                        digest = compilation.Result.Artifacts.Single(reference => reference.Role == pair.Key).Digest.Data.Value }).ToArray() };
+            }
+            fixture["compilerOutputs"] = JsonSerializer.SerializeToNode(new { manifest = Capture(CompilerOutputSnapshotMode.Manifest, ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes),
+                available = Capture(CompilerOutputSnapshotMode.AvailableOutputs, name == "tests-publication-root-draft" ? 1 : ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) });
+        }
         if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
         {
             var request = new SimulationRunManifest(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
@@ -317,11 +328,11 @@ static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool pl
         throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
     return new(plan, draft);
 }
-static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000)
+static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000, bool uniqueDependencyIdentity = false)
 {
     var template = Input("reference-scenario", revision); var context = template.Source.Context;
-    var suppliedSnapshot = planTarget ? revision + 300 : 230;
-    var externalContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(202)), BranchId.Parse(Id(203))), RevisionId.Parse(Id(planTarget ? revision + 100 : 204))));
+    var suppliedSnapshot = planTarget || uniqueDependencyIdentity ? revision + 300 : 230;
+    var externalContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(202)), BranchId.Parse(Id(203))), RevisionId.Parse(Id(planTarget || uniqueDependencyIdentity ? revision + 100 : 204))));
     var external = ProjectSource.Create(externalContext, template.Source.Documents, Json(new[] { new { entityId = Id(16), documentId = Id(4), kind = "coglatas.project", schemaVersion = 1, payload = new { } } }));
     if (dependencyConstraint)
     {
