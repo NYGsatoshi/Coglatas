@@ -10,12 +10,13 @@ var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
 var debugProfile = args is [_, "--simulation-debug"];
 var comparisonProfile = args is [_, "--simulation-comparison"];
-var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile;
+var traceProfile = args is [_, "--simulation-profile"];
+var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var publicationProfile = args is [_, "--scoped-publication"];
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -223,6 +224,10 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             if (run.Execution != (scenarioKey == "tests-simulation-bounded" ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed))
                 throw new InvalidOperationException("Actual simulation fixture did not retain its expected execution boundary.");
             fixture["simulationRun"] = JsonSerializer.SerializeToNode(new { text = run.Data.CanonicalText, digest = run.Digest.Data.Value });
+            if (traceProfile) {
+                var profile = ProjectSimulationTraceProfile.Read(run, run.Digest);
+                fixture["simulationTraceProfile"] = JsonSerializer.SerializeToNode(new { text = profile.Data.CanonicalText, digest = profile.Digest.Data.Value });
+            }
             if (comparisonProfile) comparisonRuns.Add(name, run);
         }
         cases[^1] = fixture;

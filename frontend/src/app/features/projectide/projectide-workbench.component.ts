@@ -79,6 +79,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly search = signal('');
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
+  private readonly traceProfileElement = viewChild<ElementRef<HTMLElement>>('traceProfilePanel');
   private readonly comparisonElement = viewChild<ElementRef<HTMLElement>>('comparisonPanel');
   private readonly recordedFrameElement = viewChild<ElementRef<HTMLElement>>('recordedFrame');
   private readonly scopedTargetElement = viewChild<ElementRef<HTMLElement>>('scopedTarget');
@@ -158,7 +159,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -170,7 +171,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -180,6 +181,17 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) { this.store.clear('denied'); return; }
     await this.store.loadSimulation();
     if (!this.canRead()) this.store.clear('denied');
+  }
+  readonly traceProfileRows = [{"key":"recordedElapsedTicks","label":"ide.profileElapsed","definition":"ide.profileElapsedDef","unit":"ide.profileTick"},{"key":"recordedBusyTicks","label":"ide.profileBusy","definition":"ide.profileBusyDef","unit":"ide.profileTick"},{"key":"unattributedIdleTicks","label":"ide.profileIdle","definition":"ide.profileIdleDef","unit":"ide.profileTick"},{"key":"recordedTaskTicks","label":"ide.profileTaskTime","definition":"ide.profileTaskTimeDef","unit":"ide.profileTaskTick"},{"key":"peakActiveTasks","label":"ide.profilePeak","definition":"ide.profilePeakDef","unit":"ide.profileTaskCount"},{"key":"openTasks","label":"ide.profileOpen","definition":"ide.profileOpenDef","unit":"ide.profileTaskCount"}] as const;
+  async loadSimulationTraceProfile(): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadSimulationTraceProfile(); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const profile = this.store.simulationTraceProfile();
+    if (loaded && profile) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && profile === this.store.simulationTraceProfile()) this.traceProfileElement()?.nativeElement.focus();
+    });
   }
   async loadSimulationComparison(): Promise<void> {
     const generation = ++this.focusGeneration;
