@@ -1,6 +1,6 @@
 # Coglatas GCP Compute Engine deployment
 
-This is a development deployment path for one Compute Engine VM running Docker Compose. It keeps PostgreSQL inside Compose. Do not put service account JSON keys or real secrets in this repository.
+This is a development deployment path for one Compute Engine VM running Docker Compose. It keeps PostgreSQL inside Compose and admits only explicit loopback-published ports. Use synthetic development data through an encrypted SSH tunnel. This path does not qualify public HTTPS, school data or Pilot admission. Do not put service account JSON keys or real secrets in this repository.
 
 For production, put the app behind Nginx or another reverse proxy with HTTPS, or use Cloudflare/Google load balancing, and revisit database backup, monitoring, firewall scope, secret storage, and OS patching.
 
@@ -8,7 +8,7 @@ For production, put the app behind Nginx or another reverse proxy with HTTPS, or
 
 - Compose services: `app`, `migrate`, `postgres`
 - App port inside Docker: `8080`
-- External development port: `${COGLATAS_PORT:-8080}`
+- Development host binding: `COGLATAS_PORT=127.0.0.1:8080`
 - Database host from the app container: `db` (provided as an alias for the `postgres` service)
 - Database name/user defaults: `coglatas` / `coglatas`
 - Database password: generated into `/opt/coglatas/.env` by `deploy-app.sh`
@@ -47,13 +47,21 @@ Then deploy:
 bash ~/coglatas-gcp/gcp/deploy-app.sh
 ```
 
-Open the URL printed by the script, usually:
+From your local computer, keep an SSH forwarding session open:
 
-```text
-http://EXTERNAL_IP:8080
+```powershell
+gcloud compute ssh coglatas-dev --zone us-central1-a -- -N -L 8080:127.0.0.1:8080 -o ExitOnForwardFailure=yes
 ```
 
-`create-vm.ps1` opens `tcp:80` and `tcp:8080`. The app itself listens on `8080`; port `80` is reserved for a later reverse proxy.
+Open `http://127.0.0.1:8080` on that computer. HTTP remains inside local loopback and the encrypted SSH channel. Do not use a public HTTP origin for login or application data. For a custom remote port, adjust the tunnel destination and local health checks accordingly.
+
+`create-vm.ps1` creates no public web firewall rule. It does not delete existing rules or change any existing target. An operator must separately review existing exposure, running containers and any cleanup. Public HTTPS, reverse-proxy activation and target changes require their own reviewed configuration and authorization.
+
+All four lifecycle helpers validate actual rendered Compose JSON before build, migration, start or stop. The guard requires Python 3 and rejects wildcard/missing host bindings, additional public port mappings, network namespace sharing, external/nonbridge networks, network driver options, malformed input and a missing app listener. It never prints rendered configuration or parser details, which can contain secrets. Compose rendering failure also stops the helper.
+
+The operator must separately qualify the Docker daemon and host: use Docker Engine 28 or newer, keep daemon direct routing disabled and confirm host network/firewall isolation. A Compose-only preflight cannot inspect daemon-wide routing defaults or an existing network's runtime configuration. Docker documents these boundaries in [port publishing and direct routing](https://docs.docker.com/engine/network/port-publishing/). Passing this source preflight is not target security acceptance.
+
+For an existing `.env`, keep its secrets unchanged and set `COGLATAS_PORT=127.0.0.1:8080` before invoking a lifecycle helper. An old public binding is rejected; the helpers do not silently rewrite it or alter already-running services. Closing existing public access is an operator task under the target's approval and rollback procedure.
 
 The script copies the helper scripts to `~/coglatas-gcp/gcp` on the VM. It does not copy your local `.env`, and it does not copy any GCP service account JSON key.
 
@@ -138,7 +146,7 @@ DB_HOST=db
 DB_NAME=coglatas
 DB_USER=coglatas
 DB_PASSWORD=<generated>
-COGLATAS_PORT=8080
+COGLATAS_PORT=127.0.0.1:8080
 ASPNETCORE_ENVIRONMENT=Development
 TENANCY_APP_MODE=OnPremSingleTenant
 TENANCY_DEFAULT_TENANT_SLUG=default
