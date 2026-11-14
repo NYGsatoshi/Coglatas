@@ -146,6 +146,45 @@
         <section class="panel" [attr.aria-label]="t('ide.' + panel())">
           <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
           @switch (panel()) {
+            @case ('tests') {
+              <p>{{ t('ide.testsNotice') }}</p>
+              <button type="button" (click)="loadLocalTests()" [disabled]="store.testReadState() === 'loading' || !store.result()">{{ t('ide.testsLoad') }}</button>
+              @if (store.testReadState() === 'loading') { <p role="status">{{ t('ide.testsLoading') }}</p> }
+              @if (store.testReadState() === 'unsupported') { <p role="alert">{{ t('ide.testsUnsupported') }}</p> }
+              @if (store.testReadState() === 'unavailable') { <p role="status">{{ t('ide.testsUnavailable') }}</p> }
+              @if (store.localTests(); as local) {
+                <section class="local-tests-summary" data-testid="ide-tests-summary" aria-live="polite">
+                  <dl>
+                    <div><dt>{{ t('ide.testsExecution') }}</dt><dd>{{ testValue(local.run.execution) }}</dd></div>
+                    <div><dt>{{ t('ide.testsCoverage') }}</dt><dd>{{ testValue(local.run.coverage) }}</dd></div>
+                    <div><dt>{{ t('ide.testsVerdict') }}</dt><dd>{{ testValue(local.run.verdict) }}</dd></div>
+                    <div><dt>{{ t('ide.testsFreshness') }}</dt><dd>{{ testValue(local.run.freshness) }}</dd></div>
+                    <div><dt>{{ t('ide.testsEvidence') }}</dt><dd>{{ testValue(local.run.evidenceKind) }}</dd></div>
+                  </dl>
+                  <p>{{ t('ide.testsCounts', { tests: local.run.discoveredTests, assertions: local.run.executedAssertions }) }}</p>
+                  <p>{{ testReason(local.run.reason) }}</p>
+                  <details><summary>{{ t('ide.testsDetails') }}</summary>
+                    <p>{{ t('ide.testsInput') }}: <code>{{ local.run.inputDigest.value }}</code></p>
+                    <p>{{ t('ide.testsResult') }}: <code>{{ local.projection.result.digest.value }}</code></p>
+                  </details>
+                </section>
+                <ol class="local-tests" data-testid="ide-test-rows" [start]="testPage() * 32 + 1">
+                  @for (test of testRows(); track test.testId) {
+                    <li><h3>{{ testName(test.testId) }} · {{ testValue(test.verdict) }}</h3><p>{{ testReason(test.reason) }}</p>
+                      <ul>@for (assertion of test.assertions; track assertion.location.propertyPath) {
+                        <li><p><code>{{ assertionName(assertion) }}</code> · {{ testValue(assertion.verdict) }} · {{ testReason(assertion.reason) }}</p>
+                          <button type="button" (click)="navigateTestAssertion(assertion)">{{ t('ide.testsOpen') }} · {{ assertionName(assertion) }}</button>
+                        </li>
+                      }</ul>
+                    </li>
+                  }
+                </ol>
+                @if (local.run.tests.length > 32) {
+                  <button type="button" [disabled]="testPage() === 0" (click)="testPage.set(testPage() - 1)">{{ t('ide.testsPrevious') }}</button>
+                  <button type="button" [disabled]="(testPage() + 1) * 32 >= local.run.tests.length" (click)="testPage.set(testPage() + 1)">{{ t('ide.testsNext') }}</button>
+                }
+              }
+            }
             @case ('history') {
               <p>{{ t('ide.historyNotice') }}</p>
               @if (store.history(); as history) {

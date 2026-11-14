@@ -1,3 +1,4 @@
+import type { LocalProjectTestProjection } from './projectide-tests.contracts';
 import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
 
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
@@ -236,6 +237,7 @@ export interface PreviewCase {
   readonly declarations: readonly SourceRecord[];
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
+  readonly localProjectTests?: LocalProjectTestProjection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly requirementTaskSuggestions?: readonly RequirementTaskSuggestions[] | null;
   readonly preparedRename?: PreparedDraftRename | null;

@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { signal } from '@angular/core';
@@ -78,7 +79,55 @@ async function render(enabled = true, allowed = true, fail = false) {
   };
 }
 
+vi.stubGlobal('crypto', webcrypto);
+
 describe('ProjectIDE Workbench components', () => {
+  it.each([
+    ['tests-pass', 'Passed'], ['tests-fail', 'Failed'], ['tests-unknown', 'Inconclusive'], ['tests-empty', 'Not run'],
+    ['tests-unsupported', 'Not run'], ['tests-cancelled', 'Cancelled'], ['tests-stale', 'Stale'], ['tests-evaluator-mismatch', 'Not run'],
+    ['tests-error', 'Error'], ['tests-exhausted', 'Resource limit reached'], ['tests-unicode', 'Passed'], ['tests-many', 'Passed'],
+  ])('shows the actual local %s axes separately from Compiler verdict', async (key, outcome) => {
+    const { c, fixture, root } = await render(); c.choose(key); c.loadResult(); c.open('tests');
+    expect(c.store.localTests()).toBeNull(); await c.loadLocalTests(); fixture.detectChanges();
+    const summary = root.querySelector('[data-testid="ide-tests-summary"]')!;
+    expect(summary.textContent).toContain(outcome);
+    expect(summary.textContent).toContain('Tests discovered: ' + c.store.localTests()!.run.discoveredTests);
+    expect(summary.textContent).toContain('Assertions evaluated: ' + c.store.localTests()!.run.executedAssertions);
+    expect(c.store.result()!.result.verdict).toBe(key === 'tests-unsupported' ? 'coglatas.inconclusive' : 'coglatas.pass');
+  });
+  it.each(['en', 'ja'] as const)('opens an assertion from the %s Tests panel and clears it when read permission is lost', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('tests-fail'); c.loadResult(); c.i18n.setLocale(locale);
+    c.open('tests'); await c.loadLocalTests(); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')!.textContent).toContain(locale === 'en' ? 'Failed' : '失敗');
+    const action = Array.from(root.querySelectorAll('button')).find(item => item.textContent?.includes(locale === 'en' ? 'Open assertion in Source' : 'アサーションのソースを開く'))!;
+    action.click(); fixture.detectChanges(); await fixture.whenStable();
+    const target = root.querySelector('[data-testid="ide-source-target"]'); expect(target).toBeTruthy();
+    expect(root.querySelector('[data-testid="ide-source-location"]')!.textContent).toContain('/payload/assertions/example.ready');
+    authenticated.set(false); fixture.detectChanges();
+    expect(c.store.localTests()).toBeNull(); expect(c.store.sourceTarget()).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-rows"]')).toBeNull();
+  });
+  it('pages actual Core-produced Test rows without changing the full result counts', async () => {
+    const { c, fixture, root } = await render(); c.choose('tests-many'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests(); fixture.detectChanges();
+    const rows = () => root.querySelector('[data-testid="ide-test-rows"]')!.querySelectorAll(':scope > li');
+    expect(rows()).toHaveLength(32); expect(c.store.localTests()!.run.discoveredTests).toBe(33);
+    Array.from(root.querySelectorAll('button')).find(item => item.textContent?.trim() === 'Next Tests')!.click(); fixture.detectChanges();
+    expect(rows()).toHaveLength(1); expect(c.store.localTests()!.run.executedAssertions).toBe(33);
+    Array.from(root.querySelectorAll('button')).find(item => item.textContent?.trim() === 'Previous Tests')!.click(); fixture.detectChanges();
+    expect(rows()).toHaveLength(32);
+  });
+  it('does not display missing or corrupted local Test projections as successful checks', async () => {
+    const { c, fixture, root } = await render(); c.choose('pass'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.testReadState()).toBe('unavailable');
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')).toBeNull();
+    c.choose('tests-pass'); c.loadResult(); c.open('tests');
+    Object.assign(c.store.context()!.localProjectTests!.result, { text: '{}' });
+    await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.testReadState()).toBe('unsupported');
+    expect(root.querySelector('[role="alert"]')!.textContent).toContain('could not be verified');
+    expect(root.querySelector('[data-testid="ide-tests-summary"]')).toBeNull();
+  });
+
   it.each(['en', 'ja'] as const)('shows reasoned %s Task candidates and rechecks permission without changing the Requirement', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.choose('requirement-candidates'); c.loadResult(); c.i18n.setLocale(locale);
     const record = c.store.context()!.declarations.find(item => item.kind === 'coglatas.requirement')!;

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
+using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
@@ -39,13 +40,13 @@ var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ => Input(name, 100 + index) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -124,6 +125,25 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
+    if (name.StartsWith("tests-", StringComparison.Ordinal))
+    {
+        var plan = ProjectTestPlan.Compile(compilation.Model!, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
+        using var cancellation = new CancellationTokenSource();
+        if (name == "tests-cancelled") cancellation.Cancel();
+        var expected = name == "tests-stale" ? ContentDigest.Compute("coglatas.synthetic-stale-test-input/1", []) : input.InputDigest;
+        var testRun = plan.Execute(expected, cancellation.Token);
+        var testDeclarations = PlanDeclarationReader.Read(input.Source).Where(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test")
+            .OrderBy(item => item.Data.Value.GetProperty("entityId").GetString(), StringComparer.Ordinal).ToArray();
+        var projection = new { format = "coglatas.local-test-projection/1", inputText = input.Data.CanonicalText,
+            plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
+            result = new { text = testRun.Data.CanonicalText, digest = testRun.Digest.Data.Value },
+            declarations = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
+            assertions = testDeclarations.Where(item => item.Declaration is ProjectTestPlanDeclaration)
+                .SelectMany(item => ((ProjectTestPlanDeclaration)item.Declaration!).Assertions.Select(assertion => new
+                { testId = item.Data.Value.GetProperty("entityId").GetString(), key = assertion.Key, text = assertion.Data.CanonicalText })).ToArray() };
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection); cases[^1] = fixture;
+    }
     if (name == "requirement-candidates")
     {
         if (inspection is null || ir is null) throw new InvalidOperationException("Task candidates require actual Core inspection and source navigation.");
@@ -146,6 +166,31 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static CompilerInputManifest LocalTestInput(string name, int revision)
+{
+    var input = Input(name, revision);
+    var booleanType = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true };
+    var type = booleanType with { kind = name == "tests-error" ? "coglatas.decimal" : "coglatas.boolean" };
+    var value = name == "tests-unknown" ? (object)new { type, state = "coglatas.unknown", reason = "example.missing-input", basis = new { } }
+        : name == "tests-error" ? (object)new { type, state = "coglatas.known", value = "2" } : new { type, state = "coglatas.known", value = name != "tests-fail" };
+    var task = new { entityId = Id(8), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, displayName = "Local input fixture",
+        payload = new { duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" },
+            ports = new[] { new { portId = Id(88), direction = "coglatas.input", type, minimumConnections = 0, maximumConnections = 1, defaultValue = value } } } };
+    var test = new { entityId = Id(10), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = name == "tests-unsupported" ? 2 : 1,
+        displayName = "Input assertion", payload = new { assertions = new[] { new { key = "example.ready", kind = "coglatas.assert-boolean", portId = Id(88),
+            target = new { tenantId = Id(1), projectId = Id(2), entityId = Id(8), context = input.Source.Context.Data.Value },
+            expected = new { type = booleanType, state = "coglatas.known", value = true } } } } };
+    var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject();
+    if (name != "tests-evaluator-mismatch") settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+    var testNode = JsonSerializer.SerializeToNode(test)!.AsObject();
+    var assertions = testNode["payload"]!["assertions"]!.AsArray();
+    if (name == "tests-unicode") assertions[0]!["key"] = "example.テスト/α~β"; // Intentional Unicode key fixture.
+    if (name == "tests-exhausted") { var second = assertions[0]!.DeepClone(); second["key"] = "example.second"; assertions.Add(second); }
+    object[] declarations = name == "tests-empty" ? [task] : [task, testNode];
+    if (name == "tests-many") declarations = new object[] { task }.Concat(Enumerable.Range(300, 33).Select(number =>
+    { var copy = testNode.DeepClone(); copy["entityId"] = Id(number); copy["displayName"] = "Input assertion " + number; return (object)copy; })).ToArray();
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), Json(settings));
+}
 static CompilerInputManifest TestAssertionNavigationInput()
 {
     var input = Input("test-assertion-navigation", 170);

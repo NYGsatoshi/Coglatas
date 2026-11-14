@@ -1,5 +1,10 @@
 # AI Context
 
+[Local Test result panels](verification/projectide-local-test-panels.md) add a
+bounded original-byte reader and actual Core-generated offline Web results,
+paired with Windows pure ViewModel execution. Compiler verdicts stay separate;
+runtime authority, durable Jobs and independent qualification remain open.
+
 [Local Project Test assertion navigation](verification/projectide-project-test-navigation.md)
 connects actual Core diagnostic paths to the Web preview and Windows pure
 ViewModel. It preserves failed verdicts and exact Source admission; Tests panels,
@@ -7,8 +12,8 @@ runtime authority and independent Security qualification remain separate.
 
 The [local typed Project Test Core and CLI](verification/projectide-local-project-tests.md)
 adds versioned Test declarations, bounded input-default assertions and exact
-manifest/evaluator binding. It is the first #1031 Core/CLI slice; paired Test
-panels, runtime authority and durable jobs remain open; independent Security
+manifest/evaluator binding. Runtime Test execution/editing, current authority
+and durable jobs remain open; independent Security
 qualification is P0 #1945.
 
 This is the primary entry point for future Codex work on Coglatas.

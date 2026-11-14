@@ -99,7 +99,7 @@ describe('ProjectIDE Core artifact view contract', () => {
   );
   it('reads only explicitly synthetic exporter artifacts', () => {
     expect(bundle().mode).toBe('synthetic-fixture');
-    expect(bundle().cases).toHaveLength(19);
+    expect(bundle().cases).toHaveLength(31);
     expect(bundle().cases.find(item => item.key === 'revert-draft')?.context.kind).toBe('coglatas.candidate');
   });
   it.each([

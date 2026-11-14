@@ -1,3 +1,5 @@
+import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
+import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
 import { computed, Injectable, signal } from '@angular/core';
 import {
   BoundReference,
@@ -107,6 +109,48 @@ export class ProjectIdeWorkbenchStore {
     this.choose(target.key); this.loadResult();
     return this.navigateLocation(location);
   }
+  private testGeneration = 0;
+  readonly testReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
+  private readonly testSnapshot = signal<{ context: PreviewCase; result: PreviewCase; admitted: AdmittedLocalTests; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
+  readonly localTests = (): AdmittedLocalTests | null => {
+    const snapshot = this.testSnapshot();
+    return snapshot && this.state() === 'ready' && snapshot.context === this.context() && snapshot.result === this.result() && snapshot.sourceMap === snapshot.context.sourceMap && snapshot.source === snapshot.context.source &&
+      snapshot.manifest === snapshot.context.manifest && snapshot.declarations === snapshot.context.declarations && localTestsMatchCase(snapshot.context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadLocalTests(): Promise<boolean> {
+    this.clearLocalTests(); this.resetSelection();
+    const generation = this.testGeneration; const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || context !== this.result() || this.state() !== 'ready') {
+      this.testReadState.set('unavailable'); return false;
+    }
+    const materialization = { sourceMap: context.sourceMap, source: context.source, manifest: context.manifest, declarations: context.declarations };
+    this.testReadState.set('loading');
+    try {
+      readPreviewBundle(bundle);
+      const admitted = await readLocalTests(context);
+      if (generation !== this.testGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
+      if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
+        this.clearLocalTests(); this.testReadState.set('unavailable'); return false;
+      }
+      readPreviewBundle(bundle);
+      if (!admitted) { this.testReadState.set('unavailable'); return false; }
+      if (!localTestsMatchCase(context, admitted)) throw new Error('stale-local-tests');
+      this.testSnapshot.set({ context, result: context, admitted, ...materialization }); this.testReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.testGeneration && context === this.context() && context === this.result()) {
+        this.testSnapshot.set(null); this.testReadState.set('unsupported');
+      }
+      return false;
+    }
+  }
+  navigateTestAssertion(assertion: LocalTestAssertion): boolean {
+    const admitted = this.localTests(); this.resetSelection();
+    if (!admitted || !admitted.run.tests.some(test => test.assertions.includes(assertion))) { this.navigationState.set('unavailable'); return false; }
+    try { readPreviewBundle(this.bundle()); } catch { this.clear('unsupported'); return false; }
+    if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
+    return this.navigateLocation(assertion.location);
+  }
+  private clearLocalTests(): void { this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {
@@ -258,11 +302,13 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   choose(key: string): void {
+    this.clearLocalTests();
     this.resetSelection();
     this.result.set(null);
     this.context.set(this.bundle()?.cases.find((c) => c.key === key) ?? null);
   }
   loadResult(): void {
+    this.clearLocalTests();
     this.resetSelection();
     this.result.set(this.context());
   }
@@ -421,6 +467,7 @@ export class ProjectIdeWorkbenchStore {
     return true;
   }
   clear(state: ReadState = 'idle'): void {
+    this.clearLocalTests();
     this.generation++;
     const controller = this.controller;
     this.controller = null;

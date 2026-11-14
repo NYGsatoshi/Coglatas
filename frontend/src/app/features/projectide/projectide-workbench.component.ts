@@ -1,3 +1,4 @@
+import { LocalTestAssertion } from './projectide-tests.contracts';
 import { DOCUMENT, JsonPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -43,7 +44,9 @@ export class ProjectIdeWorkbenchComponent {
   private readonly adapter = inject(ProjectIdePreviewAdapter);
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
-  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history'>('overview');
+  readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests'>('overview');
+  readonly testPage = signal(0);
+  readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
   readonly historyPage = signal(0);
   readonly historyRows = computed(() => this.store.history()?.revisions.slice(this.historyPage() * 32, (this.historyPage() + 1) * 32) ?? []);
@@ -55,7 +58,7 @@ export class ProjectIdeWorkbenchComponent {
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
   private readonly inspectorButton = viewChild<ElementRef<HTMLButtonElement>>('inspectorButton');
   private focusGeneration = 0;
-  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history'] as const;
+  readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests'] as const;
   readonly canRead = computed(
     () =>
       this.flags.projectIdePreviewEnabled() &&
@@ -103,6 +106,7 @@ export class ProjectIdeWorkbenchComponent {
     parameters: Record<string, string | number> = {},
   ) => this.i18n.translate(key as TranslationKey, parameters);
   constructor() {
+    effect(() => { this.store.localTests(); this.testPage.set(0); });
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => {
       this.focusGeneration++;
@@ -234,6 +238,42 @@ export class ProjectIdeWorkbenchComponent {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateReference(destination)) this.open('source', true);
+  }
+  async loadLocalTests(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadLocalTests();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  navigateTestAssertion(assertion: LocalTestAssertion): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateTestAssertion(assertion)) this.open('source', true);
+  }
+  testName(identity: string): string {
+    const value = this.store.context()?.declarations.find(item => item.identity === identity)?.data['displayName'];
+    return typeof value === 'string' && value ? value : identity;
+  }
+  assertionName(assertion: LocalTestAssertion): string {
+    return assertion.location.propertyPath.split('/')[3]?.replaceAll('~1', '/').replaceAll('~0', '~') ?? '';
+  }
+  testValue(value: string): string {
+    const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      Pass: 'ide.testPass', Fail: 'ide.testFail', Inconclusive: 'ide.testInconclusive', Error: 'ide.testError', NotRun: 'ide.testNotRun',
+      Completed: 'ide.testCompleted', Cancelled: 'ide.testCancelled', TimedOut: 'ide.testTimedOut', ResourceExhausted: 'ide.testExhausted', InternalError: 'ide.testError',
+      Complete: 'ide.testComplete', Partial: 'ide.testPartial', None: 'ide.testNone', Current: 'ide.testCurrent', Stale: 'ide.testStale', Undetermined: 'ide.testUndetermined',
+      'coglatas.model-proof': 'ide.testModelProof', 'coglatas.missing': 'ide.testMissing'
+    };
+    return keys[value] ? this.t(keys[value]) : this.t('ide.testUndetermined');
+  }
+  testReason(value: string): string {
+    const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      'coglatas.local-input-defaults': 'ide.testInputDefaults', 'coglatas.incomplete-test-basis': 'ide.testIncomplete', 'coglatas.zero-tests': 'ide.testZero',
+      'coglatas.cancelled': 'ide.testCancelReason', 'coglatas.stale-input': 'ide.testStaleReason', 'coglatas.evaluator-identity-mismatch': 'ide.testEvaluatorReason',
+      'coglatas.assertion-satisfied': 'ide.testSatisfied', 'coglatas.assertion-counterexample': 'ide.testCounterexample',
+      'coglatas.unknown-actual': 'ide.testUnknown', 'coglatas.unsupported-test': 'ide.testUnsupported'
+    };
+    return keys[value] ? this.t(keys[value]) : value;
   }
   cancel(): void {
     this.focusGeneration++;
