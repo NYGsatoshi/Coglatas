@@ -23,7 +23,7 @@ concurrency:
 jobs:
   compile:
     name: SEC-15 actual current-contract compile
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Checkout immutable source
