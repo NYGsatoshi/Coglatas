@@ -270,11 +270,17 @@ def trusted_execution_trx(root: Path, candidate: Path, expected: Path = TRUSTED_
     """Check that a requested CLI file is exactly a registered producer's TRX."""
     if expected not in (TRUSTED_TRX_RELATIVE, SEC17_DEEP_TRX_RELATIVE, SEC17_FILE_TRX_RELATIVE):
         raise ValueError("Unsupported execution evidence producer.")
-    repository = root.resolve(strict=True)
+    # Some Python versions raise RuntimeError for cyclic symlinks instead of
+    # OSError. Normalize it so every capture/closed-summary caller fails safely.
+    try:
+        repository = root.resolve(strict=True)
+        selected = candidate.resolve(strict=True)
+    except RuntimeError:
+        raise ValueError("Execution evidence path resolution failed.") from None
     trusted = repository / expected
     # The producer's root and filename come from this source, not from --trx.
     # Realpath comparison rejects traversal and symlink escapes before the open.
-    if candidate.resolve(strict=True) != trusted:
+    if selected != trusted:
         raise ValueError("Execution evidence does not match the trusted backend report.")
     return trusted
 

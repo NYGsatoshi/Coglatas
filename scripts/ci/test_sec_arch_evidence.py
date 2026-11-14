@@ -103,6 +103,15 @@ class ExecutionInputTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 evidence.trusted_execution_trx(root, canonical)
 
+    def test_cyclic_symlink_resolution_is_a_sanitized_input_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            requested = root / "artifacts/loop.trx"
+            with patch.object(Path, "resolve", side_effect=RuntimeError("private path diagnostic")):
+                with self.assertRaisesRegex(ValueError, "path resolution failed") as failure:
+                    evidence.trusted_execution_trx(root, requested)
+            self.assertNotIn("private path diagnostic", str(failure.exception))
+
     def test_oversized_input_is_rejected_before_open(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "execution.trx"
