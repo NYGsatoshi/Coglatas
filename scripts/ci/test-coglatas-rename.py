@@ -72,6 +72,17 @@ class LegacyNameGuardTests(unittest.TestCase):
         # An ordinary valid 64-byte SRI digest with an incidental policy match.
         return f"sha512-{INITIALS[0]}{'Z' * 83}=="
 
+    def nuget_hash(self):
+        # Canonical 64-byte Base64 SHA-512 digest with an incidental match.
+        return f"{INITIALS[1]}{'Z' * 82}A=="
+
+    def nuget_lockfile(self, **metadata):
+        record = {"type": "Transitive", "resolved": "18.11.1",
+                  "contentHash": self.nuget_hash(), **metadata}
+        self.write("packages.lock.json", json.dumps({
+            "version": 1, "dependencies": {"net10.0": {"Example.Package": record}},
+        }))
+
     def test_clean_checkout_and_cli_pass(self):
         self.write("README.md")
         self.assertEqual(self.scan().findings, [])
@@ -277,12 +288,94 @@ class LegacyNameGuardTests(unittest.TestCase):
         self.assertEqual(len(result.findings), 1)
         self.assertEqual(result.external_matches, 0)
 
+    def test_root_readme_canonical_sonarcloud_badges_are_external_identities(self):
+        project = f"{OWNER.lower()}_coglatas"
+        badge = (
+            "[![Coverage](https://sonarcloud.io/api/project_badges/measure?"
+            f"project={project}&metric=coverage)]"
+            f"(https://sonarcloud.io/summary/new_code?id={project})"
+        )
+        self.write("README.md", badge)
+        result = self.scan()
+        self.assertEqual(result.findings, [])
+        self.assertEqual(result.external_matches, 2)
+        self.assertEqual(self.run_cli().returncode, 0)
+
+        invalid = (
+            project,
+            f"https://sonarcloud.io/api/project_badges/measure?project={project}&metric=unknown)",
+            f"https://sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage&extra=1)",
+            f"https://other.sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage)",
+            f"http://sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage)",
+            f"https://sonarcloud.io/summary/new_code?id={project}_internal)",
+            f"https://sonarcloud.io/summary/new_code?id={project}&extra=1)",
+        )
+        for value in invalid:
+            with self.subTest(value=value):
+                self.write("README.md", value)
+                self.assertEqual(len(self.scan().findings), 1)
+
+        self.write("README.md")
+        self.write("docs/another.md", badge)
+        self.assertEqual(len(self.scan().findings), 2)
+
     def test_valid_lockfile_digest_and_exact_dependency_are_classified(self):
         self.assertTrue(GUARD.valid_integrity(self.digest()))
         self.lockfile(integrity=self.digest(), dependencies={PACKAGE: "0.2.17"})
         result = self.scan()
         self.assertEqual(result.findings, [])
         self.assertEqual(result.external_matches, 2)
+
+    def test_valid_nuget_lock_hash_is_classified_only_as_dependency_content(self):
+        self.assertTrue(GUARD.valid_nuget_hash(self.nuget_hash()))
+        self.nuget_lockfile()
+        result = self.scan()
+        self.assertEqual(result.findings, [])
+        self.assertEqual(result.external_matches, 1)
+
+        # Direct package entries use the same immutable hash field.
+        path = self.root / "packages.lock.json"
+        data = json.loads(path.read_text())
+        data["dependencies"]["net10.0"]["Example.Package"]["type"] = "Direct"
+        path.write_text(json.dumps(data))
+        self.assertEqual(self.scan().findings, [])
+
+    def test_nuget_hash_does_not_exempt_adjacent_metadata_or_other_json(self):
+        self.nuget_lockfile(description=INITIALS[0])
+        result = self.scan()
+        self.assertEqual(len(result.findings), 1)
+        self.assertEqual(result.external_matches, 1)
+
+        lockfile = self.root / "packages.lock.json"
+        data = json.loads(lockfile.read_text())
+        data["dependencies"]["net10.0"]["Example.Package"].pop("description")
+        lockfile.unlink()
+        self.write("other.json", json.dumps(data))
+        self.assertEqual(len(self.scan().findings), 1)
+
+    def test_nuget_hash_requires_exact_schema_and_canonical_sha512(self):
+        self.nuget_lockfile()
+        path = self.root / "packages.lock.json"
+        original = json.loads(path.read_text())
+        for case in ("wrong-version", "project-entry", "missing-resolved",
+                     "malformed-hash", "noncanonical-hash", "orphan-digest"):
+            with self.subTest(case=case):
+                data = json.loads(json.dumps(original))
+                record = data["dependencies"]["net10.0"]["Example.Package"]
+                if case == "wrong-version":
+                    data["version"] = 2
+                elif case == "project-entry":
+                    record["type"] = "Project"
+                elif case == "missing-resolved":
+                    record.pop("resolved")
+                elif case == "malformed-hash":
+                    record["contentHash"] = INITIALS[1] + "Z" * 12
+                elif case == "noncanonical-hash":
+                    record["contentHash"] = INITIALS[1] + "Z" * 83 + "=="
+                elif case == "orphan-digest":
+                    data["contentHash"] = record.pop("contentHash")
+                path.write_text(json.dumps(data))
+                self.assertEqual(len(self.scan().findings), 1, case)
 
     def test_lockfile_integrity_does_not_exempt_same_line_metadata(self):
         self.lockfile(integrity=self.digest(), description=INITIALS[0])
