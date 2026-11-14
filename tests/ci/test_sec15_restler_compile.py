@@ -31,6 +31,16 @@ class CompileContracts(unittest.TestCase):
         uid.start()
         self.addCleanup(uid.stop)
 
+    def test_original_sec15_python_is_measured_by_the_canonical_sonar_cohort(self):
+        workflow = (ROOT / ".github/workflows/sonarcloud-ci.yml").read_text(encoding="utf-8")
+        selection = workflow.split("for control in \\\n", 1)[1].split("; do", 1)[0]
+        self.assertEqual(selection.count("tests/ci/test_sec15_restler_compile.py"), 1)
+        self.assertLess(workflow.index("Measure existing CI regression controls without analysis credentials"),
+                        workflow.index("Begin pinned SonarCloud analysis"))
+        config = (ROOT / "scripts/ci/sonar-python.coveragerc").read_text(encoding="utf-8")
+        source = "${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-sec15-restler-compile.py"
+        self.assertEqual(config.count(source), 1)
+
     def test_reviewed_profile_is_admitted(self):
         compiler, dictionary = m.admit_profile(self.profile)
         self.assertTrue(compiler["ResolveBodyDependencies"])
