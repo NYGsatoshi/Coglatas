@@ -143,7 +143,7 @@ def _inspector_binary():
     project = REPO_ROOT / 'tools/AvMig.SourceInspector/AvMig.SourceInspector.csproj'
     result = subprocess.run(['dotnet', 'build', str(project), '-c', 'Release', '--nologo', '--disable-build-servers', '-p:UseSharedCompilation=false'], cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
     require(result.returncode == 0, 'Roslyn inspector build failed: ' + result.stdout + result.stderr)
-    return project.parent / 'bin/Release/net10.0/AvMig.SourceInspector.dll'
+    return project.parent / 'bin/Release/net11.0/AvMig.SourceInspector.dll'
 
 
 def inspect_source(repo_root, symbols):
