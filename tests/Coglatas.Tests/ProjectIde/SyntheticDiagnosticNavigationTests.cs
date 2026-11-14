@@ -110,6 +110,7 @@ public sealed class SyntheticDiagnosticNavigationTests
     [Theory]
     [InlineData("fail")]
     [InlineData("unsupported")]
+    [InlineData("test-assertion-navigation")]
     public async Task UsesTheExactCoreExportedDiagnosticLocations(string key)
     {
         using var fixture = JsonDocument.Parse(WebPreviewContractTests.Cases().Select(items => (string)items[0])

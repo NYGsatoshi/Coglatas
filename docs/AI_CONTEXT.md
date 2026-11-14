@@ -1,9 +1,85 @@
 # AI Context
 
+[Current Product promotion and review corrections](verification/projectide-product-promotion.md)
+records source-preserving candidate #1955, actual separate-assembly verification
+and review dispositions. Earlier verification records retain historical local
+counts and gate states; current GitHub HEAD/checks remain authoritative.
+
+[Shared semantic simulation debugging](verification/projectide-semantic-simulation-debugger.md)
+adds actual event/Task stepping, exact-point break/resume, immutable control
+snapshots and typed task/wait inspection over the same pure event engine.
+Windows pure controls fence current snapshot/lifecycle; Angular debug snapshot
+consumption, composites/watch/jobs/native and full #907 acceptance remain open.
+
+[Bounded pure elapsed simulation](verification/projectide-pure-simulation.md)
+adds an immutable run manifest and deterministic virtual-clock event engine over
+actually produced elapsed Task DAG plans. It preserves parallelism, joins and
+bounded trace prefixes; no outcome assertion or Project/Test PASS is inferred.
+[Paired fixed simulation consumers](verification/projectide-paired-simulation.md)
+connect the Windows pure ViewModel and an Angular original-byte recording reader
+with explicit Source/run admission and exact event origins. Interactive run
+transport, original-byte Web debugger snapshots/inspection, composites/watch, jobs
+and full #907 acceptance remain open. Core/Windows pure semantic controls are
+implemented in the debugger follow-up above.
+
+[Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)
+adds an opt-in frozen engine/target for elapsed Task DAG definitions after complete
+required validation. Both fixed readers admit actual bytes and original locations;
+no run starts. Other execution kinds, actual runtime/native activation and full
+#905/#907 acceptance remain open.
+
+[Explicit scoped semantic publication version two](verification/projectide-scoped-publication.md)
+produces actual normal model/IR/map artifacts for explicit paired version-two
+targets and complete structural scope. Required truth/coverage/evidence remain
+separate. The version-one external publication guard remains. No formal Registry,
+producer trust, eligibility or current runtime authority is implied.
+
+[Paired captured scoped-source readers](verification/projectide-scoped-source-readers.md)
+open exact fixed dependency Sources and original regional findings in Angular and
+the Windows pure ViewModel, with explicit admission and context/version slots.
+Current runtime authorization and actual Avalonia acceptance are separate.
+
+[Scoped IR consolidation](verification/projectide-scoped-ir.md),
+[whole declared graph validation](verification/projectide-global-graph-closure.md)
+and [root-bound dependency analysis](verification/projectide-dependency-analysis.md)
+validate actual regional IR/maps, cross-owner edges and required rule outcomes
+under the root budget. Normal version-two publication now consumes this scope;
+these older verification records describe their respective original slices.
+
+[Root-bound transitive binding closure](verification/projectide-binding-closure.md)
+follows exact admitted dependency contexts and preserves actual snapshot identities.
+Binding completeness alone does not prove semantic validation, plan or PASS.
+
+[Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
+adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.
+Rebase advances typed declaring origins while preserving pinned reference targets
+and opaque Unknown basis, using the shared Draft visitor.
+Both offline clients separate baseline, assumptions and fresh results; Angular
+checks actual Core-prepared snapshots and bounded original-byte applied-value
+projections for the exact Scenario and converted Draft. Direct and nested
+pinned-reference journeys use bounded actual snapshot bytes and explicit Core
+origin-edit records; missing/denied supply remains incomplete. Generic browser
+authoring, actual Avalonia, Simulation/Impact and current server authority remain open.
+
+[Explicit Test definition editing](verification/projectide-test-definition-editing.md)
+exports canonical Source and prepares exact local Draft replacements for all
+initial assertion families. CLI/Windows pure editing and the Core-backed Web
+example preserve a single writable AST; runtime save/authority remain separate.
+
+[Local Test result panels](verification/projectide-local-test-panels.md) add a
+bounded original-byte reader and actual Core-generated offline Web results,
+paired with Windows pure ViewModel execution. Compiler verdicts stay separate;
+runtime authority, durable Jobs and independent qualification remain open.
+
+[Local Project Test assertion navigation](verification/projectide-project-test-navigation.md)
+connects actual Core diagnostic paths to the Web preview and Windows pure
+ViewModel. It preserves failed verdicts and exact Source admission; Tests panels,
+runtime authority and independent Security qualification remain separate.
+
 The [local typed Project Test Core and CLI](verification/projectide-local-project-tests.md)
 adds versioned Test declarations, bounded input-default assertions and exact
-manifest/evaluator binding. It is the first #1031 Core/CLI slice; paired Test
-panels, runtime authority and durable jobs remain open; independent Security
+manifest/evaluator binding. Runtime Test execution/editing, current authority
+and durable jobs remain open; independent Security
 qualification is P0 #1945.
 
 This is the primary entry point for future Codex work on Coglatas.

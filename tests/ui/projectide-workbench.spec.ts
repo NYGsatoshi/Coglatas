@@ -19,6 +19,42 @@ async function choose(page: Page, key: string) {
 
 test.describe('ProjectIDE synthetic read-only workbench', () => {
   for (const locale of ['en', 'ja'] as const) {
+    test(`opens Core Test assertion locations with keyboard and preserves failed analysis in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+      await page.goto('/app/projectide/preview');
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const problems = locale === 'en' ? 'Problems' : '問題';
+      const go = locale === 'en' ? 'Go to source location' : 'ソース位置へ移動';
+      // Unicode is intentional assertion-key fixture data, including pointer escape characters.
+      const paths = ['example.a~1b~0c', 'example.check', 'example.テスト~1α~0β', 'example.foreign'];
+      for (const [index, key] of paths.entries()) {
+        await page.getByTestId('ide-context').selectOption('test-assertion-navigation');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: problems, exact: true }).click();
+        const inspect = page.getByRole('button', { name: /coglatas.binding.reference-missing/u }).nth(index);
+        await inspect.focus(); await inspect.press(index % 2 ? 'Space' : 'Enter');
+        await expect(page.getByTestId('projectide-workbench')).toContainText('/payload/assertions/' + key + '/target');
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const action = page.getByRole('button', { name: go, exact: true });
+        await action.focus(); await action.press(index % 2 ? 'Enter' : 'Space');
+        const target = page.getByTestId('ide-source-target');
+        await expect(target).toBeFocused();
+        await expect(page.getByTestId('ide-source-location')).toHaveText('/payload/assertions/' + key + '/target');
+        await expect(target).toContainText(index === 3 ? '0000000b-0000-4000-8000-000000000001' : '0000000a-0000-4000-8000-000000000001');
+        await expect(page.getByTestId('ide-analysis-status')).toContainText('coglatas.fail');
+        await page.getByTestId('ide-context').selectOption('branch-pass');
+        await expect(target).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+  for (const locale of ['en', 'ja'] as const) {
     test(`opens a reasoned Task candidate without claiming requirement satisfaction in ${locale}`, async ({ page }) => {
       await page.addInitScript(locale => {
         localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };

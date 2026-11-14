@@ -1,3 +1,7 @@
+import type { ScopedSourceProjection } from './projectide-scoped-sources';
+import type { PreparedScenario } from './projectide-scenario';
+import type { PreparedTestEdit } from './projectide-test-edit';
+import type { LocalProjectTestProjection } from './projectide-tests.contracts';
 import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
 
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
@@ -25,9 +29,17 @@ export interface CandidateContext {
   readonly baseRevision: CommittedContext;
   readonly capturedTargetHead: CommittedContext;
 }
-export type RevisionContext = CommittedContext | CandidateContext;
+export interface ScenarioContext {
+  readonly kind: 'coglatas.scenario';
+  readonly branch: BranchContext;
+  readonly scenarioId: Identity<'Scenario'>;
+  readonly scenarioRevisionId: Identity<'ScenarioRevision'>;
+  readonly baseContext: CommittedContext | CandidateContext;
+  readonly overlayDigest: Digest;
+}
+export type RevisionContext = CommittedContext | CandidateContext | ScenarioContext;
 export const contextRevision = (context: RevisionContext): string => context.kind === 'coglatas.committed'
-  ? context.revisionId : context.candidateRevisionId;
+  ? context.revisionId : context.kind === 'coglatas.candidate' ? context.candidateRevisionId : context.scenarioRevisionId;
 export interface ProjectLocation {
   readonly format: 'coglatas.project-location/1';
   readonly schemaVersion: 1;
@@ -81,6 +93,8 @@ export interface CompilerResult {
   readonly diagnostics: readonly Diagnostic[];
   readonly artifacts: readonly {
     readonly role: string;
+    readonly schemaId?: string;
+    readonly version?: number;
     readonly digest: Digest;
     readonly inputDigest: Digest;
   }[];
@@ -208,6 +222,10 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly simulationRun?: import('./projectide-simulation.reader').SimulationFrame | null;
+  readonly scopedSources?: ScopedSourceProjection | null;
+  readonly materializedSnapshots?: Readonly<Record<string, unknown>> | null;
+  readonly preparedScenario?: PreparedScenario | null;
   readonly preparedHistory?: PreparedHistory | null;
   readonly preparedDiff?: PreparedSemanticDiff | null;
   readonly key: string;
@@ -236,8 +254,10 @@ export interface PreviewCase {
   readonly declarations: readonly SourceRecord[];
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
+  readonly localProjectTests?: LocalProjectTestProjection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly requirementTaskSuggestions?: readonly RequirementTaskSuggestions[] | null;
+  readonly preparedTestEdit?: PreparedTestEdit | null;
   readonly preparedRename?: PreparedDraftRename | null;
   readonly preparedRevert?: PreparedDraftRevert | null;
   readonly sourceMap: {
@@ -292,6 +312,8 @@ export const sameContext = (a: RevisionContext, b: RevisionContext): boolean => 
   if (a.kind !== b.kind || a.branch.tenantId !== b.branch.tenantId || a.branch.projectId !== b.branch.projectId ||
       a.branch.branchId !== b.branch.branchId) return false;
   if (a.kind === 'coglatas.committed' && b.kind === 'coglatas.committed') return a.revisionId === b.revisionId;
+  if (a.kind === 'coglatas.scenario' && b.kind === 'coglatas.scenario') return a.scenarioId === b.scenarioId &&
+    a.scenarioRevisionId === b.scenarioRevisionId && sameContext(a.baseContext, b.baseContext) && sameDigest(a.overlayDigest, b.overlayDigest);
   return a.kind === 'coglatas.candidate' && b.kind === 'coglatas.candidate' && a.proposalId === b.proposalId &&
     a.candidateRevisionId === b.candidateRevisionId && sameContext(a.baseRevision, b.baseRevision) &&
     sameContext(a.capturedTargetHead, b.capturedTargetHead);
@@ -310,7 +332,7 @@ export type LocalEvidenceState =
   | 'complete-local-pass';
 
 /** Classify a synthetic result only after its input, source, context and required coverage agree. */
-export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
+export function assessLocalEvidence(value: PreviewCase | null, publicationAdmitted = false): LocalEvidenceState {
   if (!value) return 'not-loaded';
   if (!isPreviewCaseShape(value) || !hasUniquePreviewIdentities(value)) return 'missing-evidence';
   const result = value.result;
@@ -332,6 +354,7 @@ export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceSta
       !sameContext(result.boundInputStamp.sourceContext, value.context)) {
     return 'stale';
   }
+  if (result.artifacts.some(artifact => artifact.version === 2) && !publicationAdmitted) return 'missing-evidence';
   if (result.execution !== 'coglatas.completed') return 'not-executed';
   const settings = manifest?.['settings'] as {
     sourceCoverage?: string;

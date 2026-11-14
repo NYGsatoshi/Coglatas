@@ -59,11 +59,11 @@ describe('Core-prepared semantic differences', () => {
     expect(prepared.comparison.state).toBe('Complete'); expect(prepared.comparison.noChanges).toBe(false);
     const change = prepared.comparison.changes[0]; expect(change.kind).toBe('DisplayName');
     expect(change.before).toBe('Observe 🌌'); expect(change.after).toBe('Observe renamed 🌌');
-    expect(store.navigateDiff(change, 'before')).toBe(true);
+    expect(await store.navigateDiff(change, 'before')).toBe(true);
     expect(store.context()?.key).toBe('draft-before'); expect(store.sourceLocation()?.context).toEqual(prepared.comparison.beforeContext);
-    expect(store.navigateDiff(change, 'after')).toBe(true);
+    expect(await store.navigateDiff(change, 'after')).toBe(true);
     expect(store.context()?.key).toBe('draft-after'); expect(store.sourceLocation()?.context).toEqual(prepared.comparison.afterContext);
-    expect(store.semanticDiff()).toBeNull(); expect(store.navigateDiff(change, 'before')).toBe(false);
+    expect(store.semanticDiff()).toBeNull(); expect(await store.navigateDiff(change, 'before')).toBe(false);
   });
   it('separates structural equality from a compiler failure and incomplete coverage', async () => {
     const store = await ready('fail'); expect(store.context()?.result.verdict).toBe('coglatas.fail');
@@ -79,13 +79,13 @@ describe('Core-prepared semantic differences', () => {
     expect(change.path).toBe('/extensions'); expect(change.beforePresent).toBe(false); expect(change.afterPresent).toBe(true);
     expect(change.after).toEqual({ annotation: 'Opaque document annotation; no inferred layout semantics' });
     expect(change.beforeLocation?.context).toEqual(diff.beforeContext); expect(change.afterLocation?.context).toEqual(diff.afterContext);
-    expect(store.navigateDiff(change, 'after')).toBe(false);
+    expect(await store.navigateDiff(change, 'after')).toBe(false);
   });
   it('clears paired bodies on context, load and denial boundaries', async () => {
     const store = await ready(); const change = store.semanticDiff()!.comparison.changes[0];
-    store.choose('pass'); expect(store.semanticDiff()).toBeNull(); expect(store.navigateDiff(change, 'after')).toBe(false);
+    store.choose('pass'); expect(store.semanticDiff()).toBeNull(); expect(await store.navigateDiff(change, 'after')).toBe(false);
     store.choose('draft-before'); expect(store.semanticDiff()).toBeNull(); store.loadResult(); expect(store.semanticDiff()).not.toBeNull();
-    store.clear('denied'); expect(store.semanticDiff()).toBeNull(); expect(store.bundle()).toBeNull(); expect(store.navigateDiff(change, 'after')).toBe(false);
+    store.clear('denied'); expect(store.semanticDiff()).toBeNull(); expect(store.bundle()).toBeNull(); expect(await store.navigateDiff(change, 'after')).toBe(false);
   });
   for (const mode of ['digest', 'context', 'target', 'value', 'location', 'identity', 'duplicate', 'empty-claim', 'kind', 'format', 'path', 'rows'] as const) {
     it(`refuses a malformed or mixed projection: ${mode}`, () => {
@@ -111,6 +111,6 @@ describe('Core-prepared semantic differences', () => {
   it('revalidates the pair at navigation instead of trusting an old row handle', async () => {
     const store = await ready(); const prepared = store.semanticDiff()!; const change = prepared.comparison.changes[0];
     Object.assign(prepared.comparison, { afterInputDigest: { algorithm: 'sha-256', value: 'a'.repeat(64) } });
-    expect(store.navigateDiff(change, 'after')).toBe(false); expect(store.state()).toBe('unsupported');
+    expect(await store.navigateDiff(change, 'after')).toBe(false); expect(store.state()).toBe('unsupported');
   });
 });

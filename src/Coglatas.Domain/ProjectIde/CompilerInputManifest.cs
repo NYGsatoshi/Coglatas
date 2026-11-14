@@ -66,6 +66,7 @@ public sealed class CompilerInputManifest
     public CompilerArtifactIdentity Ruleset { get; }
     public IReadOnlyList<CompilerRuleContract> Rules { get; }
     public CompilerExecutionProfile ExecutionProfile { get; }
+    public CompilerArtifactIdentity? PlanLowerer { get; }
     public bool SourceCoverageComplete { get; }
     public SourceJson Settings { get; }
     public SourceJson Data { get; }
@@ -84,7 +85,7 @@ public sealed class CompilerInputManifest
         return false;
     }
     private static readonly string[] LockFields = ["descriptors", "units", "calendars", "timeZones"];
-    private static readonly string[] NoneFields = ["scheduler", "solver", "stochastic", "importer"];
+    private static readonly string[] NoneFields = ["solver", "stochastic", "importer"];
 
     public CompilerInputManifest(ProjectSource source, SourceJson settings)
     {
@@ -92,13 +93,20 @@ public sealed class CompilerInputManifest
         Source = source;
         PlanEntityReference.RequireKnownContext(source.Context);
         RelationFields.Require(settings, [.. ArtifactFields, .. SnapshotFields, .. LockFields, .. NoneFields,
-            "rules", "featureSet", "targets", "analysisScope", "executionProfile", "clock", "sourceCoverage", "scenario"]);
+            "scheduler", "rules", "featureSet", "targets", "analysisScope", "executionProfile", "clock", "sourceCoverage", "scenario"]);
         var fields = settings.Value.EnumerateObject().ToDictionary(item => item.Name, item => (object?)item.Value);
         foreach (var field in ArtifactFields) _ = new CompilerArtifactIdentity(RelationFields.Child(settings, field));
         Compiler = new(RelationFields.Child(settings, "compiler")); Ruleset = new(RelationFields.Child(settings, "ruleset"));
         ExecutionProfile = new(RelationFields.Child(settings, "executionProfile"));
         SourceCoverageComplete = Coverage(SourceFields.Token(settings.Value, "sourceCoverage"));
         foreach (var field in NoneFields) RequireNone(RelationFields.Child(settings, field));
+        var scheduler = RelationFields.Child(settings, "scheduler");
+        if (SourceFields.Token(scheduler.Value, "kind") == "coglatas.none") RequireNone(scheduler);
+        else {
+            RelationFields.Require(scheduler, "kind", "artifact");
+            if (SourceFields.Token(scheduler.Value, "kind") != "coglatas.plan-lowering") throw new UnsupportedSourceException("Unsupported scheduler declaration.");
+            PlanLowerer = new(RelationFields.Child(scheduler, "artifact"));
+        }
         var scenario = RelationFields.Child(settings, "scenario");
         if (source.Context.Scenario is { } overlay)
         {

@@ -5,7 +5,7 @@ using Coglatas.Domain.ProjectIde;
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 /// <summary>Pure .NET synthetic ViewModel preparation for Windows. No Avalonia activation, real data or access grant.</summary>
-public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDisposable
+public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDisposable
 {
     private const int ReferenceScanLimit = 4096;
     private const int ReferenceResultLimit = 32;
@@ -37,7 +37,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     public string NavigationState { get; private set; } = "";
     public ProjectLocation? SourceTarget { get; private set; }
     public CompilerInspectedSymbol? DiagnosticSymbol =>
-        _compilation?.Validation?.Ir is not null &&
+        _compilation?.Validation?.StructuralClosureValidated == true &&
         SelectedDiagnostic is { } diagnostic &&
         Inspection?.Inspect(diagnostic.Location) is { } symbol &&
         Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
@@ -320,7 +320,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
 
     public bool NavigateReferenceDefinition() => NavigateTo(ReferenceSymbol?.Symbol.Location, requireSourceMap: true);
 
-    public bool Navigate() => NavigateTo(SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
+    public bool Navigate() => NavigateTo(SelectedTestAssertion?.Location ?? SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
 
     public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
 
@@ -328,7 +328,7 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var generation = ++_selectionGeneration;
-        SourceTarget = null;
+        SourceTarget = null; ClearScopedSelection();
         NavigationState = location is null ? "unavailable" : Resolve(location, requireSourceMap);
         if (NavigationState == "ready") SourceTarget = location;
         Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
@@ -368,17 +368,18 @@ public sealed class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDispo
     {
         _lifecycle++; ClearContext(); Changed();
     }
-    private void ClearContext() { _desired = null; Source = null; ClearResult(); State = "Empty"; }
+    private void ClearContext() { ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
-        Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
+        ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
+        SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
         TaskSuggestions = null; _taskSuggestionGeneration++;
         RenamePreview = null;
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

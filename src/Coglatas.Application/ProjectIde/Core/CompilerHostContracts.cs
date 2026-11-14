@@ -12,15 +12,16 @@ public sealed class CompilerHostProfile
     public CompilerArtifactIdentity Compiler { get; }
     public IReadOnlyDictionary<string, CompilerArtifactIdentity> Contracts { get; }
     public IReadOnlyList<string> Capabilities { get; }
+    public CompilerArtifactIdentity? PlanLowerer { get; }
     public CompilerHostProfile(CompilerArtifactIdentity compiler, CompilerArtifactIdentity schema, CompilerArtifactIdentity ruleset,
-        CompilerArtifactIdentity semantics, CompilerArtifactIdentity ir, CompilerArtifactIdentity evaluator, IEnumerable<string?> capabilities)
+        CompilerArtifactIdentity semantics, CompilerArtifactIdentity ir, CompilerArtifactIdentity evaluator, IEnumerable<string?> capabilities, CompilerArtifactIdentity? planLowerer = null)
     {
         ArgumentNullException.ThrowIfNull(compiler); ArgumentNullException.ThrowIfNull(schema); ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentNullException.ThrowIfNull(semantics); ArgumentNullException.ThrowIfNull(ir); ArgumentNullException.ThrowIfNull(evaluator); ArgumentNullException.ThrowIfNull(capabilities);
         var values = capabilities.Take(4097).ToArray();
         if (values.Length > 4096 || values.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 256 || !value.Contains('.')) || values.Distinct(StringComparer.Ordinal).Count() != values.Length)
             throw new ArgumentException("Capabilities must be bounded unique namespaced tokens.");
-        Compiler = compiler;
+        Compiler = compiler; PlanLowerer = planLowerer;
         Contracts = new Dictionary<string, CompilerArtifactIdentity>(StringComparer.Ordinal)
         { ["compiler"] = compiler, ["schema"] = schema, ["ruleset"] = ruleset, ["semantics"] = semantics, ["ir"] = ir, ["evaluator"] = evaluator }.ToFrozenDictionary(StringComparer.Ordinal);
         Capabilities = values.Select(value => value!).Order(StringComparer.Ordinal).ToImmutableList();
@@ -28,6 +29,8 @@ public sealed class CompilerHostProfile
     public bool Supports(CompilerInputManifest input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        if (input.PlanLowerer is { } declared && (PlanLowerer is null || !PlanLowerer.Data.Equals(declared.Data))) return false;
+        if (input.PlanLowerer is null && input.Settings.Value.GetProperty("targets").EnumerateArray().Any(target => target.GetString() == CompilerExecutionPlan.Target)) return false;
         foreach (var pair in Contracts)
             if (!SourceJson.Parse(input.Settings.Value.GetProperty(pair.Key).GetRawText()).Equals(pair.Value.Data)) return false;
         return input.Settings.Value.GetProperty("featureSet").EnumerateArray().All(value => Capabilities.Contains(value.GetString()!, StringComparer.Ordinal));

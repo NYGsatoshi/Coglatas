@@ -1,0 +1,285 @@
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Coglatas.Domain.ProjectIde;
+
+public enum CompilerDependencyAnalysisState { Evaluated, IncompleteBinding, ResourceLimit }
+
+/// <summary>Actual per-region validation and rule execution, certified by the whole original input.
+/// The internal binding-only manifest is not the dependency's original compiler input.</summary>
+public sealed class CompilerDependencyRegion
+{
+    public CompilerBindingRegion Binding { get; }
+    public CompilerSemanticValidation? Validation => Compilation.Validation;
+    public IReadOnlyList<CompilerDiagnostic> Diagnostics => Compilation.Result.Diagnostics;
+    public IReadOnlyList<CompilerRuleOutcome> Rules => Compilation.Result.RuleOutcomes;
+    public SourceJson Data { get; }
+    public ContentDigest Digest { get; }
+    internal CoreCompilation Compilation { get; }
+    internal CompilerDependencyRegion(CompilerBindingRegion binding, CoreCompilation compilation)
+    {
+        Binding = binding; Compilation = compilation;
+        Data = SourceJson.FromObject(new
+        {
+            format = "coglatas.compiler-dependency-region/1", rootInputDigest = binding.RootInput.InputDigest.Data.Value,
+            bindingRegionDigest = binding.Digest.Data.Value, context = binding.Source.Context.Data.Value,
+            sourceDigest = binding.Source.Digest.Data.Value, execution = CompilerContractTokens.Execution(compilation.Result.Execution),
+            diagnostics = Diagnostics.Select(item => item.Data.Value).ToArray(), rules = Rules.Select(item => item.Data.Value).ToArray(),
+            ir = Validation?.Ir?.Data.Value, sourceMap = Validation?.Ir?.SourceMap.Value,
+            logicalOperationsConsumed = compilation.LogicalOperationsConsumed - binding.Model.LogicalOperationsConsumed
+        }, binding.RootInput.Source.Data.Limits);
+        Digest = ContentDigest.Compute("coglatas.compiler-dependency-region/1", Data.ToCanonicalBytes());
+    }
+}
+
+/// <summary>Compact retained evidence for an evaluated failed rule, independent of receipt publication.</summary>
+public sealed class CompilerDependencyFailure
+{
+    public SourceRevisionContext Context { get; }
+    public string RuleId { get; }
+    public int RuleVersion { get; }
+    public CompilerDiagnostic? Diagnostic { get; }
+    public SourceJson Data { get; }
+    public ContentDigest Digest { get; }
+    internal CompilerDependencyFailure(CompilerBindingRegion binding, CoreCompilation compilation, CompilerRuleOutcome outcome)
+    {
+        Context = binding.Source.Context; RuleId = outcome.RuleId; RuleVersion = outcome.Version;
+        Data = SourceJson.FromObject(new { rootInputDigest = binding.RootInput.InputDigest.Data.Value,
+            context = Context.Data.Value, bindingDigest = binding.Digest.Data.Value, ruleId = RuleId, ruleVersion = RuleVersion,
+            outcomeDigest = ContentDigest.Compute("coglatas.rule-outcome/1", outcome.Data.ToCanonicalBytes()).Data.Value,
+            resultDigest = compilation.Result.ResultDigest.Data.Value });
+        Digest = ContentDigest.Compute("coglatas.compiler-dependency-failure/1", Data.ToCanonicalBytes());
+    }
+    internal CompilerDependencyFailure(CompilerBindingRegion binding, CompilerBindingFinding finding)
+    {
+        if (finding.State != RelationFindingState.Invalid) throw new ArgumentException("A retained semantic failure must be established invalidity.");
+        Diagnostic = finding.Diagnostic; Context = binding.Source.Context; RuleId = Diagnostic.RuleId; RuleVersion = Diagnostic.RuleVersion;
+        Data = SourceJson.FromObject(new { rootInputDigest = binding.RootInput.InputDigest.Data.Value, context = Context.Data.Value,
+            bindingDigest = binding.Digest.Data.Value, ruleId = RuleId, ruleVersion = RuleVersion,
+            diagnosticDigest = ContentDigest.Compute("coglatas.compiler-diagnostic/1", Diagnostic.Data.ToCanonicalBytes()).Data.Value });
+        Digest = ContentDigest.Compute("coglatas.compiler-dependency-failure/1", Data.ToCanonicalBytes());
+    }
+}
+
+/// <summary>Input-bound graph, regional analysis and scoped inspection IR; not an executable plan.
+/// Version-one normal Compiler publication retains its global lowering guard; explicit version two publishes complete structural scope.</summary>
+public sealed partial class CompilerDependencyAnalysis
+{
+    public const string Format = "coglatas.compiler-dependency-analysis/1";
+    public CompilerInputManifest Input { get; }
+    public CompilerBindingClosure Binding { get; }
+    public CompilerGraphClosure? Graph { get; }
+    public CompilerScopedIr? ScopedIr { get; }
+    public CompilerDependencyAnalysisState State { get; }
+    public IReadOnlyList<CompilerDependencyRegion> Regions { get; }
+    public IReadOnlyList<CompilerDependencyFailure> KnownFailures { get; }
+    public ContentDigest KnownFailureDigest { get; }
+    public int LogicalOperationsConsumed { get; }
+    public SourceJson Data { get; }
+    public ContentDigest Digest { get; }
+    private CompilerDependencyAnalysis(CompilerBindingClosure binding, CompilerDependencyAnalysisState state,
+        IEnumerable<CompilerDependencyRegion> regions, int consumed, IEnumerable<CompilerDependencyFailure> knownFailures, CompilerGraphClosure? graph, CompilerScopedIr? scopedIr)
+    {
+        Input = binding.Input; Binding = binding; Graph = graph; ScopedIr = scopedIr; State = state; LogicalOperationsConsumed = consumed;
+        Regions = new ImmutableListView<CompilerDependencyRegion>(regions.OrderBy(item => item.Binding.Source.Context.Data.CanonicalText, StringComparer.Ordinal));
+        KnownFailures = new ImmutableListView<CompilerDependencyFailure>(knownFailures.DistinctBy(item => item.Digest).OrderBy(item => item.RuleId, StringComparer.Ordinal).ThenBy(item => item.Digest.Value, StringComparer.Ordinal));
+        // Fixed-width certificate digests permit bounded streaming even when diagnostic publication cannot fit.
+        using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes("coglatas.compiler-dependency-failures/1\0"));
+            foreach (var failure in KnownFailures) hash.AppendData(Convert.FromHexString(failure.Digest.Value));
+            KnownFailureDigest = ContentDigest.Parse(SourceJson.FromObject(new { algorithm = ContentDigest.Algorithm, value = Convert.ToHexStringLower(hash.GetHashAndReset()) }));
+        }
+        Data = SourceJson.FromObject(new
+        {
+            format = Format, rootInputDigest = Input.InputDigest.Data.Value, bindingClosureDigest = binding.Digest.Data.Value,
+            state = state.ToString(), logicalOperationsConsumed = consumed, knownFailureDigest = KnownFailureDigest.Data.Value,
+            regions = Regions.Select(item => new { digest = item.Digest.Data.Value, region = item.Data.Value }).ToArray(),
+            globalGraph = graph?.Data.Value, scopedIrDigest = scopedIr?.Digest.Data.Value
+        }, Input.Source.Data.Limits);
+        Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
+    }
+
+    internal static CoreCompilation Attach(CoreCompilation local, CancellationToken cancellationToken, PlanDeclarationReadCache? cache)
+    {
+        var model = local.Model; var validation = local.Validation; var input = local.Input;
+        if (model is null || validation is null || !validation.SuppliesRead ||
+            local.Result.Execution != CompilerExecutionState.Completed || !model.BindingComplete)
+            return local;
+        var externalKeys = model.Symbols.Where(symbol => !symbol.Context.Equals(input.Source.Context)).Select(symbol => symbol.Key).ToHashSet(StringComparer.Ordinal);
+        if (!CompilerScopedPublication.Requested(input) && input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() == 0 &&
+            !model.References.Any(reference => reference.SymbolKey is { } key && externalKeys.Contains(key))) return local;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var closure = CompilerBindingClosure.BuildWithinBudget(model,
+                Math.Max(0, input.ExecutionProfile.MaximumOperations - local.LogicalOperationsConsumed), cancellationToken, cache);
+            var remaining = input.ExecutionProfile.MaximumOperations - closure.LogicalOperationsConsumed;
+            var regions = new List<CompilerDependencyRegion>();
+            var state = closure.State == CompilerBindingClosureState.Complete ? CompilerDependencyAnalysisState.Evaluated
+                : closure.State == CompilerBindingClosureState.ResourceLimit ? CompilerDependencyAnalysisState.ResourceLimit
+                : CompilerDependencyAnalysisState.IncompleteBinding;
+            var prepared = new List<(CompilerBindingRegion Binding, CompilerSemanticValidation Validation)>();
+            var evaluatedRules = new List<CompilerRuleOutcome>();
+            var knownFailures = new Dictionary<string, CompilerDependencyFailure>(StringComparer.Ordinal);
+            var semanticFailures = new List<CompilerDependencyFailure>();
+            var publicationLimited = false;
+            CompilerGraphClosure? graph = null;
+            if (state == CompilerDependencyAnalysisState.Evaluated)
+            {
+                graph = CompilerGraphClosure.Build(closure, validation.ReadUnits, remaining, cancellationToken);
+                remaining -= graph.LogicalOperationsConsumed;
+                if (graph.State == CompilerGraphClosureState.ResourceLimit) state = CompilerDependencyAnalysisState.ResourceLimit;
+                var regionIndex = closure.Regions.ToDictionary(region => region.Source.Context);
+                foreach (var finding in graph.Findings.Where(finding => finding.State == RelationFindingState.Invalid))
+                {
+                    var region = regionIndex[finding.Location.Context];
+                    var diagnostic = new CompilerDiagnostic(region.Model.Input, CoreCompilerRules.Relations, 1, 2, finding.Code,
+                        finding.Location, new(CompilerEvidenceKind.ModelProof, [region.Model.Input.InputDigest, region.Source.Digest]));
+                    semanticFailures.Add(new(region, new(RelationFindingState.Invalid, diagnostic)));
+                }
+                // Validate all exact regional edge owners before interpreting any cross-region attachment.
+                foreach (var region in closure.Regions)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (remaining <= 0) { state = CompilerDependencyAnalysisState.ResourceLimit; break; }
+                    var checkedRegion = CompilerSemanticValidation.ValidateRegion(region.Model, validation.ReadUnits, validation.ReadCalendars, cancellationToken, remaining, graph);
+                    remaining -= checkedRegion.LogicalOperationsConsumed - region.Model.LogicalOperationsConsumed;
+                    prepared.Add((region, checkedRegion));
+                    foreach (var finding in checkedRegion.Findings.Where(item => item.State == RelationFindingState.Invalid))
+                        semanticFailures.Add(new(region, finding));
+                    if (checkedRegion.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)))
+                    { state = CompilerDependencyAnalysisState.ResourceLimit; break; }
+                }
+                var attachments = prepared.Where(item => item.Validation.Ir is not null)
+                    .SelectMany(item => item.Binding.Model.Relations.Select(row => row.Relation).OfType<TypedRelation>())
+                    .Where(relation => relation.Kind == RelationKinds.Constrains)
+                    .Select(relation => (relation.Source.Reference.Context, relation.Source.Reference.EntityId)).ToHashSet();
+                foreach (var (region, checkedRegion) in prepared)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (remaining <= 0) { state = CompilerDependencyAnalysisState.ResourceLimit; break; }
+                    var result = PureCoreCompiler.CompileRegion(region.Model, checkedRegion, attachments, remaining, cancellationToken);
+                    if (result.Result.Execution == CompilerExecutionState.Cancelled) cancellationToken.ThrowIfCancellationRequested();
+                    remaining -= result.LogicalOperationsConsumed - checkedRegion.LogicalOperationsConsumed;
+                    evaluatedRules.AddRange(result.Result.RuleOutcomes);
+                    foreach (var failed in result.Result.RuleOutcomes.Where(item => item.Verdict == CompilerVerdict.Fail))
+                        knownFailures.TryAdd(failed.RuleId, new(region, result, failed));
+                    if (!publicationLimited)
+                        try { regions.Add(new(region, result)); }
+                        catch (FormatException)
+                        {
+                            // Receipt size limits do not erase already evaluated truth or prevent
+                            // later bounded rule execution from retaining another known failure.
+                            state = CompilerDependencyAnalysisState.ResourceLimit; regions.Clear(); publicationLimited = true;
+                        }
+                    if (result.Result.Execution == CompilerExecutionState.ResourceExhausted)
+                    {
+                        state = CompilerDependencyAnalysisState.ResourceLimit;
+                        var publicationOnly = result.Result.Diagnostics.Any(item => item.Code == "coglatas.analysis.publication-budget") &&
+                            result.Result.Stages.Count == 1 && result.Result.Stages[0].StageId == "coglatas.publication";
+                        if (!publicationOnly || remaining <= 0) break;
+                    }
+                }
+            }
+            CompilerScopedIr? scopedIr = null;
+            if (state == CompilerDependencyAnalysisState.Evaluated && graph is { StructuralValidated: true } &&
+                regions.Count == closure.Regions.Count && regions.All(region => region.Validation?.Ir is not null))
+            {
+                try { scopedIr = CompilerScopedIr.Build(closure, graph, regions, ref remaining, cancellationToken); }
+                catch (FormatException) { state = CompilerDependencyAnalysisState.ResourceLimit; }
+            }
+            CompilerScopedPublication? publication = null;
+            if (state == CompilerDependencyAnalysisState.Evaluated && scopedIr is not null && CompilerScopedPublication.Requested(input))
+            {
+                try { publication = CompilerScopedPublication.Build(scopedIr, ref remaining, cancellationToken); }
+                catch (FormatException) { state = CompilerDependencyAnalysisState.ResourceLimit; }
+            }
+            CompilerDependencyAnalysis analysis;
+            try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr); }
+            catch (FormatException)
+            {
+                // Discard an oversized publication; its evaluated prefix never becomes a complete receipt.
+                state = CompilerDependencyAnalysisState.ResourceLimit; scopedIr = null; publication = null;
+                analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr);
+            }
+            if (publication is not null) return PublishScope(local, analysis, publication, cancellationToken);
+            var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
+            var diagnostics = local.Result.Diagnostics.ToList();
+            var bindingFindings = closure.Regions.SelectMany(region => region.Findings.Select(finding => (Region: region, Finding: finding))).ToArray();
+            foreach (var (region, finding) in bindingFindings)
+            {
+                var diagnostic = finding.Diagnostic;
+                if (region.IsRoot) diagnostics.Add(diagnostic);
+                else diagnostics.Add(new(input, diagnostic.RuleId, diagnostic.RuleVersion, 3, "coglatas.analysis.dependency-finding", root,
+                    finding.State == RelationFindingState.Invalid
+                        ? new(CompilerEvidenceKind.ModelProof, [input.InputDigest, region.Digest, closure.Digest])
+                        : new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.dependency-basis-incomplete"),
+                    diagnostic.Severity, region.Digest.Value + ":" + diagnostic.DiagnosticId));
+            }
+            foreach (var region in analysis.Regions)
+                foreach (var diagnostic in region.Diagnostics)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (region.Binding.IsRoot) { diagnostics.Add(diagnostic); continue; }
+                    // Keep the foreign primary location in the regional receipt. This is an explicit
+                    // root summary, never a relabelled foreign diagnostic or a navigation authority.
+                    var evidence = diagnostic.Evidence.Kind == CompilerEvidenceKind.ModelProof
+                        ? new CompilerEvidenceBasis(CompilerEvidenceKind.ModelProof, [input.InputDigest, region.Binding.Digest, region.Digest])
+                        : new CompilerEvidenceBasis(CompilerEvidenceKind.Missing, [], "coglatas.analysis.dependency-basis-incomplete");
+                    diagnostics.Add(new(input, diagnostic.RuleId, diagnostic.RuleVersion, 3, "coglatas.analysis.dependency-finding", root,
+                        evidence, diagnostic.Severity, region.Digest.Value + ":" + diagnostic.DiagnosticId));
+                }
+            foreach (var failure in analysis.KnownFailures.Where(failure => !analysis.Regions.Any(region =>
+                region.Binding.Source.Context.Equals(failure.Context) && region.Rules.Any(rule => rule.RuleId == failure.RuleId && rule.Verdict == CompilerVerdict.Fail))))
+                diagnostics.Add(new(input, failure.RuleId, failure.RuleVersion, 3, "coglatas.analysis.dependency-known-failure", root,
+                    new(CompilerEvidenceKind.ModelProof, [input.InputDigest, failure.Digest, analysis.KnownFailureDigest]), discriminator: failure.Digest.Value));
+            var incomplete = state != CompilerDependencyAnalysisState.Evaluated;
+            if (incomplete)
+                diagnostics.Add(new(input, CoreCompilerRules.Relations, 1, 3,
+                    state == CompilerDependencyAnalysisState.ResourceLimit ? "coglatas.analysis.dependency-budget-exhausted" : "coglatas.analysis.dependency-binding-incomplete",
+                    root, new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.dependency-incomplete")));
+            var rules = local.Result.RuleOutcomes.Select(rule =>
+            {
+                var evaluated = evaluatedRules.Where(item => item.RuleId == rule.RuleId).Prepend(rule).ToArray();
+                var failed = evaluated.Any(item => item.Verdict == CompilerVerdict.Fail) || analysis.KnownFailures.Any(item => item.RuleId == rule.RuleId) ||
+                    bindingFindings.Any(item => item.Finding.Diagnostic.RuleId == rule.RuleId && item.Finding.State == RelationFindingState.Invalid);
+                var partial = incomplete || evaluated.Any(item => item.Coverage != CompilerCoverage.Complete);
+                var exhausted = state == CompilerDependencyAnalysisState.ResourceLimit || evaluated.Any(item => item.Execution == CompilerExecutionState.ResourceExhausted);
+                var execution = exhausted ? CompilerExecutionState.ResourceExhausted : rule.Execution;
+                var verdict = failed ? CompilerVerdict.Fail : execution == CompilerExecutionState.NotRun ? CompilerVerdict.NotRun
+                    : partial ? CompilerVerdict.Inconclusive : rule.Verdict;
+                // A non-run rule cannot acquire a verdict merely because another region failed.
+                if (execution == CompilerExecutionState.NotRun && failed) execution = CompilerExecutionState.Completed;
+                return new CompilerRuleOutcome(rule.RuleId, rule.Version, execution, partial ? CompilerCoverage.Partial : rule.Coverage, verdict,
+                    partial ? new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.dependency-incomplete")
+                        : new(CompilerEvidenceKind.ModelProof, [input.InputDigest, analysis.Digest]));
+            }).ToArray();
+            var stage = new CompilerStageOutcome("coglatas.dependency-analysis", 1,
+                state == CompilerDependencyAnalysisState.ResourceLimit ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
+                incomplete ? CompilerCoverage.Partial : CompilerCoverage.Complete, input.InputDigest, [analysis.Digest],
+                incomplete ? "coglatas.analysis.dependency-incomplete" : null);
+            CompilerResult combined;
+            try
+            {
+                combined = new(input, state == CompilerDependencyAnalysisState.ResourceLimit ? CompilerExecutionState.ResourceExhausted : local.Result.Execution,
+                    CompilerCoverage.Partial, rules, diagnostics.DistinctBy(item => item.DiagnosticId.Value), local.Result.Stages.Append(stage), false, local.Result.Artifacts);
+            }
+            catch (FormatException)
+            {
+                var limitedRules = rules.Select(rule => new CompilerRuleOutcome(rule.RuleId, rule.Version, CompilerExecutionState.ResourceExhausted,
+                    CompilerCoverage.Partial, rule.Verdict == CompilerVerdict.Fail ? CompilerVerdict.Fail : CompilerVerdict.Inconclusive,
+                    new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget")));
+                combined = new(input, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, limitedRules,
+                    [new CompilerDiagnostic(input, CoreCompilerRules.Schema, 1, 3, "coglatas.analysis.publication-budget", root,
+                        new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"))],
+                    [new CompilerStageOutcome("coglatas.publication", 1, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial,
+                        input.InputDigest, [], "coglatas.analysis.publication-budget")], false);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(input, model, validation, combined, analysis.LogicalOperationsConsumed, analysis);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        { return new(input, null, null, new(input, CompilerExecutionState.Cancelled, CompilerCoverage.None, [], [], [], false)); }
+    }
+}

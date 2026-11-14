@@ -29,7 +29,18 @@ internal static class SyntheticSourceNavigation
         // A partial model may have no IR/map. When produced, use its exact input and artifact binding.
         var mapArtifacts = compilation.Result.Artifacts.Where(item => item.Role == "coglatas.source-map").Take(2).ToArray();
         if (mapArtifacts.Length > 1) return "wrong-scope";
-        if (compilation.Validation?.Ir is { } ir)
+        if (compilation.Publication is { } publication)
+        {
+            if (!publication.IsDeclaredBy(compilation.Result)) return "wrong-scope";
+            var slots = publication.SourceMap.Value.GetProperty("regions").EnumerateArray().Where(region =>
+                SourceJson.Parse(region.GetProperty("context").GetRawText()).Equals(source.Context.Data)).Take(2).ToArray();
+            if (slots.Length != 1) return "wrong-scope";
+            var entries = slots[0].GetProperty("sourceMap").GetProperty(location.EntityId is null ? "relations" : "nodes").EnumerateArray();
+            var matches = entries.Select(entry => ProjectLocation.Parse(SourceJson.Parse(entry.GetProperty("location").GetRawText())))
+                .Where(mapped => SameRecord(mapped, location)).Take(2).ToArray();
+            if (matches.Length != 1 || requireSourceMap && (matches[0].PropertyPath.Length != 0 || matches[0].TextSpan is not null)) return "unavailable";
+        }
+        else if (compilation.Validation?.Ir is { } ir)
         {
             if (!ir.Input.Data.Equals(input.Data) || mapArtifacts.Length != 1 || !mapArtifacts[0].InputDigest.Equals(input.InputDigest) ||
                 !mapArtifacts[0].Digest.Equals(ir.SourceMapDigest)) return "wrong-scope";
@@ -41,7 +52,12 @@ internal static class SyntheticSourceNavigation
         }
         else if (mapArtifacts.Length != 0) return "wrong-scope";
         else if (requireSourceMap) return "unavailable";
-        var target = records[0];
+        return ValidatePath(source, records[0], location);
+    }
+
+    internal static string ValidatePath(ProjectSource source, JsonElement record, ProjectLocation location)
+    {
+        var target = record;
         var segments = location.PropertyPath.Length == 0 ? [] : location.PropertyPath[1..].Split('/');
         for (var position = 0; position < segments.Length; position++)
         {
@@ -50,12 +66,14 @@ internal static class SyntheticSourceNavigation
             if (target.ValueKind == JsonValueKind.Object && target.TryGetProperty(key, out var property)) target = property;
             else if (target.ValueKind == JsonValueKind.Array && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) &&
                 index.ToString(CultureInfo.InvariantCulture) == key && index < target.GetArrayLength()) target = target[index];
-            else if (position == 2 && segments[0] == "payload" && segments[1] == "ports" && target.ValueKind == JsonValueKind.Array)
+            else if (position == 2 && segments[0] == "payload" && target.ValueKind == JsonValueKind.Array &&
+                (segments[1] == "ports" || segments[1] == "assertions" && record.GetProperty("kind").GetString() == "coglatas.project-test"))
             {
-                // Core symbol locations identify ports by PortId, rather than an array index.
-                var ports = target.EnumerateArray().Where(item => HasIdentity(item, "portId", key)).Take(2).ToArray();
-                if (ports.Length != 1) return "invalid-location";
-                target = ports[0];
+                // Typed source paths use stable PortId or assertion key, after RFC 6901 unescaping.
+                var field = segments[1] == "ports" ? "portId" : "key";
+                var members = target.EnumerateArray().Where(item => HasIdentity(item, field, key)).Take(2).ToArray();
+                if (members.Length != 1) return "invalid-location";
+                target = members[0];
             }
             else return "invalid-location";
         }
