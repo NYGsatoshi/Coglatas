@@ -257,6 +257,7 @@ jobs:
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \
             tests/ci/test_performance_api_collection.py \
+            tests/ci/test_performance_environment.py \
             scripts/ci/test_av_mig_contract_boundary.py \
             scripts/ci/test_av_mig_contract_boundary_hardening.py \
             scripts/ci/test_av_mig_contract_boundary_adversarial.py \
