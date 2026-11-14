@@ -116,11 +116,89 @@ jobs:
             echo "pr_base=main"
           } >> "$GITHUB_OUTPUT"
 
+  windows-dotnet:
+    name: Native Windows .NET coverage without analysis credentials
+    permissions:
+      contents: read
+    needs: target
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      ASPNETCORE_ENVIRONMENT: Test
+      CI: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - name: Preserve original Git source bytes on the ephemeral runner
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository-pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up Python for original report verification
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node for the existing portable cohort contract
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+
+      - name: Use repository npm without lifecycle scripts
+        run: npm install --global npm@11.17.0 --no-audit --no-fund --ignore-scripts
+
+      - name: Install locked portable verifier dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Restore and freshly build revision-stamped Windows binaries
+        shell: pwsh
+        run: |
+          dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build Coglatas.slnx --configuration Release --no-restore --no-incremental --disable-build-servers -m:1 -p:ContinuousIntegrationBuild=true -p:DeterministicSourcePaths=true
+          exit $LASTEXITCODE
+
+      - name: Collect actual native Windows portable coverage
+        shell: pwsh
+        run: |
+          dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --no-restore --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --collect "XPlat Code Coverage;Format=cobertura;DeterministicReport=true" --logger "trx;LogFileName=windows-tests.trx" --results-directory artifacts/sonar-windows
+          exit $LASTEXITCODE
+
+      - name: Verify original Windows execution and source identity
+        shell: pwsh
+        run: |
+          node scripts/ci/verify-os-portability-results.mjs --contract scripts/ci/os-portability.contract.json --trx artifacts/sonar-windows/windows-tests.trx
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $hostGit = (Get-Command git.exe -CommandType Application -All | Select-Object -First 1).Source
+          python -B scripts/ci/verify-sonar-windows-coverage.py capture --folder artifacts/sonar-windows --git "$hostGit" --sha $env:GITHUB_SHA --run $env:GITHUB_RUN_ID --attempt $env:GITHUB_RUN_ATTEMPT
+          exit $LASTEXITCODE
+
+      - name: Retain original native Windows report and binary provenance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-windows-dotnet-coverage
+          path: artifacts/sonar-windows/
+          if-no-files-found: error
+          retention-days: 7
+
   sonarcloud:
     name: SonarQube Cloud / .NET and multi-language analysis
     permissions:
       contents: read
-    needs: target
+    needs: [target, windows-dotnet]
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
     runs-on: ubuntu-24.04
@@ -171,6 +249,18 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Download native Windows coverage from this exact workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-windows-dotnet-coverage
+          path: artifacts/sonar-windows
+
+      - name: Independently verify Windows bytes before analysis credentials
+        run: >-
+          python3 -B scripts/ci/verify-sonar-windows-coverage.py consume
+          --folder artifacts/sonar-windows --git /usr/bin/git
+          --sha "$GITHUB_SHA" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
       - name: Install pinned SonarScanner for .NET
         shell: bash
         run: |
@@ -209,6 +299,7 @@ jobs:
           for control in \
             scripts/ci/test-sonar-python-process-coverage.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
+            scripts/ci/test-sonar-windows-coverage.py \
             scripts/ci/test-required-pr-checks.py \
             scripts/ci/test-publication-readiness.py \
             scripts/ci/test-coglatas-rename.py \
@@ -694,6 +785,7 @@ jobs:
             /d:sonar.scanner.scanAll=true
             "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
+            /d:sonar.cs.cobertura.reportsPaths=artifacts/sonar-windows/verified.cobertura.xml
             /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"
           )
@@ -717,7 +809,48 @@ jobs:
             "${scanner_args[@]}" "/d:sonar.token=$SONAR_TOKEN"
 
       - name: Build inside the SonarScanner begin/end interval
-        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m -p:ContinuousIntegrationBuild=true -p:DeterministicSourcePaths=true
+
+      - name: Retain original deterministic production source mapping
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          test -s "$mapping"
+          mkdir -p artifacts/sonar-dotnet
+          cp "$mapping" artifacts/sonar-dotnet/deterministic-source-roots.original
+          sha256sum artifacts/sonar-dotnet/deterministic-source-roots.original
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet/pre-test-rebuild')
+          folder.mkdir()
+          record = {'sourceSha': os.environ['GITHUB_SHA'],
+                    'artifacts': verifier.assemblies(verifier.ROOT, folder, os.environ['GITHUB_SHA'], True)}
+          (folder / 'outputs.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Preserve physical caller source paths in the test assembly
+        # Recorders hash the actual caller source; production binaries retain
+        # their deterministic paths and are not rebuilt by this project build.
+        run: >-
+          dotnet build tests/Coglatas.Tests/Coglatas.Tests.csproj
+          --configuration Release --no-restore --no-incremental --no-dependencies
+          --disable-build-servers -m:1
+          -p:ContinuousIntegrationBuild=false -p:DeterministicSourcePaths=false
+
+      - name: Restore original production mapping for native instrumentation
+        # The test-only build regenerates reference maps with physical paths.
+        # Production PDBs still use the original deterministic paths. Restore
+        # their unmodified build metadata, never edit collected report paths.
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          cp "$mapping" artifacts/sonar-dotnet/physical-test-source-roots.original
+          cp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
 
       - name: Apply migrations to the isolated coverage database
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
@@ -740,9 +873,35 @@ jobs:
 
       - name: Verify executed tests and production coverage before publication
         run: |
+          set -euo pipefail
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original \
+            tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
           bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
             --minimum-total 1 --label "Sonar .NET coverage suite"
           python3 scripts/ci/verify-sonar-dotnet-coverage.py
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet')
+          before = json.loads((folder / 'pre-test-rebuild/outputs.json').read_bytes())
+          if before['sourceSha'] != os.environ['GITHUB_SHA']:
+              raise ValueError('Pre-rebuild source revision differs')
+          executed = folder / 'executed-binaries'
+          executed.mkdir()
+          after = verifier.assemblies(verifier.ROOT, executed, os.environ['GITHUB_SHA'], True)
+          for name, digest in before['artifacts'].items():
+              if name not in ('assemblies/Coglatas.Tests.dll', 'assemblies/Coglatas.Tests.pdb') and after[name] != digest:
+                  raise ValueError('Test-only rebuild or collection changed a production binary')
+          record = {'sourceSha': os.environ['GITHUB_SHA'], 'runId': os.environ['GITHUB_RUN_ID'],
+                    'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'executedArtifacts': after,
+                    'trxSha256': verifier.digest((folder / 'backend-tests.trx').read_bytes()),
+                    'sourceMappingSha256': verifier.digest((folder / 'deterministic-source-roots.original').read_bytes()),
+                    'productionBinariesUnchanged': True}
+          (folder / 'binary-provenance.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
 
       - name: Retain .NET coverage and source receipt
         if: always()
@@ -753,6 +912,11 @@ jobs:
             artifacts/sonar-dotnet/**/coverage.opencover.xml
             artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
+            artifacts/sonar-dotnet/*-source-roots.original
+            artifacts/sonar-dotnet/backend-tests.trx
+            artifacts/sonar-dotnet/binary-provenance.json
+            artifacts/sonar-dotnet/pre-test-rebuild/
+            artifacts/sonar-dotnet/executed-binaries/
             artifacts/sonar-python/coverage.xml
             artifacts/sonar-python/coverage.native.json
             artifacts/sonar-python/coverage.native.data
