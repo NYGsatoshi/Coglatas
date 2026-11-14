@@ -6,7 +6,7 @@ namespace Coglatas.Tests.ProjectIde;
 public sealed class ScenarioReferenceRebaseTests
 {
     private static CompilerArtifactIdentity Evaluator => new(Json(Artifact("example.fixed-reference-scenario-evaluator")));
-    private static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot, ProjectScenarioOverride Change) Fixture(int revision = 5, bool hasDefault = true, int defaultTarget = 6, string wrapper = "reference", bool opaqueBefore = false)
+    internal static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot, ProjectScenarioOverride Change) Fixture(int revision = 5, bool hasDefault = true, int defaultTarget = 6, string wrapper = "reference", bool opaqueBefore = false)
     {
         var basis = Source(revision);
         var context = SourceRevisionContext.Committed(new(new(basis.TenantId, ProjectId.Parse(Id(22)), BranchId.Parse(Id(23))), RevisionId.Parse(Id(24))));

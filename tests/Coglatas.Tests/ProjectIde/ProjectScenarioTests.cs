@@ -214,4 +214,26 @@ public sealed class ProjectScenarioTests
         Assert.Equal(ProjectScenarioState.ResourceLimit, result.State); Assert.Null(result.Plan);
     }
 
+    [Fact]
+    public void AppliedProjectionCoversAllInitialOverrideKindsInCanonicalAssumptionOrder()
+    {
+        var basis = Fixture();
+        var edits = new[] { Override(basis), new ProjectScenarioOverride(Target(basis), ProjectScenarioOverrideKind.TaskDuration, Duration("2")),
+            new ProjectScenarioOverride(Target(basis, 10), ProjectScenarioOverrideKind.MilestoneTarget, Date("2026-11-15")) };
+        var plan = Prepare(basis, edits); var projection = ProjectScenarioAppliedValues.Read(plan, plan.Input).Projection!;
+        Assert.NotNull(projection); Assert.Equal(3, projection.Values.Count);
+        Assert.Equal(plan.Changes.Select(item => item.Override.Kind), projection.Values.Select(item => item.Kind));
+        Assert.Equal(plan.Changes.Select(item => item.Override.Value), projection.Values.Select(item => item.Value));
+        Assert.All(projection.Values, item => Assert.Equal(plan.Input.Source.Context, item.Target.Context));
+        var reordered = Prepare(basis, edits.Reverse().ToArray());
+        Assert.Equal(projection.Data, ProjectScenarioAppliedValues.Read(reordered, reordered.Input).Projection!.Data);
+        var revision = basis.Source.Context.CommittedRevision!;
+        var draft = ProjectScenarios.ToDraft(plan, ProjectSemanticBinder.Bind(basis), basis.InputDigest,
+            new(ProposalId.Parse(Id(620)), CandidateRevisionId.Parse(Id(621)), revision, revision)).Plan!;
+        var after = ProjectScenarioAppliedValues.Read(draft, draft.After).Projection!;
+        Assert.Equal(projection.Values.Select(item => item.Value), after.Values.Select(item => item.Value));
+        Assert.All(after.Values, item => Assert.Equal(draft.After.Source.Context, item.Target.Context));
+        Assert.NotEqual(projection.Digest, after.Digest);
+    }
+
 }

@@ -63,6 +63,13 @@ public sealed class WebScenarioContractTests
         var conversion = ProjectScenarios.ToDraft(plan, model, basis.InputDigest, draft.Source.Context.Proposal!).Plan!;
         Assert.NotNull(conversion); Assert.Equal(draft.Data, conversion.After.Data); Assert.Equal(draft.Source.Data, conversion.ApplyToDraft(basis)!.Source.Data);
         Assert.Equal(conversion.Data, Json(metadata.GetProperty("draftPlan")));
+        foreach (var (key, projection) in new[] { ("scenario", ProjectScenarioAppliedValues.Read(plan, scenario).Projection!),
+            ("draft", ProjectScenarioAppliedValues.Read(conversion, draft).Projection!) })
+        {
+            var value = metadata.GetProperty("appliedValues").GetProperty(key);
+            Assert.Equal(projection.Data.CanonicalText, value.GetProperty("text").GetString());
+            Assert.Equal(projection.Digest.Data, Json(value.GetProperty("digest")));
+        }
         var first = ProjectSemanticDiff.Compare(model, ProjectSemanticBinder.Bind(scenario), basis.InputDigest, scenario.InputDigest);
         var second = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(scenario), ProjectSemanticBinder.Bind(draft), scenario.InputDigest, draft.InputDigest);
         Assert.Equal(first.Data, Json(rows[0].GetProperty("preparedDiff").GetProperty("comparison")));

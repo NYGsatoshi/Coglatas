@@ -7,6 +7,7 @@ import { localTestsMatchCase, parseLocalTestJson, readLocalTests, verifyLocalTes
 export interface PreparedScenario {
   readonly baselineCaseKey: string; readonly scenarioCaseKey: string; readonly draftCaseKey: string;
   readonly overlay: { readonly text: string; readonly digest: Digest };
+  readonly appliedValues: { readonly scenario: { readonly text: string; readonly digest: Digest }; readonly draft: { readonly text: string; readonly digest: Digest } };
   readonly draftPlan: { readonly format: 'coglatas.local-scenario-draft/1'; readonly baseInputDigest: Digest;
     readonly scenarioInputDigest: Digest; readonly afterInputDigest: Digest; readonly scenarioContext: RevisionContext; readonly afterContext: RevisionContext };
 }
@@ -37,8 +38,9 @@ function freeze<T>(value: T): T { if (value && typeof value === 'object') { Obje
 export function scenarioTriplet(bundle: PreviewBundle, current: PreviewCase): Triplet | null {
   if (!bundle.cases.includes(current)) return fail();
   const raw: unknown = current.preparedScenario; if (raw == null) return null;
-  if (!record(raw) || !fields(raw, ['baselineCaseKey', 'scenarioCaseKey', 'draftCaseKey', 'overlay', 'draftPlan']) || !record(raw['overlay']) || !fields(raw['overlay'], ['text', 'digest']) || typeof raw['overlay']['text'] !== 'string' ||
-      new TextEncoder().encode(raw['overlay']['text']).byteLength > 300_000 || !digest(raw['overlay']['digest']) || !record(raw['draftPlan'])) return fail();
+  if (!record(raw) || !fields(raw, ['baselineCaseKey', 'scenarioCaseKey', 'draftCaseKey', 'overlay', 'draftPlan', 'appliedValues']) || !record(raw['overlay']) || !fields(raw['overlay'], ['text', 'digest']) || typeof raw['overlay']['text'] !== 'string' ||
+      new TextEncoder().encode(raw['overlay']['text']).byteLength > 300_000 || !digest(raw['overlay']['digest']) || !record(raw['draftPlan']) || !record(raw['appliedValues']) ||
+      !fields(raw['appliedValues'], ['scenario', 'draft']) || !boundedEnvelope(raw['appliedValues']['scenario']) || !boundedEnvelope(raw['appliedValues']['draft'])) return fail();
   const baseline = bundle.cases.find(x => x.key === raw['baselineCaseKey']); const scenario = bundle.cases.find(x => x.key === raw['scenarioCaseKey']);
   const draft = bundle.cases.find(x => x.key === raw['draftCaseKey']); const p = raw['draftPlan'];
   if (!fields(p, ['format', 'baseInputDigest', 'scenarioInputDigest', 'afterInputDigest', 'scenarioContext', 'afterContext'])) return fail();
@@ -90,20 +92,13 @@ export async function readPreparedScenario(bundle: PreviewBundle, current: Previ
     const old = baseline.declarations.filter(x => x.identity === target.entityId && x.location.documentId === target.documentId);
     const after = scenario.declarations.filter(x => x.identity === target.entityId && x.location.documentId === target.documentId);
     if (old.length !== 1 || after.length !== 1 || old[0].status !== 'Decoded' || after[0].status !== 'Decoded' || old[0].kind !== after[0].kind) return fail();
-    const payload = after[0].data['payload']; if (!record(payload)) return fail();
-    let actual: unknown;
-    if (item['kind'] === 'TaskInputDefault') {
-      if (after[0].kind !== 'coglatas.task' || typeof item['portId'] !== 'string' || !Array.isArray(payload['ports'])) return fail();
-      const ports = payload['ports'].filter(port => record(port) && port['portId'] === item['portId']);
-      if (ports.length !== 1 || !record(ports[0]) || ports[0]['direction'] !== 'coglatas.input') return fail(); actual = ports[0]['defaultValue'];
-    } else {
-      if (item['portId'] !== null || after[0].kind !== (item['kind'] === 'TaskDuration' ? 'coglatas.task' : 'coglatas.milestone')) return fail();
-      actual = payload[item['kind'] === 'TaskDuration' ? 'duration' : 'target'];
-    }
+    const actual = targetValue(scenario, item as unknown as ScenarioAssumption);
     // Exact prepared values only; unsupported reference-origin transformations are not guessed here.
     if (!equal(actual, item['value'])) return fail();
     assumptions.push(item as unknown as ScenarioAssumption);
   }
+  await verifyAppliedValues(triplet, assumptions, scenario, prepared.appliedValues.scenario);
+  await verifyAppliedValues(triplet, assumptions, draft, prepared.appliedValues.draft);
   for (const change of baseline.preparedDiff!.comparison.changes) {
     if (change.recordType !== 'entity' || !assumptions.some(item => item.target.entityId === change.identity &&
         (change.path === (item.kind === 'TaskInputDefault' ? '/payload/ports' : item.kind === 'TaskDuration' ? '/payload/duration' : '/payload/target') ||
@@ -134,4 +129,44 @@ export async function readPreparedScenario(bundle: PreviewBundle, current: Previ
     changes: freeze(structuredClone(baseline.preparedDiff!.comparison.changes)), captured, originals: Object.freeze(owned) };
   if (!scenarioMatches(bundle, current, admitted)) return fail();
   return Object.freeze(admitted);
+}
+
+function boundedEnvelope(value: unknown): value is { text: string; digest: Digest } {
+  return record(value) && fields(value, ['text', 'digest']) && typeof value['text'] === 'string' &&
+    new TextEncoder().encode(value['text']).byteLength <= 4_194_304 && digest(value['digest']);
+}
+function targetValue(stage: PreviewCase, item: ScenarioAssumption): unknown {
+  const declarations = stage.declarations.filter(row => row.identity === item.target.entityId && row.location.documentId === item.target.documentId);
+  if (declarations.length !== 1 || declarations[0].status !== 'Decoded') return fail();
+  const declaration = declarations[0]; const payload = declaration.data['payload']; if (!record(payload)) return fail();
+  if (item.kind === 'TaskInputDefault') {
+    if (declaration.kind !== 'coglatas.task' || typeof item.portId !== 'string' || !Array.isArray(payload['ports'])) return fail();
+    const ports = payload['ports'].filter(port => record(port) && port['portId'] === item.portId);
+    if (ports.length !== 1 || !record(ports[0]) || ports[0]['direction'] !== 'coglatas.input') return fail();
+    return ports[0]['defaultValue'];
+  }
+  if (item.portId !== null || declaration.kind !== (item.kind === 'TaskDuration' ? 'coglatas.task' : 'coglatas.milestone')) return fail();
+  return payload[item.kind === 'TaskDuration' ? 'duration' : 'target'];
+}
+/** Check original Core projection bytes against both the declared overlay and the exact applied Source. */
+async function verifyAppliedValues(triplet: Triplet, assumptions: readonly ScenarioAssumption[], stage: PreviewCase, envelope: { text: string; digest: Digest }): Promise<void> {
+  const data = parseLocalTestJson(envelope.text);
+  if (!record(data) || !fields(data, ['format', 'overlayDigest', 'baseInputDigest', 'scenarioInputDigest', 'afterInputDigest', 'afterSourceDigest', 'afterContext', 'values']) ||
+      data['format'] !== 'coglatas.local-scenario-applied-values/1' || !equal(data['overlayDigest'], triplet.prepared.overlay.digest) ||
+      !equal(data['baseInputDigest'], triplet.baseline.inputDigest) || !equal(data['scenarioInputDigest'], triplet.scenario.inputDigest) ||
+      !equal(data['afterInputDigest'], stage.inputDigest) || !equal(data['afterSourceDigest'], stage.sourceDigest) || !equal(data['afterContext'], stage.context) ||
+      !Array.isArray(data['values']) || data['values'].length !== assumptions.length) return fail();
+  let bytes = 0;
+  for (const [index, value] of data['values'].entries()) {
+    const item = assumptions[index];
+    if (!record(value) || !fields(value, ['target', 'kind', 'portId', 'assumption', 'value']) ||
+        !equal(value['target'], { ...item.target, context: stage.context }) || value['kind'] !== item.kind || value['portId'] !== item.portId ||
+        !boundedEnvelope(value['assumption']) || !boundedEnvelope(value['value'])) return fail();
+    const declared = value['assumption']; const applied = value['value'];
+    bytes += new TextEncoder().encode(applied.text + JSON.stringify(value['target'])).byteLength;
+    if (bytes > 262_144 || !equal(parseLocalTestJson(declared.text), item) || !equal(parseLocalTestJson(applied.text), targetValue(stage, item)) ||
+        !(await verifyLocalTestDigest('coglatas.local-scenario-assumption/1', declared.text, declared.digest)) ||
+        !(await verifyLocalTestDigest('coglatas.local-scenario-value/1', applied.text, applied.digest))) return fail();
+  }
+  if (!(await verifyLocalTestDigest('coglatas.local-scenario-applied-values/1', envelope.text, envelope.digest))) return fail();
 }

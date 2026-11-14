@@ -161,7 +161,9 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     {
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
         fixture["preparedScenario"] = JsonSerializer.SerializeToNode(new { baselineCaseKey = "tests-scenario-base", scenarioCaseKey = "tests-scenario-hypothesis", draftCaseKey = "tests-scenario-draft",
-            overlay = new { text = scenarioFixture!.Scenario.Overlay.CanonicalText, digest = scenarioFixture.Scenario.OverlayDigest.Data.Value }, draftPlan = scenarioFixture.Draft.Data.Value });
+            overlay = new { text = scenarioFixture!.Scenario.Overlay.CanonicalText, digest = scenarioFixture.Scenario.OverlayDigest.Data.Value }, draftPlan = scenarioFixture.Draft.Data.Value,
+            appliedValues = new { scenario = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Scenario, scenarioFixture.Scenario.Input)),
+                draft = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Draft, scenarioFixture.Draft.After)) } });
         if (name is "tests-scenario-base" or "tests-scenario-hypothesis")
         {
             var after = name == "tests-scenario-base" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
@@ -190,6 +192,12 @@ var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", m
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
+
+static object AppliedValues(ProjectScenarioAppliedValuesPreview preview)
+{
+    var projection = preview.Projection ?? throw new InvalidOperationException($"Scenario applied values unavailable: {preview.State}");
+    return new { text = projection.Data.CanonicalText, digest = projection.Digest.Data.Value };
+}
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
 static PreparedScenarioFixture ScenarioFixture()

@@ -54,6 +54,42 @@ describe('Fixed-base Scenario Core journey admission', () => {
       }
       await expect(async () => readPreparedScenario(readPreviewBundle(b), b.cases[0])).rejects.toThrow();
     });
+  it.each(['stage', 'source', 'base', 'overlay', 'target', 'kind', 'port', 'assumption', 'value', 'extra', 'missing', 'duplicate', 'hash', 'duplicate-json'])(
+    'rejects rehashed %s substitutions in the Core applied-value projection', async mode => {
+      const b = raw(); const p = b.cases[0].preparedScenario;
+      const envelope = p.appliedValues.scenario; const data = JSON.parse(envelope.text); const row = data.values[0];
+      const hash = async (domain: string, text: string) => ({ algorithm: 'sha-256', value: Array.from(new Uint8Array(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(domain + '\0' + text))), byte => byte.toString(16).padStart(2, '0')).join('') });
+      if (mode === 'stage') data.afterInputDigest = b.cases[2].inputDigest;
+      if (mode === 'source') data.afterSourceDigest = b.cases[0].sourceDigest;
+      if (mode === 'base') data.baseInputDigest = b.cases[1].inputDigest;
+      if (mode === 'overlay') data.overlayDigest.value = 'a'.repeat(64);
+      if (mode === 'target') row.target.context = b.cases[0].context;
+      if (mode === 'kind') row.kind = 'MilestoneTarget';
+      if (mode === 'port') row.portId = null;
+      if (mode === 'assumption') { const declared = JSON.parse(row.assumption.text); declared.value.value = false; row.assumption.text = JSON.stringify(declared); row.assumption.digest = await hash('coglatas.local-scenario-assumption/1', row.assumption.text); }
+      if (mode === 'value') { const applied = JSON.parse(row.value.text); applied.value = false; row.value.text = JSON.stringify(applied); row.value.digest = await hash('coglatas.local-scenario-value/1', row.value.text); }
+      if (mode === 'extra') row.extra = true;
+      if (mode === 'missing') data.values = [];
+      if (mode === 'duplicate') data.values.push(structuredClone(row));
+      envelope.text = JSON.stringify(data);
+      if (mode === 'duplicate-json') envelope.text = envelope.text.replace('"format":', '"format":"future","format":');
+      envelope.digest = await hash('coglatas.local-scenario-applied-values/1', envelope.text);
+      if (mode === 'hash') envelope.digest.value = 'a'.repeat(64);
+      for (const c of b.cases) c.preparedScenario = structuredClone(p);
+      await expect(readPreparedScenario(readPreviewBundle(b), b.cases[0])).rejects.toThrow();
+    });
+  it('refuses an omitted or future projection rather than silently using the old equality check', async () => {
+    for (const mode of ['missing', 'future']) {
+      const b = raw(); for (const c of b.cases) { if (mode === 'missing') delete c.preparedScenario.appliedValues; else c.preparedScenario.appliedValues.extra = true; }
+      await expect(readPreparedScenario(readPreviewBundle(b), b.cases[0])).rejects.toThrow();
+    }
+  });
+  it('invalidates a captured projection when only the original projection bytes are changed', async () => {
+    const b = bundle(); const admitted = (await readPreparedScenario(b, b.cases[0]))!;
+    const p = b.cases[0].preparedScenario as unknown as { appliedValues: { scenario: { text: string } } };
+    p.appliedValues.scenario.text += ' ';
+    expect(scenarioMatches(b, b.cases[0], admitted)).toBe(false);
+  });
   it('never exposes current comparison after a materialized case or metadata is changed', async () => {
     const store = await ready(); expect(await store.loadScenarioComparison(store.preparedScenario()!)).toBe(true); const admitted = store.scenario()!;
     (store.bundle()!.cases[1].source as Record<string, unknown>)['changed'] = true;
