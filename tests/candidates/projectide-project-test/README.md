@@ -11,11 +11,14 @@ Core and CLI, already integrated through ProjectIDE Product PR #1946.
   updated when ProjectIDE advances.
 - Twelve independently authored xUnit facts in
   `SecurityProjectTestCandidateTests.cs`, source Git blob
-  `3a5b1327b0d954e38ee095d08c6e38e0499face6`.
+  `50e2718d6d88d1020a21640b1d2a46ac4275d07c`.
 - Runner `compose_and_verify.py`, Git blob
-  `ca6772cd91930e801b4fd600998a111cfa59f2b7`.
+  `5241b5929e0a014d0ab657844855c6dd91bee66b`.
 - The runner requires a clean committed Security Test checkout and distinct,
-  fresh worktree/evidence paths. It composes exactly one immutable Test blob
+  fresh worktree/evidence paths. It checks the copied candidate's actual
+  working-tree bytes both before compilation and after native discovery,
+  independently of the staged Git blob; it rejects any other tracked Product
+  changes instead of certifying the index alone. It composes exactly one immutable Test blob
   with a detached immutable Product commit without rewriting Product source.
 - GitHub-hosted Ubuntu 24.04 and Windows runners use immutable
   `actions/checkout`, `setup-dotnet`, `setup-python`, `upload-artifact`
@@ -30,8 +33,9 @@ Core and CLI, already integrated through ProjectIDE Product PR #1946.
 
 1. A local known Boolean counterexample is distinguishable from the ordinary
    Compiler PASS; a Test verdict cannot silently qualify a different producer.
-2. Rational/decimal comparison uses one exact Source/input binding and
-   distinguishable positive/negative result identities.
+2. Rational/decimal comparison uses one exact Source/input binding, a
+   fractional 1/10 versus 0.1 equality, and an integer precision-boundary
+   mismatch at 9007199254740993 versus 9007199254740992; all remain in one fact.
 3. Collection count applies to actual decoded list members rather than
    filling unknown data with a zero default.
 4. Unknown and null values remain Inconclusive with explicit reasons, never

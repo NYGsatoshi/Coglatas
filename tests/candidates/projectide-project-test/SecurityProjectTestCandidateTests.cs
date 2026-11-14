@@ -139,6 +139,26 @@ public sealed class SecurityProjectTestCandidateTests
                 assertions[0] = assertion;
             });
         Assert.Equal(CompilerVerdict.Fail, Execute(altered).Verdict);
+
+        // Integer cases alone would not detect truncation of rational values.
+        var fraction = Sample(Known("coglatas.rational", new { numerator = "1", denominator = "10" }),
+            (_, assertions, _) =>
+            {
+                var assertion = Check(Source().Context, "coglatas.assert-numeric-comparison");
+                assertion["expected"] = Known("coglatas.decimal", "0.1");
+                assertions[0] = assertion;
+            });
+        Assert.Equal(CompilerVerdict.Pass, Execute(fraction).Verdict);
+
+        // Double precision collapses the neighboring integers at this boundary.
+        var precise = Sample(Known("coglatas.rational", new { numerator = "9007199254740993", denominator = "1" }),
+            (_, assertions, _) =>
+            {
+                var assertion = Check(Source().Context, "coglatas.assert-numeric-comparison");
+                assertion["expected"] = Known("coglatas.decimal", "9007199254740992");
+                assertions[0] = assertion;
+            });
+        Assert.Equal(CompilerVerdict.Fail, Execute(precise).Verdict);
     }
 
     [Fact]

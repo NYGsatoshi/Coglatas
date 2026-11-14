@@ -24,8 +24,8 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: 3a5b1327b0d954e38ee095d08c6e38e0499face6
-      RUNNER_BLOB: ca6772cd91930e801b4fd600998a111cfa59f2b7
+      SOURCE_BLOB: 50e2718d6d88d1020a21640b1d2a46ac4275d07c
+      RUNNER_BLOB: 5241b5929e0a014d0ab657844855c6dd91bee66b
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -108,8 +108,8 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: 3a5b1327b0d954e38ee095d08c6e38e0499face6
-      RUNNER_BLOB: ca6772cd91930e801b4fd600998a111cfa59f2b7
+      SOURCE_BLOB: 50e2718d6d88d1020a21640b1d2a46ac4275d07c
+      RUNNER_BLOB: 5241b5929e0a014d0ab657844855c6dd91bee66b
     steps:
       - name: Preserve committed source bytes
         shell: pwsh

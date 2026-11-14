@@ -80,6 +80,15 @@ def main() -> None:
         git(worktree, "add", "--", DESTINATION)
         if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
             raise ValueError("Composed candidate differs from original committed Git blob")
+        def verify_working_tree() -> None:
+            # The index identity is insufficient: inspect actual compiler input bytes.
+            if output.read_bytes() != raw:
+                raise ValueError("Composed working-tree Test source changed from the committed blob")
+            changed = git(worktree, "diff", "--name-only", "HEAD", "--").splitlines()
+            if changed != [DESTINATION]:
+                raise ValueError("Tracked Product source changed during independent composition")
+
+        verify_working_tree()
         receipt.update(sourcePath=SOURCE, destination=DESTINATION,
                        sourceBlob=source_blob, sourceSha256=sha256(output),
                        productTree=git(worktree, "rev-parse", "HEAD^{tree}"),
@@ -115,6 +124,7 @@ def main() -> None:
             raise ValueError("A passed TRX identity was absent from compiled test discovery")
         if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
             raise ValueError("Composed source identity drifted after real compilation")
+        verify_working_tree()
         receipt["nativeXunit"] = {"total": EXPECTED, "passed": EXPECTED,
                                    "failed": 0, "skipped": 0, "identities": sorted(names)}
         receipt["status"] = "SYNTHETIC_PROJECT_TEST_PASSED"
