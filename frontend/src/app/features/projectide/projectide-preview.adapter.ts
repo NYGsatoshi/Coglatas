@@ -438,10 +438,13 @@ export function resolveLocation(
   for (const [index, part] of segments.entries()) {
     const key = part.replaceAll('~1', '/').replaceAll('~0', '~');
     if (Array.isArray(target) && !/^(0|[1-9][0-9]*)$/u.test(key)) {
-      if (index !== 2 || segments[0] !== 'payload' || segments[1] !== 'ports') return 'invalid-location';
+      if (index !== 2 || segments[0] !== 'payload') return 'invalid-location';
+      const field = segments[1] === 'ports' ? 'portId'
+        : segments[1] === 'assertions' && record.kind === 'coglatas.project-test' ? 'key' : null;
+      if (!field) return 'invalid-location';
       const ports = target.filter(
-        (item: unknown) => typeof item === 'object' && item !== null &&
-          (item as Record<string, unknown>)['portId'] === key,
+        (item: unknown) => typeof item === 'object' && item !== null && Object.hasOwn(item, field) &&
+          (item as Record<string, unknown>)[field] === key,
       );
       if (ports.length !== 1) return 'invalid-location';
       target = ports[0];

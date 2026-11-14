@@ -1,5 +1,10 @@
 # AI Context
 
+[Local Project Test assertion navigation](verification/projectide-project-test-navigation.md)
+connects actual Core diagnostic paths to the Web preview and Windows pure
+ViewModel. It preserves failed verdicts and exact Source admission; Tests panels,
+runtime authority and independent Security qualification remain separate.
+
 The [local typed Project Test Core and CLI](verification/projectide-local-project-tests.md)
 adds versioned Test declarations, bounded input-default assertions and exact
 manifest/evaluator binding. It is the first #1031 Core/CLI slice; paired Test

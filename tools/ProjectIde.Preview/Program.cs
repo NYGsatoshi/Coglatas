@@ -39,13 +39,13 @@ var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation" };
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, _ => Input(name, 100 + index) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental declaration decoding differs from full compilation.");
@@ -146,6 +146,25 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static CompilerInputManifest TestAssertionNavigationInput()
+{
+    var input = Input("test-assertion-navigation", 170);
+    object Test(int identity, string[] keys) => new
+    {
+        entityId = Id(identity), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = 1,
+        displayName = "Local assertion navigation " + identity,
+        payload = new { assertions = keys.Select(key => new
+        {
+            key, kind = "coglatas.assert-boolean",
+            target = new { tenantId = Id(1), projectId = Id(2), entityId = Id(99), context = input.Source.Context.Data.Value },
+            portId = Id(88),
+            expected = new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = true }
+        }).ToArray() }
+    };
+    // Unicode is intentional assertion-key test data, including RFC 6901 escape characters.
+    var declarations = new[] { Test(10, ["example.check", "example.a/b~c", "example.テスト/α~β"]), Test(11, ["example.foreign"]) };
+    return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), input.Settings);
+}
 static CompilerInputManifest RequirementCandidateInput()
 {
     var input = Input("requirement-candidates", 160);

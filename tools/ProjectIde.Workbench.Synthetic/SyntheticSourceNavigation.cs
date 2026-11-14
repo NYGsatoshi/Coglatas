@@ -50,12 +50,14 @@ internal static class SyntheticSourceNavigation
             if (target.ValueKind == JsonValueKind.Object && target.TryGetProperty(key, out var property)) target = property;
             else if (target.ValueKind == JsonValueKind.Array && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) &&
                 index.ToString(CultureInfo.InvariantCulture) == key && index < target.GetArrayLength()) target = target[index];
-            else if (position == 2 && segments[0] == "payload" && segments[1] == "ports" && target.ValueKind == JsonValueKind.Array)
+            else if (position == 2 && segments[0] == "payload" && target.ValueKind == JsonValueKind.Array &&
+                (segments[1] == "ports" || segments[1] == "assertions" && records[0].GetProperty("kind").GetString() == "coglatas.project-test"))
             {
-                // Core symbol locations identify ports by PortId, rather than an array index.
-                var ports = target.EnumerateArray().Where(item => HasIdentity(item, "portId", key)).Take(2).ToArray();
-                if (ports.Length != 1) return "invalid-location";
-                target = ports[0];
+                // Typed source paths use stable PortId or assertion key, after RFC 6901 unescaping.
+                var field = segments[1] == "ports" ? "portId" : "key";
+                var members = target.EnumerateArray().Where(item => HasIdentity(item, field, key)).Take(2).ToArray();
+                if (members.Length != 1) return "invalid-location";
+                target = members[0];
             }
             else return "invalid-location";
         }
