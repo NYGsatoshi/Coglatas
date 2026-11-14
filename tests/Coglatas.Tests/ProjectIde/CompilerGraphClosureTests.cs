@@ -78,6 +78,14 @@ public sealed class CompilerGraphClosureTests
                     payload = new { stateId = Id(84), transitionId = (string?)null, guard = CompilerAnalysisFixtures.Predicate(true) } }));
             }
         }
+        if (mode == "relation-owner")
+        {
+            declarations[1] = new JsonArray();
+            var relation = Edge(20, RelationKinds.DependsOn, root, b);
+            relation["payload"]!["lag"] = Obj(new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = true },
+                state = "coglatas.unknown", reason = "example.pending-lag", basis = new { } });
+            relations[1].Add(relation);
+        }
         var sources = contexts.Select((context, index) => ProjectSource.Create(context, basis.Documents, Json(declarations[index]), Json(relations[index]))).ToArray();
         var settings = CompilerAnalysisFixtures.AllRulesSettings();
         settings["authorizedExternalSnapshots"] = new JsonArray(sources.Skip(1).Select((source, i) => Obj(new { snapshotId = Id(30 + i), version = i == 0 ? "1" : "2",
@@ -249,5 +257,35 @@ public sealed class CompilerGraphClosureTests
         var cycle = compiled.Dependencies.Graph.Findings.Where(finding => finding.Code == "coglatas.relation.dependency-cycle").ToArray();
         Assert.Equal(2, cycle.Length); Assert.Equal(2, cycle.Select(finding => finding.Location.Context).Distinct().Count());
         Assert.All(cycle, finding => Assert.NotEqual(input.Source.Context, finding.Location.Context));
+    }
+
+    [Fact]
+    public void PartialRootCoverageCannotReachWholeGraphValidationOrProveAnAbsentPortInvalid()
+    {
+        var fixture = Make("missing-inbound"); var settings = JsonNode.Parse(fixture.Input.Settings.CanonicalText)!.AsObject();
+        settings["sourceCoverage"] = "coglatas.partial";
+        var partial = fixture with { Input = new(fixture.Input.Source, Json(settings)) };
+        var model = ProjectSemanticBinder.Bind(partial.Input, partial.Snapshots);
+        Assert.False(model.BindingComplete); Assert.False(model.Input.SourceCoverageComplete);
+        Assert.Contains(model.Findings, finding => finding.Diagnostic.Code == "coglatas.binding.incomplete-source");
+        Assert.Equal(CompilerBindingClosureState.Incomplete, CompilerBindingClosure.Build(model, partial.Input.InputDigest).State);
+        var compiled = Compile(partial); Assert.Null(compiled.Dependencies);
+        Assert.Equal(CompilerVerdict.Inconclusive, compiled.Result.Verdict);
+        Assert.DoesNotContain(compiled.Result.Diagnostics, diagnostic => diagnostic.Code == "coglatas.relation.required-port" && diagnostic.Evidence.Kind == CompilerEvidenceKind.ModelProof);
+        Assert.Equal(CompilerVerdict.Fail, Compile(fixture).Result.Verdict);
+    }
+    [Fact]
+    public void ARelationOwnerWithoutExplicitDeclarationsStillHasItsProjectRootAndImportsOwnedFindings()
+    {
+        var fixture = Make("relation-owner");
+        var owner = fixture.Snapshots.Single(snapshot => snapshot.Snapshot.Source.Context.Equals(fixture.A)).Snapshot.Source;
+        Assert.Equal(0, owner.Declarations.Value.GetArrayLength());
+        var compiled = Compile(fixture); var region = compiled.Dependencies!.Regions.Single(item => item.Binding.Source.Context.Equals(fixture.A));
+        var project = Assert.Single(region.Binding.Declarations); Assert.IsType<ProjectPlanDeclaration>(project.Declaration);
+        Assert.Contains(compiled.Dependencies.Graph!.Findings, finding => finding.Code == "coglatas.relation.unknown-lag" && finding.Location.Context.Equals(fixture.A));
+        Assert.Contains(region.Validation!.Findings, finding => finding.Diagnostic.Code == "coglatas.relation.unknown-lag" && finding.Diagnostic.Location.Context.Equals(fixture.A));
+        Assert.False(region.Validation.StructuralClosureValidated); Assert.Null(region.Validation.Ir);
+        Assert.Equal(CompilerVerdict.Inconclusive, compiled.Result.Verdict);
+        Assert.Equal(compiled.Result.Data, Compile(fixture, new PlanDeclarationReadCache()).Result.Data);
     }
 }
