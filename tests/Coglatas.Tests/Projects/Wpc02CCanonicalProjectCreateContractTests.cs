@@ -100,7 +100,7 @@ public sealed class Wpc02CCanonicalProjectCreateContractTests
         var root = document.RootElement;
         Assert.Equal(workspaceId, root.GetProperty("workspaceId").GetGuid());
         Assert.True(root.GetProperty("canCreateUngrouped").GetBoolean());
-        Assert.Equal(new[] { 0, 1, 2 }, root.GetProperty("allowedVisibilities").EnumerateArray().Select(item => item.GetInt32()));
+        Assert.Equal([0, 1, 2], root.GetProperty("allowedVisibilities").EnumerateArray().Select(item => item.GetInt32()));
         var group = Assert.Single(root.GetProperty("groups").EnumerateArray());
         Assert.Equal(groupId, group.GetProperty("id").GetGuid());
         Assert.Equal("Createable Group", group.GetProperty("name").GetString());
