@@ -3,6 +3,10 @@ import copy
 import importlib.util
 import io
 import json
+import os
+import subprocess
+import sys
+import textwrap
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
@@ -128,6 +132,33 @@ class InspectionEvidenceTests(unittest.TestCase):
             quality.verify(Namespace(report=self.root))
         self.assertEqual(b"// exact original\r\n", source.read_bytes())
         self.assertNotIn("scopeProbe", json.loads((self.root / "composition.json").read_text()))
+
+
+    def test_resharper_workflow_edit_inspects_entry_probe_source(self):
+        # Exercise the actual embedded runner routing rather than a copy of its condition.
+        workflow = (ROOT / ".github/workflows/resharper_pr.yml").read_text(encoding="utf-8")
+        marker = """          python3 - <<'PY' >> "$GITHUB_OUTPUT"\n"""
+        self.assertEqual(1, workflow.count(marker))
+        fragment = workflow.split(marker, 1)[1].split("\n          PY", 1)[0]
+        self.assertIn("full_solution =", fragment)
+        script = textwrap.dedent(fragment)
+        changed = self.root / "changed.nul"
+        projects = self.root / "projects.txt"
+        environment = {**os.environ, "CHANGED_FILES_PATH": str(changed), "PROJECTS_FILE": str(projects)}
+
+        def classify(paths: bytes) -> str:
+            changed.write_bytes(paths)
+            result = subprocess.run([sys.executable, "-c", script], cwd=self.root,
+                                    env=environment, text=True, capture_output=True, check=True)
+            return result.stdout
+
+        # A ReSharper control-plane edit must inspect the entire solution: the
+        # verifier mutates Entry test sources, which are absent from Domain-only scans.
+        self.assertIn("full_solution=true", classify(b".github/workflows/resharper_pr.yml\0"))
+        self.assertEqual("", projects.read_text(encoding="utf-8"))
+        # Unrelated workflow-only changes keep the original bounded representative.
+        self.assertIn("full_solution=false", classify(b".github/workflows/documentation-integrity.yml\0"))
+        self.assertEqual("Coglatas.Domain\n", projects.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
