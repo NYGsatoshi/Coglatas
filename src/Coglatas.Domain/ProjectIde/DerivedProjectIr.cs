@@ -37,7 +37,7 @@ public sealed class DerivedProjectIr
     public ContentDigest SemanticModelDigest { get; }
     public ContentDigest Digest { get; }
     public SourceJson Data { get; }
-    internal DerivedProjectIr(PartialSemanticModel model)
+    internal DerivedProjectIr(PartialSemanticModel model, bool scopedRegion = false)
     {
         Input = model.Input;
         var nodes = model.Declarations.Select(item => new ProjectIrNode(Input, item.Declaration ?? throw new InvalidOperationException("Opaque declaration cannot be lowered.")))
@@ -45,23 +45,44 @@ public sealed class DerivedProjectIr
         if (nodes.Select(item => item.NodeId.Value).Distinct().Count() != nodes.Length)
             throw new InvalidOperationException("IR identity collision; full derivation digests must be investigated.");
         Nodes = new ImmutableListView<ProjectIrNode>(nodes);
-        var index = nodes.ToDictionary(item => item.EntityId);
-        Relations = SourceJson.FromObject(model.Relations.Select(item => item.Relation ?? throw new InvalidOperationException("Opaque relation cannot be lowered."))
-            .OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal).Select(item => new
+        var endpointIndex = model.Symbols.Where(symbol => symbol.PortId is null).GroupBy(symbol => (symbol.Context, symbol.EntityId))
+            .ToDictionary(group => group.Key, group => group.Count());
+        IrNodeId Resolve(RelationEndpoint endpoint)
+        {
+            var reference = endpoint.Reference;
+            if (!endpointIndex.TryGetValue((reference.Context, reference.EntityId), out var matches) || matches != 1) throw new FormatException("IR endpoint requires one exact context-qualified declaration.");
+            return new(reference.Context.Branch.TenantId, reference.Context.Branch.ProjectId, reference.EntityId);
+        }
+        object Lower(TypedRelation item)
+        {
+            var sourceId = Resolve(item.Source); var targetId = Resolve(item.Target);
+            if (scopedRegion) return new
             {
                 relationId = item.RelationId.ToString(), kind = item.Kind, descriptorVersion = item.DescriptorVersion,
-                sourceNodeId = index[item.Source.Reference.EntityId].NodeId.ToString(), sourcePortId = item.Source.PortId?.ToString(),
-                targetNodeId = index[item.Target.Reference.EntityId].NodeId.ToString(), targetPortId = item.Target.PortId?.ToString(),
+                source = new { irNodeId = sourceId.ToString(), context = item.Source.Reference.Context.Data.Value, portId = item.Source.PortId?.ToString() },
+                target = new { irNodeId = targetId.ToString(), context = item.Target.Reference.Context.Data.Value, portId = item.Target.PortId?.ToString() },
                 payload = item.Data.Value.GetProperty("payload")
-            }).ToArray());
+            };
+            return new
+            {
+                relationId = item.RelationId.ToString(), kind = item.Kind, descriptorVersion = item.DescriptorVersion,
+                sourceNodeId = sourceId.ToString(), sourcePortId = item.Source.PortId?.ToString(),
+                targetNodeId = targetId.ToString(), targetPortId = item.Target.PortId?.ToString(),
+                payload = item.Data.Value.GetProperty("payload")
+            };
+        }
+        Relations = SourceJson.FromObject(model.Relations.Select(item => item.Relation ?? throw new InvalidOperationException("Opaque relation cannot be lowered."))
+            .OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal).Select(Lower).ToArray());
+        var mapFormat = scopedRegion ? "coglatas.semantic-region-source-map/1" : "coglatas.semantic-source-map/1";
+        var irFormat = scopedRegion ? "coglatas.project-ir-region/1" : "coglatas.project-ir/1";
         SourceMap = SourceJson.FromObject(new
         {
-            format = "coglatas.semantic-source-map/1", compilerInputId = Input.InputId.ToString(),
+            format = mapFormat, compilerInputId = Input.InputId.ToString(),
             nodes = nodes.Select(item => new { irNodeId = item.NodeId.ToString(), location = item.Origin.Data.Value }).ToArray(),
             relations = model.Relations.Select(item => item.Relation!).OrderBy(item => item.RelationId.ToString(), StringComparer.Ordinal)
                 .Select(item => new { relationId = item.RelationId.ToString(), location = item.Location.Data.Value }).ToArray()
         });
-        SourceMapDigest = ContentDigest.Compute("coglatas.semantic-source-map/1", SourceMap.ToCanonicalBytes());
+        SourceMapDigest = ContentDigest.Compute(mapFormat, SourceMap.ToCanonicalBytes());
         SemanticModelDigest = ContentDigest.Compute("coglatas.semantic-model/1", SourceJson.FromObject(new
         {
             compilerInputId = Input.InputId.ToString(), declarations = model.Declarations.OrderBy(item => item.Declaration!.EntityId.ToString(), StringComparer.Ordinal).Select(item => item.Data.Value).ToArray(),
@@ -70,11 +91,11 @@ public sealed class DerivedProjectIr
         }).ToCanonicalBytes());
         Data = SourceJson.FromObject(new
         {
-            format = "coglatas.project-ir/1", compilerInputId = Input.InputId.ToString(), inputDigest = Input.InputDigest.Data.Value,
+            format = irFormat, compilerInputId = Input.InputId.ToString(), inputDigest = Input.InputDigest.Data.Value,
             sourceDigest = Input.Source.Digest.Data.Value, semanticModelDigest = SemanticModelDigest.Data.Value,
             nodes = nodes.Select(item => item.Data.Value).ToArray(), relations = Relations.Value, sourceMapDigest = SourceMapDigest.Data.Value,
             executionPlan = new { kind = "coglatas.not-produced", reason = "coglatas.analysis-and-plan-lowering-required" }
         });
-        Digest = ContentDigest.Compute("coglatas.project-ir/1", Data.ToCanonicalBytes());
+        Digest = ContentDigest.Compute(irFormat, Data.ToCanonicalBytes());
     }
 }

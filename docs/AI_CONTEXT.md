@@ -1,5 +1,11 @@
 # AI Context
 
+[Root-bound dependency analysis](verification/projectide-dependency-analysis.md)
+connects actual regional semantics, scoped IR and required rule outcomes to the
+normal Compiler. Foreign failures affect root verdicts; global cross-region
+graph validation/publication and external Compiler PASS remain incomplete.
+
+
 [Root-bound transitive binding closure](verification/projectide-binding-closure.md)
 follows exact admitted dependency contexts, preserves actual snapshot identities
 and binds every region to the whole root input. Binding completeness remains

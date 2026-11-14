@@ -5,8 +5,9 @@ using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
 var testEditProfile = args is [_, "--test-edit"];
-var scenarioProfile = args is [_, "--scenario"];
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit or --scenario profile.");
+var dependencyProfile = args is [_, "--dependency-analysis"];
+var scenarioProfile = args is [_, "--scenario"] || dependencyProfile;
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario or --dependency-analysis profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -15,6 +16,7 @@ var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenario
     ["tests-missing-reference"] = ReferenceScenarioFixture(1100, admission: "missing"),
     ["tests-denied-reference"] = ReferenceScenarioFixture(1200, admission: "denied")
 } : null;
+if (dependencyProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-dependency"] = ReferenceScenarioFixture(1300, dependencyConstraint: true) };
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
@@ -231,11 +233,26 @@ static PreparedScenarioFixture ScenarioFixture()
         throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
     return new(plan, draft);
 }
-static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available")
+static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false)
 {
     var template = Input("reference-scenario", revision); var context = template.Source.Context;
     var externalContext = SourceRevisionContext.Committed(new(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(202)), BranchId.Parse(Id(203))), RevisionId.Parse(Id(204))));
     var external = ProjectSource.Create(externalContext, template.Source.Documents, Json(new[] { new { entityId = Id(16), documentId = Id(4), kind = "coglatas.project", schemaVersion = 1, payload = new { } } }));
+    if (dependencyConstraint)
+    {
+        var predicate = Literal(false);
+        var constraint = new { entityId = Id(17), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1,
+            payload = new { predicate, classification = "coglatas.required" } };
+        object Ref(int entity) => new { tenantId = Id(1), projectId = Id(202), entityId = Id(entity), context = externalContext.Data.Value };
+        var relation = new { relationId = Id(18), documentId = Id(4), kind = RelationKinds.Constrains, schemaVersion = 1,
+            descriptor = new { descriptorId = RelationKinds.Constrains, version = 1 },
+            source = new { kind = "coglatas.entity", expectedKind = "coglatas.constraint", reference = Ref(17) },
+            target = new { kind = "coglatas.entity", expectedKind = "coglatas.project", reference = Ref(16) },
+            payload = new { predicateReference = Ref(17), version = externalContext.CommittedRevision!.RevisionId.ToString(),
+                predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(predicate).ToCanonicalBytes()).Data.Value } };
+        external = ProjectSource.Create(externalContext, external.Documents,
+            Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(constraint).ToArray()), Json(new[] { relation }));
+    }
     var referenceType = JsonSerializer.SerializeToNode(new { kind = "coglatas.entity-reference", schemaVersion = 1, nullable = false, acceptsUnknown = true, expectedKind = "coglatas.project" })!.AsObject();
     JsonObject ReferenceValue(int target) => JsonSerializer.SerializeToNode(new { type = referenceType, state = "coglatas.known", value = new {
         tenantId = Id(1), projectId = Id(202), entityId = Id(target), context = externalContext.Data.Value,
@@ -279,6 +296,9 @@ static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool neste
     var runs = new[] { basis, plan.Input, draft.After }.Select(input => ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input, snapshots), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
     if (admission == "available" ? !runs.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]) : runs.Any(result => result == CompilerVerdict.Pass))
         throw new InvalidOperationException("Reference Scenario verdicts did not preserve actual snapshot admission.");
+    if (dependencyConstraint && new[] { basis, plan.Input, draft.After }.Any(input =>
+        PureCoreCompiler.Compile(input, input.Compiler, snapshots).Result.Verdict != CompilerVerdict.Fail))
+        throw new InvalidOperationException("The required external predicate must fail each actual Compiler result independently of local Tests.");
     return new(plan, draft, snapshots);
 }
 

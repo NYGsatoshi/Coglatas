@@ -6,7 +6,7 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class CompilerBindingClosureTests
 {
-    private sealed record Fixture(CompilerInputManifest Input, CompilerMaterializedSnapshot[] Snapshots, SourceRevisionContext A, SourceRevisionContext B);
+    internal sealed record Fixture(CompilerInputManifest Input, CompilerMaterializedSnapshot[] Snapshots, SourceRevisionContext A, SourceRevisionContext B);
     private static JsonObject BooleanType => Obj(new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = false });
     private static JsonObject Boolean(bool value) => Obj(new { type = BooleanType, state = "coglatas.known", value });
     private static JsonObject TaskNode(int entity = 77) => Obj(new { entityId = Id(entity), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1,
@@ -14,7 +14,7 @@ public sealed class CompilerBindingClosureTests
             ports = new[] { new { portId = Id(78), direction = "coglatas.input", type = BooleanType, minimumConnections = 0, maximumConnections = 1, defaultValue = Boolean(true) } } } });
     private static JsonObject TestNode(int entity, int task, PortId port, SourceRevisionContext context) => Obj(new { entityId = Id(entity), documentId = Id(4), kind = "coglatas.project-test", schemaVersion = 1,
         payload = new { assertions = new[] { new { key = "example.target", kind = "coglatas.assert-reference-resolved", target = CompilerAnalysisFixtures.Reference(task, context), portId = port.ToString() } } } });
-    private static Fixture Graph(bool transitive = true, bool backToRoot = false, string bAdmission = "available", bool allConcepts = false,
+    internal static Fixture Graph(bool transitive = true, bool backToRoot = false, string bAdmission = "available", bool allConcepts = false,
         bool falseConstraint = false, bool opaqueA = false, bool twoBVersions = false, bool withRelation = false, int rootTarget = 7, bool typedTransitive = false, bool wrongTypedPin = false)
     {
         var original = ScenarioReferenceRebaseTests.Fixture(); var aContext = original.Snapshot.Snapshot.Source.Context;

@@ -57,9 +57,16 @@ public sealed class CompilerBindingClosure
     }
     public static CompilerBindingClosure Build(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken = default,
         PlanDeclarationReadCache? declarationCache = null)
+        => BuildCore(root, expectedInput, cancellationToken, declarationCache, null);
+
+    internal static CompilerBindingClosure BuildWithinBudget(PartialSemanticModel root, int remainingOperations, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache)
+        => BuildCore(root, root.Input.InputDigest, cancellationToken, declarationCache, remainingOperations);
+
+    private static CompilerBindingClosure BuildCore(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken,
+        PlanDeclarationReadCache? declarationCache, int? remainingOperations)
     {
         ArgumentNullException.ThrowIfNull(root); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
-        var input = root.Input; var remaining = input.ExecutionProfile.MaximumOperations - root.LogicalOperationsConsumed;
+        var input = root.Input; var remaining = remainingOperations ?? input.ExecutionProfile.MaximumOperations - root.LogicalOperationsConsumed;
         var regions = new List<CompilerBindingRegion>();
         CompilerBindingClosure Finish(CompilerBindingClosureState state)
         {

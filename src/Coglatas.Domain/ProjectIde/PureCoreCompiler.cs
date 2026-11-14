@@ -6,8 +6,10 @@ public sealed class CoreCompilation
     public PartialSemanticModel? Model { get; }
     public CompilerSemanticValidation? Validation { get; }
     public CompilerResult Result { get; }
-    internal CoreCompilation(CompilerInputManifest input, PartialSemanticModel? model, CompilerSemanticValidation? validation, CompilerResult result)
-    { Input = input; Model = model; Validation = validation; Result = result; }
+    public CompilerDependencyAnalysis? Dependencies { get; }
+    public int LogicalOperationsConsumed { get; }
+    internal CoreCompilation(CompilerInputManifest input, PartialSemanticModel? model, CompilerSemanticValidation? validation, CompilerResult result, int logicalOperationsConsumed = 0, CompilerDependencyAnalysis? dependencies = null)
+    { Input = input; Model = model; Validation = validation; Result = result; LogicalOperationsConsumed = logicalOperationsConsumed; Dependencies = dependencies; }
 }
 
 /// <summary>Full-reference pure compilation for the declared supported scope. It starts no run and grants no merge authority.</summary>
@@ -20,6 +22,18 @@ public static class PureCoreCompiler
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
         IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
     {
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache);
+        return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+    }
+
+    internal static CoreCompilation CompileRegion(PartialSemanticModel model, IEnumerable<UnitDefinition> units, IEnumerable<CalendarSnapshot> calendars,
+        int remainingOperations, CancellationToken cancellationToken) =>
+        CompileSingle(model.Input, model.Input.Compiler, null, units, calendars, cancellationToken, null, model, remainingOperations);
+
+    private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
+        IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
+        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null)
+    {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
         foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
@@ -31,8 +45,10 @@ public static class PureCoreCompiler
             var reparsed = ProjectSourceCodec.Decode(input.Source.Data.ToCanonicalBytes());
             if (reparsed.Source is null || !reparsed.Source.Digest.Equals(input.Source.Digest))
                 throw new UnsupportedSourceException("Source exceeds the supported canonical AST profile.");
-            var model = ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache);
-            var validation = CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken);
+            var model = boundRegion ?? ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache);
+            var initialRemaining = operationBudget ?? input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;
+            var validation = boundRegion is null ? CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken)
+                : CompilerSemanticValidation.ValidateRegion(model, units, calendars, cancellationToken, initialRemaining);
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = validation.Findings.Select(item => item.Diagnostic).ToList();
             var ids = diagnostics.Select(item => item.DiagnosticId.Value).ToHashSet();
@@ -43,7 +59,7 @@ public static class PureCoreCompiler
                 if (finding.State == RelationFindingState.Invalid) facts.Failed = true; else facts.Incomplete = true;
                 if (finding.Diagnostic.Code.Contains("budget", StringComparison.Ordinal)) facts.Execution = CompilerExecutionState.ResourceExhausted;
             }
-            var remaining = input.ExecutionProfile.MaximumOperations - validation.LogicalOperationsConsumed;
+            var remaining = initialRemaining - (validation.LogicalOperationsConsumed - model.LogicalOperationsConsumed);
             var bindingExhausted = model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var semanticExhausted = validation.Findings.Any(item => item.Diagnostic.StageOrdinal == 2 && item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var exhausted = validation.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
@@ -91,7 +107,7 @@ public static class PureCoreCompiler
                 { Finding(rule, "coglatas.analysis.semantic-closure-unavailable", RelationFindingState.Unknown, root); continue; }
                 if (rule.RuleId == CoreCompilerRules.Constraints)
                 {
-                    var attached = model.Relations.Select(item => item.Relation).OfType<TypedRelation>().Where(item => item.Kind == RelationKinds.Constrains)
+                    var attached = model.Relations.Select(item => item.Relation).OfType<TypedRelation>().Where(item => item.Kind == RelationKinds.Constrains && item.Source.Reference.Context.Equals(input.Source.Context))
                         .Select(item => item.Source.Reference.EntityId).ToHashSet();
                     foreach (var constraint in declarations.OfType<ConstraintPlanDeclaration>())
                     {
@@ -156,7 +172,7 @@ public static class PureCoreCompiler
                     complete ? CompilerCoverage.Complete : CompilerCoverage.Partial, input.InputDigest,
                     [ContentDigest.Compute("coglatas.analysis/1", SourceJson.FromObject(outcomes.Select(item => item.Data.Value).ToArray()).ToCanonicalBytes())], complete ? null : "coglatas.analysis.partial")
             };
-            var artifacts = validation.Ir is { } produced ? new[]
+            var artifacts = boundRegion is null && validation.Ir is { } produced ? new[]
             {
                 new CompilerArtifactReference("coglatas.semantic-model", "coglatas.semantic-model", 1, input.InputDigest, produced.SemanticModelDigest),
                 new CompilerArtifactReference("coglatas.ir", "coglatas.project-ir", 1, input.InputDigest, produced.Digest),
@@ -178,10 +194,10 @@ public static class PureCoreCompiler
                     new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"));
                 result = new(input, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, limited, [diagnostic],
                     [new CompilerStageOutcome("coglatas.publication", 1, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, input.InputDigest, [], "coglatas.analysis.publication-budget")], false);
-                return new(input, model, null, result);
+                return new(input, model, null, result, model.LogicalOperationsConsumed + initialRemaining - Math.Max(0, remaining));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return new(input, model, validation, result);
+            return new(input, model, validation, result, model.LogicalOperationsConsumed + initialRemaining - Math.Max(0, remaining));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         { return new(input, null, null, new(input, CompilerExecutionState.Cancelled, CompilerCoverage.None, [], [], [], false)); }

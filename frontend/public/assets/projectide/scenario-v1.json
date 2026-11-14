@@ -5900,7 +5900,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -5913,7 +5913,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "c6ecb38b60938360bb95ab99152043aafb23652960263e2b78c3a7df7c39a57b"
+                    "value": "43c563d9beee275d01d44d2527763c3db0c7d892e15748765d083bf168d3068e"
                   },
                   {
                     "algorithm": "sha-256",
@@ -5927,7 +5927,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -5936,7 +5936,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -5945,7 +5945,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -5958,7 +5958,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "c6ecb38b60938360bb95ab99152043aafb23652960263e2b78c3a7df7c39a57b"
+                    "value": "43c563d9beee275d01d44d2527763c3db0c7d892e15748765d083bf168d3068e"
                   },
                   {
                     "algorithm": "sha-256",
@@ -5989,7 +5989,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -6005,7 +6005,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "c6ecb38b60938360bb95ab99152043aafb23652960263e2b78c3a7df7c39a57b"
+                  "value": "43c563d9beee275d01d44d2527763c3db0c7d892e15748765d083bf168d3068e"
                 },
                 {
                   "algorithm": "sha-256",
@@ -6022,7 +6022,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -6034,7 +6034,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -6046,7 +6046,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -6062,7 +6062,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "c6ecb38b60938360bb95ab99152043aafb23652960263e2b78c3a7df7c39a57b"
+                  "value": "43c563d9beee275d01d44d2527763c3db0c7d892e15748765d083bf168d3068e"
                 },
                 {
                   "algorithm": "sha-256",
@@ -6134,14 +6134,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "f57a20ce7812b9cbc91f6c76e7d5ebeef2fe02781aab9e11abd1dfe09d2e216b"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "43c563d9beee275d01d44d2527763c3db0c7d892e15748765d083bf168d3068e"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "da761826-1d42-8511-bf73-f206ffc4be22",
+      "resultId": "e2459a1c-7065-88c8-8b88-764951f91e48",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "f63c5cf1c6ffd022a7929310626f13a07d27a417357276a761a2d0f4519418c3"
+        "value": "f5bc2a93cf78e04be9ddd5beedb6610b1e3c259d975cb9bd9614cac398ed1b46"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -8218,7 +8235,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -8231,7 +8248,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "b6e1913d691504bb77862871c7a793ed20b54ce33875999661d54302d28429cf"
+                    "value": "c12ed85507ea19b24f1d93f68791b18e0d02d7458d682bc6c4c594c6ee15bfd0"
                   },
                   {
                     "algorithm": "sha-256",
@@ -8245,7 +8262,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -8254,7 +8271,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -8263,7 +8280,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -8276,7 +8293,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "b6e1913d691504bb77862871c7a793ed20b54ce33875999661d54302d28429cf"
+                    "value": "c12ed85507ea19b24f1d93f68791b18e0d02d7458d682bc6c4c594c6ee15bfd0"
                   },
                   {
                     "algorithm": "sha-256",
@@ -8307,7 +8324,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -8323,7 +8340,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "b6e1913d691504bb77862871c7a793ed20b54ce33875999661d54302d28429cf"
+                  "value": "c12ed85507ea19b24f1d93f68791b18e0d02d7458d682bc6c4c594c6ee15bfd0"
                 },
                 {
                   "algorithm": "sha-256",
@@ -8340,7 +8357,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -8352,7 +8369,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -8364,7 +8381,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -8380,7 +8397,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "b6e1913d691504bb77862871c7a793ed20b54ce33875999661d54302d28429cf"
+                  "value": "c12ed85507ea19b24f1d93f68791b18e0d02d7458d682bc6c4c594c6ee15bfd0"
                 },
                 {
                   "algorithm": "sha-256",
@@ -8452,14 +8469,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "d7e276a41564770af3171d72fc916af00d95f27126bf3dd724dc24f7f28c6fdc"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "c12ed85507ea19b24f1d93f68791b18e0d02d7458d682bc6c4c594c6ee15bfd0"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "d3987094-0ad0-833c-b463-026a003a6f50",
+      "resultId": "21882db7-182b-8b2e-8f7e-bb2ebc11f388",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "91abd6b699f570b4a69188d3a2f01380b9d07424866de87f10d3a2be3fd500c1"
+        "value": "5a43610d12c6b803aebd98a989dd9df6ab2c7582fe4f5e4cf7b07eea5f31c8c8"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -10463,7 +10497,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -10476,7 +10510,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "07b7a5831dfa4fca1e1a9cd81a873087686c241a9188d584d9080864ab646eee"
+                    "value": "3b11117eb18d049e4316c9365e2d45b75143cb09d843782d88881dcd3e67c153"
                   },
                   {
                     "algorithm": "sha-256",
@@ -10490,7 +10524,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -10499,7 +10533,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -10508,7 +10542,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -10521,7 +10555,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "07b7a5831dfa4fca1e1a9cd81a873087686c241a9188d584d9080864ab646eee"
+                    "value": "3b11117eb18d049e4316c9365e2d45b75143cb09d843782d88881dcd3e67c153"
                   },
                   {
                     "algorithm": "sha-256",
@@ -10552,7 +10586,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -10568,7 +10602,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "07b7a5831dfa4fca1e1a9cd81a873087686c241a9188d584d9080864ab646eee"
+                  "value": "3b11117eb18d049e4316c9365e2d45b75143cb09d843782d88881dcd3e67c153"
                 },
                 {
                   "algorithm": "sha-256",
@@ -10585,7 +10619,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -10597,7 +10631,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -10609,7 +10643,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -10625,7 +10659,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "07b7a5831dfa4fca1e1a9cd81a873087686c241a9188d584d9080864ab646eee"
+                  "value": "3b11117eb18d049e4316c9365e2d45b75143cb09d843782d88881dcd3e67c153"
                 },
                 {
                   "algorithm": "sha-256",
@@ -10697,14 +10731,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "8baeae31a8485a0618c1de6a66cc06e36c5bc0189d172905d1193ccdb6aa08c4"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "3b11117eb18d049e4316c9365e2d45b75143cb09d843782d88881dcd3e67c153"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "2a6d6bf3-3dd2-8c61-a9ce-2dfc0ae60e80",
+      "resultId": "cc78ab31-e5ed-8e97-80c4-b6afcaa803e6",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "d62a4e9338372db2a6a59e365a920a2682a65c1c88836e277a3961d983dff6b6"
+        "value": "ef8463effb8971ea519b2b983a1b553d600c27567a4977e3f2b726b2f4e6b0aa"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -12510,7 +12561,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -12523,7 +12574,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "602478eea25223926821db5494ff96c34d0d963cf2458b4951b28c84bf58c2fc"
+                    "value": "3ecd67fd8e90af1fb804614bb7f44136181aea0fa7e61c41072574fa3034aed6"
                   },
                   {
                     "algorithm": "sha-256",
@@ -12537,7 +12588,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -12546,7 +12597,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -12555,7 +12606,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -12568,7 +12619,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "602478eea25223926821db5494ff96c34d0d963cf2458b4951b28c84bf58c2fc"
+                    "value": "3ecd67fd8e90af1fb804614bb7f44136181aea0fa7e61c41072574fa3034aed6"
                   },
                   {
                     "algorithm": "sha-256",
@@ -12599,7 +12650,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -12615,7 +12666,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "602478eea25223926821db5494ff96c34d0d963cf2458b4951b28c84bf58c2fc"
+                  "value": "3ecd67fd8e90af1fb804614bb7f44136181aea0fa7e61c41072574fa3034aed6"
                 },
                 {
                   "algorithm": "sha-256",
@@ -12632,7 +12683,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -12644,7 +12695,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -12656,7 +12707,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -12672,7 +12723,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "602478eea25223926821db5494ff96c34d0d963cf2458b4951b28c84bf58c2fc"
+                  "value": "3ecd67fd8e90af1fb804614bb7f44136181aea0fa7e61c41072574fa3034aed6"
                 },
                 {
                   "algorithm": "sha-256",
@@ -12744,14 +12795,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "3ecd67fd8e90af1fb804614bb7f44136181aea0fa7e61c41072574fa3034aed6"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "f280fe74-36da-8b3a-8bbb-5f53f7ce397b",
+      "resultId": "b9b76422-18ac-87ef-bd7c-bbad97c5db0c",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "f4bf47c05410fdb0538ac25dca5ab630f3be5026aab981eea693235cb581160b"
+        "value": "aabf1e41c8b1da3f9fd2448080ed54d07766a85252f83fc64c4fe520df589368"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -15172,7 +15240,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -15189,7 +15257,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "684cdadad172b930bde18bbc7146d1a7edcfd01f923d22b442109eb50d0a93a8"
+                    "value": "8f3ad229276eef0dfd6608e3d9de453eeda41e3b07fa081780349ddc386c8b6f"
                   }
                 ]
               },
@@ -15199,7 +15267,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -15208,7 +15276,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -15217,7 +15285,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -15234,7 +15302,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "684cdadad172b930bde18bbc7146d1a7edcfd01f923d22b442109eb50d0a93a8"
+                    "value": "8f3ad229276eef0dfd6608e3d9de453eeda41e3b07fa081780349ddc386c8b6f"
                   }
                 ]
               },
@@ -15261,7 +15329,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -15281,7 +15349,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "684cdadad172b930bde18bbc7146d1a7edcfd01f923d22b442109eb50d0a93a8"
+                  "value": "8f3ad229276eef0dfd6608e3d9de453eeda41e3b07fa081780349ddc386c8b6f"
                 }
               ]
             },
@@ -15294,7 +15362,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -15306,7 +15374,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -15318,7 +15386,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -15338,7 +15406,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "684cdadad172b930bde18bbc7146d1a7edcfd01f923d22b442109eb50d0a93a8"
+                  "value": "8f3ad229276eef0dfd6608e3d9de453eeda41e3b07fa081780349ddc386c8b6f"
                 }
               ]
             },
@@ -15406,14 +15474,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "5af3999f8026768653af6aa26ec84016c72811a187ac5a209662687f9b9bdc18"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "8f3ad229276eef0dfd6608e3d9de453eeda41e3b07fa081780349ddc386c8b6f"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "cf90f8a6-af0a-8097-991b-5783534d2fbf",
+      "resultId": "6b1bb107-81c8-8097-badc-08229c649526",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "81e9a8eced0cabbd89252c30085117c26cc5299a69bca0a78ff0e77eb48893f8"
+        "value": "a3c321205c77d546d704af251f7a9f844b4d0608c68f1edca34d4fdbe5c55e21"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -17560,7 +17645,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.constraints",
@@ -17573,11 +17658,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "39ef18130559a32bc434fcd051abf941bf64500fb33b8183576006fd030cd906"
+                    "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
+                    "value": "89bf8685cba73f8866ed6e4de5d26298455f19304eef1bcaf0099c6ffacf2a17"
                   }
                 ]
               },
@@ -17587,7 +17672,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.relations",
@@ -17596,7 +17681,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.requirements",
@@ -17605,7 +17690,7 @@
             {
               "basis": {
                 "kind": "coglatas.missing",
-                "missingReason": "coglatas.analysis.incomplete-basis",
+                "missingReason": "coglatas.analysis.dependency-incomplete",
                 "premises": []
               },
               "ruleId": "coglatas.core.resources",
@@ -17618,11 +17703,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "39ef18130559a32bc434fcd051abf941bf64500fb33b8183576006fd030cd906"
+                    "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
+                    "value": "89bf8685cba73f8866ed6e4de5d26298455f19304eef1bcaf0099c6ffacf2a17"
                   }
                 ]
               },
@@ -17649,7 +17734,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -17665,11 +17750,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "39ef18130559a32bc434fcd051abf941bf64500fb33b8183576006fd030cd906"
+                  "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
+                  "value": "89bf8685cba73f8866ed6e4de5d26298455f19304eef1bcaf0099c6ffacf2a17"
                 }
               ]
             },
@@ -17682,7 +17767,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -17694,7 +17779,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -17706,7 +17791,7 @@
             "coverage": "coglatas.partial",
             "evidence": {
               "kind": "coglatas.missing",
-              "missingReason": "coglatas.analysis.incomplete-basis",
+              "missingReason": "coglatas.analysis.dependency-incomplete",
               "premises": []
             },
             "execution": "coglatas.completed",
@@ -17722,11 +17807,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "39ef18130559a32bc434fcd051abf941bf64500fb33b8183576006fd030cd906"
+                  "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
+                  "value": "89bf8685cba73f8866ed6e4de5d26298455f19304eef1bcaf0099c6ffacf2a17"
                 }
               ]
             },
@@ -17794,14 +17879,31 @@
             ],
             "stageId": "coglatas.analysis",
             "version": 1
+          },
+          {
+            "coverage": "coglatas.complete",
+            "execution": "coglatas.completed",
+            "inputDigest": {
+              "algorithm": "sha-256",
+              "value": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50"
+            },
+            "limitation": null,
+            "outputs": [
+              {
+                "algorithm": "sha-256",
+                "value": "89bf8685cba73f8866ed6e4de5d26298455f19304eef1bcaf0099c6ffacf2a17"
+              }
+            ],
+            "stageId": "coglatas.dependency-analysis",
+            "version": 1
           }
         ],
         "verdict": "coglatas.inconclusive"
       },
-      "resultId": "485b6e52-bb00-8479-ba0d-fe303d4ce57b",
+      "resultId": "bc4d23b5-1aba-8b91-b602-84b656aeb471",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "ff221069f56326322ca1736458f199a5a021429606494bd31b29c8a862671f08"
+        "value": "46c7040ddf23f99045cf0364684e0d4c9a847e92c798da628a6c4574e9fc50f7"
       },
       "freshness": "Current",
       "changedDimensions": [],

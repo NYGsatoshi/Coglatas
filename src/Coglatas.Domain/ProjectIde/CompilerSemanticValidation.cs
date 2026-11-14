@@ -9,6 +9,9 @@ public sealed class CompilerSemanticValidation
     public IReadOnlyList<CompilerBindingFinding> Findings { get; }
     public IReadOnlyList<RelationFinding> DeferredChecks { get; }
     public DerivedProjectIr? Ir { get; }
+    internal IReadOnlyList<UnitDefinition> ReadUnits { get; private init; } = [];
+    internal IReadOnlyList<CalendarSnapshot> ReadCalendars { get; private init; } = [];
+    internal bool SuppliesRead { get; private init; }
     public bool StructuralClosureValidated => Ir is not null;
     public int LogicalOperationsConsumed { get; }
     private CompilerSemanticValidation(PartialSemanticModel model, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationFinding> deferred, DerivedProjectIr? ir, int logicalOperationsConsumed)
@@ -20,10 +23,20 @@ public sealed class CompilerSemanticValidation
 
     public static CompilerSemanticValidation Validate(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units = null,
         IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default)
+        => ValidateCore(model, units, calendars, cancellationToken, null, false);
+
+    internal static CompilerSemanticValidation ValidateRegion(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units,
+        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int remainingOperations)
+        => ValidateCore(model, units, calendars, cancellationToken, remainingOperations, true);
+
+    private static CompilerSemanticValidation ValidateCore(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units,
+        IEnumerable<CalendarSnapshot?>? calendars, CancellationToken cancellationToken, int? remainingOperations, bool scopedRegion)
     {
         ArgumentNullException.ThrowIfNull(model); cancellationToken.ThrowIfCancellationRequested();
         var input = model.Input; var source = input.Source;
-        var remaining = input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;
+        var remaining = remainingOperations ?? input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;
+        var initialRemaining = remaining;
+        UnitDefinition[] unitList = []; CalendarSnapshot[] calendarList = []; var suppliesRead = false;
         var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
         var findings = model.Findings.ToList(); var deferred = new List<RelationFinding>();
         var ids = findings.Select(item => item.Diagnostic.DiagnosticId.Value).ToHashSet();
@@ -49,12 +62,13 @@ public sealed class CompilerSemanticValidation
             if (relation.Descriptor.RequiredCapabilities.Any(capability => !capabilities.Contains(capability)))
                 Add("coglatas.semantic.capability-unavailable", RelationFindingState.Unsupported, relation.Location);
         var supplyBudgetExhausted = false;
-        if (!ReadSupply(units, 1024, unit => unit.Data, out var unitList) ||
-            !ReadSupply(calendars, 128, calendar => calendar.Data, out var calendarList))
+        if (!ReadSupply(units, 1024, unit => unit.Data, out unitList) ||
+            !ReadSupply(calendars, 128, calendar => calendar.Data, out calendarList))
         {
             Add(supplyBudgetExhausted ? "coglatas.semantic.budget-exhausted" : "coglatas.semantic.materialization-budget",
                 RelationFindingState.Unknown, root); return Result(null);
         }
+        suppliesRead = true;
         if (unitList.Select(item => item.UnitId).Distinct(StringComparer.Ordinal).Count() != unitList.Length)
             Add("coglatas.semantic.unit-ambiguous", RelationFindingState.Invalid, root);
         if (calendarList.Select(item => item.Reference.CalendarId).Distinct(StringComparer.Ordinal).Count() != calendarList.Length)
@@ -70,7 +84,7 @@ public sealed class CompilerSemanticValidation
                 !zonePins.Any(pin => pin.ArtifactId == "coglatas.time-zone/" + calendar.TimeZone.TimeZoneId && pin.Version == calendar.TimeZone.Version && pin.Digest.Equals(calendar.TimeZone.RulesDigest)))
                 Add("coglatas.semantic.calendar-pin", RelationFindingState.Invalid, root);
         var externalKeys = model.Symbols.Where(symbol => !symbol.Context.Equals(source.Context)).Select(symbol => symbol.Key).ToHashSet(StringComparer.Ordinal);
-        if (model.References.Any(reference => reference.SymbolKey is not null && externalKeys.Contains(reference.SymbolKey)))
+        if (!scopedRegion && model.References.Any(reference => reference.SymbolKey is not null && externalKeys.Contains(reference.SymbolKey)))
             Add("coglatas.semantic.external-closure-not-lowered", RelationFindingState.Unsupported, root);
         foreach (var declaration in model.Declarations)
         {
@@ -100,12 +114,19 @@ public sealed class CompilerSemanticValidation
         DerivedProjectIr? ir = null;
         if (model.BindingComplete && findings.Count == 0)
         {
-            try { ir = new(model); }
+            try
+            {
+                ir = new(model, scopedRegion);
+                if (scopedRegion && (!ProjectSemanticBinder.WithinBudget(ir.Data.Value, ref remaining, cancellationToken) ||
+                    !ProjectSemanticBinder.WithinBudget(ir.SourceMap.Value, ref remaining, cancellationToken)))
+                { ir = null; Add("coglatas.semantic.budget-exhausted", RelationFindingState.Unknown, root); }
+            }
             catch (Exception error) when (error is FormatException or OverflowException)
             { Add("coglatas.semantic.artifact-bound", RelationFindingState.Unknown, root); }
         }
         return Result(ir);
-        CompilerSemanticValidation Result(DerivedProjectIr? produced) => new(model, findings, deferred, produced, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining));
+        CompilerSemanticValidation Result(DerivedProjectIr? produced) => new(model, findings, deferred, produced, model.LogicalOperationsConsumed + initialRemaining - Math.Max(0, remaining))
+        { ReadUnits = new ImmutableListView<UnitDefinition>(unitList), ReadCalendars = new ImmutableListView<CalendarSnapshot>(calendarList), SuppliesRead = suppliesRead };
 
         bool ReadSupply<T>(IEnumerable<T?>? supply, int maximum, Func<T, SourceJson> data, out T[] values) where T : class
         {
