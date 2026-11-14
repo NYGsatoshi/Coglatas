@@ -79,6 +79,13 @@ describe('Actual Core Scenario reference consumer journeys', () => {
     expect(coreOriginEditsMatch(unknown, changed, [{ kind: 'OriginContext', path: '/basis/opaque/value/origin/context' }], b.cases[3].context, b.cases[4].context)).toBe(false);
     expect(coreOriginEditsMatch(unknown, unknown, [], b.cases[3].context, b.cases[4].context)).toBe(true);
   });
+  it('keeps escaped pointer segments separate from the actual origin/context path', () => {
+    const b = bundle(); const p = b.cases[3].preparedScenario!; const row = JSON.parse(p.appliedValues.scenario.text).values.find((x: { originEdits: unknown[] }) => x.originEdits.length);
+    const declared = JSON.parse(row.assumption.text).value; declared.value['origin/context'] = structuredClone(b.cases[3].context);
+    const changed = structuredClone(declared); changed.value.origin.context = structuredClone(b.cases[4].context);
+    expect(coreOriginEditsMatch(declared, changed, [{ kind: 'OriginContext', path: '/value/origin~1context' }], b.cases[3].context, b.cases[4].context)).toBe(false);
+    expect(coreOriginEditsMatch(declared, changed, [{ kind: 'OriginContext', path: '/value/origin/context' }], b.cases[3].context, b.cases[4].context)).toBe(true);
+  });
   it('validates only a Core-announced Set permutation and refuses a list permutation or pin change', () => {
     const b = bundle(); const p = b.cases[3].preparedScenario!; const row = JSON.parse(p.appliedValues.scenario.text).values.find((x: { originEdits: unknown[] }) => x.originEdits.length);
     const declared = JSON.parse(row.assumption.text).value; const applied = JSON.parse(row.value.text);

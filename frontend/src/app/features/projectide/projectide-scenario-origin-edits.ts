@@ -25,7 +25,7 @@ export function coreOriginEditsMatch(declared: unknown, applied: unknown, edits:
       const path = edit['path'].slice(1).split('/').map(key => key.replace(/~1/gu, '/').replace(/~0/gu, '~'));
       const key = edit['kind'] + ':' + edit['path']; if (seen.has(key)) return false; seen.add(key);
       if (edit['kind'] === 'OriginContext' && fields(edit, ['kind', 'path'])) {
-        if (path.slice(-3).join('/') !== 'value/origin/context') return false;
+        if (path.length < 3 || path.at(-3) !== 'value' || path.at(-2) !== 'origin' || path.at(-1) !== 'context') return false;
         const typed = at(path.slice(0, -3));
         if (!object(typed) || typed['state'] !== 'coglatas.known' || !object(typed['type']) ||
             !['coglatas.entity-reference', 'coglatas.document-reference', 'coglatas.resource-reference', 'coglatas.external-snapshot-reference'].includes(String(typed['type']['kind'])) ||
