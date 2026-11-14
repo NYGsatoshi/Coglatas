@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import os
+import secrets
 import sys
 import tempfile
 import unittest
@@ -66,7 +67,7 @@ class RemainingPerformanceCliTests(unittest.TestCase):
                                  'workspaceId': 'workspace', 'taskListProjectId': 'task-project',
                                  'ganttProjectId': 'gantt-project', 'kanbanProjectId': 'kanban-project'},
                    'fixtureHash': 'synthetic'}
-        environment = {'COGLATAS_PERFORMANCE_PASSWORD': 'synthetic-unit-credential'} if with_password else {}
+        environment = {'COGLATAS_PERFORMANCE_PASSWORD': secrets.token_urlsafe(24)} if with_password else {}
         errors = io.StringIO()
         with patch.object(sys, 'argv', argv), patch.dict(os.environ, environment, clear=True), \
                 patch.object(warmup, 'validate_target', return_value='http://127.0.0.1'), \
