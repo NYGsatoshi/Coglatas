@@ -20,6 +20,7 @@ from sec_arch_http_theory_cases import THEORY_CASES, case_id
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 MAX_TRX_BYTES = 64 * 1024 * 1024
+TRUSTED_TRX_RELATIVE = Path("artifacts/test-results/backend/backend-tests.trx")
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
 CATALOG = {
@@ -263,6 +264,17 @@ def instant(value: str) -> datetime:
     return result.astimezone(timezone.utc)
 
 
+def trusted_execution_trx(root: Path, candidate: Path) -> Path:
+    """Select the single repository-owned backend TRX, never a caller-chosen file."""
+    repository = root.resolve(strict=True)
+    trusted = repository / TRUSTED_TRX_RELATIVE
+    # The producer's root and filename come from this source, not from --trx.
+    # Realpath comparison rejects traversal and symlink escapes before the open.
+    if candidate.resolve(strict=True) != trusted:
+        raise ValueError("Execution evidence does not match the trusted backend report.")
+    return trusted
+
+
 def read_execution_trx(path: Path) -> bytes:
     """Read one unchanged bounded regular file before any XML interpretation."""
     def identity(info):
@@ -377,7 +389,7 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
     if (stamp.is_file() and not binding) or (os.environ.get("GITHUB_ACTIONS") == "true" and not binding):
         raise ValueError("Required build stamp missing or mismatched.")
     assemblies = capture_assemblies(root)
-    data = read_execution_trx(trx)
+    data = read_execution_trx(trusted_execution_trx(root, trx))
     observed = observed_trx(data, now)
     report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
               "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,

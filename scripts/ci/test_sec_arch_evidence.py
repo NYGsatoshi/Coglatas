@@ -73,6 +73,36 @@ class ExecutionInputTests(unittest.TestCase):
             self.assertEqual(data, evidence.read_execution_trx(path))
             self.assertEqual("PASS", evidence.observed_trx(evidence.read_execution_trx(path), NOW)["outcome"])
 
+    def test_capture_rejects_outside_paths_even_when_they_are_regular(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = Path(directory)
+            canonical = root / evidence.TRUSTED_TRX_RELATIVE
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+            canonical.write_bytes(b"canonical synthetic TRX")
+            foreign = Path(outside) / "foreign.trx"
+            foreign.write_bytes(b"foreign synthetic data")
+            alternate = root / "artifacts/another.trx"
+            alternate.write_bytes(b"another synthetic TRX")
+            self.assertEqual(canonical, evidence.trusted_execution_trx(root, canonical))
+            for rejected in (foreign, alternate, root / "artifacts/test-results/backend/../../another.trx"):
+                with self.subTest(path_type="external-or-alternate"), self.assertRaises(ValueError):
+                    evidence.trusted_execution_trx(root, rejected)
+            sha = "a" * 40
+            with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}), \
+                    patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]), \
+                    patch.object(evidence, "capture_assemblies", return_value={}), \
+                    patch.object(evidence, "read_execution_trx") as reader:
+                with self.assertRaises(ValueError):
+                    evidence.capture(root, foreign, sha, NOW, {"fixture": "synthetic"})
+                reader.assert_not_called()
+            canonical.unlink()
+            try:
+                canonical.symlink_to(foreign)
+            except (OSError, NotImplementedError):
+                self.skipTest("Creating a test-only symlink is unavailable on this platform.")
+            with self.assertRaises(ValueError):
+                evidence.trusted_execution_trx(root, canonical)
+
     def test_oversized_input_is_rejected_before_open(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "execution.trx"
@@ -154,7 +184,9 @@ class CaptureInvocationProcessTests(unittest.TestCase):
         stamp = root / "artifacts/ci/dotnet-build-sha"
         stamp.parent.mkdir(parents=True)
         stamp.write_text(sha, encoding="utf-8")
-        (root / "artifacts/execution.trx").write_bytes(ET.tostring(fixture()))
+        canonical = root / evidence.TRUSTED_TRX_RELATIVE
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.write_bytes(ET.tostring(fixture()))
         return sha
 
     @staticmethod
@@ -169,7 +201,7 @@ root = Path(sys.argv[1])
 sys.path.insert(0, str(root / 'scripts/ci'))
 import sec_arch_evidence as evidence
 try:
-    report = evidence.capture(root, root / 'artifacts/execution.trx', sys.argv[2],
+    report = evidence.capture(root, root / 'artifacts/test-results/backend/backend-tests.trx', sys.argv[2],
         datetime(2026, 10, 9, 13, tzinfo=timezone.utc), {'fixture': 'SYNTHETIC_INVOCATION_ONLY'})
 except ValueError as error:
     print(str(error))
@@ -244,7 +276,8 @@ class ExecutionEvidenceTests(unittest.TestCase):
             stamp = root / "artifacts/ci/dotnet-build-sha"
             stamp.parent.mkdir(parents=True)
             stamp.write_text(sha)
-            trx = root / "execution.trx"
+            trx = root / evidence.TRUSTED_TRX_RELATIVE
+            trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
             with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
                 report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})

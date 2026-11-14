@@ -11,9 +11,13 @@ the observed size plus one byte. Both SEC-17 failure summaries use the same
 reader and retain a null execution digest for unavailable input.
 
 The XML catalogue, owner selection, outcome rules, receipt schemas, source/build
-bindings and sanitized diagnostics retain their existing contracts. There is no
-new path sandbox, attacker-reachability assertion, Sonar disposition or claim of
-complete SEC-14/SEC-17 assurance. All provider findings and Owner holds remain.
+bindings and sanitized diagnostics retain their existing contracts. The SEC-ARCH capture additionally binds its CLI TRX input to the sole canonical
+backend producer path `artifacts/test-results/backend/backend-tests.trx` within
+the repository's physical source root. Realpath validation rejects arbitrary
+files, traversal and symlink escapes before the bounded descriptor read. This
+is a scope-specific path restriction, not a general directory sandbox or an
+attacker-reachability, Sonar disposition or complete SEC-14/SEC-17 assurance
+claim. Provider findings and Owner holds remain open.
 
 Local verification uses a separate synthetic Python 3.12 and Git container with
 network disabled during execution. The existing parser/capture and adjoining
