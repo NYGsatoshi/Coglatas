@@ -61,3 +61,7 @@ class ApprovedEvidenceHistoryTests(unittest.TestCase):
         (self.evidence / "README.md").unlink()
         with self.assertRaisesRegex(PerformanceContractError, "approved-campaign-evidence-is-immutable"):
             self.validate_history()
+
+
+if __name__ == '__main__':
+    unittest.main()

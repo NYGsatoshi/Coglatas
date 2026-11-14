@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 75
     services:
       postgres:
-        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -257,6 +257,7 @@ jobs:
             tests/ci/test_performance_api.py \
             tests/ci/test_performance_api_diagnostics.py \
             tests/ci/test_performance_api_collection.py \
+            tests/ci/test_performance_environment.py \
             scripts/ci/test_av_mig_contract_boundary.py \
             scripts/ci/test_av_mig_contract_boundary_hardening.py \
             scripts/ci/test_av_mig_contract_boundary_adversarial.py \

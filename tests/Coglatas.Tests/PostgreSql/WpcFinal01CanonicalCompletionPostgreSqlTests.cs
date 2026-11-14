@@ -309,7 +309,7 @@ public sealed class WpcFinal01CanonicalCompletionPostgreSqlTests
                 new UpdateProjectMemberRequest(ProjectRole.Viewer));
             var remove = await membership.Service.RemoveAsync(graph.ProjectId, graph.ReaderUserId);
 
-            Assert.All(new[] { add.ErrorDetail?.Code, update.ErrorDetail?.Code, remove.ErrorDetail?.Code },
+            Assert.All([add.ErrorDetail?.Code, update.ErrorDetail?.Code, remove.ErrorDetail?.Code],
                 code => Assert.Equal("InvalidStateTransition", code));
 
             await using var verify = CreateTenantContext(database, graph);
