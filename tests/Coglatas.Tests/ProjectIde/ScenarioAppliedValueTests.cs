@@ -47,6 +47,9 @@ public sealed class ScenarioAppliedValueTests
         var plan = Plan(f); var projection = ProjectScenarioAppliedValues.Read(plan, plan.Input);
         Assert.Equal(ProjectScenarioState.Ready, projection.State); Check(projection.Projection!, plan, plan.Input);
         Assert.NotEqual(f.Change.Value, projection.Projection!.Values[0].Value);
+        Assert.Single(projection.Projection.Values[0].OriginEdits);
+        Assert.Equal("OriginContext", projection.Projection.Values[0].OriginEdits[0].Value.GetProperty("kind").GetString());
+        Assert.Equal(projection.Projection.Values[0].OriginEdits[0], SourceJson.Parse(projection.Projection.Data.Value.GetProperty("values")[0].GetProperty("originEdits")[0].GetRawText()));
         Assert.Equal(projection.Projection.Data, ProjectScenarioAppliedValues.Read(plan, plan.Input).Projection!.Data);
         var later = ScenarioReferenceRebaseTests.Fixture(55, wrapper: wrapper); var model = ProjectSemanticBinder.Bind(later.Input, [later.Snapshot]);
         var rebased = ProjectScenarios.Rebase(plan, model, later.Input.InputDigest, ScenarioRevisionId.Parse(Id(802))).Plan!;

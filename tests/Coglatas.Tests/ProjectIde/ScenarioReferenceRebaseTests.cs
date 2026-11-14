@@ -184,6 +184,8 @@ public sealed class ScenarioReferenceRebaseTests
         Assert.All(references, x => Assert.Equal(f.Snapshot.Snapshot.Source.Context, x.Context));
         Assert.NotEqual(CompilerVerdict.Pass, Run(result.Plan.Input, later.Snapshot).Verdict);
         Assert.Equal(ValueDecodeStatus.Decoded, TypedProjectValueCodec.Decode(value.Data).Status);
+        var projected = ProjectScenarioAppliedValues.Read(result.Plan, result.Plan.Input).Projection!;
+        Assert.NotNull(projected); Assert.Contains(projected.Values[0].OriginEdits, edit => edit.Value.GetProperty("kind").GetString() == "SetOrder");
     }
 
     [Fact]

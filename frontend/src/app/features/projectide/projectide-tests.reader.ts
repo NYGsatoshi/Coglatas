@@ -1,5 +1,5 @@
 import { Digest, PreviewCase, sameContext, sameDigest } from './projectide.contracts';
-import { isProjectLocationShape } from './projectide-preview.validation';
+import { isRevisionContextShape, isProjectLocationShape } from './projectide-preview.validation';
 import { AdmittedLocalTests, LocalProjectTestProjection, LocalProjectTestRun } from './projectide-tests.contracts';
 
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -72,7 +72,7 @@ function freeze<T>(value: T): T {
 function basis(value: PreviewCase): string {
   return JSON.stringify({ context: value.context, desiredContext: value.desiredContext, freshness: value.freshness,
     inputId: value.inputId, inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, source: value.source, sourceText: value.sourceText, manifest: value.manifest, declarations: value.declarations,
-    relations: value.relations, inspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
+    relations: value.relations, materializedSnapshots: value.materializedSnapshots, inspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
 }
 
 /** Matches the immutable admitted local projection; it grants no producer trust or current authority. */
@@ -88,6 +88,7 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
   if (!projection(value.localProjectTests)) return fail();
   const data = structuredClone(value.localProjectTests); const capturedBasis = basis(value);
   if (new TextEncoder().encode(capturedBasis).byteLength > 4_194_304) return fail();
+  const snapshotsComplete = await readSnapshotMaterialization(value);
   const originalSource = parse(value.sourceText); const originalInput = parse(data.inputText);
   if (!record(originalSource) || !record(originalInput) || !equal(originalSource, value.source) || !equal(originalInput, value.manifest['manifest']) ||
       !equal(originalInput['sourceDigest'], value.sourceDigest) || !equal(originalInput['sourceContext'], value.context) ||
@@ -105,6 +106,7 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
       typeof plan['discoveryComplete'] !== 'boolean' || typeof plan['bindingComplete'] !== 'boolean' || !record(plan['limits']) ||
       !integer(plan['limits']['MaximumTests'], 256) || plan['limits']['MaximumTests'] === 0 ||
       !integer(plan['limits']['MaximumAssertions'], 1024) || plan['limits']['MaximumAssertions'] === 0) return fail();
+  if (!snapshotsComplete && (plan['bindingComplete'] || run['verdict'] === 'Pass' || value.result.verdict === 'coglatas.pass')) return fail();
   const engine = plan['engine'];
   if (!record(engine) || engine['artifactId'] !== 'coglatas.synthetic-project-test-evaluator' || engine['version'] !== '1' || !digest(engine['digest']) ||
       engine['digest'].value !== 'ff7ca4ae92e2186d05eb83f5898637ce6eb2d01afbbb4f130b739b8aa93b5488') return fail();
@@ -193,3 +195,38 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
 }
 
 export { parse as parseLocalTestJson, matchesDigest as verifyLocalTestDigest };
+
+/** Synthetic bytes and input pins only. Admission labels do not establish current access or producer trust. */
+async function readSnapshotMaterialization(value: PreviewCase): Promise<boolean> {
+  const manifest = value.manifest['manifest']; const settings = record(manifest) ? manifest['settings'] : null;
+  const pins = record(settings) ? settings['authorizedExternalSnapshots'] : null;
+  if (!Array.isArray(pins) || pins.length > 32) return fail();
+  const raw: unknown = value.materializedSnapshots;
+  if (raw == null) return pins.length === 0 ? true : fail();
+  const fields = (item: Record<string, unknown>, keys: readonly string[]) => Object.keys(item).length === keys.length && keys.every(key => Object.hasOwn(item, key));
+  if (!record(raw) || !fields(raw, ['format', 'inputDigest', 'entries']) || raw['format'] !== 'coglatas.local-snapshot-materialization/1' ||
+      !equal(raw['inputDigest'], value.inputDigest) || !Array.isArray(raw['entries']) || raw['entries'].length > 32 ||
+      new TextEncoder().encode(JSON.stringify(raw)).byteLength > 4_194_304) return fail();
+  let complete = true; let bytes = 0; const seen = new Set<string>();
+  for (const entry of raw['entries']) {
+    if (!record(entry) || !token(entry['snapshotId']) || !token(entry['version']) || !isRevisionContextShape(entry['context']) || seen.has(entry['snapshotId'])) return fail();
+    seen.add(entry['snapshotId']);
+    const matching = pins.filter(pin => record(pin) && pin['snapshotId'] === entry['snapshotId']);
+    if (matching.length !== 1 || !record(matching[0]) || matching[0]['version'] !== entry['version'] || !equal(matching[0]['context'], entry['context'])) return fail();
+    if (entry['admission'] === 'Unavailable') {
+      if (!fields(entry, ['snapshotId', 'version', 'context', 'admission'])) return fail(); complete = false; continue;
+    }
+    if (entry['admission'] !== 'Available' || !fields(entry, ['snapshotId', 'version', 'context', 'admission', 'source', 'declarationsComplete', 'relationsComplete']) ||
+        !record(entry['source']) || !fields(entry['source'], ['text', 'digest']) || !text(entry['source']['text']) || !digest(entry['source']['digest']) ||
+        typeof entry['declarationsComplete'] !== 'boolean' || typeof entry['relationsComplete'] !== 'boolean') return fail();
+    const source = entry['source']; bytes += new TextEncoder().encode(source['text'] as string).byteLength;
+    if (bytes > 4_194_304 || !equal(source['digest'], matching[0]['digest'])) return fail();
+    const body = parse(source['text'] as string); const context = entry['context'];
+    if (!record(body) || body['format'] !== 'coglatas.project-source/1' || body['schemaId'] !== 'coglatas.project-source' || body['schemaVersion'] !== 1 || body['canonicalEncodingVersion'] !== 1 ||
+        !equal(body['context'], context) || body['tenantId'] !== context.branch.tenantId || body['projectId'] !== context.branch.projectId ||
+        !Array.isArray(body['documents']) || !Array.isArray(body['declarations']) || !Array.isArray(body['relations']) ||
+        !(await matchesDigest('coglatas.project-source/1', source['text'] as string, source['digest'] as Digest))) return fail();
+    complete &&= entry['declarationsComplete'] && entry['relationsComplete'] && matching[0]['coverage'] === 'coglatas.complete';
+  }
+  return complete && pins.length === seen.size;
+}

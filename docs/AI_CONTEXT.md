@@ -6,9 +6,10 @@ Rebase advances typed declaring origins while preserving pinned reference target
 and opaque Unknown basis, using the shared Draft visitor.
 Both offline clients separate baseline, assumptions and fresh results; Angular
 checks actual Core-prepared snapshots and bounded original-byte applied-value
-projections for the exact Scenario and converted Draft. Reference-bearing
-projection is exercised in Core; browser reference transformation remains refused. Generic browser authoring, Simulation/Impact
-and current server authority remain open.
+projections for the exact Scenario and converted Draft. Direct and nested
+pinned-reference journeys use bounded actual snapshot bytes and explicit Core
+origin-edit records; missing/denied supply remains incomplete. Generic browser
+authoring, actual Avalonia, Simulation/Impact and current server authority remain open.
 
 [Explicit Test definition editing](verification/projectide-test-definition-editing.md)
 exports canonical Source and prepares exact local Draft replacements for all

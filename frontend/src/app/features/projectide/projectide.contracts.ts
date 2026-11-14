@@ -219,6 +219,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly materializedSnapshots?: Readonly<Record<string, unknown>> | null;
   readonly preparedScenario?: PreparedScenario | null;
   readonly preparedHistory?: PreparedHistory | null;
   readonly preparedDiff?: PreparedSemanticDiff | null;

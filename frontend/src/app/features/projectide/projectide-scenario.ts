@@ -1,3 +1,4 @@
+import { coreOriginEditsMatch } from './projectide-scenario-origin-edits';
 import { Digest, PreviewBundle, PreviewCase, ProjectLocation, RevisionContext, PreparedSemanticDiff, sameContext, sameDigest } from './projectide.contracts';
 import { readPreviewBundle } from './projectide-preview.adapter';
 import { isProjectLocationShape } from './projectide-preview.validation';
@@ -92,9 +93,6 @@ export async function readPreparedScenario(bundle: PreviewBundle, current: Previ
     const old = baseline.declarations.filter(x => x.identity === target.entityId && x.location.documentId === target.documentId);
     const after = scenario.declarations.filter(x => x.identity === target.entityId && x.location.documentId === target.documentId);
     if (old.length !== 1 || after.length !== 1 || old[0].status !== 'Decoded' || after[0].status !== 'Decoded' || old[0].kind !== after[0].kind) return fail();
-    const actual = targetValue(scenario, item as unknown as ScenarioAssumption);
-    // Exact prepared values only; unsupported reference-origin transformations are not guessed here.
-    if (!equal(actual, item['value'])) return fail();
     assumptions.push(item as unknown as ScenarioAssumption);
   }
   await verifyAppliedValues(triplet, assumptions, scenario, prepared.appliedValues.scenario);
@@ -159,9 +157,10 @@ async function verifyAppliedValues(triplet: Triplet, assumptions: readonly Scena
   let bytes = 0;
   for (const [index, value] of data['values'].entries()) {
     const item = assumptions[index];
-    if (!record(value) || !fields(value, ['target', 'kind', 'portId', 'assumption', 'value']) ||
+    if (!record(value) || !fields(value, ['target', 'kind', 'portId', 'assumption', 'value', 'originEdits']) ||
         !equal(value['target'], { ...item.target, context: stage.context }) || value['kind'] !== item.kind || value['portId'] !== item.portId ||
-        !boundedEnvelope(value['assumption']) || !boundedEnvelope(value['value'])) return fail();
+        !boundedEnvelope(value['assumption']) || !boundedEnvelope(value['value']) ||
+        !coreOriginEditsMatch(item.value, parseLocalTestJson(value['value'].text), value['originEdits'], triplet.baseline.context, stage.context)) return fail();
     const declared = value['assumption']; const applied = value['value'];
     bytes += new TextEncoder().encode(applied.text + JSON.stringify(value['target'])).byteLength;
     if (bytes > 262_144 || !equal(parseLocalTestJson(declared.text), item) || !equal(parseLocalTestJson(applied.text), targetValue(stage, item)) ||

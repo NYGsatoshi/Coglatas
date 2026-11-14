@@ -116,4 +116,26 @@ public sealed class SyntheticScenarioTests
         var current = view.PreviewScenarioDraft(ProjectSemanticBinder.Bind(f.Input), f.Input.InputDigest, proposal)!;
         view.Reset(); Assert.Null(view.ApplyScenarioDraft(current.Plan!, f.Input, 3)); Assert.Null(view.ActiveScenario);
     }
+    [Fact]
+    public async Task PinnedReferenceScenarioAndDraftUseActualHostSnapshotsAndClearOldResultsOnDenial()
+    {
+        var f = ScenarioReferenceRebaseTests.Fixture();
+        var settings = JsonNode.Parse(f.Input.Settings.CanonicalText)!.AsObject(); settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+        var input = new CompilerInputManifest(f.Input.Source, Json(settings)); using var view = new SyntheticWorkbenchViewModel();
+        var initial = new CompilerHostRequest(new(input), 1, [f.Snapshot]); view.BeginSynthetic(initial);
+        Assert.True(view.TryAccept(await Host(input).CompileAsync(initial))); Assert.True(view.RunSyntheticTests()); Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
+        var baseline = view.TestRun; var preview = Preview(view, f.Change); var plan = preview.Plan!;
+        var request = view.LoadScenario(plan, 2)!; Assert.Null(view.TestRun); Assert.Same(f.Snapshot, request.Snapshots[0]);
+        Assert.True(view.TryAccept(await Host(plan.Input).CompileAsync(request))); Assert.True(view.RunSyntheticTests()); Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
+        Assert.NotEqual(baseline.Input.InputId, view.TestRun.Input.InputId);
+        var revision = input.Source.Context.CommittedRevision!;
+        var conversion = view.PreviewScenarioDraft(ProjectSemanticBinder.Bind(input, [f.Snapshot]), input.InputDigest,
+            new(ProposalId.Parse(Id(710)), CandidateRevisionId.Parse(Id(711)), revision, revision))!;
+        var draft = view.ApplyScenarioDraft(conversion.Plan!, input, 3)!; Assert.Null(view.TestRun);
+        Assert.True(view.TryAccept(await Host(conversion.Plan!.After).CompileAsync(draft))); Assert.True(view.RunSyntheticTests()); Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
+        var denied = new CompilerMaterializedSnapshot(f.Snapshot.SnapshotId, f.Snapshot.Version, new(f.Snapshot.Snapshot.Source, false, true, true));
+        var revoked = new CompilerHostRequest(new(conversion.Plan.After), 4, [denied]); view.BeginSynthetic(revoked); Assert.Null(view.TestRun); Assert.Null(view.ActiveScenario);
+        Assert.True(view.TryAccept(await Host(conversion.Plan.After).CompileAsync(revoked))); Assert.True(view.RunSyntheticTests()); Assert.NotEqual(CompilerVerdict.Pass, view.TestRun!.Verdict);
+    }
+
 }

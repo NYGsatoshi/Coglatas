@@ -232,50 +232,62 @@ internal static class DraftSourceTransition
 
     }
     internal static SourceJson RebaseValueOrigins(SourceJson data, SourceRevisionContext before, SourceRevisionContext next,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, List<SourceJson>? originEdits = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var decoded = TypedProjectValueCodec.Decode(data);
         if (decoded.Value is not { } value) throw new UnsupportedSourceException("Unsupported typed Scenario value.");
         var node = JsonNode.Parse(data.CanonicalText)!.AsObject();
-        RebaseValueOrigins(node, value, before, next, data.Limits, cancellationToken);
+        RebaseValueOrigins(node, value, before, next, data.Limits, cancellationToken, originEdits);
         try { return SourceJson.FromObject(node, data.Limits); }
         catch (FormatException) { throw new DraftSourceLimitException(); }
     }
 
     private static void RebaseValueOrigins(JsonObject root, TypedProjectValue rootValue, SourceRevisionContext before,
-        SourceRevisionContext next, SourceCodecLimits limits, CancellationToken cancellationToken)
+        SourceRevisionContext next, SourceCodecLimits limits, CancellationToken cancellationToken, List<SourceJson>? originEdits = null)
     {
-        Visit(root, rootValue);
+        Visit(root, rootValue, "");
+        void Record(object edit)
+        {
+            if (originEdits is null) return;
+            if (originEdits.Count == ProjectScenarioAppliedValues.MaximumOriginEdits) throw new DraftSourceLimitException();
+            originEdits.Add(SourceJson.FromObject(edit, limits));
+        }
+        static string Escape(string name) => name.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
         SourceJson Encode(JsonNode node)
         {
             try { return SourceJson.FromObject(node, limits); }
             catch (FormatException) { throw new DraftSourceLimitException(); }
         }
-        void Visit(JsonObject node, TypedProjectValue value)
+        void Visit(JsonObject node, TypedProjectValue value, string path)
         {
             cancellationToken.ThrowIfCancellationRequested();
             switch (value.KnownValue)
             {
                 case TypedProjectReference reference:
                     // Targets and manifests stay pinned; only an exact local declaring origin advances.
-                    if (reference.Origin.Context.Equals(before)) node["value"]!["origin"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
+                    if (reference.Origin.Context.Equals(before))
+                    {
+                        node["value"]!["origin"]!["context"] = JsonNode.Parse(next.Data.CanonicalText);
+                        if (originEdits is not null) Record(new { kind = "OriginContext", path = path + "/value/origin/context" });
+                    }
                     break;
                 case TypedProjectValue child:
-                    Visit(node["value"]!.AsObject(), child); break;
+                    Visit(node["value"]!.AsObject(), child, originEdits is null ? "" : path + "/value"); break;
                 case OptionalProjectValue { Present: true, Value: { } child }:
-                    Visit(node["value"]!["value"]!.AsObject(), child); break;
+                    Visit(node["value"]!["value"]!.AsObject(), child, originEdits is null ? "" : path + "/value/value"); break;
                 case ProjectStructureValue structure:
-                    foreach (var field in structure.Fields) Visit(node["value"]![field.Key]!.AsObject(), field.Value);
+                    foreach (var field in structure.Fields) Visit(node["value"]![field.Key]!.AsObject(), field.Value, originEdits is null ? "" : path + "/value/" + Escape(field.Key));
                     break;
                 case ProjectCollectionValue collection:
                     var array = node["value"]!.AsArray();
-                    for (var i = 0; i < collection.Items.Count; i++) Visit(array[i]!.AsObject(), collection.Items[i]);
-                    for (var i = 0; i < collection.Entries.Count; i++) Visit(array[i]!["value"]!.AsObject(), collection.Entries[i].Value);
+                    for (var i = 0; i < collection.Items.Count; i++) Visit(array[i]!.AsObject(), collection.Items[i], originEdits is null ? "" : path + "/value/" + i);
+                    for (var i = 0; i < collection.Entries.Count; i++) Visit(array[i]!["value"]!.AsObject(), collection.Entries[i].Value, originEdits is null ? "" : path + "/value/" + i + "/value");
                     if (value.Type.Kind == "coglatas.set")
                     {
-                        var ordered = array.Select(item => (Node: item!, Key: Encode(item!).CanonicalText))
+                        var ordered = array.Select((item, index) => (Node: item!, Index: index, Key: Encode(item!).CanonicalText))
                             .OrderBy(item => item.Key, Comparer<string>.Create(CanonicalJson.ScalarCompare)).ToArray();
+                        if (originEdits is not null && ordered.Where((item, index) => item.Index != index).Any()) Record(new { kind = "SetOrder", path = path + "/value", order = ordered.Select(item => item.Index).ToArray() });
                         array.Clear(); foreach (var item in ordered) array.Add(item.Node);
                     }
                     break;

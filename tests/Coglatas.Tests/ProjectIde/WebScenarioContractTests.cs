@@ -17,7 +17,7 @@ public sealed class WebScenarioContractTests
     public static IEnumerable<object[]> Cases()
     {
         using var data = JsonDocument.Parse(File.ReadAllText(FixturePath()));
-        var cases = data.RootElement.GetProperty("cases"); Assert.Equal(3, cases.GetArrayLength());
+        var cases = data.RootElement.GetProperty("cases"); Assert.Equal(15, cases.GetArrayLength());
         foreach (var item in cases.EnumerateArray()) yield return [item.GetRawText()];
     }
     private static SourceJson Json(JsonElement value) => SourceJson.Parse(value.GetRawText());
@@ -34,13 +34,15 @@ public sealed class WebScenarioContractTests
         using var document = JsonDocument.Parse(fixture); var item = document.RootElement; var input = Input(item);
         var projection = item.GetProperty("localProjectTests");
         Assert.Equal(input.Data.CanonicalText, projection.GetProperty("inputText").GetString());
-        var plan = ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), SyntheticProjectTestConfiguration.Evaluator);
+        var plan = ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input, WebPreviewContractTests.Snapshots(item, input)), SyntheticProjectTestConfiguration.Evaluator);
         var run = plan.Execute(input.InputDigest);
         Assert.Equal(plan.Data.CanonicalText, projection.GetProperty("plan").GetProperty("text").GetString());
         Assert.Equal(plan.Digest.Data, Json(projection.GetProperty("plan").GetProperty("digest")));
         Assert.Equal(run.Data.CanonicalText, projection.GetProperty("result").GetProperty("text").GetString());
         Assert.Equal(run.Digest.Data, Json(projection.GetProperty("result").GetProperty("digest")));
-        Assert.Equal(item.GetProperty("key").GetString() == "tests-scenario-base" ? CompilerVerdict.Fail : CompilerVerdict.Pass, run.Verdict);
+        var key = item.GetProperty("key").GetString()!;
+        if (key.StartsWith("tests-missing-reference", StringComparison.Ordinal) || key.StartsWith("tests-denied-reference", StringComparison.Ordinal)) Assert.NotEqual(CompilerVerdict.Pass, run.Verdict);
+        else Assert.Equal(key.EndsWith("-base", StringComparison.Ordinal) ? CompilerVerdict.Fail : CompilerVerdict.Pass, run.Verdict);
         Assert.Equal(CompilerVerdict.NotRun, plan.Execute(ContentDigest.Compute("example.foreign-input", [])).Verdict);
         var tests = PlanDeclarationReader.Read(input.Source).Where(x => x.Declaration is ProjectTestPlanDeclaration).ToArray();
         Assert.Equal(tests.Select(x => x.Data.CanonicalText), projection.GetProperty("declarations").EnumerateArray().Select(x => x.GetProperty("text").GetString()));
@@ -51,12 +53,15 @@ public sealed class WebScenarioContractTests
     public void BrowserOverlayAndConversionReconstructTheExactScenarioDraftAndBothSourceComparisons()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(FixturePath())); var rows = document.RootElement.GetProperty("cases").EnumerateArray().ToArray();
-        var basis = Input(rows[0]); var scenario = Input(rows[1]); var draft = Input(rows[2]);
-        var metadata = rows[0].GetProperty("preparedScenario"); var overlay = SourceJson.Parse(metadata.GetProperty("overlay").GetProperty("text").GetString()!);
+        foreach (var group in rows.Chunk(3))
+        {
+        var basis = Input(group[0]); var scenario = Input(group[1]); var draft = Input(group[2]);
+        var metadata = group[0].GetProperty("preparedScenario"); var overlay = SourceJson.Parse(metadata.GetProperty("overlay").GetProperty("text").GetString()!);
         var changes = overlay.Value.GetProperty("overrides").EnumerateArray().Select(x => new ProjectScenarioOverride(
             ProjectLocation.Parse(Json(x.GetProperty("target"))), Enum.Parse<ProjectScenarioOverrideKind>(x.GetProperty("kind").GetString()!),
             Json(x.GetProperty("value")), x.GetProperty("portId").ValueKind == JsonValueKind.Null ? null : PortId.Parse(x.GetProperty("portId").GetString()!))).ToArray();
-        var identity = scenario.Source.Context.Scenario!; var model = ProjectSemanticBinder.Bind(basis);
+        var snapshots = WebPreviewContractTests.Snapshots(group[0], basis);
+        var identity = scenario.Source.Context.Scenario!; var model = ProjectSemanticBinder.Bind(basis, snapshots);
         var plan = ProjectScenarios.Prepare(model, basis.InputDigest, identity.ScenarioId, identity.ScenarioRevisionId, changes).Plan!;
         Assert.NotNull(plan); Assert.Equal(overlay, plan.Overlay); Assert.Equal(identity.OverlayDigest, plan.OverlayDigest);
         Assert.Equal(scenario.Data, plan.Input.Data); Assert.Equal(scenario.Source.Data, plan.Materialize(basis)!.Source.Data);
@@ -70,10 +75,13 @@ public sealed class WebScenarioContractTests
             Assert.Equal(projection.Data.CanonicalText, value.GetProperty("text").GetString());
             Assert.Equal(projection.Digest.Data, Json(value.GetProperty("digest")));
         }
-        var first = ProjectSemanticDiff.Compare(model, ProjectSemanticBinder.Bind(scenario), basis.InputDigest, scenario.InputDigest);
-        var second = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(scenario), ProjectSemanticBinder.Bind(draft), scenario.InputDigest, draft.InputDigest);
-        Assert.Equal(first.Data, Json(rows[0].GetProperty("preparedDiff").GetProperty("comparison")));
-        Assert.Equal(second.Data, Json(rows[1].GetProperty("preparedDiff").GetProperty("comparison")));
-        Assert.False(first.NoChanges); Assert.True(second.NoChanges);
+        var first = ProjectSemanticDiff.Compare(model, ProjectSemanticBinder.Bind(scenario, snapshots), basis.InputDigest, scenario.InputDigest);
+        var second = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(scenario, snapshots), ProjectSemanticBinder.Bind(draft, snapshots), scenario.InputDigest, draft.InputDigest);
+        Assert.Equal(first.Data, Json(group[0].GetProperty("preparedDiff").GetProperty("comparison")));
+        Assert.Equal(second.Data, Json(group[1].GetProperty("preparedDiff").GetProperty("comparison")));
+        Assert.False(first.NoChanges);
+        if (model.BindingComplete) { Assert.Equal(SemanticDiffState.Complete, first.State); Assert.True(second.NoChanges); }
+        else { Assert.Equal(SemanticDiffState.Incomplete, first.State); Assert.Equal(SemanticDiffState.Incomplete, second.State); Assert.False(second.NoChanges); }
+        }
     }
 }
