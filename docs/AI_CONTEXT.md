@@ -1,5 +1,11 @@
 # AI Context
 
+[Explicit scoped semantic publication version two](verification/projectide-scoped-publication.md)
+produces actual normal model/IR/map artifacts only for explicit version-two targets
+and complete structural scope; required rule and evidence completeness remain separate.
+Windows pure and Web readers verify the actual payloads. This is developer preparation,
+not formal Registry, executable plan, independent qualification or runtime authority.
+
 [Paired captured scoped-source readers](verification/projectide-scoped-source-readers.md)
 open exact fixed dependency Sources and original scoped findings in Angular and
 the Windows pure ViewModel. Current runtime authority and normal external

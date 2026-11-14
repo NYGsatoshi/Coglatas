@@ -93,6 +93,8 @@ export interface CompilerResult {
   readonly diagnostics: readonly Diagnostic[];
   readonly artifacts: readonly {
     readonly role: string;
+    readonly schemaId?: string;
+    readonly version?: number;
     readonly digest: Digest;
     readonly inputDigest: Digest;
   }[];
@@ -329,7 +331,7 @@ export type LocalEvidenceState =
   | 'complete-local-pass';
 
 /** Classify a synthetic result only after its input, source, context and required coverage agree. */
-export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceState {
+export function assessLocalEvidence(value: PreviewCase | null, publicationAdmitted = false): LocalEvidenceState {
   if (!value) return 'not-loaded';
   if (!isPreviewCaseShape(value) || !hasUniquePreviewIdentities(value)) return 'missing-evidence';
   const result = value.result;
@@ -351,6 +353,7 @@ export function assessLocalEvidence(value: PreviewCase | null): LocalEvidenceSta
       !sameContext(result.boundInputStamp.sourceContext, value.context)) {
     return 'stale';
   }
+  if (result.artifacts.some(artifact => artifact.version === 2) && !publicationAdmitted) return 'missing-evidence';
   if (result.execution !== 'coglatas.completed') return 'not-executed';
   const settings = manifest?.['settings'] as {
     sourceCoverage?: string;

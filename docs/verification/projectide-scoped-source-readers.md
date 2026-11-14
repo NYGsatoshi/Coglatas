@@ -1,5 +1,7 @@
 # Paired captured scoped-source readers
 
+The version-one behavior below remains supported. [Explicit version-two publication](projectide-scoped-publication.md) additionally binds actual normal artifacts and requires original publication-byte admission before Web complete local PASS.
+
 Existing ownership: #905 / #888 / IDE-START-01, #1032, Workbench and source navigation. Both the Windows pure ViewModel and Angular offline Workbench can explicitly load original fixed dependency Sources from actual root-bound CompilerScopedIr. The normal root-only navigation boundary remains; selecting a fixed Source uses the separate scoped reader and retains its original context. This is development/synthetic preparation, not actual Avalonia or current runtime read authorization.
 
 ## Original bytes and exact versions

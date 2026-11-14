@@ -7,9 +7,10 @@ public sealed class CoreCompilation
     public CompilerSemanticValidation? Validation { get; }
     public CompilerResult Result { get; }
     public CompilerDependencyAnalysis? Dependencies { get; }
+    public CompilerScopedPublication? Publication { get; }
     public int LogicalOperationsConsumed { get; }
-    internal CoreCompilation(CompilerInputManifest input, PartialSemanticModel? model, CompilerSemanticValidation? validation, CompilerResult result, int logicalOperationsConsumed = 0, CompilerDependencyAnalysis? dependencies = null)
-    { Input = input; Model = model; Validation = validation; Result = result; LogicalOperationsConsumed = logicalOperationsConsumed; Dependencies = dependencies; }
+    internal CoreCompilation(CompilerInputManifest input, PartialSemanticModel? model, CompilerSemanticValidation? validation, CompilerResult result, int logicalOperationsConsumed = 0, CompilerDependencyAnalysis? dependencies = null, CompilerScopedPublication? publication = null)
+    { Input = input; Model = model; Validation = validation; Result = result; LogicalOperationsConsumed = logicalOperationsConsumed; Dependencies = dependencies; Publication = publication; }
 }
 
 /// <summary>Full-reference pure compilation for the declared supported scope. It starts no run and grants no merge authority.</summary>

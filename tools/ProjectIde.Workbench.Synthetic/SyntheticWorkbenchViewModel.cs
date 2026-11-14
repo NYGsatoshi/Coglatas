@@ -37,7 +37,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     public string NavigationState { get; private set; } = "";
     public ProjectLocation? SourceTarget { get; private set; }
     public CompilerInspectedSymbol? DiagnosticSymbol =>
-        _compilation?.Validation?.Ir is not null &&
+        _compilation?.Validation?.StructuralClosureValidated == true &&
         SelectedDiagnostic is { } diagnostic &&
         Inspection?.Inspect(diagnostic.Location) is { } symbol &&
         Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;

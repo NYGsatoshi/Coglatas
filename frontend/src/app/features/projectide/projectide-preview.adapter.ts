@@ -203,7 +203,17 @@ export function validatePreviewCaseBindings(item: PreviewCase): void {
     throw new PreviewReadError('wrong-scope');
   }
   const mapArtifact = r.artifacts.find((artifact) => artifact.role === 'coglatas.source-map');
-  if (
+  const published = item.scopedSources?.format === 'coglatas.local-scoped-source-projection/2';
+  if (published || r.artifacts.some(artifact => artifact.version === 2)) {
+    const data = item.scopedSources?.publication;
+    const manifest = item.manifest['manifest'] as { settings?: { semantics?: { version?: string }; ir?: { version?: string } } };
+    const expected = [['coglatas.semantic-model', 'coglatas.semantic-model', data?.semanticModel], ['coglatas.ir', 'coglatas.project-ir', data?.ir], ['coglatas.source-map', 'coglatas.semantic-source-map', data?.sourceMap]] as const;
+    if (!published || !data || item.sourceMap !== null || item.sourceMapDigest !== null || manifest?.settings?.semantics?.version !== '2' || manifest?.settings?.ir?.version !== '2' ||
+        r.artifacts.length !== 3 || expected.some(([role, schemaId, frame]) => !frame || typeof frame.text !== 'string' || !frame.digest ||
+          r.artifacts.filter(artifact => artifact.role === role && artifact.schemaId === schemaId && artifact.version === 2 && sameDigest(artifact.inputDigest, item.inputDigest) && sameDigest(artifact.digest, frame.digest)).length !== 1))
+      throw new PreviewReadError('wrong-scope');
+  } else if (r.artifacts.some(artifact => artifact.version !== undefined && artifact.version !== 1)) throw new PreviewReadError('unsupported');
+  else if (
     item.sourceMap
       ? item.sourceMap.format !== 'coglatas.semantic-source-map/1' ||
         item.sourceMap.compilerInputId !== item.inputId ||

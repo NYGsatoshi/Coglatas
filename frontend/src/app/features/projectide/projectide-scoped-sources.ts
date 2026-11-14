@@ -5,15 +5,16 @@ import { validatePreviewCaseBindings } from './projectide-preview.adapter';
 
 interface Frame { readonly text: string; readonly digest: Digest; }
 export interface ScopedSourceProjection {
-  readonly format: 'coglatas.local-scoped-source-projection/1'; readonly inputText: string;
+  readonly format: 'coglatas.local-scoped-source-projection/1' | 'coglatas.local-scoped-source-projection/2'; readonly inputText: string;
   readonly result: Frame; readonly analysis: Frame; readonly binding: Frame; readonly graph: Frame; readonly ir: Frame; readonly sourceMap: Frame;
-  readonly regions: readonly { readonly context: RevisionContext; readonly ir: Frame; readonly sourceMap: Frame }[];
+  readonly publication?: { readonly semanticModel: Frame; readonly ir: Frame; readonly sourceMap: Frame };
+  readonly regions: readonly { readonly context: RevisionContext; readonly ir: Frame; readonly sourceMap: Frame; readonly semanticModel?: Frame }[];
 }
 export interface ScopedSourceRegion {
   readonly context: RevisionContext; readonly sourceText: string; readonly records: readonly SourceRecord[]; readonly diagnostics: readonly Diagnostic[];
 }
 export interface AdmittedScopedSources {
-  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[];
+  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean;
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => equal(v, b[i])) ||
@@ -67,8 +68,9 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
   validatePreviewCaseBindings(value);
   const captured = basis(value); if (new TextEncoder().encode(captured).length > 16_777_216) return fail();
   const v = structuredClone(value); const projection = v.scopedSources!;
-  if (!fields(projection, ['format', 'inputText', 'result', 'analysis', 'binding', 'graph', 'ir', 'sourceMap', 'regions']) ||
-      projection.format !== 'coglatas.local-scoped-source-projection/1' || new TextEncoder().encode(JSON.stringify(projection)).length > 4_194_304 ||
+  const published = projection.format === 'coglatas.local-scoped-source-projection/2';
+  if (!fields(projection, ['format', 'inputText', 'result', 'analysis', 'binding', 'graph', 'ir', 'sourceMap', 'regions', ...(published ? ['publication'] : [])]) ||
+      !['coglatas.local-scoped-source-projection/1', 'coglatas.local-scoped-source-projection/2'].includes(projection.format) || new TextEncoder().encode(JSON.stringify(projection)).length > 4_194_304 ||
       typeof projection.inputText !== 'string' || !await verify('coglatas.compiler-input/1', projection.inputText, v.inputDigest) || !await readSnapshotMaterialization(v)) return fail();
   const input = obj(parse(projection.inputText)); const settings = obj(input['settings']);
   if (!equal(input, v.manifest['manifest']) || !equal(input['sourceContext'], v.context) || !equal(input['sourceDigest'], v.sourceDigest)) return fail();
@@ -87,7 +89,7 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
       !equal(analysis['bindingClosureDigest'], projection.binding.digest) || !equal(analysis['globalGraph'], graph) || !equal(analysis['scopedIrDigest'], projection.ir.digest) ||
       !equal(graph['bindingClosureDigest'], projection.binding.digest) || !equal(ir['sourceMapDigest'], projection.sourceMap.digest) ||
       [ir, map].some(d => d['compilerInputId'] !== v.inputId || !equal(d['bindingClosureDigest'], projection.binding.digest) || !equal(d['graphDigest'], projection.graph.digest))) return fail();
-  const sourceBodies: { context: RevisionContext; text: unknown; digest: unknown }[] = [{ context: v.context, text: v.sourceText, digest: v.sourceDigest }, ...list(obj(v.materializedSnapshots)['entries'], 32).map(obj).map(e =>
+  const sourceBodies: { context: RevisionContext; text: unknown; digest: unknown }[] = [{ context: v.context, text: v.sourceText, digest: v.sourceDigest }, ...(v.materializedSnapshots == null ? [] : list(obj(v.materializedSnapshots)['entries'], 32)).map(obj).map(e =>
     ({ context: e['context'] as RevisionContext, text: obj(e['source'])['text'], digest: obj(e['source'])['digest'] }))];
   const pins = list(settings['authorizedExternalSnapshots'], 32).map(obj);
   const unique = (items: readonly unknown[]) => items.filter((item, i) => items.findIndex(other => equal(item, other)) === i);
@@ -96,6 +98,25 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
   const iRegions = list(ir['regions'], 33).map(obj); const mRegions = list(map['regions'], 33).map(obj); const transported = list(projection.regions, 33).map(obj);
 
   if ([bRegions, aRegions, iRegions, mRegions, transported].some(rows => rows.length !== contexts.length || unique(rows.map(row => row['context'] ?? obj(row['region'])['context'])).length !== contexts.length)) return fail();
+  let publishedModel: Record<string, unknown> | null = null;
+  if (published) {
+    const payload = projection.publication!;
+    if (!fields(payload, ['semanticModel', 'ir', 'sourceMap']) || obj(settings['semantics'])['version'] !== '2' || obj(settings['ir'])['version'] !== '2') return fail();
+    const [model, producedIr, producedMap] = await Promise.all([frame(payload.semanticModel, 'coglatas.semantic-model/2'), frame(payload.ir, 'coglatas.project-ir/2'), frame(payload.sourceMap, 'coglatas.semantic-source-map/2')]);
+    for (const [data, format] of [[model, 'coglatas.semantic-model/2'], [producedIr, 'coglatas.project-ir/2'], [producedMap, 'coglatas.semantic-source-map/2']] as const)
+      if (data['format'] !== format || data['compilerInputId'] !== v.inputId || !equal(data['inputDigest'], v.inputDigest) || !equal(data['sourceDigest'], v.sourceDigest) || !equal(data['closureDigest'], projection.ir.digest)) return fail();
+    if (!equal(producedIr['semanticModelDigest'], payload.semanticModel.digest) || !equal(producedMap['semanticModelDigest'], payload.semanticModel.digest) ||
+        !equal(producedIr['sourceMapDigest'], payload.sourceMap.digest) || !equal(producedIr['regions'], ir['regions']) || !equal(producedMap['regions'], map['regions'])) return fail();
+    const expected = [['coglatas.semantic-model', 'coglatas.semantic-model', payload.semanticModel], ['coglatas.ir', 'coglatas.project-ir', payload.ir], ['coglatas.source-map', 'coglatas.semantic-source-map', payload.sourceMap]] as const;
+    const artifacts = list(result['artifacts'], 32).map(obj);
+    if (artifacts.length !== expected.length || expected.some(([role, schemaId, data]) => artifacts.filter(a => a['role'] === role && a['schemaId'] === schemaId && a['version'] === 2 && equal(a['inputDigest'], v.inputDigest) && equal(a['digest'], data.digest)).length !== 1)) return fail();
+    const stages = list(result['stages'], 32).map(obj).filter(stage => stage['stageId'] === 'coglatas.scoped-publication');
+    if (stages.length !== 1 || stages[0]['version'] !== 2 || stages[0]['execution'] !== 'coglatas.completed' || stages[0]['coverage'] !== 'coglatas.complete' ||
+        !equal(stages[0]['inputDigest'], v.inputDigest) || list(stages[0]['outputs'], 3).length !== 3 || expected.some(([, , data]) => !list(stages[0]['outputs'], 3).some(digest => equal(digest, data.digest)))) return fail();
+    const regions = list(model['regions'], 33).map(obj);
+    if (regions.length !== contexts.length || contexts.some(context => regions.filter(region => equal(region['context'], context)).length !== 1)) return fail();
+    publishedModel = model;
+  }
   const admitted: ScopedSourceRegion[] = []; const lowered: { region: ScopedSourceRegion; ir: Record<string, unknown> }[] = [];
   for (const context of contexts) {
     if (!isRevisionContextShape(context)) return fail();
@@ -119,6 +140,20 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
       const matches = pins.filter(pin => equal(pin['context'], context) && equal(bs['snapshot'], { snapshotId: pin['snapshotId'], version: pin['version'] }));
       if (bs['isRoot'] !== false || matches.length !== 1 || !equal(matches[0]['digest'], body[0].digest)) return fail();
     } else if (bs['snapshot'] !== null || bs['isRoot'] !== true) return fail();
+    if (publishedModel) {
+      if (!fields(t, ['context', 'ir', 'sourceMap', 'semanticModel'])) return fail();
+      const model = await frame(t['semanticModel'], 'coglatas.semantic-model/1');
+      const publishedRegion = list(publishedModel['regions'], 33).map(obj).find(region => equal(region['context'], context))!;
+      if (!equal(regionalIr['semanticModelDigest'], obj(t['semanticModel'])['digest']) || !equal(publishedRegion['semanticModelDigest'], obj(t['semanticModel'])['digest']) ||
+          !equal(publishedRegion['semanticModel'], model) || !equal(publishedRegion['sourceDigest'], body[0].digest) || model['compilerInputId'] !== regionalIr['compilerInputId']) return fail();
+      const originalRecords = sourceRecords(source, context);
+      const ordered = (type: 'entity' | 'relation') => originalRecords.filter(row => row.recordType === type).sort((a, b) => (a.identity < b.identity ? -1 : a.identity > b.identity ? 1 : 0)).map(row => row.data);
+      if (!equal(model['declarations'], ordered('entity')) || !equal(model['relations'], ordered('relation')) ||
+          !equal(model['references'], list(bs['references'], 4096).map(reference => {
+            const row = obj(reference); if (row['state'] !== 'Resolved') return fail();
+            return { origin: row['origin'], state: 'coglatas.resolved', symbolKey: row['symbolKey'] };
+          }))) return fail();
+    } else if (!fields(t, ['context', 'ir', 'sourceMap'])) return fail();
     const records = sourceRecords(source, context); const nodes = list(regionalIr['nodes']).map(obj); const edges = list(regionalIr['relations']).map(obj);
     if (nodes.length !== records.filter(r => r.recordType === 'entity').length || edges.length !== records.filter(r => r.recordType === 'relation').length) return fail();
     for (const row of records) {
@@ -154,7 +189,7 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
           endpoint['portId'] !== (sourceEndpoint['portId'] ?? null) || sourceEndpoint['portId'] && !list(obj(record.data['payload'])['ports']).some(p => obj(p)['portId'] === sourceEndpoint['portId'])) return fail();
     }
   }
-  const resultAdmission = { basis: captured, projection, regions: admitted };
+  const resultAdmission = { basis: captured, projection, regions: admitted, publicationVerified: publishedModel !== null };
   if (!scopedSourcesMatch(value, resultAdmission)) return fail(); return freeze(resultAdmission);
 }
 

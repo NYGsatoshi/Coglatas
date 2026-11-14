@@ -29,7 +29,18 @@ internal static class SyntheticSourceNavigation
         // A partial model may have no IR/map. When produced, use its exact input and artifact binding.
         var mapArtifacts = compilation.Result.Artifacts.Where(item => item.Role == "coglatas.source-map").Take(2).ToArray();
         if (mapArtifacts.Length > 1) return "wrong-scope";
-        if (compilation.Validation?.Ir is { } ir)
+        if (compilation.Publication is { } publication)
+        {
+            if (!publication.IsDeclaredBy(compilation.Result)) return "wrong-scope";
+            var slots = publication.SourceMap.Value.GetProperty("regions").EnumerateArray().Where(region =>
+                SourceJson.Parse(region.GetProperty("context").GetRawText()).Equals(source.Context.Data)).Take(2).ToArray();
+            if (slots.Length != 1) return "wrong-scope";
+            var entries = slots[0].GetProperty("sourceMap").GetProperty(location.EntityId is null ? "relations" : "nodes").EnumerateArray();
+            var matches = entries.Select(entry => ProjectLocation.Parse(SourceJson.Parse(entry.GetProperty("location").GetRawText())))
+                .Where(mapped => SameRecord(mapped, location)).Take(2).ToArray();
+            if (matches.Length != 1 || requireSourceMap && (matches[0].PropertyPath.Length != 0 || matches[0].TextSpan is not null)) return "unavailable";
+        }
+        else if (compilation.Validation?.Ir is { } ir)
         {
             if (!ir.Input.Data.Equals(input.Data) || mapArtifacts.Length != 1 || !mapArtifacts[0].InputDigest.Equals(input.InputDigest) ||
                 !mapArtifacts[0].Digest.Equals(ir.SourceMapDigest)) return "wrong-scope";

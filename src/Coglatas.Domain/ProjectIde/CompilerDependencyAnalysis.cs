@@ -62,8 +62,8 @@ public sealed class CompilerDependencyFailure
 }
 
 /// <summary>Input-bound graph, regional analysis and scoped inspection IR; not an executable plan.
-/// Normal Compiler publication retains its global lowering guard.</summary>
-public sealed class CompilerDependencyAnalysis
+/// Version-one normal Compiler publication retains its global lowering guard; explicit version two publishes complete structural scope.</summary>
+public sealed partial class CompilerDependencyAnalysis
 {
     public const string Format = "coglatas.compiler-dependency-analysis/1";
     public CompilerInputManifest Input { get; }
@@ -107,7 +107,7 @@ public sealed class CompilerDependencyAnalysis
             local.Result.Execution != CompilerExecutionState.Completed || !model.BindingComplete)
             return local;
         var externalKeys = model.Symbols.Where(symbol => !symbol.Context.Equals(input.Source.Context)).Select(symbol => symbol.Key).ToHashSet(StringComparer.Ordinal);
-        if (input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() == 0 &&
+        if (!CompilerScopedPublication.Requested(input) && input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() == 0 &&
             !model.References.Any(reference => reference.SymbolKey is { } key && externalKeys.Contains(key))) return local;
         try
         {
@@ -189,14 +189,21 @@ public sealed class CompilerDependencyAnalysis
                 try { scopedIr = CompilerScopedIr.Build(closure, graph, regions, ref remaining, cancellationToken); }
                 catch (FormatException) { state = CompilerDependencyAnalysisState.ResourceLimit; }
             }
+            CompilerScopedPublication? publication = null;
+            if (state == CompilerDependencyAnalysisState.Evaluated && scopedIr is not null && CompilerScopedPublication.Requested(input))
+            {
+                try { publication = CompilerScopedPublication.Build(scopedIr, ref remaining, cancellationToken); }
+                catch (FormatException) { state = CompilerDependencyAnalysisState.ResourceLimit; }
+            }
             CompilerDependencyAnalysis analysis;
             try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr); }
             catch (FormatException)
             {
                 // Discard an oversized publication; its evaluated prefix never becomes a complete receipt.
-                state = CompilerDependencyAnalysisState.ResourceLimit; scopedIr = null;
+                state = CompilerDependencyAnalysisState.ResourceLimit; scopedIr = null; publication = null;
                 analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr);
             }
+            if (publication is not null) return PublishScope(local, analysis, publication, cancellationToken);
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = local.Result.Diagnostics.ToList();
             var bindingFindings = closure.Regions.SelectMany(region => region.Findings.Select(finding => (Region: region, Finding: finding))).ToArray();

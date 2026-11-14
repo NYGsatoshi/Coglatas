@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
 
@@ -7,6 +8,7 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 public static class SyntheticScopedSourceProjection
 {
     public const string Format = "coglatas.local-scoped-source-projection/1";
+    public const string FormatTwo = "coglatas.local-scoped-source-projection/2";
     public static SourceJson? Export(CoreCompilation compilation)
     {
         ArgumentNullException.ThrowIfNull(compilation);
@@ -26,6 +28,22 @@ public static class SyntheticScopedSourceProjection
                 sourceMap = Frame(region.Validation.Ir.SourceMap, region.Validation.Ir.SourceMapDigest)
             }).ToArray()
         }, new JsonSerializerOptions { MaxDepth = 256 }));
+        if (compilation.Publication is { } publication)
+        {
+            if (!publication.IsDeclaredBy(compilation.Result)) throw new FormatException("Published artifacts differ from the actual result.");
+            var node = JsonNode.Parse(result.CanonicalText)!.AsObject(); node["format"] = FormatTwo;
+            node["publication"] = JsonSerializer.SerializeToNode(new
+            {
+                semanticModel = Frame(publication.SemanticModel, publication.SemanticModelDigest),
+                ir = Frame(publication.Ir, publication.IrDigest), sourceMap = Frame(publication.SourceMap, publication.SourceMapDigest)
+            }, new JsonSerializerOptions { MaxDepth = 256 });
+            for (var index = 0; index < scoped.Regions.Count; index++)
+            {
+                var ir = scoped.Regions[index].Validation!.Ir!;
+                node["regions"]![index]!["semanticModel"] = JsonSerializer.SerializeToNode(Frame(ir.SemanticModel, ir.SemanticModelDigest));
+            }
+            result = SourceJson.Parse(node.ToJsonString(new JsonSerializerOptions { MaxDepth = 256 }));
+        }
         if (result.ToCanonicalBytes().Length > 4_194_304) throw new FormatException("Synthetic scoped projection exceeds its byte bound.");
         return result;
     }

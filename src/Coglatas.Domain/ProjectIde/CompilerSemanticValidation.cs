@@ -9,10 +9,11 @@ public sealed class CompilerSemanticValidation
     public IReadOnlyList<CompilerBindingFinding> Findings { get; }
     public IReadOnlyList<RelationFinding> DeferredChecks { get; }
     public DerivedProjectIr? Ir { get; }
+    public CompilerScopedPublication? Publication { get; private init; }
     internal IReadOnlyList<UnitDefinition> ReadUnits { get; private init; } = [];
     internal IReadOnlyList<CalendarSnapshot> ReadCalendars { get; private init; } = [];
     internal bool SuppliesRead { get; private init; }
-    public bool StructuralClosureValidated => Ir is not null;
+    public bool StructuralClosureValidated => Ir is not null || Publication is not null;
     public int LogicalOperationsConsumed { get; }
     private CompilerSemanticValidation(PartialSemanticModel model, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationFinding> deferred, DerivedProjectIr? ir, int logicalOperationsConsumed)
     {
@@ -20,6 +21,10 @@ public sealed class CompilerSemanticValidation
             .ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
         DeferredChecks = new ImmutableListView<RelationFinding>(deferred.OrderBy(item => item.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Code, StringComparer.Ordinal)); Ir = ir;
     }
+
+    internal CompilerSemanticValidation WithPublication(CompilerScopedPublication publication) =>
+        new(Model, Findings, DeferredChecks, null, LogicalOperationsConsumed)
+        { Publication = publication, ReadUnits = ReadUnits, ReadCalendars = ReadCalendars, SuppliesRead = SuppliesRead };
 
     public static CompilerSemanticValidation Validate(PartialSemanticModel model, IEnumerable<UnitDefinition?>? units = null,
         IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default)
@@ -55,7 +60,8 @@ public sealed class CompilerSemanticValidation
         }
         var semanticIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "semantics"));
         var irIdentity = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "ir"));
-        if (semanticIdentity.ArtifactId != "coglatas.semantic-model" || semanticIdentity.Version != "1" || irIdentity.ArtifactId != "coglatas.project-ir" || irIdentity.Version != "1")
+        if (semanticIdentity.ArtifactId != "coglatas.semantic-model" || irIdentity.ArtifactId != "coglatas.project-ir" ||
+            !(semanticIdentity.Version == "1" && irIdentity.Version == "1" || CompilerScopedPublication.Requested(input)))
             Add("coglatas.semantic.version-compatibility", RelationFindingState.Unsupported, root);
         var capabilities = SourceFields.Array(input.Settings.Value, "featureSet").EnumerateArray().Select(ValueFields.String).ToHashSet(StringComparer.Ordinal);
         foreach (var relation in model.Relations.Select(item => item.Relation).OfType<TypedRelation>())
@@ -87,6 +93,8 @@ public sealed class CompilerSemanticValidation
         var hasDeclaredSnapshots = input.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0;
         if (!scopedRegion && (hasDeclaredSnapshots || model.References.Any(reference => reference.SymbolKey is not null && externalKeys.Contains(reference.SymbolKey))))
             Add("coglatas.semantic.external-closure-not-lowered", RelationFindingState.Unsupported, root);
+        if (!scopedRegion && CompilerScopedPublication.Requested(input))
+            Add("coglatas.semantic.scoped-publication-pending", RelationFindingState.Unsupported, root);
         foreach (var declaration in model.Declarations)
         {
             CheckValues(declaration.Data, ProjectLocation.Create(declaration.DocumentId, source.Context, entityId: SourceFields.Identity<EntityId>(declaration.Data.Value, "entityId")));

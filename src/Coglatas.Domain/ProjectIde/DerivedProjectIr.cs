@@ -34,6 +34,7 @@ public sealed class DerivedProjectIr
     public SourceJson Relations { get; }
     public SourceJson SourceMap { get; }
     public ContentDigest SourceMapDigest { get; }
+    public SourceJson SemanticModel { get; }
     public ContentDigest SemanticModelDigest { get; }
     public ContentDigest Digest { get; }
     public SourceJson Data { get; }
@@ -83,12 +84,13 @@ public sealed class DerivedProjectIr
                 .Select(item => new { relationId = item.RelationId.ToString(), location = item.Location.Data.Value }).ToArray()
         });
         SourceMapDigest = ContentDigest.Compute(mapFormat, SourceMap.ToCanonicalBytes());
-        SemanticModelDigest = ContentDigest.Compute("coglatas.semantic-model/1", SourceJson.FromObject(new
+        SemanticModel = SourceJson.FromObject(new
         {
             compilerInputId = Input.InputId.ToString(), declarations = model.Declarations.OrderBy(item => item.Declaration!.EntityId.ToString(), StringComparer.Ordinal).Select(item => item.Data.Value).ToArray(),
             relations = model.Relations.OrderBy(item => item.Relation!.RelationId.ToString(), StringComparer.Ordinal).Select(item => item.Data.Value).ToArray(),
             references = model.References.Select(item => new { origin = item.Origin.Data.Value, state = "coglatas.resolved", symbolKey = item.SymbolKey }).ToArray()
-        }).ToCanonicalBytes());
+        });
+        SemanticModelDigest = ContentDigest.Compute("coglatas.semantic-model/1", SemanticModel.ToCanonicalBytes());
         Data = SourceJson.FromObject(new
         {
             format = irFormat, compilerInputId = Input.InputId.ToString(), inputDigest = Input.InputDigest.Data.Value,

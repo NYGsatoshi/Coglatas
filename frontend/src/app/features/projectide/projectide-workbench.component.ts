@@ -99,13 +99,13 @@ export class ProjectIdeWorkbenchComponent {
           .includes(this.search().toLowerCase()),
     ),
   );
-  readonly evidenceState = computed(() => {
+  readonly evidenceState = () => {
     const result = this.store.result();
     // The selected case instance belongs to this load generation; a reused key does not.
-    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result);
-  });
-  readonly completePass = computed(() => this.evidenceState() === 'complete-local-pass');
-  readonly evidenceMessage = computed(() => {
+    return result && result !== this.store.context() ? 'stale' : assessLocalEvidence(result, this.store.hasVerifiedPublication());
+  };
+  readonly completePass = () => this.evidenceState() === 'complete-local-pass';
+  readonly evidenceMessage = () => {
     const keys = {
       'not-loaded': 'ide.evidenceNotLoaded',
       stale: 'ide.evidenceStale',
@@ -116,7 +116,7 @@ export class ProjectIdeWorkbenchComponent {
       'complete-local-pass': 'ide.evidenceLocalPass',
     } as const;
     return this.t(keys[this.evidenceState()]);
-  });
+  };
   readonly records = computed(() => [
     ...(this.store.context()?.declarations ?? []),
     ...(this.store.context()?.relations ?? []),

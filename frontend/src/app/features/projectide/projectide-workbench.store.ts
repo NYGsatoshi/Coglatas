@@ -70,8 +70,8 @@ export class ProjectIdeWorkbenchStore {
       target.sourceMap === target.context.sourceMap &&
       !(this.referenceSelection() && !this.currentReferenceSelection()) ? target : null;
   });
-  readonly sourceTarget = computed(() => this.currentTarget()?.record ?? null);
-  readonly sourceLocation = computed(() => this.currentTarget()?.location ?? null);
+  readonly sourceTarget = () => this.currentTarget() && (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? this.currentTarget()!.record : null;
+  readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
   readonly navigationState = signal('');
   readonly history = computed(() => {
     const context = this.context(); const bundle = this.bundle();
@@ -120,6 +120,15 @@ export class ProjectIdeWorkbenchStore {
     const snapshot = this.scopedSnapshot(); const context = this.context();
     return snapshot && context && this.state() === 'ready' && context === this.result() && snapshot.context === context &&
       scopedSourcesMatch(context, snapshot.admitted) ? snapshot.admitted : null;
+  }
+  readonly hasVerifiedPublication = (): boolean => this.admittedScoped()?.publicationVerified === true;
+  private resolveCurrentLocation(value: PreviewCase, location: ProjectLocation, requireSourceMap = false) {
+    if (requireSourceMap && value.result.artifacts.some(artifact => artifact.version === 2)) {
+      if (!sameContext(location.context, value.context)) return 'wrong-scope' as const;
+      const admitted = value === this.context() && value === this.result() ? this.admittedScoped() : null;
+      return admitted?.publicationVerified ? resolveScopedSource(value, admitted, location)?.record ?? 'unavailable' : 'unavailable';
+    }
+    return resolveLocation(value, location, requireSourceMap);
   }
   readonly scopedSources = (): readonly ScopedSourceRegion[] => this.admittedScoped()?.regions ?? [];
   readonly scopedSourceTarget = () => {
@@ -330,7 +339,7 @@ export class ProjectIdeWorkbenchStore {
   });
   readonly diagnosticSymbol = computed(() => {
     const diagnostic = this.diagnostic();
-    if (!diagnostic || !this.result()?.sourceMap) return null;
+    if (!diagnostic || !(this.result()?.sourceMap || this.hasVerifiedPublication())) return null;
     const location = diagnostic.primaryLocation;
     const matches = this.recordSymbols().filter(({ location: symbol }) =>
       symbol.propertyPath === location.propertyPath &&
@@ -350,13 +359,13 @@ export class ProjectIdeWorkbenchStore {
   });
   readonly referenceCompletions = computed(() => {
     const result = this.result();
-    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().map((symbol) => symbol.key));
     return (result.referenceCompletions ?? []).filter((page) => origins.has(page.originKey) && page.state === 'Ready');
   });
   readonly requirementTaskSuggestions = computed(() => {
     const result = this.result();
-    if (!result || result !== this.context() || result.freshness !== 'Current' || !result.sourceMap) return [];
+    if (!result || result !== this.context() || result.freshness !== 'Current' || !(result.sourceMap || this.hasVerifiedPublication())) return [];
     const origins = new Set(this.inspectedSymbols().filter(symbol => symbol.kind === 'coglatas.requirement').map(symbol => symbol.key));
     return (result.requirementTaskSuggestions ?? []).filter(page => origins.has(page.originKey) && page.state === 'Ready' && page.candidateOnly);
   });
@@ -365,7 +374,7 @@ export class ProjectIdeWorkbenchStore {
     if (!result || !result.semanticInspection || result !== this.context() || result.freshness !== 'Current' || !record || !prepared ||
         record.recordType !== 'entity' || record.identity !== prepared.plan.target.entityId ||
         record.location.documentId !== prepared.plan.target.documentId ||
-        typeof resolveLocation(result, prepared.plan.target, true) === 'string') return null;
+        typeof this.resolveCurrentLocation(result, prepared.plan.target, true) === 'string') return null;
     return prepared;
   });
   loadPreparedRename(prepared: PreparedDraftRename): boolean {
@@ -385,7 +394,7 @@ export class ProjectIdeWorkbenchStore {
     const origin = result?.semanticInspection?.symbols.find((symbol) => symbol.key === page.originKey);
     const symbol = result?.semanticInspection?.symbols.find((symbol) => symbol.key === candidate.symbolKey);
     if (!result || !this.referenceCompletions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
-        typeof resolveLocation(result, origin.location, true) === 'string') {
+        typeof this.resolveCurrentLocation(result, origin.location, true) === 'string') {
       this.navigationState.set('unavailable'); return false;
     }
     return this.navigateLocation(symbol.location, true);
@@ -399,7 +408,7 @@ export class ProjectIdeWorkbenchStore {
     if (!result || !this.requirementTaskSuggestions().includes(page) || !page.candidates.includes(candidate) || !origin || !symbol ||
         record?.recordType !== 'entity' || record.kind !== 'coglatas.requirement' || origin.location.entityId !== record.identity ||
         origin.location.documentId !== record.location.documentId || origin.location.propertyPath !== '' ||
-        typeof resolveLocation(result, origin.location, true) === 'string') {
+        typeof this.resolveCurrentLocation(result, origin.location, true) === 'string') {
       this.navigationState.set('unavailable'); return false;
     }
     return this.navigateLocation(symbol.location, true);
@@ -487,7 +496,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set('unavailable');
       return false;
     }
-    const definition = resolveLocation(result, symbol.location, true);
+    const definition = this.resolveCurrentLocation(result, symbol.location, true);
     if (typeof definition === 'string') {
       this.navigationState.set(definition);
       return false;
@@ -520,7 +529,7 @@ export class ProjectIdeWorkbenchStore {
         break;
       }
       originChecks++;
-      if (typeof resolveLocation(result, reference.origin, true) === 'string') {
+      if (typeof this.resolveCurrentLocation(result, reference.origin, true) === 'string') {
         coverageComplete = false;
         continue;
       }
@@ -569,9 +578,9 @@ export class ProjectIdeWorkbenchStore {
         reference.state !== 'Resolved' || reference.symbolKey === null) return 'unavailable';
     const matches = inspection.symbols.filter((symbol) => symbol.key === reference.symbolKey);
     if (matches.length !== 1 || matches[0].status !== 'Decoded') return 'unavailable';
-    const origin = resolveLocation(result, reference.origin, true);
+    const origin = this.resolveCurrentLocation(result, reference.origin, true);
     if (typeof origin === 'string') return origin;
-    const definition = resolveLocation(result, matches[0].location, true);
+    const definition = this.resolveCurrentLocation(result, matches[0].location, true);
     return typeof definition === 'string' ? definition : matches[0];
   }
   clearSelection(): void {
@@ -597,7 +606,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set('unavailable');
       return false;
     }
-    const target = resolveLocation(context, location, requireSourceMap);
+    const target = this.resolveCurrentLocation(context, location, requireSourceMap);
     if (typeof target === 'string') {
       this.navigationState.set(target);
       return false;
