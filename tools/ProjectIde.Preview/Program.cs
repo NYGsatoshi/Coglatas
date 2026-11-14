@@ -4,7 +4,9 @@ using Coglatas.Domain.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
-if (args.Length != 1) throw new ArgumentException("Supply the output JSON path.");
+var testEditProfile = args is [_, "--test-edit"];
+if (args.Length != 1 && !testEditProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit profile.");
+var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var cases = new List<object>();
 var declarationCache = new PlanDeclarationReadCache();
 var renameFixture = RenameFixture();
@@ -41,10 +43,11 @@ var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
+if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     // Displayed committed revisions must never identify two different Sources.
-    var input = name switch { "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
+    var input = name switch { "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
         "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + index) };
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, declarationCache: declarationCache);
@@ -144,6 +147,13 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
         fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection); cases[^1] = fixture;
     }
+    if (name == "tests-edit-before")
+    {
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["preparedTestEdit"] = JsonSerializer.SerializeToNode(new { afterCaseKey = "tests-edit-after", plan = testEditFixture!.Plan.Data.Value,
+            definitionText = testEditFixture.Exported.CanonicalText, importedText = testEditFixture.Imported.CanonicalText });
+        cases[^1] = fixture;
+    }
     if (name == "requirement-candidates")
     {
         if (inspection is null || ir is null) throw new InvalidOperationException("Task candidates require actual Core inspection and source navigation.");
@@ -166,6 +176,18 @@ File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
+static PreparedTestEditFixture TestEditFixture()
+{
+    var original = LocalTestInput("tests-fail", 250); var basis = original.Source.Context.CommittedRevision!;
+    var proposal = new ProposalContext(ProposalId.Parse(Id(430)), CandidateRevisionId.Parse(Id(431)), basis, basis);
+    var before = ProjectDraftRename.Fork(ProjectSemanticBinder.Bind(original), proposal); var model = ProjectSemanticBinder.Bind(before);
+    var target = ProjectLocation.Create(DocumentId.Parse(Id(4)), before.Source.Context, entityId: EntityId.Parse(Id(10)));
+    var exported = ProjectTestEditing.Export(model, target, before.InputDigest).Definition ?? throw new InvalidOperationException("Test definition export unavailable.");
+    var edited = JsonNode.Parse(exported.CanonicalText)!.AsObject(); edited["payload"]!["assertions"]![0]!["expected"]!["value"] = false;
+    var imported = Json(edited); var next = SourceRevisionContext.Candidate(new(proposal.ProposalId, CandidateRevisionId.Parse(Id(432)), basis, basis));
+    var plan = ProjectTestEditing.Preview(model, target, before.InputDigest, imported, next).Plan ?? throw new InvalidOperationException("Test edit preview unavailable.");
+    return new(before, plan.ApplyToDraft(before) ?? throw new InvalidOperationException("Test edit application unavailable."), plan, exported, imported);
+}
 static CompilerInputManifest LocalTestInput(string name, int revision)
 {
     var input = Input(name, revision);
@@ -302,3 +324,5 @@ static CompilerInputManifest Input(string name, int revision)
     settings["executionProfile"] = JsonSerializer.SerializeToNode(new { purpose = "coglatas.normal", maximumOperations = 200000, maximumDeclarations = 10000, maximumRelations = 20000, maximumDigits = 256, maximumScale = 256, rounding = "coglatas.ties-to-even" });
     return new(source, SourceJson.Parse(settings.ToJsonString()));
 }
+
+internal sealed record PreparedTestEditFixture(CompilerInputManifest Before, CompilerInputManifest After, ProjectTestEditPlan Plan, SourceJson Exported, SourceJson Imported);

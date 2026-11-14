@@ -1,5 +1,10 @@
 # AI Context
 
+[Explicit Test definition editing](verification/projectide-test-definition-editing.md)
+exports canonical Source and prepares exact local Draft replacements for all
+initial assertion families. CLI/Windows pure editing and the Core-backed Web
+example preserve a single writable AST; runtime save/authority remain separate.
+
 [Local Test result panels](verification/projectide-local-test-panels.md) add a
 bounded original-byte reader and actual Core-generated offline Web results,
 paired with Windows pure ViewModel execution. Compiler verdicts stay separate;

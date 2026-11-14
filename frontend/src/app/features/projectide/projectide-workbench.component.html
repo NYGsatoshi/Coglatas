@@ -21,6 +21,10 @@
       <p role="alert">{{ stateMessage() }}</p>
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
     }
+    @if (store.state() === 'ready') {
+      <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
+      <button type="button" (click)="reload()">{{ t('ide.testMainExamples') }}</button>
+    }
     @if (store.bundle()) {
       <label class="context-picker"
         >{{ t('ide.choose') }}
@@ -147,6 +151,17 @@
           <h2 #panelHeading tabindex="-1">{{ t('ide.' + panel()) }}</h2>
           @switch (panel()) {
             @case ('tests') {
+              @if (store.preparedTestEdit(); as edit) {
+                <section data-testid="ide-test-edit-preview">
+                  <h3>{{ t('ide.testDefinition') }}</h3><p>{{ t('ide.testEditNotice') }}</p>
+                  <pre tabindex="0" data-testid="ide-test-definition">{{ edit.definitionText }}</pre>
+                  <button type="button" (click)="exportTestDefinition(edit)" [disabled]="store.testEditState() === 'loading'">{{ t('ide.testExportDefinition') }}</button>
+                  <details><summary>{{ t('ide.testImportedDefinition') }}</summary><pre tabindex="0">{{ edit.importedText }}</pre></details>
+                  <button type="button" (click)="loadTestEdit(edit)" [disabled]="store.testEditState() === 'loading'">{{ t('ide.testLoadEdit') }}</button>
+                  @if (store.testEditState() === 'unavailable') { <p role="alert">{{ t('ide.testEditUnavailable') }}</p> }
+                </section>
+              }
+
               <p>{{ t('ide.testsNotice') }}</p>
               <button type="button" (click)="loadLocalTests()" [disabled]="store.testReadState() === 'loading' || !store.result()">{{ t('ide.testsLoad') }}</button>
               @if (store.testReadState() === 'loading') { <p role="status">{{ t('ide.testsLoading') }}</p> }

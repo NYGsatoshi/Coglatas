@@ -1,3 +1,4 @@
+import type { PreparedTestEdit } from './projectide-test-edit';
 import type { LocalProjectTestProjection } from './projectide-tests.contracts';
 import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
 
@@ -240,6 +241,7 @@ export interface PreviewCase {
   readonly localProjectTests?: LocalProjectTestProjection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly requirementTaskSuggestions?: readonly RequirementTaskSuggestions[] | null;
+  readonly preparedTestEdit?: PreparedTestEdit | null;
   readonly preparedRename?: PreparedDraftRename | null;
   readonly preparedRevert?: PreparedDraftRevert | null;
   readonly sourceMap: {

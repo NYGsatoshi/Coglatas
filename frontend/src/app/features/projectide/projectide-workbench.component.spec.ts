@@ -14,12 +14,12 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false) {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' = 'main') {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
   const data = readPreviewBundle(
-    JSON.parse(readFileSync(resolve('public/assets/projectide/preview-v1.json'), 'utf8')),
+    JSON.parse(readFileSync(resolve(profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
     read: vi.fn(async () => {
@@ -82,6 +82,18 @@ async function render(enabled = true, allowed = true, fail = false) {
 vi.stubGlobal('crypto', webcrypto);
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('loads an exact Core-prepared Test definition edit in %s without retaining the previous result', async locale => {
+    const { c, fixture, root, authenticated } = await render(true, true, false, 'test-edit'); c.i18n.setLocale(locale);
+    c.choose('tests-edit-before'); c.loadResult(); c.open('tests'); await c.loadLocalTests(); fixture.detectChanges();
+    const prepared = c.store.preparedTestEdit()!; expect(prepared).toBeTruthy();
+    expect(root.querySelector('[data-testid="ide-test-definition"]')!.textContent).toContain('"kind":"coglatas.project-test"');
+    expect(c.store.localTests()!.run.verdict).toBe('Fail'); await c.loadTestEdit(prepared); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.store.context()!.key).toBe('tests-edit-after'); expect(c.store.localTests()).toBeNull();
+    expect(root.querySelector('pre.source-buffer')!.textContent).toContain('coglatas.candidate');
+    c.open('tests'); await c.loadLocalTests(); fixture.detectChanges(); expect(c.store.localTests()!.run.verdict).toBe('Pass');
+    authenticated.set(false); fixture.detectChanges(); expect(c.store.preparedTestEdit()).toBeNull(); expect(c.store.localTests()).toBeNull();
+  });
+
   it.each([
     ['tests-pass', 'Passed'], ['tests-fail', 'Failed'], ['tests-unknown', 'Inconclusive'], ['tests-empty', 'Not run'],
     ['tests-unsupported', 'Not run'], ['tests-cancelled', 'Cancelled'], ['tests-stale', 'Stale'], ['tests-evaluator-mismatch', 'Not run'],

@@ -191,3 +191,5 @@ export async function readLocalTests(value: PreviewCase): Promise<AdmittedLocalT
   if (!localTestsMatchCase(value, admitted)) return fail();
   return freeze(admitted);
 }
+
+export { parse as parseLocalTestJson, matchesDigest as verifyLocalTestDigest };

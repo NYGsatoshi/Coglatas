@@ -1,4 +1,12 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
+  "ide.testEditExample": "Open Test editing example",
+  "ide.testMainExamples": "Open main preview examples",
+  "ide.testDefinition": "Canonical Test definition",
+  "ide.testEditNotice": "This example exports a definition from Source and loads a Core-prepared local Draft. It does not save or merge a shared project.",
+  "ide.testExportDefinition": "Export Test definition",
+  "ide.testImportedDefinition": "Proposed definition from explicit import",
+  "ide.testLoadEdit": "Load prepared Test edit",
+  "ide.testEditUnavailable": "The Test edit no longer matches the current input.",
   "ide.tests": "Tests",
   "ide.testsNotice": "These checks use this local input snapshot. They do not change shared project approval.",
   "ide.testsLoad": "Load local Test results",
@@ -193,6 +201,14 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
   string
 > = {
+  "ide.testEditExample": "テスト編集の例を開く",
+  "ide.testMainExamples": "通常のプレビュー例を開く",
+  "ide.testDefinition": "正規のテスト定義",
+  "ide.testEditNotice": "この例ではSourceから定義を書き出し、Coreで準備したローカルDraftを読み込みます。共有プロジェクトの保存や統合は行いません。",
+  "ide.testExportDefinition": "テスト定義を書き出す",
+  "ide.testImportedDefinition": "明示的な取込みによる定義案",
+  "ide.testLoadEdit": "準備済みのテスト編集を読み込む",
+  "ide.testEditUnavailable": "テスト編集が現在の入力と一致しなくなりました。",
   "ide.tests": "テスト",
   "ide.testsNotice": "この結果はローカルの入力スナップショットに対するチェックです。共有プロジェクトの承認状態は変更しません。",
   "ide.testsLoad": "ローカルのテスト結果を読み込む",

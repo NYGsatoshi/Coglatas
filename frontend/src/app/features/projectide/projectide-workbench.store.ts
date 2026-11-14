@@ -1,3 +1,4 @@
+import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
 import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
 import { computed, Injectable, signal } from '@angular/core';
@@ -109,6 +110,34 @@ export class ProjectIdeWorkbenchStore {
     this.choose(target.key); this.loadResult();
     return this.navigateLocation(location);
   }
+  readonly testEditState = signal<'idle' | 'loading' | 'unavailable'>('idle');
+  readonly preparedTestEdit = (): PreparedTestEdit | null => {
+    const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.state() !== 'ready' || context !== this.result()) return null;
+    try { return testEditPair(bundle, context)?.prepared ?? null; } catch { return null; }
+  };
+  private async admitTestEdit(prepared: PreparedTestEdit) {
+    const generation = this.testGeneration; const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || this.preparedTestEdit() !== prepared) return null;
+    this.testEditState.set('loading');
+    try {
+      readPreviewBundle(bundle); const result = await readPreparedTestEdit(bundle, context);
+      if (generation !== this.testGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return null;
+      readPreviewBundle(bundle);
+      if (!result || result.prepared !== prepared || this.preparedTestEdit() !== prepared || !bundle.cases.includes(result.after)) throw new Error('stale-test-edit');
+      this.testEditState.set('idle'); return result;
+    } catch {
+      if (generation === this.testGeneration && context === this.context()) this.testEditState.set('unavailable');
+      return null;
+    }
+  }
+  async exportPreparedTestDefinition(prepared: PreparedTestEdit): Promise<string | null> {
+    return (await this.admitTestEdit(prepared))?.definitionText ?? null;
+  }
+  async loadPreparedTestEdit(prepared: PreparedTestEdit): Promise<boolean> {
+    const result = await this.admitTestEdit(prepared); if (!result) return false;
+    this.choose(result.after.key); this.loadResult(); return true;
+  }
   private testGeneration = 0;
   readonly testReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
   private readonly testSnapshot = signal<{ context: PreviewCase; result: PreviewCase; admitted: AdmittedLocalTests; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
@@ -150,7 +179,7 @@ export class ProjectIdeWorkbenchStore {
     if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
     return this.navigateLocation(assertion.location);
   }
-  private clearLocalTests(): void { this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
+  private clearLocalTests(): void { this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {

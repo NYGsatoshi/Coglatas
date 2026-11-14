@@ -1,3 +1,4 @@
+import { PreparedTestEdit } from './projectide-test-edit';
 import { LocalTestAssertion } from './projectide-tests.contracts';
 import { DOCUMENT, JsonPipe } from '@angular/common';
 import {
@@ -132,7 +133,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(): Promise<void> {
+  reload(profile: 'main' | 'test-edit' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -144,7 +145,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL('assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -238,6 +239,24 @@ export class ProjectIdeWorkbenchComponent {
     this.focusGeneration++;
     if (!this.canRead()) this.store.clear('denied');
     else if (this.store.navigateReference(destination)) this.open('source', true);
+  }
+  async exportTestDefinition(prepared: PreparedTestEdit): Promise<void> {
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const definition = await this.store.exportPreparedTestDefinition(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (definition === null || this.store.preparedTestEdit() !== prepared) return;
+    const url = URL.createObjectURL(new Blob([definition], { type: 'application/json;charset=utf-8' }));
+    try {
+      const link = this.document.createElement('a'); link.href = url; link.download = 'project-test-' + prepared.plan.target.entityId + '.json';
+      link.click();
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async loadTestEdit(prepared: PreparedTestEdit): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPreparedTestEdit(prepared);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.open('source', true);
   }
   async loadLocalTests(): Promise<void> {
     this.focusGeneration++;
