@@ -73,6 +73,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:11.0.0@sha256:bc0d6653979efba491ab3d6f589d6
 WORKDIR /app
 # The pinned .NET 11 runtime uses Ubuntu 26.04 (resolute), whose libapt ABI is 7.0.
 # Keep a fail-closed APT security floor; do not silently skip the library upgrade.
+# Pebble is an unused inherited supervisor: our ENTRYPOINT runs dotnet directly.
+# Its bundled Go stdlib is vulnerable; do not ship the unused binary.
 RUN set -eu; \
     . /etc/os-release; \
     test "$ID" = ubuntu; \
@@ -87,6 +89,8 @@ RUN set -eu; \
         openssl \
         libssl3t64 \
     && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/bin/pebble \
+    && test ! -e /usr/bin/pebble \
     && install -d -m 0700 -o "$APP_UID" /app/storage/uploads /app/data/protection-keys
 COPY --from=build /app/publish .
 USER $APP_UID

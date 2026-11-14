@@ -6399,8 +6399,8 @@ public sealed class HttpTenantIsolationTests
                 .Select(row => new { row.Id, row.Action }).Take(101).ToArrayAsync();
             var outbox = await db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
                 .Select(row => new { row.Id, row.PayloadJson, row.Status, row.AttemptCount }).Take(101).ToArrayAsync();
-            Assert.All(new[] { channels.Length, members.Length, channelMembers.Length, posts.Length,
-                threads.Length, audits.Length, outbox.Length }, count => Assert.InRange(count, 0, 100));
+            Assert.All([channels.Length, members.Length, channelMembers.Length, posts.Length,
+                threads.Length, audits.Length, outbox.Length], count => Assert.InRange(count, 0, 100));
             return Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
                 new { channels, members, channelMembers, posts, threads, audits, outbox })));
         }
