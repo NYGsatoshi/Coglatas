@@ -2,19 +2,53 @@ name: GitHub Actions Static Analysis
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "SecurityTestImplimation"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
+      - "scripts/ci/parallel-lane-lib.sh"
+      - "scripts/ci/run-security-runtime-parallel.sh"
+      - "scripts/ci/test-parallel-lane-lib.sh"
+      - "scripts/quality/qodana_sarif_parity.py"
+      - "tests/ci/test_qodana_sarif_parity.py"
+      - "scripts/quality/verify_qodana_artifact_provenance.py"
+      - "tests/ci/test_qodana_artifact_provenance.py"
+      - "scripts/quality/verify_qodana_signed_subject.py"
+      - "tests/ci/test_qodana_signed_subject.py"
+      - "scripts/quality/qodana_cloud_send_preflight.py"
+      - "tests/ci/test_qodana_cloud_send_preflight.py"
+      - "scripts/quality/verify_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_workflow.py"
+      - "governance/workflow-trust-policy.json"
+      - "governance/github-actions-allowlist.json"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
-    branches: ["main"]
+    branches: ["main", "SecurityTestImplimation"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
+      - "scripts/ci/parallel-lane-lib.sh"
+      - "scripts/ci/run-security-runtime-parallel.sh"
+      - "scripts/ci/test-parallel-lane-lib.sh"
+      - "scripts/quality/qodana_sarif_parity.py"
+      - "tests/ci/test_qodana_sarif_parity.py"
+      - "scripts/quality/verify_qodana_artifact_provenance.py"
+      - "tests/ci/test_qodana_artifact_provenance.py"
+      - "scripts/quality/verify_qodana_signed_subject.py"
+      - "tests/ci/test_qodana_signed_subject.py"
+      - "scripts/quality/qodana_cloud_send_preflight.py"
+      - "tests/ci/test_qodana_cloud_send_preflight.py"
+      - "scripts/quality/verify_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_workflow.py"
+      - "governance/workflow-trust-policy.json"
+      - "governance/github-actions-allowlist.json"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
@@ -93,8 +127,34 @@ jobs:
       - name: Test SonarCloud credentialed PR routing
         run: python3 scripts/ci/test-sonarcloud-routing.py
 
+      - name: Verify security-integration scan trigger parity
+        run: python3 -B tests/ci/test_security_integration_workflow_triggers.py
+
+      - name: Test parallel CI lane timing and failure propagation
+        run: |
+          bash -n scripts/ci/parallel-lane-lib.sh
+          bash -n scripts/ci/run-security-runtime-parallel.sh
+          bash -n scripts/ci/test-parallel-lane-lib.sh
+          bash scripts/ci/test-parallel-lane-lib.sh
+
+      - name: Validate Qodana independent-scan parity negative controls
+        run: python3 -B tests/ci/test_qodana_sarif_parity.py
+
+      - name: Test Qodana run-attempt and artifact digest correlation
+        run: python3 -B tests/ci/test_qodana_artifact_provenance.py
+
+      - name: Validate signed Qodana subject trust policy without a signer
+        run: python3 -B tests/ci/test_qodana_signed_subject.py
+
+      - name: Validate offline Qodana Cloud-send preflight contract
+        run: python3 -B tests/ci/test_qodana_cloud_send_preflight.py
       - name: Test Sonar .NET coverage evidence validation
         run: python3 scripts/ci/test-sonar-dotnet-coverage.py
+
+      - name: Test Qodana signed shadow signer and workflow trust boundaries
+        run: |
+          python3 -B tests/ci/test_qodana_shadow_signature.py
+          python3 -B tests/ci/test_qodana_shadow_workflow.py
 
       - name: Install checksum-pinned actionlint
         shell: bash

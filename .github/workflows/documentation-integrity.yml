@@ -1,0 +1,140 @@
+name: Documentation Integrity Qualification
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - '.github/workflows/documentation-integrity.yml'
+      - 'scripts/ci/documentation_integrity.py'
+      - 'scripts/ci/documentation-integrity-requirements.txt'
+      - 'tests/ci/test_documentation_integrity.py'
+      - 'docs/ci/documentation-integrity.md'
+  push:
+    branches: [SecurityTestImplimation]
+    paths:
+      - '.github/workflows/documentation-integrity.yml'
+      - 'scripts/ci/documentation_integrity.py'
+      - 'scripts/ci/documentation-integrity-requirements.txt'
+      - 'tests/ci/test_documentation_integrity.py'
+      - 'docs/ci/documentation-integrity.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-integrity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Documentation integrity qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOCUMENTATION_SOURCE: f849313aecf480948a6fe9176d73a490f2bec93f
+      DOCUMENTATION_BASELINE: f849313aecf480948a6fe9176d73a490f2bec93f
+      CHECKER_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout checker source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: checker
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout pinned documentation corpus
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: NYGsatoshi/Coglatas
+          ref: f849313aecf480948a6fe9176d73a490f2bec93f
+          path: documentation-source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up qualification Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install fixed parser dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/documentation-integrity-venv"
+          "$RUNNER_TEMP/documentation-integrity-venv/bin/python" -m pip install \
+            --disable-pip-version-check --require-hashes --only-binary=:all: \
+            -r checker/scripts/ci/documentation-integrity-requirements.txt
+          mkdir -p "$RUNNER_TEMP/documentation-integrity-results"
+          echo "$RUNNER_TEMP/documentation-integrity-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Record checked source identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C checker rev-parse HEAD)" = "$CHECKER_COMMIT"
+          test "$(git -C documentation-source rev-parse HEAD)" = "$DOCUMENTATION_SOURCE"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          def tree(path):
+              return subprocess.check_output(
+                  ["git", "-C", path, "rev-parse", "HEAD^{tree}"], text=True
+              ).strip()
+
+          record = {
+              "schema_version": 1,
+              "checker_commit": os.environ["CHECKER_COMMIT"],
+              "checker_tree": tree("checker"),
+              "checker_sha256": hashlib.sha256(Path(
+                  "checker/scripts/ci/documentation_integrity.py"
+              ).read_bytes()).hexdigest(),
+              "documentation_commit": os.environ["DOCUMENTATION_SOURCE"],
+              "documentation_tree": tree("documentation-source"),
+              "protection_baseline": os.environ["DOCUMENTATION_BASELINE"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "scope": "checker qualification against a separately pinned documentation corpus",
+          }
+          destination = Path(os.environ["RUNNER_TEMP"]) / "documentation-integrity-results" / "sources.json"
+          destination.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Run independent positive and negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s checker/tests/ci \
+            -p test_documentation_integrity.py -v 2>&1 \
+            | tee "$RUNNER_TEMP/documentation-integrity-results/controls.log"
+
+      - name: Check the complete pinned documentation corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python checker/scripts/ci/documentation_integrity.py check \
+            --repo documentation-source --ref "$DOCUMENTATION_SOURCE" \
+            --baseline "$DOCUMENTATION_BASELINE" --catalog docs/catalog.yml \
+            --json "$RUNNER_TEMP/documentation-integrity-results/corpus.json"
+
+      - name: Check checker-branch Markdown navigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python checker/scripts/ci/documentation_integrity.py links \
+            --repo checker --ref "$CHECKER_COMMIT" \
+            --json "$RUNNER_TEMP/documentation-integrity-results/checker-branch-links.json"
+
+      - name: Upload bounded qualification reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: documentation-integrity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/documentation-integrity-results/
+          if-no-files-found: error
+          retention-days: 7
