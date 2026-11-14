@@ -30,7 +30,7 @@ for (const locale of ['en', 'ja'] as const) for (const mode of ['assertion-prefi
     const load = page.getByRole('button', { name: locale === 'en' ? 'Load local Test results' : 'ローカルのテスト結果を読み込む', exact: true });
     await load.focus(); await load.press('Enter');
     if (mode === 'assertion-prefix') {
-      await expect(page.getByText(locale === 'en' ? 'No local Test results are available for this snapshot.' : 'このスナップショットのローカルテスト結果はありません。', { exact: true })).toBeVisible();
+      await expect(page.getByRole('alert')).toHaveText(locale === 'en' ? 'The local Test results could not be verified.' : 'ローカルのテスト結果を確認できませんでした。');
       await expect(page.getByTestId('ide-tests-summary')).toHaveCount(0);
     } else {
       await expect(page.getByTestId('ide-tests-summary')).toContainText(locale === 'en' ? 'Failed' : '失敗');
