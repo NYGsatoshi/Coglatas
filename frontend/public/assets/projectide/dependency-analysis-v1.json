@@ -927,11 +927,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "2faa5246d1944699281119e437314511d315550879d611b9cb753a0b193bc30d"
+                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                    "value": "f0f461ade4a71cf1fbd7c61b54b3ba49e5023d9765938b6d6172933b8b5fbbaf"
                   }
                 ]
               },
@@ -972,11 +972,11 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "2faa5246d1944699281119e437314511d315550879d611b9cb753a0b193bc30d"
+                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                    "value": "f0f461ade4a71cf1fbd7c61b54b3ba49e5023d9765938b6d6172933b8b5fbbaf"
                   }
                 ]
               },
@@ -1019,11 +1019,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "2faa5246d1944699281119e437314511d315550879d611b9cb753a0b193bc30d"
+                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                  "value": "f0f461ade4a71cf1fbd7c61b54b3ba49e5023d9765938b6d6172933b8b5fbbaf"
                 }
               ]
             },
@@ -1076,11 +1076,11 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "2faa5246d1944699281119e437314511d315550879d611b9cb753a0b193bc30d"
+                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0"
+                  "value": "f0f461ade4a71cf1fbd7c61b54b3ba49e5023d9765938b6d6172933b8b5fbbaf"
                 }
               ]
             },
@@ -1160,7 +1160,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "2faa5246d1944699281119e437314511d315550879d611b9cb753a0b193bc30d"
+                "value": "f0f461ade4a71cf1fbd7c61b54b3ba49e5023d9765938b6d6172933b8b5fbbaf"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -1169,10 +1169,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "c53f39dd-7741-89fd-a494-c850346c8ceb",
+      "resultId": "e5144680-fbe5-8521-aa43-b908736bfeee",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "2cfaaa5140b78788f6028b531dceca66773576d8a090213697a20b8e62869d63"
+        "value": "f806902cd07f332e6859bed4eb83bb88ca4ae0c231fd17912a7e291676251f5b"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -3361,7 +3361,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "3de13a933a8b3c6c5b9f03f4bee945539f30d44313a51828b1fcf33ac72daa9c"
+                    "value": "7f1e3bcfbe91fad0db1af254121847b805682b2a9c493b3488ee6fa1a03d9a3f"
                   },
                   {
                     "algorithm": "sha-256",
@@ -3406,7 +3406,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "3de13a933a8b3c6c5b9f03f4bee945539f30d44313a51828b1fcf33ac72daa9c"
+                    "value": "7f1e3bcfbe91fad0db1af254121847b805682b2a9c493b3488ee6fa1a03d9a3f"
                   },
                   {
                     "algorithm": "sha-256",
@@ -3453,7 +3453,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "3de13a933a8b3c6c5b9f03f4bee945539f30d44313a51828b1fcf33ac72daa9c"
+                  "value": "7f1e3bcfbe91fad0db1af254121847b805682b2a9c493b3488ee6fa1a03d9a3f"
                 },
                 {
                   "algorithm": "sha-256",
@@ -3510,7 +3510,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "3de13a933a8b3c6c5b9f03f4bee945539f30d44313a51828b1fcf33ac72daa9c"
+                  "value": "7f1e3bcfbe91fad0db1af254121847b805682b2a9c493b3488ee6fa1a03d9a3f"
                 },
                 {
                   "algorithm": "sha-256",
@@ -3594,7 +3594,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "3de13a933a8b3c6c5b9f03f4bee945539f30d44313a51828b1fcf33ac72daa9c"
+                "value": "7f1e3bcfbe91fad0db1af254121847b805682b2a9c493b3488ee6fa1a03d9a3f"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -3603,10 +3603,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "7d84e252-170a-815a-94ea-4fb050c43ee4",
+      "resultId": "c420c3c5-6fa5-84a8-83d0-33722420bcb4",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "bf1215a1d0eb500fc6160c56877565e14bf758cbab91e44ce3a67b406fc49947"
+        "value": "8b76e0a95112cd7a59b8c81e3bfd5a3e0c60735b9beebabafc62b3540473e486"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -5731,7 +5731,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "9e642d31ed3e90e9b6b581bc8d1545d928dec4cdddf18c0126851fd4f5c26ce2"
+                    "value": "b0bf8a42f7725a6d709395dc64d0ada149761065f85dc59eca529a5b8a2f2856"
                   }
                 ]
               },
@@ -5776,7 +5776,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "9e642d31ed3e90e9b6b581bc8d1545d928dec4cdddf18c0126851fd4f5c26ce2"
+                    "value": "b0bf8a42f7725a6d709395dc64d0ada149761065f85dc59eca529a5b8a2f2856"
                   }
                 ]
               },
@@ -5823,7 +5823,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "9e642d31ed3e90e9b6b581bc8d1545d928dec4cdddf18c0126851fd4f5c26ce2"
+                  "value": "b0bf8a42f7725a6d709395dc64d0ada149761065f85dc59eca529a5b8a2f2856"
                 }
               ]
             },
@@ -5880,7 +5880,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "9e642d31ed3e90e9b6b581bc8d1545d928dec4cdddf18c0126851fd4f5c26ce2"
+                  "value": "b0bf8a42f7725a6d709395dc64d0ada149761065f85dc59eca529a5b8a2f2856"
                 }
               ]
             },
@@ -5960,7 +5960,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "9e642d31ed3e90e9b6b581bc8d1545d928dec4cdddf18c0126851fd4f5c26ce2"
+                "value": "b0bf8a42f7725a6d709395dc64d0ada149761065f85dc59eca529a5b8a2f2856"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -5969,10 +5969,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "16603cc8-50b4-8952-84e5-cc8f7156420c",
+      "resultId": "7b7918e8-8b19-84d2-9931-e8842b8c2c7b",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "7856a20f466509d58162037837d951a51f4004318b08d61f897fa7a033a82f50"
+        "value": "d962540e1fdf36fad2d752c6d163be95188e0dacaaa69ae9cc37d0bd95585c72"
       },
       "freshness": "Current",
       "changedDimensions": [],

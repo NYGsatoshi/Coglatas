@@ -61,7 +61,7 @@ public sealed class CompilerDependencyFailure
     }
 }
 
-/// <summary>Input-bound regional analysis, not a global cross-region graph proof or an executable plan.
+/// <summary>Input-bound graph, regional analysis and scoped inspection IR; not an executable plan.
 /// Normal Compiler publication retains its global lowering guard.</summary>
 public sealed class CompilerDependencyAnalysis
 {
@@ -69,6 +69,7 @@ public sealed class CompilerDependencyAnalysis
     public CompilerInputManifest Input { get; }
     public CompilerBindingClosure Binding { get; }
     public CompilerGraphClosure? Graph { get; }
+    public CompilerScopedIr? ScopedIr { get; }
     public CompilerDependencyAnalysisState State { get; }
     public IReadOnlyList<CompilerDependencyRegion> Regions { get; }
     public IReadOnlyList<CompilerDependencyFailure> KnownFailures { get; }
@@ -77,9 +78,9 @@ public sealed class CompilerDependencyAnalysis
     public SourceJson Data { get; }
     public ContentDigest Digest { get; }
     private CompilerDependencyAnalysis(CompilerBindingClosure binding, CompilerDependencyAnalysisState state,
-        IEnumerable<CompilerDependencyRegion> regions, int consumed, IEnumerable<CompilerDependencyFailure> knownFailures, CompilerGraphClosure? graph)
+        IEnumerable<CompilerDependencyRegion> regions, int consumed, IEnumerable<CompilerDependencyFailure> knownFailures, CompilerGraphClosure? graph, CompilerScopedIr? scopedIr)
     {
-        Input = binding.Input; Binding = binding; Graph = graph; State = state; LogicalOperationsConsumed = consumed;
+        Input = binding.Input; Binding = binding; Graph = graph; ScopedIr = scopedIr; State = state; LogicalOperationsConsumed = consumed;
         Regions = new ImmutableListView<CompilerDependencyRegion>(regions.OrderBy(item => item.Binding.Source.Context.Data.CanonicalText, StringComparer.Ordinal));
         KnownFailures = new ImmutableListView<CompilerDependencyFailure>(knownFailures.DistinctBy(item => item.Digest).OrderBy(item => item.RuleId, StringComparer.Ordinal).ThenBy(item => item.Digest.Value, StringComparer.Ordinal));
         // Fixed-width certificate digests permit bounded streaming even when diagnostic publication cannot fit.
@@ -94,7 +95,7 @@ public sealed class CompilerDependencyAnalysis
             format = Format, rootInputDigest = Input.InputDigest.Data.Value, bindingClosureDigest = binding.Digest.Data.Value,
             state = state.ToString(), logicalOperationsConsumed = consumed, knownFailureDigest = KnownFailureDigest.Data.Value,
             regions = Regions.Select(item => new { digest = item.Digest.Data.Value, region = item.Data.Value }).ToArray(),
-            globalGraph = graph?.Data.Value
+            globalGraph = graph?.Data.Value, scopedIrDigest = scopedIr?.Digest.Data.Value
         }, Input.Source.Data.Limits);
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
     }
@@ -181,13 +182,20 @@ public sealed class CompilerDependencyAnalysis
                     }
                 }
             }
+            CompilerScopedIr? scopedIr = null;
+            if (state == CompilerDependencyAnalysisState.Evaluated && graph is { StructuralValidated: true } &&
+                regions.Count == closure.Regions.Count && regions.All(region => region.Validation?.Ir is not null))
+            {
+                try { scopedIr = CompilerScopedIr.Build(closure, graph, regions, ref remaining, cancellationToken); }
+                catch (FormatException) { state = CompilerDependencyAnalysisState.ResourceLimit; }
+            }
             CompilerDependencyAnalysis analysis;
-            try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph); }
+            try { analysis = new(closure, state, regions, input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr); }
             catch (FormatException)
             {
                 // Discard an oversized publication; its evaluated prefix never becomes a complete receipt.
-                state = CompilerDependencyAnalysisState.ResourceLimit;
-                analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph);
+                state = CompilerDependencyAnalysisState.ResourceLimit; scopedIr = null;
+                analysis = new(closure, state, [], input.ExecutionProfile.MaximumOperations - Math.Max(0, remaining), knownFailures.Values.Concat(semanticFailures), graph, scopedIr);
             }
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = local.Result.Diagnostics.ToList();

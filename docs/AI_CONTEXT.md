@@ -1,5 +1,9 @@
 # AI Context
 
+[Scoped IR consolidation](verification/projectide-scoped-ir.md) binds actual
+regional IR/maps to the complete declared graph in separate context slots.
+Normal external publication, both foreign readers and Compiler PASS remain open.
+
 [Whole declared graph validation](verification/projectide-global-graph-closure.md)
 checks cross-owner cycles, connections, duplicates and Governs over exact
 contexts, including incoming edges without root references. Ordinary external

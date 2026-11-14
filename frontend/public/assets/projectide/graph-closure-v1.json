@@ -1385,7 +1385,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "a44f4128089115e60621f82d222bcdd863b39479c757c0876d8198d2abc3e4e2"
+                    "value": "bcb198a102624e2c4aa0e68a3a5868d1c597cc4517dbbff7f5b269568384d8e2"
                   },
                   {
                     "algorithm": "sha-256",
@@ -1430,7 +1430,7 @@
                 "premises": [
                   {
                     "algorithm": "sha-256",
-                    "value": "a44f4128089115e60621f82d222bcdd863b39479c757c0876d8198d2abc3e4e2"
+                    "value": "bcb198a102624e2c4aa0e68a3a5868d1c597cc4517dbbff7f5b269568384d8e2"
                   },
                   {
                     "algorithm": "sha-256",
@@ -1477,7 +1477,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "a44f4128089115e60621f82d222bcdd863b39479c757c0876d8198d2abc3e4e2"
+                  "value": "bcb198a102624e2c4aa0e68a3a5868d1c597cc4517dbbff7f5b269568384d8e2"
                 },
                 {
                   "algorithm": "sha-256",
@@ -1534,7 +1534,7 @@
               "premises": [
                 {
                   "algorithm": "sha-256",
-                  "value": "a44f4128089115e60621f82d222bcdd863b39479c757c0876d8198d2abc3e4e2"
+                  "value": "bcb198a102624e2c4aa0e68a3a5868d1c597cc4517dbbff7f5b269568384d8e2"
                 },
                 {
                   "algorithm": "sha-256",
@@ -1618,7 +1618,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "a44f4128089115e60621f82d222bcdd863b39479c757c0876d8198d2abc3e4e2"
+                "value": "bcb198a102624e2c4aa0e68a3a5868d1c597cc4517dbbff7f5b269568384d8e2"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -1627,10 +1627,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "ce97975d-9746-8d8d-af6a-c192404b93fd",
+      "resultId": "f5862a8a-4b3e-8454-8e7e-c6a1a99d1dba",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "6cf3e1d8805ea88bd299a806c3461e2ec9597ef499e17a5d54f1983c8d8fc8d8"
+        "value": "d430122f400e1ae429fe9ee50d3e2c72b0dada8f58249030de6c8dddebfe6e4b"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -4402,7 +4402,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "52f7e34993e1ab564aa6a8094cf9de284cf5f7f0409ad0b5283cc89ccea5d6fa"
+                    "value": "56b40e0a777850bc3ccba299de09de84258d96a31ba478b92aa5d686e2d045bb"
                   }
                 ]
               },
@@ -4447,7 +4447,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "52f7e34993e1ab564aa6a8094cf9de284cf5f7f0409ad0b5283cc89ccea5d6fa"
+                    "value": "56b40e0a777850bc3ccba299de09de84258d96a31ba478b92aa5d686e2d045bb"
                   }
                 ]
               },
@@ -4494,7 +4494,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "52f7e34993e1ab564aa6a8094cf9de284cf5f7f0409ad0b5283cc89ccea5d6fa"
+                  "value": "56b40e0a777850bc3ccba299de09de84258d96a31ba478b92aa5d686e2d045bb"
                 }
               ]
             },
@@ -4551,7 +4551,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "52f7e34993e1ab564aa6a8094cf9de284cf5f7f0409ad0b5283cc89ccea5d6fa"
+                  "value": "56b40e0a777850bc3ccba299de09de84258d96a31ba478b92aa5d686e2d045bb"
                 }
               ]
             },
@@ -4631,7 +4631,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "52f7e34993e1ab564aa6a8094cf9de284cf5f7f0409ad0b5283cc89ccea5d6fa"
+                "value": "56b40e0a777850bc3ccba299de09de84258d96a31ba478b92aa5d686e2d045bb"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -4640,10 +4640,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "aeda4aa5-2619-8f7d-b46d-624b96c2c227",
+      "resultId": "fa42b994-ebe6-82a3-8d80-7e319f1481d0",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "23f6d3d747b361b85d580874454eff7a7e59df35d1195a17af87cf11bd9f9497"
+        "value": "2857ec380970b3430f6a04e2635ae5da3f4fb798d55c727eafb06411784cf9db"
       },
       "freshness": "Current",
       "changedDimensions": [],
@@ -7382,7 +7382,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "5fe086db2a7eee3583cab0cbc738065c167d1517bd4104163801d35aac70071b"
+                    "value": "ff0a6b0bd4a6f46b48e547727e2ff08948d9019e2661b657aac398391d415fae"
                   }
                 ]
               },
@@ -7427,7 +7427,7 @@
                   },
                   {
                     "algorithm": "sha-256",
-                    "value": "5fe086db2a7eee3583cab0cbc738065c167d1517bd4104163801d35aac70071b"
+                    "value": "ff0a6b0bd4a6f46b48e547727e2ff08948d9019e2661b657aac398391d415fae"
                   }
                 ]
               },
@@ -7474,7 +7474,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "5fe086db2a7eee3583cab0cbc738065c167d1517bd4104163801d35aac70071b"
+                  "value": "ff0a6b0bd4a6f46b48e547727e2ff08948d9019e2661b657aac398391d415fae"
                 }
               ]
             },
@@ -7531,7 +7531,7 @@
                 },
                 {
                   "algorithm": "sha-256",
-                  "value": "5fe086db2a7eee3583cab0cbc738065c167d1517bd4104163801d35aac70071b"
+                  "value": "ff0a6b0bd4a6f46b48e547727e2ff08948d9019e2661b657aac398391d415fae"
                 }
               ]
             },
@@ -7611,7 +7611,7 @@
             "outputs": [
               {
                 "algorithm": "sha-256",
-                "value": "5fe086db2a7eee3583cab0cbc738065c167d1517bd4104163801d35aac70071b"
+                "value": "ff0a6b0bd4a6f46b48e547727e2ff08948d9019e2661b657aac398391d415fae"
               }
             ],
             "stageId": "coglatas.dependency-analysis",
@@ -7620,10 +7620,10 @@
         ],
         "verdict": "coglatas.fail"
       },
-      "resultId": "a29da88c-a277-8765-9175-c8be790a4402",
+      "resultId": "6b7fa062-d387-8b8b-96cf-cd9de2703f92",
       "resultDigest": {
         "algorithm": "sha-256",
-        "value": "0fb9d939103561fe7b6e5a42a9ceeb15ab7de26c02ac4cf010d8c72d9405f6a8"
+        "value": "c0a33185f223b8d1714059687eb8f38ed264ed9d24daedc09c44fb732e01f1ca"
       },
       "freshness": "Current",
       "changedDimensions": [],
