@@ -7,7 +7,7 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class SyntheticSimulationTests
 {
-    private static async Task<(SyntheticWorkbenchViewModel View, CompilerHostRequest Request)> Ready()
+    internal static async Task<(SyntheticWorkbenchViewModel View, CompilerHostRequest Request)> Ready()
     {
         var input = ProjectSimulationTests.Plan().Input;
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));

@@ -1,5 +1,11 @@
 # AI Context
 
+[Shared semantic simulation debugging](verification/projectide-semantic-simulation-debugger.md)
+adds actual event/Task stepping, exact-point break/resume, immutable control
+snapshots and typed task/wait inspection over the same pure event engine.
+Windows pure controls fence current snapshot/lifecycle; Angular debug snapshot
+consumption, composites/watch/jobs/native and full #907 acceptance remain open.
+
 [Bounded pure elapsed simulation](verification/projectide-pure-simulation.md)
 adds an immutable run manifest and deterministic virtual-clock event engine over
 actually produced elapsed Task DAG plans. It preserves parallelism, joins and
