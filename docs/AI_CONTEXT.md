@@ -1,5 +1,10 @@
 # AI Context
 
+[Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
+adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.
+The Windows pure ViewModel separates baseline, assumptions and fresh results;
+Angular, Simulation/Impact and current server authority remain open.
+
 [Explicit Test definition editing](verification/projectide-test-definition-editing.md)
 exports canonical Source and prepares exact local Draft replacements for all
 initial assertion families. CLI/Windows pure editing and the Core-backed Web

@@ -150,7 +150,8 @@ public static class ProjectDraftRename
 internal static class DraftSourceTransition
 {
     internal static ProjectSource Recontextualize(PartialSemanticModel model, SourceRevisionContext next, EntityId? rename,
-        string? name, CancellationToken cancellationToken, ProjectTestPlanDeclaration? replacement = null)
+        string? name, CancellationToken cancellationToken, PlanDeclaration? replacement = null,
+        IReadOnlyDictionary<EntityId, PlanDeclaration>? replacements = null)
     {
         var source = model.Input.Source;
         PlanEntityReference.RequireKnownContext(source.Context); PlanEntityReference.RequireKnownContext(next);
@@ -200,11 +201,12 @@ internal static class DraftSourceTransition
         {
             var id = EntityId.Parse(node["entityId"]!.GetValue<string>());
             var decoded = declarationIndex[id].Declaration;
-            if (replacement?.EntityId == id)
+            var replacementDeclaration = replacement?.EntityId == id ? replacement : replacements?.GetValueOrDefault(id);
+            if (replacementDeclaration is not null)
             {
-                var imported = JsonNode.Parse(replacement.Data.CanonicalText)!.AsObject(); node.Clear();
+                var imported = JsonNode.Parse(replacementDeclaration.Data.CanonicalText)!.AsObject(); node.Clear();
                 foreach (var property in imported) node.Add(property.Key, property.Value?.DeepClone());
-                decoded = replacement;
+                decoded = replacementDeclaration;
             }
 
             if (id == rename) node["displayName"] = name;
