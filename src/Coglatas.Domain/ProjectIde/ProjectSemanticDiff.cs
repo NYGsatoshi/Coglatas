@@ -238,6 +238,9 @@ public sealed class ProjectSemanticDiff
                 {
                     if (declaration is ProjectPlanDeclaration) record.ReferencePaths.Add("/payload/roots");
                     if (declaration is RequirementPlanDeclaration requirement) Reference(record, "/payload/target", requirement.Target, model.Input.Source.Context);
+                    if (declaration is ProjectTestPlanDeclaration test)
+                        for (var index = 0; index < test.Assertions.Count; index++)
+                            Reference(record, "/payload/assertions/" + index + "/target", test.Assertions[index].Target, model.Input.Source.Context);
                     if (declaration is TaskPlanDeclaration task)
                         for (var index = 0; index < task.Ports.Count; index++)
                             if (task.Ports[index].DefaultValue is { } value)
@@ -273,7 +276,8 @@ public sealed class ProjectSemanticDiff
             record.ReferencePaths.Add(path);
             if (!reference.Context.Equals(context)) return;
             var node = record.Projection!;
-            foreach (var part in path.Split('/').Skip(1)) node = node[part]!;
+            foreach (var part in path.Split('/').Skip(1))
+                node = node is JsonArray array ? array[int.Parse(part, System.Globalization.CultureInfo.InvariantCulture)]! : node[part]!;
             // Internal tagged comparison value; never recontextualize to the other side's actual context.
             node["context"] = "coglatas.diff.local-context";
         }

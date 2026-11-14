@@ -1,5 +1,11 @@
 # AI Context
 
+The [local typed Project Test Core and CLI](verification/projectide-local-project-tests.md)
+adds versioned Test declarations, bounded input-default assertions and exact
+manifest/evaluator binding. It is the first #1031 Core/CLI slice; paired Test
+panels, runtime authority and durable jobs remain open; independent Security
+qualification is P0 #1945.
+
 This is the primary entry point for future Codex work on Coglatas.
 
 The [Resource assessment storage repair](verification/projectide-resource-assessment-immutability.md)

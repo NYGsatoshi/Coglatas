@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><RootNamespace>Coglatas.ProjectIde.TestCli</RootNamespace><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="Coglatas.Tests" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../src/Coglatas.Domain/Coglatas.Domain.csproj" /></ItemGroup>
+</Project>

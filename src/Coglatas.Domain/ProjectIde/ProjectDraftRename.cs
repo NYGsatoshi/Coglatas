@@ -124,6 +124,7 @@ public static class ProjectDraftRename
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (item.Declaration is RequirementPlanDeclaration requirement && requirement.Target.Context.Equals(next)) return true;
+            if (item.Declaration is ProjectTestPlanDeclaration test && test.Assertions.Any(assertion => assertion.Target.Context.Equals(next))) return true;
             if (item.Declaration is not TaskPlanDeclaration task) continue;
             foreach (var port in task.Ports)
                 if (port.DefaultValue is { } value)
@@ -202,6 +203,15 @@ internal static class DraftSourceTransition
             if (id == rename) node["displayName"] = name;
             if (decoded is RequirementPlanDeclaration requirement)
                 RebasePlanReference(node["payload"]!["target"]!.AsObject(), requirement.Target);
+            if (decoded is ProjectTestPlanDeclaration test)
+            {
+                var assertions = node["payload"]!["assertions"]!.AsArray().ToDictionary(item => item!["key"]!.GetValue<string>(), StringComparer.Ordinal);
+                foreach (var assertion in test.Assertions)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    RebasePlanReference(assertions[assertion.Key]!["target"]!.AsObject(), assertion.Target);
+                }
+            }
             if (decoded is not TaskPlanDeclaration task) return;
             var ports = node["payload"]!["ports"]!.AsArray().ToDictionary(port => PortId.Parse(port!["portId"]!.GetValue<string>()));
             foreach (var port in task.Ports)

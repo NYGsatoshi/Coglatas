@@ -33,6 +33,7 @@ public static class PlanDeclarationReader
                 "coglatas.resource-binding" => new ResourceBindingDeclaration(data, document),
                 "coglatas.constraint" => new ConstraintPlanDeclaration(data, document),
                 "coglatas.workflow" => new WorkflowPlanDeclaration(data, document),
+                "coglatas.project-test" => new ProjectTestPlanDeclaration(data, document),
                 _ => throw new UnsupportedSourceException("Unknown declaration kind.")
             };
             return new(ValueDecodeStatus.Decoded, declaration, data, document);
