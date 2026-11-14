@@ -154,11 +154,11 @@ class InspectionEvidenceTests(unittest.TestCase):
 
         # A ReSharper control-plane edit must inspect the entire solution: the
         # verifier mutates Entry test sources, which are absent from Domain-only scans.
-        self.assertIn("full_solution=true", classify(b".github/workflows/resharper_pr.yml\\0"))
+        self.assertIn("full_solution=true", classify(b".github/workflows/resharper_pr.yml\0"))
         self.assertEqual("", projects.read_text(encoding="utf-8"))
         # Unrelated workflow-only changes keep the original bounded representative.
-        self.assertIn("full_solution=false", classify(b".github/workflows/documentation-integrity.yml\\0"))
-        self.assertEqual("Coglatas.Domain\\n", projects.read_text(encoding="utf-8"))
+        self.assertIn("full_solution=false", classify(b".github/workflows/documentation-integrity.yml\0"))
+        self.assertEqual("Coglatas.Domain\n", projects.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
