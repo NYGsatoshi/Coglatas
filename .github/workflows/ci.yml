@@ -933,13 +933,17 @@ jobs:
           set -euo pipefail
           receipt="$(mktemp)"
           trap 'rm -f "$receipt"' EXIT
-          if ! node --test tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
+          # Select stable, uncolored TAP independently of runner reporter defaults.
+          if ! env -u FORCE_COLOR -u NODE_TEST_REPORTER NODE_DISABLE_COLORS=1 \
+            node --test --test-reporter=tap tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
             echo "::error::SOURCE_APPLICABILITY_SDK_TEST_FAILED"
             exit 1
           fi
           for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'; do
             if ! grep -Fxq -- "$expected" "$receipt"; then
               echo "::error::SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE"
+              # Only finite aggregate TAP counters are retained; never print case titles.
+              awk '/^# (tests|pass|fail|skipped) [0-9]+$/ { print "::notice::SOURCE_APPLICABILITY_SDK_AGGREGATE=" $2 ":" $3 }' "$receipt"
               exit 1
             fi
           done
