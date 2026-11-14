@@ -134,6 +134,9 @@ jobs:
       - name: Test nonpublishing Playwright Reporter hook fail-closed lifecycle
         run: node --test tests/ui/playwright-shard-capture.node-test.mjs
 
+      - name: Test privacy-safe full Playwright source-list discovery
+        run: node --test tests/ui/playwright-full-source-list.node-test.mjs
+
       - name: Verify PR Security prebuilt-image source and negative controls
         run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
 
@@ -918,6 +921,44 @@ jobs:
       - name: Install Angular dependencies with reviewed lifecycle policy
         if: needs.frontend-build.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Verify generated-title SDK applicability on isolated source trial
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(mktemp)"
+          trap 'rm -f "$receipt"' EXIT
+          # Select stable, uncolored TAP independently of runner reporter defaults.
+          if ! env -u FORCE_COLOR -u NODE_TEST_REPORTER NODE_DISABLE_COLORS=1 \
+            node --test --test-reporter=tap tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
+            echo "::error::SOURCE_APPLICABILITY_SDK_TEST_FAILED"
+            exit 1
+          fi
+          for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'; do
+            if ! grep -Fxq -- "$expected" "$receipt"; then
+              echo "::error::SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE"
+              # Only finite aggregate TAP counters are retained; never print case titles.
+              awk '/^# (tests|pass|fail|skipped) [0-9]+$/ { print "::notice::SOURCE_APPLICABILITY_SDK_AGGREGATE=" $2 ":" $3 }' "$receipt"
+              exit 1
+            fi
+          done
+          echo "SOURCE_APPLICABILITY_SDK=7_PASS_0_SKIP"
+
+      - name: List original static Playwright test IDs on isolated trial branch only
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        env:
+          COGLATAS_SOURCE_DISCOVERY_TRIAL: "1"
+        run: node scripts/ci/qualify-playwright-full-source-list.mjs
 
       - name: Run frontend checks in parallel
         if: needs.frontend-build.outputs.frontend == 'true'
