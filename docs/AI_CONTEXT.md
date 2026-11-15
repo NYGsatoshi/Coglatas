@@ -1,5 +1,11 @@
 # AI Context
 
+[Owned local initial-root pass host recording](verification/projectide-local-pass-host-recording.md)
+binds predeclared pass policy, actual input/materializations, intended local run
+and original response/receipt without rewriting the Domain record. The execution
+host is internal to the bounded session. Diagnostic reruns cannot fill old capture
+gaps; existing protocols, clients and current authority/retention remain separate.
+
 [Actual initial-root pass observation](verification/projectide-initial-root-pass-observation.md)
 adds predeclared bounded entry/return capture of existing original JSON with an
 owned metadata-only default snapshot. Missing engine-object/supply bodies remain
