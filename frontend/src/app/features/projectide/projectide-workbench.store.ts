@@ -1,3 +1,4 @@
+import { AdmittedCompilerRecording, CompilerRecordingLabel, compilerRecordingMatches, readCompilerRecording } from './projectide-compiler-recordings.reader';
 import { AdmittedCompilerOutputs, CompilerOutputMode, readCompilerOutputs } from './projectide-compiler-outputs.reader';
 import { AdmittedTraceProfile, readSimulationTraceProfile } from './projectide-simulation-trace-profile.reader';
 import { AdmittedSimulationComparison, readSimulationComparison } from './projectide-simulation-comparison.reader';
@@ -168,6 +169,31 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
+  private compilerRecordingGeneration = 0;
+  readonly compilerRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly compilerRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerRecording } | null>(null);
+  readonly compilerRecording = (): AdmittedCompilerRecording | null => {
+    const snapshot = this.compilerRecordingSnapshot(); const sources = this.admittedScoped();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && compilerRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadCompilerRecording(label: CompilerRecordingLabel = 'original'): Promise<boolean> {
+    this.clearCompilerRecording(); const generation = this.compilerRecordingGeneration;
+    const context = this.context(); const sources = this.admittedScoped(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || !sources.publicationVerified || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.compilerRecordingGeneration && bundle === this.bundle() && context === this.context() && context === this.result();
+    this.compilerRecordingReadState.set('loading');
+    try {
+      const admitted = await readCompilerRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || sources !== this.admittedScoped() || !bundle.cases.includes(context) || !compilerRecordingMatches(context, sources, admitted)) throw new Error('compiler-recording-unavailable');
+      this.compilerRecordingSnapshot.set({ bundle, context, admitted }); this.compilerRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.compilerRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearCompilerRecording(): void {
+    this.compilerRecordingGeneration++; this.compilerRecordingSnapshot.set(null); this.compilerRecordingReadState.set('idle');
+  }
   private compilerOutputsGeneration = 0;
   readonly compilerOutputsReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly compilerOutputsSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerOutputs } | null>(null);
@@ -329,6 +355,7 @@ export class ProjectIdeWorkbenchStore {
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
   private clearScopedSources(): void {
+    this.clearCompilerRecording();
     this.clearCompilerOutputs();
     this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
   }

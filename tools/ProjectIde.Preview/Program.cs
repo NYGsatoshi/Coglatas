@@ -13,11 +13,12 @@ var comparisonProfile = args is [_, "--simulation-comparison"];
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
-var outputSnapshotProfile = args is [_, "--compiler-outputs"];
+var recordingProfile = args is [_, "--compiler-recordings"];
+var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -223,6 +224,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["compilerOutputs"] = JsonSerializer.SerializeToNode(new { manifest = Capture(CompilerOutputSnapshotMode.Manifest, ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes),
                 available = Capture(CompilerOutputSnapshotMode.AvailableOutputs, name == "tests-publication-root-draft" ? 1 : ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) });
         }
+        if (recordingProfile) fixture["compilerRecordings"] = await CompilerRecordingPreview.ExportAsync(input, snapshots, compilation.Result);
         if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
         {
             var request = new SimulationRunManifest(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
@@ -274,6 +276,10 @@ if (comparisonProfile)
     if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true });
+if (recordingProfile) {
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["recordingProducer"] = JsonSerializer.SerializeToNode(CompilerRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");

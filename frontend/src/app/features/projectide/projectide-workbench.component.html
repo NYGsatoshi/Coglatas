@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
+      <button type="button" (click)="reload('compiler-recordings')">{{ t('ide.recordingExample') }}</button>
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
       <button type="button" (click)="reload('simulation-profile')">{{ t('ide.profileExample') }}</button>
       <button type="button" (click)="reload('simulation-comparison')">{{ t('ide.comparisonExample') }}</button>
@@ -633,6 +634,39 @@
                     <li><details data-testid="ide-compiler-output-body"><summary>{{ compilerOutputRole(body.role) }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
                   }</ul>
                   <details><summary>{{ t('ide.outputsOriginal') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                </section>
+              }
+              @if (ctx.compilerRecordings && store.hasVerifiedPublication()) {
+                <div class="panels">
+                  <button type="button" (click)="loadCompilerRecording()" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingOriginal') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('diagnostic')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingDiagnostic') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('budget')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingBudget') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('cancelled')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingCancelled') }}</button>
+                </div>
+                @if (store.compilerRecordingReadState() === 'loading') { <p role="status">{{ t('ide.recordingLoading') }}</p> }
+                @if (store.compilerRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.recordingUnavailable') }}</p> }
+              }
+              @if (store.compilerRecording(); as recording) {
+                <section #compilerRecordingPanel tabindex="-1" data-testid="ide-compiler-recording" aria-labelledby="ide-compiler-recording-heading">
+                  <h3 id="ide-compiler-recording-heading">{{ t('ide.recordingTitle') }}</h3><p>{{ t('ide.recordingNotice') }}</p>
+                  <p data-testid="ide-compiler-recording-selection">{{ t(recording.label === 'original' ? 'ide.recordingOriginal' : recording.label === 'diagnostic' ? 'ide.recordingDiagnostic' : recording.label === 'budget' ? 'ide.recordingBudget' : 'ide.recordingCancelled') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-compiler-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingSession') }}</dt><dd>{{ recording.sessionId }}</dd></div>
+                    @if (recording.originalRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originalRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.sourceDigest') }}</dt><dd>{{ ctx.sourceDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.manifest') }}</dt><dd>{{ ctx.inputDigest.value }}</dd></div>
+                  </dl>
+                  @if (recording.output; as output) {
+                    <p data-testid="ide-compiler-recording-state">{{ t(output.state === 'ManifestOnly' ? 'ide.outputsManifestOnly' : output.state === 'BodyBudgetExceeded' ? 'ide.outputsBudgetExceeded' : 'ide.outputsCaptured') }}</p>
+                    <p>{{ t('ide.outputsRetainedBytes') }}: {{ output.retainedBodyBytes }} / {{ output.maximumBodyBytes }}</p>
+                    <ul>@for (body of output.bodies; track body.role) {
+                      <li><details data-testid="ide-compiler-recording-body"><summary>{{ compilerOutputRole(body.role) }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
+                    }</ul>
+                  } @else { <p data-testid="ide-compiler-recording-no-result">{{ t('ide.recordingNoResult') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
                 </section>
               }
               @if (store.planDefinition(); as plan) {
