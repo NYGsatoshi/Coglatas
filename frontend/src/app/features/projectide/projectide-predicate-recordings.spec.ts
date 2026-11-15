@@ -13,6 +13,18 @@ const original = JSON.parse(readFileSync(resolve('public/assets/projectide/predi
 const bundle = () => readPreviewBundle(structuredClone(original));
 const keys = ['fail', 'pass', 'unknown', 'test-assertion-navigation'];
 describe('Actual original predicate recording members', () => {
+  it('keeps the complete fixture fingerprint private through default Manifest admission', async () => {
+    const value = bundle().cases.find(value => value.key === 'fail')!;
+    const sources = (await readRootSource(value))!;
+    expect(JSON.stringify(sources)).not.toContain('predicateRecordings');
+    const recording = (await readPredicateRecording(value, sources))!;
+    expect(recording.originalCaptureState).toBe('ManifestOnly');
+    expect(JSON.stringify(recording)).not.toContain('predicateRecordings');
+    expect(predicateRecordingMatches(value, sources, recording)).toBe(true);
+    Object.defineProperty(value, 'predicateRecordings', { value: structuredClone(value.predicateRecordings!) });
+    expect(predicateRecordingMatches(value, sources, recording)).toBe(false);
+  });
+
   it.each(keys)('reads every actual run and only selected original arrays: %s', async key => {
     const value = bundle().cases.find(value => value.key === key)!; const result = value.result;
     const sources = (await readRootSource(value))!;

@@ -20,7 +20,7 @@ export const PROJECTIDE_ENGLISH_MESSAGES = {
   "ide.predicateNoResult": "This cancelled host attempt retains no Compiler result or predicate body. The case result is unchanged.",
   "ide.predicateSelectDiagnostic": "Select a diagnostic in Problems to inspect its recorded arrays.",
   "ide.predicateSelectedTitle": "Selected diagnostic’s original predicate arrays",
-  "ide.predicateSelectedNotice": "Only the recorded root arrays referenced by this diagnostic are available. Missing capture cannot be recovered here. Regional, AND/OR and causal links are not recorded.",
+  "ide.predicateSelectedNotice": "Only the recorded root arrays referenced by this diagnostic are available. Missing capture cannot be recovered here. Regional evaluation, AND/OR relationships and causal links are not recorded.",
   "ide.predicateRequireRun": "Read fixed root Source and choose a recorded run in the Source panel first.",
   "ide.predicateReadSelected": "Read selected original arrays",
   "ide.predicateReadLimited": "Read with one-byte viewing limit",
