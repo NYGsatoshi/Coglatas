@@ -102,6 +102,41 @@ def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_mark
         test.assertEqual(retained, output.read_bytes())
 
 
+def assert_native_capture_identity_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, source, receipt, output, published):
+    """Preserve both owners' exact receipt schema and fail-closed mutation assertions."""
+    test.assertEqual(output.read_text(), published)
+    test.assertEqual(receipt, json.loads(published))
+    test.assertNotIn(str(root), published)
+    test.assertEqual({
+        "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
+        "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
+        "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
+        "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
+    }, set(json.loads(published)))
+    test.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
+                      "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
+    test.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
+    for invalid in ("0" * 40, "invalid"):
+        with test.subTest(candidate=invalid), test.assertRaises(ValueError):
+            capture_module.capture(root, trx, invalid, now)
+    stamp.write_text("0" * 40)
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+    stamp.unlink()
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+    stamp.write_text(candidate)
+    original = source.read_bytes()
+    source.write_bytes(original + b" changed")
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+    source.write_bytes(original)
+    loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+
+
 def assert_canonical_failure_summary(test, capture_module, producer_path):
     """Both SEC-17 captures admit their own producer and reject other reports."""
     with tempfile.TemporaryDirectory() as directory:

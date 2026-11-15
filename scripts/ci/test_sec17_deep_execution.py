@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec_arch_evidence import (assert_closed_cli_error_receipt,
+from test_sec_arch_evidence import (assert_native_capture_identity_and_mutations,
+                                    assert_closed_cli_error_receipt,
                                     assert_canonical_failure_summary,
                                     assert_cyclic_symlink_closed_receipt,
                                     assert_unavailable_capture_is_closed)
@@ -197,36 +198,8 @@ class DeepExecutionTests(unittest.TestCase):
                     deep, "capture", return_value=receipt):
                 self.assertEqual(0, deep.main())
             published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
-            self.assertEqual(output.read_text(), published)
-            self.assertEqual(receipt, json.loads(published))
-            self.assertNotIn(str(root), published)
-            self.assertEqual({
-                "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
-                "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
-                "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
-                "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
-            }, set(json.loads(published)))
-            self.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
-                              "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
-            self.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
-            for invalid in ("0" * 40, "invalid"):
-                with self.subTest(candidate=invalid), self.assertRaises(ValueError):
-                    deep.capture(root, trx, invalid, NOW)
-            stamp.write_text("0" * 40)
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            stamp.unlink()
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            stamp.write_text(candidate)
-            original = source.read_bytes()
-            source.write_bytes(original + b" changed")
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            source.write_bytes(original)
-            loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
+            assert_native_capture_identity_and_mutations(
+                self, deep, root, trx, candidate, NOW, stamp, source, receipt, output, published)
 
 
 if __name__ == "__main__":
