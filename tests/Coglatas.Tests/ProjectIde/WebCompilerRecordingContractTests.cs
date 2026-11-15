@@ -105,7 +105,9 @@ public sealed class WebCompilerRecordingContractTests
                 Assert.Equal(Data(property.Value), Data(current.GetProperty(property.Name)));
             }
             foreach (var label in new[] { "original", "diagnostic", "budget", "cancelled" }) {
-                var frame = current.GetProperty("compilerRecordings").GetProperty(label); using var m = JsonDocument.Parse(frame.GetProperty("manifest").GetProperty("text").GetString()!); using var r = JsonDocument.Parse(frame.GetProperty("receipt").GetProperty("text").GetString()!);
+                var frame = current.GetProperty("compilerRecordings").GetProperty(label);
+                using var m = JsonDocument.Parse(frame.GetProperty("manifest").GetProperty("text").GetString()!);
+                using var r = JsonDocument.Parse(frame.GetProperty("receipt").GetProperty("text").GetString()!);
                 Assert.True(runs.Add(m.RootElement.GetProperty("runId").GetString()!)); Assert.True(attempts.Add(r.RootElement.GetProperty("attemptId").GetString()!));
                 if (label == "original") Assert.True(sessions.Add(m.RootElement.GetProperty("sessionId").GetString()!));
             }
