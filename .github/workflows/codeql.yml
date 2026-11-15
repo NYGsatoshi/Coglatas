@@ -182,8 +182,11 @@ jobs:
         if not sarif_files:
             print('CODEQL_LOCATION_REPORT_UNAVAILABLE: no completed SARIF found')
         count = 0
+        candidates = 0
         for report in sarif_files:
             document = json.loads(report.read_text(encoding='utf-8'))
+            print('CODEQL_SARIF_RESULTS_TOTAL', report.name,
+                  sum(len(run.get('results', [])) for run in document.get('runs', [])))
             for run in document.get('runs', []):
                 rules = {item.get('id'): item.get('properties', {})
                          for item in run.get('tool', {}).get('driver', {}).get('rules', [])}
@@ -195,6 +198,21 @@ jobs:
                                          result.get('properties', {}).get('security-severity', 0)))
                     except (ValueError, TypeError):
                         severity = 0
+                    if candidates < 50:
+                        for entry in result.get('locations', [])[:1]:
+                            physical = entry.get('physicalLocation', {})
+                            raw_uri = str(physical.get('artifactLocation', {}).get('uri', ''))
+                            target_names = ('sec_arch_evidence.py', 'sec17_deep_execution.py',
+                                            'sec17_file_policy_execution.py', 'test_sec_arch_evidence.py')
+                            if any(name in raw_uri for name in target_names):
+                                uri = raw_uri.split('/scripts/ci/')[-1]
+                                uri = ('scripts/ci/' + uri) if uri != raw_uri else raw_uri
+                                if not re.fullmatch(r'[A-Za-z0-9_.+/-]{1,180}', uri):
+                                    uri = '<path-redacted>'
+                                line = physical.get('region', {}).get('startLine', 0)
+                                rule_safe = re.sub(r'[^A-Za-z0-9_./-]', '', rule)[:100]
+                                print(f'CODEQL_CANDIDATE {rule_safe} {uri}:{line} score={severity:.1f}')
+                                candidates += 1
                     if severity < 7.0:
                         continue
                     for entry in result.get('locations', [])[:2]:
