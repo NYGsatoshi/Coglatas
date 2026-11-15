@@ -104,13 +104,17 @@ public static class SecurityArchitectureCli
 
     private static async Task<SpecValidationResult> TraceabilityAsync(string registry, string manifest, string contracts,
         string specificationRoot, string implementationRoot, string specificationSha, string candidateSha,
-        string time, string? links = null, string? baseline = null) => await SpecTraceabilityValidator.ValidateAsync(
+        string time, string? links = null, string? baseline = null)
+    {
+        string[] inspectedRepositories = [specificationRoot, implementationRoot];
+        return await SpecTraceabilityValidator.ValidateAsync(
             await ReadAsync<SpecRegistryDocument>(registry), await ReadAsync<SpecTraceabilityDocument>(manifest),
             await ReadAsync<ContractDocument>(contracts), specificationSha, candidateSha, Time(time),
-            new RepositoryArtifactReader(specificationRoot).ReadAsync,
-            new RepositoryArtifactReader(implementationRoot).ReadAsync,
+            new RepositoryArtifactReader(specificationRoot, inspectedRepositories).ReadAsync,
+            new RepositoryArtifactReader(implementationRoot, inspectedRepositories).ReadAsync,
             links is null ? null : await ReadAsync<SpecTraceabilityEvidenceDocument>(links),
             baseline is null ? null : await ReadAsync<SpecRegistryDocument>(baseline));
+    }
 
     private static async Task<OwnerReviewResult> ReviewAsync(string referencePath, string registryPath,
         string manifestPath, string owner, DateTimeOffset asOfUtc)

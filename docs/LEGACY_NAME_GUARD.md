@@ -45,7 +45,10 @@ Content matches are classified only for the exact real external GitHub owner
 account in explicit identity contexts and, within a valid npm lockfile, one exact
 unrelated transitive dependency in dependency keys, package paths and registry
 URLs, plus valid Subresource Integrity fields on dependency records resolved from
-the npm registry. Arbitrary digest-shaped metadata is not classified. Digest
+the npm registry. The root README may also embed the exact external SonarCloud
+project key inside canonical HTTPS badge and summary links. Only the key's span
+is classified, only for the five documented badge metrics, and never for arbitrary
+pages, hosts, query extensions, local names or other repository files. Arbitrary digest-shaped metadata is not classified. Digest
 algorithm, Base64 syntax and decoded byte length must all be valid. These
 classifications do not exempt files or lines: another retired name on the same
 line still fails. Local paths always

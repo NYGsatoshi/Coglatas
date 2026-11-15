@@ -356,9 +356,9 @@ for unclassified_input in docs/runtime-policy.mjs docs/runtime-fixture.json LICE
   assert_eq runtime-or-unclassified-change "$(value_of "$output" functional_reason)" "unclassified reason $unclassified_input"
 done
 
-# SEC-ARCH tool-only edits must build and execute their verifier tests.
+# Tool-only edits must execute the formal verifier and local CLI boundary tests.
 repo="$tmp_root/security-architecture-tool"
-init_repo "$repo" SecurityArchitecture
+init_repo "$repo" SecurityArchitecture Tools
 printf 'base\n' > "$repo/README.md"
 base="$(commit_all "$repo" base)"
 mkdir -p "$repo/tools/Coglatas.SecurityArchitecture"
@@ -369,7 +369,21 @@ assert_eq true "$(value_of "$output" backend)" "SEC-ARCH tool build"
 assert_eq true "$(value_of "$output" backend_tests)" "SEC-ARCH tool execution"
 assert_eq true "$(value_of "$output" security_dotnet)" "SEC-ARCH security route"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "SEC-ARCH scoped tests"
-assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "$(value_of "$output" backend_test_filter)" "SEC-ARCH filter"
+assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture|FullyQualifiedName~Coglatas.Tests.Tools' "$(value_of "$output" backend_test_filter)" "SEC-ARCH and CLI boundary filter"
+
+# A later Reader-only change must retain the boundary owner without changing a test file.
+repo="$tmp_root/repository-reader-only"
+init_repo "$repo" SecurityArchitecture Tools
+mkdir -p "$repo/tools/Coglatas.SecurityArchitecture"
+printf 'base reader\n' > "$repo/tools/Coglatas.SecurityArchitecture/RepositoryArtifactReader.cs"
+base="$(commit_all "$repo" base)"
+printf 'changed reader\n' > "$repo/tools/Coglatas.SecurityArchitecture/RepositoryArtifactReader.cs"
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" backend_tests)" "Reader-only execution"
+assert_eq scoped "$(value_of "$output" backend_test_scope)" "Reader-only scoped tests"
+assert_contains "$(value_of "$output" backend_test_filter)" 'Coglatas.Tests.SecurityArchitecture' "Reader-only formal verifier owner"
+assert_contains "$(value_of "$output" backend_test_filter)" 'Coglatas.Tests.Tools' "Reader-only CLI boundary owner"
 
 # Shared Web-child cleanup changes must retain every dependent owner scope.
 for helper_input in OwnedChildProcessShutdown.cs OwnedChildProcessShutdownTests.cs; do

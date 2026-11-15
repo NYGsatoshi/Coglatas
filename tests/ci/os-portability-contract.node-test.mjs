@@ -57,6 +57,24 @@ test('Linux database ownership accepts official tagged and digest-pinned Postgre
     /Ubuntu job that directly owns/u);
 });
 
+test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.6 image', async () => {
+  const qualifiedImage = 'image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6';
+  const paths = [
+    '.github/workflows/ci.yml',
+    '.github/workflows/main-validation.yml',
+    '.github/workflows/sec17-deep.yml',
+    '.github/workflows/sec17-file-policy.yml',
+    '.github/workflows/sonarcloud-ci.yml',
+  ];
+  for (const path of paths) {
+    const source = await readFile(path, 'utf8');
+    const imageLines = source.split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('image: postgres'));
+    assert.deepEqual(imageLines, [qualifiedImage], `Unqualified PostgreSQL service image in ${path}`);
+  }
+});
+
 test('workflow rejects ignored OS failures, services, shell overrides, and mutable action refs', async () => {
   const contract = await loadOsPortabilityContract();
   const workflow = await readFile(contract.workflow, 'utf8');
@@ -86,6 +104,20 @@ test('runner registry binds the matrix to approved GitHub-hosted labels', async 
   const missingExpression = structuredClone(registry);
   Reflect.set(missingExpression.runner_routing, 'approved_dynamic_expressions', []);
   assert.throws(() => validateRunnerRoutingRegistry(contract, missingExpression), /bounded portability runner expression/u);
+});
+
+test('workflow keeps native Git tool-only changes in the automatic Main OS matrix', async () => {
+  const contract = await loadOsPortabilityContract();
+  const workflow = await readFile(contract.workflow, 'utf8');
+  const allowlist = JSON.parse(await readFile('governance/github-actions-allowlist.json', 'utf8'));
+  assert.doesNotThrow(() => validateWorkflowText(contract, workflow, allowlist));
+
+  const omitted = workflow.replace(/^\s*- "tools\/Coglatas\.SecurityArchitecture\/\*\*"\r?\n/mu, '');
+  assert.notEqual(omitted, workflow);
+  assert.throws(() => validateWorkflowText(contract, omitted, allowlist), /Main push paths must include tools/u);
+  const otherBranch = workflow.replace('branches: ["main"]', 'branches: ["development"]');
+  assert.notEqual(otherBranch, workflow);
+  assert.throws(() => validateWorkflowText(contract, otherBranch, allowlist), /Main push paths must include tools/u);
 });
 
 test('npm version probe uses the Windows command shim through cmd.exe only on Windows', () => {
