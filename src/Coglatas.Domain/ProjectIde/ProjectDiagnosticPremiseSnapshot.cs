@@ -103,8 +103,11 @@ public sealed class ProjectDiagnosticPremiseSnapshot
         {
             foreach (var region in dependencies.Binding.Regions)
             { Add(DiagnosticPremiseBodyKind.BindingRegion, region.Digest, region.Data); if (!complete) break; }
-            if (complete) foreach (var region in dependencies.Regions)
-            { Add(DiagnosticPremiseBodyKind.AnalysisRegion, region.Digest, region.Data); if (!complete) break; }
+            if (complete)
+            {
+                foreach (var region in dependencies.Regions)
+                { Add(DiagnosticPremiseBodyKind.AnalysisRegion, region.Digest, region.Data); if (!complete) break; }
+            }
         }
         var references = diagnostic.Evidence.Premises.Select(digest => {
             if (!complete) return new DiagnosticPremiseReference(digest, null, DiagnosticPremiseResolution.LookupLimit);
