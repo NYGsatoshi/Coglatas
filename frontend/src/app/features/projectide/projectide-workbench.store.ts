@@ -280,7 +280,8 @@ export class ProjectIdeWorkbenchStore {
   async loadOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<boolean> {
     this.clearOperatorRecording(); const generation = this.operatorRecordingGeneration;
     const context = this.context(); const sources = this.operatorSources(); const bundle = this.bundle();
-    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context) || !operatorRunIdentitiesAreUnique(bundle.cases)) return false;
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    if (!operatorRunIdentitiesAreUnique(bundle.cases)) { this.operatorRecordingReadState.set('unavailable'); return false; }
     const projection = context.operatorRecordings; const member = projection?.[label]; const manifest = member?.manifest;
     if (!projection || !member || !manifest) return false;
     const current = () => generation === this.operatorRecordingGeneration && bundle === this.bundle() &&

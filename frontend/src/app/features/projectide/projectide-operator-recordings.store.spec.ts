@@ -73,3 +73,20 @@ describe('Operator global identity and default selection', () => {
     expect(store.operatorRecording()).toBeNull(); expect(store.recordedOperators()).toBeNull();
   });
 });
+
+describe('Invalid operator run feedback', () => {
+  it.each(['foreign-member', 'duplicate-run', 'missing-manifest'] as const)('reports an unavailable read while keeping Source and result intact: %s', async kind => {
+    const data = bundle(); const value = data.cases.find(v => v.key === 'fail')!; const projection = value.operatorRecordings!;
+    if (kind === 'foreign-member') Object.assign(projection, { diagnostic: data.cases.find(v => v.key === 'unknown')!.operatorRecordings!.diagnostic });
+    if (kind === 'duplicate-run') {
+      const manifest = JSON.parse(projection.diagnostic.manifest.text); manifest.runId = JSON.parse(projection.original.manifest.text).runId;
+      Object.assign(projection.diagnostic.manifest, { text: JSON.stringify(manifest) });
+    }
+    if (kind === 'missing-manifest') Object.assign(projection.retry, { manifest: null });
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => data); store.choose('fail'); store.loadResult();
+    const result = store.result(); expect(await store.loadRootSource()).toBe(true); const source = store.rootSource();
+    expect(await store.loadOperatorRecording('diagnostic')).toBe(false); expect(store.operatorRecordingReadState()).toBe('unavailable');
+    expect(store.operatorRecording()).toBeNull(); expect(store.recordedOperators()).toBeNull();
+    expect(store.result()).toBe(result); expect(store.rootSource()).toBe(source);
+  });
+});

@@ -13,7 +13,11 @@ async function open(page: Page, locale: 'en' | 'ja', key: string) {
   await page.addInitScript(locale => { localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true }; }, locale);
   await page.goto('/app/projectide/preview');
   await button(page, locale, 'Open recorded operator example', '記録済み演算子の例を開く');
+  // A context shared with the old profile can be selected before the new bundle renders.
+  await expect(page.getByTestId('ide-context').locator('option[value="operator-nested-duplicates"]')).toHaveCount(1);
+  await expect(page.getByTestId('ide-context').locator('option')).toHaveCount(bundle.cases.length + 1);
   await page.getByTestId('ide-context').selectOption(key);
+  await expect(page.getByTestId('ide-context')).toHaveValue(key);
   await button(page, locale, 'Load result fixture', '結果Fixtureを読み込む');
   await button(page, locale, 'Source', 'ソース');
   await expect(page.getByTestId('ide-operator-recording-actions')).toHaveCount(0);
@@ -125,4 +129,20 @@ for (const locale of ['en', 'ja'] as const) {
       await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
     });
   }
+}
+
+for (const locale of ['en', 'ja'] as const) {
+  test('waits for the new operator profile before selecting a shared context: ' + locale, async ({ page }) => {
+    let requested!: () => void; const request = new Promise<void>(resolve => requested = resolve);
+    let release!: () => void; const response = new Promise<void>(resolve => release = resolve);
+    await page.route('**/assets/projectide/operator-recordings-v1.json', async route => {
+      requested(); await response; await route.continue();
+    });
+    const opening = open(page, locale, 'unknown');
+    await request;
+    try { await expect(page.getByTestId('ide-context')).toHaveCount(0); } finally { release(); }
+    await opening; await expect(page.getByTestId('ide-context')).toHaveValue('unknown');
+    await expect(page.getByTestId('ide-root-source')).toBeFocused();
+    await expect(page.getByTestId('ide-analysis-status')).toContainText(bundle.cases.find((v: { key: string }) => v.key === 'unknown').result.verdict);
+  });
 }

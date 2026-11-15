@@ -117,15 +117,24 @@ refusal tests expected the reader error although duplicate JSON names are
 rejected earlier by the shared strict parser; their expectations identify that
 actual parser boundary. No refusal assertion is removed.
 
-App/spec TypeScript checks and the complete frontend suite pass3416 tests in214
+The initial app/spec TypeScript checks and complete frontend suite pass3416 tests in214
 files, with1159 ProjectIDE tests, no failures/skips and all3304 prior identities
 retained. All748 executed frontend inputs match the worktree byte for byte;
 frontend architecture checks pass. The observed toolchain is Node26.13.0 and
 npm11.20.0, distinct from the repository packageManager declaration.
 
-The production Angular build passes with the existing CSS budget warnings
-retained. Browser, exact committed source and current hosted review/CI results
-must be recorded in the PR before integration. Prior
+The initial production Angular build passes with the existing CSS budget
+warnings retained. The first browser run has58 passes and10 failures without
+retries: eight expose a silent unavailable-read state for globally reused IDs;
+two select an old shared context before the new example profile has rendered.
+The store now reports the rejected read as unavailable. Three counterexamples
+fail against the old store (idle instead of unavailable), preserving Source and
+result checks. The browser helper explicitly awaits the operator-specific
+options before selecting; a delayed-response barrier regression covers both
+locales. No timeout, assertion or retry policy is weakened.
+
+Corrected-source full validation, browser, exact committed source and current
+hosted review/CI results must be recorded in the PR before integration. Prior
 hosted results or successful conditional route checks cannot establish those
 results. The paired Windows result is pure ViewModel qualification, not actual
 Avalonia UI acceptance or backend/runtime integration.
