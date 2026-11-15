@@ -70,7 +70,7 @@ def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, 
 def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_marker):
     """The original failed-CLI assertions apply to both independent SEC-17 owners."""
     with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         trx = root / "private.trx"
         trx.write_text("sensitive-native-output-marker")
         output = root / "execution.json"
@@ -171,7 +171,7 @@ def assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, ca
 def assert_canonical_failure_summary(test, capture_module, producer_path):
     """Both SEC-17 captures admit their own producer and reject other reports."""
     with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         trusted = root / producer_path
         trusted.parent.mkdir(parents=True, exist_ok=True)
         trusted.write_bytes(b"synthetic owned report")
@@ -185,7 +185,7 @@ def assert_canonical_failure_summary(test, capture_module, producer_path):
 def assert_cyclic_symlink_closed_receipt(test, capture_module):
     """Exercise the actual CLI failure receipt without leaking the requested path."""
     with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         loop = root / "loop.trx"
         try:
             loop.symlink_to(loop)
@@ -217,7 +217,7 @@ class ExecutionInputTests(unittest.TestCase):
 
     def test_capture_rejects_outside_paths_even_when_they_are_regular(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
-            root = Path(directory)
+            root = Path(directory).resolve()
             canonical = root / evidence.TRUSTED_TRX_RELATIVE
             canonical.parent.mkdir(parents=True, exist_ok=True)
             canonical.write_bytes(b"canonical synthetic TRX")
@@ -247,7 +247,7 @@ class ExecutionInputTests(unittest.TestCase):
 
     def test_unrelated_cli_path_is_rejected_before_filesystem_resolution(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
-            root = Path(directory).resolve()
+            root = Path(directory).resolve().resolve()
             trusted = root / evidence.TRUSTED_TRX_RELATIVE
             trusted.parent.mkdir(parents=True)
             trusted.write_bytes(b"canonical fixture")
@@ -267,7 +267,7 @@ class ExecutionInputTests(unittest.TestCase):
 
     def test_cyclic_symlink_resolution_is_a_sanitized_input_error(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             requested = root / "artifacts/loop.trx"
             with patch.object(Path, "resolve", side_effect=RuntimeError("private path diagnostic")):
                 with self.assertRaisesRegex(ValueError, "path resolution failed") as failure:
@@ -278,7 +278,7 @@ class ExecutionInputTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "Pinned openat traversal requires POSIX.")
     def test_replaced_producer_directory_cannot_redirect_trusted_read(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as external:
-            root = Path(directory).resolve()
+            root = Path(directory).resolve().resolve()
             producer = root / evidence.TRUSTED_TRX_RELATIVE
             producer.parent.mkdir(parents=True)
             producer.write_bytes(b"owned report")
@@ -408,7 +408,7 @@ print(json.dumps({'candidateSha': report['candidateSha'],
 
     def test_default_import_reproduces_untracked_bytecode_and_exact_clean_rejection(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             sha = self.prepare(root)
             result = self.run_capture(root, sha, [])
             self.assertEqual(1, result.returncode, result.stderr)
@@ -426,7 +426,7 @@ print(json.dumps({'candidateSha': report['candidateSha'],
                          if "run: python3" in line and "scripts/ci/sec_arch_evidence.py" in line]
                 self.assertEqual(1, len(calls))
                 self.assertEqual(["python3", "-B", "scripts/ci/sec_arch_evidence.py"], calls[0][:3])
-                root = Path(directory)
+                root = Path(directory).resolve()
                 sha = self.prepare(root)
                 result = self.run_capture(root, sha, calls[0][1:2])
                 self.assertEqual(0, result.returncode, result.stdout + result.stderr)
@@ -438,7 +438,7 @@ print(json.dumps({'candidateSha': report['candidateSha'],
     def test_bytecode_disabled_process_still_rejects_candidate_source_and_loaded_assembly_changes(self):
         for mutation in ("wrong_sha", "tracked_source", "untracked_source", "loaded_assembly"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
+                root = Path(directory).resolve()
                 sha = self.prepare(root)
                 if mutation == "wrong_sha": sha = "a" * 40
                 elif mutation == "tracked_source":
@@ -458,7 +458,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_current_capture_binds_copied_verifier_and_rejects_changed_loaded_dll(self):
         sha = "a" * 40
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for name in assemblies.ASSEMBLIES:
                 for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)

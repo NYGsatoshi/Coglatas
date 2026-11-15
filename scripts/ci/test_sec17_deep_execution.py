@@ -157,7 +157,7 @@ class DeepExecutionTests(unittest.TestCase):
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / ".gitignore").write_text("artifacts/\n**/bin/\n", encoding="utf-8")
             source = root / deep.SOURCE
             source.parent.mkdir(parents=True)
