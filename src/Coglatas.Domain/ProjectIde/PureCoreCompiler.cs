@@ -60,6 +60,18 @@ public static class PureCoreCompiler
         return collector.Complete(completed, cancellationToken);
     }
 
+    /// <summary>Predeclare actual initial-root pass boundaries and existing original JSON; no FullDump or later state reconstruction.</summary>
+    public static RecordedPassCompilation CompileWithPassObservation(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
+        CompilerPassObservationPolicy policy, IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
+        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        var collector = new CompilerPassObservationCollector(policy);
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, passObservation: collector);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        return collector.Complete(completed);
+    }
+
     internal static CoreCompilation CompileRegion(PartialSemanticModel model, CompilerSemanticValidation validation,
         IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken) =>
         CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments);
@@ -67,7 +79,7 @@ public static class PureCoreCompiler
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
         CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null, CompilerSemanticValidation? preparedValidation = null,
-        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null, CompilerPredicateObservationCollector? predicateObservation = null)
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null, CompilerPredicateObservationCollector? predicateObservation = null, CompilerPassObservationCollector? passObservation = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -77,13 +89,21 @@ public static class PureCoreCompiler
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            passObservation?.Enter("coglatas.parse-normalize", "Only the actual Source bytes passed to the decoder are referenced.", new CompilerPassObservationFrame("source", ProjectSource.Format, input.Source.Data));
             var reparsed = ProjectSourceCodec.Decode(input.Source.Data.ToCanonicalBytes());
             if (reparsed.Source is null || !reparsed.Source.Digest.Equals(input.Source.Digest))
                 throw new UnsupportedSourceException("Source exceeds the supported canonical AST profile.");
+            passObservation?.Returned("coglatas.parse-normalize", "The actual decoded Source returned.", new CompilerPassObservationFrame("decoded-source", ProjectSource.Format, reparsed.Source.Data));
+            passObservation?.Enter("coglatas.binding", "External materializations are not pre-enumerated by capture.", new CompilerPassObservationFrame("input", CompilerInputManifest.Format, input.Data));
             var model = boundRegion ?? ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache);
+            passObservation?.Returned("coglatas.binding", "The original binding model has no published canonical body at this boundary.");
+            passObservation?.Enter("coglatas.semantic-validation-ir", "Actual binding model and lazy unit/calendar supplies are not serialized here.");
             var initialRemaining = operationBudget ?? input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;
             var validation = preparedValidation ?? (boundRegion is null ? CompilerSemanticValidation.Validate(model, units, calendars, cancellationToken)
                 : CompilerSemanticValidation.ValidateRegion(model, units, calendars, cancellationToken, initialRemaining));
+            passObservation?.Returned("coglatas.semantic-validation-ir", validation.Ir is null ? "No original IR was produced." : "Only existing original canonical IR outputs are referenced.",
+                validation.Ir is { } observedIr ? [new CompilerPassObservationFrame("semantic-model", "coglatas.semantic-model/1", observedIr.SemanticModel), new CompilerPassObservationFrame("ir", "coglatas.project-ir/1", observedIr.Data), new CompilerPassObservationFrame("source-map", "coglatas.semantic-source-map/1", observedIr.SourceMap)] : []);
+            passObservation?.Enter("coglatas.analysis", "Actual binding/validation objects supply this root analysis; no canonical input projection is invented.");
             var root = ProjectLocation.Create(input.Source.Documents[0].DocumentId, input.Source.Context);
             var diagnostics = validation.Findings.Select(item => item.Diagnostic).ToList();
             var ids = diagnostics.Select(item => item.DiagnosticId.Value).ToHashSet();
@@ -202,6 +222,8 @@ public static class PureCoreCompiler
             }).ToArray();
             var complete = input.SourceCoverageComplete && outcomes.All(item => item.Coverage == CompilerCoverage.Complete) && !exhausted;
             var outputs = validation.Ir is { } ir ? new[] { ir.SemanticModelDigest, ir.Digest, ir.SourceMapDigest } : [];
+            var analysisData = SourceJson.FromObject(outcomes.Select(item => item.Data.Value).ToArray());
+            passObservation?.Returned("coglatas.analysis", "Original root rule outcomes only; no regional observation is inferred.", new CompilerPassObservationFrame("outcomes", "coglatas.analysis/1", analysisData));
             var stages = new[]
             {
                 new CompilerStageOutcome("coglatas.parse-normalize", 1, CompilerExecutionState.Completed, CompilerCoverage.Complete, input.InputDigest, [input.Source.Digest]),
@@ -212,7 +234,7 @@ public static class PureCoreCompiler
                     input.InputDigest, outputs, validation.Ir is null ? "coglatas.ir.not-produced" : null),
                 new CompilerStageOutcome("coglatas.analysis", 1, exhausted ? CompilerExecutionState.ResourceExhausted : CompilerExecutionState.Completed,
                     complete ? CompilerCoverage.Complete : CompilerCoverage.Partial, input.InputDigest,
-                    [ContentDigest.Compute("coglatas.analysis/1", SourceJson.FromObject(outcomes.Select(item => item.Data.Value).ToArray()).ToCanonicalBytes())], complete ? null : "coglatas.analysis.partial")
+                    [ContentDigest.Compute("coglatas.analysis/1", analysisData.ToCanonicalBytes())], complete ? null : "coglatas.analysis.partial")
             };
             var artifacts = boundRegion is null && validation.Ir is { } produced ? new[]
             {
@@ -221,6 +243,7 @@ public static class PureCoreCompiler
                 new CompilerArtifactReference("coglatas.source-map", "coglatas.semantic-source-map", 1, input.InputDigest, produced.SourceMapDigest)
             } : [];
             var coverage = complete && stages.All(stage => stage.Coverage == CompilerCoverage.Complete) ? CompilerCoverage.Complete : CompilerCoverage.Partial;
+            passObservation?.Enter("coglatas.publication", "The original result constructor inputs have no canonical pass-input body here.");
             CompilerResult result;
             try
             {
@@ -236,13 +259,15 @@ public static class PureCoreCompiler
                     new(CompilerEvidenceKind.Missing, [], "coglatas.analysis.publication-budget"));
                 result = new(input, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, limited, [diagnostic],
                     [new CompilerStageOutcome("coglatas.publication", 1, CompilerExecutionState.ResourceExhausted, CompilerCoverage.Partial, input.InputDigest, [], "coglatas.analysis.publication-budget")], false);
+                passObservation?.Returned("coglatas.publication", "Original publication overflowed; only its actual fallback result body returned.", new CompilerPassObservationFrame("root-result", "coglatas.compiler-result/1", result.Data));
                 return new(input, model, null, result, model.LogicalOperationsConsumed + alreadyConsumedSemantics + initialRemaining - Math.Max(0, remaining));
             }
             cancellationToken.ThrowIfCancellationRequested();
+            passObservation?.Returned("coglatas.publication", "Original root result before dependency attachment.", new CompilerPassObservationFrame("root-result", "coglatas.compiler-result/1", result.Data));
             return new(input, model, validation, result, model.LogicalOperationsConsumed + alreadyConsumedSemantics + initialRemaining - Math.Max(0, remaining));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        { return new(input, null, null, new(input, CompilerExecutionState.Cancelled, CompilerCoverage.None, [], [], [], false)); }
+        { passObservation?.Cancelled(); return new(input, null, null, new(input, CompilerExecutionState.Cancelled, CompilerCoverage.None, [], [], [], false)); }
     }
 
     private sealed class RuleFacts
