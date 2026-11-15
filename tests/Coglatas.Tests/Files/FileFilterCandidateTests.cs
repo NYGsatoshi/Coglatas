@@ -16,6 +16,28 @@ namespace Coglatas.Tests.Files;
 public sealed class FileFilterCandidateTests
 {
     [Fact]
+    public async Task BatchedProjectTaskOwnershipRejectsDeletedAndOtherProjectTaskIds()
+    {
+        await using var f = await FileFilterFixture.CreateAsync();
+        f.Add("live-owned-task.txt", f.Project.Id, f.Task);
+        f.Add("foreign-owner-task.txt", f.OtherProject.Id, f.OtherTask);
+        await f.Db.SaveChangesAsync();
+        var query = new FileFilterQuery(f.CurrentTenant.TenantId, f.Workspace.Id, f.Project.Id,
+            null, false, 1, 20, "createdAt", true);
+        var repository = new FileRepository(f.Db);
+        var original = await repository.GetCurrentFileFilterProjectTaskIdsAsync(
+            query, [f.Task.Id, f.OtherTask.Id]);
+        Assert.Contains(f.Task.Id, original);
+        Assert.DoesNotContain(f.OtherTask.Id, original);
+
+        f.Task.MarkDeleted(DateTimeOffset.UtcNow, f.ActorId, "Synthetic owner revocation");
+        await f.Db.SaveChangesAsync();
+        var revoked = await repository.GetCurrentFileFilterProjectTaskIdsAsync(
+            query, [f.Task.Id, f.OtherTask.Id]);
+        Assert.Empty(revoked);
+    }
+
+    [Fact]
     public async Task ProjectInventoryAdmitsOnlyExactOwnedLiveTaskAndDeduplicatesBeforePaging()
     {
         await using var f = await FileFilterFixture.CreateAsync();

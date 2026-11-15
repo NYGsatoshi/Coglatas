@@ -171,6 +171,25 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
             folders.GetValueOrDefault(a.FileObjectId))).ToArray(), filter.Page, filter.PageSize, total);
     }
 
+    public async Task<IReadOnlySet<Guid>> GetCurrentFileFilterProjectTaskIdsAsync(
+        FileFilterQuery filter, IReadOnlyCollection<Guid> taskIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (!filter.ProjectId.HasValue || taskIds.Count == 0)
+            return new HashSet<Guid>();
+        // One scoped current-read query, not a cached Task-owner claim or
+        // one authorization/owner round trip per rendered file.
+        var current = await dbContext.TaskItems.AsNoTracking()
+            .Where(task => taskIds.Contains(task.Id) &&
+                task.TenantId == filter.TenantId && task.WorkspaceId == filter.WorkspaceId &&
+                task.ProjectId == filter.ProjectId && task.DeletedAt == null &&
+                task.Project != null && task.Project.TenantId == filter.TenantId &&
+                task.Project.WorkspaceId == filter.WorkspaceId && task.Project.DeletedAt == null)
+            .Select(task => task.Id)
+            .ToArrayAsync(cancellationToken);
+        return current.ToHashSet();
+    }
+
     public async Task AddFileObjectAsync(FileObject fileObject, CancellationToken cancellationToken = default)
     {
         await dbContext.FileObjects.AddAsync(fileObject, cancellationToken);

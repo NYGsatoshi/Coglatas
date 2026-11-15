@@ -239,12 +239,49 @@ public sealed class FileService(
             : await files.ReadCurrentFileFilterProjectionAsync(token =>
                 sharing.GetListPresentationsAsync(workspaceId, userId,
                     direct.Select(x => x.Attachment.FileObject!).ToArray(), token), cancellationToken);
+        // Preserve the command's live owner/contribution boundary, but calculate the
+        // page's read-only delete capabilities in bounded batches rather than one
+        // independent owner + membership query sequence for every attachment.
+        async Task<IReadOnlySet<Guid>> CurrentDeleteCapabilities(
+            IReadOnlyList<FilteredFileRecord> records, CancellationToken token)
+        {
+            if (!query.ProjectId.HasValue)
+                return await files.ReadCurrentFileFilterProjectionAsync(
+                    current => authorization.GetDeletableWorkspaceAttachmentIdsAsync(
+                        userId, workspaceId, records.Select(record => record.Attachment).ToArray(), current), token);
+
+            if (projectAuthorization is null || records.Count == 0)
+                return new HashSet<Guid>();
+            var project = query.ProjectId.Value;
+            var canContribute = await files.ReadCurrentUploadAdmissionAsync(
+                current => projectAuthorization.CanContributeProject(userId, project, current), token);
+            if (!canContribute) return new HashSet<Guid>();
+            var canManage = await files.ReadCurrentUploadAdmissionAsync(
+                current => projectAuthorization.CanManageProject(userId, project, current), token);
+            var taskIds = records.Where(record => record.Attachment.OwnerType == AttachmentOwnerType.TaskItem &&
+                    record.Attachment.OwnerId.HasValue)
+                .Select(record => record.Attachment.OwnerId!.Value).Distinct().ToArray();
+            var validTaskOwners = await files.ReadCurrentFileFilterProjectionAsync(
+                current => files.GetCurrentFileFilterProjectTaskIdsAsync(query, taskIds, current), token);
+            return records.Where(record =>
+                    record.Attachment.OwnerType == AttachmentOwnerType.TaskItem &&
+                    record.Attachment.OwnerId.HasValue &&
+                    validTaskOwners.Contains(record.Attachment.OwnerId.Value) &&
+                    record.Attachment.TenantId == query.TenantId &&
+                    record.Attachment.WorkspaceId == workspaceId &&
+                    record.Attachment.FileObject?.ProjectId == project &&
+                    !record.Attachment.DeletedAt.HasValue &&
+                    (record.Attachment.UploadedByUserId == userId ||
+                     record.Attachment.OwnerUserId == userId || canManage))
+                .Select(record => record.Attachment.Id).ToHashSet();
+        }
+
+        var deletableIds = await CurrentDeleteCapabilities(result.Items, cancellationToken);
         var items = new List<FilteredFileListItemResponse>(result.Items.Count);
         foreach (var record in result.Items)
         {
-            var canDelete = await files.ReadCurrentUploadAdmissionAsync(
-                token => authorization.CanDeleteAttachment(userId, record.Attachment, token), cancellationToken);
-            var metadata = ToFileListItemResponse(record.Attachment, canDelete,
+            var metadata = ToFileListItemResponse(record.Attachment,
+                deletableIds.Contains(record.Attachment.Id),
                 presentations.GetValueOrDefault(record.Attachment.FileObjectId));
             if (projectId.HasValue)
             {
@@ -278,6 +315,12 @@ public sealed class FileService(
         var finalManage = workspaceAuthorization is not null && await files.ReadCurrentUploadAdmissionAsync(
             token => workspaceAuthorization.CanManageWorkspace(userId, workspaceId, token), cancellationToken);
         if (manage != finalManage)
+            return FilterScopeUnavailable();
+        // A revoked contribution or Task-owner identity must not leave an earlier
+        // positive delete capability in the emitted response.
+        var currentDeletableIds = await CurrentDeleteCapabilities(current.Items, cancellationToken);
+        if (!deletableIds.SetEquals(currentDeletableIds) ||
+            !await files.ReadCurrentUploadAdmissionAsync(Admitted, cancellationToken))
             return FilterScopeUnavailable();
         return Result<PagedResponse<FilteredFileListItemResponse>>.Success(new(items, current.Page, current.PageSize, current.TotalCount));
     }

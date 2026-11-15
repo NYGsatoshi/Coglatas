@@ -82,6 +82,12 @@ public interface IFileRepository
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("File filter review projection unavailable.");
 
+    // Optional review-only batch owner check. Unqualified repository adapters fail closed.
+    Task<IReadOnlySet<Guid>> GetCurrentFileFilterProjectTaskIdsAsync(
+        FileFilterQuery filter, IReadOnlyCollection<Guid> taskIds,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
     Task AddFileObjectAsync(FileObject fileObject, CancellationToken cancellationToken = default);
 
     Task<Attachment?> GetAttachmentAsync(Guid attachmentId, CancellationToken cancellationToken = default);
