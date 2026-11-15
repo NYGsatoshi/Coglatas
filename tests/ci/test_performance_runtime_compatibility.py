@@ -128,6 +128,22 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         prebuilt = (ROOT / 'infra/docker/runtime-prebuilt.Dockerfile').read_text(encoding='utf-8')
         self.assertEqual(collector.production_runtime_identity(self.image, self.dockerfile, self.packages),
                          collector.production_runtime_identity(self.image, prebuilt, self.packages))
+        for relative_path in ('Dockerfile', 'infra/docker/runtime-prebuilt.Dockerfile'):
+            with self.subTest(recipe=relative_path):
+                dockerfile = (ROOT / relative_path).read_text(encoding='utf-8')
+                instructions = [line.strip() for line in dockerfile.replace('\\\n', ' ').splitlines()
+                                if line.strip() and not line.lstrip().startswith('#')]
+                starts = [index for index, line in enumerate(instructions) if line.endswith(' AS runtime')]
+                self.assertEqual(1, len(starts))
+                stage = instructions[starts[0]:]
+                copies = [index for index, line in enumerate(stage) if line.startswith('COPY ')]
+                self.assertTrue(copies)
+                self.assertEqual(['USER $APP_UID'], [line for line in stage if line.startswith('USER ')])
+                self.assertGreater(stage.index('USER $APP_UID'), copies[-1])
+                self.assertTrue(any(
+                    'install -d -m 0700 -o "$APP_UID" /app/storage/uploads /app/data/protection-keys' in line
+                    for line in stage[:copies[0]]))
+                self.assertFalse(any('chown -R' in line for line in stage))
 
     def test_baseline_preparation_remains_main_only_while_duration_assurance_is_suspended(self):
         capture = (ROOT / '.github/workflows/performance-db-baseline-capture.yml').read_text()
