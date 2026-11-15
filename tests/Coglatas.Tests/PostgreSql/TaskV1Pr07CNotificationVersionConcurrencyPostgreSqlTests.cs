@@ -80,7 +80,7 @@ public sealed class TaskV1Pr07CNotificationVersionConcurrencyPostgreSqlTests
                     Guid.Parse("22222222-2222-2222-2222-222222222222"),
                     immediateKey));
 
-            Assert.All(new[] { digestContext, immediateContext }, context =>
+            Assert.All([digestContext, immediateContext], context =>
             {
                 var entry = context.Entry(context.NotificationUserStates.Local.Single());
                 Assert.Equal(0L, entry.Property(state => state.Version).OriginalValue);

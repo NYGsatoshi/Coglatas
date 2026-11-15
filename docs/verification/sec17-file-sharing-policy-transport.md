@@ -79,10 +79,14 @@ the frozen base and 22-file cohort keep their exact original fixture bytes.
 
 Missing, skipped, duplicate, stale, failed or counter-inconsistent execution
 cannot qualify. New selector/privacy controls include failed native output and
-exception canaries, actual Git/build/source/loaded-copy mutations, exact stdout
-and saved-JSON equality, and closed field checks. The existing Direct controls
-and catalogue controls still run. Only closed JSON is published and printed;
-raw TRX remains private to the ephemeral runner with a 20-minute job bound.
+exception canaries, actual Git/build/source/loaded-copy mutations, exact
+sanitized stdout, complete saved-JSON schema and closed field checks. The
+full receipt is written exclusively to the output artifact and never printed.
+Logs contain the fixed `SEC17_FILE_POLICY_EXECUTION_RECEIPT_WRITTEN` marker
+and the bounded outcome line. Reviewers must inspect the saved JSON artifact
+under the applicable evidence access policy to reconcile source, TRX and
+assembly digests. The existing Direct and catalogue controls still run. Raw
+TRX remains private to the ephemeral runner with a 20-minute job bound.
 
 Bodies, storage keys and resource/session identities are transient assertion
 inputs. Fixed boolean diagnostics prevent their assertion-value publication.

@@ -107,7 +107,7 @@ else
 fi
 
 # The mutation harness may intentionally use a synthetic symbol set. Production
-# verification must always resolve the effective Release/net10.0 symbols from
+# verification must always resolve the effective Release/net11.0 symbols from
 # MSBuild, never trust an ambient caller override.
 unset AV_MIG_CSHARP_DEFINE_CONSTANTS
 
@@ -139,7 +139,7 @@ else
   echo "SEC-01 deterministic repeat generation deferred by fast PR mode."
 fi
 
-dotnet src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll \
+dotnet src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll \
   --AvMigContractVerify true \
   --AvMigContractPolicy "$repo_root/docs/migration/avalonia/p0-api-boundary.json"
 
