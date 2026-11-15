@@ -1,3 +1,4 @@
+import { OperatorRecordingLabel, RecordedOperatorChoice } from './projectide-operator-recordings.reader';
 import { PredicateRecordingLabel, RecordedPredicateChoice } from './projectide-predicate-recordings.reader';
 import { DiagnosticPremiseChoice } from './projectide-diagnostic-premises.reader';
 import { DIAGNOSTIC_BASIS_PAGE_SIZE } from './projectide-diagnostic-basis';
@@ -180,7 +181,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -192,7 +193,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -220,6 +221,45 @@ export class ProjectIdeWorkbenchComponent {
     const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',
       NoKnownBodies: 'ide.premisesNoKnown', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', LookupLimitReached: 'ide.premisesLookupLimit' } as const;
     return this.t(keys[state as keyof typeof keys] ?? 'ide.premisesUnavailable');
+  }
+  private readonly operatorRecordingElement = viewChild<ElementRef<HTMLElement>>('operatorRecordingPanel');
+  private readonly recordedOperatorElement = viewChild<ElementRef<HTMLElement>>('recordedOperatorPanel');
+  async loadOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadOperatorRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.operatorRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.operatorRecording()) this.operatorRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedOperators(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedOperators();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedOperators()) this.recordedOperatorElement()?.nativeElement.focus();
+    });
+  }
+  operatorCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.operatorCaptureManifest', RecordedInitialRootEvaluations: 'ide.operatorCaptureAvailable',
+      NoActualEvaluations: 'ide.operatorCaptureNone', BodyBudgetExceeded: 'ide.predicateCaptureBytes', NodeLimitReached: 'ide.operatorCaptureNodes',
+      EvaluationLimitReached: 'ide.operatorCaptureEvaluations', CaptureInterrupted: 'ide.predicateCaptureInterrupted' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.operatorNoResult');
+  }
+  operatorViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', AvailableOperators: 'ide.operatorViewAvailable', NoRecordedOperators: 'ide.operatorNoRecorded',
+      NoObservedPublishedDiagnostic: 'ide.operatorNoObserved', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', RefusedInvocation: 'ide.operatorUnavailable' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.operatorUnavailable');
+  }
+  operatorKind(kind: string): string {
+    return kind === 'coglatas.and' ? 'AND' : kind === 'coglatas.or' ? 'OR' : kind === 'coglatas.not' ? 'NOT' : this.t('ide.operatorLiteral');
+  }
+  operatorTruth(truth: string): string {
+    return this.t(truth === 'True' ? 'ide.operatorTrue' : truth === 'False' ? 'ide.operatorFalse' : 'ide.operatorUnknown');
   }
   private readonly predicateRecordingElement = viewChild<ElementRef<HTMLElement>>('predicateRecordingPanel');
   private readonly recordedPredicateElement = viewChild<ElementRef<HTMLElement>>('recordedPredicatePanel');

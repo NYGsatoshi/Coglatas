@@ -14,14 +14,15 @@ var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var predicateRecordingProfile = args is [_, "--predicate-recordings"];
-var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile;
+var operatorRecordingProfile = args is [_, "--operator-recordings"];
+var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile || operatorRecordingProfile;
 var premiseProfile = args is [_, "--diagnostic-premises"];
 var recordingProfile = args is [_, "--compiler-recordings"];
 var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -85,6 +86,7 @@ var requirementCandidates = RequirementCandidateInput();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
 var legacyNames = names;
 if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
+if (operatorRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
@@ -95,7 +97,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when operatorRecordingProfile && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
     if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
@@ -209,6 +211,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
         fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation, rootSource));
         if (predicateRecordingProfile) fixture["predicateRecordings"] = await PredicateRecordingPreview.ExportAsync(input, result);
+        if (operatorRecordingProfile) fixture["operatorRecordings"] = await OperatorRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
         cases[^1] = fixture;
     }
     if (scenarioProfile)
@@ -300,6 +303,11 @@ Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 if (predicateRecordingProfile)
 {
     var observed = JsonNode.Parse(output)!.AsObject(); observed["predicateRecordingProducer"] = JsonSerializer.SerializeToNode(PredicateRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
+if (operatorRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["operatorRecordingProducer"] = JsonSerializer.SerializeToNode(OperatorRecordingPreview.Producer());
     output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
@@ -579,6 +587,25 @@ static object Literal(bool? value) => new
     value = value.HasValue ? (object)new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = value.Value }
         : new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.unknown", reason = "coglatas.missing-input", basis = new { coverage = "coglatas.partial" } }
 };
+static CompilerInputManifest OperatorInput(string name, int revision)
+{
+    object Op(string kind, params object[] operands) => new { kind, operands };
+    var template = Input("fail", revision);
+    var predicate = name switch {
+        "operator-and-short-circuit" => Op("coglatas.and", Literal(false), Literal(true)),
+        "operator-nested-duplicates" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
+        "operator-or-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
+        "operator-not-pass" => Op("coglatas.not", Literal(false)),
+        _ => throw new ArgumentException("Unknown synthetic operator example.", nameof(name)) };
+    var declarations = JsonNode.Parse(template.Source.Declarations.CanonicalText)!.AsArray();
+    declarations[0]!["payload"]!["predicate"] = JsonSerializer.SerializeToNode(predicate);
+    var relations = JsonNode.Parse(template.Source.Relations.CanonicalText)!.AsArray();
+    relations[0]!["payload"]!["predicateDigest"] = JsonNode.Parse(ContentDigest.Compute("coglatas.predicate/1",
+        PurePredicate.Parse(Json(predicate)).Data.ToCanonicalBytes()).Data.CanonicalText);
+    return new(ProjectSource.Create(template.Source.Context, template.Source.Documents, Json(declarations), Json(relations),
+        template.Source.ExtensionDeclarations, template.Source.PackageLock, template.Source.SourceReferences), template.Settings);
+}
+
 static CompilerInputManifest Input(string name, int revision)
 {
     var project = name == "other-project" ? 22 : 2;

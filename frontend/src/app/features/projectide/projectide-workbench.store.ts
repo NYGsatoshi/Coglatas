@@ -1,3 +1,4 @@
+import { AdmittedOperatorRecording, AdmittedRecordedOperators, OperatorRecordingLabel, RecordedOperatorChoice, operatorRecordingMatches, recordedOperatorsMatch, readOperatorRecording, readRecordedOperators, operatorRunIdentitiesAreUnique } from './projectide-operator-recordings.reader';
 import { AdmittedPredicateRecording, AdmittedRecordedPredicatePremises, PredicateRecordingLabel, RecordedPredicateChoice, predicateRecordingMatches, recordedPredicatePremisesMatch, readPredicateRecording, readRecordedPredicatePremises } from './projectide-predicate-recordings.reader';
 import { AdmittedRootSource, readRootSource, rootSourceMatches } from './projectide-root-source.reader';
 import { AdmittedDiagnosticPremises, DiagnosticPremiseChoice, diagnosticPremiseSourcesMatch, readDiagnosticPremises } from './projectide-diagnostic-premises.reader';
@@ -264,6 +265,72 @@ export class ProjectIdeWorkbenchStore {
   private clearRecordedPredicatePremises(): void {
     this.recordedPredicatePremiseGeneration++; this.recordedPredicatePremiseSnapshot.set(null); this.recordedPredicatePremiseReadState.set('idle');
   }
+  private operatorRecordingGeneration = 0;
+  readonly operatorRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly operatorRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedOperatorRecording } | null>(null);
+  private operatorSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly operatorRecording = (): AdmittedOperatorRecording | null => {
+    const snapshot = this.operatorRecordingSnapshot(); const sources = this.operatorSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      operatorRunIdentitiesAreUnique(snapshot.bundle.cases) && operatorRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<boolean> {
+    this.clearOperatorRecording(); const generation = this.operatorRecordingGeneration;
+    const context = this.context(); const sources = this.operatorSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context) || !operatorRunIdentitiesAreUnique(bundle.cases)) return false;
+    const projection = context.operatorRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const current = () => generation === this.operatorRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.operatorRecordingReadState.set('loading');
+    try {
+      const admitted = await readOperatorRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || !operatorRunIdentitiesAreUnique(bundle.cases) || sources !== this.operatorSources() || !bundle.cases.includes(context) || context.operatorRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || admitted.manifest.text !== manifest.text ||
+        !operatorRecordingMatches(context, sources, admitted)) throw new Error('operator-recording-unavailable');
+      this.operatorRecordingSnapshot.set({ bundle, context, admitted }); this.operatorRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.operatorRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearOperatorRecording(): void {
+    this.operatorRecordingGeneration++; this.operatorRecordingSnapshot.set(null); this.operatorRecordingReadState.set('idle');
+    this.clearRecordedOperators();
+  }
+  private recordedOperatorGeneration = 0;
+  readonly recordedOperatorReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedOperatorSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedOperators } | null>(null);
+  readonly recordedOperators = (): AdmittedRecordedOperators | null => {
+    const snapshot = this.recordedOperatorSnapshot(); const sources = this.operatorSources(); const recording = this.operatorRecording();
+    const diagnostic = this.diagnostic();
+    return snapshot && sources && recording && diagnostic && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedOperatorsMatch(snapshot.context, sources, recording, diagnostic, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedOperators(); const generation = this.recordedOperatorGeneration;
+    const context = this.context(); const sources = this.operatorSources(); const recording = this.operatorRecording();
+    const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !recording || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedOperatorGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedOperatorReadState.set('loading');
+    try {
+      const admitted = await readRecordedOperators(context, sources, recording, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.operatorSources() || recording !== this.operatorRecording() || diagnostic !== this.diagnostic() ||
+        !bundle.cases.includes(context) || !recordedOperatorsMatch(context, sources, recording, diagnostic, admitted))
+        throw new Error('recorded-operators-unavailable');
+      this.recordedOperatorSnapshot.set({ bundle, context, admitted }); this.recordedOperatorReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedOperatorReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedOperators(): void {
+    this.recordedOperatorGeneration++; this.recordedOperatorSnapshot.set(null); this.recordedOperatorReadState.set('idle');
+  }
   private rootSourceGeneration = 0;
   readonly rootSourceReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly rootSourceSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRootSource } | null>(null);
@@ -290,7 +357,7 @@ export class ProjectIdeWorkbenchStore {
     }catch{if(current())this.rootSourceReadState.set('unavailable');return false;}
   }
   private clearRootSource(): void {
-    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();
+    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();
   }
   private diagnosticPremiseGeneration = 0;
   readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
@@ -954,7 +1021,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
-    this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises();
+    this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises(); this.clearRecordedOperators();
     this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);
