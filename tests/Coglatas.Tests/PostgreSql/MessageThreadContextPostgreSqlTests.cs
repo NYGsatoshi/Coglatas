@@ -183,7 +183,7 @@ INSERT INTO messages ("Id", "TenantId", "WorkspaceId", "ConversationId", "Author
             Assert.Equal(1, replies.TotalCount);
             Assert.Equal(1, summary.ReplyCount);
             Assert.Equal(now.AddMinutes(1), summary.LatestReplyAt);
-            Assert.Equal(new[] { "Migration user" }, summary.ParticipantDisplayNames);
+            Assert.Equal(["Migration user"], summary.ParticipantDisplayNames);
             var timelineRoot = Assert.Single(timeline.Items);
             Assert.Equal(rootId, timelineRoot.Id);
             Assert.NotNull(timelineRoot.DeletedAt);
@@ -378,7 +378,7 @@ INSERT INTO messages ("Id", "TenantId", "WorkspaceId", "ConversationId", "Author
             Assert.Equal("Historical tenant A author", Assert.Single(replies.Items, item => item.Id == historicalReplyId).AuthorUser?.DisplayName);
             Assert.Null(Assert.Single(replies.Items, item => item.Id == corruptReplyId).AuthorUser);
             Assert.Equal(2, summary.ReplyCount);
-            Assert.Equal(new[] { "Historical tenant A author" }, summary.ParticipantDisplayNames);
+            Assert.Equal(["Historical tenant A author"], summary.ParticipantDisplayNames);
             Assert.Equal(summary.ParticipantDisplayNames, summaries[rootId].ParticipantDisplayNames);
             Assert.DoesNotContain("TENANT B SECRET AUTHOR", summary.ParticipantDisplayNames);
         });
