@@ -309,15 +309,18 @@ public sealed class LocalPassObservationCompilerRecordingTests
         Assert.NotEqual(firstControl.Result.ResultDigest, secondControl.Result.ResultDigest);
         var cache = new PlanDeclarationReadCache(maximumEntries: 2, maximumCanonicalBytes: 4096);
         using var session = new LocalPassObservationCompilerRecordingSession(Profile(graph.Input), cache);
-        var declared = Enumerable.Range(0, 16).Select(index =>
+        var declared = new (PassObservationCompilerHostRequest Request, LocalPassObservationCompilerRecordingManifest Manifest, CoreCompilation Expected)[16];
+        for (var index = 0; index < declared.Length; index++)
         {
             var input = index % 2 == 0 ? graph.Input : changed;
             var request = new PassObservationCompilerHostRequest(new(new(input), index + 7, graph.Snapshots),
                 new(index % 2 == 0 ? CompilerPassObservationMode.Manifest : CompilerPassObservationMode.AvailableOriginalJson));
-            return (Request: request, Manifest: session.Prepare(request, Guid.NewGuid()),
-                Expected: index % 2 == 0 ? firstControl : secondControl);
-        }).ToArray();
-        var actual = await Task.WhenAll(declared.Select(item => session.ExecuteAsync(item.Manifest, item.Request)));
+            declared[index] = (request, session.Prepare(request, Guid.NewGuid()), index % 2 == 0 ? firstControl : secondControl);
+        }
+        var pending = new Task<PassObservationCompilerRecordedInvocation>[declared.Length];
+        for (var index = 0; index < declared.Length; index++)
+            pending[index] = session.ExecuteAsync(declared[index].Manifest, declared[index].Request);
+        var actual = await Task.WhenAll(pending);
         Assert.Equal(16, session.ReservedExecutions);
         Assert.Equal(16, actual.Select(item => item.Response.AttemptId).Distinct().Count());
         Assert.Equal(16, actual.Select(item => item.Receipt.Manifest.RunId).Distinct().Count());
