@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
-using Coglatas.ProjectIde.Workbench.Synthetic;
 
 namespace Coglatas.Tests.ProjectIde;
 

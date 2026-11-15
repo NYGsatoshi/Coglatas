@@ -82,17 +82,23 @@ public sealed class SyntheticDiagnosticPremiseTests
         }
         finally { vm.PropertyChanged -= probe.OnChanged; }
     }
+    private sealed class CancelOnChange : IDisposable
+    {
+        private readonly CancellationTokenSource _source = new();
+        public CancellationToken Token => _source.Token;
+        public void OnChanged(object? sender, PropertyChangedEventArgs args) => _source.Cancel();
+        public void Dispose() => _source.Dispose();
+    }
     [Fact]
     public async Task CancellationDuringAdmissionWithdrawsThePreviousReturnedView()
     {
         var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)DiagnosticPremiseSnapshotTests.ProofCases().First()[0]);
         using var vm = await Admit(request, host); Assert.True(vm.LoadSyntheticScopedSources()); Assert.True(vm.SelectDiagnostic(vm.Problems.Single()));
         Assert.True(vm.ReadSyntheticDiagnosticPremises(vm.Result!.ResultDigest, DiagnosticPremiseSnapshotMode.AvailableBodies)); var original = vm.DiagnosticPremises!;
-        using var token = new CancellationTokenSource();
-        void Cancel(object? sender, PropertyChangedEventArgs args) => token.Cancel();
-        vm.PropertyChanged += Cancel;
-        try { Assert.Throws<OperationCanceledException>(() => vm.ReadSyntheticDiagnosticPremises(vm.Result.ResultDigest, token: token.Token)); }
-        finally { vm.PropertyChanged -= Cancel; }
+        using var cancellation = new CancelOnChange(); var token = cancellation.Token;
+        vm.PropertyChanged += cancellation.OnChanged;
+        try { Assert.Throws<OperationCanceledException>(() => vm.ReadSyntheticDiagnosticPremises(vm.Result.ResultDigest, token: token)); }
+        finally { vm.PropertyChanged -= cancellation.OnChanged; }
         Assert.Null(vm.DiagnosticPremises); Assert.Equal(3, original.Bodies.Count);
     }
 }
