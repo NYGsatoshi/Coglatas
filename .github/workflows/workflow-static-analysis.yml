@@ -7,6 +7,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
@@ -15,6 +16,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
@@ -95,6 +97,9 @@ jobs:
 
       - name: Test Sonar .NET coverage evidence validation
         run: python3 scripts/ci/test-sonar-dotnet-coverage.py
+
+      - name: Test workflow tool HTTPS transport
+        run: python3 -B scripts/ci/test-workflow-tool-https.py
 
       - name: Install checksum-pinned actionlint
         shell: bash

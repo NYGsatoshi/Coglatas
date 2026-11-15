@@ -57,6 +57,24 @@ test('Linux database ownership accepts official tagged and digest-pinned Postgre
     /Ubuntu job that directly owns/u);
 });
 
+test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.6 image', async () => {
+  const qualifiedImage = 'image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6';
+  const paths = [
+    '.github/workflows/ci.yml',
+    '.github/workflows/main-validation.yml',
+    '.github/workflows/sec17-deep.yml',
+    '.github/workflows/sec17-file-policy.yml',
+    '.github/workflows/sonarcloud-ci.yml',
+  ];
+  for (const path of paths) {
+    const source = await readFile(path, 'utf8');
+    const imageLines = source.split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('image: postgres'));
+    assert.deepEqual(imageLines, [qualifiedImage], `Unqualified PostgreSQL service image in ${path}`);
+  }
+});
+
 test('workflow rejects ignored OS failures, services, shell overrides, and mutable action refs', async () => {
   const contract = await loadOsPortabilityContract();
   const workflow = await readFile(contract.workflow, 'utf8');
