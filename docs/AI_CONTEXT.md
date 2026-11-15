@@ -1,5 +1,11 @@
 # AI Context
 
+[Actual initial-root pass observation](verification/projectide-initial-root-pass-observation.md)
+adds predeclared bounded entry/return capture of existing original JSON with an
+owned metadata-only default snapshot. Missing engine-object/supply bodies remain
+explicit gaps; this is not FullDump, regional observation, a host invocation or
+runtime authority. Existing Compiler/host/client protocols stay separate.
+
 [Paired original operator Inspector](verification/projectide-paired-operator-recordings.md)
 adds explicit owned run and selected original Boolean operator reads to Angular
 and the Windows pure ViewModel, including Requirement conditions without treating
