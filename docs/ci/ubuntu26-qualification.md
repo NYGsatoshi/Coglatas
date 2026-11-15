@@ -21,7 +21,7 @@ The matrix has exactly two hosted Linux x64 legs, run against the same PR merge 
 | Baseline | `ubuntu-24.04` | Current known OS line, pinned to avoid `ubuntu-latest` migration |
 | Candidate | `ubuntu-26.04` | New Ubuntu 26.04 LTS hosted image |
 
-Both legs use the identical repository-pinned .NET SDK from `global.json`, Node 24, npm 11.17.0, and reviewed immutable GitHub Action SHAs. This intentionally isolates the OS change from the separate Node 26 and .NET 11 investigations.
+Both legs use the identical repository-pinned .NET SDK from `global.json`, the current repository-standard Node 26, npm 11.17.0, and reviewed immutable GitHub Action SHAs. Both legs therefore isolate only the operating-system difference; this qualification does not migrate Node, .NET, production images or canonical CI runners.
 
 Each leg performs:
 1. Root `npm ci`, existing OS-portability static/negative tests, new Ubuntu-qualification negative tests, and runtime toolchain contract verification.

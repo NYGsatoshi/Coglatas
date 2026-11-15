@@ -73,7 +73,7 @@ function errorsFor(w, registry, allowlist) {
   check(byId.dotnet_results?.run?.includes('--trx artifacts/os-portability/os-portability.trx'), 'TRX checked');
   check(byId.checkout?.with?.['persist-credentials'] === false, 'checkout credentials disabled');
   check(byId.setup_dotnet?.with?.['global-json-file'] === 'global.json', 'pinned dotnet');
-  check(String(byId.setup_node?.with?.['node-version']) === '24', 'pinned Node 24');
+  check(String(byId.setup_node?.with?.['node-version']) === '26', 'pinned Node 26');
   const upload = steps.find((s) => s?.name === 'Upload immutable-run comparison evidence');
   const evidence = steps.find((s) => s?.name === 'Write sanitized per-runner evidence');
   for (const [s, action] of [
