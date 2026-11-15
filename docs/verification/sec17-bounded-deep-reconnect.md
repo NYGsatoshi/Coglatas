@@ -53,10 +53,14 @@ fail the verifier. Selection absence cannot become an early-return pass.
 The dedicated summary binds checkout/build stamp, source digest, native TRX
 digest, six real compiled assemblies and their loaded copies, and run/attempt.
 Its source cycle/scope parameters are not independent per-cycle telemetry.
-Only the closed execution JSON is published. The same serialized JSON appears
-between fixed log markers so source, TRX and assembly digests can be inspected
-without extracting the artifact. Stdout canaries verify equality and exclusion
-of native output, exception text and local paths. Raw TRX remains private to the
+Only the closed execution JSON is published as the workflow artifact. The
+full receipt is written exclusively to the requested output file; it is never
+echoed to stdout. Logs contain only the fixed
+`SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN` marker and the bounded outcome line.
+Reviewers must inspect the saved JSON artifact under the applicable evidence
+access policy to reconcile source, TRX and assembly digests. CLI regression
+tests enforce the saved receipt schema and exact sanitized stdout while
+excluding native output, exception text and local paths. Raw TRX remains private to the
 ephemeral hosted runner, whose job is bounded to 20 minutes and is discarded
 afterward. Capture runs after failure too, publishes only finite outcomes,
 counts/digests and fixed diagnostics, and returns nonzero unless the exact

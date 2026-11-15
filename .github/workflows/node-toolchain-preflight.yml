@@ -61,6 +61,9 @@ jobs:
       - name: Verify Node and npm toolchain policy
         run: node scripts/ci/verify-node-toolchain.mjs
 
+      - name: Test exact .NET SDK policy positive and negative cases
+        run: node --test scripts/ci/dotnet-sdk-policy.node-test.mjs
+
       - name: Qualify Node toolchain guard using positive and negative controls
         run: node --test scripts/ci/node-toolchain-qualification.node-test.mjs
 
