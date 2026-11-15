@@ -222,6 +222,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly compilerOutputs?: import('./projectide-compiler-outputs.reader').CompilerOutputProjection | null;
   readonly simulationRun?: import('./projectide-simulation.reader').SimulationFrame | null;
   readonly simulationTraceProfile?: import('./projectide-simulation.reader').SimulationFrame | null;
   readonly simulationComparison?: import('./projectide-simulation-comparison.reader').SimulationComparisonProjection | null;

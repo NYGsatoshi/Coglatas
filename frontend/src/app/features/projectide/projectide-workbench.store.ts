@@ -1,3 +1,4 @@
+import { AdmittedCompilerOutputs, CompilerOutputMode, readCompilerOutputs } from './projectide-compiler-outputs.reader';
 import { AdmittedTraceProfile, readSimulationTraceProfile } from './projectide-simulation-trace-profile.reader';
 import { AdmittedSimulationComparison, readSimulationComparison } from './projectide-simulation-comparison.reader';
 import { AdmittedRecordedDebug, RecordedDebugFrame, readRecordedDebug } from './projectide-recorded-debug.reader';
@@ -167,6 +168,31 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
+  private compilerOutputsGeneration = 0;
+  readonly compilerOutputsReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly compilerOutputsSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerOutputs } | null>(null);
+  readonly compilerOutputs = (): AdmittedCompilerOutputs | null => {
+    const snapshot = this.compilerOutputsSnapshot();
+    return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.sources === this.admittedScoped() ? snapshot.admitted : null;
+  };
+  async loadCompilerOutputs(mode: CompilerOutputMode = 'Manifest'): Promise<boolean> {
+    this.clearCompilerOutputs(); const generation = this.compilerOutputsGeneration;
+    const context = this.context(); const sources = this.admittedScoped(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || !sources.publicationVerified || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.compilerOutputsGeneration && bundle === this.bundle() && context === this.context() && context === this.result();
+    this.compilerOutputsReadState.set('loading');
+    try {
+      const admitted = await readCompilerOutputs(context, sources, mode); if (!current()) return false;
+      if (!admitted || sources !== this.admittedScoped() || !bundle.cases.includes(context)) throw new Error('compiler-outputs-unavailable');
+      this.compilerOutputsSnapshot.set({ bundle, context, admitted }); this.compilerOutputsReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.compilerOutputsReadState.set('unavailable'); return false;
+    }
+  }
+  private clearCompilerOutputs(): void {
+    this.compilerOutputsGeneration++; this.compilerOutputsSnapshot.set(null); this.compilerOutputsReadState.set('idle');
+  }
   private traceProfileGeneration = 0;
   readonly simulationTraceProfileReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly traceProfileSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedTraceProfile } | null>(null);
@@ -303,6 +329,7 @@ export class ProjectIdeWorkbenchStore {
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
   private clearScopedSources(): void {
+    this.clearCompilerOutputs();
     this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
   }
   private scenarioGeneration = 0;

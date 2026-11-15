@@ -22,6 +22,7 @@
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
     }
     @if (store.state() === 'ready') {
+      <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
       <button type="button" (click)="reload('simulation-profile')">{{ t('ide.profileExample') }}</button>
       <button type="button" (click)="reload('simulation-comparison')">{{ t('ide.comparisonExample') }}</button>
@@ -607,6 +608,31 @@
                       }
                     </section>
                   }
+                </section>
+              }
+              @if (ctx.compilerOutputs && store.hasVerifiedPublication()) {
+                <div class="panels">
+                  <button type="button" (click)="loadCompilerOutputs()" [disabled]="store.compilerOutputsReadState() === 'loading'">{{ t('ide.outputsReadManifest') }}</button>
+                  <button type="button" (click)="loadCompilerOutputs('AvailableOutputs')" [disabled]="store.compilerOutputsReadState() === 'loading'">{{ t('ide.outputsReadBodies') }}</button>
+                </div>
+                @if (store.compilerOutputsReadState() === 'loading') { <p role="status">{{ t('ide.outputsLoading') }}</p> }
+                @if (store.compilerOutputsReadState() === 'unavailable') { <p role="alert">{{ t('ide.outputsUnavailable') }}</p> }
+              }
+              @if (store.compilerOutputs(); as snapshot) {
+                <section #compilerOutputsPanel tabindex="-1" data-testid="ide-compiler-outputs" aria-labelledby="ide-compiler-outputs-heading">
+                  <h3 id="ide-compiler-outputs-heading">{{ t('ide.outputsTitle') }}</h3><p>{{ t('ide.outputsNotice') }}</p>
+                  <p data-testid="ide-compiler-outputs-state">{{ t(snapshot.state === 'ManifestOnly' ? 'ide.outputsManifestOnly' : snapshot.state === 'BodyBudgetExceeded' ? 'ide.outputsBudgetExceeded' : 'ide.outputsCaptured') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.outputsRetainedBytes') }}</dt><dd>{{ snapshot.retainedBodyBytes }}</dd></div>
+                    <div><dt>{{ t('ide.outputsBudget') }}</dt><dd>{{ snapshot.maximumBodyBytes }}</dd></div>
+                    <div><dt>{{ t('ide.outputsResult') }}</dt><dd>{{ ctx.resultDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.sourceDigest') }}</dt><dd>{{ ctx.sourceDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.manifest') }}</dt><dd>{{ ctx.inputDigest.value }}</dd></div>
+                  </dl>
+                  <ul>@for (body of snapshot.bodies; track body.role) {
+                    <li><details data-testid="ide-compiler-output-body"><summary>{{ compilerOutputRole(body.role) }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
+                  }</ul>
+                  <details><summary>{{ t('ide.outputsOriginal') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
                 </section>
               }
               @if (store.planDefinition(); as plan) {
