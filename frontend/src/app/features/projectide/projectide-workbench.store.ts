@@ -1,3 +1,4 @@
+import { AdmittedDiagnosticPremises, DiagnosticPremiseChoice, readDiagnosticPremises } from './projectide-diagnostic-premises.reader';
 import { diagnosticBasisPage } from './projectide-diagnostic-basis';
 import { AdmittedCompilerRecording, CompilerRecordingLabel, compilerRecordingMatches, readCompilerRecording } from './projectide-compiler-recordings.reader';
 import { AdmittedCompilerOutputs, CompilerOutputMode, readCompilerOutputs } from './projectide-compiler-outputs.reader';
@@ -195,6 +196,33 @@ export class ProjectIdeWorkbenchStore {
   private clearCompilerRecording(): void {
     this.compilerRecordingGeneration++; this.compilerRecordingSnapshot.set(null); this.compilerRecordingReadState.set('idle');
   }
+  private diagnosticPremiseGeneration = 0;
+  readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly diagnosticPremiseSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedDiagnosticPremises } | null>(null);
+  readonly diagnosticPremises = (): AdmittedDiagnosticPremises | null => {
+    const snapshot = this.diagnosticPremiseSnapshot();
+    return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.sources === this.admittedScoped() &&
+      snapshot.admitted.diagnostic === this.diagnostic() ? snapshot.admitted : null;
+  };
+  async loadDiagnosticPremises(choice: DiagnosticPremiseChoice = 'manifest'): Promise<boolean> {
+    this.clearDiagnosticPremises(); const generation = this.diagnosticPremiseGeneration;
+    const context = this.context(); const sources = this.admittedScoped(); const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) { this.diagnosticPremiseReadState.set('unavailable'); return false; }
+    const current = () => generation === this.diagnosticPremiseGeneration && bundle === this.bundle() && context === this.context() &&
+      context === this.result() && diagnostic === this.diagnostic();
+    this.diagnosticPremiseReadState.set('loading');
+    try {
+      const admitted = await readDiagnosticPremises(context, sources, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.admittedScoped() || !bundle.cases.includes(context)) throw new Error('diagnostic-premises-unavailable');
+      this.diagnosticPremiseSnapshot.set({ bundle, context, admitted }); this.diagnosticPremiseReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.diagnosticPremiseReadState.set('unavailable'); return false;
+    }
+  }
+  private clearDiagnosticPremises(): void {
+    this.diagnosticPremiseGeneration++; this.diagnosticPremiseSnapshot.set(null); this.diagnosticPremiseReadState.set('idle');
+  }
   private compilerOutputsGeneration = 0;
   readonly compilerOutputsReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly compilerOutputsSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerOutputs } | null>(null);
@@ -356,6 +384,7 @@ export class ProjectIdeWorkbenchStore {
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
   private clearScopedSources(): void {
+    this.clearDiagnosticPremises();
     this.clearCompilerRecording();
     this.clearCompilerOutputs();
     this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
@@ -828,6 +857,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.clearDiagnosticPremises();
     this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);

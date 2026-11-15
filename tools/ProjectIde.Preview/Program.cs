@@ -13,12 +13,13 @@ var comparisonProfile = args is [_, "--simulation-comparison"];
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
+var premiseProfile = args is [_, "--diagnostic-premises"];
 var recordingProfile = args is [_, "--compiler-recordings"];
-var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile;
+var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -214,7 +215,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
         if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
-        if (outputSnapshotProfile) {
+        if (outputSnapshotProfile && !premiseProfile) {
             object Capture(CompilerOutputSnapshotMode mode, int budget) {
                 var capture = ProjectCompilerOutputSnapshot.Read(compilation, compilation.Result.ResultDigest, mode, budget, desiredInput: input);
                 return new { text = capture.Data.CanonicalText, digest = capture.Digest.Data.Value, retainedBodyBytes = capture.RetainedBodyBytes,
@@ -224,6 +225,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["compilerOutputs"] = JsonSerializer.SerializeToNode(new { manifest = Capture(CompilerOutputSnapshotMode.Manifest, ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes),
                 available = Capture(CompilerOutputSnapshotMode.AvailableOutputs, name == "tests-publication-root-draft" ? 1 : ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) });
         }
+        if (premiseProfile) fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation));
         if (recordingProfile) fixture["compilerRecordings"] = await CompilerRecordingPreview.ExportAsync(input, snapshots, compilation.Result);
         if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
         {
