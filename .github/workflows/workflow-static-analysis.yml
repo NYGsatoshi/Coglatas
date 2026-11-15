@@ -24,6 +24,7 @@ on:
       - "tests/ci/test_qodana_shadow_workflow.py"
       - "governance/workflow-trust-policy.json"
       - "governance/github-actions-allowlist.json"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
@@ -49,6 +50,7 @@ on:
       - "tests/ci/test_qodana_shadow_workflow.py"
       - "governance/workflow-trust-policy.json"
       - "governance/github-actions-allowlist.json"
+      - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
@@ -155,6 +157,8 @@ jobs:
         run: |
           python3 -B tests/ci/test_qodana_shadow_signature.py
           python3 -B tests/ci/test_qodana_shadow_workflow.py
+      - name: Test workflow tool HTTPS transport
+        run: python3 -B scripts/ci/test-workflow-tool-https.py
 
       - name: Install checksum-pinned actionlint
         shell: bash

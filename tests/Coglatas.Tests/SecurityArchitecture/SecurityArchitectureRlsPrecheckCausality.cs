@@ -142,7 +142,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         Assert.Equal(schema.SchemaDigest, control.SourceSchemaDigest);
         Assert.Equal(control.BaselinePolicyDigest, control.RestoredPolicyDigest);
         Assert.Equal(control.BeforeRowsDigest, control.AfterRowsDigest);
-        Assert.Equal(new[] { "baseline", "childPermissive", "parentsPermissive", "bothPermissive", "restoredBaseline" }, control.Stages.Select(stage => stage.Phase));
+        Assert.Equal(["baseline", "childPermissive", "parentsPermissive", "bothPermissive", "restoredBaseline"], control.Stages.Select(stage => stage.Phase));
         Assert.Equal(causalOutcome, control.CausalOutcome);
         Assert.Equal("UNVERIFIED", control.RlsQualification);
         return control;
