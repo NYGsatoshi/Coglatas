@@ -76,17 +76,22 @@ public sealed class SyntheticDiagnosticBasisTests
     public async Task OldSelectionCannotSupplyBasisAfterInvalidation(string action)
     {
         var (input, request, host) = Prepare((string)Cases().First()[0]);
-        using var vm = new SyntheticWorkbenchViewModel(); vm.BeginSynthetic(request); Assert.True(vm.TryAccept(await host.CompileAsync(request)));
-        var diagnostic = vm.Problems.First(); Assert.True(vm.SelectDiagnostic(diagnostic));
-        var retained = Assert.IsType<SyntheticDiagnosticBasisPage>(vm.ReadDiagnosticBasis());
-        if (action == "reset") vm.Reset();
-        else if (action == "dispose") vm.Dispose();
-        else if (action == "new-input") vm.BeginSynthetic(new(new(input), 8, request.Snapshots));
-        else if (action == "selection") vm.Select(diagnostic.Location);
-        else {
-            var other = await host.CompileAsync(request); var copy = other.Compilation!.Result.Diagnostics.Single(item => item.DiagnosticId == diagnostic.DiagnosticId);
-            Assert.NotSame(diagnostic, copy); Assert.False(vm.SelectDiagnostic(copy));
+        var vm = new SyntheticWorkbenchViewModel();
+        try
+        {
+            vm.BeginSynthetic(request); Assert.True(vm.TryAccept(await host.CompileAsync(request)));
+            var diagnostic = vm.Problems.First(); Assert.True(vm.SelectDiagnostic(diagnostic));
+            var retained = Assert.IsType<SyntheticDiagnosticBasisPage>(vm.ReadDiagnosticBasis());
+            if (action == "reset") vm.Reset();
+            else if (action == "dispose") vm.Dispose();
+            else if (action == "new-input") vm.BeginSynthetic(new(new(input), 8, request.Snapshots));
+            else if (action == "selection") vm.Select(diagnostic.Location);
+            else {
+                var other = await host.CompileAsync(request); var copy = other.Compilation!.Result.Diagnostics.Single(item => item.DiagnosticId == diagnostic.DiagnosticId);
+                Assert.NotSame(diagnostic, copy); Assert.False(vm.SelectDiagnostic(copy));
+            }
+            Assert.Null(vm.ReadDiagnosticBasis()); Assert.Same(diagnostic, retained.Diagnostic);
         }
-        Assert.Null(vm.ReadDiagnosticBasis()); Assert.Same(diagnostic, retained.Diagnostic);
+        finally { vm.Dispose(); }
     }
 }

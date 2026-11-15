@@ -92,6 +92,8 @@ describe('Recorded diagnostic basis component', () => {
       const { c, fixture, root } = await basisReady(locale); const context = c.store.context()!;
       const panel = root.querySelector('[data-testid="ide-diagnostic-basis"]')!;
       expect(panel.textContent).toContain(c.t('ide.basisNotice'));
+      expect(panel.textContent).toContain(locale==='en'?'Recorded premise references: 3':'記録された根拠参照: 3');
+      expect(panel.textContent).toContain(locale==='en'?'References 1–3 of 3':'参照 1–3 / 3');
       expect(panel.textContent).toContain(context.inputDigest.value); expect(panel.textContent).toContain(context.resultDigest.value);
       expect(panel.textContent).toContain(context.result.diagnostics[0].diagnosticId);
       expect(Array.from(panel.querySelectorAll('[data-testid="ide-diagnostic-basis-premise"]')).map(r=>r.textContent))
@@ -121,10 +123,19 @@ describe('Recorded diagnostic basis component', () => {
     c.store.result.set({...c.store.result()!}); fixture.detectChanges();
     expect(c.store.diagnosticBasis()).toBeNull(); expect(root.querySelector('[data-testid="ide-diagnostic-basis"]')).toBeNull();
   });
+  it('rejects a case copied outside the original admitted bundle', async () => {
+    const {c,fixture,root}=await basisReady('en'); const copied={...c.store.context()!};
+    c.store.context.set(copied); c.store.result.set(copied); fixture.detectChanges();
+    expect(c.store.diagnostic()).not.toBeNull(); expect(c.store.diagnosticBasis()).toBeNull();
+    expect(root.querySelector('[data-testid="ide-diagnostic-basis"]')).toBeNull();
+  });
   it('withdraws a mutable package that no longer passes admission', async () => {
     const {c,fixture,root}=await basisReady('en');
     (c.store.diagnostic()!.evidence as {missingReason:string|null}).missingReason='coglatas.invalid-mutated-basis';
-    fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); expect(c.store.diagnosticBasis()).toBeNull();
+    const current = c.store.context();
+    c.i18n.setLocale('ja'); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(c.store.context()).toBe(current); expect(c.store.diagnostic()).not.toBeNull();
+    expect(c.store.diagnosticBasis()).toBeNull();
     expect(root.querySelector('[data-testid="ide-diagnostic-basis"]')).toBeNull();
   });
 });

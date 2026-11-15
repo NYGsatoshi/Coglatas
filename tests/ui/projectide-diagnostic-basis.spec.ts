@@ -17,6 +17,9 @@ for (const locale of ['en','ja'] as const) for (const family of ['false','unknow
       const select=page.getByRole('button',{name:(locale==='en'?'Inspect diagnostic':'診断を調べる')+': '+diagnostic.code,exact:true});
       await select.focus(); await select.press('Enter');
       const panel=page.getByTestId('ide-diagnostic-basis'); await expect(panel).toBeVisible();
+      const count=diagnostic.evidence.premises.length;
+      await expect(panel).toContainText(locale==='en'?'Recorded premise references: '+count:'記録された根拠参照: '+count);
+      await expect(panel).toContainText(locale==='en'?'References '+(count?1:0)+'–'+count+' of '+count:'参照 '+(count?1:0)+'–'+count+' / '+count);
       await expect(panel).toContainText(diagnostic.diagnosticId); await expect(panel).toContainText(value.inputDigest.value);
       await expect(panel).toContainText(value.resultDigest.value); await expect(panel).toContainText(diagnostic.evidence.kind);
       await expect(panel.getByTestId('ide-diagnostic-basis-premise')).toHaveText(diagnostic.evidence.premises.map((p:{algorithm:string,value:string})=>p.algorithm+':'+p.value));
