@@ -91,6 +91,20 @@ class GcpLoopbackAdmissionTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.cli(json.dumps(value), 1)
 
+    def test_active_deployment_guide_requires_guarded_recovery_and_ssh_access(self):
+        documentation = (ROOT / "deploy/gcp/README.md").read_text(encoding="utf-8")
+        for unsafe in ("http://EXTERNAL_IP:8080", "docker compose up -d",
+                       "sudo docker compose up", "Port is not reachable from the internet:"):
+            self.assertNotIn(unsafe, documentation)
+        recovery = documentation.split("VM restarted and containers did not come back:", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("reset-app.sh", recovery)
+        self.assertIn(chr(96) + "restart" + chr(96), recovery)
+        self.assertIn("COGLATAS_PORT=127.0.0.1:8080", recovery)
+        self.assertIn("validates the fully rendered Compose configuration", recovery)
+        browser = documentation.split("Browser cannot reach the development app:", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("encrypted SSH forwarding session", browser)
+        self.assertIn("http://127.0.0.1:8080", browser)
+
     def test_malformed_deep_and_oversized_input_does_not_leak(self):
         for document in ['{"secret":"synthetic-private-config-canary"',
                          "synthetic-private-config-canary" * 50000,

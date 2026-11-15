@@ -106,7 +106,7 @@ On the VM:
 bash ~/coglatas-gcp/gcp/check-status.sh
 ```
 
-Useful direct commands:
+Read-only inspection commands (never use these to start or recreate services):
 
 ```bash
 cd /opt/coglatas
@@ -172,17 +172,17 @@ In Docker, the DB host must be `db`, not `localhost`. Check `ConnectionStrings__
 App waits forever or exits during startup:
 Check `docker compose logs migrate` first. The `app` service waits for PostgreSQL health and completed EF Core migrations.
 
-Port is not reachable from the internet:
-Check the VM external IP and the firewall rule created by `create-vm.ps1`. The app is on `http://EXTERNAL_IP:8080`, not port 80 unless you add a reverse proxy.
+Browser cannot reach the development app:
+Public HTTP access is intentionally unavailable. Keep the encrypted SSH forwarding session from the quick start open, then use `http://127.0.0.1:8080` on that same workstation. Confirm VM loopback health with `bash ~/coglatas-gcp/gcp/check-status.sh`; a public VM address must not serve the development app.
 
-GCP firewall is not open:
-Confirm the VM has the `coglatas-web` network tag, then run `gcloud compute firewall-rules list --filter=coglatas` from Windows PowerShell.
+GCP public firewall is not open:
+This is expected. `create-vm.ps1` does not open a public web port. Inspect any pre-existing rules separately and follow the target's approved cleanup/rollback procedure if an unintended public rule exists; do not open the development app to the internet.
 
-App is on 8080, not 80:
-Use `http://EXTERNAL_IP:8080` for this development deployment. Port 80 is opened only so a future Nginx/HTTPS setup can be added without recreating the VM.
+Port 8080 vs. port 80:
+The app listens on container port 8080 and must be published only as `127.0.0.1:8080` on the VM. Port 80 is not a development fallback. Public HTTPS or reverse-proxy activation is a separate reviewed deployment.
 
 Docker permission denied:
-Run `bash ~/coglatas-gcp/gcp/bootstrap-vm.sh`, then exit SSH and reconnect. Until then, use `sudo docker compose ...`.
+Run `bash ~/coglatas-gcp/gcp/bootstrap-vm.sh`, then exit SSH and reconnect. Do not use direct mutating Compose commands, with or without `sudo`; lifecycle changes must pass the helper's rendered-Compose loopback validation.
 
 `docker compose` is missing:
 Rerun `bootstrap-vm.sh` and confirm `docker compose version` works.
@@ -194,7 +194,7 @@ HTTPS redirect prevents access:
 This development Compose sets `SECURITY_REQUIRE_HTTPS=false` and `SECURITY_ENABLE_HSTS=false`. For production, re-enable HTTPS behind a proxy or load balancer.
 
 VM restarted and containers did not come back:
-Run `cd /opt/coglatas && docker compose ps`. The `app` and `postgres` services use `restart: unless-stopped`; if they are stopped, run `docker compose up -d`.
+Inspect the existing deployment with `cd /opt/coglatas && docker compose ps` (read-only). If the services are stopped, run `bash ~/coglatas-gcp/gcp/reset-app.sh` and enter `restart` to recreate containers while retaining volumes. That helper validates the fully rendered Compose configuration before any lifecycle action. An old `.env` containing `COGLATAS_PORT=8080` must be corrected to `COGLATAS_PORT=127.0.0.1:8080` before invoking the helper; never bypass its rejection. Container recreation can briefly interrupt development sessions.
 
 Weak or placeholder secrets:
 Do not use `.env.example` as production secrets. `deploy-app.sh` generates passwords and saves them only on the VM.
