@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace Coglatas.Tests.Web;
 
@@ -63,7 +62,8 @@ public sealed class Sec06FormResponseRoutingTests
                 var addresses = app.Services.GetRequiredService<IServer>()
                     .Features.Get<IServerAddressesFeature>()!.Addresses;
                 // ReSharper disable once ShortLivedHttpClient
-                using var client = new HttpClient { BaseAddress = new Uri(addresses.Single()) };
+                using var client = new HttpClient();
+                client.BaseAddress = new Uri(addresses.Single());
                 foreach (var query in new[] { "page=1", "page=2", "page=0", "page=999" })
                 {
                     using var response = await client.GetAsync("/api/forms/formId/responses?" + query);
