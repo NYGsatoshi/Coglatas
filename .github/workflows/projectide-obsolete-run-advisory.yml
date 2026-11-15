@@ -1,0 +1,94 @@
+name: ProjectIDE obsolete-run read-only admission advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-obsolete-run-advisory.yml
+      - scripts/ci/projectide_obsolete_run_evidence.py
+      - tests/ci/test_projectide_obsolete_run_evidence.py
+      - docs/verification/projectide-obsolete-run-readonly.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: obsolete-run-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  source-bound-refusal:
+    name: Obsolete PR CI read-only synthetic admission (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      POLICY_BLOB: 75dab7dff15ab5986da8632e16b24abbfa62a0fe
+      TEST_BLOB: aa48c14a15cb96dd1c4b832780d01a2ab7a01296
+    steps:
+      - name: Checkout exact independent Security source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Pin exact admission source and Test blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TEST_HEAD"
+          test "$(git rev-parse HEAD:scripts/ci/projectide_obsolete_run_evidence.py)" = "$POLICY_BLOB"
+          test "$(git rev-parse HEAD:tests/ci/test_projectide_obsolete_run_evidence.py)" = "$TEST_BLOB"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Set up independent Python runtime
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run original twenty-one synthetic refusal and positive controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/obsolete-run-audit"
+          python -B -m unittest -v tests/ci/test_projectide_obsolete_run_evidence.py > "$RUNNER_TEMP/obsolete-run-audit/unittest.log" 2>&1
+          python -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          output = Path(os.environ["RUNNER_TEMP"]) / "obsolete-run-audit"
+          log = (output / "unittest.log").read_bytes()
+          text = log.decode("utf-8")
+          results = re.findall(r"^test_\w+ \(.*\) \.\.\. ok$", text, re.MULTILINE)
+          counts = re.findall(r"^Ran (\d+) tests in", text, re.MULTILINE)
+          if len(results) != 21 or counts != ["21"] or not re.search(r"^OK$", text, re.MULTILINE):
+              raise RuntimeError("Native offline control inventory did not execute and pass exactly 21 cases")
+          receipt = {
+              "status": "SYNTHETIC_READ_ONLY_OBSOLETE_RUN_CONTROLS_PASSED",
+              "testHead": os.environ["TEST_HEAD"],
+              "policyBlob": os.environ["POLICY_BLOB"],
+              "testBlob": os.environ["TEST_BLOB"],
+              "testCount": 21,
+              "passed": 21,
+              "failed": 0,
+              "skipped": 0,
+              "unittestLogSha256": hashlib.sha256(log).hexdigest(),
+              "observationOnly": True,
+              "cancellationAuthorized": False,
+              "ownerApprovalComplete": False,
+              "requiredCheckQualified": False,
+              "nativeUiQualified": False,
+              "productionQualified": False,
+              "releaseQualified": False,
+          }
+          (output / "receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Retain original synthetic test output and source-bound receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: obsolete-run-readonly-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/obsolete-run-audit/
+          if-no-files-found: error
+          retention-days: 7
