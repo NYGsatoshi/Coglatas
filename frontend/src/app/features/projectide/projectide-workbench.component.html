@@ -447,6 +447,31 @@
                   </div>
                 </dl>
               }
+              @if (store.diagnosticBasis(basisPage() * basisPageSize); as basis) {
+                <section data-testid="ide-diagnostic-basis" aria-labelledby="diagnostic-basis-title">
+                  <h3 id="diagnostic-basis-title">{{ t('ide.basisTitle') }}</h3>
+                  <p>{{ t('ide.basisNotice') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.identity') }}</dt><dd>{{ basis.diagnostic.diagnosticId }}</dd></div>
+                    <div><dt>{{ t('ide.basisInput') }}</dt><dd>{{ basis.inputId }} · {{ basis.inputDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.outputsResult') }}</dt><dd>{{ basis.resultId }} · {{ basis.resultDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.type') }}</dt><dd>{{ basis.diagnostic.evidence.kind }}</dd></div>
+                    <div><dt>{{ t('ide.basisMissing') }}</dt><dd data-testid="ide-diagnostic-basis-missing">{{ basis.diagnostic.evidence.missingReason ?? t('ide.basisNoMissingReason') }}</dd></div>
+                  </dl>
+                  <p>{{ t('ide.basisRule') }}: {{ basis.diagnostic.ruleId }} v{{ basis.diagnostic.ruleVersion }} · {{ basis.diagnostic.stageOrdinal }}</p>
+                  <details><summary>{{ t('ide.basisLocation') }}</summary><pre tabindex="0" data-testid="ide-diagnostic-basis-location">{{ basis.diagnostic.primaryLocation | json }}</pre></details>
+                  <p>{{ t('ide.basisReferences', { count: basis.total }) }}</p>
+                  @if (!basis.total) { <p>{{ t('ide.basisNoReferences') }}</p> }
+                  <ul>
+                    @for (premise of basis.premises; track $index) {
+                      <li data-testid="ide-diagnostic-basis-premise"><code>{{ premise.algorithm }}:{{ premise.value }}</code></li>
+                    }
+                  </ul>
+                  <p>{{ t('ide.basisRange', { start: basis.total ? basis.offset + 1 : 0, end: basis.offset + basis.premises.length, count: basis.total }) }}</p>
+                  <button type="button" [disabled]="basis.offset === 0" (click)="basisPage.set(basisPage() - 1)">{{ t('ide.basisPrevious') }}</button>
+                  <button type="button" [disabled]="!basis.hasNext" (click)="basisPage.set(basisPage() + 1)">{{ t('ide.basisNext') }}</button>
+                </section>
+              }
               @if (store.inspectedRecord(); as record) {
                 <dl>
                   <div>

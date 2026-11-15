@@ -1,3 +1,4 @@
+import { diagnosticBasisPage } from './projectide-diagnostic-basis';
 import { AdmittedCompilerRecording, CompilerRecordingLabel, compilerRecordingMatches, readCompilerRecording } from './projectide-compiler-recordings.reader';
 import { AdmittedCompilerOutputs, CompilerOutputMode, readCompilerOutputs } from './projectide-compiler-outputs.reader';
 import { AdmittedTraceProfile, readSimulationTraceProfile } from './projectide-simulation-trace-profile.reader';
@@ -495,6 +496,12 @@ export class ProjectIdeWorkbenchStore {
     const matches = this.result()?.result.diagnostics.filter((item) => item.diagnosticId === selected.id);
     return matches?.length === 1 ? matches[0] : null;
   });
+  diagnosticBasis(offset = 0) {
+    const context = this.context(); const diagnostic = this.diagnostic(); const bundle = this.bundle();
+    if (this.state() !== 'ready' || !context || context !== this.result() || !diagnostic || !bundle?.cases.includes(context)) return null;
+    try { readPreviewBundle(bundle); } catch { return null; }
+    return diagnosticBasisPage(context, diagnostic, offset);
+  }
   readonly inspectedRecord = computed(() => {
     const context = this.context();
     const selected = this.selection();
