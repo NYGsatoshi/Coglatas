@@ -1,16 +1,22 @@
 # AI Context
 
+[Paired recorded predicate Inspector](verification/projectide-paired-predicate-recordings.md)
+binds actual intended local run identity before Windows admission and verifies
+original offline frames in Angular. Explicit Source/run/diagnostic reads preserve
+capture gaps, viewer budgets and lifecycle fences; runtime authority, retention
+and actual Avalonia acceptance remain gated.
+
 [Selected diagnostic original predicate arrays](verification/projectide-recorded-predicate-snapshot.md)
 adds an explicit owned-record read after root Source admission. It exposes only
 arrays named by the selected actual root diagnostic, preserves original capture
 gaps separately from viewer budgets and leaves old input-only snapshot bytes
 unchanged. This Domain read does not select an intended host run or grant current
-access; paired client run/lifecycle admission and full #1034 remain open.
+access; the paired local client adoption is documented above and full #1034 remains open.
 
 [Policy-bound local predicate host recording](verification/projectide-predicate-host-recording.md)
 binds explicit pre-run capture to actual local run/session/attempt receipts and
 owned original frames. Old host/output-recording protocols remain separate;
-paired client admission and runtime disclosure/retention stay gated.
+paired local client adoption remains separate from gated runtime disclosure/retention.
 
 [Predeclared original root predicate capture](verification/projectide-predeclared-predicate-capture.md)
 adds an explicit bounded Pure Core entry point before temporary Proof arrays

@@ -13,14 +13,15 @@ var comparisonProfile = args is [_, "--simulation-comparison"];
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
-var rootPremiseProfile = args is [_, "--root-diagnostic-premises"];
+var predicateRecordingProfile = args is [_, "--predicate-recordings"];
+var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile;
 var premiseProfile = args is [_, "--diagnostic-premises"];
 var recordingProfile = args is [_, "--compiler-recordings"];
 var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -207,6 +208,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         fixture["rootSource"] = JsonSerializer.SerializeToNode(new { format = "coglatas.local-root-source-projection/1", inputText = input.Data.CanonicalText,
             result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
         fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation, rootSource));
+        if (predicateRecordingProfile) fixture["predicateRecordings"] = await PredicateRecordingPreview.ExportAsync(input, result);
         cases[^1] = fixture;
     }
     if (scenarioProfile)
@@ -295,6 +297,11 @@ if (recordingProfile) {
     output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
+if (predicateRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["predicateRecordingProducer"] = JsonSerializer.SerializeToNode(PredicateRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 

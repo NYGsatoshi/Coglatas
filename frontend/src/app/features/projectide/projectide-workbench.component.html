@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
+      <button type="button" (click)="reload('predicate-recordings')">{{ t('ide.predicateExample') }}</button>
       <button type="button" (click)="reload('root-diagnostic-premises')">{{ t('ide.rootSourceExample') }}</button>
       <button type="button" (click)="reload('diagnostic-premises')">{{ t('ide.premisesExample') }}</button>
       <button type="button" (click)="reload('compiler-recordings')">{{ t('ide.recordingExample') }}</button>
@@ -474,6 +475,32 @@
                   <button type="button" [disabled]="!basis.hasNext" (click)="basisPage.set(basisPage() + 1)">{{ t('ide.basisNext') }}</button>
                 </section>
               }
+              @if (ctx.predicateRecordings && store.diagnostic()) {
+                @if (store.predicateRecording(); as recording) {
+                  <section #recordedPredicatePanel tabindex="-1" data-testid="ide-recorded-predicate" aria-labelledby="ide-recorded-predicate-title">
+                    <h3 id="ide-recorded-predicate-title">{{ t('ide.predicateSelectedTitle') }}</h3><p>{{ t('ide.predicateSelectedNotice') }}</p>
+                    <p>{{ t('ide.recordingRun') }}: <code>{{ recording.runId }}</code></p>
+                    <p>{{ t('ide.predicateCapture') }}: {{ predicateCaptureState(recording.originalCaptureState) }}</p>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div class="panels">
+                        <button type="button" (click)="loadRecordedPredicatePremises()" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                        <button type="button" (click)="loadRecordedPredicatePremises('available')" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.predicateReadSelected') }}</button>
+                        <button type="button" (click)="loadRecordedPredicatePremises('budget')" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.predicateReadLimited') }}</button>
+                      </div>
+                    } @else { <p>{{ t('ide.predicateNoResult') }}</p> }
+                    @if (store.recordedPredicatePremiseReadState() === 'loading') { <p role="status">{{ t('ide.predicateLoading') }}</p> }
+                    @if (store.recordedPredicatePremiseReadState() === 'unavailable') { <p role="alert">{{ t('ide.predicateUnavailable') }}</p> }
+                    @if (store.recordedPredicatePremises(); as snapshot) {
+                      <p data-testid="ide-predicate-view-state">{{ t('ide.predicateView') }}: {{ predicateViewState(snapshot.state) }}</p>
+                      <p>{{ t('ide.outputsRetainedBytes') }}: {{ snapshot.retainedBodyBytes }} / {{ snapshot.maximumBodyBytes }}</p>
+                      <ul>@for (body of snapshot.bodies; track body.digest.value) {
+                        <li><details data-testid="ide-recorded-predicate-body"><summary>{{ t('ide.predicateOriginalArray') }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
+                      }</ul>
+                      <details><summary>{{ t('ide.predicateSnapshot') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                    }
+                  </section>
+                } @else { <p data-testid="ide-predicate-require-run">{{ t('ide.predicateRequireRun') }}</p> }
+              }
               @if (store.diagnostic() && store.context()?.diagnosticPremises) {
                 @if (!store.diagnosticSourceReady()) {
                   <p>{{ t('ide.premisesRequireSources') }}</p>
@@ -660,6 +687,34 @@
                     <p>{{ t('ide.rootSourceReady') }}</p>
                     <details data-testid="ide-root-source-body"><summary>{{ t('ide.rootSourceBody') }}</summary><pre tabindex="0">{{ root.sourceText }}</pre></details>
                   }
+                </section>
+              }
+              @if (ctx.predicateRecordings && store.rootSource()) {
+                <div class="panels" data-testid="ide-predicate-recording-actions">
+                  <button type="button" (click)="loadPredicateRecording()" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('diagnostic')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateDiagnostic') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('budget')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateBudget') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('cancelled')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateCancelled') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('retry')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateRetry') }}</button>
+                </div>
+                @if (store.predicateRecordingReadState() === 'loading') { <p role="status">{{ t('ide.predicateLoading') }}</p> }
+                @if (store.predicateRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.predicateUnavailable') }}</p> }
+              }
+              @if (store.predicateRecording(); as recording) {
+                <section #predicateRecordingPanel tabindex="-1" data-testid="ide-predicate-recording" aria-labelledby="ide-predicate-recording-title">
+                  <h3 id="ide-predicate-recording-title">{{ t('ide.predicateTitle') }}</h3><p>{{ t('ide.predicateNotice') }}</p>
+                  <p data-testid="ide-predicate-recording-selection">{{ t(recording.label === 'original' ? 'ide.predicateOriginal' : recording.label === 'diagnostic' ? 'ide.predicateDiagnostic' : recording.label === 'budget' ? 'ide.predicateBudget' : recording.label === 'cancelled' ? 'ide.predicateCancelled' : 'ide.predicateRetry') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-predicate-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    @if (recording.originRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.predicateCapture') }}</dt><dd data-testid="ide-predicate-capture-state">{{ predicateCaptureState(recording.originalCaptureState) }}</dd></div>
+                    <div><dt>{{ t('ide.predicateDeclaredBytes') }}</dt><dd>{{ recording.maximumBodyBytes }}</dd></div>
+                  </dl>
+                  @if (recording.hostStatus === 'Cancelled') { <p data-testid="ide-predicate-no-result">{{ t('ide.predicateNoResult') }}</p> }
+                  @else { <p>{{ t('ide.predicateSelectDiagnostic') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
                 </section>
               }
               @if (ctx.scopedSources) {

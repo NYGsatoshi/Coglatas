@@ -36,7 +36,7 @@ Dispose withdraws session metadata and refuses preparing, reserving or publishin
 
 The old CompilerHostRequest constructor, execution digest, ICoreCompilerHost/ServerCompilerHost, LocalCompilerRecordingSession and Manifest/AvailableOutputs recording meanings stay unchanged. The old server continues to refuse unsolicited predicate records. No implicit conversion admits the new local types through the old protocol. No HTTP/remote transport, background job, UI action, retention service or runtime permission is installed.
 
-Future Windows/Web admission must preserve actual original frames and current Source/selected diagnostic/generation/lifecycle ownership. Shared exporter/selection adoption remains P0 #1959; shared browser first-attempt reliability and durable trace evidence remain P0 #1980. Independent Security qualification belongs to that owner; this slice changes no Security/shared-CI source.
+The [paired local client adoption](projectide-paired-predicate-recordings.md) preserves actual original frames and current Source/selected diagnostic/generation/lifecycle ownership; current runtime authority and actual Avalonia acceptance remain separate. Shared exporter/selection adoption remains P0 #1959; shared browser first-attempt reliability and durable trace evidence remain P0 #1980. Independent Security qualification belongs to that owner; this slice changes no Security/shared-CI source.
 
 Keep full #1034 OPEN, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Registry/Trust/Eligibility/RLS/Native/Production/Release holds.
 
