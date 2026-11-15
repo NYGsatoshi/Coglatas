@@ -128,7 +128,31 @@ def parse_report(raw_report: Path, output: Path, secrets: set[str], expected_see
     return initialize_count, observed_version
 
 
-def parse_evidence(path: Path, expected_role: str) -> tuple[int, int, list[str]]:
+def contract_operations(raw: bytes) -> set[str]:
+    """Bind evidence labels to the exact canonical OpenAPI contract bytes."""
+    if not 0 < len(raw) <= 8 * 1024 * 1024:
+        fail("authoritative OpenAPI contract size is invalid")
+    try:
+        document = json.loads(raw)
+    except (UnicodeError, ValueError):
+        fail("authoritative OpenAPI contract is invalid JSON")
+    if not isinstance(document, dict) or not isinstance(document.get("paths"), dict):
+        fail("authoritative OpenAPI contract has no route catalogue")
+    operations: set[str] = set()
+    for path, endpoint in document["paths"].items():
+        if not isinstance(path, str) or not path.startswith("/") or not isinstance(endpoint, dict):
+            fail("authoritative OpenAPI route entry is invalid")
+        for method in ("get", "post", "put", "patch", "delete", "head", "options", "trace"):
+            if method in endpoint:
+                if not isinstance(endpoint[method], dict):
+                    fail("authoritative OpenAPI operation is invalid")
+                operations.add(f"{method.upper()} {path}")
+    if not operations:
+        fail("authoritative OpenAPI contract has no executable operations")
+    return operations
+
+
+def parse_evidence(path: Path, expected_role: str, allowed_operations: set[str]) -> tuple[int, int, list[str]]:
     if not path.is_file() or path.stat().st_size == 0:
         fail(f"scanner produced no execution evidence for role {expected_role}")
     responses = 0
@@ -150,10 +174,22 @@ def parse_evidence(path: Path, expected_role: str) -> tuple[int, int, list[str]]
             else:
                 fail(f"unknown execution evidence event {kind!r}")
             operation = event.get("operation")
-            if isinstance(operation, str) and operation:
+            method = event.get("method")
+            if not isinstance(operation, str) or operation not in allowed_operations:
+                fail("scanner evidence operation is not bound to authoritative OpenAPI")
+            if not isinstance(method, str) or re.fullmatch(r"[A-Za-z]{2,20}", method) is None:
+                fail("scanner evidence HTTP method is invalid")
+            # SEC-04's Schemathesis coverage phase intentionally exercises
+            # unsupported HTTP methods against a *declared* operation. Its
+            # case.method can therefore differ from case.operation.label.
+            # Keep the request/response in the evidence count, but never
+            # credit the off-method probe as declared operation coverage.
+            if method.upper() == operation.split(" ", 1)[0]:
                 operations.add(operation)
     if responses == 0:
         fail(f"scanner sent no successful HTTP request for role {expected_role}")
+    if not operations:
+        fail("scanner exercised no declared OpenAPI operation")
     if network_errors:
         fail(f"scanner observed {network_errors} network errors for role {expected_role}")
     return responses, network_errors, sorted(operations)
@@ -178,11 +214,12 @@ def main() -> None:
         fail("auth file role does not match scanner role")
     secrets = secret_literals(auth)
     _, version = parse_report(args.raw_report, args.output, secrets, args.seed)
-    responses, network_errors, operations = parse_evidence(args.evidence, args.role)
-
     if not args.contract.is_file():
         fail("authoritative OpenAPI contract disappeared before evidence processing")
-    contract_sha256 = hashlib.sha256(args.contract.read_bytes()).hexdigest()
+    contract_bytes = args.contract.read_bytes()
+    allowed_operations = contract_operations(contract_bytes)
+    responses, network_errors, operations = parse_evidence(args.evidence, args.role, allowed_operations)
+    contract_sha256 = hashlib.sha256(contract_bytes).hexdigest()
 
     metadata = {
         "contract_sha256": contract_sha256,
