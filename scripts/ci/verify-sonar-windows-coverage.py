@@ -118,7 +118,7 @@ def verify_report(raw: bytes, source) -> dict:
                 r"System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs",
                 r"Microsoft.AspNetCore.OpenApi.SourceGenerators/Microsoft.AspNetCore.OpenApi.SourceGenerators.XmlCommentGenerator/OpenApiXmlCommentSupport.generated.cs",
             )
-            pattern = (r"(?:[A-Za-z]:/[^\x00]+/|/_/)(?:(?:src|tools)/Coglatas\.[A-Za-z.]+/obj/Release/net10\.0"
+            pattern = (r"(?:[A-Za-z]:/[^\x00]+/|/_/)(?:(?:src|tools)/Coglatas\.[A-Za-z.]+/obj/Release/net11\.0"
                        r"|obj/Coglatas\.[A-Za-z.]+/release)/(?:"
                        + "|".join(re.escape(x) for x in generators) + r")")
             if not re.fullmatch(pattern, normalized) or "/../" in normalized or "/./" in normalized:
@@ -216,7 +216,7 @@ def assemblies(root: Path, folder: Path, sha: str, capture: bool) -> dict:
         for extension in ("dll", "pdb"):
             relative = "assemblies/" + name + "." + extension
             if capture:
-                output = "bin/Release/net10.0/" + name + "." + extension
+                output = "bin/Release/net11.0/" + name + "." + extension
                 data = owned_bytes(root, project + "/" + output)
                 executed = owned_bytes(root, "tests/Coglatas.Tests/" + output)
                 if data != executed:
@@ -248,9 +248,11 @@ def qualify(root: Path, folder: Path, executable: Path, sha: str, run: str,
             or ".." in producer_root.replace("\\", "/").split("/")
             or not re.match(r"(?:[A-Za-z]:[/\\]|/)", producer_root)):
         raise ValueError("Invalid producer checkout identity")
-    expected_assembly = producer_root.rstrip("/\\") + "/tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll"
+    expected_assembly = producer_root.rstrip("/\\") + "/tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests.dll"
     count = verify_trx(trx, expected_assembly)
     project = source("tests/Coglatas.Tests/Coglatas.Tests.csproj")
+    if b"<TargetFramework>net11.0</TargetFramework>" not in project:
+        raise ValueError("Unexpected native test target framework")
     if b'Include="coverlet.collector" Version="10.1.0"' not in project:
         raise ValueError("Unexpected native collector version")
     receipt = {"schemaVersion": 1, "sourceSha": sha, "treeSha": tree,

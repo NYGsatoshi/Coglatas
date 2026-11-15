@@ -29,7 +29,7 @@ TRX = b'''<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/201
 <TestDefinitions><UnitTest id="synthetic-unit"><TestMethod codeBase="@ASSEMBLY@"/></UnitTest></TestDefinitions>
 <ResultSummary><Counters total="1" executed="1" passed="1" failed="0" notExecuted="0"/></ResultSummary>
 </TestRun>'''
-PROJECT = b'<PackageReference Include="coverlet.collector" Version="10.1.0" />'
+PROJECT = b'<Project><PropertyGroup><TargetFramework>net11.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="coverlet.collector" Version="10.1.0" /></ItemGroup></Project>'
 
 
 class WindowsCoverageTests(unittest.TestCase):
@@ -42,14 +42,14 @@ class WindowsCoverageTests(unittest.TestCase):
         self.primary = self.folder / GUID / "coverage.cobertura.xml"
         self.primary.parent.mkdir()
         self.primary.write_bytes(REPORT)
-        self.assembly_path = str(self.root / "tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll")
+        self.assembly_path = str(self.root / "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests.dll")
         (self.folder / "windows-tests.trx").write_bytes(TRX.replace(b"@ASSEMBLY@", self.assembly_path.encode()))
         self.sources = {"tools/Example.cs": b"one\ntwo\n",
                         "tests/Coglatas.Tests/Coglatas.Tests.csproj": PROJECT}
         for name, project in MODULE.ASSEMBLIES.items():
             for extension in ("dll", "pdb"):
                 data = (name + SHA + extension).encode()
-                output = "bin/Release/net10.0/" + name + "." + extension
+                output = "bin/Release/net11.0/" + name + "." + extension
                 for path in {self.root / project / output,
                              self.root / "tests/Coglatas.Tests" / output}:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +122,7 @@ class WindowsCoverageTests(unittest.TestCase):
                 MODULE.verify_trx(raw)
 
     def test_generated_virtual_documents_are_retained_without_git_source_credit(self):
-        filename = (b'C:/runner/src/Coglatas.Application/obj/Release/net10.0/'
+        filename = (b'C:/runner/src/Coglatas.Application/obj/Release/net11.0/'
                     b'System.Text.RegularExpressions.Generator/'
                     b'System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs')
         generated = b'<class filename="' + filename + b'"><lines><line number="3" hits="0"/></lines></class>'
@@ -176,14 +176,19 @@ class WindowsCoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "collector version"):
             self.qualify(False)
 
+    def test_stale_test_target_framework_cannot_qualify_native_evidence(self):
+        self.sources["tests/Coglatas.Tests/Coglatas.Tests.csproj"] = PROJECT.replace(b"net11.0", b"net10.0")
+        with self.assertRaisesRegex(ValueError, "target framework"):
+            self.qualify(True)
+
     def test_capture_rejects_different_executed_assembly(self):
-        (self.root / "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll").write_bytes(b"different")
+        (self.root / "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll").write_bytes(b"different")
         with self.assertRaisesRegex(ValueError, "Executed assembly differs"):
             self.qualify(True)
 
     def test_capture_rejects_missing_full_revision(self):
-        for path in (self.root / "src/Coglatas.Domain/bin/Release/net10.0/Coglatas.Domain.dll",
-                     self.root / "tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Domain.dll"):
+        for path in (self.root / "src/Coglatas.Domain/bin/Release/net11.0/Coglatas.Domain.dll",
+                     self.root / "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Domain.dll"):
             path.write_bytes(b"old revision")
         with self.assertRaisesRegex(ValueError, "full source revision"):
             self.qualify(True)
@@ -215,7 +220,7 @@ class WindowsCoverageTests(unittest.TestCase):
         git("add", "tools/Example.cs", "tests/Coglatas.Tests/Coglatas.Tests.csproj")
         git("commit", "--quiet", "-m", "Create synthetic source identity fixture")
         actual_sha = git("rev-parse", "HEAD")
-        for path in self.root.glob("**/bin/Release/net10.0/*"):
+        for path in self.root.glob("**/bin/Release/net11.0/*"):
             path.write_bytes(path.read_bytes().replace(SHA.encode(), actual_sha.encode()))
         def cli(mode, sha=actual_sha, run="123", attempt="1"):
             arguments = ["verify-sonar-windows-coverage.py", mode, "--folder", str(self.folder),

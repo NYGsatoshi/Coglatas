@@ -815,7 +815,7 @@ jobs:
       - name: Retain original deterministic production source mapping
         run: |
           set -euo pipefail
-          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          mapping=tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
           test -s "$mapping"
           mkdir -p artifacts/sonar-dotnet
           cp "$mapping" artifacts/sonar-dotnet/deterministic-source-roots.original
@@ -848,7 +848,7 @@ jobs:
         # their unmodified build metadata, never edit collected report paths.
         run: |
           set -euo pipefail
-          mapping=tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+          mapping=tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
           cp "$mapping" artifacts/sonar-dotnet/physical-test-source-roots.original
           cp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
           cmp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
@@ -876,7 +876,7 @@ jobs:
         run: |
           set -euo pipefail
           cmp artifacts/sonar-dotnet/deterministic-source-roots.original \
-            tests/Coglatas.Tests/bin/Release/net10.0/CoverletSourceRootsMapping_Coglatas.Tests
+            tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
           bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
             --minimum-total 1 --label "Sonar .NET coverage suite"
           python3 scripts/ci/verify-sonar-dotnet-coverage.py
