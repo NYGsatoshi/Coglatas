@@ -327,8 +327,10 @@ def read_trusted_execution_trx(root: Path, expected: Path) -> bytes:
         raise ValueError("Unsupported execution evidence producer.")
     repository = root.resolve(strict=True)
     if os.name != "posix":
-        # Portable baseline; POSIX dir_fd provides the stronger pinned-ancestor boundary.
-        return read_execution_trx(repository / expected)
+        # Junction and ancestor-symlink substitutions cannot be pinned with
+        # a portable path-based open. Deny all native capture until a verified
+        # handle-relative Windows reader is available.
+        raise ValueError("Trusted execution evidence directory handles are unavailable.")
     if (not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW") or
             os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd):
         raise ValueError("Trusted execution evidence directory handles are unavailable.")

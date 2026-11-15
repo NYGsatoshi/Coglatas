@@ -23,6 +23,13 @@ rather than a CLI-derived path. This is a producer-specific path restriction,
 not a general directory sandbox, Sonar disposition or complete SEC-14/SEC-17
 assurance claim. Provider findings and Owner holds remain open.
 
+The registered evidence reader pins no-follow directory handles on POSIX. On
+Windows, path-based opens cannot safely contain junction/ancestor-symlink races;
+all SEC-ARCH/SEC-17 trusted evidence reads therefore fail closed, without
+assigning native execution credit or hashing a potentially external report.
+Windows-positive evidence capture requires a separately reviewed, handle-based
+implementation. This is an explicit support limitation, not a scanner waiver.
+
 Local verification uses a separate synthetic Python 3.12 and Git container with
 network disabled during execution. The existing parser/capture and adjoining
 accounting cohort passes 121 tests; bounded deep and File-policy suites each

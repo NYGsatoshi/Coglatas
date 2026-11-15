@@ -4,6 +4,7 @@ import copy
 from contextlib import redirect_stdout
 import io
 import json
+import os
 import sys
 from unittest.mock import patch
 from datetime import datetime, timezone
@@ -182,6 +183,10 @@ class FilePolicyExecutionTests(unittest.TestCase):
                 for path in {assembly_path(root, name), loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
+            if os.name != "posix":
+                sec_arch_controls.assert_non_posix_trusted_capture_is_closed(
+                    self, deep, root, trx, candidate, NOW)
+                return
             receipt = deep.capture(root, trx, candidate, NOW)
             sec_arch_controls.assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))

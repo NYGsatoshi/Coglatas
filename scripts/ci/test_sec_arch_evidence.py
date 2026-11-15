@@ -168,6 +168,16 @@ def assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, ca
     test.assertEqual(source.read_text(encoding="utf-8"), original)
 
 
+def assert_non_posix_trusted_capture_is_closed(test, capture_module, root, trx, candidate, now):
+    """Reject native capture and digest admission without pinned directory handles."""
+    with test.assertRaisesRegex(ValueError, "directory handles are unavailable"):
+        capture_module.capture(root, trx, candidate, now)
+    summary = capture_module.failure_summary(candidate, trx, root)
+    test.assertEqual("ERROR", summary["outcome"])
+    test.assertEqual("NO_VALID_NATIVE_EXECUTION", summary["selectionStatus"])
+    test.assertIsNone(summary["executionDigest"])
+
+
 def assert_canonical_failure_summary(test, capture_module, producer_path):
     """Both SEC-17 captures admit their own producer and reject other reports."""
     with tempfile.TemporaryDirectory() as directory:
@@ -177,8 +187,11 @@ def assert_canonical_failure_summary(test, capture_module, producer_path):
         trusted.write_bytes(b"synthetic owned report")
         alternate = root / "artifacts/other.trx"
         alternate.write_bytes(b"synthetic unrelated report")
-        test.assertEqual(evidence.digest(trusted.read_bytes()),
-                         capture_module.failure_summary("a" * 40, trusted, root)["executionDigest"])
+        actual = capture_module.failure_summary("a" * 40, trusted, root)["executionDigest"]
+        if os.name == "posix":
+            test.assertEqual(evidence.digest(trusted.read_bytes()), actual)
+        else:
+            test.assertIsNone(actual, "An unpinned platform cannot hash even canonical reports.")
         test.assertIsNone(capture_module.failure_summary("a" * 40, alternate, root)["executionDigest"])
 
 
@@ -247,7 +260,7 @@ class ExecutionInputTests(unittest.TestCase):
 
     def test_unrelated_cli_path_is_rejected_before_filesystem_resolution(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
-            root = Path(directory).resolve().resolve()
+            root = Path(directory).resolve()
             trusted = root / evidence.TRUSTED_TRX_RELATIVE
             trusted.parent.mkdir(parents=True)
             trusted.write_bytes(b"canonical fixture")
@@ -275,10 +288,28 @@ class ExecutionInputTests(unittest.TestCase):
             self.assertNotIn("private path diagnostic", str(failure.exception))
 
 
+    def test_non_posix_reader_denies_all_registered_producers_before_file_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            expected_paths = (evidence.TRUSTED_TRX_RELATIVE, evidence.SEC17_DEEP_TRX_RELATIVE,
+                              evidence.SEC17_FILE_TRX_RELATIVE)
+            for expected in expected_paths:
+                candidate = root / expected
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                candidate.write_bytes(b"synthetic report content")
+            with patch.object(evidence.os, "name", "nt"), patch.object(evidence.os, "open") as opened, \
+                    patch.object(evidence, "read_execution_trx") as direct_reader:
+                for expected in expected_paths:
+                    with self.subTest(producer=expected), self.assertRaisesRegex(
+                            ValueError, "directory handles are unavailable"):
+                        evidence.read_trusted_execution_trx(root, expected)
+                opened.assert_not_called()
+                direct_reader.assert_not_called()
+
     @unittest.skipUnless(os.name == "posix", "Pinned openat traversal requires POSIX.")
     def test_replaced_producer_directory_cannot_redirect_trusted_read(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as external:
-            root = Path(directory).resolve().resolve()
+            root = Path(directory).resolve()
             producer = root / evidence.TRUSTED_TRX_RELATIVE
             producer.parent.mkdir(parents=True)
             producer.write_bytes(b"owned report")
@@ -429,8 +460,14 @@ print(json.dumps({'candidateSha': report['candidateSha'],
                 root = Path(directory).resolve()
                 sha = self.prepare(root)
                 result = self.run_capture(root, sha, calls[0][1:2])
-                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertEqual({"candidateSha": sha, "assemblyCount": 6, "outcome": "PASS"}, json.loads(result.stdout))
+                if os.name == "posix":
+                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                    self.assertEqual({"candidateSha": sha, "assemblyCount": 6, "outcome": "PASS"},
+                                     json.loads(result.stdout))
+                else:
+                    self.assertEqual(1, result.returncode, result.stderr)
+                    self.assertEqual("Trusted execution evidence directory handles are unavailable.",
+                                     result.stdout.strip())
                 self.assertFalse((root / "scripts/ci/__pycache__").exists())
                 self.assertEqual("", subprocess.check_output(
                     ["git", "-C", str(root), "status", "--porcelain"], text=True).strip())
@@ -469,6 +506,13 @@ class ExecutionEvidenceTests(unittest.TestCase):
             trx = root / evidence.TRUSTED_TRX_RELATIVE
             trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
+            if os.name != "posix":
+                with patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]):
+                    with self.assertRaisesRegex(ValueError, "directory handles are unavailable"):
+                        evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
+                self.assertIsNone(evidence.optional_trusted_execution_digest(
+                    root, trx, evidence.TRUSTED_TRX_RELATIVE))
+                return
             with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
                 report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
             self.assertEqual(2, report["schemaVersion"])
