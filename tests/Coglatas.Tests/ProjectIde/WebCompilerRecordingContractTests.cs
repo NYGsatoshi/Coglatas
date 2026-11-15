@@ -101,7 +101,9 @@ public sealed class WebCompilerRecordingContractTests
         foreach (var previous in WebCompilerOutputSnapshotContractTests.Cases()) {
             using var old = JsonDocument.Parse((string)previous[0]); var before = old.RootElement;
             var current = cases.EnumerateArray().Single(row => row.GetProperty("key").GetString() == before.GetProperty("key").GetString());
-            foreach (var property in before.EnumerateObject()) Assert.Equal(Data(property.Value), Data(current.GetProperty(property.Name)));
+            foreach (var property in before.EnumerateObject()) {
+                Assert.Equal(Data(property.Value), Data(current.GetProperty(property.Name)));
+            }
             foreach (var label in new[] { "original", "diagnostic", "budget", "cancelled" }) {
                 var frame = current.GetProperty("compilerRecordings").GetProperty(label); using var m = JsonDocument.Parse(frame.GetProperty("manifest").GetProperty("text").GetString()!); using var r = JsonDocument.Parse(frame.GetProperty("receipt").GetProperty("text").GetString()!);
                 Assert.True(runs.Add(m.RootElement.GetProperty("runId").GetString()!)); Assert.True(attempts.Add(r.RootElement.GetProperty("attemptId").GetString()!));
