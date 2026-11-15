@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec_arch_evidence import (assert_canonical_failure_summary,
+from test_sec_arch_evidence import (assert_closed_cli_error_receipt,
+                                    assert_canonical_failure_summary,
                                     assert_cyclic_symlink_closed_receipt,
                                     assert_unavailable_capture_is_closed)
 
@@ -149,37 +150,7 @@ class DeepExecutionTests(unittest.TestCase):
             verify(root)
 
     def test_capture_error_writes_closed_failure_without_exception_or_raw_trx(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            trx = root / "private.trx"
-            trx.write_text("sensitive-native-output-marker")
-            output = root / "execution.json"
-            arguments = ["capture", "--trx", str(trx), "--candidate-sha", "a" * 40, "--output", str(output)]
-            captured = io.StringIO()
-            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
-                    deep, "capture", side_effect=ValueError("sensitive-exception-marker")):
-                self.assertEqual(1, deep.main())
-            saved = output.read_text()
-            stdout = captured.getvalue()
-            published = stdout.split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
-            self.assertEqual(saved, published)
-            self.assertNotIn("sensitive-native-output-marker", stdout)
-            self.assertNotIn("sensitive-exception-marker", stdout)
-            self.assertNotIn(str(root), stdout)
-            self.assertNotIn("sensitive-native-output-marker", saved)
-            self.assertNotIn("sensitive-exception-marker", saved)
-            result = json.loads(saved)
-            self.assertEqual("ERROR", result["outcome"])
-            self.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
-            self.assertIsNone(result["executionDigest"], "A noncanonical CLI file must not be read or hashed.")
-            self.assertEqual(1, result["requiredCaseCount"])
-            self.assertIsNone(result["observedCaseCount"])
-            self.assertIsNone(result["ownerApproval"])
-            retained = output.read_bytes()
-            with patch.object(sys, "argv", arguments), patch.object(deep, "capture", return_value=result):
-                with self.assertRaises(FileExistsError):
-                    deep.main()
-            self.assertEqual(retained, output.read_bytes())
+        assert_closed_cli_error_receipt(self, deep, "SEC17_CLOSED_EXECUTION_JSON_BEGIN", "SEC17_CLOSED_EXECUTION_JSON_END")
 
     def test_failure_summary_accepts_only_canonical_producer_trx(self):
         assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)

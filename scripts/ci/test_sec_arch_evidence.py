@@ -67,6 +67,41 @@ def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, 
 
 
 
+def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_marker):
+    """The original failed-CLI assertions apply to both independent SEC-17 owners."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        trx = root / "private.trx"
+        trx.write_text("sensitive-native-output-marker")
+        output = root / "execution.json"
+        arguments = ["capture", "--trx", str(trx), "--candidate-sha", "a" * 40, "--output", str(output)]
+        captured = io.StringIO()
+        with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
+                capture_module, "capture", side_effect=ValueError("sensitive-exception-marker")):
+            test.assertEqual(1, capture_module.main())
+        saved = output.read_text()
+        stdout = captured.getvalue()
+        published = stdout.split(start_marker + "\n", 1)[1].split(end_marker, 1)[0]
+        test.assertEqual(saved, published)
+        test.assertNotIn("sensitive-native-output-marker", stdout)
+        test.assertNotIn("sensitive-exception-marker", stdout)
+        test.assertNotIn(str(root), stdout)
+        test.assertNotIn("sensitive-native-output-marker", saved)
+        test.assertNotIn("sensitive-exception-marker", saved)
+        result = json.loads(saved)
+        test.assertEqual("ERROR", result["outcome"])
+        test.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
+        test.assertIsNone(result["executionDigest"], "A noncanonical CLI file must not be read or hashed.")
+        test.assertEqual(1, result["requiredCaseCount"])
+        test.assertIsNone(result["observedCaseCount"])
+        test.assertIsNone(result["ownerApproval"])
+        retained = output.read_bytes()
+        with patch.object(sys, "argv", arguments), patch.object(capture_module, "capture", return_value=result):
+            with test.assertRaises(FileExistsError):
+                capture_module.main()
+        test.assertEqual(retained, output.read_bytes())
+
+
 def assert_canonical_failure_summary(test, capture_module, producer_path):
     """Both SEC-17 captures admit their own producer and reject other reports."""
     with tempfile.TemporaryDirectory() as directory:
