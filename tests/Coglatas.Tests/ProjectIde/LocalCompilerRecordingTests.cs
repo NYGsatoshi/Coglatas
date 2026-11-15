@@ -28,23 +28,35 @@ public sealed class LocalCompilerRecordingTests
             noCapabilities ? [] : input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(value => value.GetString()), input.PlanLowerer);
     }
 
-private static CalendarSnapshot MaterializedCalendar(){
- const string start="2026-01-01T00:00:00.0000000Z";const string end="2027-01-01T00:00:00.0000000Z";
- var zoneData=SourceJson.Parse(JsonSerializer.Serialize(new{schemaVersion=1,timeZoneId="Etc/UTC",version="fixture-1",validFrom=start,validTo=end,segments=new[]{new{start,end,offsetTicks="0"}}}));
- var zoneReference=new TimeZoneReference(SourceJson.Parse(JsonSerializer.Serialize(new{timeZoneId="Etc/UTC",version="fixture-1",rulesDigest=TimeZoneSnapshot.ComputeDigest(zoneData).Data.Value})));
- var zone=TimeZoneSnapshot.Read(zoneData,zoneReference).Value!;
- var data=SourceJson.Parse(JsonSerializer.Serialize(new{schemaVersion=1,calendarId="coglatas.host-fixture",version="fixture-1",timeZone=zoneReference.Data.Value,validFrom=start,validTo=end,workingIntervals=Array.Empty<object>(),nonWorkingIntervals=Array.Empty<object>(),exceptions=Array.Empty<object>()}));
- var reference=new CalendarReference(SourceJson.Parse(JsonSerializer.Serialize(new{calendarId="coglatas.host-fixture",version="fixture-1",timeZoneId="Etc/UTC",rulesDigest=CalendarSnapshot.ComputeDigest(data).Data.Value})));
- return CalendarSnapshot.Read(data,reference,zone).Value!;
-}
+    private static CalendarSnapshot MaterializedCalendar()
+    {
+        const string start = "2026-01-01T00:00:00.0000000Z";
+        const string end = "2027-01-01T00:00:00.0000000Z";
+        var zoneData = SourceJson.Parse(JsonSerializer.Serialize(new { schemaVersion = 1, timeZoneId = "Etc/UTC", version = "fixture-1",
+            validFrom = start, validTo = end, segments = new[] { new { start, end, offsetTicks = "0" } } }));
+        var zoneReference = new TimeZoneReference(SourceJson.Parse(JsonSerializer.Serialize(new {
+            timeZoneId = "Etc/UTC", version = "fixture-1", rulesDigest = TimeZoneSnapshot.ComputeDigest(zoneData).Data.Value })));
+        var zone = TimeZoneSnapshot.Read(zoneData, zoneReference).Value!;
+        var data = SourceJson.Parse(JsonSerializer.Serialize(new { schemaVersion = 1, calendarId = "coglatas.host-fixture", version = "fixture-1",
+            timeZone = zoneReference.Data.Value, validFrom = start, validTo = end, workingIntervals = Array.Empty<object>(),
+            nonWorkingIntervals = Array.Empty<object>(), exceptions = Array.Empty<object>() }));
+        var reference = new CalendarReference(SourceJson.Parse(JsonSerializer.Serialize(new {
+            calendarId = "coglatas.host-fixture", version = "fixture-1", timeZoneId = "Etc/UTC", rulesDigest = CalendarSnapshot.ComputeDigest(data).Data.Value })));
+        return CalendarSnapshot.Read(data, reference, zone).Value!;
+    }
 
-    private static (CompilerInputManifest Input, CompilerHostRequest Request, SourceJson Result) Probe() => Case((string)Cases().First()[0]);
+    private static (CompilerInputManifest Input, CompilerHostRequest Request) Probe()
+    {
+        var (input, request, _) = Case((string)Cases().First()[0]);
+        return (input, request);
+    }
 
     [Theory]
     [MemberData(nameof(Cases))]
     public async Task DeclaredCaptureAndDistinctDiagnosticAttemptsPreserveActualCompilerTruth(string key)
     {
-        var (input, request, expected) = Case(key); using var session = new LocalCompilerRecordingSession(Profile(input));
+        var (input, request, expected) = Case(key);
+        var session = new LocalCompilerRecordingSession(Profile(input));
         var manifest = session.Prepare(request, Guid.NewGuid());
         Assert.Equal("BeforeExecution", manifest.Data.Value.GetProperty("capture").GetProperty("declared").GetString());
         Assert.Equal(request.ExecutionInputDigest, manifest.ExecutionInputDigest);
@@ -79,7 +91,8 @@ private static CalendarSnapshot MaterializedCalendar(){
     [MemberData(nameof(Cases))]
     public async Task BudgetGapAndHostOnlyCancellationNeverFabricateOrRewriteCompilerResults(string key)
     {
-        var (input, request, expected) = Case(key); using var session = new LocalCompilerRecordingSession(Profile(input));
+        var (input, request, expected) = Case(key);
+        using var session = new LocalCompilerRecordingSession(Profile(input));
         var limited = await session.ExecuteAsync(session.Prepare(request, Guid.NewGuid(), CompilerOutputSnapshotMode.AvailableOutputs, 1), request);
         Assert.Equal(expected, limited.Response.Compilation!.Result.Data);
         Assert.Equal(CompilerOutputSnapshotState.BodyBudgetExceeded, limited.Receipt.Snapshot!.State); Assert.Empty(limited.Receipt.Snapshot.Bodies);
@@ -97,7 +110,8 @@ private static CalendarSnapshot MaterializedCalendar(){
     [MemberData(nameof(Cases))]
     public async Task ActualInputGenerationAndMaterializationSubstitutionAreRefusedBeforeReservation(string key)
     {
-        var (input, request, _) = Case(key); using var session = new LocalCompilerRecordingSession(Profile(input));
+        var (input, request, _) = Case(key);
+        using var session = new LocalCompilerRecordingSession(Profile(input));
         var original = await session.ExecuteAsync(session.Prepare(request, Guid.NewGuid()), request);
         var declared = session.Prepare(request, Guid.NewGuid()); var before = session.ReservedExecutions;
         var generation = new CompilerHostRequest(new(input), 8, request.Snapshots);
@@ -149,33 +163,40 @@ private static CalendarSnapshot MaterializedCalendar(){
     [Fact]
     public async Task ConcurrentCallsReserveOneIdentityAndHonorTheLocalCapacity()
     {
-        var (input, request, _) = Probe(); using var session = new LocalCompilerRecordingSession(Profile(input));
+        var (input, request) = Probe();
+        using var session = new LocalCompilerRecordingSession(Profile(input));
         var declaration = session.Prepare(request, Guid.NewGuid());
-        async Task<bool> Execute(LocalCompilerRecordingManifest manifest) {
-            try { await session.ExecuteAsync(manifest, request); return true; } catch (InvalidOperationException) { return false; }
+        static async Task<bool> Attempt(LocalCompilerRecordingSession ownedSession, CompilerHostRequest inputRequest, LocalCompilerRecordingManifest manifest)
+        {
+            try { await ownedSession.ExecuteAsync(manifest, inputRequest); return true; }
+            catch (InvalidOperationException) { return false; }
         }
-        using (var barrier = new Barrier(16)) {
-            var workers = Enumerable.Range(0, 16).Select(_ => Task.Factory.StartNew(async () => {
-                if (!barrier.SignalAndWait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Concurrent test gate timed out.");
-                return await Execute(declaration);
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap()).ToArray();
-            Assert.Single(await Task.WhenAll(workers), value => value); Assert.Equal(1, session.ReservedExecutions);
+        static async Task<bool[]> Concurrent(LocalCompilerRecordingSession ownedSession, CompilerHostRequest inputRequest, LocalCompilerRecordingManifest? shared)
+        {
+            using var barrier = new Barrier(16);
+            var workers = new Task<bool>[16];
+            for (var worker = 0; worker < workers.Length; worker++) {
+                workers[worker] = Task.Factory.StartNew(static async state => {
+                    var invocation = ((LocalCompilerRecordingSession Session, CompilerHostRequest Request, LocalCompilerRecordingManifest? Shared, Barrier Gate))state!;
+                    var manifest = invocation.Shared ?? invocation.Session.Prepare(invocation.Request, Guid.NewGuid());
+                    if (!invocation.Gate.SignalAndWait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Concurrent test gate timed out.");
+                    return await Attempt(invocation.Session, invocation.Request, manifest);
+                }, (ownedSession, inputRequest, shared, barrier), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
+            }
+            return await Task.WhenAll(workers);
         }
-        for (var n = 1; n < LocalCompilerRecordingSession.MaximumExecutions - 1; n++) Assert.True(await Execute(session.Prepare(request, Guid.NewGuid())));
-        using (var barrier = new Barrier(16)) {
-            var workers = Enumerable.Range(0, 16).Select(_ => Task.Factory.StartNew(async () => {
-                var manifest = session.Prepare(request, Guid.NewGuid());
-                if (!barrier.SignalAndWait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Capacity test gate timed out.");
-                return await Execute(manifest);
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap()).ToArray();
-            Assert.Single(await Task.WhenAll(workers), value => value); Assert.Equal(LocalCompilerRecordingSession.MaximumExecutions, session.ReservedExecutions);
-        }
+        Assert.Single(await Concurrent(session, request, declaration), value => value); Assert.Equal(1, session.ReservedExecutions);
+        for (var n = 1; n < LocalCompilerRecordingSession.MaximumExecutions - 1; n++)
+            Assert.True(await Attempt(session, request, session.Prepare(request, Guid.NewGuid())));
+        Assert.Single(await Concurrent(session, request, null), value => value);
+        Assert.Equal(LocalCompilerRecordingSession.MaximumExecutions, session.ReservedExecutions);
     }
 
     [Fact]
     public async Task DiagnosticLineageAndDeclarationLimitsRemainBounded()
     {
-        var (input, request, _) = Probe(); using var session = new LocalCompilerRecordingSession(Profile(input));
+        var (input, request) = Probe();
+        using var session = new LocalCompilerRecordingSession(Profile(input));
         Assert.Throws<ArgumentException>(() => session.Prepare(request, Guid.Empty));
         Assert.Throws<ArgumentException>(() => session.Prepare(request, Guid.NewGuid(), (CompilerOutputSnapshotMode)999));
         Assert.Throws<ArgumentException>(() => session.Prepare(request, Guid.NewGuid(), maximumBodyBytes: 0));
@@ -191,7 +212,7 @@ private static CalendarSnapshot MaterializedCalendar(){
     [Fact]
     public async Task UnsupportedHostOutcomeHasNoFabricatedCompilerResult()
     {
-        var (input, request, _) = Probe(); Assert.NotEmpty(input.Settings.Value.GetProperty("featureSet").EnumerateArray());
+        var (input, request) = Probe(); Assert.NotEmpty(input.Settings.Value.GetProperty("featureSet").EnumerateArray());
         using var session = new LocalCompilerRecordingSession(Profile(input, noCapabilities: true));
         var actual = await session.ExecuteAsync(session.Prepare(request, Guid.NewGuid()), request);
         Assert.Equal(CompilerHostStatus.Unsupported, actual.Response.Status); Assert.Null(actual.Response.Compilation); Assert.Null(actual.Receipt.Snapshot);
