@@ -86,7 +86,7 @@ var requirementCandidates = RequirementCandidateInput();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
 var legacyNames = names;
 if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
-if (operatorRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass"];
+if (operatorRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
@@ -596,7 +596,19 @@ static CompilerInputManifest OperatorInput(string name, int revision)
         "operator-nested-duplicates" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
         "operator-or-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
         "operator-not-pass" => Op("coglatas.not", Literal(false)),
+        "operator-requirement-false-nested" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
+        "operator-requirement-true-short-circuit" => Op("coglatas.or", Literal(true), Literal(null)),
+        "operator-requirement-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
         _ => throw new ArgumentException("Unknown synthetic operator example.", nameof(name)) };
+    if (name.StartsWith("operator-requirement-", StringComparison.Ordinal))
+    {
+        var context = template.Source.Context;
+        var requirement = new { entityId = Id(7), documentId = template.Source.Documents[0].DocumentId.ToString(),
+            kind = "coglatas.requirement", schemaVersion = 1, displayName = "Launch evidence requirement",
+            payload = new { target = new { tenantId = context.Branch.TenantId.ToString(), projectId = context.Branch.ProjectId.ToString(),
+                entityId = Id(6), context = context.Data.Value }, condition = predicate, evidenceKind = "coglatas.model-proof" } };
+        return new(ProjectSource.Create(context, template.Source.Documents, Json(new[] { requirement })), template.Settings);
+    }
     var declarations = JsonNode.Parse(template.Source.Declarations.CanonicalText)!.AsArray();
     declarations[0]!["payload"]!["predicate"] = JsonSerializer.SerializeToNode(predicate);
     var relations = JsonNode.Parse(template.Source.Relations.CanonicalText)!.AsArray();

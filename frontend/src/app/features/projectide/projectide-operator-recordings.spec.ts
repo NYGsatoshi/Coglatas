@@ -10,7 +10,7 @@ import { operatorRecordingMatches, operatorRunIdentitiesAreUnique, readOperatorR
 vi.stubGlobal('crypto', webcrypto);
 const original = JSON.parse(readFileSync(resolve('public/assets/projectide/operator-recordings-v1.json'), 'utf8'));
 const bundle = () => readPreviewBundle(structuredClone(original));
-const keys = ['fail', 'pass', 'unknown', 'test-assertion-navigation', 'operator-and-short-circuit', 'operator-nested-duplicates', 'operator-or-unknown', 'operator-not-pass'];
+const keys = ['fail', 'pass', 'unknown', 'test-assertion-navigation', 'operator-and-short-circuit', 'operator-nested-duplicates', 'operator-or-unknown', 'operator-not-pass', 'operator-requirement-false-nested', 'operator-requirement-true-short-circuit', 'operator-requirement-unknown'];
 describe('Actual original operator recording members', () => {
   it.each(keys)('admits every real host run and only the selected original diagnostic frames: %s', async key => {
     const data = bundle(); const value = data.cases.find(v => v.key === key)!; const result = value.result;
@@ -29,7 +29,13 @@ describe('Actual original operator recording members', () => {
         const available = (await readRecordedOperators(value, sources, recording, diagnostic, 'available'))!;
         expect(recordedOperatorsMatch(value, sources, recording, diagnostic, available)).toBe(true);
         const recorded = label === 'diagnostic' || label === 'retry';
-        const count = recorded ? ({ fail: 1, unknown: 1, 'operator-and-short-circuit': 2, 'operator-nested-duplicates': 6, 'operator-or-unknown': 3 } as Record<string, number>)[key] ?? 0 : 0;
+        const count = recorded ? diagnostic.code === 'coglatas.analysis.requirement-condition-false' ? 6 :
+          ({ fail: 1, unknown: 1, 'operator-and-short-circuit': 2, 'operator-nested-duplicates': 6, 'operator-or-unknown': 3 } as Record<string, number>)[key] ?? 0 : 0;
+        if (key.startsWith('operator-requirement-')) {
+          expect(result.evidenceComplete).toBe(false);
+          expect(available.evaluations).toHaveLength(count ? 1 : 0);
+          if (recorded && diagnostic.code === 'coglatas.analysis.requirement-evidence-unavailable') expect(available.state).toBe('NoObservedPublishedDiagnostic');
+        }
         expect(available.evaluations.reduce((n, e) => n + e.nodes.length, 0)).toBe(count);
         const limited = (await readRecordedOperators(value, sources, recording, diagnostic, 'budget'))!;
         expect(limited.evaluations).toHaveLength(0); expect(limited.originalCaptureState).toBe(available.originalCaptureState);

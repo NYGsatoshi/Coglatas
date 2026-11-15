@@ -35,7 +35,7 @@ immutable frames or prove current runtime permission.
 ## Original offline Angular recipe
 
 The separate --operator-recordings Preview profile executes five actual new-host
-attempts for each of eight synthetic examples: original Manifest, diagnostic
+attempts for each of eleven synthetic examples: original Manifest, diagnostic
 operators, one-byte capture, pre-cancelled attempt and a retry. The four earlier
 sources remain unchanged. AND short circuit, nested OR/NOT with duplicate
 premises, OR/Unknown and successful NOT examples use distinct additional Source
@@ -59,8 +59,10 @@ tokens must be safe integer tokens; fractional/exponent aliases and duplicate
 JSON members, including escaped duplicate names, are refused.
 
 The local version1 recipe is deliberately limited to completed initial-root
-Boolean constraints and explicit metadata/body gaps. Original operator frames
-are checked against the admitted Source predicate: bounded AST, typed location,
+Boolean constraints, Requirement conditions and explicit metadata/body gaps.
+Constraint records bind the constraints rule and constraint declaration predicate;
+Requirement records bind the requirements rule and Requirement declaration condition.
+Original operator frames are checked against that exact admitted Source member: bounded AST, typed location,
 predicate digest, preorder/path, actual ordered children, AND/OR short circuit,
 NOT arity, three-valued truth and original ordered literal digests. Duplicate
 premises retain their original distinct ordinals. Unvisited operands are not
@@ -92,7 +94,29 @@ viewer byte limit does not rewrite a successful original capture or the case
 result. Cancelled attempts do not substitute the currently displayed case result
 as their own result.
 
+## Requirement conditions and missing evidence
+
+The three additional examples use distinct committed Source revisions9008..9010.
+They execute a nested False condition, a True OR short circuit and an Unknown OR
+condition through the unchanged Core Requirements rule. Each new host invocation
+observes respectively6,2 and3 nodes. A published condition-false diagnostic selects
+its six actual nodes and ordered evaluation frame. Missing-evidence diagnostics
+at the same typed location do not select that graph. True and Unknown conditions
+retain their actual execution counts without inventing diagnostic links.
+
+All three results keep evidenceComplete=false. Neither observing a condition nor
+reading its graph supplies evidence, proves Requirement satisfaction or changes
+the Compiler verdict. The original Manifest, capture byte limit, viewing byte
+limit, cancelled attempt and genuinely linked retry remain independent.
+No Domain, Compiler, host or Windows ViewModel runtime contract changes are needed.
+The native and Angular Product tests replay all eleven original fixture cases;
+negative tests refuse foreign rule/declaration bindings, fabricated missing-evidence
+links and false no-evaluation markers even after repairing frame hashes.
+
 ## Measured qualification and limits
+
+The earlier eight-case qualification below is historical; current eleven-case
+source, review, tests and hosted CI must be recorded separately in its PR.
 
 The initial strict full solution builds on Windows/Linux use SDK10.0.403 and
 runtime10.0.14, with zero warnings/errors. Each host passes37 new focused tests,

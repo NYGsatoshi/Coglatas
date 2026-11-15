@@ -119,7 +119,7 @@ public sealed class WebOperatorRecordingContractTests
     {
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(SyntheticOperatorRecordingTests.FixturePath()));
         var runs = new HashSet<string>(); var attempts = new HashSet<string>(); var contexts = new HashSet<string>();
-        var rows = fixture.RootElement.GetProperty("cases").EnumerateArray().ToArray(); Assert.Equal(8, rows.Length);
+        var rows = fixture.RootElement.GetProperty("cases").EnumerateArray().ToArray(); Assert.Equal(11, rows.Length);
         Assert.Equal(SyntheticOperatorRecordingTests.Keys().Select(v => (string)v[0]).Order(StringComparer.Ordinal), rows.Select(r => r.GetProperty("key").GetString()).Order(StringComparer.Ordinal));
         foreach (var row in rows)
         {
@@ -131,7 +131,7 @@ public sealed class WebOperatorRecordingContractTests
                 Assert.True(attempts.Add(Data(member.GetProperty("response")).Value.GetProperty("attemptId").GetString()!));
             }
         }
-        Assert.Equal(40, runs.Count); Assert.Equal(40, attempts.Count); Assert.Empty(runs.Intersect(attempts));
+        Assert.Equal(55, runs.Count); Assert.Equal(55, attempts.Count); Assert.Empty(runs.Intersect(attempts));
         var producer = fixture.RootElement.GetProperty("operatorRecordingProducer");
         foreach (var name in new[] { "authority", "producerTrust", "eligibility" }) Assert.Equal("NotEvaluated", producer.GetProperty(name).GetString());
         Assert.Equal("NotAdopted", producer.GetProperty("retentionPolicy").GetString());

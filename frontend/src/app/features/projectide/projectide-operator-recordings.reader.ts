@@ -125,7 +125,7 @@ async function verifyObservation(value: PreviewCase, run: OperatorRecordingFrame
   const state = record['state']; const captureMode = obj(await frame(run.policy, 'coglatas.local-predicate-observation-capture-policy/1'))['mode'];
   const maximumBodyBytes = obj(parse(run.policy.text))['maximumBodyBytes'];
   const resultAxes = axes(obj(value.result));
-  // This v1 offline recipe covers completed initial-root Boolean constraints, with explicit Manifest/body gaps.
+  // This v1 offline recipe covers completed initial-root Boolean constraints and Requirement conditions, with explicit Manifest/body gaps.
   if (resultAxes['execution'] !== 'Completed' || !['ManifestOnly', 'RecordedInitialRootEvaluations', 'NoActualEvaluations', 'BodyBudgetExceeded'].includes(state as string) ||
     captureMode === 'Manifest' && state !== 'ManifestOnly' || captureMode !== 'Manifest' && state === 'ManifestOnly') return fail();
   const source = obj(parse(sourceText)); const declarations = source['declarations'];
@@ -138,16 +138,17 @@ async function verifyObservation(value: PreviewCase, run: OperatorRecordingFrame
   const verified: VerifiedOperatorEvaluation[] = []; let observed = 0; let retained = 0;
   for (const [index, raw] of record['evaluations'].entries()) {
     const metadata = obj(raw); const original = obj(metadata['originalObservation']);
-    if (metadata['ordinal'] !== index || metadata['ruleId'] !== 'coglatas.core.constraints' || metadata['ruleVersion'] !== 1 ||
+    const requirement = metadata['ruleId'] === 'coglatas.core.requirements';
+    if (metadata['ordinal'] !== index || !['coglatas.core.constraints', 'coglatas.core.requirements'].includes(metadata['ruleId'] as string) || metadata['ruleVersion'] !== 1 ||
       !fields(metadata, ['ordinal', 'ruleId', 'ruleVersion', 'location', 'originalObservation', 'originalObservationDigest', 'originalRootDiagnosticLinks', 'publishedDiagnostics']) ||
       !digest(metadata['originalObservationDigest']) || !Array.isArray(metadata['publishedDiagnostics']) ||
       !await verify('coglatas.local-predicate-evaluation-record/1', originals[index], metadata['originalObservationDigest'])) return fail();
     const location = obj(metadata['location']);
     const declarationIndex = declarations.findIndex(v => object(v) && v['entityId'] === location['entityId'] && v['documentId'] === location['documentId']);
-    if (declarationIndex < 0 || obj(declarations[declarationIndex])['kind'] !== 'coglatas.constraint') return fail();
+    if (declarationIndex < 0 || obj(declarations[declarationIndex])['kind'] !== (requirement ? 'coglatas.requirement' : 'coglatas.constraint')) return fail();
     expect(location, { format: 'coglatas.project-location/1', schemaId: 'coglatas.project-location', schemaVersion: 1, canonicalEncodingVersion: 1,
       context: value.context, documentId: location['documentId'], entityId: location['entityId'], propertyPath: '' });
-    const predicateText = originalOperatorMember(originalPayloads[declarationIndex], 'predicate');
+    const predicateText = originalOperatorMember(originalPayloads[declarationIndex], requirement ? 'condition' : 'predicate');
     if (!digest(original['predicateDigest']) || !await verify('coglatas.predicate/1', predicateText, original['predicateDigest']) ||
       !digest(original['evaluationDigest']) || !Array.isArray(original['nodes']) || !integer(original['observedNodes'], 1, 1024) ||
       original['observedNodes'] !== original['nodes'].length || !integer(original['retainedBodyBytes'], 1, 1_048_576) ||
@@ -165,9 +166,13 @@ async function verifyObservation(value: PreviewCase, run: OperatorRecordingFrame
       scope: 'ActualStandaloneBooleanEvaluation', relationshipStructure: 'ObservedBooleanEvaluationTree', regionalEvaluation: 'NotRecorded',
       compilerRunIdentity: 'NotAllocated', runSelection: 'NotEvaluated', causalMeaning: 'NotRecorded', authority: 'NotEvaluated', producerTrust: 'NotEvaluated',
       eligibility: 'NotEvaluated', retentionPolicy: 'NotAdopted', nodes: original['nodes'] });
-    const actualDiagnostics = rootDiagnostics.filter(d => d.data['ruleId'] === metadata['ruleId'] && equal(d.data['primaryLocation'], location));
-    const code = original['truth'] === 'False' ? 'coglatas.analysis.constraint-false' : 'coglatas.analysis.constraint-unknown';
-    if (original['truth'] === 'True' ? actualDiagnostics.length !== 0 : actualDiagnostics.length !== 1 || actualDiagnostics[0].data['code'] !== code) return fail();
+    // Missing evidence is a separate diagnostic; a condition graph cannot explain or satisfy it.
+    const conditionCodes = requirement ? ['coglatas.analysis.requirement-condition-false'] : ['coglatas.analysis.constraint-false', 'coglatas.analysis.constraint-unknown'];
+    const actualDiagnostics = rootDiagnostics.filter(d => d.data['ruleId'] === metadata['ruleId'] && equal(d.data['primaryLocation'], location) &&
+      (!requirement || conditionCodes.includes(d.data['code'] as string)));
+    const code = requirement ? conditionCodes[0] : original['truth'] === 'False' ? conditionCodes[0] : conditionCodes[1];
+    const emitsConditionDiagnostic = original['truth'] === 'False' || !requirement && original['truth'] === 'Unknown';
+    if (emitsConditionDiagnostic ? actualDiagnostics.length !== 1 || actualDiagnostics[0].data['code'] !== code : actualDiagnostics.length !== 0) return fail();
     expect(metadata['originalRootDiagnosticLinks'], actualDiagnostics.length);
     expect(metadata['publishedDiagnostics'], actualDiagnostics.map(d => ({ diagnosticId: d.data['diagnosticId'], digest: d.digest })));
     observed += original['observedNodes']; retained += bodyBytes;
@@ -185,7 +190,8 @@ async function verifyObservation(value: PreviewCase, run: OperatorRecordingFrame
     } else if (record['completedEvaluations'] !== record['startedEvaluations'] || record['observedNodes'] < record['startedEvaluations'] ||
       (record['startedEvaluations'] === 0) !== (record['observedNodes'] === 0)) return fail();
     if (state === 'NoActualEvaluations' && rootDiagnostics.some(d => equal(obj(d.data['primaryLocation'])['context'], value.context) &&
-      ['coglatas.analysis.constraint-false', 'coglatas.analysis.constraint-unknown'].includes(d.data['code'] as string))) return fail();
+      ['coglatas.analysis.constraint-false', 'coglatas.analysis.constraint-unknown', 'coglatas.analysis.requirement-condition-false',
+        'coglatas.analysis.requirement-evidence-unavailable'].includes(d.data['code'] as string))) return fail();
   }
   expect(record, { format: 'coglatas.local-initial-root-predicate-observation/1', state, scope: 'ActualInitialRootEvaluationOnly',
     regionalEvaluation: 'NotRecorded', compilerRunIdentity: 'NotAllocated', runSelection: 'NotEvaluated', authority: 'NotEvaluated', producerTrust: 'NotEvaluated',

@@ -146,3 +146,49 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(page.getByTestId('ide-analysis-status')).toContainText(bundle.cases.find((v: { key: string }) => v.key === 'unknown').result.verdict);
   });
 }
+
+for (const locale of ['en', 'ja'] as const) for (const key of ['operator-requirement-false-nested', 'operator-requirement-true-short-circuit', 'operator-requirement-unknown']) {
+  test('keeps original Requirement condition graphs separate from missing evidence: ' + key + ' ' + locale, async ({ page }) => {
+    const value = bundle.cases.find((row: { key: string }) => row.key === key);
+    expect(value.result.evidenceComplete).toBe(false);
+    const writes: string[] = []; page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+    await open(page, locale, key);
+    for (const [role, en, ja] of roles) {
+      await button(page, locale, 'Source', 'ソース'); await button(page, locale, en, ja);
+      const panel = page.getByTestId('ide-operator-recording'); await expect(panel).toBeFocused();
+      const frame = value.operatorRecordings[role];
+      if (role === 'cancelled') await expect(panel.getByTestId('ide-operator-no-result')).toContainText('Compiler');
+      else await expect(panel.getByTestId('ide-operator-visited')).toHaveText(String(JSON.parse(frame.observation.text).observedNodes));
+      for (const [index, entry] of value.result.diagnostics.entries()) {
+        await diagnostic(page, locale, entry);
+        const selected = page.getByTestId('ide-recorded-operators'); await expect(selected.getByTestId('ide-operator-node')).toHaveCount(0);
+        if (role === 'cancelled') { await expect(selected.getByRole('button')).toHaveCount(0); continue; }
+        for (const [choice, readEn, readJa] of [['manifest', 'Read premise manifest', '根拠のマニフェストを読む'], ['available', 'Read selected original operators', '選択した元の演算子を読む'], ['budget', 'Read with one-byte viewing limit', '表示上限1バイトで読む']]) {
+          const read = selected.getByRole('button', { name: locale === 'en' ? readEn : readJa, exact: true });
+          await read.focus(); await read.press('Enter'); await expect(selected).toBeFocused();
+          const supplied = frame.diagnostics[index][choice]; const snapshot = JSON.parse(supplied.frame.text);
+          const captured = snapshot.evaluations.flatMap((e: { nodes: { bodyCaptured: boolean; digest: { value: string } }[] }) => e.nodes.filter(n => n.bodyCaptured));
+          const nodes = selected.getByTestId('ide-operator-node'); await expect(nodes).toHaveCount(captured.length);
+          if (entry.code === 'coglatas.analysis.requirement-evidence-unavailable') {
+            expect(captured).toHaveLength(0); expect(supplied.evaluationFrames).toHaveLength(0);
+            if ((role === 'diagnostic' || role === 'retry') && choice === 'available') await expect(selected.getByTestId('ide-operator-view-state')).toContainText(locale === 'en' ? 'No observed initial-root evaluation for this published diagnostic' : 'この公開済み診断に対応する初期ルート評価の観測なし');
+          } else if (captured.length) {
+            expect(entry.code).toBe('coglatas.analysis.requirement-condition-false'); expect(captured).toHaveLength(6);
+            for (let ordinal = 0; ordinal < captured.length; ordinal++) {
+              const original = supplied.operatorBodies.find((body: { digest: { value: string } }) => body.digest.value === captured[ordinal].digest.value);
+              const details = nodes.nth(ordinal).locator('details'); await details.locator('summary').focus(); await details.locator('summary').press('Space');
+              const text = await details.locator('pre').textContent(); expect(text).toBe(original.text);
+              expect(hash('coglatas.observed-predicate-node/1', text ?? '')).toEqual(original.digest);
+            }
+            const evaluation = selected.getByTestId('ide-operator-evaluation').locator(':scope > details');
+            await evaluation.locator('summary').focus(); await evaluation.locator('summary').press('Space');
+            const raw = await evaluation.locator('pre').textContent(); expect(raw).toBe(supplied.evaluationFrames[0].text);
+            expect(hash('coglatas.local-predicate-evaluation/1', raw ?? '')).toEqual(supplied.evaluationFrames[0].digest);
+          }
+          await expect(page.getByTestId('ide-analysis-status')).toContainText(value.result.verdict);
+        }
+      }
+    }
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
+  });
+}

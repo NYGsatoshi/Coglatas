@@ -2,7 +2,8 @@
 
 [Paired original operator Inspector](verification/projectide-paired-operator-recordings.md)
 adds explicit owned run and selected original Boolean operator reads to Angular
-and the Windows pure ViewModel. Exact Source/diagnostic bindings, actual visit
+and the Windows pure ViewModel, including Requirement conditions without treating
+condition truth as evidence completion. Exact Source/diagnostic bindings, actual visit
 order and duplicate premises stay separate from capture gaps, viewer budgets
 and cancelled host outcomes. Actual Avalonia, regional observations and current
 runtime authority/retention remain gated.
