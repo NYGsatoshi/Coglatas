@@ -152,10 +152,12 @@ def assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, ca
              + "+" + original + " changed\n" + marker)
     # Git apply denies patch paths escaping this synthetic repo; no real source,
     # arbitrary CLI path, or raw test data is used as a filesystem write target.
-    subprocess.run(["git", "-C", str(root), "apply", "--check"], input=patch,
-                   check=True, text=True, capture_output=True, timeout=20)
-    subprocess.run(["git", "-C", str(root), "apply"], input=patch,
-                   check=True, text=True, capture_output=True, timeout=20)
+    # Use bytes on stdin: text-mode pipes translate LF to CRLF on Windows.
+    patch_bytes = patch.encode("utf-8")
+    subprocess.run(["git", "-C", str(root), "apply", "--check"], input=patch_bytes,
+                   check=True, capture_output=True, timeout=20)
+    subprocess.run(["git", "-C", str(root), "apply"], input=patch_bytes,
+                   check=True, capture_output=True, timeout=20)
     try:
         test.assertEqual(source.read_text(encoding="utf-8"), original + " changed")
         with test.assertRaises(ValueError):
