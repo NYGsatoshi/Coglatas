@@ -31,7 +31,7 @@ describe('Captured diagnostic premise reader',()=>{
         expect(actual.references).toHaveLength(3);expect(actual.bodies).toHaveLength(choice==='available'?3:0);
         expect(actual.state).toBe(choice==='manifest'?'ManifestOnly':choice==='budget'?'BodyBudgetExceeded':'CapturedKnownBodies');
         for(const body of actual.bodies){
-          const domain={RootInput:'coglatas.compiler-input/1',BindingRegion:'coglatas.semantic-binding-region/1',AnalysisRegion:'coglatas.compiler-dependency-region/1'}[body.kind];
+          const domain={RootInput:'coglatas.compiler-input/1',RootSource:'coglatas.project-source/1',BindingRegion:'coglatas.semantic-binding-region/1',AnalysisRegion:'coglatas.compiler-dependency-region/1'}[body.kind];
           expect(hash(domain,body.text)).toEqual(body.digest);expect(Object.isFrozen(body)).toBe(true);
         }
         if(choice==='available')expect(actual.retainedBodyBytes).toBe(actual.bodies.reduce((n,b)=>n+new TextEncoder().encode(b.text).length,0));

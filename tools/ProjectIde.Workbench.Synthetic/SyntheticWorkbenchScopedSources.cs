@@ -91,7 +91,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         ClearDiagnosticPremises();
         ClearCompilerRecording();
         ClearCompilerOutputSnapshot();
-        _scopedGeneration++; ClearSimulation(); ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
+        _scopedGeneration++; ClearRootSource(); ClearSimulation(); ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
         _scopedSourceViews = Array.Empty<ProjectSource>(); ScopedReadState = "Idle";
     }
 }

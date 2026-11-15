@@ -9,7 +9,7 @@ public enum DiagnosticPremiseSnapshotState
     ManifestOnly, CapturedKnownBodies, NoRecordedPremises, NoKnownBodies, BodyBudgetExceeded, LookupLimitReached,
     RefusedWrongResult, RefusedDiagnostic, RefusedInputBinding, RefusedBodyBinding
 }
-public enum DiagnosticPremiseBodyKind { RootInput, BindingRegion, AnalysisRegion }
+public enum DiagnosticPremiseBodyKind { RootInput, BindingRegion, AnalysisRegion, RootSource }
 public enum DiagnosticPremiseResolution { ResolvedRetainedObject, Unavailable, Ambiguous, LookupLimit }
 
 public sealed class DiagnosticPremiseReference
@@ -28,6 +28,7 @@ public sealed class ProjectDiagnosticPremiseSnapshot
     public const int MaximumObjectLookups = 4096;
     public DiagnosticPremiseSnapshotState State { get; }
     public DiagnosticPremiseSnapshotMode Mode { get; }
+    public string BodyScope { get; }
     public int MaximumBodyBytes { get; }
     public int RetainedBodyBytes { get; }
     public bool LookupComplete { get; }
@@ -39,18 +40,18 @@ public sealed class ProjectDiagnosticPremiseSnapshot
     public SourceJson Data { get; }
     public ContentDigest Digest { get; }
 
-    private ProjectDiagnosticPremiseSnapshot(DiagnosticPremiseSnapshotState state, DiagnosticPremiseSnapshotMode mode, int budget,
+    private ProjectDiagnosticPremiseSnapshot(DiagnosticPremiseSnapshotState state, DiagnosticPremiseSnapshotMode mode, int budget, string bodyScope,
         CoreCompilation? compilation = null, CompilerDiagnostic? diagnostic = null, IEnumerable<DiagnosticPremiseReference>? references = null,
         Dictionary<string, SourceJson>? bodies = null, bool lookupComplete = false)
     {
-        State = state; Mode = mode; MaximumBodyBytes = budget; LookupComplete = lookupComplete; Diagnostic = diagnostic;
+        State = state; Mode = mode; MaximumBodyBytes = budget; BodyScope = bodyScope; LookupComplete = lookupComplete; Diagnostic = diagnostic;
         InputDigest = compilation?.Input.InputDigest; ResultDigest = compilation?.Result.ResultDigest;
         References = new ImmutableListView<DiagnosticPremiseReference>(references ?? []);
         Bodies = new ImmutableMapView<string, SourceJson>(bodies ?? new(StringComparer.Ordinal), StringComparer.Ordinal);
         RetainedBodyBytes = Bodies.Values.Sum(body => Encoding.UTF8.GetByteCount(body.CanonicalText));
         Data = SourceJson.Parse(JsonSerializer.Serialize(new {
             format = Format, state = state.ToString(), mode = mode.ToString(), maximumBodyBytes = budget, retainedBodyBytes = RetainedBodyBytes,
-            lookupComplete, bodyScope = "RetainedCompilerInputObjects", relationshipStructure = "NotRecorded", earlierStates = "NotRecorded",
+            lookupComplete, bodyScope = BodyScope, relationshipStructure = "NotRecorded", earlierStates = "NotRecorded",
             authority = "NotEvaluated", producerTrust = "NotEvaluated", eligibility = "NotEvaluated", retentionPolicy = "NotAdopted",
             basis = compilation is null || diagnostic is null ? null : new {
                 inputDigest = compilation.Input.InputDigest.Data.Value, resultDigest = compilation.Result.ResultDigest.Data.Value,
@@ -69,6 +70,7 @@ public sealed class ProjectDiagnosticPremiseSnapshot
 
     public static string BodyDomain(DiagnosticPremiseBodyKind kind) => kind switch {
         DiagnosticPremiseBodyKind.RootInput => CompilerInputManifest.Format,
+        DiagnosticPremiseBodyKind.RootSource => ProjectSource.Format,
         DiagnosticPremiseBodyKind.BindingRegion => "coglatas.semantic-binding-region/1",
         DiagnosticPremiseBodyKind.AnalysisRegion => "coglatas.compiler-dependency-region/1",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
@@ -76,18 +78,32 @@ public sealed class ProjectDiagnosticPremiseSnapshot
 
     public static ProjectDiagnosticPremiseSnapshot Read(CoreCompilation compilation, CompilerDiagnostic diagnostic, ContentDigest expectedResult,
         DiagnosticPremiseSnapshotMode mode = DiagnosticPremiseSnapshotMode.Manifest,
+        int maximumBodyBytes = ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes, CancellationToken cancellationToken = default) =>
+        ReadCore(compilation, diagnostic, expectedResult, mode, maximumBodyBytes, cancellationToken, false);
+
+    public static ProjectDiagnosticPremiseSnapshot ReadRoot(ProjectRootSourceAdmission admission, CompilerDiagnostic diagnostic, ContentDigest expectedResult,
+        DiagnosticPremiseSnapshotMode mode = DiagnosticPremiseSnapshotMode.Manifest,
         int maximumBodyBytes = ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(admission);
+        return ReadCore(admission.Compilation, diagnostic, expectedResult, mode, maximumBodyBytes, cancellationToken, true);
+    }
+
+    private static ProjectDiagnosticPremiseSnapshot ReadCore(CoreCompilation compilation, CompilerDiagnostic diagnostic, ContentDigest expectedResult,
+        DiagnosticPremiseSnapshotMode mode, int maximumBodyBytes, CancellationToken cancellationToken, bool rootOnly)
+    {
+        var bodyScope = rootOnly ? "RootCompilerInputObjects" : "RetainedCompilerInputObjects";
         ArgumentNullException.ThrowIfNull(compilation); ArgumentNullException.ThrowIfNull(diagnostic); ArgumentNullException.ThrowIfNull(expectedResult);
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (maximumBodyBytes is < 1 or > ProjectCompilerOutputSnapshot.MaximumBodyBudgetBytes) throw new ArgumentOutOfRangeException(nameof(maximumBodyBytes));
         cancellationToken.ThrowIfCancellationRequested();
-        if (!compilation.Result.ResultDigest.Equals(expectedResult)) return new(DiagnosticPremiseSnapshotState.RefusedWrongResult, mode, maximumBodyBytes);
-        if (!compilation.Result.Input.Data.Equals(compilation.Input.Data)) return new(DiagnosticPremiseSnapshotState.RefusedInputBinding, mode, maximumBodyBytes);
-        if (!compilation.Result.Diagnostics.Any(item => ReferenceEquals(item, diagnostic))) return new(DiagnosticPremiseSnapshotState.RefusedDiagnostic, mode, maximumBodyBytes);
+        if (!compilation.Result.ResultDigest.Equals(expectedResult)) return new(DiagnosticPremiseSnapshotState.RefusedWrongResult, mode, maximumBodyBytes, bodyScope);
+        if (!compilation.Result.Input.Data.Equals(compilation.Input.Data)) return new(DiagnosticPremiseSnapshotState.RefusedInputBinding, mode, maximumBodyBytes, bodyScope);
+        if (!compilation.Result.Diagnostics.Any(item => ReferenceEquals(item, diagnostic)) ||
+            rootOnly && !diagnostic.Location.Context.Equals(compilation.Input.Source.Context)) return new(DiagnosticPremiseSnapshotState.RefusedDiagnostic, mode, maximumBodyBytes, bodyScope);
         var requested = diagnostic.Evidence.Premises.ToHashSet();
         if (requested.Count == 0) return new(mode == DiagnosticPremiseSnapshotMode.Manifest ? DiagnosticPremiseSnapshotState.ManifestOnly
-            : DiagnosticPremiseSnapshotState.NoRecordedPremises, mode, maximumBodyBytes, compilation, diagnostic, lookupComplete: true);
+            : DiagnosticPremiseSnapshotState.NoRecordedPremises, mode, maximumBodyBytes, bodyScope, compilation, diagnostic, lookupComplete: true);
         var candidates = new Dictionary<ContentDigest, List<(DiagnosticPremiseBodyKind Kind, SourceJson Data)>>();
         var remaining = MaximumObjectLookups; var complete = true;
         void Add(DiagnosticPremiseBodyKind kind, ContentDigest digest, SourceJson data)
@@ -99,7 +115,8 @@ public sealed class ProjectDiagnosticPremiseSnapshot
             matches.Add((kind, data));
         }
         Add(DiagnosticPremiseBodyKind.RootInput, compilation.Input.InputDigest, compilation.Input.Data);
-        if (compilation.Dependencies is { } dependencies)
+        Add(DiagnosticPremiseBodyKind.RootSource, compilation.Input.Source.Digest, compilation.Input.Source.Data);
+        if (!rootOnly && compilation.Dependencies is { } dependencies)
         {
             foreach (var region in dependencies.Binding.Regions)
             { Add(DiagnosticPremiseBodyKind.BindingRegion, region.Digest, region.Data); if (!complete) break; }
@@ -116,22 +133,22 @@ public sealed class ProjectDiagnosticPremiseSnapshot
                 : new DiagnosticPremiseReference(digest, null, DiagnosticPremiseResolution.Ambiguous);
         }).ToArray();
         cancellationToken.ThrowIfCancellationRequested();
-        if (!complete) return new(DiagnosticPremiseSnapshotState.LookupLimitReached, mode, maximumBodyBytes, compilation, diagnostic, references);
-        if (mode == DiagnosticPremiseSnapshotMode.Manifest) return new(DiagnosticPremiseSnapshotState.ManifestOnly, mode, maximumBodyBytes, compilation, diagnostic, references, lookupComplete: true);
+        if (!complete) return new(DiagnosticPremiseSnapshotState.LookupLimitReached, mode, maximumBodyBytes, bodyScope, compilation, diagnostic, references);
+        if (mode == DiagnosticPremiseSnapshotMode.Manifest) return new(DiagnosticPremiseSnapshotState.ManifestOnly, mode, maximumBodyBytes, bodyScope, compilation, diagnostic, references, lookupComplete: true);
         var retained = new Dictionary<string, SourceJson>(StringComparer.Ordinal); long bytes = 0;
         foreach (var reference in references.Where(item => item.Resolution == DiagnosticPremiseResolution.ResolvedRetainedObject))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var candidate = candidates[reference.Digest].Single();
             bytes += Encoding.UTF8.GetByteCount(candidate.Data.CanonicalText);
-            if (bytes > maximumBodyBytes) return new(DiagnosticPremiseSnapshotState.BodyBudgetExceeded, mode, maximumBodyBytes, compilation, diagnostic, references, lookupComplete: true);
+            if (bytes > maximumBodyBytes) return new(DiagnosticPremiseSnapshotState.BodyBudgetExceeded, mode, maximumBodyBytes, bodyScope, compilation, diagnostic, references, lookupComplete: true);
             if (!ContentDigest.Compute(BodyDomain(candidate.Kind), candidate.Data.ToCanonicalBytes()).Equals(reference.Digest))
-                return new(DiagnosticPremiseSnapshotState.RefusedBodyBinding, mode, maximumBodyBytes);
+                return new(DiagnosticPremiseSnapshotState.RefusedBodyBinding, mode, maximumBodyBytes, bodyScope);
             retained.Add(reference.Digest.Value, candidate.Data);
         }
         cancellationToken.ThrowIfCancellationRequested();
         return new(references.Length == 0 ? DiagnosticPremiseSnapshotState.NoRecordedPremises : retained.Count == 0
             ? DiagnosticPremiseSnapshotState.NoKnownBodies : DiagnosticPremiseSnapshotState.CapturedKnownBodies,
-            mode, maximumBodyBytes, compilation, diagnostic, references, retained, true);
+            mode, maximumBodyBytes, bodyScope, compilation, diagnostic, references, retained, true);
     }
 }

@@ -46,6 +46,18 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
+  private readonly rootSourceElement = viewChild<ElementRef<HTMLElement>>('rootSourcePanel');
+  async loadRootSource(): Promise<void> {
+    const generation=++this.focusGeneration;
+    if(!this.canRead()){this.store.clear('denied');return;}
+    const loaded=await this.store.loadRootSource();
+    if(generation!==this.focusGeneration)return;
+    if(!this.canRead()){this.store.clear('denied');return;}
+    const source=this.store.rootSource();
+    if(loaded&&source)setTimeout(()=>{
+      if(generation===this.focusGeneration&&this.canRead()&&source===this.store.rootSource())this.rootSourceElement()?.nativeElement.focus();
+    });
+  }
   async loadScopedSources(): Promise<void> {
     this.focusGeneration++;
     if (!this.canRead()) { this.store.clear('denied'); return; }
@@ -167,7 +179,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -179,7 +191,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -201,7 +213,7 @@ export class ProjectIdeWorkbenchComponent {
       .map(reference => ({ reference, body: snapshot.bodies.find(body => body.digest.value === reference.digest.value) })) ?? [];
   };
   premiseBodyKind(kind: string | null): string {
-    return this.t(kind === 'RootInput' ? 'ide.premisesRoot' : kind === 'BindingRegion' ? 'ide.premisesBinding' : kind === 'AnalysisRegion' ? 'ide.premisesAnalysis' : 'ide.premisesUnresolved');
+    return this.t(kind === 'RootSource' ? 'ide.premisesRootSource' : kind === 'RootInput' ? 'ide.premisesRoot' : kind === 'BindingRegion' ? 'ide.premisesBinding' : kind === 'AnalysisRegion' ? 'ide.premisesAnalysis' : 'ide.premisesUnresolved');
   }
   premiseSnapshotState(state: string): string {
     const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',

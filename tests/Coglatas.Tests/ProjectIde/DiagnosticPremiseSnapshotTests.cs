@@ -98,8 +98,10 @@ public sealed class DiagnosticPremiseSnapshotTests
             using var json = JsonDocument.Parse(text); return json.RootElement.GetProperty("key").GetString() == "fail";
         });
         var (c, _, _) = Prepare(text); var d = c.Result.Diagnostics.Single(); var snapshot = Read(c, d);
-        Assert.Equal(DiagnosticPremiseSnapshotState.CapturedKnownBodies, snapshot.State); Assert.Equal(3, snapshot.References.Count); Assert.Single(snapshot.Bodies);
-        Assert.Equal(2, snapshot.References.Count(r => r.Resolution == DiagnosticPremiseResolution.Unavailable));
+        Assert.Equal(DiagnosticPremiseSnapshotState.CapturedKnownBodies, snapshot.State); Assert.Equal(3, snapshot.References.Count); Assert.Equal(2, snapshot.Bodies.Count);
+        Assert.Equal(c.Input.Source.Data, snapshot.Bodies[c.Input.Source.Digest.Value]);
+        Assert.Equal(DiagnosticPremiseBodyKind.RootSource, snapshot.References.Single(r => r.Digest.Equals(c.Input.Source.Digest)).Kind);
+        Assert.Single(snapshot.References, r => r.Resolution == DiagnosticPremiseResolution.Unavailable);
         Assert.All(snapshot.References.Where(r => r.Resolution == DiagnosticPremiseResolution.Unavailable), r => Assert.Null(r.Kind));
         Assert.Equal(CompilerEvidenceKind.ModelProof, d.Evidence.Kind); Assert.Equal(CompilerVerdict.Fail, c.Result.Verdict);
     }

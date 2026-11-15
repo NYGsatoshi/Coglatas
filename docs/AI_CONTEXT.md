@@ -1,5 +1,10 @@
 # AI Context
 
+[Explicit root Source admission](verification/projectide-root-source-admission.md)
+allows paired diagnostic premise reads when complete regional IR is unavailable.
+Root-only lookup coverage, unrecorded predicate gaps and exact owned result/Source
+bindings stay distinct from regional evidence and current runtime authority.
+
 [Captured diagnostic premise bodies](verification/projectide-diagnostic-premises.md)
 extend the paired Inspector with exact retained input/binding/analysis bytes,
 explicit default Manifest, atomic byte-budget gaps and current selected ownership.
