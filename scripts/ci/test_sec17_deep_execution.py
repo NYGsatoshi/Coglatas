@@ -198,8 +198,14 @@ class DeepExecutionTests(unittest.TestCase):
                     deep, "capture", return_value=receipt):
                 self.assertEqual(0, deep.main())
             published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
+            # Mutate only the source created under this test-owned temporary root.
+            original_source = source.read_bytes()
+            source.write_bytes(original_source + b" changed")
+            with self.assertRaises(ValueError):
+                deep.capture(root, trx, candidate, NOW)
+            source.write_bytes(original_source)
             assert_native_capture_identity_and_mutations(
-                self, deep, root, trx, candidate, NOW, stamp, source, receipt, output, published)
+                self, deep, root, trx, candidate, NOW, stamp, receipt, output, published)
 
 
 if __name__ == "__main__":

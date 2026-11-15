@@ -103,7 +103,7 @@ def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_mark
 
 
 def assert_native_capture_identity_and_mutations(
-        test, capture_module, root, trx, candidate, now, stamp, source, receipt, output, published):
+        test, capture_module, root, trx, candidate, now, stamp, receipt, output, published):
     """Preserve both owners' exact receipt schema and fail-closed mutation assertions."""
     test.assertEqual(output.read_text(), published)
     test.assertEqual(receipt, json.loads(published))
@@ -127,11 +127,7 @@ def assert_native_capture_identity_and_mutations(
     with test.assertRaises(ValueError):
         capture_module.capture(root, trx, candidate, now)
     stamp.write_text(candidate)
-    original = source.read_bytes()
-    source.write_bytes(original + b" changed")
-    with test.assertRaises(ValueError):
-        capture_module.capture(root, trx, candidate, now)
-    source.write_bytes(original)
+    # The caller mutates only its own, locally constructed fixture source.
     assemblies.loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
     with test.assertRaises(ValueError):
         capture_module.capture(root, trx, candidate, now)
