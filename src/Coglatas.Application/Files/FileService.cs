@@ -28,7 +28,7 @@ public sealed class FileService(
     IUnitOfWork unitOfWork,
     IFileSharingService? sharing = null,
     IWorkspaceAuthorizationService? workspaceAuthorization = null,
-    IProjectAuthorizationService? projectAuthorization = null) : IFileService
+    IProjectAuthorizationService? projectAuthorization = null,
     ILogger<FileService>? logger = null) : IFileService
     , IFileObjectService
 {
