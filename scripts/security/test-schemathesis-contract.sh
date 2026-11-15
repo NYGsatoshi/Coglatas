@@ -11,6 +11,7 @@ fail() {
 
 bash -n scripts/security/schemathesis-runner.sh
 bash -n scripts/ci/generate-security-openapi-contract.sh
+python3 -B -m unittest discover -s tests/ci -p test_security_schemathesis_operation_identity.py
 python3 -m py_compile \
   scripts/security/schemathesis_policy.py \
   scripts/security/schemathesis_hooks.py \
@@ -66,6 +67,9 @@ cookie='cookie-secret-123456789'
 cat > "$tmp/auth.json" <<JSON
 {"role":"alpha-owner","tenant":"security-alpha","headers":{"X-Tenant-Slug":"security-alpha","Cookie":"auth=$cookie","X-CSRF-Token":"$csrf"},"forbidden_values":["$cookie","$csrf","auth=$cookie"]}
 JSON
+cat > "$tmp/openapi.json" <<'JSON'
+{"openapi":"3.1.0","paths":{"/api/auth/me":{"get":{"responses":{"200":{"description":"ok"}}}}}}
+JSON
 seed=574143
 cat > "$tmp/raw.ndjson" <<JSON
 {"Initialize":{"command":"st run /work/openapi.json","schemathesis_version":"4.25.2","seed":$seed}}
@@ -83,7 +87,7 @@ COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemat
   --role alpha-owner \
   --lane pr \
   --seed "$seed" \
-  --contract scripts/security/test-schemathesis-contract.sh \
+  --contract "$tmp/openapi.json" \
   --scanner-exit 1
 
 COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
@@ -95,7 +99,7 @@ COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemat
   --role alpha-owner \
   --lane pr \
   --seed "$seed" \
-  --contract scripts/security/test-schemathesis-contract.sh \
+  --contract "$tmp/openapi.json" \
   --scanner-exit 1 >/dev/null
 cmp --silent "$tmp/safe.ndjson" "$tmp/safe-replay.ndjson" || fail "same seed did not produce deterministic sanitized replay evidence"
 
@@ -119,7 +123,7 @@ if COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-sche
   --role alpha-owner \
   --lane pr \
   --seed "$seed" \
-  --contract scripts/security/test-schemathesis-contract.sh \
+  --contract "$tmp/openapi.json" \
   --scanner-exit 0 >/dev/null 2>&1; then
   fail "network failure was accepted as a successful scan"
 fi
