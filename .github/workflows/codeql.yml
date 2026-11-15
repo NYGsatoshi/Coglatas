@@ -165,3 +165,54 @@ jobs:
       uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
       with:
         category: "/language:${{matrix.language}}"
+
+    # Read-only diagnostics: no scanner/query/threshold changes and no source snippets.
+    - name: Report high-severity CodeQL locations
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+        import re
+
+        results_dir = Path(os.environ['GITHUB_WORKSPACE']).parent / 'results'
+        sarif_files = sorted(results_dir.glob('*.sarif'))
+        if not sarif_files:
+            print('CODEQL_LOCATION_REPORT_UNAVAILABLE: no completed SARIF found')
+        count = 0
+        for report in sarif_files:
+            document = json.loads(report.read_text(encoding='utf-8'))
+            for run in document.get('runs', []):
+                rules = {item.get('id'): item.get('properties', {})
+                         for item in run.get('tool', {}).get('driver', {}).get('rules', [])}
+                for result in run.get('results', []):
+                    rule = str(result.get('ruleId', 'unknown'))
+                    properties = rules.get(rule, {})
+                    try:
+                        severity = float(properties.get('security-severity',
+                                         result.get('properties', {}).get('security-severity', 0)))
+                    except (ValueError, TypeError):
+                        severity = 0
+                    if severity < 7.0:
+                        continue
+                    for entry in result.get('locations', [])[:2]:
+                        physical = entry.get('physicalLocation', {})
+                        uri = str(physical.get('artifactLocation', {}).get('uri', 'unknown'))
+                        if not re.fullmatch(r'[A-Za-z0-9_.+/-]{1,180}', uri):
+                            uri = '<path-redacted>'
+                        line = physical.get('region', {}).get('startLine', 0)
+                        rule_safe = re.sub(r'[^A-Za-z0-9_./-]', '', rule)[:100]
+                        print(f'CODEQL_HIGH_LOCATION {rule_safe} {uri}:{line} severity={severity:.1f}')
+                        count += 1
+                        if count >= 40:
+                            break
+                    if count >= 40:
+                        break
+                if count >= 40:
+                    break
+            if count >= 40:
+                break
+        print(f'CODEQL_HIGH_LOCATIONS_TOTAL={count}')
+        PY
