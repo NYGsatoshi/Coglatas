@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
+      <button type="button" data-testid="ide-operator-example" (click)="reload('operator-recordings')">{{ t('ide.operatorExample') }}</button>
       <button type="button" (click)="reload('predicate-recordings')">{{ t('ide.predicateExample') }}</button>
       <button type="button" (click)="reload('root-diagnostic-premises')">{{ t('ide.rootSourceExample') }}</button>
       <button type="button" (click)="reload('diagnostic-premises')">{{ t('ide.premisesExample') }}</button>
@@ -475,6 +476,49 @@
                   <button type="button" [disabled]="!basis.hasNext" (click)="basisPage.set(basisPage() + 1)">{{ t('ide.basisNext') }}</button>
                 </section>
               }
+              @if (ctx.operatorRecordings && store.diagnostic()) {
+                @if (store.operatorRecording(); as recording) {
+                  <section #recordedOperatorPanel tabindex="-1" data-testid="ide-recorded-operators" aria-labelledby="ide-recorded-operators-title">
+                    <h3 id="ide-recorded-operators-title">{{ t('ide.operatorSelectedTitle') }}</h3><p>{{ t('ide.operatorSelectedNotice') }}</p>
+                    <p>{{ t('ide.recordingRun') }}: <code>{{ recording.runId }}</code></p>
+                    <p>{{ t('ide.predicateCapture') }}: {{ operatorCaptureState(recording.originalCaptureState) }}</p>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div class="panels">
+                        <button type="button" (click)="loadRecordedOperators()" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                        <button type="button" data-testid="ide-operator-read-available" (click)="loadRecordedOperators('available')" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.operatorReadSelected') }}</button>
+                        <button type="button" (click)="loadRecordedOperators('budget')" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.predicateReadLimited') }}</button>
+                      </div>
+                    } @else { <p>{{ t('ide.operatorNoResult') }}</p> }
+                    @if (store.recordedOperatorReadState() === 'loading') { <p role="status">{{ t('ide.operatorLoading') }}</p> }
+                    @if (store.recordedOperatorReadState() === 'unavailable') { <p role="alert">{{ t('ide.operatorUnavailable') }}</p> }
+                    @if (store.recordedOperators(); as snapshot) {
+                      <p data-testid="ide-operator-view-state">{{ t('ide.predicateView') }}: {{ operatorViewState(snapshot.state) }}</p>
+                      <p>{{ t('ide.outputsRetainedBytes') }}: {{ snapshot.retainedBodyBytes }} / {{ snapshot.maximumBodyBytes }}</p>
+                      <p>{{ t('ide.operatorDerivedBytes') }}: {{ snapshot.retainedEvaluationFrameBytes }}</p>
+                      @for (evaluation of snapshot.evaluations; track evaluation.ordinal) {
+                        <section data-testid="ide-operator-evaluation">
+                          <h4>{{ t('ide.operatorEvaluation') }} {{ evaluation.ordinal }}</h4>
+                          <ul class="operator-tree" [attr.aria-label]="t('ide.operatorEvaluation')">
+                            @for (node of evaluation.nodes; track node.ordinal) {
+                              <li data-testid="ide-operator-node" [style.margin-inline-start.px]="node.path.length * 16">
+                                <p><strong>{{ t('ide.operatorNode') }} {{ node.ordinal }} · {{ operatorKind(node.kind) }} · {{ operatorTruth(node.truth) }}</strong></p>
+                                <p>{{ t('ide.operatorChildren') }}: {{ node.evaluatedChildren.join(', ') || '—' }} · {{ t('ide.operatorSkipped') }}: {{ node.skippedOperands }}</p>
+                                @if (node.literal; as literal) { <p>{{ t('ide.operatorPremise') }}: {{ literal.premiseOrdinal }} · <code>{{ literal.digest.value }}</code></p> }
+                                <details><summary>{{ t('ide.operatorOriginalNode') }}</summary><code>{{ node.original.digest.value }}</code><pre tabindex="0">{{ node.original.text }}</pre></details>
+                              </li>
+                            }
+                          </ul>
+                          <details><summary>{{ t('ide.operatorOriginalEvaluation') }}</summary><code>{{ evaluation.evaluationFrame.digest.value }}</code><pre tabindex="0">{{ evaluation.evaluationFrame.text }}</pre></details>
+                        </section>
+                      }
+                      <details><summary>{{ t('ide.predicateSnapshot') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                    }
+                  </section>
+                } @else {
+                  <p data-testid="ide-operator-require-run">{{ t('ide.predicateRequireRun') }}</p>
+                  <button type="button" (click)="open('source', true)">{{ t('ide.premisesOpenSource') }}</button>
+                }
+              }
               @if (ctx.predicateRecordings && store.diagnostic()) {
                 @if (store.predicateRecording(); as recording) {
                   <section #recordedPredicatePanel tabindex="-1" data-testid="ide-recorded-predicate" aria-labelledby="ide-recorded-predicate-title">
@@ -687,6 +731,40 @@
                     <p>{{ t('ide.rootSourceReady') }}</p>
                     <details data-testid="ide-root-source-body"><summary>{{ t('ide.rootSourceBody') }}</summary><pre tabindex="0">{{ root.sourceText }}</pre></details>
                   }
+                </section>
+              }
+              @if (ctx.operatorRecordings && store.rootSource()) {
+                <div class="panels" data-testid="ide-operator-recording-actions">
+                  <button type="button" (click)="loadOperatorRecording()" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('diagnostic')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateDiagnostic') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('budget')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateBudget') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('cancelled')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateCancelled') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('retry')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateRetry') }}</button>
+                </div>
+                @if (store.operatorRecordingReadState() === 'loading') { <p role="status">{{ t('ide.operatorLoading') }}</p> }
+                @if (store.operatorRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.operatorUnavailable') }}</p> }
+              }
+              @if (store.operatorRecording(); as recording) {
+                <section #operatorRecordingPanel tabindex="-1" data-testid="ide-operator-recording" aria-labelledby="ide-operator-recording-title">
+                  <h3 id="ide-operator-recording-title">{{ t('ide.operatorTitle') }}</h3><p>{{ t('ide.operatorNotice') }}</p>
+                  <p data-testid="ide-operator-recording-selection">{{ t(recording.label === 'original' ? 'ide.predicateOriginal' : recording.label === 'diagnostic' ? 'ide.predicateDiagnostic' : recording.label === 'budget' ? 'ide.predicateBudget' : recording.label === 'cancelled' ? 'ide.predicateCancelled' : 'ide.predicateRetry') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-operator-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    @if (recording.originRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.predicateCapture') }}</dt><dd data-testid="ide-operator-capture-state">{{ operatorCaptureState(recording.originalCaptureState) }}</dd></div>
+                    <div><dt>{{ t('ide.predicateDeclaredBytes') }}</dt><dd>{{ recording.maximumBodyBytes }}</dd></div>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div><dt>{{ t('ide.operatorStarted') }}</dt><dd>{{ recording.startedEvaluations }}</dd></div>
+                      <div><dt>{{ t('ide.operatorCompleted') }}</dt><dd>{{ recording.completedEvaluations }}</dd></div>
+                      <div><dt>{{ t('ide.operatorNodes') }}</dt><dd data-testid="ide-operator-visited">{{ recording.observedNodes }}</dd></div>
+                      <div><dt>{{ t('ide.operatorStoredBytes') }}</dt><dd>{{ recording.retainedBodyBytes }}</dd></div>
+                    }
+                  </dl>
+                  @if (recording.hostStatus === 'Cancelled') { <p data-testid="ide-operator-no-result">{{ t('ide.operatorNoResult') }}</p> }
+                  @else { <p>{{ t('ide.operatorSelectDiagnostic') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
                 </section>
               }
               @if (ctx.predicateRecordings && store.rootSource()) {

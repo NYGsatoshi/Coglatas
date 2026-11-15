@@ -84,7 +84,8 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     public void BeginSynthetic(CompilerHostRequest desired) => BeginSyntheticContext(desired, null, null);
 
     private void BeginSyntheticContext(CompilerHostRequest desired, PredicateCompilerHostRequest? predicateRequest,
-        LocalPredicateCompilerRecordingManifest? predicateManifest)
+        LocalPredicateCompilerRecordingManifest? predicateManifest, PredicateObservationCompilerHostRequest? operatorRequest = null,
+        LocalPredicateObservationCompilerRecordingManifest? operatorManifest = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(desired);
         if (desired.ClientGeneration <= _lastGeneration) throw new ArgumentException("A new lifecycle needs a strictly newer generation.", nameof(desired));
@@ -96,13 +97,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         // Materialize before publishing context, so malformed input cannot leave a partial selection.
         var source = desired.Input.Materialize().Source;
         _desired = desired; _desiredPredicateRequest = predicateRequest; _desiredPredicateManifest = predicateManifest;
+        _desiredOperatorRequest = operatorRequest; _desiredOperatorManifest = operatorManifest;
         Source = source; State = "Waiting"; Changed();
     }
 
     public bool TryAccept(CompilerHostResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
-        if (_disposed || _desired is null || _desiredPredicateRequest is not null || State != "Waiting") return false;
+        if (_disposed || _desired is null || _desiredPredicateRequest is not null || _desiredOperatorRequest is not null || State != "Waiting") return false;
         if (response.ClientGeneration != _desired.ClientGeneration || !response.RequestedInputDigest.Equals(_desired.Input.ExpectedInputDigest)) return false;
         if (response.Status != CompilerHostStatus.Completed)
         {
@@ -372,10 +374,10 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     {
         _lifecycle++; ClearContext(); Changed();
     }
-    private void ClearContext() { ClearPredicateContext(); ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
+    private void ClearContext() { ClearOperatorContext(); ClearPredicateContext(); ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
-        ClearDiagnosticPremises(); ClearRecordedPredicatePremises();
+        ClearDiagnosticPremises(); ClearRecordedPredicatePremises(); ClearOperatorSnapshot();
         ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
         SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
@@ -384,7 +386,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

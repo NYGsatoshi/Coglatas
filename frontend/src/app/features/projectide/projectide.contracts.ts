@@ -222,6 +222,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly operatorRecordings?: import('./projectide-operator-recordings.reader').OperatorRecordingProjection | null;
   readonly predicateRecordings?: import('./projectide-predicate-recordings.reader').PredicateRecordingProjection | null;
   readonly rootSource?: import('./projectide-root-source.reader').RootSourceProjection | null;
   readonly diagnosticPremises?: import('./projectide-diagnostic-premises.reader').DiagnosticPremiseProjection | null;

@@ -108,10 +108,11 @@ normalization nor a byte-identical whole-receipt claim is used.
 
 ## Remaining acceptance and ownership
 
-The existing Angular and Windows Inspector continues to consume the older
-actually recorded Proof arrays. Adopting these operator frames into both
-clients, intended current selection/lifecycle checks and actual Avalonia UI
-acceptance remain separate #1034/#782 work. Regional evaluations and earlier
+The existing Proof-array Inspector remains separate. The
+[paired original operator Inspector](projectide-paired-operator-recordings.md)
+adds local Angular and Windows pure ViewModel consumption with explicit intended
+selection/lifecycle guards. Actual Avalonia UI acceptance remains separate
+#1034/#782 work. Regional evaluations and earlier
 intermediate states remain NotRecorded. The Domain operator snapshot still
 declares no host-run identity; this new local wrapper supplies its own actual
 owned invocation metadata without altering that Domain format.
