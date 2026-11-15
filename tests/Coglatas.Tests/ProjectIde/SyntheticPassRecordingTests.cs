@@ -177,19 +177,23 @@ public sealed class SyntheticPassRecordingTests
     {
         var (_, request, profile) = Input();
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
-        using var vm = new SyntheticWorkbenchViewModel();
-        var actual = await Run(vm, session, request); var execution = actual.Response.Execution!;
-        Assert.True(vm.LoadSyntheticRootSource(vm.Result!.ResultDigest)); Assert.True(vm.ReadPassRecordingMetadata()); Assert.True(Read(vm, actual)); var retained = vm.RecordedPasses!;
-        Assert.False(vm.ReadRecordedPasses(execution.Compilation.Input.InputDigest)); Assert.Null(vm.RecordedPasses); Assert.True(Read(vm, actual));
-        using var cancelled = new CancellationTokenSource();
-        cancelled.Cancel(); Assert.Throws<OperationCanceledException>(() => vm.ReadRecordedPasses(execution.Compilation.Result.ResultDigest,
-            CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: cancelled.Token)); Assert.Null(vm.RecordedPasses);
-        Assert.True(Read(vm, actual)); Assert.False(vm.LoadSyntheticRootSource(execution.Compilation.Input.InputDigest));
-        Assert.Null(vm.PassReceiptMetadata); Assert.Null(vm.RecordedPasses); Assert.NotEmpty(retained.Bodies);
-        Assert.True(vm.LoadSyntheticRootSource(execution.Compilation.Result.ResultDigest)); Assert.True(Read(vm, actual));
-        Assert.Throws<ArgumentException>(() => vm.BeginPassSynthetic(actual.Receipt.Manifest, request)); Assert.NotNull(vm.RecordedPasses);
-        vm.Reset(); Assert.Null(vm.RecordedPasses); Assert.False(vm.TryAcceptPass(actual)); Assert.NotEmpty(retained.Bodies);
-        vm.Dispose(); Assert.Throws<ObjectDisposedException>(() => vm.ReadPassRecordingMetadata()); Assert.Null(vm.PassRecordMetadata);
+        var vm = new SyntheticWorkbenchViewModel();
+        try
+        {
+            var actual = await Run(vm, session, request); var execution = actual.Response.Execution!;
+            Assert.True(vm.LoadSyntheticRootSource(vm.Result!.ResultDigest)); Assert.True(vm.ReadPassRecordingMetadata()); Assert.True(Read(vm, actual)); var retained = vm.RecordedPasses!;
+            Assert.False(vm.ReadRecordedPasses(execution.Compilation.Input.InputDigest)); Assert.Null(vm.RecordedPasses); Assert.True(Read(vm, actual));
+            using var cancelled = new CancellationTokenSource();
+            cancelled.Cancel(); Assert.Throws<OperationCanceledException>(() => vm.ReadRecordedPasses(execution.Compilation.Result.ResultDigest,
+                CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: cancelled.Token)); Assert.Null(vm.RecordedPasses);
+            Assert.True(Read(vm, actual)); Assert.False(vm.LoadSyntheticRootSource(execution.Compilation.Input.InputDigest));
+            Assert.Null(vm.PassReceiptMetadata); Assert.Null(vm.RecordedPasses); Assert.NotEmpty(retained.Bodies);
+            Assert.True(vm.LoadSyntheticRootSource(execution.Compilation.Result.ResultDigest)); Assert.True(Read(vm, actual));
+            Assert.Throws<ArgumentException>(() => vm.BeginPassSynthetic(actual.Receipt.Manifest, request)); Assert.NotNull(vm.RecordedPasses);
+            vm.Reset(); Assert.Null(vm.RecordedPasses); Assert.False(vm.TryAcceptPass(actual)); Assert.NotEmpty(retained.Bodies);
+            vm.Dispose(); Assert.Throws<ObjectDisposedException>(() => vm.ReadPassRecordingMetadata()); Assert.Null(vm.PassRecordMetadata);
+        }
+        finally { vm.Dispose(); }
     }
 
     [Fact]
