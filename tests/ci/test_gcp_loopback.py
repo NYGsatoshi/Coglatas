@@ -3,7 +3,10 @@
 import copy
 import importlib.util
 import io
+import ipaddress
 import json
+import re
+from urllib.parse import urlsplit
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -91,10 +94,29 @@ class GcpLoopbackAdmissionTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.cli(json.dumps(value), 1)
 
+    def assert_no_public_http_guidance(self, documentation):
+        # Enforce the network boundary for every documented URL, not just a named placeholder.
+        urls = re.findall(r"https?://[^\s`<>()]+", documentation)
+        self.assertTrue(urls, "Deployment guide must document a permitted local health endpoint.")
+        for original_url in urls:
+            parsed = urlsplit(original_url.rstrip(".,;"))
+            if parsed.scheme != "http":
+                continue
+            hostname = parsed.hostname
+            self.assertIsNotNone(hostname, "An unparseable HTTP authority cannot be admitted.")
+            if hostname == "localhost":
+                continue
+            try:
+                address = ipaddress.ip_address(hostname)
+            except ValueError:
+                self.fail("Public or unrecognized HTTP authority appears in GCP deployment guidance.")
+            self.assertTrue(address.is_loopback, "Public HTTP deployment guidance is forbidden.")
+
     def test_active_deployment_guide_requires_guarded_recovery_and_ssh_access(self):
         documentation = (ROOT / "deploy/gcp/README.md").read_text(encoding="utf-8")
-        for unsafe in ("http://EXTERNAL_IP:8080", "docker compose up -d",
-                       "sudo docker compose up", "Port is not reachable from the internet:"):
+        self.assert_no_public_http_guidance(documentation)
+        for unsafe in ("docker compose up -d", "sudo docker compose up",
+                       "Port is not reachable from the internet:"):
             self.assertNotIn(unsafe, documentation)
         recovery = documentation.split("VM restarted and containers did not come back:", 1)[1].split("\n\n", 1)[0]
         self.assertIn("reset-app.sh", recovery)
@@ -104,6 +126,14 @@ class GcpLoopbackAdmissionTests(unittest.TestCase):
         browser = documentation.split("Browser cannot reach the development app:", 1)[1].split("\n\n", 1)[0]
         self.assertIn("encrypted SSH forwarding session", browser)
         self.assertIn("http://127.0.0.1:8080", browser)
+
+    def test_public_http_guidance_mutation_fails_for_arbitrary_external_host(self):
+        documentation = (ROOT / "deploy/gcp/README.md").read_text(encoding="utf-8")
+        self.assertIn("http://127.0.0.1:8080", documentation)
+        altered = documentation.replace("127.0.0.1:8080", "203.0.113.42:8080")
+        self.assertNotEqual(altered, documentation)
+        with self.assertRaises(AssertionError):
+            self.assert_no_public_http_guidance(altered)
 
     def test_malformed_deep_and_oversized_input_does_not_leak(self):
         for document in ['{"secret":"synthetic-private-config-canary"',
