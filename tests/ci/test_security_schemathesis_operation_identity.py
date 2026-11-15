@@ -48,10 +48,26 @@ class SecurityOperationEvidenceTests(unittest.TestCase):
                     parse(self.file, ROLE, self.allowed)
                 self.assertNotIn("synthetic-canary", str(context.exception))
 
-    def test_method_and_role_mismatch_fail_closed(self):
-        self.record(method="POST")
-        with self.assertRaises(SystemExit):
+    def test_unsupported_method_probe_is_counted_but_not_credited_as_declared_method(self):
+        self.record()
+        with self.file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"event": "response", "method": "TRACE",
+                                     "operation": "GET /api/auth/me", "role": ROLE,
+                                     "status": 405}) + "\n")
+        self.assertEqual((2, 0, ["GET /api/auth/me"]),
+                         parse(self.file, ROLE, self.allowed))
+
+    def test_only_off_method_probes_cannot_claim_declared_operation_coverage(self):
+        self.record(method="TRACE", status=405)
+        with self.assertRaisesRegex(SystemExit, "no declared OpenAPI operation"):
             parse(self.file, ROLE, self.allowed)
+
+    def test_malformed_method_and_role_mismatch_fail_closed(self):
+        for method in ("GET Cookie:secret", "", "X\nToken:secret", 7):
+            with self.subTest(method=method):
+                self.record(method=method)
+                with self.assertRaisesRegex(SystemExit, "HTTP method is invalid"):
+                    parse(self.file, ROLE, self.allowed)
         self.record(role="beta-owner")
         with self.assertRaises(SystemExit):
             parse(self.file, ROLE, self.allowed)
