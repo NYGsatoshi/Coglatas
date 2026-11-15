@@ -13,7 +13,10 @@ async function open(page: Page, locale: 'en' | 'ja', key: string) {
   await page.addInitScript(locale => { localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true }; }, locale);
   await page.goto('/app/projectide/preview');
   await button(page, locale, 'Open recorded predicate example', '記録済みの述語の例を開く');
+  // Shared context keys can still belong to the previous profile until this bundle renders.
+  await expect(page.getByTestId('ide-context').locator('option')).toHaveCount(bundle.cases.length + 1);
   await page.getByTestId('ide-context').selectOption(key);
+  await expect(page.getByTestId('ide-context')).toHaveValue(key);
   await button(page, locale, 'Load result fixture', '結果Fixtureを読み込む');
   await button(page, locale, 'Source', 'ソース');
   await expect(page.getByTestId('ide-predicate-recording-actions')).toHaveCount(0);
@@ -111,4 +114,21 @@ for (const locale of ['en', 'ja'] as const) {
       await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
     });
   }
+}
+
+for (const locale of ['en', 'ja'] as const) {
+  test('waits for the new predicate profile before selecting a shared context: ' + locale, async ({ page }) => {
+    let requested!: () => void; const request = new Promise<void>(resolve => requested = resolve);
+    let release!: () => void; const response = new Promise<void>(resolve => release = resolve);
+    await page.route('**/assets/projectide/predicate-recordings-v1.json', async route => { requested(); await response; await route.continue(); });
+    const opening = open(page, locale, 'unknown');
+    await request;
+    try { await expect(page.getByTestId('ide-context')).toHaveCount(0); } finally { release(); }
+    await opening; await expect(page.getByTestId('ide-context')).toHaveValue('unknown');
+    await expect(page.getByTestId('ide-context').locator('option')).toHaveCount(bundle.cases.length + 1);
+    await button(page, locale, roles[0][1], roles[0][2]);
+    const original = bundle.cases.find((v: { key: string }) => v.key === 'unknown').predicateRecordings.original;
+    await expect(page.getByTestId('ide-predicate-recording-run')).toHaveText(JSON.parse(original.manifest.text).runId);
+    await expect(page.getByTestId('ide-predicate-recording')).toBeFocused();
+  });
 }
