@@ -91,6 +91,31 @@ if [[ "${COGLATAS_PERFORMANCE_API_DIAGNOSTICS_ENABLED:-false}" == "true" ]]; the
   mkdir -p "$EVIDENCE_DIR/api-diagnostics"
   rm -f "$EVIDENCE_DIR/api-diagnostics/"*.json "$EVIDENCE_DIR/api-diagnostics/"*.tmp
 fi
+# A bind-mounted evidence directory starts as runner-owned (0755), while the
+# production ASP.NET image runs as an unprivileged user. Grant only that user
+# directory write access; keep the runner as owner for clean teardown.
+if [[ "$RUNTIME_MODE" == "production" ]]; then
+  if ! command -v setfacl >/dev/null 2>&1; then
+    echo "PERF-02: setfacl is required for non-root production evidence mounts" >&2
+    exit 2
+  fi
+  evidence_app_uid=1654 # APP_UID in the pinned dotnet/aspnet runtime image
+  if [[ "$REUSE_PREBUILT_APP" == "true" ]]; then
+    evidence_app_uid="$(docker image inspect --format '{{.Config.User}}' "$COGLATAS_APP_IMAGE")"
+  fi
+  if [[ ! "$evidence_app_uid" =~ ^[1-9][0-9]*$ ]]; then
+    echo "PERF-02: production image must declare a numeric non-root UID" >&2
+    exit 2
+  fi
+  evidence_paths=("$EVIDENCE_DIR")
+  [[ ! -d "$EVIDENCE_DIR/db-captures" ]] || evidence_paths+=("$EVIDENCE_DIR/db-captures")
+  [[ ! -d "$EVIDENCE_DIR/api-diagnostics" ]] || evidence_paths+=("$EVIDENCE_DIR/api-diagnostics")
+  if ! setfacl -m "u:${evidence_app_uid}:rwx" -- "${evidence_paths[@]}"; then
+    echo "PERF-02: failed to authorize the isolated app UID for evidence writes" >&2
+    exit 2
+  fi
+fi
+
 export COGLATAS_PERFORMANCE_PROFILE="$PROFILE"
 export COGLATAS_PERFORMANCE_PORT="$PORT"
 export COGLATAS_PERFORMANCE_EVIDENCE_DIR="$EVIDENCE_DIR"

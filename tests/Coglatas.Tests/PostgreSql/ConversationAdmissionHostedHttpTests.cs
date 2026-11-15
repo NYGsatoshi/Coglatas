@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using Coglatas.Application;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;

@@ -20,6 +20,74 @@ A required gate passes only on `success` from the registered producer on the aut
 
 For GitHub Actions check runs, the evaluator requires the registered GitHub App integration and resolves the Actions run referenced by `details_url` back to the registered workflow path and `pull_request` event. The registry contains ordinary GitHub Actions check runs: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, and `performance-fast`. New contexts must be proven on a current PR head and added to the live ruleset before this migration is considered complete; a registry change alone does not establish active protection.
 
+The resolved Actions run must also identify the authoritative current head SHA;
+missing or null run identity cannot borrow a successful check's claimed identity.
+Live ruleset reference conditions must be an object with an array of included
+references. Malformed nested conditions are reported as ruleset failures in the
+normal JSON/exit-code result, rather than escaping as attribute/type exceptions.
+These checks preserve the registered contexts, producers, conclusions and timeout
+rules; they do not activate a new gate or change live GitHub protection.
+
+The evaluator does not implement GitHub's branch-pattern exclusion matching.
+It therefore requires an explicit empty exclusion array before claiming live
+default-branch protection. Missing, malformed, or nonempty exclusions fail closed,
+including exclusions for apparently unrelated branches. Supporting selective
+exclusions requires separate verified matching behavior; this validator must not
+infer protection from the include marker alone. Existing empty exclusions retain
+their behavior, and no live ruleset is modified by this check.
+
+Workflow metadata is populated only from a resolved Actions run, never from
+additional fields in a check/status response. The requested endpoint does not
+fill missing check/status head identity. Included reference entries and required
+integration identities are type-checked before use; malformed data returns a
+normal failure instead of an unhashable-value exception or numeric coercion.
+These are evidence-validation checks, not a live ruleset migration. The named
+registered ruleset must still pass the separate active-protection contract.
+
+Identity fields remain specific to the evidence kind: check runs require
+`head_sha`, while commit statuses use `sha`. The current six registered gates
+are check runs. For a registry containing a commit-status gate, the evaluator
+uses GitHub's combined-status endpoint and validates its top-level `sha` on
+every page before binding statuses that lack their own SHA. A conflicting
+per-status identity is rejected. This preserves commit-status support without
+assuming the requested endpoint alone proves the returned identity. See
+[GitHub's commit-status API](https://docs.github.com/en/rest/commits/statuses#get-the-combined-status-for-a-specific-reference).
+
+Paginated evidence rejects non-object entries rather than silently discarding
+them. When a total is supplied, every declared entry must be collected; a short
+page alone cannot stop collection. Malformed or inconsistent totals fail closed.
+Controlled commit-status fixtures exercise the real registry loader and CLI,
+but do not establish live producer compatibility: absent creator identity still
+fails the registered producer contract. No live commit-status gate is activated.
+
+Every collected check/status has a distinct positive integer provider ID;
+duplicates within or across pages cannot satisfy the declared total. This does
+not establish completeness beyond GitHub's documented endpoint retention limits.
+
+Producer-valid current-head candidates must have usable ordering timestamps and
+well-typed state fields before selection. An unorderable rejection cannot sort
+behind a success by receiving a minimum timestamp; malformed states produce the
+normal JSON failure result without a broad exception handler.
+
+Completed checks require `completed_at`; commit statuses require `updated_at`.
+Pending check ordering uses its start/creation time, and a missing pending clock
+retains the existing timeout failure. Unknown states fail before ordering.
+Completion cannot fall back to an earlier start time. Context names are checked
+before membership tests, and UTC normalization overflow is malformed evidence.
+
+A conclusion cannot replace a check's lifecycle status. Producer-valid pending
+work prevents PASS while it remains unsettled, even when another check completed
+later than its start. Every pending candidate must remain within the registered
+timeout; one expired candidate fails the gate. The timeout values are unchanged.
+
+Ordering clocks must not be later than the evaluator's captured current UTC
+time. Permitted future clock skew is explicitly zero seconds; future completion
+or pending clocks fail as malformed evidence instead of hiding a rejection or
+extending a timeout. Existing completion-time ordering and ID tie-breaking for
+settled results remain unchanged; no later-start precedence rule is introduced.
+The pending timeout's selected start/creation clock is validated independently
+of the ordering clock, including commit statuses with a past `updated_at`.
+
 ### PR merge checks and Main candidate obligations
 
 The six PR contexts above are the repository's registered merge-check contract.
