@@ -164,7 +164,8 @@ for (const locale of ['en', 'ja'] as const) for (const key of ['operator-require
         const selected = page.getByTestId('ide-recorded-operators'); await expect(selected.getByTestId('ide-operator-node')).toHaveCount(0);
         if (role === 'cancelled') { await expect(selected.getByRole('button')).toHaveCount(0); continue; }
         for (const [choice, readEn, readJa] of [['manifest', 'Read premise manifest', '根拠のマニフェストを読む'], ['available', 'Read selected original operators', '選択した元の演算子を読む'], ['budget', 'Read with one-byte viewing limit', '表示上限1バイトで読む']]) {
-          await button(page, locale, readEn, readJa); await expect(selected).toBeFocused();
+          const read = selected.getByRole('button', { name: locale === 'en' ? readEn : readJa, exact: true });
+          await read.focus(); await read.press('Enter'); await expect(selected).toBeFocused();
           const supplied = frame.diagnostics[index][choice]; const snapshot = JSON.parse(supplied.frame.text);
           const captured = snapshot.evaluations.flatMap((e: { nodes: { bodyCaptured: boolean; digest: { value: string } }[] }) => e.nodes.filter(n => n.bodyCaptured));
           const nodes = selected.getByTestId('ide-operator-node'); await expect(nodes).toHaveCount(captured.length);

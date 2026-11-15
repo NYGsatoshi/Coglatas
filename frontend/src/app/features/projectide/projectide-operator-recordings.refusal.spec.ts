@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { readPreviewBundle } from './projectide-preview.adapter';
 import { readRootSource } from './projectide-root-source.reader';
 import { OperatorRecordingFrame, OperatorRecordingProjection, readOperatorRecording } from './projectide-operator-recordings.reader';
-import { OperatorTextFrame } from './projectide-operator-recording-structure';
+import { DeclaredOperatorNode, OperatorTextFrame } from './projectide-operator-recording-structure';
 
 vi.stubGlobal('crypto', webcrypto);
 const original = JSON.parse(readFileSync(resolve('public/assets/projectide/operator-recordings-v1.json'), 'utf8'));
@@ -114,18 +114,72 @@ describe('Operator recording semantic refusals before any member admission', () 
   });
 });
 
+type RequirementCorruption = 'foreign-rule' | 'missing-evidence-link' | 'no-actual-evaluation';
+interface ForgedRequirementEvaluation {
+  ordinal: number; publishedDiagnostics: { diagnosticId: string; digest: unknown }[];
+  originalObservation: { nodes: DeclaredOperatorNode[]; evaluationDigest: { value: string } };
+}
+/** Repair original-record copies and available selected maps; never invent bodies absent from a genuine fixture. */
+function corruptRequirementObservation(projection: OperatorRecordingProjection, kind: RequirementCorruption): void {
+  for (const label of labels) {
+    const run = projection[label]; if (!run.observation) continue;
+    if (kind !== 'no-actual-evaluation' && label !== 'diagnostic' && label !== 'retry') continue;
+    const record = JSON.parse(run.observation.text);
+    if (kind === 'foreign-rule') record.evaluations[0].ruleId = 'coglatas.core.constraints';
+    else if (kind === 'missing-evidence-link') {
+      const missing = run.diagnostics.find(d => JSON.parse(d.diagnostic.text).code === 'coglatas.analysis.requirement-evidence-unavailable')!;
+      record.evaluations[0].originalRootDiagnosticLinks = 1;
+      record.evaluations[0].publishedDiagnostics = [{ diagnosticId: JSON.parse(missing.diagnostic.text).diagnosticId, digest: missing.diagnostic.digest }];
+    } else Object.assign(record, { state: label === 'original' ? 'ManifestOnly' : 'NoActualEvaluations',
+      startedEvaluations: 0, completedEvaluations: 0, observedNodes: 0, retainedBodyBytes: 0, evaluations: [] });
+    const bodyPool = new Map(run.diagnostics.flatMap(d => d.available.operatorBodies).map(b => [b.digest.value, b]));
+    const evaluationPool = new Map(run.diagnostics.flatMap(d => d.available.evaluationFrames).map(b => [b.digest.value, b]));
+    frame(run.observation, 'coglatas.local-initial-root-predicate-observation/1', JSON.stringify(record));
+    const response = JSON.parse(run.response.text); response.captureState = record.state;
+    frame(run.response, responseDomain, JSON.stringify(response));
+    const receipt = JSON.parse(run.receipt.text); receipt.captureState = record.state;
+    frame(run.receipt, receiptDomain, JSON.stringify(receipt));
+    const captured = record.state === 'RecordedInitialRootEvaluations' || record.state === 'NoActualEvaluations';
+    for (const diagnostic of run.diagnostics) {
+      const id = JSON.parse(diagnostic.diagnostic.text).diagnosticId;
+      const selected = (record.evaluations as ForgedRequirementEvaluation[]).filter(e => e.publishedDiagnostics.some(d =>
+        d.diagnosticId === id && JSON.stringify(d.digest) === JSON.stringify(diagnostic.diagnostic.digest)))
+        .filter(e => evaluationPool.has(e.originalObservation.evaluationDigest.value) && e.originalObservation.nodes.every(n => bodyPool.has(n.digest.value)));
+      const bodies = [...new Map(selected.flatMap(e => e.originalObservation.nodes.map(n => {
+        const body = bodyPool.get(n.digest.value)!; return [n.digest.value, body] as const;
+      }))).values()].sort((a, b) => a.digest.value < b.digest.value ? -1 : 1);
+      const evaluations = [...new Map(selected.map(e => {
+        const body = evaluationPool.get(e.originalObservation.evaluationDigest.value)!; return [body.digest.value, body] as const;
+      })).values()].sort((a, b) => a.digest.value < b.digest.value ? -1 : 1);
+      const bodyBytes = bodies.reduce((n, b) => n + b.bytes, 0); const evaluationBytes = evaluations.reduce((n, b) => n + b.bytes, 0);
+      for (const choice of ['manifest', 'available', 'budget'] as const) {
+        const view = diagnostic[choice]; const snapshot = JSON.parse(view.frame.text);
+        const state = choice === 'manifest' ? 'ManifestOnly' : !captured ? 'NoRecordedOperators' : !selected.length ? 'NoObservedPublishedDiagnostic'
+          : bodyBytes > snapshot.maximumBodyBytes ? 'BodyBudgetExceeded' : 'AvailableOperators';
+        const available = state === 'AvailableOperators';
+        Object.assign(view, { operatorBodies: available ? bodies : [], evaluationFrames: available ? evaluations : [] });
+        Object.assign(snapshot, { state, retainedBodyBytes: available ? bodyBytes : 0, retainedEvaluationFrameBytes: available ? evaluationBytes : 0,
+          selectedEvaluations: selected.length, selection: !captured ? 'NotRecorded' : selected.length ? 'ObservedInitialRootEvaluations' : 'NoObservedPublishedDiagnostic',
+          originalRecord: { digest: run.observation.digest, metadata: record },
+          evaluations: selected.map(e => ({ ordinal: e.ordinal, metadata: e,
+            evaluationFrame: { digest: e.originalObservation.evaluationDigest, bytes: evaluationPool.get(e.originalObservation.evaluationDigest.value)!.bytes, bodyCaptured: available },
+            nodes: e.originalObservation.nodes.map(n => ({ ...n, bodyCaptured: available })) })) });
+        frame(view.frame, snapshotDomain, JSON.stringify(snapshot));
+      }
+    }
+  }
+  linkEnvelopes(projection);
+}
+
 describe('Requirement condition graph bindings', () => {
   for (const key of ['operator-requirement-false-nested', 'operator-requirement-true-short-circuit', 'operator-requirement-unknown']) {
     it.each(['foreign-rule', 'missing-evidence-link', 'no-actual-evaluation'])('refuses rehashed false Requirement observation: ' + key + ' %s', async kind => {
       await refuses(p => {
-        const run = p.diagnostic; const record = JSON.parse(run.observation!.text);
-        if (kind === 'foreign-rule') record.evaluations[0].ruleId = 'coglatas.core.constraints';
-        else if (kind === 'missing-evidence-link') {
-          const missing = run.diagnostics.find(d => JSON.parse(d.diagnostic.text).code === 'coglatas.analysis.requirement-evidence-unavailable')!;
-          record.evaluations[0].originalRootDiagnosticLinks = 1;
-          record.evaluations[0].publishedDiagnostics = [{ diagnosticId: JSON.parse(missing.diagnostic.text).diagnosticId, digest: missing.diagnostic.digest }];
-        } else Object.assign(record, { state: 'NoActualEvaluations', startedEvaluations: 0, completedEvaluations: 0, observedNodes: 0, retainedBodyBytes: 0, evaluations: [] });
-        frame(run.observation!, 'coglatas.local-initial-root-predicate-observation/1', JSON.stringify(record)); linkEnvelopes(p);
+        corruptRequirementObservation(p, kind as RequirementCorruption);
+        expect(p.retry.observation).toEqual(p.diagnostic.observation);
+        if (kind === 'no-actual-evaluation') for (const label of ['original', 'budget'] as const)
+          for (const counter of ['startedEvaluations', 'completedEvaluations', 'observedNodes'])
+            expect(JSON.parse(p[label].observation!.text)[counter]).toBe(JSON.parse(p.diagnostic.observation!.text)[counter]);
       }, 'unsupported-operator-recording', key);
     });
   }
