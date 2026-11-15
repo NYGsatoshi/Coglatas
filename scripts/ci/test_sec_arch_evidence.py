@@ -222,6 +222,32 @@ def assert_cyclic_symlink_closed_receipt(test, capture_module):
         test.assertNotIn("private input failure", combined)
 
 
+def assert_capture_snapshot_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, source,
+        receipt_marker, summary_label):
+    """Retain both native owners' independent source, assembly and receipt controls."""
+    if os.name != "posix":
+        assert_non_posix_trusted_capture_is_closed(
+            test, capture_module, root, trx, candidate, now)
+        return
+    receipt = capture_module.capture(root, trx, candidate, now)
+    assert_unavailable_capture_is_closed(test, capture_module, root, candidate, now)
+    test.assertEqual(set(assemblies.ASSEMBLIES), set(receipt["assemblyDigests"]))
+    test.assertEqual("UNVERIFIED", receipt["contractCompletion"])
+    test.assertIsNone(receipt["ownerApproval"])
+    output = root / "artifacts/execution.json"
+    arguments = ["capture", "--trx", str(trx), "--candidate-sha", candidate, "--output", str(output)]
+    captured = io.StringIO()
+    with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
+            capture_module, "capture", return_value=receipt):
+        test.assertEqual(0, capture_module.main())
+    public_log = captured.getvalue()
+    assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, candidate, now, source)
+    assert_native_capture_identity_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, receipt, output,
+        public_log, receipt_marker, summary_label)
+
+
 class ExecutionInputTests(unittest.TestCase):
     def test_regular_input_retains_exact_original_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

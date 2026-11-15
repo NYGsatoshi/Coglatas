@@ -1,12 +1,7 @@
 """Synthetic false-green controls; these do not execute the product transport."""
 
 import copy
-from contextlib import redirect_stdout
-import io
 import json
-import os
-import sys
-from unittest.mock import patch
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -184,26 +179,9 @@ class DeepExecutionTests(unittest.TestCase):
                 for path in {assembly_path(root, name), loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
-            if os.name != "posix":
-                sec_arch_controls.assert_non_posix_trusted_capture_is_closed(
-                    self, deep, root, trx, candidate, NOW)
-                return
-            receipt = deep.capture(root, trx, candidate, NOW)
-            sec_arch_controls.assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
-            self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
-            self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
-            self.assertIsNone(receipt["ownerApproval"])
-            output = root / "artifacts/execution.json"
-            arguments = ["capture", "--trx", str(trx), "--candidate-sha", candidate, "--output", str(output)]
-            captured = io.StringIO()
-            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
-                    deep, "capture", return_value=receipt):
-                self.assertEqual(0, deep.main())
-            public_log = captured.getvalue()
-            sec_arch_controls.assert_owned_source_mutation_is_rejected(self, deep, root, trx, candidate, NOW, source)
-            sec_arch_controls.assert_native_capture_identity_and_mutations(
-                self, deep, root, trx, candidate, NOW, stamp, receipt, output,
-                public_log, "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
+            sec_arch_controls.assert_capture_snapshot_and_mutations(
+                self, deep, root, trx, candidate, NOW, stamp, source,
+                "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
 
 
 if __name__ == "__main__":
