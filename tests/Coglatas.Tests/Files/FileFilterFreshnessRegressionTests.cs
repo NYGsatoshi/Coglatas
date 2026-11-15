@@ -288,6 +288,8 @@ public sealed class FileFilterFreshnessRegressionTests
         }
         public Task<bool> IsFileFilterScopeValidAsync(FileFilterQuery q, CancellationToken ct = default) => inner.IsFileFilterScopeValidAsync(q, ct);
         public Task<bool> ReadCurrentUploadAdmissionAsync(Func<CancellationToken, Task<bool>> admission, CancellationToken ct = default) => inner.ReadCurrentUploadAdmissionAsync(admission, ct);
+        public Task<T> ReadCurrentFileFilterProjectionAsync<T>(Func<CancellationToken, Task<T>> projection, CancellationToken ct = default) => inner.ReadCurrentFileFilterProjectionAsync(projection, ct);
+        public Task<IReadOnlySet<Guid>> GetCurrentFileFilterProjectTaskIdsAsync(FileFilterQuery filter, IReadOnlyCollection<Guid> taskIds, CancellationToken ct = default) => inner.GetCurrentFileFilterProjectTaskIdsAsync(filter, taskIds, ct);
         public Task<FileObject?> GetFileObjectAsync(Guid id, CancellationToken ct = default) => inner.GetFileObjectAsync(id, ct);
         public Task<PagedResponse<Attachment>> ListWorkspaceFileObjectsAsync(Guid ws, int p, int s, CancellationToken ct = default) => inner.ListWorkspaceFileObjectsAsync(ws, p, s, ct);
         public Task AddFileObjectAsync(FileObject file, CancellationToken ct = default) => inner.AddFileObjectAsync(file, ct);
