@@ -9,8 +9,14 @@ public sealed class CoreCompilation
     public CompilerDependencyAnalysis? Dependencies { get; }
     public CompilerScopedPublication? Publication { get; }
     public int LogicalOperationsConsumed { get; }
+    public ProjectPredicatePremiseRecord? PredicatePremises { get; private init; }
     internal CoreCompilation(CompilerInputManifest input, PartialSemanticModel? model, CompilerSemanticValidation? validation, CompilerResult result, int logicalOperationsConsumed = 0, CompilerDependencyAnalysis? dependencies = null, CompilerScopedPublication? publication = null)
     { Input = input; Model = model; Validation = validation; Result = result; LogicalOperationsConsumed = logicalOperationsConsumed; Dependencies = dependencies; Publication = publication; }
+    internal CoreCompilation WithPredicatePremises(ProjectPredicatePremiseRecord record)
+    {
+        if (!record.MatchesResult(this)) throw new ArgumentException("Predicate record differs from the original compilation.", nameof(record));
+        return new(Input, Model, Validation, Result, LogicalOperationsConsumed, Dependencies, Publication) { PredicatePremises = record };
+    }
 }
 
 /// <summary>Full-reference pure compilation for the declared supported scope. It starts no run and grants no merge authority.</summary>
@@ -27,6 +33,20 @@ public static class PureCoreCompiler
         return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
     }
 
+    /// <summary>Explicit pre-run root predicate recording. The existing Compile path and host/cache protocol stay unchanged.</summary>
+    public static CoreCompilation CompileWithPredicateCapture(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
+        CompilerPredicateCapturePolicy capturePolicy, IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null,
+        IEnumerable<UnitDefinition?>? units = null, IEnumerable<CalendarSnapshot?>? calendars = null,
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
+    {
+        ArgumentNullException.ThrowIfNull(capturePolicy);
+        var collector = new CompilerPredicateCaptureCollector(capturePolicy);
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, predicateCapture: collector);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        var record = collector.Complete(completed, cancellationToken);
+        return completed.WithPredicatePremises(record);
+    }
+
     internal static CoreCompilation CompileRegion(PartialSemanticModel model, CompilerSemanticValidation validation,
         IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken) =>
         CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments);
@@ -34,7 +54,7 @@ public static class PureCoreCompiler
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
         CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null, CompilerSemanticValidation? preparedValidation = null,
-        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null)
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -79,8 +99,11 @@ public static class PureCoreCompiler
             CompilerEvidenceBasis Proof(IEnumerable<SourceJson>? premises = null)
             {
                 var actual = (premises ?? []).Distinct().OrderBy(item => item.CanonicalText, StringComparer.Ordinal).Select(item => item.Value).ToArray();
-                return new(CompilerEvidenceKind.ModelProof, actual.Length == 0 ? [input.InputDigest, input.Source.Digest]
-                    : [input.InputDigest, input.Source.Digest, ContentDigest.Compute("coglatas.predicate-premises/1", SourceJson.FromObject(actual).ToCanonicalBytes())]);
+                if (actual.Length == 0) return new(CompilerEvidenceKind.ModelProof, [input.InputDigest, input.Source.Digest]);
+                var body = SourceJson.FromObject(actual); var bytes = body.ToCanonicalBytes();
+                var digest = ContentDigest.Compute(ProjectPredicatePremiseRecord.BodyDomain, bytes);
+                predicateCapture?.Observe(digest, body, bytes.Length);
+                return new(CompilerEvidenceKind.ModelProof, [input.InputDigest, input.Source.Digest, digest]);
             }
             var schemaRule = input.Rules.Single(rule => rule.RuleId == CoreCompilerRules.Schema);
             if (CompilerExecutionPlan.Requested(input) && !CompilerScopedPublication.Requested(input))

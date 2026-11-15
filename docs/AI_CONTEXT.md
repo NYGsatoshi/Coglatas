@@ -1,5 +1,10 @@
 # AI Context
 
+[Predeclared original root predicate capture](verification/projectide-predeclared-predicate-capture.md)
+adds an explicit bounded Pure Core entry point before temporary Proof arrays
+disappear. Manifest remains the default; original result meaning and owned
+invocation records stay separate from regional capture and host/UI adoption.
+
 [Explicit root Source admission](verification/projectide-root-source-admission.md)
 allows paired diagnostic premise reads when complete regional IR is unavailable.
 Root-only lookup coverage, unrecorded predicate gaps and exact owned result/Source

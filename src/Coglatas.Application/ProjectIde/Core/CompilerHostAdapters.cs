@@ -68,6 +68,8 @@ public sealed class ServerCompilerHost(CompilerHostProfile profile, IServerCompi
         if (response is null || !Enum.IsDefined(response.Status) || !Equals(response.RequestedInputDigest, input.InputDigest) || response.ClientGeneration != request.ClientGeneration || response.AttemptId.Version != 4)
             return false;
         if (response.Compilation is not { } compilation) return response.Status is not CompilerHostStatus.Completed;
+        // This protocol has no pre-run predicate capture declaration. Refuse unsolicited records.
+        if (compilation.PredicatePremises is not null) return false;
         var execution = response.Execution!;
         if (!execution.InputBindingDigest.Equals(request.ExecutionInputDigest) || !execution.Materializations.Equals(request.Materializations) ||
             !execution.Digest.Equals(ContentDigest.Compute("coglatas.host-execution/1", execution.Data.ToCanonicalBytes()))) return false;
