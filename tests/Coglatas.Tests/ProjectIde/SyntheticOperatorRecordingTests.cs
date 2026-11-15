@@ -17,7 +17,7 @@ public sealed class SyntheticOperatorRecordingTests
             Path.Combine(directory.FullName, "frontend/public/assets/projectide/operator-recordings-v1.json");
     }
     public static IEnumerable<object[]> Keys() => new[] { "fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit",
-        "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass" }.Select(key => new object[] { key });
+        "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown" }.Select(key => new object[] { key });
     internal static (CoreCompilation Control, PredicateObservationCompilerHostRequest Request, CompilerHostProfile Profile) Input(string key = "fail",
         long generation = 7, CompilerPredicateObservationPolicy? policy = null)
     {
@@ -88,7 +88,15 @@ public sealed class SyntheticOperatorRecordingTests
             foreach (var body in snapshot.Bodies) Assert.Same(direct.Bodies[body.Key], body.Value);
             foreach (var frame in snapshot.EvaluationFrames) Assert.Same(direct.EvaluationFrames[frame.Key], frame.Value);
             Assert.Equal(key switch { "fail" or "unknown" => 1, "operator-and-short-circuit" => 2, "operator-nested-duplicates" => 6,
-                "operator-or-unknown" => 3, _ => 0 }, snapshot.Bodies.Count);
+                "operator-or-unknown" => 3, "operator-requirement-false-nested" when diagnostic.Code == "coglatas.analysis.requirement-condition-false" => 6,
+                _ => 0 }, snapshot.Bodies.Count);
+            if (key.StartsWith("operator-requirement-", StringComparison.Ordinal))
+            {
+                Assert.False(result.EvidenceComplete);
+                Assert.Equal(diagnostic.Code == "coglatas.analysis.requirement-condition-false" ? 1 : 0, snapshot.EvaluationFrames.Count);
+                if (diagnostic.Code == "coglatas.analysis.requirement-evidence-unavailable")
+                    Assert.Equal(CompilerPredicateObservationSnapshotState.NoObservedPublishedDiagnostic, snapshot.State);
+            }
             Assert.True(Read(vm, actual, 1)); Assert.Empty(vm.RecordedOperators!.Bodies); Assert.Empty(vm.RecordedOperators.EvaluationFrames);
             Assert.Equal(snapshot.OriginalCaptureState, vm.RecordedOperators.OriginalCaptureState);
             if (snapshot.Bodies.Count != 0) Assert.Equal(CompilerPredicateObservationSnapshotState.BodyBudgetExceeded, vm.RecordedOperators.State);

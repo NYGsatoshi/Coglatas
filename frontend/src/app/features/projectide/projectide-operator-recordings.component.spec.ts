@@ -196,6 +196,38 @@ describe('Original operator traversal in the actual Inspector', () => {
   it('loads the actual operator example through its separate existing offline adapter', async () => {
     const { c, adapter } = await render(); await c.reload('operator-recordings');
     expect(adapter.read.mock.calls.at(-1)?.[0]).toContain('/assets/projectide/operator-recordings-v1.json');
-    expect(c.store.bundle()!.cases).toHaveLength(8);
+    expect(c.store.bundle()!.cases).toHaveLength(11);
   });
+});
+
+describe('Requirement condition and missing evidence remain separate', () => {
+  for (const [key, visited] of [['operator-requirement-false-nested', 6], ['operator-requirement-true-short-circuit', 2], ['operator-requirement-unknown', 3]] as const) {
+    it.each(['en', 'ja'] as const)('keeps actual condition traversal separate from evidence completion: ' + key + ' %s', async locale => {
+      const { c, fixture, root } = await readyOperator(key); c.i18n.setLocale(locale);
+      const result = c.store.result()!; expect(result.result.evidenceComplete).toBe(false);
+      await c.loadOperatorRecording(); fixture.detectChanges();
+      expect(root.querySelector('[data-testid="ide-operator-visited"]')!.textContent).toBe(String(visited));
+      expect(c.store.operatorRecording()!.retainedBodyBytes).toBe(0);
+      await c.loadOperatorRecording('diagnostic');
+      for (const diagnostic of result.result.diagnostics) {
+        c.inspectDiagnostic(diagnostic); await c.loadRecordedOperators(); fixture.detectChanges();
+        expect(root.querySelectorAll('[data-testid="ide-operator-node"]')).toHaveLength(0);
+        await c.loadRecordedOperators('available'); fixture.detectChanges();
+        const snapshot = c.store.recordedOperators()!;
+        const condition = diagnostic.code === 'coglatas.analysis.requirement-condition-false';
+        expect(snapshot.evaluations).toHaveLength(condition ? 1 : 0);
+        expect(root.querySelectorAll('[data-testid="ide-operator-node"]')).toHaveLength(condition ? 6 : 0);
+        if (condition) {
+          expect(snapshot.evaluations[0].ruleId).toBe('coglatas.core.requirements');
+          const elements = root.querySelectorAll('[data-testid="ide-operator-node"]');
+          elements.forEach((element, index) => expect(element.querySelector('pre')!.textContent).toBe(snapshot.evaluations[0].nodes[index].original.text));
+        } else {
+          expect(diagnostic.code).toBe('coglatas.analysis.requirement-evidence-unavailable');
+          expect(snapshot.state).toBe('NoObservedPublishedDiagnostic');
+          expect(root.querySelector('[data-testid="ide-recorded-operators"]')!.textContent).toContain(c.t('ide.operatorNoObserved'));
+        }
+        expect(c.store.result()).toBe(result); expect(c.completePass()).toBe(false);
+      }
+    });
+  }
 });

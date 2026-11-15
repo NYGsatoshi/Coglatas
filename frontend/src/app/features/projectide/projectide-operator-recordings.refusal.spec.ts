@@ -35,8 +35,8 @@ function linkEnvelopes(projection: OperatorRecordingProjection): void {
     frame(run.receipt, receiptDomain, JSON.stringify(receipt));
   }
 }
-async function refuses(change: (projection: OperatorRecordingProjection) => void, expectedError = 'unsupported-operator-recording'): Promise<void> {
-  const value = readPreviewBundle(structuredClone(original)).cases.find(v => v.key === 'operator-nested-duplicates')!;
+async function refuses(change: (projection: OperatorRecordingProjection) => void, expectedError = 'unsupported-operator-recording', key = 'operator-nested-duplicates'): Promise<void> {
+  const value = readPreviewBundle(structuredClone(original)).cases.find(v => v.key === key)!;
   change(value.operatorRecordings!);
   // Admission is created after corruption; a preexisting Source fingerprint cannot mask the deep reader check.
   const source = await readRootSource(value); expect(source).not.toBeNull();
@@ -112,4 +112,21 @@ describe('Operator recording semantic refusals before any member admission', () 
   it('rejects an extra recording member rather than silently ignoring it', async () => {
     await refuses(p => Object.assign(p, { undeclaredRun: structuredClone(p.original) }));
   });
+});
+
+describe('Requirement condition graph bindings', () => {
+  for (const key of ['operator-requirement-false-nested', 'operator-requirement-true-short-circuit', 'operator-requirement-unknown']) {
+    it.each(['foreign-rule', 'missing-evidence-link', 'no-actual-evaluation'])('refuses rehashed false Requirement observation: ' + key + ' %s', async kind => {
+      await refuses(p => {
+        const run = p.diagnostic; const record = JSON.parse(run.observation!.text);
+        if (kind === 'foreign-rule') record.evaluations[0].ruleId = 'coglatas.core.constraints';
+        else if (kind === 'missing-evidence-link') {
+          const missing = run.diagnostics.find(d => JSON.parse(d.diagnostic.text).code === 'coglatas.analysis.requirement-evidence-unavailable')!;
+          record.evaluations[0].originalRootDiagnosticLinks = 1;
+          record.evaluations[0].publishedDiagnostics = [{ diagnosticId: JSON.parse(missing.diagnostic.text).diagnosticId, digest: missing.diagnostic.digest }];
+        } else Object.assign(record, { state: 'NoActualEvaluations', startedEvaluations: 0, completedEvaluations: 0, observedNodes: 0, retainedBodyBytes: 0, evaluations: [] });
+        frame(run.observation!, 'coglatas.local-initial-root-predicate-observation/1', JSON.stringify(record)); linkEnvelopes(p);
+      }, 'unsupported-operator-recording', key);
+    });
+  }
 });
