@@ -108,8 +108,10 @@ parity is claimed. Final static analysis and current-head hosted/review gates
 are recorded in the PR before integration. No frontend, host transport or
 generated asset is changed in this slice.
 
-Compiler-owned selected diagnostic/run binding and paired Angular/Windows
-adoption of these new operator observations remain future #1034 work. Existing
+The separate [initial-root Compiler connection](projectide-initial-root-predicate-observation.md)
+now binds actual published diagnostic instances to their actual root evaluation.
+Regional/host-run binding and paired Angular/Windows adoption of these operator
+observations remain #1034 work. Existing
 paired Inspector behavior continues to expose only its actually recorded legacy
 arrays and explicitly marks unrecorded operator relationships. Actual Avalonia
 acceptance is separate. Full #1034 stays OPEN.
