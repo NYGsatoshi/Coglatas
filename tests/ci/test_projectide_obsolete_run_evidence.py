@@ -53,6 +53,7 @@ def fixture() -> dict:
         "obsolete_again": deepcopy(older),
         "successor_again": deepcopy(successor),
         "old_commit_prs": [{"number": PR, "head": {"sha": NEW}}],
+        "new_commit_prs": [{"number": PR, "head": {"sha": NEW}}],
         "obsolete_jobs": {"total_count": 2, "jobs": [
             {"name": "ReSharper PR fast lane / ReSharper InspectCode / PR",
              "status": "completed", "conclusion": "failure"},
@@ -136,12 +137,16 @@ class ObsoleteRunReadOnlyEvidenceTests(unittest.TestCase):
                 data["obsolete"][field] = value
                 self.assertEqual("RUN_ATTEMPT_OR_ID_MISMATCH", decide(data).code)
 
-    def test_missing_commit_pr_association_is_refused_even_if_run_branch_matches(self):
-        for associations in ([], [{"number": 99}], [{}]):
-            with self.subTest(associations=associations):
-                data = fixture()
-                data["old_commit_prs"] = associations
-                self.assertFalse(decide(data).observed)
+    def test_missing_or_ambiguous_old_and_new_commit_associations_refuse(self):
+        cases = ([], [{"number": 99}], [{}],
+                 [{"number": PR, "head": {"sha": NEW}}, {"number": 99, "head": {"sha": NEW}}],
+                 [{"number": PR, "head": {"sha": OLD}}])
+        for key in ("old_commit_prs", "new_commit_prs"):
+            for associations in cases:
+                with self.subTest(key=key, associations=associations):
+                    data = fixture()
+                    data[key] = associations
+                    self.assertFalse(decide(data).observed)
 
     def test_run_pr_association_to_another_pr_is_refused(self):
         data = fixture()
@@ -222,15 +227,15 @@ class ObsoleteRunReadOnlyEvidenceTests(unittest.TestCase):
         observed = []
         responses = [
             value["pr_before"], value["obsolete"], value["successor"],
-            value["old_commit_prs"], value["obsolete_jobs"], value["successor_jobs"],
+            value["old_commit_prs"], value["new_commit_prs"], value["obsolete_jobs"], value["successor_jobs"],
             value["pr_after"], value["obsolete_again"], value["successor_again"],
         ]
         def fake_get(path):
             observed.append(path)
             return responses[len(observed) - 1]
         with patch("scripts.ci.projectide_obsolete_run_evidence.github_get", side_effect=fake_get):
-            result = live_snapshot(REPO, PR, OLD_ID, NEW_ID, OLD)
-        self.assertEqual(9, len(observed))
+            result = live_snapshot(REPO, PR, OLD_ID, NEW_ID, OLD, NEW)
+        self.assertEqual(10, len(observed))
         self.assertTrue(all(path.startswith(f"/repos/{REPO}/") for path in observed))
         self.assertTrue(all("cancel" not in path and "dispatch" not in path
                             for path in observed))

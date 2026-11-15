@@ -24,8 +24,8 @@ jobs:
     timeout-minutes: 10
     env:
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      POLICY_BLOB: 75dab7dff15ab5986da8632e16b24abbfa62a0fe
-      TEST_BLOB: aa48c14a15cb96dd1c4b832780d01a2ab7a01296
+      POLICY_BLOB: 54baa46ae383be9c3ed99eca89fed540ca3fc3b8
+      TEST_BLOB: ff1906e5855ac4fdf83e5091c53e105ec7a5525a
     steps:
       - name: Checkout exact independent Security source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

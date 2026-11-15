@@ -131,11 +131,14 @@ def evaluate(snapshot: dict[str, Any], *, repository: str, pr_number: int,
             refs = sequence(run["pull_requests"])
             need(all(record(item).get("number") == pr_number for item in refs),
                  "RUN_PR_LINK_MISMATCH")
-        associated = sequence(evidence["old_commit_prs"])
-        need(0 < len(associated) < MAX_RESULTS
-             and len([item for item in associated
-                      if record(item).get("number") == pr_number]) == 1,
-             "OLD_COMMIT_NOT_ASSOCIATED_WITH_PR")
+        # When GitHub omits run.pull_requests, an association with multiple
+        # PRs is ambiguous: refuse rather than guessing from the shared branch.
+        for key in ("old_commit_prs", "new_commit_prs"):
+            associated = sequence(evidence[key])
+            need(len(associated) == 1
+                 and record(associated[0]).get("number") == pr_number
+                 and record(record(associated[0])["head"]).get("sha") == current_head,
+                 "COMMIT_PR_ASSOCIATION_AMBIGUOUS")
 
         need(old.get("status") == "in_progress" and old.get("conclusion") is None,
              "OBSOLETE_RUN_NOT_ACTIVE")
@@ -185,7 +188,7 @@ def github_get(path: str) -> Any:
 
 
 def live_snapshot(repository: str, pr_number: int, old_run: int,
-                  new_run: int, old_head: str) -> dict[str, Any]:
+                  new_run: int, old_head: str, current_head: str) -> dict[str, Any]:
     """Bounded read snapshots; the returned record is never a cancel token."""
     prefix = f"/repos/{repository}"
     return {
@@ -193,6 +196,7 @@ def live_snapshot(repository: str, pr_number: int, old_run: int,
         "obsolete": github_get(f"{prefix}/actions/runs/{old_run}"),
         "successor": github_get(f"{prefix}/actions/runs/{new_run}"),
         "old_commit_prs": github_get(f"{prefix}/commits/{old_head}/pulls?per_page=100"),
+        "new_commit_prs": github_get(f"{prefix}/commits/{current_head}/pulls?per_page=100"),
         "obsolete_jobs": github_get(f"{prefix}/actions/runs/{old_run}/jobs?per_page=100"),
         "successor_jobs": github_get(f"{prefix}/actions/runs/{new_run}/jobs?per_page=100"),
         "pr_after": github_get(f"{prefix}/pulls/{pr_number}"),
@@ -219,7 +223,7 @@ def main() -> int:
     else:
         try:
             snapshot = live_snapshot(args.repository, args.pr, args.obsolete_run,
-                                     args.successor_run, args.obsolete_head)
+                                     args.successor_run, args.obsolete_head, args.current_head)
             decision = evaluate(snapshot, repository=args.repository, pr_number=args.pr,
                                 old_run_id=args.obsolete_run, new_run_id=args.successor_run,
                                 old_head=args.obsolete_head, current_head=args.current_head,

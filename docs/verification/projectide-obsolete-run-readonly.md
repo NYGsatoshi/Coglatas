@@ -23,9 +23,12 @@ declared a passing PR CI. The current PR #1972 has subsequently merged.
 The GitHub Actions REST response for those runs has
 `pull_requests: []`. A safe observer must not assume this array is
 nonempty, nor infer the originating PR merely from a matching branch
-name. The script requires GitHub's independent immutable
-`commits/{obsoleteSha}/pulls` association, source/repository/branch
-pins, explicit run IDs and attempts, then re-reads both runs and the PR.
+name. The script requires **both** immutable GitHub
+`commits/{obsoleteSha}/pulls` and `commits/{currentSha}/pulls`
+associations to be unique and point to the same current PR and HEAD;
+multiple PR associations are ambiguous and fail closed. It also requires
+source/repository/branch pins, explicit run IDs and attempts, then re-reads
+both runs and the PR.
 
 ## Intended checks
 
