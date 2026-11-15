@@ -47,6 +47,19 @@ public static class PureCoreCompiler
         return completed.WithPredicatePremises(record);
     }
 
+    /// <summary>Predeclare actual initial-root operator observation; existing Compile and host protocols stay unchanged.</summary>
+    public static RecordedPredicateCompilation CompileWithPredicateObservation(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
+        CompilerPredicateObservationPolicy observationPolicy, IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null,
+        IEnumerable<UnitDefinition?>? units = null, IEnumerable<CalendarSnapshot?>? calendars = null,
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null)
+    {
+        ArgumentNullException.ThrowIfNull(observationPolicy);
+        var collector = new CompilerPredicateObservationCollector(observationPolicy);
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, predicateObservation: collector);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        return collector.Complete(completed, cancellationToken);
+    }
+
     internal static CoreCompilation CompileRegion(PartialSemanticModel model, CompilerSemanticValidation validation,
         IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken) =>
         CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments);
@@ -54,7 +67,7 @@ public static class PureCoreCompiler
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
         CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null, CompilerSemanticValidation? preparedValidation = null,
-        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null)
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null, CompilerPredicateObservationCollector? predicateObservation = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -87,7 +100,7 @@ public static class PureCoreCompiler
             var semanticExhausted = validation.Findings.Any(item => item.Diagnostic.StageOrdinal == 2 && item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             var exhausted = validation.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal));
             void Finding(CompilerRuleContract rule, string code, RelationFindingState state, ProjectLocation location,
-                CompilerEvidenceBasis? basis = null, bool affectsRequiredTruth = true, string discriminator = "")
+                CompilerEvidenceBasis? basis = null, bool affectsRequiredTruth = true, string discriminator = "", PredicateEvaluation? observedEvaluation = null)
             {
                 var facts = ruleFacts[rule.RuleId];
                 if (affectsRequiredTruth) { if (state == RelationFindingState.Invalid) facts.Failed = true; else facts.Incomplete = true; }
@@ -95,6 +108,7 @@ public static class PureCoreCompiler
                 var diagnostic = new CompilerDiagnostic(input, rule.RuleId, rule.Version, 3, code, location, basis,
                     affectsRequiredTruth ? CompilerDiagnosticSeverity.Error : CompilerDiagnosticSeverity.Warning, discriminator);
                 if (ids.Add(diagnostic.DiagnosticId.Value)) diagnostics.Add(diagnostic);
+                if (observedEvaluation is not null) predicateObservation?.Link(observedEvaluation, diagnostics.Single(item => item.DiagnosticId == diagnostic.DiagnosticId));
             }
             CompilerEvidenceBasis Proof(IEnumerable<SourceJson>? premises = null)
             {
@@ -146,12 +160,12 @@ public static class PureCoreCompiler
                             continue;
                         }
                         if (!SpendPredicate(constraint.Predicate)) { ruleFacts[rule.RuleId].Execution = CompilerExecutionState.ResourceExhausted; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location); continue; }
-                        var evaluation = constraint.Predicate.Evaluate();
+                        var evaluation = predicateObservation is null ? constraint.Predicate.Evaluate() : predicateObservation.Evaluate(constraint.Predicate, rule, location, cancellationToken);
                         ruleFacts[rule.RuleId].Premises.AddRange(evaluation.EvaluatedPremises);
                         if (evaluation.Truth == PredicateTruth.False)
-                            Finding(rule, "coglatas.analysis.constraint-false", RelationFindingState.Invalid, location, Proof(evaluation.EvaluatedPremises), constraint.IsRequired);
+                            Finding(rule, "coglatas.analysis.constraint-false", RelationFindingState.Invalid, location, Proof(evaluation.EvaluatedPremises), constraint.IsRequired, observedEvaluation: evaluation);
                         else if (evaluation.Truth == PredicateTruth.Unknown)
-                            Finding(rule, "coglatas.analysis.constraint-unknown", RelationFindingState.Unknown, location, affectsRequiredTruth: constraint.IsRequired);
+                            Finding(rule, "coglatas.analysis.constraint-unknown", RelationFindingState.Unknown, location, affectsRequiredTruth: constraint.IsRequired, observedEvaluation: evaluation);
                     }
                 }
                 if (rule.RuleId == CoreCompilerRules.Requirements)
@@ -160,9 +174,9 @@ public static class PureCoreCompiler
                         var location = ProjectLocation.Create(requirement.DocumentId, input.Source.Context, entityId: requirement.EntityId);
                         if (SpendPredicate(requirement.Condition))
                         {
-                            var evaluation = requirement.Condition.Evaluate();
+                            var evaluation = predicateObservation is null ? requirement.Condition.Evaluate() : predicateObservation.Evaluate(requirement.Condition, rule, location, cancellationToken);
                             ruleFacts[rule.RuleId].Premises.AddRange(evaluation.EvaluatedPremises);
-                            if (evaluation.Truth == PredicateTruth.False) Finding(rule, "coglatas.analysis.requirement-condition-false", RelationFindingState.Invalid, location, Proof(evaluation.EvaluatedPremises));
+                            if (evaluation.Truth == PredicateTruth.False) Finding(rule, "coglatas.analysis.requirement-condition-false", RelationFindingState.Invalid, location, Proof(evaluation.EvaluatedPremises), observedEvaluation: evaluation);
                         }
                         else { ruleFacts[rule.RuleId].Execution = CompilerExecutionState.ResourceExhausted; Finding(rule, "coglatas.analysis.budget-exhausted", RelationFindingState.Unknown, location); }
                         Finding(rule, "coglatas.analysis.requirement-evidence-unavailable", RelationFindingState.Unknown, location);
