@@ -1,9 +1,14 @@
 # AI Context
 
+[Policy-bound local predicate host recording](verification/projectide-predicate-host-recording.md)
+binds explicit pre-run capture to actual local run/session/attempt receipts and
+owned original frames. Old host/output-recording protocols remain separate;
+paired client admission and runtime disclosure/retention stay gated.
+
 [Predeclared original root predicate capture](verification/projectide-predeclared-predicate-capture.md)
 adds an explicit bounded Pure Core entry point before temporary Proof arrays
 disappear. Manifest remains the default; original result meaning and owned
-invocation records stay separate from regional capture and host/UI adoption.
+invocation records stay separate from regional capture and implicit host/UI adoption.
 
 [Explicit root Source admission](verification/projectide-root-source-admission.md)
 allows paired diagnostic premise reads when complete regional IR is unavailable.
