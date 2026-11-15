@@ -214,6 +214,26 @@ class ExecutionInputTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 evidence.trusted_execution_trx(root, canonical)
 
+    def test_unrelated_cli_path_is_rejected_before_filesystem_resolution(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = Path(directory).resolve()
+            trusted = root / evidence.TRUSTED_TRX_RELATIVE
+            trusted.parent.mkdir(parents=True)
+            trusted.write_bytes(b"canonical fixture")
+            unrelated = Path(outside) / "external.trx"
+            unrelated.write_bytes(b"external fixture")
+            original_resolve = Path.resolve
+
+            def protected_resolve(path, *args, **kwargs):
+                if path == unrelated:
+                    raise AssertionError("An untrusted CLI path was resolved before lexical admission.")
+                return original_resolve(path, *args, **kwargs)
+
+            with patch.object(Path, "resolve", protected_resolve):
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    evidence.trusted_execution_trx(root, unrelated)
+            self.assertEqual(trusted, evidence.trusted_execution_trx(root, trusted))
+
     def test_cyclic_symlink_resolution_is_a_sanitized_input_error(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
