@@ -16,12 +16,7 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec_arch_evidence import (assert_owned_source_mutation_is_rejected,
-                                    assert_native_capture_identity_and_mutations,
-                                    assert_closed_cli_error_receipt,
-                                    assert_canonical_failure_summary,
-                                    assert_cyclic_symlink_closed_receipt,
-                                    assert_unavailable_capture_is_closed)
+import test_sec_arch_evidence as sec_arch_controls
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -152,13 +147,13 @@ class DeepExecutionTests(unittest.TestCase):
             verify(root)
 
     def test_capture_error_writes_closed_failure_without_exception_or_raw_trx(self):
-        assert_closed_cli_error_receipt(self, deep, "SEC17_CLOSED_EXECUTION_JSON_BEGIN", "SEC17_CLOSED_EXECUTION_JSON_END")
+        sec_arch_controls.assert_closed_cli_error_receipt(self, deep, "SEC17_CLOSED_EXECUTION_JSON_BEGIN", "SEC17_CLOSED_EXECUTION_JSON_END")
 
     def test_failure_summary_accepts_only_canonical_producer_trx(self):
-        assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
+        sec_arch_controls.assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
 
     def test_cyclic_symlink_is_a_closed_failure_receipt(self):
-        assert_cyclic_symlink_closed_receipt(self, deep)
+        sec_arch_controls.assert_cyclic_symlink_closed_receipt(self, deep)
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -188,7 +183,7 @@ class DeepExecutionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
             receipt = deep.capture(root, trx, candidate, NOW)
-            assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
+            sec_arch_controls.assert_unavailable_capture_is_closed(self, deep, root, candidate, NOW)
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])
@@ -199,8 +194,8 @@ class DeepExecutionTests(unittest.TestCase):
                     deep, "capture", return_value=receipt):
                 self.assertEqual(0, deep.main())
             published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
-            assert_owned_source_mutation_is_rejected(self, deep, root, trx, candidate, NOW, source)
-            assert_native_capture_identity_and_mutations(
+            sec_arch_controls.assert_owned_source_mutation_is_rejected(self, deep, root, trx, candidate, NOW, source)
+            sec_arch_controls.assert_native_capture_identity_and_mutations(
                 self, deep, root, trx, candidate, NOW, stamp, receipt, output, published)
 
 
