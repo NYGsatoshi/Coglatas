@@ -1,3 +1,4 @@
+import { DIAGNOSTIC_BASIS_PAGE_SIZE } from './projectide-diagnostic-basis';
 import { CompilerRecordingLabel } from './projectide-compiler-recordings.reader';
 import { CompilerOutputMode } from './projectide-compiler-outputs.reader';
 import { RecordedDebugFrame } from './projectide-recorded-debug.reader';
@@ -70,6 +71,8 @@ export class ProjectIdeWorkbenchComponent {
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
   readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests' | 'scenario'>('overview');
+  readonly basisPage = signal(0);
+  readonly basisPageSize = DIAGNOSTIC_BASIS_PAGE_SIZE;
   readonly testPage = signal(0);
   readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
@@ -136,6 +139,7 @@ export class ProjectIdeWorkbenchComponent {
     parameters: Record<string, string | number> = {},
   ) => this.i18n.translate(key as TranslationKey, parameters);
   constructor() {
+    effect(() => { this.store.selection(); this.store.context(); this.store.result(); this.basisPage.set(0); });
     effect(() => { this.store.localTests(); this.testPage.set(0); });
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => {
