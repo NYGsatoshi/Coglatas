@@ -1,18 +1,25 @@
 # AI Context
 
+[Owned local operator observation host](verification/projectide-owned-operator-observation-host.md)
+binds the actual initial-root operator record to predeclared requests, owned
+Manifest/response/receipt pairs and explicit bounded diagnostic origins.
+Existing host protocols and paired Inspector arrays remain unchanged; paired
+operator adoption, actual Avalonia and runtime authority/retention remain gated.
+
 [Actual initial-root Compiler predicate observation](verification/projectide-initial-root-predicate-observation.md)
 connects explicit pre-run capture to actual initial-root evaluations and exact
 published diagnostic instances, preserving original result/operation/host
 contracts. Missing regional observations, capture gaps and viewer limits stay
-separate. Host-run binding, paired client adoption, actual Avalonia and current
-runtime authority/retention remain gated.
+separate. Owned local host binding is documented above; paired client adoption, actual
+Avalonia and current runtime authority/retention remain gated.
 
 [Actual shared predicate evaluation observation](verification/projectide-shared-predicate-observation.md)
 adds explicit bounded traversal-time Boolean operator recording and owned
 metadata/body reads while preserving the legacy evaluation contract. This
 standalone primitive allocates no Compiler run or intended host selection;
-Initial-root Compiler binding is documented above; regional/host-run binding
-and paired client adoption of its operator frames remain #1034 work. Runtime access/retention and actual Avalonia remain gated.
+Initial-root Compiler and owned local host binding are documented above;
+regional evaluation and paired operator client adoption remain #1034 work.
+Runtime access/retention and actual Avalonia remain gated.
 
 [Paired recorded predicate Inspector](verification/projectide-paired-predicate-recordings.md)
 binds actual intended local run identity before Windows admission and verifies

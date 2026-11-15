@@ -131,7 +131,9 @@ browser counts are borrowed as current-source executions.
 
 ## Remaining acceptance and ownership
 
-No host transport/session/intended-run selection, Angular or Windows client
+The [separate owned local host](projectide-owned-operator-observation-host.md)
+adds predeclared local session/attempt/receipt binding without changing this
+Domain contract. No remote transport, Angular or Windows operator client
 adoption, actual Avalonia acceptance, runtime endpoint, current authorization
 decision, durable storage/Pin/export/redaction/deletion or retention adoption
 is added. Public mid-evaluation cancellation timing is not claimed by the
