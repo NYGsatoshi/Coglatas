@@ -175,12 +175,21 @@ def parse_evidence(path: Path, expected_role: str, allowed_operations: set[str])
                 fail(f"unknown execution evidence event {kind!r}")
             operation = event.get("operation")
             method = event.get("method")
-            if (not isinstance(operation, str) or operation not in allowed_operations
-                    or not isinstance(method, str) or method != operation.split(" ", 1)[0]):
+            if not isinstance(operation, str) or operation not in allowed_operations:
                 fail("scanner evidence operation is not bound to authoritative OpenAPI")
-            operations.add(operation)
+            if not isinstance(method, str) or re.fullmatch(r"[A-Za-z]{2,20}", method) is None:
+                fail("scanner evidence HTTP method is invalid")
+            # SEC-04's Schemathesis coverage phase intentionally exercises
+            # unsupported HTTP methods against a *declared* operation. Its
+            # case.method can therefore differ from case.operation.label.
+            # Keep the request/response in the evidence count, but never
+            # credit the off-method probe as declared operation coverage.
+            if method.upper() == operation.split(" ", 1)[0]:
+                operations.add(operation)
     if responses == 0:
         fail(f"scanner sent no successful HTTP request for role {expected_role}")
+    if not operations:
+        fail("scanner exercised no declared OpenAPI operation")
     if network_errors:
         fail(f"scanner observed {network_errors} network errors for role {expected_role}")
     return responses, network_errors, sorted(operations)
