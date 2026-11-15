@@ -57,7 +57,10 @@ class SecurityOperationEvidenceTests(unittest.TestCase):
             parse(self.file, ROLE, self.allowed)
 
     def test_network_error_is_not_credited_as_scan_success(self):
-        self.record(event="network_error")
+        self.record()
+        with self.file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"event": "network_error", "method": "GET",
+                                     "operation": "GET /api/auth/me", "role": ROLE}) + "\n")
         with self.assertRaisesRegex(SystemExit, "network errors"):
             parse(self.file, ROLE, self.allowed)
 
