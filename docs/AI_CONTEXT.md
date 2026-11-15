@@ -1,5 +1,11 @@
 # AI Context
 
+[Captured diagnostic premise bodies](verification/projectide-diagnostic-premises.md)
+extend the paired Inspector with exact retained input/binding/analysis bytes,
+explicit default Manifest, atomic byte-budget gaps and current selected ownership.
+Unavailable references and unrecorded logical/causal structure remain visible;
+runtime disclosure and storage/Pin/deletion stay P0 #1966/#1932.
+
 [Recorded diagnostic basis](verification/projectide-diagnostic-basis.md) pairs a bounded
 Angular Inspector with the Windows pure ViewModel over exact selected Compiler
 evidence. Flat digest references do not reconstruct AND/OR or causal relationships;

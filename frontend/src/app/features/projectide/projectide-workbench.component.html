@@ -23,6 +23,7 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
+      <button type="button" (click)="reload('diagnostic-premises')">{{ t('ide.premisesExample') }}</button>
       <button type="button" (click)="reload('compiler-recordings')">{{ t('ide.recordingExample') }}</button>
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
       <button type="button" (click)="reload('simulation-profile')">{{ t('ide.profileExample') }}</button>
@@ -470,6 +471,35 @@
                   <p>{{ t('ide.basisRange', { start: basis.total ? basis.offset + 1 : 0, end: basis.offset + basis.premises.length, count: basis.total }) }}</p>
                   <button type="button" [disabled]="basis.offset === 0" (click)="basisPage.set(basisPage() - 1)">{{ t('ide.basisPrevious') }}</button>
                   <button type="button" [disabled]="!basis.hasNext" (click)="basisPage.set(basisPage() + 1)">{{ t('ide.basisNext') }}</button>
+                </section>
+              }
+              @if (store.diagnostic() && store.context()?.diagnosticPremises) {
+                @if (store.scopedReadState() !== 'ready') {
+                  <p>{{ t('ide.premisesRequireSources') }}</p>
+                  <button type="button" (click)="open('source', true)">{{ t('ide.premisesOpenSource') }}</button>
+                } @else {
+                  <button type="button" (click)="loadDiagnosticPremises()" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                  <button type="button" (click)="loadDiagnosticPremises('available')" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadBodies') }}</button>
+                  <button type="button" (click)="loadDiagnosticPremises('budget')" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadLimited') }}</button>
+                }
+                @if (store.diagnosticPremiseReadState() === 'loading') { <p role="status">{{ t('ide.premisesLoading') }}</p> }
+                @if (store.diagnosticPremiseReadState() === 'unavailable') { <p role="alert">{{ t('ide.premisesUnavailable') }}</p> }
+              }
+              @if (store.diagnosticPremises(); as premises) {
+                <section #diagnosticPremisesPanel tabindex="-1" data-testid="ide-diagnostic-premises" aria-labelledby="diagnostic-premises-title">
+                  <h3 id="diagnostic-premises-title">{{ t('ide.premisesTitle') }}</h3>
+                  <p>{{ t('ide.premisesNotice') }}</p>
+                  <p data-testid="ide-diagnostic-premises-state">{{ premiseSnapshotState(premises.state) }}</p>
+                  <p>{{ t('ide.premisesBytes', { bytes: premises.retainedBodyBytes, budget: premises.maximumBodyBytes }) }}</p>
+                  <p>{{ t('ide.premisesNoticeCoverage') }}</p>
+                  @for (row of premiseRows(); track row.reference.digest.value) {
+                    <article data-testid="ide-diagnostic-premise-reference">
+                      <p>{{ premiseBodyKind(row.reference.kind) }} · <code>{{ row.reference.digest.value }}</code></p>
+                      @if (row.body; as body) {
+                        <details data-testid="ide-diagnostic-premise-body"><summary>{{ premiseBodyKind(body.kind) }} · {{ body.digest.value }}</summary><pre tabindex="0">{{ body.text }}</pre></details>
+                      } @else if (row.reference.resolution !== 'ResolvedRetainedObject') { <p>{{ t('ide.premisesUnresolved') }}</p> }
+                    </article>
+                  }
                 </section>
               }
               @if (store.inspectedRecord(); as record) {

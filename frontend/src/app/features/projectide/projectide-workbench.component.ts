@@ -1,3 +1,4 @@
+import { DiagnosticPremiseChoice } from './projectide-diagnostic-premises.reader';
 import { DIAGNOSTIC_BASIS_PAGE_SIZE } from './projectide-diagnostic-basis';
 import { CompilerRecordingLabel } from './projectide-compiler-recordings.reader';
 import { CompilerOutputMode } from './projectide-compiler-outputs.reader';
@@ -166,7 +167,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -178,10 +179,34 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
+  }
+  private readonly diagnosticPremisesElement = viewChild<ElementRef<HTMLElement>>('diagnosticPremisesPanel');
+  async loadDiagnosticPremises(choice: DiagnosticPremiseChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadDiagnosticPremises(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.diagnosticPremises();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.diagnosticPremises()) this.diagnosticPremisesElement()?.nativeElement.focus();
+    });
+  }
+  readonly premiseRows = () => {
+    const snapshot = this.store.diagnosticPremises();
+    return snapshot?.references.slice(this.basisPage() * this.basisPageSize, (this.basisPage() + 1) * this.basisPageSize)
+      .map(reference => ({ reference, body: snapshot.bodies.find(body => body.digest.value === reference.digest.value) })) ?? [];
+  };
+  premiseBodyKind(kind: string | null): string {
+    return this.t(kind === 'RootInput' ? 'ide.premisesRoot' : kind === 'BindingRegion' ? 'ide.premisesBinding' : kind === 'AnalysisRegion' ? 'ide.premisesAnalysis' : 'ide.premisesUnresolved');
+  }
+  premiseSnapshotState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',
+      NoKnownBodies: 'ide.premisesNoKnown', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', LookupLimitReached: 'ide.premisesLookupLimit' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.premisesUnavailable');
   }
   private readonly compilerRecordingElement = viewChild<ElementRef<HTMLElement>>('compilerRecordingPanel');
   async loadCompilerRecording(label: CompilerRecordingLabel = 'original'): Promise<void> {
