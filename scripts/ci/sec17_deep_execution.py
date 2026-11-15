@@ -103,9 +103,9 @@ def main() -> int:
     serialized = json.dumps(report, indent=2) + "\n"
     with args.output.open("x", encoding="utf-8") as output:
         output.write(serialized)
-    print("SEC17_CLOSED_EXECUTION_JSON_BEGIN")
-    print(serialized, end="")
-    print("SEC17_CLOSED_EXECUTION_JSON_END")
+    # The full, validated receipt stays in the exclusive output artifact only.
+    # Never echo source-bound evidence or arbitrary CLI-derived fields into logs.
+    print("SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN")
     print("SEC-17 bounded deep: " + report["outcome"] + "; contract completion UNVERIFIED.")
     return 0 if report["outcome"] == "PASS" else 1
 

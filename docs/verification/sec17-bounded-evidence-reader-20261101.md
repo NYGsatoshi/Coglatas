@@ -11,7 +11,15 @@ the observed size plus one byte. Both SEC-17 failure summaries use the same
 reader and retain a null execution digest for unavailable input.
 
 The XML catalogue, owner selection, outcome rules, receipt schemas, source/build
-bindings and sanitized diagnostics retain their existing contracts. The SEC-ARCH capture additionally binds its CLI TRX input to the sole canonical
+bindings and sanitized diagnostics retain their existing contracts.
+
+The complete evidence JSON is written only to the exclusive, source-bound receipt
+file, not to public CI stdout. The SEC-17 Deep and File-policy CLIs emit only
+a fixed receipt-written marker and a bounded outcome category. This replaces
+the former redundant JSON echo markers in stdout; all evidence fields and
+saved receipt schemas remain unchanged. Real positive and ERROR tests verify
+the exact log and compare the full independently saved receipt against its
+original schema. No raw TRX payload, path or full receipt is logged. The SEC-ARCH capture additionally binds its CLI TRX input to the sole canonical
 backend producer path `artifacts/test-results/backend/backend-tests.trx` within
 the repository's physical source root. Realpath validation rejects arbitrary
 files, traversal and symlink escapes before the bounded descriptor read. This

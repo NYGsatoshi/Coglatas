@@ -148,7 +148,8 @@ class DeepExecutionTests(unittest.TestCase):
             verify(root)
 
     def test_capture_error_writes_closed_failure_without_exception_or_raw_trx(self):
-        sec_arch_controls.assert_closed_cli_error_receipt(self, deep, "SEC17_CLOSED_EXECUTION_JSON_BEGIN", "SEC17_CLOSED_EXECUTION_JSON_END")
+        sec_arch_controls.assert_closed_cli_error_receipt(
+            self, deep, "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
 
     def test_failure_summary_accepts_only_canonical_producer_trx(self):
         sec_arch_controls.assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
@@ -198,10 +199,11 @@ class DeepExecutionTests(unittest.TestCase):
             with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
                     deep, "capture", return_value=receipt):
                 self.assertEqual(0, deep.main())
-            published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
+            public_log = captured.getvalue()
             sec_arch_controls.assert_owned_source_mutation_is_rejected(self, deep, root, trx, candidate, NOW, source)
             sec_arch_controls.assert_native_capture_identity_and_mutations(
-                self, deep, root, trx, candidate, NOW, stamp, receipt, output, published)
+                self, deep, root, trx, candidate, NOW, stamp, receipt, output,
+                public_log, "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
 
 
 if __name__ == "__main__":

@@ -67,7 +67,7 @@ def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, 
 
 
 
-def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_marker):
+def assert_closed_cli_error_receipt(test, capture_module, receipt_marker, summary_label):
     """The original failed-CLI assertions apply to both independent SEC-17 owners."""
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory).resolve()
@@ -81,8 +81,8 @@ def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_mark
             test.assertEqual(1, capture_module.main())
         saved = output.read_text()
         stdout = captured.getvalue()
-        published = stdout.split(start_marker + "\n", 1)[1].split(end_marker, 1)[0]
-        test.assertEqual(saved, published)
+        test.assertEqual(stdout, f"{receipt_marker}\n{summary_label}: ERROR; contract completion UNVERIFIED.\n")
+        test.assertNotIn(saved, stdout, "The full failure receipt must not enter action logs.")
         test.assertNotIn("sensitive-native-output-marker", stdout)
         test.assertNotIn("sensitive-exception-marker", stdout)
         test.assertNotIn(str(root), stdout)
@@ -103,17 +103,20 @@ def assert_closed_cli_error_receipt(test, capture_module, start_marker, end_mark
 
 
 def assert_native_capture_identity_and_mutations(
-        test, capture_module, root, trx, candidate, now, stamp, receipt, output, published):
+        test, capture_module, root, trx, candidate, now, stamp, receipt, output,
+        public_log, receipt_marker, summary_label):
     """Preserve both owners' exact receipt schema and fail-closed mutation assertions."""
-    test.assertEqual(output.read_text(), published)
-    test.assertEqual(receipt, json.loads(published))
-    test.assertNotIn(str(root), published)
+    saved = output.read_text()
+    test.assertEqual(receipt, json.loads(saved))
+    test.assertEqual(public_log, f"{receipt_marker}\n{summary_label}: PASS; contract completion UNVERIFIED.\n")
+    test.assertNotIn(saved, public_log, "The full successful receipt must not enter action logs.")
+    test.assertNotIn(str(root), public_log)
     test.assertEqual({
         "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
         "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
         "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
         "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
-    }, set(json.loads(published)))
+    }, set(json.loads(saved)))
     test.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
                       "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
     test.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
