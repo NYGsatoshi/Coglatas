@@ -297,6 +297,49 @@ public sealed class LocalPassObservationCompilerRecordingTests
     }
 
     [Fact]
+    public async Task DistinctConcurrentRunsShareOneBoundedDeclarationCacheWithoutReusingAnotherInputsActualResult()
+    {
+        var graph = CompilerBindingClosureTests.Graph(withRelation: true);
+        var settings = JsonNode.Parse(graph.Input.Settings.CanonicalText)!;
+        settings["executionProfile"]!["maximumOperations"] = graph.Input.ExecutionProfile.MaximumOperations - 1;
+        var changed = new CompilerInputManifest(graph.Input.Source, SourceJson.Parse(settings.ToJsonString()));
+        var firstControl = PureCoreCompiler.Compile(graph.Input, graph.Input.Compiler, graph.Snapshots);
+        var secondControl = PureCoreCompiler.Compile(changed, changed.Compiler, graph.Snapshots);
+        Assert.Same(graph.Input.Source, changed.Source);
+        Assert.NotEqual(firstControl.Result.ResultDigest, secondControl.Result.ResultDigest);
+        var cache = new PlanDeclarationReadCache(maximumEntries: 2, maximumCanonicalBytes: 4096);
+        using var session = new LocalPassObservationCompilerRecordingSession(Profile(graph.Input), cache);
+        var declared = Enumerable.Range(0, 16).Select(index =>
+        {
+            var input = index % 2 == 0 ? graph.Input : changed;
+            var request = new PassObservationCompilerHostRequest(new(new(input), index + 7, graph.Snapshots),
+                new(index % 2 == 0 ? CompilerPassObservationMode.Manifest : CompilerPassObservationMode.AvailableOriginalJson));
+            return (Request: request, Manifest: session.Prepare(request, Guid.NewGuid()),
+                Expected: index % 2 == 0 ? firstControl : secondControl);
+        }).ToArray();
+        var actual = await Task.WhenAll(declared.Select(item => session.ExecuteAsync(item.Manifest, item.Request)));
+        Assert.Equal(16, session.ReservedExecutions);
+        Assert.Equal(16, actual.Select(item => item.Response.AttemptId).Distinct().Count());
+        Assert.Equal(16, actual.Select(item => item.Receipt.Manifest.RunId).Distinct().Count());
+        Assert.InRange(cache.RetainedCount, 1, 2);
+        Assert.InRange(cache.RetainedCanonicalBytes, 1, 4096);
+        for (var index = 0; index < actual.Length; index++)
+        {
+            var invocation = actual[index];
+            var intended = declared[index];
+            Assert.True(invocation.IsFor(intended.Request, intended.Manifest));
+            Assert.True(invocation.Receipt.IsFor(invocation.Response));
+            Assert.Equal(CompilerHostStatus.Completed, invocation.Response.Status);
+            var execution = invocation.Response.Execution!;
+            Assert.Equal(intended.Expected.Result.Data, execution.Compilation.Result.Data);
+            Assert.Equal(intended.Expected.LogicalOperationsConsumed, execution.Compilation.LogicalOperationsConsumed);
+            Assert.Same(intended.Request.ObservationPolicy, execution.Observation.Policy);
+            Assert.True(execution.Observation.IsOwnedBy(execution));
+            Assert.Equal(10, execution.Observation.VisitedEvents);
+        }
+    }
+
+    [Fact]
     public async Task ExistingNormalAndArrayHostProtocolsRemainSeparateFromTheNewObservationResponse()
     {
         var input = InputWithPredicate(); var core = new CompilerHostRequest(new(input), 7);

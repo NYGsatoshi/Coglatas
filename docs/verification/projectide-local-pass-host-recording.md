@@ -91,7 +91,7 @@ RLS/Native/Production/Release holds.
 ## Native Product checkpoint
 
 Strict SDK10.0.403/runtime10.0.14 solution builds complete on Windows/Linux with
-zero warnings/errors. All30 new owned-pass session cases,2566 full ProjectIDE
+zero warnings/errors. All31 new owned-pass session cases,2567 full ProjectIDE
 cases and12 Architecture cases pass on each OS with zero skips. Exact raw test
 GUID/name/outcome inventories agree across hosts and retain all2536 prior Product
 cases. All272 declared relevant native input bytes match the executed mirrors.
@@ -107,3 +107,16 @@ random run/attempt/manifest/receipt identities are retained separately. This is
 supplementary Product API evidence, not independent Security, client or current
 permission qualification. Current committed-source review and hosted results must
 still be recorded in the PR before integration.
+
+The full initial review raised one conditional question about concurrent use of a
+caller-owned PlanDeclarationReadCache. Its Read, Clear and statistics use the
+same gate; scope, dictionary, LRU and byte-accounting mutations and immutable
+decode-result publication occur under that gate. The binder reaches that Read
+path for the root Source; CheckTenant returns an immutable existing or new result.
+No unsynchronized cache mutation or runtime correction is identified. A new
+Product regression runs16 distinct owned requests concurrently with one bounded
+two-entry/4096-byte cache, same declaration Source but two actual input settings
+and alternating policies. Every result and operation count matches its uncached
+control, with distinct intended run/attempt identities and bounded retained data.
+It passes on both OS, as do the final31/2567/12 suites; all previous2566 raw test
+identities/outcomes remain. Review and current hosted evidence remain separate.
