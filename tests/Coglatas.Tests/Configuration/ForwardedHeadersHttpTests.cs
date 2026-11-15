@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Coglatas.Web.Configuration;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;

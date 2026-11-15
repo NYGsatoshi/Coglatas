@@ -288,6 +288,37 @@ class LegacyNameGuardTests(unittest.TestCase):
         self.assertEqual(len(result.findings), 1)
         self.assertEqual(result.external_matches, 0)
 
+    def test_root_readme_canonical_sonarcloud_badges_are_external_identities(self):
+        project = f"{OWNER.lower()}_coglatas"
+        badge = (
+            "[![Coverage](https://sonarcloud.io/api/project_badges/measure?"
+            f"project={project}&metric=coverage)]"
+            f"(https://sonarcloud.io/summary/new_code?id={project})"
+        )
+        self.write("README.md", badge)
+        result = self.scan()
+        self.assertEqual(result.findings, [])
+        self.assertEqual(result.external_matches, 2)
+        self.assertEqual(self.run_cli().returncode, 0)
+
+        invalid = (
+            project,
+            f"https://sonarcloud.io/api/project_badges/measure?project={project}&metric=unknown)",
+            f"https://sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage&extra=1)",
+            f"https://other.sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage)",
+            f"http://sonarcloud.io/api/project_badges/measure?project={project}&metric=coverage)",
+            f"https://sonarcloud.io/summary/new_code?id={project}_internal)",
+            f"https://sonarcloud.io/summary/new_code?id={project}&extra=1)",
+        )
+        for value in invalid:
+            with self.subTest(value=value):
+                self.write("README.md", value)
+                self.assertEqual(len(self.scan().findings), 1)
+
+        self.write("README.md")
+        self.write("docs/another.md", badge)
+        self.assertEqual(len(self.scan().findings), 2)
+
     def test_valid_lockfile_digest_and_exact_dependency_are_classified(self):
         self.assertTrue(GUARD.valid_integrity(self.digest()))
         self.lockfile(integrity=self.digest(), dependencies={PACKAGE: "0.2.17"})

@@ -39,8 +39,8 @@ export async function captureRuntimeAssemblyBinding(root) {
   for (const name of runtimeAssemblyNames) {
     const directory = name === 'Coglatas.Tests' ? 'tests/Coglatas.Tests' :
       name === 'Coglatas.SecurityArchitecture' ? 'tools/Coglatas.SecurityArchitecture' : `src/${name}`;
-    const canonical = await assemblyDigest(resolve(root, directory, `bin/Release/net10.0/${name}.dll`));
-    const copied = await assemblyDigest(resolve(root, 'tests/Coglatas.Tests', `bin/Release/net10.0/${name}.dll`));
+    const canonical = await assemblyDigest(resolve(root, directory, `bin/Release/net11.0/${name}.dll`));
+    const copied = await assemblyDigest(resolve(root, 'tests/Coglatas.Tests', `bin/Release/net11.0/${name}.dll`));
     if (canonical !== copied) throw new Error('Loaded dependency copy differs from the producer build');
     assemblyDigests[name] = canonical;
   }

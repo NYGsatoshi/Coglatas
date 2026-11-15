@@ -30,6 +30,43 @@ This document describes what the repository currently supports. It is not a prod
   images are not updated by a source change.
 - Listens on HTTP port 8080.
 - Does not apply migrations.
+- The final runtime runs as the .NET base image's non-root `APP_UID`. Only
+  `/app/storage/uploads` and `/app/data/protection-keys` are prepared as
+  private, writable directories for that identity; application binaries remain
+  root-owned and readable. The main and prebuilt production images use the same
+  runtime privilege boundary.
+
+### Existing persistent volumes when adopting the non-root runtime
+
+The `app` service in the root/on-premise Compose files and the `web` service
+in the Sakura Compose file mount persistent upload and Data Protection key
+volumes. Image-directory ownership applies to fresh image content, **not** to
+existing mounted volume files. An existing volume populated by the former
+root-running process may be root-owned and prevent startup, key persistence,
+or uploads after the user switch.
+
+Before deploying the new image, **stop application writes and verify backups
+of both persistent volumes**, preserving existing keys. After rebuilding the
+image, run a one-time, operator-controlled maintenance container against the
+same Compose project and volumes. Substitute the chosen Compose path and
+service name (`app` or `web`) before executing:
+
+```sh
+docker compose -f COMPOSE_FILE stop APP_SERVICE
+docker compose -f COMPOSE_FILE run --rm --no-deps --user 0 --entrypoint sh APP_SERVICE -ec '
+  test -n "${APP_UID:-}" && test "$APP_UID" != 0
+  chown -R "$APP_UID" /app/storage/uploads /app/data/protection-keys
+  chmod 0700 /app/storage/uploads /app/data/protection-keys
+'
+docker compose -f COMPOSE_FILE up -d APP_SERVICE
+```
+
+Keep this root override limited to the maintenance command; do not add root
+to the normal application service. Inspect the running container's user,
+upload write access, Data Protection key persistence, and health endpoint
+before considering the rollout complete. Never delete or recreate existing
+volumes to repair ownership. A source-only change does not migrate a
+deployed instance or constitute runtime validation.
 
 ### `infra/compose/dev/local.yml`
 
