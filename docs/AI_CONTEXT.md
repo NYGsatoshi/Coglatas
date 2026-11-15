@@ -1,5 +1,12 @@
 # AI Context
 
+[Actual shared predicate evaluation observation](verification/projectide-shared-predicate-observation.md)
+adds explicit bounded traversal-time Boolean operator recording and owned
+metadata/body reads while preserving the legacy evaluation contract. This
+standalone primitive allocates no Compiler run or intended host selection;
+Compiler diagnostic binding and paired client adoption of its operator frames
+remain #1034 work. Runtime access/retention and actual Avalonia remain gated.
+
 [Paired recorded predicate Inspector](verification/projectide-paired-predicate-recordings.md)
 binds actual intended local run identity before Windows admission and verifies
 original offline frames in Angular. Explicit Source/run/diagnostic reads preserve
