@@ -132,7 +132,7 @@ def assert_native_capture_identity_and_mutations(
     with test.assertRaises(ValueError):
         capture_module.capture(root, trx, candidate, now)
     source.write_bytes(original)
-    loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
+    assemblies.loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
     with test.assertRaises(ValueError):
         capture_module.capture(root, trx, candidate, now)
 
