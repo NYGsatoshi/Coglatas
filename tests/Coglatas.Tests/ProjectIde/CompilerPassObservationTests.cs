@@ -13,11 +13,12 @@ public sealed class CompilerPassObservationTests
     private static ProjectCompilerPassObservationSnapshot Read(RecordedPassCompilation run,
         CompilerPassObservationSnapshotMode mode = CompilerPassObservationSnapshotMode.Manifest, int bytes = ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) =>
         ProjectCompilerPassObservationSnapshot.Read(run, run.Compilation, run.Observation, run.Compilation.Input.InputDigest, run.Compilation.Result.ResultDigest, mode, bytes);
-    private static void Refused(ProjectCompilerPassObservationSnapshot snapshot, CompilerPassObservationSnapshotState state)
+    private static CompilerPassObservationSnapshotState Refused(ProjectCompilerPassObservationSnapshot snapshot)
     {
-        Assert.Equal(state, snapshot.State); Assert.Empty(snapshot.Bodies); Assert.Null(snapshot.OriginalRecordMetadata); Assert.Null(snapshot.OriginalRecordDigest);
+        Assert.Empty(snapshot.Bodies); Assert.Null(snapshot.OriginalRecordMetadata); Assert.Null(snapshot.OriginalRecordDigest);
         Assert.Null(snapshot.OriginalCaptureState); Assert.Equal(JsonValueKind.Null, snapshot.Data.Value.GetProperty("basis").ValueKind);
         Assert.Equal(JsonValueKind.Null, snapshot.Data.Value.GetProperty("originalRecord").ValueKind);
+        return snapshot.State;
     }
 
     [Theory]
@@ -54,7 +55,7 @@ public sealed class CompilerPassObservationTests
         {
             var domain = frame.GetProperty("domain").GetString()!; var digest = frame.GetProperty("digest"); var bodyKey = domain + ":" + digest.GetProperty("value").GetString();
             Assert.True(snapshot.Bodies.TryGetValue(bodyKey, out var body)); unique.Add(bodyKey);
-            Assert.Equal(SourceJson.Parse(digest.GetRawText()), ContentDigest.Compute(domain, body!.ToCanonicalBytes()).Data);
+            Assert.Equal(SourceJson.Parse(digest.GetRawText()), ContentDigest.Compute(domain, body.ToCanonicalBytes()).Data);
             Assert.Equal(frame.GetProperty("bytes").GetInt32(), Encoding.UTF8.GetByteCount(body.CanonicalText));
         }
         Assert.Equal(unique.Count, snapshot.Bodies.Count); Assert.Equal(run.Observation.RetainedBodyBytes, snapshot.RetainedBodyBytes);
@@ -77,9 +78,9 @@ public sealed class CompilerPassObservationTests
         var second = PureCoreCompiler.CompileWithPassObservation(input, input.Compiler, new(CompilerPassObservationMode.AvailableOriginalJson));
         Assert.Equal(first.Compilation.Result.ResultDigest, second.Compilation.Result.ResultDigest); Assert.Equal(first.Observation.Digest, second.Observation.Digest);
         Assert.False(first.IsFor(second.Compilation)); Assert.False(first.Observation.IsOwnedBy(second));
-        Refused(ProjectCompilerPassObservationSnapshot.Read(first, second.Compilation, first.Observation, input.InputDigest, first.Compilation.Result.ResultDigest), CompilerPassObservationSnapshotState.RefusedInvocation);
-        Refused(ProjectCompilerPassObservationSnapshot.Read(first, first.Compilation, second.Observation, input.InputDigest, first.Compilation.Result.ResultDigest), CompilerPassObservationSnapshotState.RefusedInvocation);
-        Refused(ProjectCompilerPassObservationSnapshot.Read(first, second.Compilation, second.Observation, input.InputDigest, first.Compilation.Result.ResultDigest), CompilerPassObservationSnapshotState.RefusedInvocation);
+        Assert.Equal(CompilerPassObservationSnapshotState.RefusedInvocation, Refused(ProjectCompilerPassObservationSnapshot.Read(first, second.Compilation, first.Observation, input.InputDigest, first.Compilation.Result.ResultDigest)));
+        Assert.Equal(CompilerPassObservationSnapshotState.RefusedInvocation, Refused(ProjectCompilerPassObservationSnapshot.Read(first, first.Compilation, second.Observation, input.InputDigest, first.Compilation.Result.ResultDigest)));
+        Assert.Equal(CompilerPassObservationSnapshotState.RefusedInvocation, Refused(ProjectCompilerPassObservationSnapshot.Read(first, second.Compilation, second.Observation, input.InputDigest, first.Compilation.Result.ResultDigest)));
         Assert.Empty(typeof(RecordedPassCompilation).GetConstructors()); Assert.All(typeof(RecordedPassCompilation).GetProperties(), p => Assert.Null(p.SetMethod));
         Assert.Equal(CompilerPassObservationSnapshotState.AvailableOriginalJson, Read(first, CompilerPassObservationSnapshotMode.AvailableOriginalJson).State);
     }
@@ -105,8 +106,8 @@ public sealed class CompilerPassObservationTests
         settings["executionProfile"]!["maximumOperations"] = input.ExecutionProfile.MaximumOperations + 1;
         var other = new CompilerInputManifest(input.Source, SourceJson.Parse(settings.ToJsonString())); Assert.NotEqual(input.InputDigest, other.InputDigest);
         var run = PureCoreCompiler.CompileWithPassObservation(input, input.Compiler, new(CompilerPassObservationMode.AvailableOriginalJson));
-        Refused(ProjectCompilerPassObservationSnapshot.Read(run, run.Compilation, run.Observation, other.InputDigest, run.Compilation.Result.ResultDigest), CompilerPassObservationSnapshotState.RefusedInputBinding);
-        Refused(ProjectCompilerPassObservationSnapshot.Read(run, run.Compilation, run.Observation, input.InputDigest, input.Source.Digest), CompilerPassObservationSnapshotState.RefusedWrongResult);
+        Assert.Equal(CompilerPassObservationSnapshotState.RefusedInputBinding, Refused(ProjectCompilerPassObservationSnapshot.Read(run, run.Compilation, run.Observation, other.InputDigest, run.Compilation.Result.ResultDigest)));
+        Assert.Equal(CompilerPassObservationSnapshotState.RefusedWrongResult, Refused(ProjectCompilerPassObservationSnapshot.Read(run, run.Compilation, run.Observation, input.InputDigest, input.Source.Digest)));
     }
 
     [Fact]
@@ -123,7 +124,10 @@ public sealed class CompilerPassObservationTests
     [Fact]
     public void CancellationDuringActualBindingRetainsEarlierBodiesWithoutInventingAReturn()
     {
-        var input = Input(); using var beforeToken = new CancellationTokenSource(); using var observedToken = new CancellationTokenSource();
+        var input = Input();
+        using var beforeToken = new CancellationTokenSource();
+        using var observedToken = new CancellationTokenSource();
+
         var beforeSupply = new CancelWhenRead(beforeToken); var observedSupply = new CancelWhenRead(observedToken);
         var control = PureCoreCompiler.Compile(input, input.Compiler, beforeSupply, cancellationToken: beforeToken.Token);
         var run = PureCoreCompiler.CompileWithPassObservation(input, input.Compiler, new(CompilerPassObservationMode.AvailableOriginalJson), observedSupply, cancellationToken: observedToken.Token);
