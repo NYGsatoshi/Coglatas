@@ -78,6 +78,9 @@ public sealed class CompilerHostRequest
     public SourceJson Materializations { get; }
     public ContentDigest MaterializationDigest { get; }
     public ContentDigest ExecutionInputDigest { get; }
+    /// <summary>Original version-one hash input metadata, retained for explicit offline frame export.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public SourceJson ExecutionInputData { get; }
     public CompilerHostRequest(CompilerInputTransfer input, long clientGeneration = 0, IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null,
         IEnumerable<UnitDefinition?>? units = null, IEnumerable<CalendarSnapshot?>? calendars = null)
     {
@@ -100,8 +103,9 @@ public sealed class CompilerHostRequest
                 .OrderBy(value => value.CanonicalText, StringComparer.Ordinal).Select(value => value.Value).ToArray()
         });
         MaterializationDigest = ContentDigest.Compute("coglatas.host-materializations/1", Materializations.ToCanonicalBytes());
-        ExecutionInputDigest = ContentDigest.Compute("coglatas.compiler-host-input/1", CompilerHostJson.Create(new
-        { declaredInputDigest = Input.ExpectedInputDigest.Data.Value, materializationsDigest = MaterializationDigest.Data.Value }).ToCanonicalBytes());
+        ExecutionInputData = CompilerHostJson.Create(new
+        { declaredInputDigest = Input.ExpectedInputDigest.Data.Value, materializationsDigest = MaterializationDigest.Data.Value });
+        ExecutionInputDigest = ContentDigest.Compute("coglatas.compiler-host-input/1", ExecutionInputData.ToCanonicalBytes());
     }
     private static IReadOnlyList<T> Freeze<T>(IEnumerable<T?> values, int maximum) where T : class
     {

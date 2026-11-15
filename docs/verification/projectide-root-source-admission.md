@@ -50,3 +50,5 @@ shared CI lifecycle remains P0 #1974. No Security branch/shared CI changes here.
 
 Keep full #1034 OPEN, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and all
 Registry/Trust/Eligibility/RLS/Native/Production/Release holds.
+
+The complete root fixture fingerprint is private admission state. It is retained in a WeakMap rather than returned in Source metadata, because a future fixed example can include other recorded bodies inside the package. Exact package mutation/ownership checks remain; default Manifest does not indirectly serialize those body maps through a public fingerprint.

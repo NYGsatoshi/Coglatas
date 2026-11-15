@@ -1,3 +1,4 @@
+import { AdmittedPredicateRecording, AdmittedRecordedPredicatePremises, PredicateRecordingLabel, RecordedPredicateChoice, predicateRecordingMatches, recordedPredicatePremisesMatch, readPredicateRecording, readRecordedPredicatePremises } from './projectide-predicate-recordings.reader';
 import { AdmittedRootSource, readRootSource, rootSourceMatches } from './projectide-root-source.reader';
 import { AdmittedDiagnosticPremises, DiagnosticPremiseChoice, diagnosticPremiseSourcesMatch, readDiagnosticPremises } from './projectide-diagnostic-premises.reader';
 import { diagnosticBasisPage } from './projectide-diagnostic-basis';
@@ -197,6 +198,72 @@ export class ProjectIdeWorkbenchStore {
   private clearCompilerRecording(): void {
     this.compilerRecordingGeneration++; this.compilerRecordingSnapshot.set(null); this.compilerRecordingReadState.set('idle');
   }
+  private predicateRecordingGeneration = 0;
+  readonly predicateRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly predicateRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedPredicateRecording } | null>(null);
+  private predicateSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly predicateRecording = (): AdmittedPredicateRecording | null => {
+    const snapshot = this.predicateRecordingSnapshot(); const sources = this.predicateSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      predicateRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadPredicateRecording(label: PredicateRecordingLabel = 'original'): Promise<boolean> {
+    this.clearPredicateRecording(); const generation = this.predicateRecordingGeneration;
+    const context = this.context(); const sources = this.predicateSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const projection = context.predicateRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const current = () => generation === this.predicateRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.predicateRecordingReadState.set('loading');
+    try {
+      const admitted = await readPredicateRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || sources !== this.predicateSources() || !bundle.cases.includes(context) || context.predicateRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || admitted.manifest.text !== manifest.text ||
+        !predicateRecordingMatches(context, sources, admitted)) throw new Error('predicate-recording-unavailable');
+      this.predicateRecordingSnapshot.set({ bundle, context, admitted }); this.predicateRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.predicateRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearPredicateRecording(): void {
+    this.predicateRecordingGeneration++; this.predicateRecordingSnapshot.set(null); this.predicateRecordingReadState.set('idle');
+    this.clearRecordedPredicatePremises();
+  }
+  private recordedPredicatePremiseGeneration = 0;
+  readonly recordedPredicatePremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPredicatePremiseSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPredicatePremises } | null>(null);
+  readonly recordedPredicatePremises = (): AdmittedRecordedPredicatePremises | null => {
+    const snapshot = this.recordedPredicatePremiseSnapshot(); const sources = this.predicateSources(); const recording = this.predicateRecording();
+    const diagnostic = this.diagnostic();
+    return snapshot && sources && recording && diagnostic && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPredicatePremisesMatch(snapshot.context, sources, recording, diagnostic, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPredicatePremises(choice: RecordedPredicateChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPredicatePremises(); const generation = this.recordedPredicatePremiseGeneration;
+    const context = this.context(); const sources = this.predicateSources(); const recording = this.predicateRecording();
+    const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !recording || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPredicatePremiseGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPredicatePremiseReadState.set('loading');
+    try {
+      const admitted = await readRecordedPredicatePremises(context, sources, recording, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.predicateSources() || recording !== this.predicateRecording() || diagnostic !== this.diagnostic() ||
+        !bundle.cases.includes(context) || !recordedPredicatePremisesMatch(context, sources, recording, diagnostic, admitted))
+        throw new Error('recorded-predicate-premises-unavailable');
+      this.recordedPredicatePremiseSnapshot.set({ bundle, context, admitted }); this.recordedPredicatePremiseReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedPredicatePremiseReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPredicatePremises(): void {
+    this.recordedPredicatePremiseGeneration++; this.recordedPredicatePremiseSnapshot.set(null); this.recordedPredicatePremiseReadState.set('idle');
+  }
   private rootSourceGeneration = 0;
   readonly rootSourceReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly rootSourceSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRootSource } | null>(null);
@@ -223,7 +290,7 @@ export class ProjectIdeWorkbenchStore {
     }catch{if(current())this.rootSourceReadState.set('unavailable');return false;}
   }
   private clearRootSource(): void {
-    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();
+    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();
   }
   private diagnosticPremiseGeneration = 0;
   readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
@@ -887,7 +954,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
-    this.clearDiagnosticPremises();
+    this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises();
     this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);

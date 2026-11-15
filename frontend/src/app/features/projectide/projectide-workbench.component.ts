@@ -1,3 +1,4 @@
+import { PredicateRecordingLabel, RecordedPredicateChoice } from './projectide-predicate-recordings.reader';
 import { DiagnosticPremiseChoice } from './projectide-diagnostic-premises.reader';
 import { DIAGNOSTIC_BASIS_PAGE_SIZE } from './projectide-diagnostic-basis';
 import { CompilerRecordingLabel } from './projectide-compiler-recordings.reader';
@@ -179,7 +180,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -191,7 +192,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -219,6 +220,39 @@ export class ProjectIdeWorkbenchComponent {
     const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',
       NoKnownBodies: 'ide.premisesNoKnown', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', LookupLimitReached: 'ide.premisesLookupLimit' } as const;
     return this.t(keys[state as keyof typeof keys] ?? 'ide.premisesUnavailable');
+  }
+  private readonly predicateRecordingElement = viewChild<ElementRef<HTMLElement>>('predicateRecordingPanel');
+  private readonly recordedPredicateElement = viewChild<ElementRef<HTMLElement>>('recordedPredicatePanel');
+  async loadPredicateRecording(label: PredicateRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPredicateRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.predicateRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.predicateRecording()) this.predicateRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedPredicatePremises(choice: RecordedPredicateChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPredicatePremises(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPredicatePremises();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPredicatePremises()) this.recordedPredicateElement()?.nativeElement.focus();
+    });
+  }
+  predicateCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.predicateCaptureManifest', CapturedOriginalArrays: 'ide.predicateCaptureAvailable',
+      NoOriginalArraysObserved: 'ide.predicateCaptureNone', BodyBudgetExceeded: 'ide.predicateCaptureBytes',
+      BodyCountLimitReached: 'ide.predicateCaptureCount', CaptureInterrupted: 'ide.predicateCaptureInterrupted' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.predicateNoResult');
+  }
+  predicateViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedOriginalArrays: 'ide.predicateSelectedAvailable',
+      NoRecordedPremises: 'ide.premisesNone', NoAvailableOriginalArrays: 'ide.predicateSelectedNone', BodyBudgetExceeded: 'ide.premisesBudgetExceeded' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.predicateUnavailable');
   }
   private readonly compilerRecordingElement = viewChild<ElementRef<HTMLElement>>('compilerRecordingPanel');
   async loadCompilerRecording(label: CompilerRecordingLabel = 'original'): Promise<void> {

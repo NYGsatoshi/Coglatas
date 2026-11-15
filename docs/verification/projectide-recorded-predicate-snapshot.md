@@ -14,7 +14,7 @@ Original metadata, policy, record digest and capture gap remain unchanged and ar
 
 ## Remaining admission boundaries
 
-The Pure Core record has no run/attempt identity. This read does not select the currently intended host run. Windows/Web integration must bind the explicit intended pre-run manifest identity before execution, reject an entire genuine older invocation even when the same request/generation/result/record digests recur, and preserve Source, selected diagnostic and lifecycle/reentry fences. The snapshot does not retain a compilation, request, response or the record's body map; it retains original metadata and only explicitly selected bodies.
+The Pure Core record has no run/attempt identity. This read does not select the currently intended host run. The [paired local client adoption](projectide-paired-predicate-recordings.md) binds the explicit intended pre-run manifest identity before execution, rejects an entire genuine older invocation even when the same request/generation/result/record digests recur, and preserves Source, selected diagnostic and lifecycle/reentry fences. The snapshot does not retain a compilation, request, response or the record's body map; it retains original metadata and only explicitly selected bodies.
 
 This is a local synthetic primitive, not current actor/Tenant/Project/Branch disclosure authority, remote transport, durable retention/Pin, FullDump/FullTrace, regional re-evaluation or AND/OR/causal adoption. P0 #1966/#1932 own runtime disclosure/revocation/redaction/deletion/retention; P0 #1959 owns permanent independent exporter/selection qualification, #1974 lifecycle and #1980 first-attempt browser reliability. No Security/shared-CI implementation changes are made here.
 

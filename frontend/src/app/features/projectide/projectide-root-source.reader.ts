@@ -8,10 +8,11 @@ export interface RootSourceProjection {
   readonly result: { readonly text: string; readonly digest: import('./projectide.contracts').Digest };
 }
 export interface AdmittedRootSource {
-  readonly kind: 'root-source'; readonly basis: string; readonly projection: RootSourceProjection;
+  readonly kind: 'root-source'; readonly projection: RootSourceProjection;
   readonly sourceText: string; readonly source: Readonly<Record<string, unknown>>;
 }
-const admissions = new WeakSet<object>();
+// Complete fixture fingerprints may contain recorded bodies; keep them outside the published Source view.
+const admissions = new WeakMap<AdmittedRootSource, string>();
 const fail = (): never => { throw new Error('unsupported-root-source'); };
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const obj = (v: unknown): Record<string, unknown> => object(v) ? v : fail();
@@ -21,7 +22,7 @@ const fields = (v: unknown, keys: readonly string[]) => object(v)&&Object.keys(v
 const bytes = (v: string) => new TextEncoder().encode(v).length;
 const freeze = <T>(v: T): T => { if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v; };
 export function rootSourceMatches(value: PreviewCase, admitted: AdmittedRootSource): boolean {
-  return admissions.has(admitted)&&value.freshness==='Current'&&equal(value.context,value.desiredContext)&&JSON.stringify(value)===admitted.basis;
+  return admissions.has(admitted)&&value.freshness==='Current'&&equal(value.context,value.desiredContext)&&JSON.stringify(value)===admissions.get(admitted);
 }
 
 /** Reads only the exact retained root input; regional IR coverage and current runtime authority remain separate. */
@@ -39,6 +40,6 @@ export async function readRootSource(value: PreviewCase): Promise<AdmittedRootSo
   if(!equal(input,v.manifest['manifest'])||!equal(input['sourceContext'],v.context)||!equal(input['sourceDigest'],v.sourceDigest)||
     !equal(source,v.source)||source['format']!=='coglatas.project-source/1'||!equal(source['context'],v.context)||!equal(result,v.result))return fail();
   if(JSON.stringify(value)!==basis||v.freshness!=='Current'||!equal(v.context,v.desiredContext))return fail();
-  const admitted: AdmittedRootSource=freeze({kind:'root-source',basis,projection,sourceText:v.sourceText,source});
-  admissions.add(admitted); return admitted;
+  const admitted: AdmittedRootSource=freeze({kind:'root-source',projection,sourceText:v.sourceText,source});
+  admissions.set(admitted,basis); return admitted;
 }
