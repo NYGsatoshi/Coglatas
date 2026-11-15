@@ -218,7 +218,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
                 var capture = ProjectCompilerOutputSnapshot.Read(compilation, compilation.Result.ResultDigest, mode, budget, desiredInput: input);
                 return new { text = capture.Data.CanonicalText, digest = capture.Digest.Data.Value, retainedBodyBytes = capture.RetainedBodyBytes,
                     bodies = capture.Bodies.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new { role = pair.Key, text = pair.Value.CanonicalText,
-                        digest = compilation.Result.Artifacts.Single(reference => reference.Role == pair.Key).Digest.Data.Value }).ToArray() };
+                        digest = compilation.Result.Artifacts.Single(producedArtifact => producedArtifact.Role == pair.Key).Digest.Data.Value }).ToArray() };
             }
             fixture["compilerOutputs"] = JsonSerializer.SerializeToNode(new { manifest = Capture(CompilerOutputSnapshotMode.Manifest, ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes),
                 available = Capture(CompilerOutputSnapshotMode.AvailableOutputs, name == "tests-publication-root-draft" ? 1 : ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) });
