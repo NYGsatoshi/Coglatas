@@ -28,7 +28,7 @@ public sealed class Sec06FormResponseRoutingTests
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions
             {
-                EnvironmentName = Environments.Testing
+                EnvironmentName = "Test"
             });
             builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
             builder.Services.AddControllers().AddApplicationPart(typeof(FormsController).Assembly);
