@@ -41,7 +41,13 @@ def require(condition: bool, code: str) -> None:
 
 
 def bounded_regular_bytes(path: Path) -> bytes:
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0))
+    # The producer's native report/receipt paths are data, not an authority to
+    # follow filesystem links outside the test-owned artifact directory.
+    # O_NOFOLLOW closes the check/open race on supported POSIX hosts.
+    if path.is_symlink():
+        raise OSError('Regular evidence input required')
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0)
+                         | getattr(os, 'O_NOFOLLOW', 0))
     with os.fdopen(descriptor, 'rb') as handle:
         if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
             raise OSError('Regular evidence input required')

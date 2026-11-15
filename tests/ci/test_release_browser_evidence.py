@@ -245,6 +245,24 @@ class BrowserEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(evidence.EvidenceError, 'NATIVE_INPUT_MISSING_OR_INVALID'):
             evidence.read(path)
 
+    @unittest.skipUnless(hasattr(os, 'symlink') and os.name == 'posix',
+                         'Link boundary requires a POSIX runner')
+    def test_native_report_symlink_cannot_read_external_private_data(self):
+        outside = self.root / 'private-synthetic-fixture.json'
+        marker = 'synthetic-private-marker-123456'
+        outside.write_text(json.dumps({'secret': marker}), encoding='utf-8')
+        linked = self.root / 'browser-native-v1.json'
+        linked.unlink()
+        linked.symlink_to(outside)
+        with self.assertRaisesRegex(evidence.EvidenceError, 'NATIVE_INPUT_MISSING_OR_INVALID') as captured:
+            evidence.read(linked)
+        self.assertNotIn(marker, str(captured.exception))
+        self.assertEqual(self.run_command(), 1)
+        report = Path(self.args.output).read_text(encoding='utf-8')
+        self.assertNotIn(marker, report)
+        self.assertEqual('ERROR', json.loads(report)['integrityStatus'])
+        self.assertFalse(json.loads(report)['rawArtifactUploadAllowed'])
+
     def test_source_read_limit_is_enforced_on_the_stream(self):
         with patch.object(evidence.release, 'MAX_JSON_BYTES', 32):
             with self.assertRaisesRegex(evidence.EvidenceError, 'SOURCE_INPUT_SIZE_LIMIT'):
