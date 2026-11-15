@@ -152,7 +152,7 @@ describe('Recorded operator Workbench panels', () => {
     await c.loadOperatorRecording('diagnostic'); c.inspectDiagnostic(c.store.result()!.result.diagnostics[0]);
     await c.loadRecordedOperators('available'); fixture.detectChanges();
     expect(root.querySelector('[data-testid="ide-operator-node"]')).not.toBeNull();
-    authenticated.set(false); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    authenticated.set(false); await fixture.whenStable();
     expect(c.store.operatorRecording()).toBeNull(); expect(c.store.recordedOperators()).toBeNull();
     expect(root.querySelector('[data-testid="ide-operator-node"]')).toBeNull();
   });
