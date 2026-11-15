@@ -1,3 +1,4 @@
+import { AdmittedRootSource, rootSourceMatches } from './projectide-root-source.reader';
 import { Diagnostic, Digest, PreviewCase } from './projectide.contracts';
 import { AdmittedScopedSources, scopedSourcesMatch } from './projectide-scoped-sources';
 import { originalJsonArrayValues } from './projectide-original-json';
@@ -9,14 +10,19 @@ export interface DiagnosticPremiseProjection {
   readonly diagnostics: readonly { readonly diagnosticId: string; readonly manifest: Frame; readonly available: Frame; readonly budget: Frame }[];
 }
 export type DiagnosticPremiseChoice = 'manifest' | 'available' | 'budget';
-type Kind = 'RootInput' | 'BindingRegion' | 'AnalysisRegion';
+type Kind = 'RootInput' | 'BindingRegion' | 'AnalysisRegion' | 'RootSource';
+export type DiagnosticPremiseSources = AdmittedScopedSources | AdmittedRootSource;
+export const isRootPremiseSource = (sources: DiagnosticPremiseSources): sources is AdmittedRootSource => 'kind' in sources && sources.kind==='root-source';
+export function diagnosticPremiseSourcesMatch(value: PreviewCase, sources: DiagnosticPremiseSources, diagnostic: Diagnostic): boolean {
+  return isRootPremiseSource(sources) ? rootSourceMatches(value,sources) && equal(diagnostic.primaryLocation.context,value.context) : scopedSourcesMatch(value,sources);
+}
 type Resolution = 'ResolvedRetainedObject' | 'Unavailable' | 'Ambiguous' | 'LookupLimit';
 export interface DiagnosticPremiseReference {
   readonly digest: Digest; readonly kind: Kind | null; readonly resolution: Resolution; readonly bodyCaptured: boolean;
 }
 export interface DiagnosticPremiseBody extends Frame { readonly kind: Kind; }
 export interface AdmittedDiagnosticPremises extends Frame {
-  readonly sources: AdmittedScopedSources; readonly diagnostic: Diagnostic; readonly choice: DiagnosticPremiseChoice;
+  readonly sources: DiagnosticPremiseSources; readonly diagnostic: Diagnostic; readonly choice: DiagnosticPremiseChoice;
   readonly mode: 'Manifest' | 'AvailableBodies'; readonly state: string; readonly data: Readonly<Record<string, unknown>>;
   readonly maximumBodyBytes: number; readonly retainedBodyBytes: number; readonly lookupComplete: boolean;
   readonly references: readonly DiagnosticPremiseReference[]; readonly bodies: readonly DiagnosticPremiseBody[];
@@ -30,7 +36,7 @@ const equal = (a: unknown,b: unknown): boolean => a===b || Array.isArray(a)&&Arr
 const digest = (v: unknown): v is Digest => fields(v,['algorithm','value']) && obj(v)['algorithm']==='sha-256' && typeof obj(v)['value']==='string' && /^[a-f0-9]{64}$/u.test(obj(v)['value'] as string);
 const freeze = <T>(v: T): T => { if(v && typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);} return v; };
 const byteCount = (v: string) => new TextEncoder().encode(v).length;
-const domains: Readonly<Record<Kind,string>> = {RootInput:'coglatas.compiler-input/1',BindingRegion:'coglatas.semantic-binding-region/1',AnalysisRegion:'coglatas.compiler-dependency-region/1'};
+const domains: Readonly<Record<Kind,string>> = {RootInput:'coglatas.compiler-input/1',RootSource:'coglatas.project-source/1',BindingRegion:'coglatas.semantic-binding-region/1',AnalysisRegion:'coglatas.compiler-dependency-region/1'};
 const nativeAxis = (v: unknown): string => {
   const axes: Readonly<Record<string,string>> = {'coglatas.completed':'Completed','coglatas.not-run':'NotRun','coglatas.cancelled':'Cancelled',
     'coglatas.timed-out':'TimedOut','coglatas.resource-exhausted':'ResourceExhausted','coglatas.internal-error':'InternalError',
@@ -43,9 +49,9 @@ async function contentDigest(domain: string,text: string): Promise<Digest> {
 }
 
 /** Reads native snapshot metadata and exact retained body bytes; no evaluation, inferred reason graph or current access grant. */
-export async function readDiagnosticPremises(value: PreviewCase, sources: AdmittedScopedSources, diagnostic: Diagnostic,
+export async function readDiagnosticPremises(value: PreviewCase, sources: DiagnosticPremiseSources, diagnostic: Diagnostic,
   choice: DiagnosticPremiseChoice='manifest'): Promise<AdmittedDiagnosticPremises | null> {
-  if(!['manifest','available','budget'].includes(choice)||!scopedSourcesMatch(value,sources)||!value.result.diagnostics.includes(diagnostic))return fail();
+  if(!['manifest','available','budget'].includes(choice)||!diagnosticPremiseSourcesMatch(value,sources,diagnostic)||!value.result.diagnostics.includes(diagnostic))return fail();
   if(value.diagnosticPremises==null)return null;
   const projection=value.diagnosticPremises;
   if(!fields(projection,['format','diagnostics'])||projection.format!=='coglatas.local-diagnostic-premise-projection/1'||
@@ -59,15 +65,20 @@ export async function readDiagnosticPremises(value: PreviewCase, sources: Admitt
   type Candidate={kind:Kind;digest:Digest;text:string};
   const candidates: Candidate[]=[];let lookupComplete=true;
   if(wanted.size){
+    if(isRootPremiseSource(sources)){
+      candidates.push({kind:'RootInput',digest:value.inputDigest,text:sources.projection.inputText},
+        {kind:'RootSource',digest:value.sourceDigest,text:sources.sourceText});
+    }else{
     const binding=obj(parse(sources.projection.binding.text));const analysis=obj(parse(sources.projection.analysis.text));
     if(!Array.isArray(binding['regions'])||!Array.isArray(analysis['regions']))return fail();
     const bindings=binding['regions'];const analyses=analysis['regions'];
-    lookupComplete=1+bindings.length+analyses.length<=4096;
+    lookupComplete=2+bindings.length+analyses.length<=4096;
     if(lookupComplete){
       const bindingTexts=originalJsonArrayValues(sources.projection.binding.text,'regions','region');
       const analysisTexts=originalJsonArrayValues(sources.projection.analysis.text,'regions','region');
       if(bindingTexts.length!==bindings.length||analysisTexts.length!==analyses.length)return fail();
-      candidates.push({kind:'RootInput',digest:value.inputDigest,text:sources.projection.inputText});
+      candidates.push({kind:'RootInput',digest:value.inputDigest,text:sources.projection.inputText},
+        {kind:'RootSource',digest:value.sourceDigest,text:value.sourceText});
       for(const [entries,texts,kind] of [[bindings,bindingTexts,'BindingRegion'],[analyses,analysisTexts,'AnalysisRegion']] as const) {
         for(let i=0;i<entries.length;i++){
           const data=obj(entries[i]);const reference=data['digest'];
@@ -76,6 +87,7 @@ export async function readDiagnosticPremises(value: PreviewCase, sources: Admitt
         }
       }
     }
+  }
   }
   const references: Omit<DiagnosticPremiseReference,'bodyCaptured'>[]=diagnostic.evidence.premises.map(d=>{
     const copy: Digest={algorithm:'sha-256',value:d.value};if(!lookupComplete)return {digest:copy,kind:null,resolution:'LookupLimit'};
@@ -103,7 +115,7 @@ export async function readDiagnosticPremises(value: PreviewCase, sources: Admitt
     const refs=references.map(r=>({...r,bodyCaptured:state==='CapturedKnownBodies'&&r.resolution==='ResolvedRetainedObject'}));
     const result=obj(value.result);const data=obj(parse(frame.text));
     const expected={format:'coglatas.local-diagnostic-premise-snapshot/1',state,mode,maximumBodyBytes,retainedBodyBytes,lookupComplete,
-      bodyScope:'RetainedCompilerInputObjects',relationshipStructure:'NotRecorded',earlierStates:'NotRecorded',authority:'NotEvaluated',producerTrust:'NotEvaluated',eligibility:'NotEvaluated',retentionPolicy:'NotAdopted',
+      bodyScope:isRootPremiseSource(sources)?'RootCompilerInputObjects':'RetainedCompilerInputObjects',relationshipStructure:'NotRecorded',earlierStates:'NotRecorded',authority:'NotEvaluated',producerTrust:'NotEvaluated',eligibility:'NotEvaluated',retentionPolicy:'NotAdopted',
       basis:{inputDigest:value.inputDigest,resultDigest:value.resultDigest,sourceDigest:value.sourceDigest,context:value.context,compiler:result['compiler'],
         diagnosticId:diagnostic.diagnosticId,diagnosticDigest,ruleId:diagnostic.ruleId,ruleVersion:diagnostic.ruleVersion,stageOrdinal:diagnostic.stageOrdinal,
         location:diagnostic.primaryLocation,evidence:diagnostic.evidence},
@@ -112,6 +124,6 @@ export async function readDiagnosticPremises(value: PreviewCase, sources: Admitt
     admitted[label]=Object.freeze({sources,diagnostic,choice:label,mode,state,data:freeze(data),text:frame.text,digest:freeze(frame.digest),
       maximumBodyBytes,retainedBodyBytes,lookupComplete,references:freeze(structuredClone(refs)),bodies:freeze(structuredClone(bodies))});
   }
-  if(!scopedSourcesMatch(value,sources)||value.result.diagnostics[index]!==diagnostic||!equal(selected,copy))return fail();
+  if(!diagnosticPremiseSourcesMatch(value,sources,diagnostic)||value.result.diagnostics[index]!==diagnostic||!equal(selected,copy))return fail();
   return admitted[choice]??fail();
 }

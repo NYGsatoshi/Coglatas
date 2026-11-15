@@ -8,7 +8,9 @@ public sealed partial class SyntheticWorkbenchViewModel
     private CoreCompilation? _premiseCompilation;
     private CompilerDiagnostic? _premiseDiagnostic;
     private long _premiseGeneration;
-    public ProjectDiagnosticPremiseSnapshot? DiagnosticPremises => CurrentScopedSources &&
+    private bool CurrentPremiseSource => CurrentScopedSources || CurrentRootSource &&
+        SelectedDiagnostic?.Location.Context.Equals(_rootSourceAdmission!.Source.Context) == true;
+    public ProjectDiagnosticPremiseSnapshot? DiagnosticPremises => CurrentPremiseSource &&
         ReferenceEquals(_compilation, _premiseCompilation) && ReferenceEquals(SelectedDiagnostic, _premiseDiagnostic) ? _diagnosticPremises : null;
 
     /// <summary>Read retained captured objects only after Source admission; no Compiler or current access grant.</summary>
@@ -17,12 +19,14 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(expectedResult);
         ClearDiagnosticPremises(); var generation = _premiseGeneration; var selection = _selectionGeneration;
-        var compilation = _compilation; var diagnostic = SelectedDiagnostic; var request = _desired; var scope = _scopedGeneration;
-        bool Current() => !_disposed && generation == _premiseGeneration && selection == _selectionGeneration && scope == _scopedGeneration &&
-            CurrentScopedSources && compilation is not null && diagnostic is not null && ReferenceEquals(compilation, _compilation) &&
+        var compilation = _compilation; var diagnostic = SelectedDiagnostic; var request = _desired; var scope = _scopedGeneration; var rootScope = _rootSourceGeneration;
+        bool Current() => !_disposed && generation == _premiseGeneration && selection == _selectionGeneration && scope == _scopedGeneration && rootScope == _rootSourceGeneration &&
+            CurrentPremiseSource && compilation is not null && diagnostic is not null && ReferenceEquals(compilation, _compilation) &&
             ReferenceEquals(diagnostic, SelectedDiagnostic) && ReferenceEquals(request, _desired);
         Changed(); if (!Current()) return false;
-        var snapshot = ProjectDiagnosticPremiseSnapshot.Read(compilation!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
+        var snapshot = CurrentScopedSources
+            ? ProjectDiagnosticPremiseSnapshot.Read(compilation!, diagnostic!, expectedResult, mode, maximumBodyBytes, token)
+            : ProjectDiagnosticPremiseSnapshot.ReadRoot(_rootSourceAdmission!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _diagnosticPremises = snapshot; _premiseCompilation = compilation; _premiseDiagnostic = diagnostic; Changed();
         return Current() && ReferenceEquals(DiagnosticPremises, snapshot) && snapshot.State is not
