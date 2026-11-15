@@ -81,14 +81,19 @@ def safe_location(raw: Any, target_origin: str) -> dict[str, Any] | None:
 
 
 def normalize_risk(alert: dict[str, Any]) -> str | None:
+    """Reject conflicting native risk fields rather than laundering High to Low."""
     riskdesc = safe_text(alert.get("riskdesc"), 64)
+    described = None
     if riskdesc:
         head = riskdesc.split(" ", 1)[0].strip().lower()
         if head == "informational":
-            return "Informational"
-        if head in {"high", "medium", "low"}:
-            return head.title()
-    return RISK_FROM_CODE.get(str(alert.get("riskcode", "")))
+            described = "Informational"
+        elif head in {"high", "medium", "low"}:
+            described = head.title()
+    coded = RISK_FROM_CODE.get(str(alert.get("riskcode", "")))
+    if described is not None and coded is not None and described != coded:
+        fail("ZAP risk description and numeric risk code disagree")
+    return described or coded
 
 
 def load_forbidden_values() -> tuple[list[str], bool]:
