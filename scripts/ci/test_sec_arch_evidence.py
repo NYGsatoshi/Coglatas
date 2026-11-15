@@ -133,6 +133,39 @@ def assert_native_capture_identity_and_mutations(
         capture_module.capture(root, trx, candidate, now)
 
 
+def assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, candidate, now, source):
+    """Exercise a real tracked source edit via Git's path-checked patch, not arbitrary file writes."""
+    registered = {
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRDeepChurnTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureFilePolicyTransportTests.cs",
+    }
+    relative = capture_module.SOURCE
+    if relative not in registered:
+        raise ValueError("Unregistered native source mutation fixture.")
+    test.assertEqual(source, root / relative)
+    original = source.read_text(encoding="utf-8")
+    test.assertTrue(original.startswith("public Task "))
+    test.assertNotIn("\n", original)
+    marker = "\\ No newline at end of file\n"
+    patch = ("--- a/" + relative + "\n+++ b/" + relative + "\n@@ -1 +1 @@\n"
+             + "-" + original + "\n" + marker
+             + "+" + original + " changed\n" + marker)
+    # Git apply denies patch paths escaping this synthetic repo; no real source,
+    # arbitrary CLI path, or raw test data is used as a filesystem write target.
+    subprocess.run(["git", "-C", str(root), "apply", "--check"], input=patch,
+                   check=True, text=True, capture_output=True, timeout=20)
+    subprocess.run(["git", "-C", str(root), "apply"], input=patch,
+                   check=True, text=True, capture_output=True, timeout=20)
+    try:
+        test.assertEqual(source.read_text(encoding="utf-8"), original + " changed")
+        with test.assertRaises(ValueError):
+            capture_module.capture(root, trx, candidate, now)
+    finally:
+        subprocess.run(["git", "-C", str(root), "restore", "--", relative],
+                       check=True, capture_output=True, timeout=20)
+    test.assertEqual(source.read_text(encoding="utf-8"), original)
+
+
 def assert_canonical_failure_summary(test, capture_module, producer_path):
     """Both SEC-17 captures admit their own producer and reject other reports."""
     with tempfile.TemporaryDirectory() as directory:

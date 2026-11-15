@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 import sec17_file_policy_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
-from test_sec_arch_evidence import (assert_native_capture_identity_and_mutations,
+from test_sec_arch_evidence import (assert_owned_source_mutation_is_rejected,
+                                    assert_native_capture_identity_and_mutations,
                                     assert_closed_cli_error_receipt,
                                     assert_canonical_failure_summary,
                                     assert_cyclic_symlink_closed_receipt,
@@ -198,12 +199,7 @@ class FilePolicyExecutionTests(unittest.TestCase):
                     deep, "capture", return_value=receipt):
                 self.assertEqual(0, deep.main())
             published = captured.getvalue().split("SEC17_FILE_POLICY_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_FILE_POLICY_EXECUTION_JSON_END", 1)[0]
-            # Mutate only the source created under this test-owned temporary root.
-            original_source = source.read_bytes()
-            source.write_bytes(original_source + b" changed")
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            source.write_bytes(original_source)
+            assert_owned_source_mutation_is_rejected(self, deep, root, trx, candidate, NOW, source)
             assert_native_capture_identity_and_mutations(
                 self, deep, root, trx, candidate, NOW, stamp, receipt, output, published)
 
