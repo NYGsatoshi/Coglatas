@@ -85,7 +85,12 @@ jobs:
           }
           dotnet run --project tools/ProjectIde.Preview/ProjectIde.Preview.csproj -c Release --no-build -- $output --simulation-debug
           if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $output)) { throw 'Live recorded-debugger export failed' }
-          $fixtureHash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          # Git smudge/checkout may change line endings on Windows even when the
+          # committed blob and the actual exported recording are byte-identical.
+          # Hash the exact committed Git blob without PowerShell's text conversion.
+          $committedHash = python -B -c 'import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_output(["git","cat-file","blob",sys.argv[1]])).hexdigest())' $sourceBlob
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot hash exact committed binary recording source' }
+          $fixtureHash = ([string]$committedHash).Trim().ToLowerInvariant()
           $exportHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($fixtureHash -ne 'c51b07019b1040505134bc983460324913b6a3d4b2b0399da2022d0da9eed98b' -or $exportHash -ne $fixtureHash) {
             throw 'Recorded-debugger replay diverged from independently pinned repository bytes'
@@ -212,7 +217,12 @@ jobs:
           }
           dotnet run --project tools/ProjectIde.Preview/ProjectIde.Preview.csproj -c Release --no-build -- $output --simulation-debug
           if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $output)) { throw 'Live recorded-debugger export failed' }
-          $fixtureHash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          # Git smudge/checkout may change line endings on Windows even when the
+          # committed blob and the actual exported recording are byte-identical.
+          # Hash the exact committed Git blob without PowerShell's text conversion.
+          $committedHash = python -B -c 'import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_output(["git","cat-file","blob",sys.argv[1]])).hexdigest())' $sourceBlob
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot hash exact committed binary recording source' }
+          $fixtureHash = ([string]$committedHash).Trim().ToLowerInvariant()
           $exportHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($fixtureHash -ne 'c51b07019b1040505134bc983460324913b6a3d4b2b0399da2022d0da9eed98b' -or $exportHash -ne $fixtureHash) {
             throw 'Recorded-debugger replay diverged from independently pinned repository bytes'
