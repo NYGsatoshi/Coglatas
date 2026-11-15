@@ -403,6 +403,7 @@ while IFS= read -r path; do
   case "$path" in
     tools/Coglatas.SecurityArchitecture/*)
       add_backend_scope "SecurityArchitecture"
+      add_backend_scope "Tools"
       security=true
       security_dotnet=true
       ;;

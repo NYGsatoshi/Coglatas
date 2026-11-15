@@ -215,6 +215,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertTrue(config.get_option('run:parallel'))
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-windows-coverage.py',
             ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
             ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',
             ROOT.as_posix() + '/scripts/ci/check-coglatas-rename.py',
