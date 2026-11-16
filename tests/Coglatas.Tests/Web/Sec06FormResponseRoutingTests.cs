@@ -32,6 +32,7 @@ public sealed class Sec06FormResponseRoutingTests
             });
             builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
             builder.Services.AddControllers().AddApplicationPart(typeof(FormsController).Assembly);
+            builder.Services.AddAuthorization();
 
             await using var app = builder.Build();
             app.UseRouting();
@@ -53,6 +54,10 @@ public sealed class Sec06FormResponseRoutingTests
                 }
                 await next();
             });
+            // Explicit placement keeps the test's route-metadata observer ahead
+            // of the real authorization middleware. Controller actions still
+            // pass through authorization if the observer does not intercept.
+            app.UseAuthorization();
             app.MapControllers();
             AngularSpaFallback.MapEndpointFallback(app, webRoot);
 
