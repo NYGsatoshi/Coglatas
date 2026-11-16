@@ -300,6 +300,42 @@ class CatalogMetadataContracts(unittest.TestCase):
         self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
         self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
 
+    def test_generated_internal_trigger_name_drift_still_fails_strict_oracle(self):
+        source = catalog_rows()
+        source[2][3] = "RI_ConstraintTrigger_a_1024"
+        source[2][5] = True
+        restored = copy.deepcopy(source)
+        restored[2][3] = "RI_ConstraintTrigger_a_2048"
+        diagnostic = self.diagnose(source, restored)
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
+        for side in ("SOURCE", "RESTORED"):
+            self.assertEqual(diagnostic["counts"][f"{side}_ONLY_TRIGGER_RECORDS"], 1)
+            self.assertEqual(diagnostic["counts"][f"{side}_ONLY_INTERNAL_TRIGGER_RECORDS"], 1)
+            self.assertEqual(diagnostic["counts"][f"{side}_ONLY_RI_TRIGGER_RECORDS"], 1)
+            self.assertEqual(diagnostic["counts"][f"{side}_ONLY_INDEX_RECORDS"], 0)
+        self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
+        before = {name: b"identical" for name in caller.COMPARISONS}
+        after = before.copy()
+        before["catalog.txt"], after["catalog.txt"] = catalog_bytes(source), catalog_bytes(restored)
+        result = complete()
+        result["comparisons"] = caller.strict_comparisons(before, after)
+        result["catalogDiagnostic"] = diagnostic
+        self.assertFalse(caller.candidate_complete(result))
+
+    def test_index_definition_and_trigger_flag_differences_keep_distinct_counts(self):
+        source = catalog_rows()
+        restored = copy.deepcopy(source)
+        restored[1][7] = "DIFFERENT_INDEX_DEFINITION"
+        restored[2][4] = "D"
+        diagnostic = self.diagnose(source, restored)
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_INDEX_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_INDEX_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_TRIGGER_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RI_TRIGGER_RECORDS"], 0)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RI_TRIGGER_RECORDS"], 0)
+
     def test_malformed_unknown_nonfinite_and_nonbyte_inputs_are_closed(self):
         valid = catalog_bytes(catalog_rows())
         bad_values = (b"", b"not-json", b"\xff", b"null\n", b'["unknown","PRIVATE"]\n',

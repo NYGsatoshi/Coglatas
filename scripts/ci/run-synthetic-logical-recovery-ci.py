@@ -113,8 +113,24 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
             "CONSTRAINT_RAW_TREE_FIELD_ONLY", "INDEX_RAW_TREE_FIELDS_ONLY",
             "OTHER_CHANGED_RECORDS", "SOURCE_ONLY_RECORDS", "RESTORED_ONLY_RECORDS")}
         counts["SOURCE_RECORDS"], counts["RESTORED_RECORDS"] = len(source), len(restored)
-        counts["SOURCE_ONLY_RECORDS"] = len(source.keys() - restored.keys())
-        counts["RESTORED_ONLY_RECORDS"] = len(restored.keys() - source.keys())
+        source_only = source.keys() - restored.keys()
+        restored_only = restored.keys() - source.keys()
+        counts["SOURCE_ONLY_RECORDS"] = len(source_only)
+        counts["RESTORED_ONLY_RECORDS"] = len(restored_only)
+        # Diagnostic-only category counts. No names, parse trees or OIDs escape.
+        for side, missing, catalog in (("SOURCE", source_only, source),
+                                       ("RESTORED", restored_only, restored)):
+            for name, tag in (("CONSTRAINT", "constraint"), ("INDEX", "index"),
+                              ("TRIGGER", "trigger"), ("TABLE_SECURITY", "table-security")):
+                counts[f"{side}_ONLY_{name}_RECORDS"] = sum(key[0] == tag for key in missing)
+            counts[f"{side}_ONLY_INTERNAL_TRIGGER_RECORDS"] = sum(
+                key[0] == "trigger" and catalog[key][0][5] is True for key in missing)
+            counts[f"{side}_ONLY_RI_TRIGGER_RECORDS"] = sum(
+                key[0] == "trigger" and catalog[key][0][5] is True
+                and re.fullmatch(r"RI_ConstraintTrigger_[ac]_[1-9][0-9]*",
+                                 catalog[key][0][3]) is not None for key in missing)
+        for tag in ("CONSTRAINT", "INDEX", "TRIGGER", "TABLE_SECURITY"):
+            counts[f"OTHER_CHANGED_{tag}_RECORDS"] = 0
         for identity in source.keys() & restored.keys():
             left, left_bytes = source[identity]
             right, right_bytes = restored[identity]
@@ -128,6 +144,7 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
                 category = "INDEX_RAW_TREE_FIELDS_ONLY"
             else:
                 category = "OTHER_CHANGED_RECORDS"
+                counts[f"OTHER_CHANGED_{identity[0].replace('-', '_').upper()}_RECORDS"] += 1
             counts[category] += 1
         # Closed diagnostic labels never relax the strict byte-for-byte oracle.
         if before == after:
