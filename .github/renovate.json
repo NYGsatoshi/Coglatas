@@ -36,17 +36,18 @@
       "allowedVersions": "/^34\\./"
     },
     {
-      "description": "Hold Stylelint 18 until SCSS config supports its peer dependency",
+      "description": "Hold Stylelint 18 and SCSS preset 18 until coordinated migration",
       "matchManagers": [
         "npm"
       ],
       "matchPackageNames": [
-        "stylelint"
+        "stylelint",
+        "stylelint-config-standard-scss"
       ],
       "allowedVersions": "/^17\\./"
     },
     {
-      "description": "Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees",
+      "description": "Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees",
       "matchManagers": [
         "npm"
       ],
@@ -55,7 +56,7 @@
         "@angular-devkit/build-angular",
         "@angular/cli"
       ],
-      "allowedVersions": "!/^22\\.2\\.[56]$/"
+      "allowedVersions": "!/^22\\.2\\.[5-7]$/"
     },
     {
       "description": "Keep protected GitHub Actions on reviewed SHA allowlist",
@@ -252,6 +253,18 @@
       "groupName": "NuGet compatible (minor and patch)"
     },
     {
+      "description": "Hold EF Core and Npgsql provider major 10 until coordinated migration",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchPackageNames": [
+        "/^Microsoft\\.EntityFrameworkCore(\\.|$)/",
+        "Npgsql.EntityFrameworkCore.PostgreSQL",
+        "dotnet-ef"
+      ],
+      "allowedVersions": "/^10\\./"
+    },
+    {
       "description": "Update GitHub Actions pins together",
       "matchManagers": [
         "github-actions"
@@ -302,6 +315,10 @@
     "prConcurrentLimit": 5
   },
   "constraints": {
-    "npm": "11.17.0"
+    "npm": "11.17.0",
+    "dotnet": "11.0.100"
+  },
+  "statusCheckWhen": {
+    "artifactError": "always"
   }
 }
