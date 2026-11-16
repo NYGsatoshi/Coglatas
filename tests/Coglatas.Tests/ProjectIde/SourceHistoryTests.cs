@@ -296,4 +296,95 @@ public sealed class SourceHistoryTests
         Assert.Equal(afterSource.Data, ProjectSourceHistory.Read(Ref(afterSource), [ProjectHistoryRevision.Checkpoint(result.Source, 1, [Ref(beforeSource)])]).Source!.Data);
         Assert.True(projection.GetProperty("compactedCheckpointVerified").GetBoolean());
     }
+
+    private sealed class CancelHistoricalRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly ProjectSource _before;
+        private readonly ProjectSource _after;
+        private readonly ProjectHistoryRevision[] _records;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public HistoryReconstruction? Replacement { get; private set; }
+        public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, ProjectSource before, ProjectSource after, ProjectHistoryRevision[] records)
+        { _vm = vm; _replace = replace; _before = before; _after = after; _records = records; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadSyntheticHistory(Ref(_after), _records, Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.History is null) return;
+            Fired = true;
+            if (_replace) Replacement = _vm.ReadSyntheticHistory(Ref(_before), [_records[0]]);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtHistoricalReadPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var input = Input(); var beforeSource = Revision(50); var afterSource = Revision(51, "Changed");
+        var checkpoint = ProjectHistoryRevision.Checkpoint(beforeSource, 0);
+        ProjectHistoryRevision[] records = [checkpoint, ProjectHistoryRevision.ForwardDelta(ProjectSourceDelta.Create(beforeSource, afterSource), 1)];
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data; var originalBefore = beforeSource.Data; var originalAfter = afterSource.Data;
+        var previous = view.ReadSyntheticHistory(Ref(afterSource), records)!; Assert.Equal(HistoryReadState.Ready, previous.State); Assert.Equal(2, previous.ReconstructionPath.Count); Assert.Equal(afterSource.Data, previous.Source!.Data);
+        var previousData = previous.Source!.Data;
+        using var cancellation = new CancelHistoricalRead(view, replace, beforeSource, afterSource, records); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Equal(previousData, previous.Source!.Data); Assert.Equal(originalBefore, beforeSource.Data); Assert.Equal(originalAfter, afterSource.Data);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Equal(HistoryReadState.Ready, cancellation.Replacement.State);
+            Assert.Same(cancellation.Replacement, view.History);
+        }
+        else Assert.Null(view.History);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
+    private sealed class ReplaceDuringHistoryEnumeration
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly ProjectSource _before;
+        private readonly ProjectSource _after;
+        private readonly ProjectHistoryRevision[] _records;
+        public HistoryReconstruction? Newer { get; private set; }
+        public ReplaceDuringHistoryEnumeration(SyntheticWorkbenchViewModel vm, ProjectSource before, ProjectSource after, ProjectHistoryRevision[] records)
+        { _vm = vm; _before = before; _after = after; _records = records; }
+        public HistoryReconstruction? Read() => _vm.ReadSyntheticHistory(Ref(_after), Supply());
+        private IEnumerable<ProjectHistoryRevision?> Supply()
+        {
+            Newer = _vm.ReadSyntheticHistory(Ref(_before), [_records[0]]);
+            foreach (var record in _records) yield return record;
+        }
+    }
+
+    [Fact]
+    public async Task OlderHistoryEnumerationCannotOverwriteANewerReconstructedView()
+    {
+        var input = Input(); var before = Revision(50); var after = Revision(51, "Changed");
+        ProjectHistoryRevision[] records = [ProjectHistoryRevision.Checkpoint(before, 0),
+            ProjectHistoryRevision.ForwardDelta(ProjectSourceDelta.Create(before, after), 1)];
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var beforeData = before.Data; var afterData = after.Data;
+        var fixture = new ReplaceDuringHistoryEnumeration(view, before, after, records); var returned = fixture.Read();
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Equal(beforeData, before.Data); Assert.Equal(afterData, after.Data);
+        Assert.NotNull(fixture.Newer); Assert.Equal(HistoryReadState.Ready, fixture.Newer.State); Assert.Equal(beforeData, fixture.Newer.Source!.Data);
+        Assert.Same(fixture.Newer, view.History); Assert.Null(returned);
+    }
 }

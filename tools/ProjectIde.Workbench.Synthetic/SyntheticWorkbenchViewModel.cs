@@ -18,6 +18,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private long _lifecycle;
     private long _selectionGeneration;
     private long _revertPreviewGeneration;
+    private long _historyReadGeneration;
     private long _taskSuggestionGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
@@ -381,6 +382,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var diff = ProjectSemanticDiff.Compare(before, after, expectedBefore, _desired.Input.ExpectedInputDigest,
             cancellationToken: cancellationToken);
         SemanticDiff = diff; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff))
+            {
+                SemanticDiff = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
     }
 
@@ -389,15 +398,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
-        var lifecycle = _lifecycle;
+        var lifecycle = _lifecycle; var generation = ++_historyReadGeneration;
         if (History is not null) { History = null; Changed(); }
-        if (_disposed || lifecycle != _lifecycle || History is not null) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration || History is not null) return null;
         if (_desired is null || Source is null || State != "Ready" ||
             revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
         var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
-        if (_disposed || lifecycle != _lifecycle) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration) return null;
         History = result; Changed();
-        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(History, result) ? result : null;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _historyReadGeneration && ReferenceEquals(History, result))
+            {
+                _historyReadGeneration++; History = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && generation == _historyReadGeneration && ReferenceEquals(History, result) ? result : null;
     }
 
     public void Reset()
@@ -417,7 +434,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _historyReadGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
