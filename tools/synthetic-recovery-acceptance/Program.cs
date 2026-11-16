@@ -403,7 +403,8 @@ internal static class Program
         {
             foreach (var cookie in checkpoint.Cookies)
             {
-                Require(Regex.IsMatch(cookie.Name, @"^[A-Za-z0-9_.-]{1,128}$")
+                Require(Regex.IsMatch(cookie.Name, @"^[A-Za-z0-9_.-]{1,128}$",
+                    RegexOptions.None, TimeSpan.FromMilliseconds(200))
                     && cookie.Value.Length is > 0 and <= 8192
                     && !cookie.Value.Any(character => character is '\r' or '\n' or '\0')
                     && cookie.Domain == "127.0.0.1" && cookie.Path == "/" && cookie.Version == 0
@@ -567,11 +568,17 @@ internal static class Program
         var result = new Dictionary<string, RowSnapshot>();
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
-        foreach (var table in new[] { "messages", "conversation_members", "outbox_events", "audit_logs" })
+        foreach (var (table, statement) in new[]
+        {
+            ("messages", "SELECT to_jsonb(r)::text FROM messages AS r ORDER BY r.\"Id\""),
+            ("conversation_members", "SELECT to_jsonb(r)::text FROM conversation_members AS r ORDER BY r.\"Id\""),
+            ("outbox_events", "SELECT to_jsonb(r)::text FROM outbox_events AS r ORDER BY r.\"Id\""),
+            ("audit_logs", "SELECT to_jsonb(r)::text FROM audit_logs AS r ORDER BY r.\"Id\"")
+        })
         {
             await using var command = connection.CreateCommand();
             // Entire persisted rows, including every immutable/mutable scalar. No values leave memory.
-            command.CommandText = $"SELECT to_jsonb(r)::text FROM {table} AS r ORDER BY r.\"Id\"";
+            command.CommandText = statement;
             await using var reader = await command.ExecuteReaderAsync();
             using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var rows = 0;
