@@ -84,7 +84,7 @@ var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many", "reference-pages" };
 var legacyNames = names;
 if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
 if (operatorRecordingProfile || passRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
@@ -98,7 +98,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when (operatorRecordingProfile || passRecordingProfile) && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), "reference-pages" => ReferencePagesInput(), _ when (operatorRecordingProfile || passRecordingProfile) && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
     if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
@@ -178,6 +178,30 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
+    if (name == "reference-pages")
+    {
+        if (inspection is null || ir is null) throw new InvalidOperationException("Reference paging requires the actual complete Source map.");
+        var target = inspection.Symbols.Single(item => item.Symbol.EntityId == EntityId.Parse(Id(6)) && item.Symbol.PortId is null);
+        var indices = new Dictionary<CompilerBoundReference, int>(ReferenceEqualityComparer.Instance);
+        for (var ordinal = 0; ordinal < inspection.References.Count; ordinal++) indices.Add(inspection.References[ordinal], ordinal);
+        var pages = new List<object>(); ReferenceSearchCursor? cursor = null;
+        do
+        {
+            var page = inspection.FindReferencesPage(target.Symbol.Location, input.InputDigest, cursor: cursor);
+            if (page.State != ReferenceSearchState.Ready || pages.Count >= inspection.References.Count + 1)
+                throw new InvalidOperationException("Reference paging did not retain its bounded original continuation.");
+            pages.Add(new { indexCoverageComplete = page.IndexCoverageComplete, scanComplete = page.ScanComplete,
+                scannedReferences = page.ScannedReferences, referenceIndices = page.References.Select(item => indices[item]).ToArray() });
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["referenceSearches"] = JsonSerializer.SerializeToNode(new[] { new { targetKey = target.Symbol.Key,
+            inputDigest = input.InputDigest.Data.Value, pages } });
+        _ = ProjectRootSourceAdmission.Read(compilation, result, result.ResultDigest) ?? throw new InvalidOperationException("Reference paging root Source is unavailable.");
+        fixture["rootSource"] = JsonSerializer.SerializeToNode(new { format = "coglatas.local-root-source-projection/1", inputText = input.Data.CanonicalText,
+            result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
+        cases[^1] = fixture;
+    }
     if (name.StartsWith("tests-", StringComparison.Ordinal))
     {
         var plan = ProjectTestPlan.Compile(compilation.Model!, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
@@ -543,6 +567,15 @@ static CompilerInputManifest TestAssertionNavigationInput()
     // Unicode is intentional assertion-key test data, including RFC 6901 escape characters.
     var declarations = new[] { Test(10, ["example.check", "example.a/b~c", "example.テスト/α~β"]), Test(11, ["example.foreign"]) };
     return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), input.Settings);
+}
+static CompilerInputManifest ReferencePagesInput()
+{
+    var original = Input("reference-pages", 9700); var declarations = new List<object>();
+    for (var ordinal = 0; ordinal < 35; ordinal++)
+        declarations.Add(new { entityId = Id(20000 + ordinal), documentId = Id(4), kind = "coglatas.requirement", schemaVersion = 1,
+            displayName = "Recorded reference " + (ordinal + 1), payload = new { target = new { tenantId = Id(1), projectId = Id(2),
+                entityId = Id(6), context = original.Source.Context.Data.Value }, condition = Literal(true), evidenceKind = "coglatas.model-proof" } });
+    return new(ProjectSource.Create(original.Source.Context, original.Source.Documents, Json(declarations), Json(Array.Empty<object>())), original.Settings);
 }
 static CompilerInputManifest RequirementCandidateInput()
 {

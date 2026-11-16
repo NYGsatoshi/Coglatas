@@ -60,6 +60,31 @@ public sealed class WebPreviewContractTests
                 Assert.Equal(expected.Candidates.Select(candidate => candidate.Symbol.Symbol.Key), page.GetProperty("candidates").EnumerateArray().Select(candidate => candidate.GetProperty("symbolKey").GetString()));
                 Assert.Equal(expected.Candidates.Select(candidate => candidate.DisplayName), page.GetProperty("candidates").EnumerateArray().Select(candidate => candidate.GetProperty("displayName").GetString()));
             }
+            if (item.TryGetProperty("referenceSearches", out var searches))
+            {
+                foreach (var search in searches.EnumerateArray())
+                {
+                    var target = inspection.Symbols.Single(symbol => symbol.Symbol.Key == search.GetProperty("targetKey").GetString());
+                    Assert.Equal(input.InputDigest.Data, SourceJson.Parse(search.GetProperty("inputDigest").GetRawText()));
+                    var original = inspection.References.ToArray();
+                    ReferenceSearchCursor? cursor = null;
+                    var recordedPages = search.GetProperty("pages").EnumerateArray().ToArray();
+                    Assert.NotEmpty(recordedPages);
+                    for (var index = 0; index < recordedPages.Length; index++)
+                    {
+                        var expected = inspection.FindReferencesPage(target.Symbol.Location, input.InputDigest, cursor: cursor);
+                        var recorded = recordedPages[index];
+                        Assert.Equal(ReferenceSearchState.Ready, expected.State);
+                        Assert.Equal(expected.IndexCoverageComplete, recorded.GetProperty("indexCoverageComplete").GetBoolean());
+                        Assert.Equal(expected.ScanComplete, recorded.GetProperty("scanComplete").GetBoolean());
+                        Assert.Equal(expected.ScannedReferences, recorded.GetProperty("scannedReferences").GetInt32());
+                        Assert.Equal(expected.References.Select(reference => Array.FindIndex(original, candidate => ReferenceEquals(candidate, reference))),
+                            recorded.GetProperty("referenceIndices").EnumerateArray().Select(value => value.GetInt32()));
+                        cursor = expected.NextCursor;
+                        Assert.Equal(index == recordedPages.Length - 1, cursor is null);
+                    }
+                }
+            }
         }
         else Assert.Equal(JsonValueKind.Null, item.GetProperty("semanticInspection").ValueKind);
         if (item.TryGetProperty("preparedRename", out var prepared) && prepared.ValueKind != JsonValueKind.Null)

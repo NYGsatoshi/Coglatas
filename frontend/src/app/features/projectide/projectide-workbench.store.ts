@@ -1,3 +1,4 @@
+import { ReferenceSearchPage, hasPreparedReferenceSearch, readReferenceSearchPage, referenceSearchPageMatches } from './projectide-reference-pages.reader';
 import {PassBoundarySourcePage, PassBoundarySourceTarget, readPassBoundarySourcePage, passBoundarySourcePageMatches} from './projectide-pass-source-navigation.reader';
 import { AdmittedRecordedPassBoundary, readRecordedPassBoundary, recordedPassBoundaryMatches } from './projectide-pass-boundary.reader';
 import { AdmittedPassRecording, AdmittedRecordedPasses, PassRecordingLabel, RecordedPassChoice, passRecordingMatches, recordedPassesMatch, readPassRecording, readRecordedPasses, passRunIdentitiesAreUnique } from './projectide-pass-recordings.reader';
@@ -51,6 +52,7 @@ export class ProjectIdeWorkbenchStore {
   readonly selection = signal<Selection | null>(null);
   private readonly referenceSelection = signal<{
     reference: BoundReference;
+    page?: ReferenceSearchPage;
     symbol: InspectedSymbol;
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
@@ -58,13 +60,14 @@ export class ProjectIdeWorkbenchStore {
   private readonly currentReferenceSelection = () => {
     const selected = this.referenceSelection();
     return selected && selected.result === this.context() && selected.result === this.result() &&
-      selected.sourceMap === selected.result.sourceMap && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
+      selected.sourceMap === selected.result.sourceMap && (!selected.page || selected.page === this.referencePage()) && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
   };
   private referenceQuery: AbortController | null = null;
   private readonly search = signal<{
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
     status: 'searching' | 'ready';
+    page?: ReferenceSearchPage;
     references: readonly BoundReference[];
     coverageComplete: boolean;
     truncated: boolean;
@@ -72,12 +75,12 @@ export class ProjectIdeWorkbenchStore {
   readonly referenceSearch = () => {
     const search = this.search();
     return search && search.result === this.context() && search.result === this.result() &&
-      search.result.sourceMap === search.sourceMap && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
+      search.result.sourceMap === search.sourceMap && (!search.page || search.page === this.referencePage()) && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
   };
   readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
   readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
-    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage } | null>(null);
+    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage; referencePage?: ReferenceSearchPage } | null>(null);
   private readonly currentTarget = computed(() => {
     const target = this.target();
     return target && target.context === this.context() && target.result === this.result() &&
@@ -86,7 +89,7 @@ export class ProjectIdeWorkbenchStore {
   });
   readonly sourceTarget = () => {
     const target = this.currentTarget();
-    return target && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
+    return target && (!target.referencePage || target.referencePage === this.referencePage()) && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
       (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? target.record : null;
   };
   readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
@@ -498,6 +501,7 @@ export class ProjectIdeWorkbenchStore {
     }catch{if(current())this.rootSourceReadState.set('unavailable');return false;}
   }
   private clearRootSource(): void {
+    untracked(() => { if (this.referencePageSnapshot()) this.cancelReferenceSearch(); });
     this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();this.clearPassRecording();
   }
   private diagnosticPremiseGeneration = 0;
@@ -1016,6 +1020,43 @@ export class ProjectIdeWorkbenchStore {
     this.selection.set(selection);
     return true;
   }
+  private readonly referencePageSnapshot = signal<{
+    result: PreviewCase; sourceMap: PreviewCase['sourceMap']; source: AdmittedRootSource;
+    symbol: InspectedSymbol; page: ReferenceSearchPage;
+  } | null>(null);
+  readonly referencePage = (): ReferenceSearchPage | null => {
+    const snapshot = this.referencePageSnapshot();
+    return snapshot && snapshot.result === this.context() && snapshot.result === this.result() &&
+      snapshot.result.sourceMap === snapshot.sourceMap && snapshot.source === this.rootSource() &&
+      this.inspectedSymbols().includes(snapshot.symbol) && referenceSearchPageMatches(snapshot.result, snapshot.page) ? snapshot.page : null;
+  };
+  private publishReferencePage(result: PreviewCase, symbol: InspectedSymbol, pageIndex: number): boolean {
+    const source = this.rootSource(); const page = readReferenceSearchPage(result, symbol, pageIndex);
+    if (!source || !page || result !== this.context() || result !== this.result() || !this.inspectedSymbols().includes(symbol) ||
+        typeof this.resolveCurrentLocation(result, symbol.location, true) === 'string' ||
+        page.references.some(reference => typeof this.resolveCurrentLocation(result, reference.origin, true) === 'string')) return false;
+    this.referencePageSnapshot.set({ result, sourceMap: result.sourceMap, source, symbol, page });
+    this.search.set({ result, sourceMap: result.sourceMap, status: 'ready', references: page.references,
+      coverageComplete: page.indexCoverageComplete && page.scanComplete, truncated: !page.scanComplete, page });
+    return this.referencePage() === page;
+  }
+  moveReferencePage(page: ReferenceSearchPage, pageIndex: number): boolean {
+    const snapshot = this.referencePageSnapshot();
+    if (!snapshot || page !== this.referencePage() || !Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= page.pageCount) return false;
+    this.cancelReferenceSearch(); this.referenceSelection.set(null); this.target.set(null); this.navigationState.set('');
+    return this.publishReferencePage(snapshot.result, snapshot.symbol, pageIndex);
+  }
+  selectReferencePageOrigin(page: ReferenceSearchPage, reference: BoundReference): boolean {
+    return page === this.referencePage() && page.references.includes(reference) && this.selectReference(reference);
+  }
+  private clearPreparedReferencePage(): void {
+    untracked(() => {
+      const page = this.referencePageSnapshot()?.page;
+      this.referencePageSnapshot.set(null);
+      if (page && this.referenceSelection()?.page === page) this.referenceSelection.set(null);
+      if (page && this.target()?.referencePage === page) { this.target.set(null); this.navigationState.set(''); }
+    });
+  }
   async findReferences(symbol: InspectedSymbol): Promise<boolean> {
     this.cancelReferenceSearch();
     this.referenceSelection.set(null);
@@ -1033,6 +1074,8 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(definition);
       return false;
     }
+
+    if (hasPreparedReferenceSearch(result, symbol)) return this.publishReferencePage(result, symbol, 0);
 
     const controller = new AbortController();
     this.referenceQuery = controller;
@@ -1072,6 +1115,7 @@ export class ProjectIdeWorkbenchStore {
     return true;
   }
   cancelReferenceSearch(): void {
+    this.clearPreparedReferencePage();
     this.referenceQuery?.abort();
     this.referenceQuery = null;
     this.search.set(null);
@@ -1087,7 +1131,9 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(typeof symbol === 'string' ? symbol : 'unavailable');
       return false;
     }
-    this.referenceSelection.set({ reference, symbol, result, sourceMap: result.sourceMap });
+    const page = this.referencePage();
+    if (page && !page.references.includes(reference)) { this.navigationState.set('unavailable'); return false; }
+    this.referenceSelection.set({ reference, symbol, result, sourceMap: result.sourceMap, ...(page ? { page } : {}) });
     this.navigationState.set('');
     return true;
   }
@@ -1100,7 +1146,11 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(typeof symbol === 'string' ? symbol : 'unavailable');
       return false;
     }
-    return this.navigateLocation(destination === 'origin' ? reference.origin : symbol.location, true);
+    const page = this.referenceSelection()?.page;
+    if (!this.navigateLocation(destination === 'origin' ? reference.origin : symbol.location, true)) return false;
+    const target = this.target();
+    if (page && target) this.target.set({ ...target, referencePage: page });
+    return !page || page === this.referencePage();
   }
   private resolveReference(reference: BoundReference): InspectedSymbol | string {
     const result = this.result();
