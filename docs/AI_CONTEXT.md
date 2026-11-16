@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned Root Source publication cancellation](verification/projectide-root-source-publication-cancellation.md)
+withdraws only the cancelled admission still owned by that read, preserves newer
+Source/premise views and original Compiler facts, and leaves runtime authority
+and activation holds separate. Qualification is recorded independently.
+
 [Owned output and selected pass publication cancellation](verification/projectide-output-boundary-publication-cancellation.md)
 withdraws only the cancelled read's exact current snapshot, preserves newer
 reads and original Compiler/receipt/plan facts, and leaves activation holds

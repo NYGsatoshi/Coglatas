@@ -32,6 +32,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _rootSourceAdmission = admission; _rootSourceRequest = request;
         RootSourceReadState = admission is null ? "Unavailable" : "Ready"; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _rootSourceGeneration && ReferenceEquals(_rootSourceAdmission, admission))
+            { ClearRootSource(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
     }
     private void ClearRootSource()
