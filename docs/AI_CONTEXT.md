@@ -1,5 +1,11 @@
 # AI Context
 
+[Predicate recording input-switch readiness](verification/projectide-predicate-recording-readiness.md)
+requires the original diagnostic recording to complete and receive focus before
+the Product clearing case navigates to Problems. The original browser failure
+and later changed-case qualification stay separate; application and shared CI
+are unchanged.
+
 [Owned historical reads](verification/projectide-historical-read-ownership.md)
 fences older history enumerations and cancelled diff/history publications while
 preserving newer reads and original Compiler/Source facts. Initial-clear

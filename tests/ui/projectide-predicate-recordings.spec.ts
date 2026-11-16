@@ -84,6 +84,9 @@ for (const locale of ['en', 'ja'] as const) {
   });
   test('clears visible original arrays when selecting a new input: ' + locale, async ({ page }) => {
     const value = bundle.cases[0]; await open(page, locale, 'fail'); await button(page, locale, roles[1][1], roles[1][2]);
+    const recording = page.getByTestId('ide-predicate-recording');
+    await expect(recording).toBeFocused();
+    await expect(recording.getByTestId('ide-predicate-recording-run')).toHaveText(JSON.parse(value.predicateRecordings.diagnostic.manifest.text).runId);
     await diagnostic(page, locale, value, 0); await button(page, locale, 'Read selected original arrays', '選択した元の配列を読む');
     await expect(page.getByTestId('ide-recorded-predicate-body')).toHaveCount(1);
     await page.getByTestId('ide-context').selectOption('unknown');
