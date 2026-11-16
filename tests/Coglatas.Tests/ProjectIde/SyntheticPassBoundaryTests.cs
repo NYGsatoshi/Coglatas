@@ -49,7 +49,7 @@ public sealed class SyntheticPassBoundaryTests
     [InlineData(1, "context")] [InlineData(2, "context")]
     public async Task BeforeAndAfterPublicationNotificationsCannotReviveOldSelectedBodies(int notification, string action)
     {
-        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("fail");
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input();
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel();
         var (actual, request) = await Prepare(vm, session); var digest = vm.Result!.ResultDigest;
@@ -70,7 +70,7 @@ public sealed class SyntheticPassBoundaryTests
     [InlineData(1)] [InlineData(2)]
     public async Task NewerSelectedReadWinsEvenWhenItStartsInsideAPublicationNotification(int notification)
     {
-        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("fail");
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input();
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel();
         await Prepare(vm, session); var digest = vm.Result!.ResultDigest; Assert.True(vm.LoadSyntheticRootSource(digest));
@@ -79,14 +79,14 @@ public sealed class SyntheticPassBoundaryTests
             if (fired || ++notifications != notification) return;
             fired = true; Assert.True(Read(Assert.IsType<SyntheticWorkbenchViewModel>(sender), digest, 1));
         };
-        Assert.False(Read(vm, digest, 0)); Assert.True(fired); Assert.Equal(1, vm.RecordedPassBoundary!.Ordinal);
+        Assert.False(Read(vm, digest)); Assert.True(fired); Assert.Equal(1, vm.RecordedPassBoundary!.Ordinal);
         Assert.Equal(1, vm.RecordedPassBoundary.OriginalBoundaryMetadata!.Value.GetProperty("ordinal").GetInt32());
     }
 
     [Fact]
     public async Task WrongResultCancellationAndUnavailableSelectorsWithdrawOnlyCurrentDisplay()
     {
-        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("fail");
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input();
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         var vm = new SyntheticWorkbenchViewModel();
         try

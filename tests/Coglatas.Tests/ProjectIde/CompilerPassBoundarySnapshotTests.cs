@@ -7,7 +7,7 @@ namespace Coglatas.Tests.ProjectIde;
 public sealed class CompilerPassBoundarySnapshotTests
 {
     public static IEnumerable<object[]> Keys() => SyntheticOperatorRecordingTests.Keys();
-    private static CompilerInputManifest Input() => SyntheticOperatorRecordingTests.Input("fail").Control.Input;
+    private static CompilerInputManifest Input() => SyntheticOperatorRecordingTests.Input().Control.Input;
     private static ProjectCompilerPassBoundarySnapshot Read(RecordedPassCompilation run, int ordinal,
         CompilerPassObservationSnapshotMode mode = CompilerPassObservationSnapshotMode.Manifest,
         int maximumBodyBytes = ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) =>
