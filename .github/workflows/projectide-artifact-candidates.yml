@@ -20,6 +20,7 @@ on:
       - tools/ProjectIde.Preview/**
       - tests/Coglatas.Tests/ProjectIde/WebSimulationDebugContractTests.cs
       - frontend/public/assets/projectide/simulation-debug-v1.json
+      - frontend/public/assets/projectide/.gitattributes
       - .github/workflows/projectide-artifact-candidates.yml
 
 permissions:
