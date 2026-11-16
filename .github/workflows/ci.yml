@@ -1234,7 +1234,7 @@ jobs:
               echo "::error::Security runtime prebuilt .NET source does not match the tested revision."
               exit 1
             }
-            [[ -s src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll ]]
+            [[ -s src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll ]]
             [[ -f src/Coglatas.Web/obj/project.assets.json ]]
             dockerfile="infra/docker/security-runtime-pr-prebuilt.Dockerfile"
           fi
