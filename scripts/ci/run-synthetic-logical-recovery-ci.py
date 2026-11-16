@@ -200,9 +200,12 @@ def named_index_diagnostic(before: bytes, after: bytes) -> dict:
                 output[identity] = row
             return output
         source, restored = records(before), records(after)
+        source_only = source.keys() - restored.keys()
+        restored_only = restored.keys() - source.keys()
         counts = {"SOURCE_INDEXES": len(source), "RESTORED_INDEXES": len(restored),
-                  "SOURCE_ONLY_NAMES": len(source.keys() - restored.keys()),
-                  "RESTORED_ONLY_NAMES": len(restored.keys() - source.keys()),
+                  "SOURCE_ONLY_NAMES": len(source_only), "RESTORED_ONLY_NAMES": len(restored_only),
+                  "SOURCE_ONLY_PG_TOAST_NAMES": sum(key[0] == "pg_toast" for key in source_only),
+                  "RESTORED_ONLY_PG_TOAST_NAMES": sum(key[0] == "pg_toast" for key in restored_only),
                   "EXACT_NAMED_INDEXES": 0, "RAW_TREE_ONLY_NAMED_INDEXES": 0,
                   "DECOMPILED_SQL_CHANGED": 0, "FLAGS_CHANGED": 0, "OTHER_CHANGED": 0}
         for identity in source.keys() & restored.keys():

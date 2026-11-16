@@ -364,6 +364,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         self.assertEqual(diagnostic["counts"], {
             "SOURCE_INDEXES": 4, "RESTORED_INDEXES": 4,
             "SOURCE_ONLY_NAMES": 1, "RESTORED_ONLY_NAMES": 1,
+            "SOURCE_ONLY_PG_TOAST_NAMES": 0, "RESTORED_ONLY_PG_TOAST_NAMES": 0,
             "EXACT_NAMED_INDEXES": 0, "RAW_TREE_ONLY_NAMED_INDEXES": 1,
             "DECOMPILED_SQL_CHANGED": 1, "FLAGS_CHANGED": 1, "OTHER_CHANGED": 0})
         self.assertNotIn(private, json.dumps(diagnostic))
@@ -377,6 +378,20 @@ class CatalogMetadataContracts(unittest.TestCase):
             catalog_bytes(catalog_rows()), catalog_bytes(catalog_rows()))
         result["catalogDiagnostic"]["namedIndex"] = diagnostic
         self.assertFalse(caller.candidate_complete(result))
+
+    def test_toast_index_identifier_changes_stay_closed_and_unmatched(self):
+        source = [["pg_toast", "pg_toast_17101", "pg_toast_17101_index",
+                   None, None, True, True, "CREATE INDEX source"]]
+        target = [["pg_toast", "pg_toast_19300", "pg_toast_19300_index",
+                   None, None, True, True, "CREATE INDEX target"]]
+        diagnostic = caller.named_index_diagnostic(
+            named_index_bytes(source), named_index_bytes(target))
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_NAMES"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_NAMES"], 1)
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_PG_TOAST_NAMES"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_PG_TOAST_NAMES"], 1)
+        self.assertEqual(diagnostic["counts"]["DECOMPILED_SQL_CHANGED"], 0)
+        self.assertNotIn("pg_toast_", json.dumps(diagnostic))
 
     def test_named_index_metadata_rejects_duplicate_and_malformed_records(self):
         private = CANARY.decode()
