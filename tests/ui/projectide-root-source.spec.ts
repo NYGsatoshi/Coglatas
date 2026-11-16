@@ -8,7 +8,9 @@ async function openRoot(page:Page,locale:'en'|'ja',key:string){
   await page.addInitScript(locale=>{localStorage.setItem('coglatas.locale',locale);window.__COGLATAS_FEATURE_FLAGS__={'projectide.syntheticPreview':true};},locale);
   await page.goto('/app/projectide/preview');
   await page.getByRole('button',{name:locale==='en'?'Open root premise example':'ルートの根拠の例を開く',exact:true}).click();
-  await page.getByTestId('ide-context').selectOption(key);await page.getByRole('button',{name:locale==='en'?'Load result fixture':'結果Fixtureを読み込む',exact:true}).click();
+  await expect(page.getByTestId('ide-context').locator('option')).toHaveCount(bundle.cases.length+1);
+  await page.getByTestId('ide-context').selectOption(key);await expect(page.getByTestId('ide-context')).toHaveValue(key);
+  await page.getByRole('button',{name:locale==='en'?'Load result fixture':'結果Fixtureを読み込む',exact:true}).click();
   await page.getByRole('button',{name:locale==='en'?'Source':'ソース',exact:true}).click();
   const load=page.getByRole('button',{name:locale==='en'?'Read fixed root Source':'固定されたルートソースを読む',exact:true});await load.focus();await load.press('Enter');
 }
