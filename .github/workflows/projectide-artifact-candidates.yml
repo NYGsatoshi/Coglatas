@@ -15,6 +15,12 @@ on:
       - tests/ci/projectide_artifact_inventory.py
       - tests/ci/projectide_core_isolated.py
       - tests/ci/projectide_integration_inventory.json
+      # Recorded debugger producer, replay tests, and immutable fixture are all
+      # independent changes that must activate the full two-host artifact suite.
+      - tools/ProjectIde.Preview/**
+      - tests/Coglatas.Tests/ProjectIde/WebSimulationDebugContractTests.cs
+      - frontend/public/assets/projectide/simulation-debug-v1.json
+      - frontend/public/assets/projectide/.gitattributes
       - .github/workflows/projectide-artifact-candidates.yml
 
 permissions:
@@ -67,6 +73,53 @@ jobs:
         run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=architecture.trx' --results-directory candidate-evidence
       - name: Check independent Node hash vectors
         run: node --test tests/ci/projectide-artifact-vectors.test.mjs
+      - name: Recreate exact debugger recording and verify the original fixture bytes
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = 'frontend/public/assets/projectide/simulation-debug-v1.json'
+          $output = 'candidate-evidence/simulation-debug-replayed.json'
+          if (!(Test-Path -LiteralPath $asset)) { throw 'Recorded debugger fixture absent' }
+          $sourceBlob = git rev-parse "HEAD:$asset"
+          $actualBlob = git hash-object -- $asset
+          if ($LASTEXITCODE -ne 0 -or $sourceBlob -ne '611369c8d5eb2c2089c82c26cfc29e091ed6188b' -or $actualBlob -ne $sourceBlob) {
+            throw 'Exact immutable recording fixture Git blob mismatch'
+          }
+          dotnet run --project tools/ProjectIde.Preview/ProjectIde.Preview.csproj -c Release --no-build -- $output --simulation-debug
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $output)) { throw 'Live recorded-debugger export failed' }
+          # Git smudge/checkout may change line endings on Windows even when the
+          # committed blob and the actual exported recording are byte-identical.
+          # Hash the exact committed Git blob without PowerShell's text conversion.
+          $committedHash = python -B -c 'import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_output(["git","cat-file","blob",sys.argv[1]])).hexdigest())' $sourceBlob
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot hash exact committed binary recording source' }
+          $fixtureHash = ([string]$committedHash).Trim().ToLowerInvariant()
+          $exportHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($fixtureHash -ne 'c51b07019b1040505134bc983460324913b6a3d4b2b0399da2022d0da9eed98b' -or $exportHash -ne $fixtureHash) {
+            throw 'Recorded-debugger replay diverged from independently pinned repository bytes'
+          }
+          $data = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json -Depth 128
+          $cases = @($data.cases)
+          $runCases = @($cases | Where-Object { $null -ne $_.simulationRun -and $null -ne $_.simulationDebug })
+          $frames = 0
+          foreach ($item in $runCases) { $frames += @($item.simulationDebug.frames).Count }
+          if ($cases.Count -ne 12 -or $runCases.Count -ne 9 -or $frames -ne 99) {
+            throw 'Expected original twelve cases, nine simulation runs, and ninety-nine recorded debugger frames'
+          }
+          @{
+            candidateHead = (git rev-parse HEAD).Trim()
+            fixtureBlob = $sourceBlob
+            fixtureSha256 = $fixtureHash
+            liveReplaySha256 = $exportHash
+            caseCount = $cases.Count
+            simulatedRunCount = $runCases.Count
+            recordedFrameCount = $frames
+            executionScope = 'SYNTHETIC_FIXED_SOURCE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -LiteralPath 'candidate-evidence/recording-replay-receipt.json' -Encoding utf8
       - name: Reject missing failed skipped or empty test results
         run: |
           foreach ($name in @('projectide', 'architecture')) {
@@ -81,6 +134,12 @@ jobs:
             if (($name -eq 'projectide' -and [int]$counters.total -lt 1041) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
+            }
+            if ($name -eq 'projectide') {
+              $debugger = @($results | Where-Object { [string]$_.testName -like '*WebSimulationDebugContractTests*' })
+              if ($debugger.Count -ne 15 -or @($debugger | Where-Object outcome -ne 'Passed').Count -ne 0) {
+                throw 'Recorded debugger native case inventory must contain fifteen distinct passing tests'
+              }
             }
           }
           git rev-parse HEAD | Set-Content candidate-evidence/candidate-sha.txt
@@ -146,6 +205,53 @@ jobs:
         run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=architecture.trx' --results-directory candidate-evidence
       - name: Check independent Node hash vectors
         run: node --test tests/ci/projectide-artifact-vectors.test.mjs
+      - name: Recreate exact debugger recording and verify the original fixture bytes
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asset = 'frontend/public/assets/projectide/simulation-debug-v1.json'
+          $output = 'candidate-evidence/simulation-debug-replayed.json'
+          if (!(Test-Path -LiteralPath $asset)) { throw 'Recorded debugger fixture absent' }
+          $sourceBlob = git rev-parse "HEAD:$asset"
+          $actualBlob = git hash-object -- $asset
+          if ($LASTEXITCODE -ne 0 -or $sourceBlob -ne '611369c8d5eb2c2089c82c26cfc29e091ed6188b' -or $actualBlob -ne $sourceBlob) {
+            throw 'Exact immutable recording fixture Git blob mismatch'
+          }
+          dotnet run --project tools/ProjectIde.Preview/ProjectIde.Preview.csproj -c Release --no-build -- $output --simulation-debug
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $output)) { throw 'Live recorded-debugger export failed' }
+          # Git smudge/checkout may change line endings on Windows even when the
+          # committed blob and the actual exported recording are byte-identical.
+          # Hash the exact committed Git blob without PowerShell's text conversion.
+          $committedHash = python -B -c 'import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_output(["git","cat-file","blob",sys.argv[1]])).hexdigest())' $sourceBlob
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot hash exact committed binary recording source' }
+          $fixtureHash = ([string]$committedHash).Trim().ToLowerInvariant()
+          $exportHash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($fixtureHash -ne 'c51b07019b1040505134bc983460324913b6a3d4b2b0399da2022d0da9eed98b' -or $exportHash -ne $fixtureHash) {
+            throw 'Recorded-debugger replay diverged from independently pinned repository bytes'
+          }
+          $data = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json -Depth 128
+          $cases = @($data.cases)
+          $runCases = @($cases | Where-Object { $null -ne $_.simulationRun -and $null -ne $_.simulationDebug })
+          $frames = 0
+          foreach ($item in $runCases) { $frames += @($item.simulationDebug.frames).Count }
+          if ($cases.Count -ne 12 -or $runCases.Count -ne 9 -or $frames -ne 99) {
+            throw 'Expected original twelve cases, nine simulation runs, and ninety-nine recorded debugger frames'
+          }
+          @{
+            candidateHead = (git rev-parse HEAD).Trim()
+            fixtureBlob = $sourceBlob
+            fixtureSha256 = $fixtureHash
+            liveReplaySha256 = $exportHash
+            caseCount = $cases.Count
+            simulatedRunCount = $runCases.Count
+            recordedFrameCount = $frames
+            executionScope = 'SYNTHETIC_FIXED_SOURCE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -LiteralPath 'candidate-evidence/recording-replay-receipt.json' -Encoding utf8
       - name: Reject missing failed skipped or empty test results
         run: |
           foreach ($name in @('projectide', 'architecture')) {
@@ -160,6 +266,12 @@ jobs:
             if (($name -eq 'projectide' -and [int]$counters.total -lt 1041) -or
                 ($name -eq 'architecture' -and [int]$counters.total -lt 12)) {
               throw "Retained $name inventory shrank"
+            }
+            if ($name -eq 'projectide') {
+              $debugger = @($results | Where-Object { [string]$_.testName -like '*WebSimulationDebugContractTests*' })
+              if ($debugger.Count -ne 15 -or @($debugger | Where-Object outcome -ne 'Passed').Count -ne 0) {
+                throw 'Recorded debugger native case inventory must contain fifteen distinct passing tests'
+              }
             }
           }
           git rev-parse HEAD | Set-Content candidate-evidence/candidate-sha.txt
