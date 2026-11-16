@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned output and selected pass publication cancellation](verification/projectide-output-boundary-publication-cancellation.md)
+withdraws only the cancelled read's exact current snapshot, preserves newer
+reads and original Compiler/receipt/plan facts, and leaves activation holds
+separate. Current qualification is recorded independently.
+
 [Owned recording publication cancellation](verification/projectide-recording-publication-cancellation.md)
 checks post-notification cancellation for original Pass/Operator/Predicate views,
 withdraws only the owning generation/snapshot and preserves newer successful

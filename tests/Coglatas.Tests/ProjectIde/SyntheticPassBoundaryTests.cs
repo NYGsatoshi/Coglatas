@@ -105,4 +105,59 @@ public sealed class SyntheticPassBoundaryTests
         }
         finally { vm.Dispose(); }
     }
+
+    private sealed class CancelPublishedRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly ContentDigest _expectedResult;
+        private readonly bool _replace;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectCompilerPassBoundarySnapshot? Replacement { get; private set; }
+        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _expectedResult = vm.Result!.ResultDigest; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadRecordedPassBoundary(_expectedResult, 0, CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.ReadRecordedPassBoundary(_expectedResult, 0, CompilerPassObservationSnapshotMode.AvailableOriginalJson);
+                Replacement = _vm.RecordedPassBoundary;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtAdjacentSnapshotPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input();
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var vm = new SyntheticWorkbenchViewModel();
+        var (actual, _) = await Prepare(vm, session);
+        Assert.True(vm.LoadSyntheticRootSource(actual.Response.Execution!.Compilation.Result.ResultDigest));
+        var result = vm.Result!; var resultData = result.Data; var receiptData = actual.Receipt.Data;
+        Assert.True(Read(vm, result.ResultDigest));
+        var previous = vm.RecordedPassBoundary!; var previousData = previous.Data; Assert.NotEmpty(previous.Bodies);
+        using var cancellation = new CancelPublishedRead(vm, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(receiptData, actual.Receipt.Data);
+        Assert.Equal(previousData, previous.Data); Assert.NotEmpty(previous.Bodies);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, vm.RecordedPassBoundary); Assert.NotEmpty(vm.RecordedPassBoundary!.Bodies);
+        }
+        else Assert.Null(vm.RecordedPassBoundary);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }
