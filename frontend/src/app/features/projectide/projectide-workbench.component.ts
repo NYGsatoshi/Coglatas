@@ -10,6 +10,7 @@ import { CompilerOutputMode } from './projectide-compiler-outputs.reader';
 import { RecordedDebugFrame } from './projectide-recorded-debug.reader';
 import { isProjectLocationShape } from './projectide-preview.validation';
 import { SimulationEvent } from './projectide-simulation.reader';
+import type { AdmittedTraceProfile } from './projectide-simulation-trace-profile.reader';
 import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
@@ -103,6 +104,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
   private readonly compilerOutputsElement = viewChild<ElementRef<HTMLElement>>('compilerOutputsPanel');
+  private readonly simulationElement = viewChild<ElementRef<HTMLElement>>('simulationPanel');
   private readonly traceProfileElement = viewChild<ElementRef<HTMLElement>>('traceProfilePanel');
   private readonly comparisonElement = viewChild<ElementRef<HTMLElement>>('comparisonPanel');
   private readonly recordedFrameElement = viewChild<ElementRef<HTMLElement>>('recordedFrame');
@@ -402,6 +404,12 @@ export class ProjectIdeWorkbenchComponent {
     if (loaded && profile) setTimeout(() => {
       if (generation === this.focusGeneration && this.canRead() && profile === this.store.simulationTraceProfile()) this.traceProfileElement()?.nativeElement.focus();
     });
+  }
+  showTraceProfileRun(profile: AdmittedTraceProfile): void {
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); return; }
+    if (!this.store.simulationTraceProfileRun(profile)) return;
+    this.focusGeneration++;
+    this.simulationElement()?.nativeElement.focus();
   }
   async loadSimulationComparison(): Promise<void> {
     const generation = ++this.focusGeneration;

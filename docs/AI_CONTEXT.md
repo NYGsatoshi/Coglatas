@@ -1,5 +1,11 @@
 # AI Context
 
+[Fixed model summary recording navigation](verification/projectide-summary-recording-navigation.md)
+resolves only the exact current owned summary and focuses its existing recording.
+Metrics, original event data and simulated-model meaning are unchanged. Durable
+query/export, current authority and independent privacy/Native qualification stay
+separate under P0 #1962.
+
 [Predicate recording input-switch readiness](verification/projectide-predicate-recording-readiness.md)
 requires the original diagnostic recording to complete and receive focus before
 the Product clearing case navigates to Problems. The original browser failure

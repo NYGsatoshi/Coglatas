@@ -196,6 +196,7 @@ export const PROJECTIDE_ENGLISH_MESSAGES = {
 
   "ide.profileExample": "Open model trace summary example",
 "ide.profileLoad": "Read model trace summary",
+"ide.profileRecording": "Show the model recording",
 "ide.profileTitle": "Model trace summary",
 "ide.profileNotice": "This summary reads a fixed simulation recording. No new run starts. Real operational observations are unavailable here. These metrics judge no outcomes or real-world performance.",
 "ide.profileUnavailable": "The model trace summary could not be verified for this recording.",
@@ -700,6 +701,7 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
 
   "ide.profileExample": "モデル記録の集計例を開く",
 "ide.profileLoad": "モデル記録の集計を読む",
+"ide.profileRecording": "集計元のモデル記録を表示",
 "ide.profileTitle": "モデル記録の集計",
 "ide.profileNotice": "シミュレーションの固定記録を集計します。新たな実行は開始しません。実運用の観測結果はありません。この指標で成否や現実の性能は判定しません。",
 "ide.profileUnavailable": "この記録のモデル集計を検証できませんでした。",
