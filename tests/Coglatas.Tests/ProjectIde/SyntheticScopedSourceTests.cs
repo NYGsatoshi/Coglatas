@@ -125,4 +125,25 @@ public sealed class SyntheticScopedSourceTests
         Assert.False(view.NavigateScopedSource(ProjectLocation.Create(location.DocumentId, fixture.A, "/payload/ports/" + Id(400), entityId: location.EntityId)));
         Assert.Null(view.ScopedSourceTarget); Assert.Equal("invalid-location", view.NavigationState);
     }
+
+    [Fact]
+    public async Task ActualAdmittedSourceRosterCannotBeRewrittenThroughLegacyCollectionRoot()
+    {
+        var fixture = Graph(withRelation: true);
+        var request = new CompilerHostRequest(new(fixture.Input), 1, fixture.Snapshots);
+        var response = await Host(fixture.Input).CompileAsync(request);
+        using var view = new SyntheticWorkbenchViewModel();
+        view.BeginSynthetic(request); Assert.True(view.TryAccept(response));
+        Assert.True(view.LoadSyntheticScopedSources());
+        var original = view.ScopedSources.ToArray(); Assert.Equal(3, original.Length);
+        Assert.NotEqual(original[0].Data, original[1].Data);
+        var result = view.Result!; var resultData = result.Data;
+        var scoped = response.Compilation!.Dependencies!.ScopedIr!; var scopedData = scoped.Data;
+        if (view.ScopedSources is System.Collections.ICollection legacy && legacy.SyncRoot is ProjectSource[] storage)
+            storage[0] = original[1];
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data);
+        Assert.Same(scoped, response.Compilation.Dependencies.ScopedIr); Assert.Equal(scopedData, scoped.Data);
+        Assert.Equal(original, scoped.Regions.Select(region => region.Binding.Source));
+        Assert.Equal(original, view.ScopedSources);
+    }
 }
