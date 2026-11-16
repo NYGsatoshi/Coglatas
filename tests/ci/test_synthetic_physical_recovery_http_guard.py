@@ -7,8 +7,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 from pathlib import Path
 import tempfile
+import os
+import secrets
 import threading
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,7 +76,7 @@ class RecoveryHttpRedirectTests(unittest.TestCase):
             app = PROBE.SyntheticApplication(ROOT, Path(tmp))
             app.origin = f"http://127.0.0.1:{self.server.server_port}"
             for code in (301, 302, 303, 307, 308):
-                for body in (None, {"syntheticPassword": "not-a-credential"}):
+                for body in (None, {"syntheticPassword": secrets.token_urlsafe(24)}):
                     with self.subTest(redirect_status=code, method="POST" if body else "GET"):
                         self.server.redirect_status = code
                         with self.assertRaisesRegex(PROBE.ProbeFailure, "^APPLICATION_REDIRECT_FORBIDDEN$"):
@@ -87,6 +90,55 @@ class RecoveryHttpRedirectTests(unittest.TestCase):
             self.assertEqual(app.request("/ok"), (200, b"synthetic-ok"))
             self.assertEqual(app.request("/deny"), (403, b"denied"))
             self.assertEqual(self.server.unexpected_requests, 0)
+
+
+class RecoveryProbePathBoundaryTests(unittest.TestCase):
+    def test_ci_recovery_admission_accepts_only_owned_private_fresh_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            runner = Path(directory)
+            private = runner / "cgr-isolated-fixture"
+            private.mkdir(mode=0o700)
+            ddl = private / "original.sql"
+            ddl.write_bytes(b"CREATE TABLE synthetic_recovery_fixture (id integer);")
+            evidence = private / "e"
+            selected = {
+                "RUNNER_TEMP": str(runner),
+                "COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
+                "GITHUB_EVENT_NAME": "pull_request",
+                "RUNNER_OS": "Linux",
+            }
+            with patch.dict(os.environ, selected):
+                self.assertEqual((ddl, evidence), PROBE.admit_ephemeral_probe_paths(ddl, evidence))
+                for invalid_ddl, invalid_evidence in (
+                    (ddl, runner / "external"),
+                    (ddl, private / "other"),
+                    (ddl, private / "e/../e"),
+                    (private / "other.sql", evidence),
+                    (runner / "foreign.sql", evidence),
+                ):
+                    with self.subTest(ddl=invalid_ddl, evidence=invalid_evidence):
+                        with self.assertRaises(PROBE.ProbeFailure):
+                            PROBE.admit_ephemeral_probe_paths(invalid_ddl, invalid_evidence)
+                evidence.symlink_to(runner, target_is_directory=True)
+                with self.assertRaises(PROBE.ProbeFailure):
+                    PROBE.admit_ephemeral_probe_paths(ddl, evidence)
+                evidence.unlink()
+                other = private / "other.sql"
+                other.write_bytes(b"SELECT 1;")
+                ddl.unlink()
+                ddl.symlink_to(other)
+                with self.assertRaises(PROBE.ProbeFailure):
+                    PROBE.admit_ephemeral_probe_paths(ddl, evidence)
+                ddl.unlink()
+                ddl.write_bytes(b"SELECT 1;")
+                private.chmod(0o755)
+                with self.assertRaises(PROBE.ProbeFailure):
+                    PROBE.admit_ephemeral_probe_paths(ddl, evidence)
+                private.chmod(0o700)
+            with self.assertRaises(PROBE.ProbeFailure):
+                PROBE.admit_ephemeral_probe_paths(ddl, evidence)
+
+
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import shutil
 import socket
 import subprocess
@@ -396,6 +397,39 @@ COPY file_versions FROM stdin;
             "fileTriggerSourceSha256": digest(file_migration.read_bytes())}
 
 
+def admit_ephemeral_probe_paths(original_ddl: Path, evidence_dir: Path) -> tuple[Path, Path]:
+    """Require the single fresh, owner-private recovery workspace created by the CI caller."""
+    runner = os.environ.get("RUNNER_TEMP")
+    if (os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") != "github-hosted"
+            or os.environ.get("GITHUB_EVENT_NAME") != "pull_request"
+            or os.environ.get("RUNNER_OS") != "Linux" or not runner):
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    runner_root = Path(runner)
+    if not runner_root.is_absolute() or runner_root.is_symlink() or not runner_root.is_dir():
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    runner_root = runner_root.resolve(strict=True)
+    private = evidence_dir.parent
+    if (not evidence_dir.is_absolute() or ".." in evidence_dir.parts
+            or evidence_dir.name != "e" or not private.name.startswith("cgr-")
+            or private.parent != runner_root or private.is_symlink()):
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    private_info = private.stat(follow_symlinks=False)
+    if (not stat.S_ISDIR(private_info.st_mode) or private_info.st_uid != os.getuid()
+            or stat.S_IMODE(private_info.st_mode) & 0o077):
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    if (not original_ddl.is_absolute() or ".." in original_ddl.parts
+            or original_ddl != private / "original.sql" or original_ddl.is_symlink()):
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    original_info = original_ddl.stat(follow_symlinks=False)
+    if (not stat.S_ISREG(original_info.st_mode) or original_info.st_uid != os.getuid()
+            or original_info.st_size <= 0 or original_info.st_size > 128 * 1024 * 1024):
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    if evidence_dir.exists() or evidence_dir.is_symlink():
+        raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
+    return original_ddl, evidence_dir
+
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute-isolated-synthetic", action="store_true", required=True)
@@ -407,11 +441,12 @@ def main() -> int:
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", args.postgres_image_id):
         parser.error("An existing immutable local image ID is required.")
     root = Path(__file__).resolve().parents[2]
-    evidence = args.evidence_dir.resolve()
-    if evidence.exists():
-        parser.error("The evidence directory must be fresh; failures may not be overwritten.")
-    evidence.mkdir(parents=True, mode=0o700)
+    try:
+        ddl_path, evidence = admit_ephemeral_probe_paths(args.original_ef_ddl, args.evidence_dir)
+    except (ProbeFailure, OSError):
+        parser.error("Owned, fresh, isolated runner recovery paths are required.")
     os.umask(0o077)
+    evidence.mkdir(mode=0o700)
     source_socket, target_socket = evidence / "source-socket", evidence / "target-socket"
     if len(str(source_socket)) > 85 or len(str(target_socket)) > 85:
         parser.error("Use a shorter fresh evidence path for isolated Unix sockets.")
@@ -419,7 +454,7 @@ def main() -> int:
         directory.mkdir(mode=0o777)
         directory.chmod(0o777)  # Only this fresh, isolated server socket directory.
     source_sha = run(["git", "-C", str(root), "rev-parse", "HEAD"]).decode().strip()
-    ddl = args.original_ef_ddl.read_bytes()
+    ddl = ddl_path.read_bytes()
     identifier = "coglatas-synthetic-recovery-" + uuid.uuid4().hex[:12]
     source = identifier + "-source"
     target = identifier + "-target"
