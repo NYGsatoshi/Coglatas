@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned recording publication cancellation](verification/projectide-recording-publication-cancellation.md)
+checks post-notification cancellation for original Pass/Operator/Predicate views,
+withdraws only the owning generation/snapshot and preserves newer successful
+reads and original Compiler/receipt facts. Qualification remains separate.
+
 [Owned admitted Source rosters](verification/projectide-scoped-source-roster-ownership.md)
 keeps the pure ViewModel display sequence faithful to its accepted Core regions
 without exposing the copied backing array. Original Compiler facts, admission,

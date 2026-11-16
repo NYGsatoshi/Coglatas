@@ -78,6 +78,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectRecordedPredicatePremiseSnapshot.Read(_rootSourceAdmission!, compilation!.PredicatePremises!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _recordedPredicatePremises = snapshot; _recordedPredicateDiagnostic = diagnostic; _recordedPredicateCompilation = compilation; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
+            { ClearRecordedPredicatePremises(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(RecordedPredicatePremises, snapshot) && snapshot.State is not
             (RecordedPredicateSnapshotState.RefusedWrongResult or RecordedPredicateSnapshotState.RefusedRecord or RecordedPredicateSnapshotState.RefusedDiagnostic or RecordedPredicateSnapshotState.RefusedBodyBinding);
     }

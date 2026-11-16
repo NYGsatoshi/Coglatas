@@ -80,6 +80,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerPassObservationSnapshot.Read(execution, compilation!, execution.Observation, compilation!.Input.InputDigest, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _recordedPasses = snapshot; _passCompilation = compilation; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
+            { ClearPassSnapshot(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(RecordedPasses, snapshot) && snapshot.State is not (CompilerPassObservationSnapshotState.RefusedInvocation or
             CompilerPassObservationSnapshotState.RefusedInputBinding or CompilerPassObservationSnapshotState.RefusedWrongResult);
     }
