@@ -116,9 +116,10 @@ def parse_report(raw_report: Path, output: Path, secrets: set[str], expected_see
     observed_version = ""
     safe_bytes = 0
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as temp:
-        temp_path = Path(temp.name)
-        try:
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as temp:
+            temp_path = Path(temp.name)
             for line_number, line in bounded_ndjson(raw_report, maximum=MAX_RAW_NDJSON_BYTES, label="raw report"):
                 try:
                     event = json.loads(line)
@@ -143,21 +144,20 @@ def parse_report(raw_report: Path, output: Path, secrets: set[str], expected_see
                     fail("sanitized report exceeds bounded output")
                 temp.write(serialized)
                 temp.write("\n")
-        except BaseException:
+        # The temporary file is closed before any failure cleanup or rename,
+        # including on Windows hosts where unlink of an open file is prohibited.
+        if initialize_count != 1:
+            fail(f"expected exactly one Initialize event, got {initialize_count}")
+        safe_text = temp_path.read_text(encoding="utf-8")
+        for secret in secrets:
+            if secret in safe_text or base64.b64encode(secret.encode("utf-8")).decode("ascii") in safe_text:
+                fail("sanitized report still contains ephemeral authentication material")
+        temp_path.replace(output)
+    except BaseException:
+        if temp_path is not None:
             temp_path.unlink(missing_ok=True)
-            raise
-    if initialize_count != 1:
-        temp_path.unlink(missing_ok=True)
-        fail(f"expected exactly one Initialize event, got {initialize_count}")
-
-    safe_text = temp_path.read_text(encoding="utf-8")
-    for secret in secrets:
-        if secret in safe_text or base64.b64encode(secret.encode("utf-8")).decode("ascii") in safe_text:
-            temp_path.unlink(missing_ok=True)
-            fail("sanitized report still contains ephemeral authentication material")
-    temp_path.replace(output)
+        raise
     return initialize_count, observed_version
-
 
 def contract_operations(raw: bytes) -> set[str]:
     """Bind evidence labels to the exact canonical OpenAPI contract bytes."""
