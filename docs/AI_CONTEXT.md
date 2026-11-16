@@ -1,5 +1,12 @@
 # AI Context
 
+[Owned historical reads](verification/projectide-historical-read-ownership.md)
+fences older history enumerations and cancelled diff/history publications while
+preserving newer reads and original Compiler/Source facts. Initial-clear
+supersession reports caller cancellation before returning, without enumerating
+the old supplier or withdrawing a newer successful reconstruction. Historical access,
+retention, qualification and current runtime authority remain separate.
+
 [Owned explicit Draft preview cancellation](verification/projectide-draft-preview-publication-cancellation.md)
 withdraws only cancelled current Rename/Revert/Test-definition plans and preserves
 newer previews, original Compiler/Source/history facts and explicit Apply guards.
