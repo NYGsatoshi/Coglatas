@@ -51,6 +51,19 @@ class LogicalRecoveryContracts(unittest.TestCase):
             result["comparisons"] = observed
             self.assertFalse(caller.candidate_complete(result))
 
+    def test_portable_shadow_cannot_approve_original_raw_catalog_failure(self):
+        result = complete()
+        result["portableCatalogShadow"] = {
+            "availability": "AVAILABLE",
+            "sourceSha256": "a" * 64,
+            "restoredSha256": "a" * 64,
+            "exactBytesEqual": True}
+        comparison = result["comparisons"]["catalog.txt"]
+        comparison["restoredSha256"] = "b" * 64
+        comparison["exactBytesEqual"] = False
+        self.assertFalse(caller.candidate_complete(result))
+        self.assertFalse(caller.comparisons_pass(result["comparisons"]))
+
     def test_unknown_missing_and_nonbyte_inputs_rejected(self):
         original = {name: b"unchanged" for name in caller.COMPARISONS}
         for value in ({}, {**original, "unexpected": CANARY},

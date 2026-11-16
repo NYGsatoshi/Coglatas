@@ -226,6 +226,29 @@ def named_index_diagnostic(before: bytes, after: bytes) -> dict:
         return unavailable
 
 
+def portable_catalog_shadow(container: str, environment: dict) -> bytes:
+    """Evaluate Main's original portable catalog in memory; never an admission oracle."""
+    script = ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs"
+    query = subprocess.run(["node", str(script), "queries"], cwd=ROOT, env=environment,
+                           capture_output=True, check=False, timeout=15)
+    support.require(query.returncode == 0 and 0 < len(query.stdout) <= 131072)
+    queries = support.closed_json(query.stdout)
+    support.require(type(queries) is dict and set(queries) == {"catalog", "triggers"}
+                    and all(type(value) is str and 0 < len(value) <= 16384
+                            for value in queries.values()))
+    catalog = probe.sql(container, queries["catalog"]).strip()
+    triggers = probe.sql(container, queries["triggers"]).strip()
+    support.require(all(0 < len(value) <= 8 * 1024 * 1024
+                        for value in (catalog, triggers)))
+    payload = b'{"catalog":' + catalog + b',"triggers":' + triggers + b'}'
+    support.require(len(payload) <= 16 * 1024 * 1024)
+    projected = subprocess.run(["node", str(script), "project"], cwd=ROOT, env=environment,
+                               input=payload, capture_output=True, check=False, timeout=40)
+    support.require(projected.returncode == 0
+                    and 0 < len(projected.stdout) <= 16 * 1024 * 1024)
+    return projected.stdout
+
+
 def logical_commands(source: str, target: str) -> dict:
     support.require(all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value)
                         for value in (source, target)) and source != target)
@@ -417,6 +440,12 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
         before = probe.snapshot(source)
         support.require(probe.oracle_negative_controls(source, before) == support.ORACLE)
         result["controls"]["oracleNegatives"] = "PASS"
+        portable_before = None
+        try:
+            portable_before = portable_catalog_shadow(source, environment)
+        except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError,
+                subprocess.SubprocessError):
+            result["portableCatalogShadow"]["availability"] = "UNAVAILABLE"
         result["failureCategory"] = "LOGICAL_COMMAND_FAILED"
         transfer_once(source, target, private, result, environment)
         # Preserve first command failure even if a partial target cannot be read.
@@ -438,6 +467,17 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
         result["controls"]["sourceQuiescent"] = "PASS"
         if not commands_ok:
             return
+        if portable_before is not None:
+            try:
+                portable_after = portable_catalog_shadow(target, environment)
+                result["portableCatalogShadow"] = {
+                    "availability": "AVAILABLE",
+                    "sourceSha256": support.sha(portable_before),
+                    "restoredSha256": support.sha(portable_after),
+                    "exactBytesEqual": portable_before == portable_after}
+            except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError,
+                    KeyError, subprocess.SubprocessError):
+                result["portableCatalogShadow"] = {"availability": "UNAVAILABLE"}
         # Metadata queries cannot turn a strict recovery failure into PASS.
         try:
             result["catalogDiagnostic"]["namedIndex"] = named_index_diagnostic(
@@ -477,6 +517,7 @@ def main() -> int:
               "sourceSha": None, "sourceHeadSha": None, "baseSha": None, "runId": None, "runAttempt": None,
               "bindings": {}, "controls": {}, "comparisons": {}, "commands": {}, "dumpSha256": None,
               "catalogDiagnostic": {"availability": "NOT_EXECUTED", "schemaClassification": "UNCLASSIFIED"},
+              "portableCatalogShadow": {"availability": "NOT_EXECUTED"},
               "resourceIds": [], "admittedContainers": 0, "stoppedContainers": 0, "cleanupState": "INCOMPLETE",
               "formalStrategyChanged": False, "formalRecoveryAcceptance": "NOT_GRANTED", "publicGo": False,
               "databaseAuthorityScope": "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",

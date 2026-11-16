@@ -7,6 +7,10 @@ on:
       - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
       - 'tests/ci/test_synthetic_logical_recovery_ci.py'
       - 'scripts/ci/run-synthetic-logical-recovery-ci.py'
+      - 'scripts/ci/synthetic-portable-recovery-catalog.mjs'
+      - 'scripts/ci/synthetic-trigger-catalog.mjs'
+      - 'scripts/ci/run-synthetic-logical-recovery.mjs'
+      - 'tests/ci/synthetic-portable-recovery-catalog.node-test.mjs'
       - 'src/**'
       - 'global.json'
       - '.config/dotnet-tools.json'
@@ -30,6 +34,8 @@ jobs:
           global-json-file: global.json
       - name: Verify closed recovery publication contracts
         run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_logical_recovery_ci.py' -v
+      - name: Verify Main-compatible portable catalog shadow contracts
+        run: node --test tests/ci/synthetic-portable-recovery-catalog.node-test.mjs
       - name: Verify existing redirect controls
         run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_physical_recovery_http_guard.py' -v
       - name: Execute the documented logical restore once

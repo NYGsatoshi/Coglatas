@@ -1,6 +1,32 @@
 # Isolated physical recovery candidate — issue #1355
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
+
+## Main-compatible portable logical catalog shadow
+
+The Owner permits backward-incompatible revisions to components already
+integrated into Main. This authorizes evaluating a replacement for the old
+raw physical-catalog acceptance contract; it is **not** target-operation,
+production-release or security-policy approval.
+
+The separate held PR's logical restore runner now evaluates a read-only
+shadow projection using Main's existing source-owned catalog SQL and the
+validated PostgreSQL 18 trigger catalog. The latter retains logical
+constraint/index/function/role/policy metadata and every trigger's verified
+logical identity, attributes and effective co-firing order. It admits generated
+RI names only after identity checks; other trigger identities stay exact.
+Only the closed source/restored hashes and an equality flag may enter the
+public receipt. The original raw `catalog.txt` bytes, original strict result,
+historical failures and seven original snapshot controls remain unchanged.
+A shadow equality result **cannot** turn a failing old oracle into PASS.
+
+The first native shadow execution must establish that the helper executes
+against the checked current source without revealing raw SQL/catalog values,
+that its independent negative controls pass, and whether the original archive
+restore produces the required firing order. Main's already-proven restore-list
+planner may be used in a separately validated corrective slice. No new
+logical acceptance decision follows until replacement-oracle negative tests
+and exact-head native evidence are independently qualified.
 The canonical logical backup/restore runbook remains unchanged. Neither Owner
 HOLD is released. This candidate needs independent review, exact-source execution,
 Owner strategy approval and separate authorized-target qualification.
