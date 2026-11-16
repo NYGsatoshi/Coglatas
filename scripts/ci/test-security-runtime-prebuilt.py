@@ -113,8 +113,8 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
         self.assertIn("dotnet ef", (ROOT / "infra/compose/security/runtime.yml").read_text())
         self.assertNotRegex(source, r"(?m)^[^#\n]*\bdotnet\s+(build|msbuild|publish|test|run)\b")
         for required in (
-            "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll",
-            "src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll",
+            "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll",
+            "src/Coglatas.Infrastructure/bin/Release/net11.0/Coglatas.Infrastructure.dll",
             "src/Coglatas.Web/obj/project.assets.json",
         ):
             self.assertIn("test -s " + required, source)
@@ -143,7 +143,7 @@ class SecurityRuntimePrebuiltTests(unittest.TestCase):
             'stamp="artifacts/ci/dotnet-build-sha"',
             '[[ -f "$stamp" && ! -L "$stamp" ]]',
             '"$(tr -d \'\\r\\n\' < "$stamp")" == "$expected"',
-            '[[ -s src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll ]]',
+            '[[ -s src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll ]]',
             '[[ -f src/Coglatas.Web/obj/project.assets.json ]]',
             'dockerfile="infra/docker/security-runtime-pr-prebuilt.Dockerfile"',
             'docker build --file "$dockerfile" --tag "$image" .',
