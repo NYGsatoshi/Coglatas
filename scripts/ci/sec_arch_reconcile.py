@@ -62,32 +62,36 @@ def verified_zip(path: Path, expected_digest: str):
                              | getattr(os, "O_NOFOLLOW", 0))
     except OSError:
         raise ReconciliationError("Artifact input must be a regular file.") from None
-    # Parse the exact hashed snapshot, even if the caller replaces its input path.
-    with os.fdopen(descriptor, "rb") as source, tempfile.TemporaryFile() as snapshot:
-        opened = os.fstat(source.fileno())
+    try:
+        opened = os.fstat(descriptor)
         require(stat.S_ISREG(opened.st_mode) and 0 < opened.st_size <= MAX_ARCHIVE,
                 "Artifact size or file type is unsupported.")
-        observed, size = hashlib.sha256(), 0
-        while chunk := source.read(1024 * 1024):
-            size += len(chunk)
-            require(size <= MAX_ARCHIVE, "Artifact exceeds the bounded input size.")
-            snapshot.write(chunk)
-            observed.update(chunk)
-        require(observed.hexdigest() == expected_digest, "Independent artifact digest differs.")
-        snapshot.seek(0)
-        with zipfile.ZipFile(snapshot) as archive:
-            members, seen, expanded = archive.infolist(), set(), 0
-            require(0 < len(members) <= 256, "ZIP member count is unsupported.")
-            for member in members:
-                name = safe_name(member.filename)
-                mode = member.external_attr >> 16
-                require(name not in seen and not member.flag_bits & 1 and not stat.S_ISLNK(mode),
-                        "Duplicate, encrypted or linked ZIP member.")
-                seen.add(name)
-                expanded += member.file_size
-                require(0 <= member.file_size <= MAX_ARCHIVE and expanded <= MAX_EXPANDED,
-                        "ZIP expansion exceeds the bounded input size.")
-            yield archive
+        # Keep descriptor ownership even if stream or snapshot setup fails.
+        # Parse the exact hashed snapshot, even if the caller replaces its input path.
+        with os.fdopen(descriptor, "rb", closefd=False) as source, tempfile.TemporaryFile() as snapshot:
+            observed, size = hashlib.sha256(), 0
+            while chunk := source.read(1024 * 1024):
+                size += len(chunk)
+                require(size <= MAX_ARCHIVE, "Artifact exceeds the bounded input size.")
+                snapshot.write(chunk)
+                observed.update(chunk)
+            require(observed.hexdigest() == expected_digest, "Independent artifact digest differs.")
+            snapshot.seek(0)
+            with zipfile.ZipFile(snapshot) as archive:
+                members, seen, expanded = archive.infolist(), set(), 0
+                require(0 < len(members) <= 256, "ZIP member count is unsupported.")
+                for member in members:
+                    name = safe_name(member.filename)
+                    mode = member.external_attr >> 16
+                    require(name not in seen and not member.flag_bits & 1 and not stat.S_ISLNK(mode),
+                            "Duplicate, encrypted or linked ZIP member.")
+                    seen.add(name)
+                    expanded += member.file_size
+                    require(0 <= member.file_size <= MAX_ARCHIVE and expanded <= MAX_EXPANDED,
+                            "ZIP expansion exceeds the bounded input size.")
+                yield archive
+    finally:
+        os.close(descriptor)
 
 
 def read_member(archive: zipfile.ZipFile, name: str, maximum: int) -> bytes:

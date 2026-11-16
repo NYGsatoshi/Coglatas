@@ -108,6 +108,30 @@ class ProducerBindingTests(unittest.TestCase):
             with binding.verified_zip(path, "0" * 64):
                 self.fail("An empty artifact must not qualify")
 
+    @unittest.skipUnless(os.name == "posix" and Path("/proc/self/fd").is_dir(),
+                         "Descriptor-leak control requires Linux procfs")
+    def test_repeated_directory_rejection_does_not_leak_descriptors(self):
+        descriptors = Path("/proc/self/fd")
+        before = len(list(descriptors.iterdir()))
+        for _ in range(10):
+            with self.assertRaisesRegex(binding.ReconciliationError,
+                                        "Artifact size or file type is unsupported"):
+                with binding.verified_zip(self.root, "0" * 64):
+                    self.fail("A directory must not qualify")
+        self.assertEqual(before, len(list(descriptors.iterdir())))
+
+    @unittest.skipUnless(os.name == "posix" and Path("/proc/self/fd").is_dir(),
+                         "Descriptor-leak control requires Linux procfs")
+    def test_stream_setup_failure_does_not_leak_descriptors(self):
+        producer, _, producer_digest, _ = self.archives()
+        descriptors = Path("/proc/self/fd")
+        before = len(list(descriptors.iterdir()))
+        with patch.object(binding.os, "fdopen", side_effect=OSError("Stream setup failed")):
+            with self.assertRaisesRegex(OSError, "Stream setup failed"):
+                with binding.verified_zip(producer, producer_digest):
+                    self.fail("An unopened stream must not qualify")
+        self.assertEqual(before, len(list(descriptors.iterdir())))
+
     def test_original_artifact_bytes_bind_without_creating_acceptance(self):
         values = self.archives()
         original = values[1].read_bytes()
