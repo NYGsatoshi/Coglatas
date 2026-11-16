@@ -1,0 +1,673 @@
+#!/usr/bin/env python3
+"""One execution of the documented logical restore, with unchanged strict oracles.
+
+Advisory synthetic qualification only. This never repairs a restore, retries an
+acceptance operation, changes recovery strategy, or accepts an external target.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parents[2]
+PUBLIC = ROOT / "artifacts/synthetic-logical-recovery-ci/result.json"
+
+
+def module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+support = module(ROOT / "scripts/ci/run-synthetic-physical-recovery-ci.py", "logical_publication_support")
+probe = module(ROOT / "scripts/ci/synthetic-physical-recovery-probe.py", "logical_original_probe")
+COMPARISONS = support.COMPARISONS
+RESTORE_LIST_PATH = "/run/coglatas-recovery.list"
+CONTROLS = {key: "PASS" for key in (
+    "sourceApplication", "assemblyBinding", "sourceFile", "sourceGuards",
+    "oracleNegatives", "targetInitiallyEmpty", "sourceQuiescent", "ownedResources")}
+
+# Diagnostic read only: index names remain private in the owned disposable DB.
+# This is separate from the immutable byte-exact catalog.txt acceptance oracle.
+NAMED_INDEX_SQL = """
+SELECT json_build_array(
+ n.nspname,c.relname,idx.relname,i.indexprs::text,i.indpred::text,
+ i.indisvalid,i.indisready,pg_get_indexdef(i.indexrelid))::text
+FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid
+JOIN pg_class idx ON idx.oid=i.indexrelid
+JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",idx.relname COLLATE "C";
+"""
+
+
+def strict_comparisons(before: dict, after: dict) -> dict:
+    support.require(isinstance(before, dict) and isinstance(after, dict)
+                    and set(before) == set(after) == set(COMPARISONS))
+    result = {}
+    for name in COMPARISONS:
+        left, right = before[name], after[name]
+        support.require(type(left) is bytes and type(right) is bytes)
+        result[name] = {"sourceSha256": support.sha(left), "restoredSha256": support.sha(right),
+                        "exactBytesEqual": left == right}
+    return result
+
+
+def comparisons_pass(values: dict) -> bool:
+    if not isinstance(values, dict) or set(values) != set(COMPARISONS):
+        return False
+    return all(isinstance(item, dict)
+               and set(item) == {"sourceSha256", "restoredSha256", "exactBytesEqual"}
+               and support.digest_value(item["sourceSha256"])
+               and support.digest_value(item["restoredSha256"])
+               and item["sourceSha256"] == item["restoredSha256"]
+               and item["exactBytesEqual"] is True for item in values.values())
+
+
+def portable_comparisons_pass(result: dict) -> bool:
+    """Admit Main-compatible logical equality; preserve raw physical differences."""
+    comparisons = result.get("comparisons")
+    if not isinstance(comparisons, dict) or set(comparisons) != set(COMPARISONS):
+        return False
+    for name, item in comparisons.items():
+        if (not isinstance(item, dict) or set(item) !=
+                {"sourceSha256", "restoredSha256", "exactBytesEqual"}):
+            return False
+        if not (support.digest_value(item["sourceSha256"])
+                and support.digest_value(item["restoredSha256"])
+                and type(item["exactBytesEqual"]) is bool):
+            return False
+        same_hash = item["sourceSha256"] == item["restoredSha256"]
+        if item["exactBytesEqual"] is not same_hash:
+            return False
+        if name != "catalog.txt" and item["exactBytesEqual"] is not True:
+            return False
+    portable = result.get("portableCatalog")
+    if (not isinstance(portable, dict) or set(portable) !=
+            {"availability", "sourceSha256", "restoredSha256", "exactBytesEqual"}
+            or portable["availability"] != "AVAILABLE"
+            or not all(support.digest_value(portable[key])
+                       for key in ("sourceSha256", "restoredSha256"))
+            or portable["exactBytesEqual"] is not True
+            or portable["sourceSha256"] != portable["restoredSha256"]):
+        return False
+    raw = comparisons["catalog.txt"]
+    diagnostic = result.get("catalogDiagnostic")
+    if (not isinstance(diagnostic, dict) or diagnostic.get("availability") != "AVAILABLE"
+            or diagnostic.get("sourceCatalogSha256") != raw["sourceSha256"]
+            or diagnostic.get("restoredCatalogSha256") != raw["restoredSha256"]
+            or not isinstance(diagnostic.get("counts"), dict)):
+        return False
+    counts = diagnostic["counts"]
+    if (type(counts.get("SOURCE_RECORDS")) is not int
+            or type(counts.get("RESTORED_RECORDS")) is not int
+            or counts["SOURCE_RECORDS"] < 1 or counts["RESTORED_RECORDS"] < 1):
+        return False
+    return result.get("catalogAcceptancePolicy") == "MAIN_PORTABLE_LOGICAL_V1"
+
+
+def catalog_diagnostic(before: bytes, after: bytes) -> dict:
+    """Closed structural metadata only; never an oracle or a semantic verdict."""
+    output = {"availability": "UNAVAILABLE", "sourceCatalogSha256": None,
+              "restoredCatalogSha256": None, "schemaClassification": "UNCLASSIFIED",
+              "interpretation": "UNAVAILABLE", "counts": {},
+              "namedIndex": {"availability": "NOT_EXECUTED", "counts": {}}}
+    if type(before) is not bytes or type(after) is not bytes:
+        return output
+    output["sourceCatalogSha256"], output["restoredCatalogSha256"] = support.sha(before), support.sha(after)
+    try:
+        def nullable_text(value):
+            return value is None or type(value) is str
+        def records(data):
+            # Diagnostic budget only: exceeding it cannot change strict results.
+            support.require(0 < len(data) <= 2097152)
+            lines = data.decode("utf-8").splitlines()
+            support.require(0 < len(lines) <= 10000)
+            result = {}
+            for line in lines:
+                row = support.closed_json(line.encode("utf-8"))
+                support.require(type(row) is list and bool(row) and type(row[0]) is str)
+                tag = row[0]
+                if tag == "constraint":
+                    support.require(len(row) == 10 and all(type(row[i]) is str for i in (1, 2, 3, 4, 9))
+                                    and all(type(row[i]) is bool for i in (5, 6, 7)) and nullable_text(row[8]))
+                    identity = tuple(row[:4])
+                elif tag == "index":
+                    support.require(len(row) == 8 and all(type(row[i]) is str for i in (1, 2, 7))
+                                    and all(type(row[i]) is bool for i in (5, 6))
+                                    and all(nullable_text(row[i]) for i in (3, 4)))
+                    # The original format has no separate index-name field.
+                    # A changed rendered definition is conservatively unmatched.
+                    identity = (tag, row[1], row[2], row[7])
+                elif tag == "trigger":
+                    support.require(len(row) == 7 and all(type(row[i]) is str for i in (1, 2, 3, 4, 6))
+                                    and type(row[5]) is bool)
+                    identity = tuple(row[:4])
+                elif tag == "table-security":
+                    support.require(len(row) == 6 and all(type(row[i]) is str for i in (1, 2))
+                                    and all(type(row[i]) is bool for i in (3, 4))
+                                    and (row[5] is None or (type(row[5]) is list
+                                         and all(type(item) is str for item in row[5]))))
+                    identity = tuple(row[:3])
+                else:
+                    raise support.Rejected("UNSUPPORTED_CATALOG_SHAPE")
+                support.require(identity not in result)
+                result[identity] = (row, line.encode("utf-8"))
+            return result
+        source, restored = records(before), records(after)
+        counts = {key: 0 for key in (
+            "SOURCE_RECORDS", "RESTORED_RECORDS", "EXACT_RECORDS",
+            "CONSTRAINT_RAW_TREE_FIELD_ONLY", "INDEX_RAW_TREE_FIELDS_ONLY",
+            "OTHER_CHANGED_RECORDS", "SOURCE_ONLY_RECORDS", "RESTORED_ONLY_RECORDS")}
+        counts["SOURCE_RECORDS"], counts["RESTORED_RECORDS"] = len(source), len(restored)
+        source_only = source.keys() - restored.keys()
+        restored_only = restored.keys() - source.keys()
+        counts["SOURCE_ONLY_RECORDS"] = len(source_only)
+        counts["RESTORED_ONLY_RECORDS"] = len(restored_only)
+        # Diagnostic-only category counts. No names, parse trees or OIDs escape.
+        for side, missing, catalog in (("SOURCE", source_only, source),
+                                       ("RESTORED", restored_only, restored)):
+            for name, tag in (("CONSTRAINT", "constraint"), ("INDEX", "index"),
+                              ("TRIGGER", "trigger"), ("TABLE_SECURITY", "table-security")):
+                counts[f"{side}_ONLY_{name}_RECORDS"] = sum(key[0] == tag for key in missing)
+            counts[f"{side}_ONLY_INTERNAL_TRIGGER_RECORDS"] = sum(
+                key[0] == "trigger" and catalog[key][0][5] is True for key in missing)
+            counts[f"{side}_ONLY_RI_TRIGGER_RECORDS"] = sum(
+                key[0] == "trigger" and catalog[key][0][5] is True
+                and re.fullmatch(r"RI_ConstraintTrigger_[ac]_[1-9][0-9]*",
+                                 catalog[key][0][3]) is not None for key in missing)
+        for tag in ("CONSTRAINT", "INDEX", "TRIGGER", "TABLE_SECURITY"):
+            counts[f"OTHER_CHANGED_{tag}_RECORDS"] = 0
+        for identity in source.keys() & restored.keys():
+            left, left_bytes = source[identity]
+            right, right_bytes = restored[identity]
+            if left_bytes == right_bytes:
+                category = "EXACT_RECORDS"
+            elif (identity[0] == "constraint" and left[8] != right[8]
+                  and all(left[i] == right[i] for i in range(10) if i != 8)):
+                category = "CONSTRAINT_RAW_TREE_FIELD_ONLY"
+            elif (identity[0] == "index" and (left[3] != right[3] or left[4] != right[4])
+                  and all(left[i] == right[i] for i in range(8) if i not in (3, 4))):
+                category = "INDEX_RAW_TREE_FIELDS_ONLY"
+            else:
+                category = "OTHER_CHANGED_RECORDS"
+                counts[f"OTHER_CHANGED_{identity[0].replace('-', '_').upper()}_RECORDS"] += 1
+            counts[category] += 1
+        # Closed diagnostic labels never relax the strict byte-for-byte oracle.
+        if before == after:
+            interpretation = "EXACT_CATALOG_BYTES"
+        elif (source.keys() == restored.keys()
+              and all(source[key][0] == restored[key][0] for key in source)):
+            # Same validated fields: serialized record spacing/order still differ.
+            interpretation = "SAME_RECORDS_DIFFERENT_BYTES"
+        elif (counts["OTHER_CHANGED_RECORDS"] or counts["SOURCE_ONLY_RECORDS"]
+              or counts["RESTORED_ONLY_RECORDS"]):
+            interpretation = "OTHER_OR_UNMATCHED_RECORDS"
+        else:
+            interpretation = "RAW_TREE_FIELD_DIFFERENCES_PRESENT"
+        output.update(availability="AVAILABLE", counts=counts, interpretation=interpretation)
+    except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, IndexError, RecursionError):
+        pass  # No partial classification, parser error or private value is emitted.
+    return output
+
+
+def named_index_diagnostic(before: bytes, after: bytes) -> dict:
+    """Read-only closed counts by actual index name; never part of admission."""
+    unavailable = {"availability": "UNAVAILABLE", "counts": {}}
+    try:
+        def records(data):
+            support.require(type(data) is bytes and 0 < len(data) <= 2097152)
+            lines = data.decode("utf-8").splitlines()
+            support.require(0 < len(lines) <= 10000)
+            output = {}
+            for line in lines:
+                row = support.closed_json(line.encode("utf-8"))
+                support.require(type(row) is list and len(row) == 8)
+                support.require(all(type(value) is str and 0 < len(value) <= 256
+                                    for value in row[:3]))
+                support.require(all(value is None or type(value) is str for value in row[3:5])
+                                and all(type(value) is bool for value in row[5:7])
+                                and type(row[7]) is str and bool(row[7]))
+                identity = tuple(row[:3])
+                support.require(identity not in output)
+                output[identity] = row
+            return output
+        source, restored = records(before), records(after)
+        source_only = source.keys() - restored.keys()
+        restored_only = restored.keys() - source.keys()
+        counts = {"SOURCE_INDEXES": len(source), "RESTORED_INDEXES": len(restored),
+                  "SOURCE_ONLY_NAMES": len(source_only), "RESTORED_ONLY_NAMES": len(restored_only),
+                  "SOURCE_ONLY_PG_TOAST_NAMES": sum(key[0] == "pg_toast" for key in source_only),
+                  "RESTORED_ONLY_PG_TOAST_NAMES": sum(key[0] == "pg_toast" for key in restored_only),
+                  "EXACT_NAMED_INDEXES": 0, "RAW_TREE_ONLY_NAMED_INDEXES": 0,
+                  "DECOMPILED_SQL_CHANGED": 0, "FLAGS_CHANGED": 0, "OTHER_CHANGED": 0}
+        for identity in source.keys() & restored.keys():
+            left, right = source[identity], restored[identity]
+            if left == right:
+                category = "EXACT_NAMED_INDEXES"
+            elif left[5:] == right[5:] and left[3:5] != right[3:5]:
+                category = "RAW_TREE_ONLY_NAMED_INDEXES"
+            elif left[7] != right[7]:
+                category = "DECOMPILED_SQL_CHANGED"
+            elif left[5:7] != right[5:7]:
+                category = "FLAGS_CHANGED"
+            else:
+                category = "OTHER_CHANGED"
+            counts[category] += 1
+        return {"availability": "AVAILABLE", "counts": counts}
+    except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, RecursionError):
+        return unavailable
+
+
+def portable_catalog_shadow(container: str, environment: dict) -> bytes:
+    """Evaluate Main's original portable catalog for exact logical acceptance."""
+    script = ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs"
+    query = subprocess.run(["node", str(script), "queries"], cwd=ROOT, env=environment,
+                           capture_output=True, check=False, timeout=15)
+    support.require(query.returncode == 0 and 0 < len(query.stdout) <= 131072)
+    queries = support.closed_json(query.stdout)
+    support.require(type(queries) is dict and set(queries) == {"catalog", "triggers"}
+                    and all(type(value) is str and 0 < len(value) <= 16384
+                            for value in queries.values()))
+    catalog = probe.sql(container, queries["catalog"]).strip()
+    triggers = probe.sql(container, queries["triggers"]).strip()
+    support.require(all(0 < len(value) <= 8 * 1024 * 1024
+                        for value in (catalog, triggers)))
+    payload = b'{"catalog":' + catalog + b',"triggers":' + triggers + b'}'
+    support.require(len(payload) <= 16 * 1024 * 1024)
+    projected = subprocess.run(["node", str(script), "project"], cwd=ROOT, env=environment,
+                               input=payload, capture_output=True, check=False, timeout=40)
+    support.require(projected.returncode == 0
+                    and 0 < len(projected.stdout) <= 16 * 1024 * 1024)
+    return projected.stdout
+
+
+def prepare_fk_restore_list(source: str, target: str, private: Path,
+                            result: dict, environment: dict) -> None:
+    """Install Main's verified complete-FK-slot ordering before the sole restore."""
+    archive = (private / "database.dump").read_bytes()
+    support.require(0 < len(archive) <= 128 * 1024 * 1024 and "restoreList" not in result)
+    listing = subprocess.run(probe.DOCKER + ["exec", "-i", source, "pg_restore", "--list"],
+                             input=archive, cwd=ROOT, env=environment,
+                             capture_output=True, check=False, timeout=120)
+    support.require(listing.returncode == 0 and 0 < len(listing.stdout) <= 16 * 1024 * 1024)
+    script = ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs"
+    planned = subprocess.run(["node", str(script), "plan"], input=listing.stdout,
+                             cwd=ROOT, env=environment, capture_output=True,
+                             check=False, timeout=30)
+    support.require(planned.returncode == 0 and 0 < len(planned.stdout) <= 16 * 1024 * 1024)
+    source_lines = listing.stdout.splitlines()
+    target_lines = planned.stdout.splitlines()
+    # Main's planRestoreList verifies all original IDs/whole lines and only FK slots.
+    # These counts bind the published receipt to an actual nonempty complete list.
+    def entries(lines):
+        return [line for line in lines if line and not line.startswith(b";") and line.strip()]
+    selected, ordered = entries(source_lines), entries(target_lines)
+    support.require(len(selected) == len(ordered) and 0 < len(selected) <= 100000
+                    and len(selected) == len(set(selected)) and sorted(selected) == sorted(ordered))
+    fk_count = sum(b" FK CONSTRAINT " in line for line in selected)
+    support.require(fk_count > 0)
+    # The destination is a fresh owned isolated container. Never interpolate TOC content.
+    path = RESTORE_LIST_PATH
+    installer = ("set -eu; umask 077; "
+                 "test -d /run; test ! -L /run; "
+                 "test \"$(stat -c %u:%a /run)\" = 0:755; "
+                 "test ! -e " + path + "; test ! -L " + path +
+                 "; (set -C; cat > " + path + "); "
+                 "test \"$(stat -c %u:%a " + path + ")\" = 0:600; "
+                 "sha256sum " + path)
+    installed = subprocess.run(probe.DOCKER + ["exec", "-i", target, "/bin/sh", "-c", installer],
+                               input=planned.stdout, cwd=ROOT, env=environment,
+                               capture_output=True, check=False, timeout=30)
+    digest = support.sha(planned.stdout)
+    support.require(installed.returncode == 0
+                    and installed.stdout == (digest + "  " + path + "\n").encode())
+    result["restoreList"] = {"entryCount": len(selected), "foreignKeyCount": fk_count,
+                             "originalSha256": support.sha(listing.stdout),
+                             "plannedSha256": digest}
+
+
+def logical_commands(source: str, target: str) -> dict:
+    support.require(all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value)
+                        for value in (source, target)) and source != target)
+    return {
+        "dump": probe.DOCKER + ["exec", source, "pg_dump", "-U", "postgres", "-d", "recovery",
+                                "--format=custom", "--no-owner", "--no-privileges"],
+        "restore": probe.DOCKER + ["exec", "-i", target, "pg_restore", "-U", "postgres", "-d", "recovery",
+                                   "--no-owner", "--no-privileges", "--exit-on-error",
+                                   f"--use-list={RESTORE_LIST_PATH}"],
+    }
+
+
+def transfer_once(source: str, target: str, private: Path, result: dict, environment: dict,
+                  runner=subprocess.run, before_restore=None) -> None:
+    """Exactly one dump and at most one restore; retain the actual first result."""
+    commands = logical_commands(source, target)
+    support.require(not result.get("commands"))
+    result["commands"] = {name: {"argv": args, "exitCode": None, "timedOut": False}
+                          for name, args in commands.items()}
+    for name in ("dump", "restore"):
+        result["phase"] = name.upper()
+        if name == "restore" and before_restore is not None:
+            before_restore(source, target, private, result, environment)
+        data = None if name == "dump" else (private / "database.dump").read_bytes()
+        try:
+            process = runner(commands[name], input=data, cwd=ROOT, env=environment,
+                             capture_output=True, check=False, timeout=120)
+        except subprocess.TimeoutExpired:
+            result["commands"][name]["timedOut"] = True
+            return
+        result["commands"][name]["exitCode"] = process.returncode
+        (private / (name + ".stdout")).write_bytes(process.stdout)
+        (private / (name + ".stderr")).write_bytes(process.stderr)
+        if process.returncode != 0:
+            return
+        if name == "dump":
+            support.require(bool(process.stdout))
+            (private / "database.dump").write_bytes(process.stdout)
+            result["dumpSha256"] = support.sha(process.stdout)
+
+
+def candidate_complete(result: dict) -> bool:
+    commands = result.get("commands")
+    if not isinstance(commands, dict) or set(commands) != {"dump", "restore"}:
+        return False
+    identifiers = result.get("resourceIds")
+    if not isinstance(identifiers, list) or len(identifiers) != 2:
+        return False
+    try:
+        expected = logical_commands(identifiers[0], identifiers[1])
+    except (support.Rejected, KeyError, IndexError, TypeError):
+        return False
+    return (all(isinstance(commands[name], dict)
+                and set(commands[name]) == {"argv", "exitCode", "timedOut"}
+                and commands[name]["argv"] == expected[name]
+                and type(commands[name]["exitCode"]) is int and commands[name]["exitCode"] == 0
+                and commands[name]["timedOut"] is False for name in expected)
+            and support.digest_value(result.get("dumpSha256"))
+            and isinstance(result.get("restoreList"), dict)
+            and set(result["restoreList"]) == {"entryCount", "foreignKeyCount",
+                                              "originalSha256", "plannedSha256"}
+            and type(result["restoreList"]["entryCount"]) is int
+            and 0 < result["restoreList"]["entryCount"] <= 100000
+            and type(result["restoreList"]["foreignKeyCount"]) is int
+            and 0 < result["restoreList"]["foreignKeyCount"] <= result["restoreList"]["entryCount"]
+            and all(support.digest_value(result["restoreList"][key])
+                    for key in ("originalSha256", "plannedSha256"))
+            and portable_comparisons_pass(result)
+            and result.get("controls") == CONTROLS
+            and result.get("cleanupState") == "VERIFIED"
+            and type(result.get("admittedContainers")) is int and result["admittedContainers"] == 2
+            and type(result.get("stoppedContainers")) is int and result["stoppedContainers"] == 2)
+
+
+def prepare(private: Path, result: dict, environment: dict) -> tuple[Path, str, dict]:
+    def command(args, phase, extra=None):
+        result["phase"] = phase
+        selected = environment.copy()
+        if extra:
+            selected.update(extra)
+        process = subprocess.run(args, cwd=ROOT, env=selected, capture_output=True, check=False, timeout=600)
+        (private / (phase + ".stdout")).write_bytes(process.stdout)
+        (private / (phase + ".stderr")).write_bytes(process.stderr)
+        support.require(process.returncode == 0)
+        return process.stdout
+    source = command(["git", "rev-parse", "HEAD"], "SOURCE").decode().strip()
+    support.require(re.fullmatch(r"[a-f0-9]{40}", source) is not None and source == os.environ.get("GITHUB_SHA"))
+    result["sourceSha"] = source
+    source_tree = command(["git", "rev-parse", "HEAD:src"], "SOURCE_TREE").decode().strip()
+    sdk = support.closed_json((ROOT / "global.json").read_bytes())["sdk"]["version"]
+    support.require(command(["dotnet", "--version"], "SDK").decode().strip() == sdk)
+    (ROOT / "src/Coglatas.Web/wwwroot").mkdir(exist_ok=True)
+    config = private / "NuGet.Config"
+    config.write_text('<configuration><packageSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources></configuration>')
+    command(["dotnet", "restore", "src/Coglatas.Web/Coglatas.Web.csproj", "--configfile", str(config),
+             "--disable-parallel", "--verbosity", "minimal"], "RESTORE_PACKAGES")
+    command(["dotnet", "tool", "restore", "--configfile", str(config)], "TOOLS")
+    command(["dotnet", "build", "src/Coglatas.Web/Coglatas.Web.csproj", "--configuration", "Release",
+             "--no-restore", "--disable-build-servers", "-m:1"], "BUILD")
+    ddl = private / "original.sql"
+    command(["dotnet", "ef", "migrations", "script", "--project", "src/Coglatas.Infrastructure",
+             "--startup-project", "src/Coglatas.Web", "--configuration", "Release", "--no-build",
+             "--output", str(ddl)], "DDL", {"ConnectionStrings__DefaultConnection": "Host=unused;Database=unused;Username=unused"})
+    command(probe.DOCKER + ["info", "--format", "{{.ServerVersion}}"], "DOCKER")
+    command(probe.DOCKER + ["pull", "postgres:18.6-alpine"], "IMAGE_PULL")
+    image = support.closed_json(command(probe.DOCKER + ["image", "inspect", "--format",
+                                '{"id":{{json .Id}},"digests":{{json .RepoDigests}}}', "postgres:18.6-alpine"], "IMAGE_ID"))
+    support.require(isinstance(image, dict) and set(image) == {"id", "digests"}
+                    and isinstance(image["id"], str) and re.fullmatch(r"sha256:[a-f0-9]{64}", image["id"]) is not None)
+    support.require(isinstance(image["digests"], list) and bool(image["digests"]) and all(
+        isinstance(item, str) and re.fullmatch(r"(?:docker.io/library/)?postgres@sha256:[a-f0-9]{64}", item)
+        for item in image["digests"]))
+    binaries = ROOT / "src/Coglatas.Web/bin/Release/net11.0"
+    expected = {"sourceSha": source, "sourceTree": source_tree, "sdkVersion": sdk,
+                "probeSha256": support.sha(Path(probe.__file__).read_bytes()),
+                "callerSha256": support.sha(Path(__file__).read_bytes()),
+                "publicationSupportSha256": support.sha(Path(support.__file__).read_bytes()),
+                "portableHelperSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs").read_bytes()),
+                "triggerCatalogSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-trigger-catalog.mjs").read_bytes()),
+                "restoreListPlannerSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-restore-list.mjs").read_bytes()),
+                "mainCatalogSourceSha256": support.sha(
+                    (ROOT / "scripts/ci/run-synthetic-logical-recovery.mjs").read_bytes()),
+                "ddlSha256": support.sha(ddl.read_bytes()),
+                "postgresImageId": image["id"], "postgresRepoDigests": image["digests"],
+                "assemblies": {name: support.sha((binaries / name).read_bytes()) for name in support.ASSEMBLIES}}
+    result["bindings"] = expected
+    return ddl, image["id"], expected
+
+
+def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, environment: dict) -> None:
+    result["phase"] = "SOURCE_CONTROL"
+    sockets = [private / "s", private / "t"]
+    support.require(all(len(str(path)) <= 85 for path in sockets))
+    for path in sockets:
+        path.mkdir(mode=0o777)
+        path.chmod(0o777)  # Fresh Unix socket directories under a private 0700 parent.
+    identifier = "coglatas-synthetic-recovery-" + uuid.uuid4().hex[:12]
+    names = [identifier + "-logical-source", identifier + "-logical-target"]
+    volumes = [identifier + "-logical-source", identifier + "-logical-target"]
+    admitted = []
+    application = probe.SyntheticApplication(ROOT, private)
+    result["failureCategory"] = "SOURCE_CONTROL_FAILED"
+    try:
+        probe.assert_fresh_resources(names, volumes)
+        build = probe.build_application(ROOT, private, ddl.read_bytes())
+        support.require(all(build[key] == expected[key] for key in ("sourceSha", "sourceTree", "sdkVersion", "assemblies"))
+                        and build["buildExitCode"] == 0 and build["generatedDdlSha256"] == expected["ddlSha256"])
+        for name in volumes:
+            probe.docker("volume", "create", "--label", "coglatas.synthetic-recovery=" + identifier, name)
+            probe.validate_volume(name, identifier)
+        for name, volume, socket in zip(names, volumes, sockets):
+            mounts = {"/var/lib/postgresql": volume, "/var/run/postgresql": str(socket)}
+            container = probe.docker("run", "-d", "--name", name, "--network", "none",
+                                     "--label", "coglatas.synthetic-recovery=" + identifier,
+                                     "-e", "POSTGRES_PASSWORD=" + secrets.token_hex(24), "-e", "POSTGRES_DB=recovery",
+                                     "--mount", f"type=volume,source={volume},target=/var/lib/postgresql",
+                                     "--mount", f"type=bind,source={socket},target=/var/run/postgresql",
+                                     image).decode().strip()
+            support.require(re.fullmatch(r"[a-f0-9]{64}", container) is not None)
+            probe.validate_container(container, identifier, image, mounts, container)
+            admitted.append((container, mounts))
+            for _ in range(100):
+                try:
+                    support.require(probe.sql(container, "SELECT 1;") == b"1\n")
+                    break
+                except probe.ProbeFailure:
+                    time.sleep(0.1)
+            else:
+                raise support.Rejected("DATABASE_NOT_READY")
+        source, target = [item[0] for item in admitted]
+        result["resourceIds"] = [source, target]  # Fresh synthetic IDs only, never connection credentials.
+        result["controls"]["ownedResources"] = "PASS"
+        version = probe.sql(source, "SHOW server_version;").decode().strip()
+        support.require(re.fullmatch(r"18\.6(?: \([A-Za-z0-9 ._+:/-]{1,160}\))?", version) is not None
+                        and probe.sql(target, "SHOW server_version;").decode().strip() == version)
+        result["bindings"]["postgresServerVersion"] = version
+        support.require(probe.sql(target, "SELECT count(*) FROM pg_tables WHERE schemaname NOT IN "
+                                  "('pg_catalog','information_schema');") == b"0\n")
+        result["controls"]["targetInitiallyEmpty"] = "PASS"
+        probe.sql(source, ddl.read_text())
+        guards = probe.trigger_controls(source, ROOT)
+        migration = ROOT / "src/Coglatas.Infrastructure/Persistence/Migrations"
+        support.require(guards == {
+            "revisionHeadNonzeroInsert": "DENIED_23514_WITH_ZERO_POSITIVE",
+            "guardSourceSha256": support.sha((migration / "20260924133000_AddCoglatasUiCanonicalChangeJournal.cs").read_bytes()),
+            "fileVersionArchiveCopyAfterCapture": "DENIED_23505_WITH_CAPTURE_POSITIVE",
+            "fileTriggerSourceSha256": support.sha((migration / "20260901150000_AddFileVersionsActivityProjection.cs").read_bytes())})
+        result["controls"]["sourceGuards"] = "PASS"
+        application.start(sockets[0], seed=True, state=private / "source-state", phase="source")
+        support.require(application.loaded_assemblies == expected["assemblies"])
+        result["controls"]["assemblyBinding"] = "PASS"
+        application.login()
+        status, _ = application.request("/api/auth/me")
+        support.require(status == 200)
+        result["controls"]["sourceApplication"] = "PASS"
+        source_file = application.check_file(source)
+        support.require(source_file["status"] == "PASS" and type(source_file["bytes"]) is int
+                        and source_file["bytes"] > 0 and support.digest_value(source_file["sha256"]))
+        result["sourceFile"] = source_file
+        result["controls"]["sourceFile"] = "PASS"
+        application.stop()  # All app writers are stopped before capture.
+        probe.sql(source, "CREATE SCHEMA recovery_control; CREATE SEQUENCE recovery_control.sequence_probe; "
+                  "CREATE TABLE recovery_control.oracle_probe (id integer PRIMARY KEY, marker text NOT NULL); "
+                  "INSERT INTO recovery_control.oracle_probe VALUES (1,'checkpoint'); "
+                  "SELECT setval('recovery_control.sequence_probe',37,false);")
+        before = probe.snapshot(source)
+        support.require(probe.oracle_negative_controls(source, before) == support.ORACLE)
+        result["controls"]["oracleNegatives"] = "PASS"
+        portable_before = None
+        try:
+            portable_before = portable_catalog_shadow(source, environment)
+        except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError,
+                subprocess.SubprocessError):
+            result["portableCatalog"]["availability"] = "UNAVAILABLE"
+        result["failureCategory"] = "LOGICAL_COMMAND_FAILED"
+        transfer_once(source, target, private, result, environment,
+                      before_restore=prepare_fk_restore_list)
+        # Preserve first command failure even if a partial target cannot be read.
+        commands_ok = all(type(result["commands"][key]["exitCode"]) is int
+                          and result["commands"][key]["exitCode"] == 0
+                          and result["commands"][key]["timedOut"] is False for key in ("dump", "restore"))
+        result["phase"] = "STRICT_COMPARISON"
+        try:
+            after = probe.snapshot(target)
+            result["comparisons"] = strict_comparisons(before, after)
+            result["catalogDiagnostic"] = catalog_diagnostic(before["catalog.txt"], after["catalog.txt"])
+        except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+            if commands_ok:
+                result["failureCategory"] = "STRICT_SNAPSHOT_UNAVAILABLE"
+            return
+        if commands_ok:
+            result["failureCategory"] = "SOURCE_CHANGED_DURING_CAPTURE"
+        support.require(probe.snapshot(source) == before)
+        result["controls"]["sourceQuiescent"] = "PASS"
+        if not commands_ok:
+            return
+        if portable_before is not None:
+            try:
+                portable_after = portable_catalog_shadow(target, environment)
+                result["portableCatalog"] = {
+                    "availability": "AVAILABLE",
+                    "sourceSha256": support.sha(portable_before),
+                    "restoredSha256": support.sha(portable_after),
+                    "exactBytesEqual": portable_before == portable_after}
+            except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError,
+                    KeyError, subprocess.SubprocessError):
+                result["portableCatalog"] = {"availability": "UNAVAILABLE"}
+        # Metadata queries cannot turn a strict recovery failure into PASS.
+        try:
+            result["catalogDiagnostic"]["namedIndex"] = named_index_diagnostic(
+                probe.sql(source, NAMED_INDEX_SQL), probe.sql(target, NAMED_INDEX_SQL))
+        except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError,
+                KeyError, subprocess.SubprocessError):
+            result["catalogDiagnostic"]["namedIndex"] = {
+                "availability": "UNAVAILABLE", "counts": {}}
+        result["failureCategory"] = "STRICT_RESTORED_STATE_MISMATCH"
+        if not portable_comparisons_pass(result):
+            return
+        result["failureCategory"] = "CLEANUP_NOT_VERIFIED"
+    finally:
+        application_stopped = True
+        try:
+            application.stop()
+        except (OSError, subprocess.SubprocessError):
+            application_stopped = False
+        stopped = 0
+        for container, mounts in admitted:
+            try:
+                probe.validate_container(container, identifier, image, mounts, container)
+                probe.docker("stop", "--time", "10", container)
+                stopped += 1
+            except (probe.ProbeFailure, OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError):
+                pass
+        result["admittedContainers"], result["stoppedContainers"] = len(admitted), stopped
+        verified = (len(admitted) == 2 and len({item[0] for item in admitted}) == 2
+                    and stopped == 2 and application_stopped)
+        result["cleanupState"] = "VERIFIED" if verified else "INCOMPLETE"
+
+
+def main() -> int:
+    os.umask(0o077)
+    result = {"schemaVersion": 2, "kind": "ADVISORY_SYNTHETIC_LOGICAL_RECOVERY",
+              "status": "FAIL", "phase": "ADMISSION", "failureCategory": "CALLER_REJECTED",
+              "sourceSha": None, "sourceHeadSha": None, "baseSha": None, "runId": None, "runAttempt": None,
+              "bindings": {}, "controls": {}, "comparisons": {}, "commands": {}, "dumpSha256": None,
+              "catalogDiagnostic": {"availability": "NOT_EXECUTED", "schemaClassification": "UNCLASSIFIED"},
+              "portableCatalog": {"availability": "NOT_EXECUTED"},
+              "catalogAcceptancePolicy": "MAIN_PORTABLE_LOGICAL_V1",
+              "resourceIds": [], "admittedContainers": 0, "stoppedContainers": 0, "cleanupState": "INCOMPLETE",
+              "formalStrategyChanged": False, "formalRecoveryAcceptance": "NOT_GRANTED", "publicGo": False,
+              "databaseAuthorityScope": "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",
+              "fullApplicationRecovery": "NOT_EXECUTED", "targetHttps": "NOT_EXECUTED",
+              "rollbackRehearsal": "NOT_EXECUTED", "privateEvidenceAfterHostedTeardown": "NOT_RETAINED"}
+    try:
+        support.require(os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
+                        and os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
+                        and os.environ.get("RUNNER_OS") == "Linux")
+        support.require(not PUBLIC.exists() and not PUBLIC.is_symlink())
+        for variable, key in (("GITHUB_RUN_ID", "runId"), ("GITHUB_RUN_ATTEMPT", "runAttempt")):
+            support.require(re.fullmatch(r"[1-9][0-9]*", os.environ.get(variable, "")) is not None)
+            result[key] = int(os.environ[variable])
+        for variable, key in (("COGLATAS_PR_HEAD_SHA", "sourceHeadSha"), ("COGLATAS_PR_BASE_SHA", "baseSha")):
+            support.require(re.fullmatch(r"[a-f0-9]{40}", os.environ.get(variable, "")) is not None)
+            result[key] = os.environ[variable]
+        private = Path(tempfile.mkdtemp(prefix="cgl-", dir=os.environ["RUNNER_TEMP"]))
+        environment = os.environ.copy()
+        for key in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
+            environment.pop(key, None)
+        result["failureCategory"] = "PREPARATION_FAILED"
+        ddl, image, expected = prepare(private, result, environment)
+        execute(private, ddl, image, expected, result, environment)
+        if candidate_complete(result):
+            result["status"] = "SYNTHETIC_LOGICAL_DATABASE_CANDIDATE_PASS"
+            result["failureCategory"] = None
+            result["phase"] = "COMPLETE"
+    except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        pass  # Only closed categories are published, never exception/child text.
+    published = False
+    try:
+        support.publish_once(PUBLIC, result)
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write("published=true\n")
+        published = True
+    except (OSError, ValueError, KeyError):
+        print("PUBLICATION_FAILED", file=sys.stderr)
+    print(json.dumps(result, sort_keys=True))
+    return 0 if published and result["status"] == "SYNTHETIC_LOGICAL_DATABASE_CANDIDATE_PASS" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
