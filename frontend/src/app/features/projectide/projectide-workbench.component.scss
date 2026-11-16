@@ -128,3 +128,5 @@ pre {
 .simulation-trace-profile dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
 .simulation-trace-profile dd { margin-inline-start: 0; }
 .simulation-trace-profile:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.pass-recordings { min-width: 0; overflow-wrap: anywhere; }
