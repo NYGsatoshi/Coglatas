@@ -64,6 +64,25 @@ failure. Hosted cancellation and teardown evidence must be recorded separately.
 
 ## Validation and acceptance boundary
 
+### Initial hosted source and transition
+
+The initial candidate is
+`831b88b5a6a68ecdc952047adb445ca6359efc8d`, tree
+`be67785b99f5503f32f4903ee3b719f2c2f8842f`, in
+[PR #2034](https://github.com/NYGsatoshi/Coglatas/pull/2034).
+[PR CI 43899063679](https://github.com/NYGsatoshi/Coglatas/actions/runs/43899063679),
+attempt 1, passed both build producers and ReSharper. Its `frontend-test`
+job `133413025526` entered `Run frontend checks in parallel` at
+2026-11-16 15:45:54 UTC while that candidate remained the current open PR HEAD.
+
+This follow-up documentation commit records the observed active-source state
+and exercises the existing same-PR concurrency transition. The old run's
+terminal outcome, finalizer result and the successor's fresh checks must be
+recorded in the PR after they are actually observed. The active snapshot alone
+does not prove cancellation, cleanup, queue release or a successful test suite.
+
+### Local controls and completion criteria
+
 Focused local verification uses:
 
 ```bash
