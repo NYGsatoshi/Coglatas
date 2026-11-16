@@ -18,10 +18,23 @@ public sealed partial class SyntheticWorkbenchViewModel
         var simulationGeneration = _simulationGeneration; var after = SimulationRun; var request = _desired;
         bool Current() => !_disposed && generation == _comparisonGeneration && simulationGeneration == _simulationGeneration &&
             after is not null && ReferenceEquals(after, SimulationRun) && ReferenceEquals(request, _desired);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var comparison = ProjectSimulationRunComparison.Compare(before, expectedBefore, after!, after!.Digest, token);
         if (!Current()) return false;
         _simulationComparison = comparison; _comparisonAfter = after; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _comparisonGeneration && ReferenceEquals(_simulationComparison, comparison))
+            {
+                ClearSimulationComparison(); Changed();
+            }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(SimulationComparison, comparison) && comparison.State != SimulationRunComparisonState.Refused;
     }
     private void ClearSimulationComparison()

@@ -133,3 +133,24 @@ describe('Owned profile store lifecycle', () => {
     expect(await pending).toBe(false); expect(store.simulationTraceProfile()).toBeNull(); expect(store.simulationTraceProfileReadState()).toBe('unavailable');
   });
 });
+
+
+describe('Owned summary recording navigation', () => {
+  it('returns the exact existing recording only through its current summary', async () => {
+    const store = await readyStore(); const run = store.simulation(); const result = store.result();
+    expect(await store.loadSimulationTraceProfile()).toBe(true); const basis = store.simulationTraceProfile()!;
+    expect(store.simulationTraceProfileRun(basis)).toBe(run); expect(store.simulation()).toBe(run); expect(store.result()).toBe(result);
+    expect(store.simulationTraceProfileRun({ ...basis })).toBeNull(); expect(store.simulationTraceProfile()).toBe(basis);
+    expect(await store.loadSimulationTraceProfile()).toBe(true); expect(store.simulationTraceProfileRun(basis)).toBeNull();
+    expect(store.simulationTraceProfileRun(store.simulationTraceProfile()!)).toBe(run);
+  });
+  it.each(['sources', 'run', 'denied', 'choose'] as const)('refuses an older summary after %s', async mode => {
+    const store = await readyStore(); expect(await store.loadSimulationTraceProfile()).toBe(true); const basis = store.simulationTraceProfile()!;
+    const original = basis.text;
+    if (mode === 'sources') await store.loadScopedSources();
+    if (mode === 'run') await store.loadSimulation();
+    if (mode === 'denied') store.clear('denied');
+    if (mode === 'choose') store.choose('tests-simulation-external-hypothesis');
+    expect(store.simulationTraceProfileRun(basis)).toBeNull(); expect(basis.text).toBe(original);
+  });
+});

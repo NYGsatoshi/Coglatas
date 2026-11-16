@@ -1,3 +1,13 @@
+import { ReferenceSearchPage, hasPreparedReferenceSearch, readReferenceSearchPage, referenceSearchPageMatches } from './projectide-reference-pages.reader';
+import {PassBoundarySourcePage, PassBoundarySourceTarget, readPassBoundarySourcePage, passBoundarySourcePageMatches} from './projectide-pass-source-navigation.reader';
+import { AdmittedRecordedPassBoundary, readRecordedPassBoundary, recordedPassBoundaryMatches } from './projectide-pass-boundary.reader';
+import { AdmittedPassRecording, AdmittedRecordedPasses, PassRecordingLabel, RecordedPassChoice, passRecordingMatches, recordedPassesMatch, readPassRecording, readRecordedPasses, passRunIdentitiesAreUnique } from './projectide-pass-recordings.reader';
+import { AdmittedOperatorRecording, AdmittedRecordedOperators, OperatorRecordingLabel, RecordedOperatorChoice, operatorRecordingMatches, recordedOperatorsMatch, readOperatorRecording, readRecordedOperators, operatorRunIdentitiesAreUnique } from './projectide-operator-recordings.reader';
+import { AdmittedPredicateRecording, AdmittedRecordedPredicatePremises, PredicateRecordingLabel, RecordedPredicateChoice, predicateRecordingMatches, recordedPredicatePremisesMatch, readPredicateRecording, readRecordedPredicatePremises } from './projectide-predicate-recordings.reader';
+import { AdmittedRootSource, readRootSource, rootSourceMatches } from './projectide-root-source.reader';
+import { AdmittedDiagnosticPremises, DiagnosticPremiseChoice, diagnosticPremiseSourcesMatch, readDiagnosticPremises } from './projectide-diagnostic-premises.reader';
+import { diagnosticBasisPage } from './projectide-diagnostic-basis';
+import { AdmittedCompilerRecording, CompilerRecordingLabel, compilerRecordingMatches, readCompilerRecording } from './projectide-compiler-recordings.reader';
 import { AdmittedCompilerOutputs, CompilerOutputMode, readCompilerOutputs } from './projectide-compiler-outputs.reader';
 import { AdmittedTraceProfile, readSimulationTraceProfile } from './projectide-simulation-trace-profile.reader';
 import { AdmittedSimulationComparison, readSimulationComparison } from './projectide-simulation-comparison.reader';
@@ -8,7 +18,7 @@ import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatch
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
 import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal, untracked } from '@angular/core';
 import {
   BoundReference,
   Diagnostic,
@@ -42,6 +52,7 @@ export class ProjectIdeWorkbenchStore {
   readonly selection = signal<Selection | null>(null);
   private readonly referenceSelection = signal<{
     reference: BoundReference;
+    page?: ReferenceSearchPage;
     symbol: InspectedSymbol;
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
@@ -49,13 +60,14 @@ export class ProjectIdeWorkbenchStore {
   private readonly currentReferenceSelection = () => {
     const selected = this.referenceSelection();
     return selected && selected.result === this.context() && selected.result === this.result() &&
-      selected.sourceMap === selected.result.sourceMap && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
+      selected.sourceMap === selected.result.sourceMap && (!selected.page || selected.page === this.referencePage()) && (!selected.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? selected : null;
   };
   private referenceQuery: AbortController | null = null;
   private readonly search = signal<{
     result: PreviewCase;
     sourceMap: PreviewCase['sourceMap'];
     status: 'searching' | 'ready';
+    page?: ReferenceSearchPage;
     references: readonly BoundReference[];
     coverageComplete: boolean;
     truncated: boolean;
@@ -63,19 +75,23 @@ export class ProjectIdeWorkbenchStore {
   readonly referenceSearch = () => {
     const search = this.search();
     return search && search.result === this.context() && search.result === this.result() &&
-      search.result.sourceMap === search.sourceMap && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
+      search.result.sourceMap === search.sourceMap && (!search.page || search.page === this.referencePage()) && (!search.result.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? search : null;
   };
   readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
   readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
-    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap'] } | null>(null);
+    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage; referencePage?: ReferenceSearchPage } | null>(null);
   private readonly currentTarget = computed(() => {
     const target = this.target();
     return target && target.context === this.context() && target.result === this.result() &&
       target.sourceMap === target.context.sourceMap &&
       !(this.referenceSelection() && !this.currentReferenceSelection()) ? target : null;
   });
-  readonly sourceTarget = () => this.currentTarget() && (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? this.currentTarget()!.record : null;
+  readonly sourceTarget = () => {
+    const target = this.currentTarget();
+    return target && (!target.referencePage || target.referencePage === this.referencePage()) && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
+      (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? target.record : null;
+  };
   readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
   readonly navigationState = signal('');
   readonly history = computed(() => {
@@ -168,6 +184,353 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted: run.sources, ...target, location: event.location }); this.navigationState.set('ready'); return true;
   }
+  private compilerRecordingGeneration = 0;
+  readonly compilerRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly compilerRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerRecording } | null>(null);
+  readonly compilerRecording = (): AdmittedCompilerRecording | null => {
+    const snapshot = this.compilerRecordingSnapshot(); const sources = this.admittedScoped();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && compilerRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadCompilerRecording(label: CompilerRecordingLabel = 'original'): Promise<boolean> {
+    this.clearCompilerRecording(); const generation = this.compilerRecordingGeneration;
+    const context = this.context(); const sources = this.admittedScoped(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || !sources.publicationVerified || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.compilerRecordingGeneration && bundle === this.bundle() && context === this.context() && context === this.result();
+    this.compilerRecordingReadState.set('loading');
+    try {
+      const admitted = await readCompilerRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || sources !== this.admittedScoped() || !bundle.cases.includes(context) || !compilerRecordingMatches(context, sources, admitted)) throw new Error('compiler-recording-unavailable');
+      this.compilerRecordingSnapshot.set({ bundle, context, admitted }); this.compilerRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.compilerRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearCompilerRecording(): void {
+    this.compilerRecordingGeneration++; this.compilerRecordingSnapshot.set(null); this.compilerRecordingReadState.set('idle');
+  }
+  private predicateRecordingGeneration = 0;
+  readonly predicateRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly predicateRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedPredicateRecording } | null>(null);
+  private predicateSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly predicateRecording = (): AdmittedPredicateRecording | null => {
+    const snapshot = this.predicateRecordingSnapshot(); const sources = this.predicateSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      predicateRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadPredicateRecording(label: PredicateRecordingLabel = 'original'): Promise<boolean> {
+    this.clearPredicateRecording(); const generation = this.predicateRecordingGeneration;
+    const context = this.context(); const sources = this.predicateSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const projection = context.predicateRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const current = () => generation === this.predicateRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.predicateRecordingReadState.set('loading');
+    try {
+      const admitted = await readPredicateRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || sources !== this.predicateSources() || !bundle.cases.includes(context) || context.predicateRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || admitted.manifest.text !== manifest.text ||
+        !predicateRecordingMatches(context, sources, admitted)) throw new Error('predicate-recording-unavailable');
+      this.predicateRecordingSnapshot.set({ bundle, context, admitted }); this.predicateRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.predicateRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearPredicateRecording(): void {
+    this.predicateRecordingGeneration++; this.predicateRecordingSnapshot.set(null); this.predicateRecordingReadState.set('idle');
+    this.clearRecordedPredicatePremises();
+  }
+  private recordedPredicatePremiseGeneration = 0;
+  readonly recordedPredicatePremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPredicatePremiseSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPredicatePremises } | null>(null);
+  readonly recordedPredicatePremises = (): AdmittedRecordedPredicatePremises | null => {
+    const snapshot = this.recordedPredicatePremiseSnapshot(); const sources = this.predicateSources(); const recording = this.predicateRecording();
+    const diagnostic = this.diagnostic();
+    return snapshot && sources && recording && diagnostic && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPredicatePremisesMatch(snapshot.context, sources, recording, diagnostic, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPredicatePremises(choice: RecordedPredicateChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPredicatePremises(); const generation = this.recordedPredicatePremiseGeneration;
+    const context = this.context(); const sources = this.predicateSources(); const recording = this.predicateRecording();
+    const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !recording || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPredicatePremiseGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPredicatePremiseReadState.set('loading');
+    try {
+      const admitted = await readRecordedPredicatePremises(context, sources, recording, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.predicateSources() || recording !== this.predicateRecording() || diagnostic !== this.diagnostic() ||
+        !bundle.cases.includes(context) || !recordedPredicatePremisesMatch(context, sources, recording, diagnostic, admitted))
+        throw new Error('recorded-predicate-premises-unavailable');
+      this.recordedPredicatePremiseSnapshot.set({ bundle, context, admitted }); this.recordedPredicatePremiseReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedPredicatePremiseReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPredicatePremises(): void {
+    this.recordedPredicatePremiseGeneration++; this.recordedPredicatePremiseSnapshot.set(null); this.recordedPredicatePremiseReadState.set('idle');
+  }
+  private operatorRecordingGeneration = 0;
+  readonly operatorRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly operatorRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedOperatorRecording } | null>(null);
+  private operatorSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly operatorRecording = (): AdmittedOperatorRecording | null => {
+    const snapshot = this.operatorRecordingSnapshot(); const sources = this.operatorSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      operatorRunIdentitiesAreUnique(snapshot.bundle.cases) && operatorRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<boolean> {
+    this.clearOperatorRecording(); const generation = this.operatorRecordingGeneration;
+    const context = this.context(); const sources = this.operatorSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    if (!operatorRunIdentitiesAreUnique(bundle.cases)) { this.operatorRecordingReadState.set('unavailable'); return false; }
+    const projection = context.operatorRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const current = () => generation === this.operatorRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.operatorRecordingReadState.set('loading');
+    try {
+      const admitted = await readOperatorRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || !operatorRunIdentitiesAreUnique(bundle.cases) || sources !== this.operatorSources() || !bundle.cases.includes(context) || context.operatorRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || admitted.manifest.text !== manifest.text ||
+        !operatorRecordingMatches(context, sources, admitted)) throw new Error('operator-recording-unavailable');
+      this.operatorRecordingSnapshot.set({ bundle, context, admitted }); this.operatorRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.operatorRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearOperatorRecording(): void {
+    this.operatorRecordingGeneration++; this.operatorRecordingSnapshot.set(null); this.operatorRecordingReadState.set('idle');
+    this.clearRecordedOperators();
+  }
+  private recordedOperatorGeneration = 0;
+  readonly recordedOperatorReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedOperatorSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedOperators } | null>(null);
+  readonly recordedOperators = (): AdmittedRecordedOperators | null => {
+    const snapshot = this.recordedOperatorSnapshot(); const sources = this.operatorSources(); const recording = this.operatorRecording();
+    const diagnostic = this.diagnostic();
+    return snapshot && sources && recording && diagnostic && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedOperatorsMatch(snapshot.context, sources, recording, diagnostic, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedOperators(); const generation = this.recordedOperatorGeneration;
+    const context = this.context(); const sources = this.operatorSources(); const recording = this.operatorRecording();
+    const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !recording || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedOperatorGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedOperatorReadState.set('loading');
+    try {
+      const admitted = await readRecordedOperators(context, sources, recording, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.operatorSources() || recording !== this.operatorRecording() || diagnostic !== this.diagnostic() ||
+        !bundle.cases.includes(context) || !recordedOperatorsMatch(context, sources, recording, diagnostic, admitted))
+        throw new Error('recorded-operators-unavailable');
+      this.recordedOperatorSnapshot.set({ bundle, context, admitted }); this.recordedOperatorReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedOperatorReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedOperators(): void {
+    this.recordedOperatorGeneration++; this.recordedOperatorSnapshot.set(null); this.recordedOperatorReadState.set('idle');
+  }
+  private passRecordingGeneration = 0;
+  readonly passRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly passRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedPassRecording } | null>(null);
+  private passSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly passRecording = (): AdmittedPassRecording | null => {
+    const snapshot = this.passRecordingSnapshot(); const sources = this.passSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      passRunIdentitiesAreUnique(snapshot.bundle.cases) && passRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadPassRecording(label: PassRecordingLabel = 'original'): Promise<boolean> {
+    this.clearPassRecording(); const generation = this.passRecordingGeneration;
+    const context = this.context(); const sources = this.passSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    if (!passRunIdentitiesAreUnique(bundle.cases)) { this.passRecordingReadState.set('unavailable'); return false; }
+    const projection = context.passRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const manifestText = manifest.text; const manifestDigest = JSON.stringify(manifest.digest);
+    const current = () => generation === this.passRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.passRecordingReadState.set('loading');
+    try {
+      const admitted = await readPassRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || !passRunIdentitiesAreUnique(bundle.cases) || sources !== this.passSources() || !bundle.cases.includes(context) || context.passRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || manifest.text !== manifestText || JSON.stringify(manifest.digest) !== manifestDigest || admitted.manifest.text !== manifestText || JSON.stringify(admitted.manifest.digest) !== manifestDigest ||
+        !passRecordingMatches(context, sources, admitted)) throw new Error('pass-recording-unavailable');
+      this.passRecordingSnapshot.set({ bundle, context, admitted }); this.passRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.passRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearPassRecording(): void {
+    this.passRecordingGeneration++; this.passRecordingSnapshot.set(null); this.passRecordingReadState.set('idle');
+    this.clearRecordedPasses();
+  }
+  private recordedPassGeneration = 0;
+  readonly recordedPassReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPassSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPasses } | null>(null);
+  readonly recordedPasses = (): AdmittedRecordedPasses | null => {
+    const snapshot = this.recordedPassSnapshot(); const sources = this.passSources(); const recording = this.passRecording();
+    return snapshot && sources && recording && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPassesMatch(snapshot.context, sources, recording, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPasses(choice: RecordedPassChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPasses(); const generation = this.recordedPassGeneration;
+    const context = this.context(); const sources = this.passSources(); const recording = this.passRecording();
+    const bundle = this.bundle();
+    if (!bundle || !context || !sources || !recording || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPassGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPassReadState.set('loading');
+    try {
+      const admitted = await readRecordedPasses(context, sources, recording, choice); if (!current()) return false;
+      if (!admitted || sources !== this.passSources() || recording !== this.passRecording() ||
+        !bundle.cases.includes(context) || !recordedPassesMatch(context, sources, recording, admitted))
+        throw new Error('recorded-passes-unavailable');
+      this.recordedPassSnapshot.set({ bundle, context, admitted }); this.recordedPassReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedPassReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPasses(): void {
+    this.recordedPassGeneration++; this.recordedPassSnapshot.set(null); this.recordedPassReadState.set('idle'); this.clearRecordedPassBoundary();
+  }
+
+  private recordedPassBoundaryGeneration = 0;
+  readonly recordedPassBoundaryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPassBoundarySnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPassBoundary } | null>(null);
+  readonly recordedPassBoundary = (): AdmittedRecordedPassBoundary | null => {
+    const snapshot = this.recordedPassBoundarySnapshot(); const sources = this.passSources(); const recording = this.passRecording();
+    return snapshot && sources && recording && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPassBoundaryMatches(snapshot.context, sources, recording, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPassBoundary(ordinal: number, choice: RecordedPassChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPassBoundary(); const generation = this.recordedPassBoundaryGeneration;
+    const context = this.context(); const sources = this.passSources(); const recording = this.passRecording(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || !recording || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPassBoundaryGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPassBoundaryReadState.set('loading');
+    try {
+      if (!['manifest', 'available', 'budget'].includes(choice)) throw new Error('unsupported-pass-boundary-choice');
+      const admitted = await readRecordedPassBoundary(context, sources, recording, ordinal,
+        choice === 'manifest' ? 'Manifest' : 'AvailableOriginalJson', choice === 'budget' ? 1 : 1_048_576);
+      if (!current()) return false;
+      if (!admitted || sources !== this.passSources() || recording !== this.passRecording() || !bundle.cases.includes(context) ||
+        !recordedPassBoundaryMatches(context, sources, recording, admitted)) throw new Error('pass-boundary-unavailable');
+      this.recordedPassBoundarySnapshot.set({bundle, context, admitted}); this.recordedPassBoundaryReadState.set('ready');
+      return admitted.state !== 'BoundaryNotRecorded';
+    } catch {
+      if (current()) this.recordedPassBoundaryReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPassBoundary(): void {
+    this.recordedPassBoundaryGeneration++; this.recordedPassBoundarySnapshot.set(null); this.recordedPassBoundaryReadState.set('idle'); this.clearPassBoundarySourcePage();
+  }
+
+  private readonly passSourcePageSnapshot = signal<{context: PreviewCase; sources: AdmittedRootSource; boundary: AdmittedRecordedPassBoundary; admitted: PassBoundarySourcePage} | null>(null);
+  readonly passBoundarySourcePage = (): PassBoundarySourcePage | null => {
+    const snapshot = this.passSourcePageSnapshot(); const context = this.context(); const sources = this.passSources(); const boundary = this.recordedPassBoundary();
+    return snapshot && context && sources && boundary && snapshot.context === context && snapshot.sources === sources && snapshot.boundary === boundary &&
+      passBoundarySourcePageMatches(context, sources, boundary, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  loadPassBoundarySourcePage(offset = 0, maximumTargets = 32): boolean {
+    this.clearPassBoundarySourcePage(); const context = this.context(); const sources = this.passSources(); const boundary = this.recordedPassBoundary();
+    if (!context || !sources || !boundary) return false;
+    try {
+      const admitted = readPassBoundarySourcePage(context, sources, boundary, offset, maximumTargets);
+      if (!admitted || context !== this.context() || sources !== this.passSources() || boundary !== this.recordedPassBoundary()) return false;
+      this.passSourcePageSnapshot.set({context, sources, boundary, admitted}); return this.passBoundarySourcePage() === admitted;
+    } catch { return false; }
+  }
+  navigatePassBoundarySource(page: PassBoundarySourcePage, candidate: PassBoundarySourceTarget): boolean {
+    this.resetSelection(); const context = this.context();
+    if (!context || this.passBoundarySourcePage() !== page || !page.targets.includes(candidate)) { this.navigationState.set('unavailable'); return false; }
+    if (!this.navigateLocation(candidate.location, true)) return false;
+    const target = this.target();
+    if (!target || this.passBoundarySourcePage() !== page) { this.target.set(null); this.navigationState.set('unavailable'); return false; }
+    this.target.set({...target, passSourcePage: page}); return this.sourceLocation() === candidate.location;
+  }
+  private clearPassBoundarySourcePage(): void {
+    // Cleanup also runs inside the identity effect; it must not subscribe that effect to user selections.
+    untracked(() => {
+      const page = this.passSourcePageSnapshot()?.admitted;
+      if (page && this.target()?.passSourcePage === page) { this.target.set(null); this.navigationState.set(''); }
+      this.passSourcePageSnapshot.set(null);
+    });
+  }
+
+  private rootSourceGeneration = 0;
+  readonly rootSourceReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly rootSourceSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRootSource } | null>(null);
+  readonly rootSource = (): AdmittedRootSource | null => {
+    const snapshot=this.rootSourceSnapshot();
+    return snapshot && this.state()==='ready' && snapshot.bundle===this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context===this.context() && snapshot.context===this.result() && rootSourceMatches(snapshot.context,snapshot.admitted) ? snapshot.admitted : null;
+  };
+  private currentPremiseSources = () => this.admittedScoped() ?? this.rootSource();
+  readonly diagnosticSourceReady = () => {
+    const context=this.context(); const diagnostic=this.diagnostic(); const sources=this.currentPremiseSources();
+    return !!context && !!diagnostic && !!sources && diagnosticPremiseSourcesMatch(context,sources,diagnostic);
+  };
+  async loadRootSource(): Promise<boolean> {
+    this.clearScopedSources(); this.resetSelection();
+    const generation=this.rootSourceGeneration; const bundle=this.bundle(); const context=this.context();
+    if(!bundle||!context||context!==this.result()||this.state()!=='ready'||!bundle.cases.includes(context))return false;
+    const current=()=>generation===this.rootSourceGeneration&&bundle===this.bundle()&&context===this.context()&&context===this.result();
+    this.rootSourceReadState.set('loading');
+    try {
+      const admitted=await readRootSource(context); if(!current())return false;
+      if(!admitted||!rootSourceMatches(context,admitted)||!bundle.cases.includes(context))throw new Error('root-source-unavailable');
+      this.rootSourceSnapshot.set({bundle,context,admitted});this.rootSourceReadState.set('ready');return true;
+    }catch{if(current())this.rootSourceReadState.set('unavailable');return false;}
+  }
+  private clearRootSource(): void {
+    untracked(() => { if (this.referencePageSnapshot()) this.cancelReferenceSearch(); });
+    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();this.clearPassRecording();
+  }
+  private diagnosticPremiseGeneration = 0;
+  readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly diagnosticPremiseSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedDiagnosticPremises } | null>(null);
+  readonly diagnosticPremises = (): AdmittedDiagnosticPremises | null => {
+    const snapshot = this.diagnosticPremiseSnapshot();
+    return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.sources === this.currentPremiseSources() &&
+      diagnosticPremiseSourcesMatch(snapshot.context,snapshot.admitted.sources,snapshot.admitted.diagnostic) && snapshot.admitted.diagnostic === this.diagnostic() ? snapshot.admitted : null;
+  };
+  async loadDiagnosticPremises(choice: DiagnosticPremiseChoice = 'manifest'): Promise<boolean> {
+    this.clearDiagnosticPremises(); const generation = this.diagnosticPremiseGeneration;
+    const context = this.context(); const sources = this.currentPremiseSources(); const bundle = this.bundle(); const diagnostic = this.diagnostic();
+    if (!bundle || !context || !sources || !diagnostic || context !== this.result() || !bundle.cases.includes(context)) { this.diagnosticPremiseReadState.set('unavailable'); return false; }
+    const current = () => generation === this.diagnosticPremiseGeneration && bundle === this.bundle() && context === this.context() &&
+      context === this.result() && diagnostic === this.diagnostic();
+    this.diagnosticPremiseReadState.set('loading');
+    try {
+      const admitted = await readDiagnosticPremises(context, sources, diagnostic, choice); if (!current()) return false;
+      if (!admitted || sources !== this.currentPremiseSources() || !bundle.cases.includes(context)) throw new Error('diagnostic-premises-unavailable');
+      this.diagnosticPremiseSnapshot.set({ bundle, context, admitted }); this.diagnosticPremiseReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.diagnosticPremiseReadState.set('unavailable'); return false;
+    }
+  }
+  private clearDiagnosticPremises(): void {
+    this.diagnosticPremiseGeneration++; this.diagnosticPremiseSnapshot.set(null); this.diagnosticPremiseReadState.set('idle');
+  }
   private compilerOutputsGeneration = 0;
   readonly compilerOutputsReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly compilerOutputsSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedCompilerOutputs } | null>(null);
@@ -201,6 +564,10 @@ export class ProjectIdeWorkbenchStore {
     return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
       snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.simulation === this.simulation() ? snapshot.admitted : null;
   };
+  simulationTraceProfileRun(profile: AdmittedTraceProfile): AdmittedSimulation | null {
+    const current = this.simulationTraceProfile();
+    return current && current === profile ? current.simulation : null;
+  }
   async loadSimulationTraceProfile(): Promise<boolean> {
     this.clearSimulationTraceProfile(); const generation = this.traceProfileGeneration;
     const context = this.context(); const run = this.simulation(); const bundle = this.bundle();
@@ -329,6 +696,9 @@ export class ProjectIdeWorkbenchStore {
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
   private clearScopedSources(): void {
+    this.clearRootSource();
+    this.clearDiagnosticPremises();
+    this.clearCompilerRecording();
     this.clearCompilerOutputs();
     this.clearSimulation(); this.scopedGeneration++; this.scopedSnapshot.set(null); this.scopedTarget.set(null); this.scopedReadState.set('idle');
   }
@@ -468,6 +838,12 @@ export class ProjectIdeWorkbenchStore {
     const matches = this.result()?.result.diagnostics.filter((item) => item.diagnosticId === selected.id);
     return matches?.length === 1 ? matches[0] : null;
   });
+  diagnosticBasis(offset = 0) {
+    const context = this.context(); const diagnostic = this.diagnostic(); const bundle = this.bundle();
+    if (this.state() !== 'ready' || !context || context !== this.result() || !diagnostic || !bundle?.cases.includes(context)) return null;
+    try { readPreviewBundle(bundle); } catch { return null; }
+    return diagnosticBasisPage(context, diagnostic, offset);
+  }
   readonly inspectedRecord = computed(() => {
     const context = this.context();
     const selected = this.selection();
@@ -648,6 +1024,43 @@ export class ProjectIdeWorkbenchStore {
     this.selection.set(selection);
     return true;
   }
+  private readonly referencePageSnapshot = signal<{
+    result: PreviewCase; sourceMap: PreviewCase['sourceMap']; source: AdmittedRootSource;
+    symbol: InspectedSymbol; page: ReferenceSearchPage;
+  } | null>(null);
+  readonly referencePage = (): ReferenceSearchPage | null => {
+    const snapshot = this.referencePageSnapshot();
+    return snapshot && snapshot.result === this.context() && snapshot.result === this.result() &&
+      snapshot.result.sourceMap === snapshot.sourceMap && snapshot.source === this.rootSource() &&
+      this.inspectedSymbols().includes(snapshot.symbol) && referenceSearchPageMatches(snapshot.result, snapshot.page) ? snapshot.page : null;
+  };
+  private publishReferencePage(result: PreviewCase, symbol: InspectedSymbol, pageIndex: number): boolean {
+    const source = this.rootSource(); const page = readReferenceSearchPage(result, symbol, pageIndex);
+    if (!source || !page || result !== this.context() || result !== this.result() || !this.inspectedSymbols().includes(symbol) ||
+        typeof this.resolveCurrentLocation(result, symbol.location, true) === 'string' ||
+        page.references.some(reference => typeof this.resolveCurrentLocation(result, reference.origin, true) === 'string')) return false;
+    this.referencePageSnapshot.set({ result, sourceMap: result.sourceMap, source, symbol, page });
+    this.search.set({ result, sourceMap: result.sourceMap, status: 'ready', references: page.references,
+      coverageComplete: page.indexCoverageComplete && page.scanComplete, truncated: !page.scanComplete, page });
+    return this.referencePage() === page;
+  }
+  moveReferencePage(page: ReferenceSearchPage, pageIndex: number): boolean {
+    const snapshot = this.referencePageSnapshot();
+    if (!snapshot || page !== this.referencePage() || !Number.isSafeInteger(pageIndex) || pageIndex < 0 || pageIndex >= page.pageCount) return false;
+    this.cancelReferenceSearch(); this.referenceSelection.set(null); this.target.set(null); this.navigationState.set('');
+    return this.publishReferencePage(snapshot.result, snapshot.symbol, pageIndex);
+  }
+  selectReferencePageOrigin(page: ReferenceSearchPage, reference: BoundReference): boolean {
+    return page === this.referencePage() && page.references.includes(reference) && this.selectReference(reference);
+  }
+  private clearPreparedReferencePage(): void {
+    untracked(() => {
+      const page = this.referencePageSnapshot()?.page;
+      this.referencePageSnapshot.set(null);
+      if (page && this.referenceSelection()?.page === page) this.referenceSelection.set(null);
+      if (page && this.target()?.referencePage === page) { this.target.set(null); this.navigationState.set(''); }
+    });
+  }
   async findReferences(symbol: InspectedSymbol): Promise<boolean> {
     this.cancelReferenceSearch();
     this.referenceSelection.set(null);
@@ -665,6 +1078,8 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(definition);
       return false;
     }
+
+    if (hasPreparedReferenceSearch(result, symbol)) return this.publishReferencePage(result, symbol, 0);
 
     const controller = new AbortController();
     this.referenceQuery = controller;
@@ -704,6 +1119,7 @@ export class ProjectIdeWorkbenchStore {
     return true;
   }
   cancelReferenceSearch(): void {
+    this.clearPreparedReferencePage();
     this.referenceQuery?.abort();
     this.referenceQuery = null;
     this.search.set(null);
@@ -719,7 +1135,9 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(typeof symbol === 'string' ? symbol : 'unavailable');
       return false;
     }
-    this.referenceSelection.set({ reference, symbol, result, sourceMap: result.sourceMap });
+    const page = this.referencePage();
+    if (page && !page.references.includes(reference)) { this.navigationState.set('unavailable'); return false; }
+    this.referenceSelection.set({ reference, symbol, result, sourceMap: result.sourceMap, ...(page ? { page } : {}) });
     this.navigationState.set('');
     return true;
   }
@@ -732,7 +1150,11 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(typeof symbol === 'string' ? symbol : 'unavailable');
       return false;
     }
-    return this.navigateLocation(destination === 'origin' ? reference.origin : symbol.location, true);
+    const page = this.referenceSelection()?.page;
+    if (!this.navigateLocation(destination === 'origin' ? reference.origin : symbol.location, true)) return false;
+    const target = this.target();
+    if (page && target) this.target.set({ ...target, referencePage: page });
+    return !page || page === this.referencePage();
   }
   private resolveReference(reference: BoundReference): InspectedSymbol | string {
     const result = this.result();
@@ -794,6 +1216,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises(); this.clearRecordedOperators();
     this.scopedTarget.set(null);
     this.cancelReferenceSearch();
     this.selection.set(null);

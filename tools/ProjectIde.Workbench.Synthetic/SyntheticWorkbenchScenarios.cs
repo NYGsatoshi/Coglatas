@@ -27,6 +27,14 @@ public sealed partial class SyntheticWorkbenchViewModel
         var preview = ProjectScenarios.Prepare(model, _desired.Input.ExpectedInputDigest, id, revision, overrides, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
         ScenarioPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioPreview, preview))
+            {
+                ClearScenarioPreview(); Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         if (!_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _scenarioPreviewGeneration &&
             ReferenceEquals(ScenarioPreview, preview)) return preview;
         if (ReferenceEquals(ScenarioPreview, preview)) { ClearScenarioPreview(); Changed(); } return null;
@@ -56,6 +64,14 @@ public sealed partial class SyntheticWorkbenchViewModel
         var preview = ProjectScenarios.ToDraft(plan, currentBase, expectedBase, proposal, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
         ScenarioDraftPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioDraftPreview, preview))
+            {
+                ClearScenarioPreview(); Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         if (!_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _scenarioPreviewGeneration &&
             ReferenceEquals(ScenarioDraftPreview, preview)) return preview;
         if (ReferenceEquals(ScenarioDraftPreview, preview)) { ClearScenarioPreview(); Changed(); } return null;

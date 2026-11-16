@@ -13,11 +13,17 @@ var comparisonProfile = args is [_, "--simulation-comparison"];
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
-var outputSnapshotProfile = args is [_, "--compiler-outputs"];
+var predicateRecordingProfile = args is [_, "--predicate-recordings"];
+var operatorRecordingProfile = args is [_, "--operator-recordings"];
+var passRecordingProfile = args is [_, "--pass-recordings"];
+var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile || operatorRecordingProfile || passRecordingProfile;
+var premiseProfile = args is [_, "--diagnostic-premises"];
+var recordingProfile = args is [_, "--compiler-recordings"];
+var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--pass-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -78,7 +84,10 @@ var diffBefore = ProjectSemanticBinder.Bind(renameFixture.Before);
 var diffAfter = ProjectSemanticBinder.Bind(renameFixture.After);
 var envelopeBefore = EnvelopeInput(150, "original"); var envelopeAfter = EnvelopeInput(151, "changed");
 var requirementCandidates = RequirementCandidateInput();
-var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
+var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many", "reference-pages" };
+var legacyNames = names;
+if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
+if (operatorRecordingProfile || passRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
@@ -89,7 +98,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + index) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), "reference-pages" => ReferencePagesInput(), _ when (operatorRecordingProfile || passRecordingProfile) && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
     if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
@@ -169,6 +178,30 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         sourceMap = ir?.SourceMap.Value,
         sourceMapDigest = ir?.SourceMapDigest.Data.Value
     });
+    if (name == "reference-pages")
+    {
+        if (inspection is null || ir is null) throw new InvalidOperationException("Reference paging requires the actual complete Source map.");
+        var target = inspection.Symbols.Single(item => item.Symbol.EntityId == EntityId.Parse(Id(6)) && item.Symbol.PortId is null);
+        var indices = new Dictionary<CompilerBoundReference, int>(ReferenceEqualityComparer.Instance);
+        for (var ordinal = 0; ordinal < inspection.References.Count; ordinal++) indices.Add(inspection.References[ordinal], ordinal);
+        var pages = new List<object>(); ReferenceSearchCursor? cursor = null;
+        do
+        {
+            var page = inspection.FindReferencesPage(target.Symbol.Location, input.InputDigest, cursor: cursor);
+            if (page.State != ReferenceSearchState.Ready || pages.Count >= inspection.References.Count + 1)
+                throw new InvalidOperationException("Reference paging did not retain its bounded original continuation.");
+            pages.Add(new { indexCoverageComplete = page.IndexCoverageComplete, scanComplete = page.ScanComplete,
+                scannedReferences = page.ScannedReferences, referenceIndices = page.References.Select(item => indices[item]).ToArray() });
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        fixture["referenceSearches"] = JsonSerializer.SerializeToNode(new[] { new { targetKey = target.Symbol.Key,
+            inputDigest = input.InputDigest.Data.Value, pages } });
+        _ = ProjectRootSourceAdmission.Read(compilation, result, result.ResultDigest) ?? throw new InvalidOperationException("Reference paging root Source is unavailable.");
+        fixture["rootSource"] = JsonSerializer.SerializeToNode(new { format = "coglatas.local-root-source-projection/1", inputText = input.Data.CanonicalText,
+            result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
+        cases[^1] = fixture;
+    }
     if (name.StartsWith("tests-", StringComparison.Ordinal))
     {
         var plan = ProjectTestPlan.Compile(compilation.Model!, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
@@ -195,6 +228,18 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             definitionText = testEditFixture.Exported.CanonicalText, importedText = testEditFixture.Imported.CanonicalText });
         cases[^1] = fixture;
     }
+    if (rootPremiseProfile)
+    {
+        var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
+        var rootSource = ProjectRootSourceAdmission.Read(compilation, result, result.ResultDigest) ?? throw new FormatException("Root Source binding unavailable.");
+        fixture["rootSource"] = JsonSerializer.SerializeToNode(new { format = "coglatas.local-root-source-projection/1", inputText = input.Data.CanonicalText,
+            result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
+        fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation, rootSource));
+        if (predicateRecordingProfile) fixture["predicateRecordings"] = await PredicateRecordingPreview.ExportAsync(input, result);
+        if (operatorRecordingProfile) fixture["operatorRecordings"] = await OperatorRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
+        if (passRecordingProfile) fixture["passRecordings"] = await PassRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
+        cases[^1] = fixture;
+    }
     if (scenarioProfile)
     {
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
@@ -213,7 +258,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
         if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
             fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
-        if (outputSnapshotProfile) {
+        if (outputSnapshotProfile && !premiseProfile) {
             object Capture(CompilerOutputSnapshotMode mode, int budget) {
                 var capture = ProjectCompilerOutputSnapshot.Read(compilation, compilation.Result.ResultDigest, mode, budget, desiredInput: input);
                 return new { text = capture.Data.CanonicalText, digest = capture.Digest.Data.Value, retainedBodyBytes = capture.RetainedBodyBytes,
@@ -223,6 +268,8 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             fixture["compilerOutputs"] = JsonSerializer.SerializeToNode(new { manifest = Capture(CompilerOutputSnapshotMode.Manifest, ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes),
                 available = Capture(CompilerOutputSnapshotMode.AvailableOutputs, name == "tests-publication-root-draft" ? 1 : ProjectCompilerOutputSnapshot.DefaultBodyBudgetBytes) });
         }
+        if (premiseProfile) fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation));
+        if (recordingProfile) fixture["compilerRecordings"] = await CompilerRecordingPreview.ExportAsync(input, snapshots, compilation.Result);
         if (simulationProfile && compilation.Publication?.ExecutionPlan is { } simulationPlan)
         {
             var request = new SimulationRunManifest(simulationPlan, Guid.Parse(Id(2500 + index)), 100,
@@ -274,7 +321,26 @@ if (comparisonProfile)
     if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true });
+if (recordingProfile) {
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["recordingProducer"] = JsonSerializer.SerializeToNode(CompilerRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
+if (predicateRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["predicateRecordingProducer"] = JsonSerializer.SerializeToNode(PredicateRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
+if (passRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["passRecordingProducer"] = JsonSerializer.SerializeToNode(PassRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
+if (operatorRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["operatorRecordingProducer"] = JsonSerializer.SerializeToNode(OperatorRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
@@ -502,6 +568,15 @@ static CompilerInputManifest TestAssertionNavigationInput()
     var declarations = new[] { Test(10, ["example.check", "example.a/b~c", "example.テスト/α~β"]), Test(11, ["example.foreign"]) };
     return new(ProjectSource.Create(input.Source.Context, input.Source.Documents, Json(declarations), Json(Array.Empty<object>())), input.Settings);
 }
+static CompilerInputManifest ReferencePagesInput()
+{
+    var original = Input("reference-pages", 9700); var declarations = new List<object>();
+    for (var ordinal = 0; ordinal < 35; ordinal++)
+        declarations.Add(new { entityId = Id(20000 + ordinal), documentId = Id(4), kind = "coglatas.requirement", schemaVersion = 1,
+            displayName = "Recorded reference " + (ordinal + 1), payload = new { target = new { tenantId = Id(1), projectId = Id(2),
+                entityId = Id(6), context = original.Source.Context.Data.Value }, condition = Literal(true), evidenceKind = "coglatas.model-proof" } });
+    return new(ProjectSource.Create(original.Source.Context, original.Source.Documents, Json(declarations), Json(Array.Empty<object>())), original.Settings);
+}
 static CompilerInputManifest RequirementCandidateInput()
 {
     var input = Input("requirement-candidates", 160);
@@ -552,6 +627,37 @@ static object Literal(bool? value) => new
     value = value.HasValue ? (object)new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = value.Value }
         : new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.unknown", reason = "coglatas.missing-input", basis = new { coverage = "coglatas.partial" } }
 };
+static CompilerInputManifest OperatorInput(string name, int revision)
+{
+    object Op(string kind, params object[] operands) => new { kind, operands };
+    var template = Input("fail", revision);
+    var predicate = name switch {
+        "operator-and-short-circuit" => Op("coglatas.and", Literal(false), Literal(true)),
+        "operator-nested-duplicates" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
+        "operator-or-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
+        "operator-not-pass" => Op("coglatas.not", Literal(false)),
+        "operator-requirement-false-nested" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
+        "operator-requirement-true-short-circuit" => Op("coglatas.or", Literal(true), Literal(null)),
+        "operator-requirement-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
+        _ => throw new ArgumentException("Unknown synthetic operator example.", nameof(name)) };
+    if (name.StartsWith("operator-requirement-", StringComparison.Ordinal))
+    {
+        var context = template.Source.Context;
+        var requirement = new { entityId = Id(7), documentId = template.Source.Documents[0].DocumentId.ToString(),
+            kind = "coglatas.requirement", schemaVersion = 1, displayName = "Launch evidence requirement",
+            payload = new { target = new { tenantId = context.Branch.TenantId.ToString(), projectId = context.Branch.ProjectId.ToString(),
+                entityId = Id(6), context = context.Data.Value }, condition = predicate, evidenceKind = "coglatas.model-proof" } };
+        return new(ProjectSource.Create(context, template.Source.Documents, Json(new[] { requirement })), template.Settings);
+    }
+    var declarations = JsonNode.Parse(template.Source.Declarations.CanonicalText)!.AsArray();
+    declarations[0]!["payload"]!["predicate"] = JsonSerializer.SerializeToNode(predicate);
+    var relations = JsonNode.Parse(template.Source.Relations.CanonicalText)!.AsArray();
+    relations[0]!["payload"]!["predicateDigest"] = JsonNode.Parse(ContentDigest.Compute("coglatas.predicate/1",
+        PurePredicate.Parse(Json(predicate)).Data.ToCanonicalBytes()).Data.CanonicalText);
+    return new(ProjectSource.Create(template.Source.Context, template.Source.Documents, Json(declarations), Json(relations),
+        template.Source.ExtensionDeclarations, template.Source.PackageLock, template.Source.SourceReferences), template.Settings);
+}
+
 static CompilerInputManifest Input(string name, int revision)
 {
     var project = name == "other-project" ? 22 : 2;

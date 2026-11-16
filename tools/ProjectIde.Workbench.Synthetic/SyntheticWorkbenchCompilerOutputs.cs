@@ -19,10 +19,21 @@ public sealed partial class SyntheticWorkbenchViewModel
         var compilation = _compilation; var request = _desired; var scopedGeneration = _scopedGeneration;
         bool Current() => !_disposed && generation == _outputSnapshotGeneration && scopedGeneration == _scopedGeneration && CurrentScopedSources &&
             compilation is not null && ReferenceEquals(compilation, _compilation) && ReferenceEquals(request, _desired);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var snapshot = ProjectCompilerOutputSnapshot.Read(compilation!, expectedResult, mode, maximumBodyBytes, token, compilation!.Input);
         if (!Current()) return false;
         _compilerOutputSnapshot = snapshot; _outputSnapshotCompilation = compilation; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _outputSnapshotGeneration && ReferenceEquals(_compilerOutputSnapshot, snapshot))
+            { ClearCompilerOutputSnapshot(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(CompilerOutputSnapshot, snapshot) && snapshot.State is not
             (CompilerOutputSnapshotState.RefusedWrongResult or CompilerOutputSnapshotState.RefusedInputBinding or CompilerOutputSnapshotState.RefusedOutputBinding);
     }

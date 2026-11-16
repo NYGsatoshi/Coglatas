@@ -119,4 +119,159 @@ public sealed class SyntheticSimulationTraceProfileTests
         if (mode == "run") Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(22102))));
         if (mode == "debug") Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(22103))));
     }
+
+    private sealed class CancelRecordedRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly ContentDigest _runDigest;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectSimulationTraceProfile? Replacement { get; private set; }
+        public CancelRecordedRead(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _replace = replace; _runDigest = vm.SimulationRun!.Digest; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ProfileSyntheticSimulation(_runDigest, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.ProfileSyntheticSimulation(_runDigest);
+                Replacement = _vm.SimulationTraceProfile;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtRecordedSimulationReadPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var result = view.Result!; var resultData = result.Data; var run = view.SimulationRun!; var runData = run.Data;
+        Assert.NotEmpty(run.Events);
+        Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        var previous = view.SimulationTraceProfile!; var previousData = previous.Data;
+        using var cancellation = new CancelRecordedRead(view, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(run, view.SimulationRun); Assert.Equal(runData, run.Data);
+        Assert.Equal(previousData, previous.Data);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, view.SimulationTraceProfile);
+        }
+        else Assert.Null(view.SimulationTraceProfile);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
+    [Fact]
+    public async Task CurrentSummaryReadsOnlyItsOwnedOriginalRecordingWithoutStartingExecution()
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; var result = view.Result!; var source = view.Source!;
+        var runData = run.Data; var resultData = result.Data; var sourceData = source.Data;
+        Assert.NotEmpty(run.Events); Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        var basis = view.SimulationTraceProfile!; var summaryData = basis.Data;
+        Assert.Same(run, view.ReadSimulationTraceProfileRun(basis));
+        Assert.Same(run, view.SimulationRun); Assert.Same(result, view.Result); Assert.Same(source, view.Source);
+        Assert.Equal(runData, run.Data); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, source.Data); Assert.Equal(summaryData, basis.Data);
+        var detached = ProjectSimulationTraceProfile.Read(run, run.Digest);
+        Assert.Equal(summaryData, detached.Data); Assert.NotSame(basis, detached);
+        Assert.Null(view.ReadSimulationTraceProfileRun(detached)); Assert.Same(basis, view.SimulationTraceProfile);
+    }
+    [Theory]
+    [InlineData("profile")] [InlineData("run")] [InlineData("reload")] [InlineData("reset")]
+    public async Task AnOlderSummaryCannotOpenARecordingAfterOwnershipChanges(string mode)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; Assert.True(view.ProfileSyntheticSimulation(run.Digest)); var basis = view.SimulationTraceProfile!;
+        var original = basis.Data;
+        if (mode == "profile") Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        else Change(view, f.Request, mode);
+        Assert.Null(view.ReadSimulationTraceProfileRun(basis)); Assert.Equal(original, basis.Data);
+        if (mode == "profile") Assert.Same(run, view.ReadSimulationTraceProfileRun(view.SimulationTraceProfile!));
+    }
+    [Fact]
+    public async Task ARefusedSummaryDoesNotProvideARecordingRead()
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; Assert.False(view.ProfileSyntheticSimulation(run.Manifest.Digest));
+        var refused = view.SimulationTraceProfile!; Assert.Equal(SimulationTraceProfileState.Refused, refused.State);
+        Assert.Null(view.ReadSimulationTraceProfileRun(refused)); Assert.Same(run, view.SimulationRun);
+    }
+
+    private sealed class CancelInitialRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly ProjectSimulationRun _run;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectSimulationTraceProfile? Replacement { get; private set; }
+        public CancelInitialRead(SyntheticWorkbenchViewModel view, bool admitted)
+        {
+            _view = view; _admitted = admitted; _run = view.SimulationRun!;
+            view.PropertyChanged += Changed;
+        }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.ProfileSyntheticSimulation(_run.Digest, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.SimulationTraceProfile is not null) return;
+            Fired = true;
+            ReplacementSucceeded = _view.ProfileSyntheticSimulation(_admitted ? _run.Digest : _run.Manifest.Digest);
+            Replacement = _view.SimulationTraceProfile;
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationDuringInitialNotificationReportsCancellationAndPreservesTheNewerSummary(bool admitted)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!;
+        var result = view.Result!;
+        var runData = run.Data;
+        var resultData = result.Data;
+        Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        var previous = view.SimulationTraceProfile!;
+        var previousData = previous.Data;
+        using var cancellation = new CancelInitialRead(view, admitted);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Equal(admitted, cancellation.ReplacementSucceeded);
+        var latest = cancellation.Replacement;
+        Assert.NotNull(latest);
+        Assert.NotSame(previous, latest);
+        Assert.Same(latest, view.SimulationTraceProfile);
+        Assert.Equal(admitted ? SimulationTraceProfileState.Complete : SimulationTraceProfileState.Refused, latest.State);
+        if (admitted) Assert.Same(run, latest.Run);
+        else Assert.Null(latest.Run);
+        Assert.Same(run, view.SimulationRun);
+        Assert.Same(result, view.Result);
+        Assert.Equal(runData, run.Data);
+        Assert.Equal(resultData, result.Data);
+        Assert.Equal(previousData, previous.Data);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }

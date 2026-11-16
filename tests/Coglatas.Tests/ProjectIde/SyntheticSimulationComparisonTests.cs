@@ -131,4 +131,130 @@ public sealed class SyntheticSimulationComparisonTests
         if (mode == "run") Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(1103))));
         if (mode == "debug") Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1104))));
     }
+
+    private sealed class CancelRecordedRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly ProjectSimulationRun _before;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectSimulationRunComparison? Replacement { get; private set; }
+        public CancelRecordedRead(SyntheticWorkbenchViewModel vm, bool replace, ProjectSimulationRun before)
+        { _vm = vm; _replace = replace; _before = before; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.CompareSyntheticSimulationRuns(_before, _before.Digest, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.CompareSyntheticSimulationRuns(_before, _before.Digest);
+                Replacement = _vm.SimulationComparison;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtRecordedSimulationReadPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var result = view.Result!; var resultData = result.Data; var run = view.SimulationRun!; var runData = run.Data;
+        Assert.NotEmpty(run.Events); var beforeData = f.Before.Data; Assert.NotEmpty(f.Before.Events);
+        Assert.True(view.CompareSyntheticSimulationRuns(f.Before, f.Before.Digest));
+        var previous = view.SimulationComparison!; var previousData = previous.Data;
+        using var cancellation = new CancelRecordedRead(view, replace, f.Before); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(run, view.SimulationRun); Assert.Equal(runData, run.Data);
+        Assert.Equal(previousData, previous.Data); Assert.Equal(beforeData, f.Before.Data);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, view.SimulationComparison);
+        }
+        else Assert.Null(view.SimulationComparison);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
+    private sealed class CancelInitialRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly ProjectSimulationRun _before;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectSimulationRunComparison? Replacement { get; private set; }
+        public CancelInitialRead(SyntheticWorkbenchViewModel view, bool admitted, ProjectSimulationRun before)
+        {
+            _view = view; _admitted = admitted; _before = before;
+            view.PropertyChanged += Changed;
+        }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.CompareSyntheticSimulationRuns(_before, _before.Digest, Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.SimulationComparison is not null) return;
+            Fired = true;
+            ReplacementSucceeded = _view.CompareSyntheticSimulationRuns(_before, _admitted ? _before.Digest : _before.Manifest.Digest);
+            Replacement = _view.SimulationComparison;
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationDuringInitialNotificationReportsCancellationAndPreservesTheNewerComparison(bool admitted)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!;
+        var result = view.Result!;
+        var runData = run.Data;
+        var resultData = result.Data;
+        var beforeData = f.Before.Data;
+        Assert.True(view.CompareSyntheticSimulationRuns(f.Before, f.Before.Digest));
+        var previous = view.SimulationComparison!;
+        var previousData = previous.Data;
+        using var cancellation = new CancelInitialRead(view, admitted, f.Before);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Equal(admitted, cancellation.ReplacementSucceeded);
+        var latest = cancellation.Replacement;
+        Assert.NotNull(latest);
+        Assert.NotSame(previous, latest);
+        Assert.Same(latest, view.SimulationComparison);
+        Assert.Equal(admitted ? SimulationRunComparisonState.Complete : SimulationRunComparisonState.Refused, latest.State);
+        if (admitted)
+        {
+            Assert.Same(f.Before, latest.Before);
+            Assert.Same(run, latest.After);
+        }
+        else
+        {
+            Assert.Null(latest.Before);
+            Assert.Null(latest.After);
+        }
+        Assert.Same(run, view.SimulationRun);
+        Assert.Same(result, view.Result);
+        Assert.Equal(runData, run.Data);
+        Assert.Equal(resultData, result.Data);
+        Assert.Equal(beforeData, f.Before.Data);
+        Assert.Equal(previousData, previous.Data);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }

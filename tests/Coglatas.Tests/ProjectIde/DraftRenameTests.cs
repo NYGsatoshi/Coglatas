@@ -348,4 +348,57 @@ public sealed class DraftRenameTests
         var retained = view.PreviewRename("Next", Next(plan.After, 53))!.Plan!;
         Assert.True(view.Select(Target(plan.After))); Assert.Null(view.RenamePreview); Assert.Null(view.ApplyPreviewedRename(retained, 3));
     }
+
+    private sealed class CancelDraftPreview : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly CompilerInputManifest _input;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public DraftRenamePreview? Published { get; private set; }
+        public DraftRenamePreview? Replacement { get; private set; }
+        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, CompilerInputManifest input)
+        { _vm = vm; _replace = replace; _input = input; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.PreviewRename("Cancelled", Next(_input), Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.RenamePreview is not { } published) return;
+            Fired = true; Published = published;
+            if (_replace) Replacement = _vm.PreviewRename("Replacement", Next(_input, 53));
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace)
+    {
+        var input = Draft();
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request))); Assert.True(view.Select(Target(input)));
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var selected = view.Selected; var tests = view.TestRun;
+        var previous = view.PreviewRename("Previous", Next(input))!; Assert.Equal(DraftRenameState.Ready, previous.State); Assert.NotNull(previous.Plan);
+        var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
+        using var cancellation = new CancelDraftPreview(view, replace, input); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.NotNull(cancellation.Published); Assert.Equal(DraftRenameState.Ready, cancellation.Published.State); Assert.NotNull(cancellation.Published.Plan);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Same(selected, view.Selected); Assert.Same(tests, view.TestRun); Assert.Equal(previousData, previous.Plan.After.Data);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Equal(DraftRenameState.Ready, cancellation.Replacement.State);
+            Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.RenamePreview);
+        }
+        else Assert.Null(view.RenamePreview);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

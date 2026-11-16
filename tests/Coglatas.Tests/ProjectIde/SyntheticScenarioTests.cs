@@ -141,4 +141,92 @@ public sealed class SyntheticScenarioTests
         Assert.True(view.TryAccept(await Host(conversion.Plan.After).CompileAsync(revoked))); Assert.True(view.RunSyntheticTests()); Assert.NotEqual(CompilerVerdict.Pass, view.TestRun!.Verdict);
     }
 
+
+    private sealed class CancelScenarioPreview : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CompilerInputManifest _input;
+        private readonly ProjectScenarioOverride _change;
+        private readonly PartialSemanticModel _basis;
+        private readonly bool _draft;
+        private readonly bool _replace;
+        private readonly CancellationTokenSource _source = new();
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public object? Replacement { get; private set; }
+        public CancelScenarioPreview(SyntheticWorkbenchViewModel vm, CompilerInputManifest input,
+            ProjectScenarioOverride change, bool draft, bool replace)
+        {
+            _vm = vm; _input = input; _change = change; _basis = ProjectSemanticBinder.Bind(input);
+            _draft = draft; _replace = replace; vm.PropertyChanged += Changed;
+        }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => ReadPreview(704, Token);
+        private object? ReadPreview(int revision, CancellationToken token = default)
+        {
+            if (!_draft) return _vm.PreviewScenario(ScenarioId.Parse(Id(700)), ScenarioRevisionId.Parse(Id(revision)), [_change], token);
+            var committed = _input.Source.Context.CommittedRevision!;
+            var proposal = new ProposalContext(ProposalId.Parse(Id(710)), CandidateRevisionId.Parse(Id(revision)), committed, committed);
+            return _vm.PreviewScenarioDraft(_basis, _input.InputDigest, proposal, token);
+        }
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace) Replacement = ReadPreview(705);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false, false)] [InlineData(false, true)]
+    [InlineData(true, false)] [InlineData(true, true)]
+    public async Task CancellationAtScenarioPreviewPublicationWithdrawsOnlyItsOwnedPreview(bool draft, bool replace)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        Assert.True(view.RunSyntheticTests()); var originalInputData = f.Input.Data;
+        if (draft)
+        {
+            var scenario = Preview(view, f.Change).Plan!;
+            var request = view.LoadScenario(scenario, 2)!;
+            Assert.True(view.TryAccept(await Host(scenario.Input).CompileAsync(request)));
+            Assert.True(view.RunSyntheticTests());
+        }
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var tests = view.TestRun!; var testsData = tests.Data; var active = view.ActiveScenario;
+        var baselineResult = view.ScenarioBaselineResult; var baselineTests = view.ScenarioBaselineTests;
+        var committed = f.Input.Source.Context.CommittedRevision!;
+        var proposal = new ProposalContext(ProposalId.Parse(Id(710)), CandidateRevisionId.Parse(Id(711)), committed, committed);
+        object previous; SourceJson previousData;
+        if (draft)
+        {
+            var prior = view.PreviewScenarioDraft(ProjectSemanticBinder.Bind(f.Input), f.Input.InputDigest, proposal)!;
+            Assert.Equal(ProjectScenarioState.Ready, prior.State); Assert.NotNull(prior.Plan);
+            previous = prior; previousData = prior.Plan.Data;
+        }
+        else
+        {
+            var prior = Preview(view, f.Change); Assert.Equal(ProjectScenarioState.Ready, prior.State); Assert.NotEmpty(prior.Plan!.Changes);
+            previous = prior; previousData = prior.Plan.Input.Data;
+        }
+        using var cancellation = new CancelScenarioPreview(view, f.Input, f.Change, draft, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Same(tests, view.TestRun); Assert.Equal(testsData, tests.Data); Assert.Equal(originalInputData, f.Input.Data);
+        Assert.Same(active, view.ActiveScenario); Assert.Same(baselineResult, view.ScenarioBaselineResult); Assert.Same(baselineTests, view.ScenarioBaselineTests);
+        Assert.Equal(previousData, draft ? Assert.IsType<ProjectScenarioDraftPreview>(previous).Plan!.Data : Assert.IsType<ProjectScenarioPreview>(previous).Plan!.Input.Data);
+        object? current = draft ? view.ScenarioDraftPreview : view.ScenarioPreview;
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Same(cancellation.Replacement, current);
+            if (draft) Assert.Equal(ProjectScenarioState.Ready, Assert.IsType<ProjectScenarioDraftPreview>(current).State);
+            else Assert.Equal(ProjectScenarioState.Ready, Assert.IsType<ProjectScenarioPreview>(current).State);
+        }
+        else Assert.Null(current);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

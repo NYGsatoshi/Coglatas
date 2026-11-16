@@ -18,6 +18,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private long _lifecycle;
     private long _selectionGeneration;
     private long _revertPreviewGeneration;
+    private long _historyReadGeneration;
     private long _taskSuggestionGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
@@ -81,7 +82,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     public bool HasCompleteLocalPass => LocalEvidenceState == "complete-local-pass";
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public void BeginSynthetic(CompilerHostRequest desired)
+    public void BeginSynthetic(CompilerHostRequest desired) => BeginSyntheticContext(desired, null, null);
+
+    private void BeginSyntheticContext(CompilerHostRequest desired, PredicateCompilerHostRequest? predicateRequest,
+        LocalPredicateCompilerRecordingManifest? predicateManifest, PredicateObservationCompilerHostRequest? operatorRequest = null,
+        LocalPredicateObservationCompilerRecordingManifest? operatorManifest = null,
+        PassObservationCompilerHostRequest? passRequest = null, LocalPassObservationCompilerRecordingManifest? passManifest = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(desired);
         if (desired.ClientGeneration <= _lastGeneration) throw new ArgumentException("A new lifecycle needs a strictly newer generation.", nameof(desired));
@@ -92,13 +98,16 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         if (_disposed || lifecycle != _lifecycle) return;
         // Materialize before publishing context, so malformed input cannot leave a partial selection.
         var source = desired.Input.Materialize().Source;
-        _desired = desired; Source = source; State = "Waiting"; Changed();
+        _desired = desired; _desiredPredicateRequest = predicateRequest; _desiredPredicateManifest = predicateManifest;
+        _desiredOperatorRequest = operatorRequest; _desiredOperatorManifest = operatorManifest;
+        _desiredPassRequest = passRequest; _desiredPassManifest = passManifest;
+        Source = source; State = "Waiting"; Changed();
     }
 
     public bool TryAccept(CompilerHostResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
-        if (_disposed || _desired is null || State != "Waiting") return false;
+        if (_disposed || _desired is null || _desiredPredicateRequest is not null || _desiredOperatorRequest is not null || _desiredPassRequest is not null || State != "Waiting") return false;
         if (response.ClientGeneration != _desired.ClientGeneration || !response.RequestedInputDigest.Equals(_desired.Input.ExpectedInputDigest)) return false;
         if (response.Status != CompilerHostStatus.Completed)
         {
@@ -217,6 +226,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             name, nextContext, cancellationToken);
         RenamePreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
+            {
+                RenamePreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
     }
 
@@ -245,6 +262,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
         RevertPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
+            {
+                _revertPreviewGeneration++; RevertPreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 
@@ -273,6 +298,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
         TaskSuggestions = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
+            { _taskSuggestionGeneration++; TaskSuggestions = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
             ReferenceEquals(TaskSuggestions, page) ? page : null;
     }
@@ -299,6 +330,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             pageSize, cursor, cancellationToken);
         ReferenceCompletion = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
+            { ReferenceCompletion = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
 
@@ -345,6 +382,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var diff = ProjectSemanticDiff.Compare(before, after, expectedBefore, _desired.Input.ExpectedInputDigest,
             cancellationToken: cancellationToken);
         SemanticDiff = diff; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff))
+            {
+                SemanticDiff = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
     }
 
@@ -353,24 +398,38 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
-        var lifecycle = _lifecycle;
+        var lifecycle = _lifecycle; var generation = ++_historyReadGeneration;
         if (History is not null) { History = null; Changed(); }
-        if (_disposed || lifecycle != _lifecycle || History is not null) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration || History is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         if (_desired is null || Source is null || State != "Ready" ||
             revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
         var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
-        if (_disposed || lifecycle != _lifecycle) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration) return null;
         History = result; Changed();
-        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(History, result) ? result : null;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _historyReadGeneration && ReferenceEquals(History, result))
+            {
+                _historyReadGeneration++; History = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && generation == _historyReadGeneration && ReferenceEquals(History, result) ? result : null;
     }
 
     public void Reset()
     {
         _lifecycle++; ClearContext(); Changed();
     }
-    private void ClearContext() { ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
+    private void ClearContext() { ClearPassContext(); ClearOperatorContext(); ClearPredicateContext(); ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
+        ClearReferenceSearchPage();
+        ClearDiagnosticPremises(); ClearRecordedPredicatePremises(); ClearOperatorSnapshot();
         ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
         SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
@@ -379,7 +438,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _historyReadGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

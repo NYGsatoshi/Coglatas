@@ -222,7 +222,14 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly referenceSearches?: readonly import('./projectide-reference-pages.reader').PreparedReferenceSearch[] | null;
+  readonly passRecordings?: import('./projectide-pass-recordings.reader').PassRecordingProjection | null;
+  readonly operatorRecordings?: import('./projectide-operator-recordings.reader').OperatorRecordingProjection | null;
+  readonly predicateRecordings?: import('./projectide-predicate-recordings.reader').PredicateRecordingProjection | null;
+  readonly rootSource?: import('./projectide-root-source.reader').RootSourceProjection | null;
+  readonly diagnosticPremises?: import('./projectide-diagnostic-premises.reader').DiagnosticPremiseProjection | null;
   readonly compilerOutputs?: import('./projectide-compiler-outputs.reader').CompilerOutputProjection | null;
+  readonly compilerRecordings?: import('./projectide-compiler-recordings.reader').CompilerRecordingProjection | null;
   readonly simulationRun?: import('./projectide-simulation.reader').SimulationFrame | null;
   readonly simulationTraceProfile?: import('./projectide-simulation.reader').SimulationFrame | null;
   readonly simulationComparison?: import('./projectide-simulation-comparison.reader').SimulationComparisonProjection | null;

@@ -45,7 +45,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                     throw new FormatException("An exact complete captured snapshot is required.");
             }
             _scopedSources = scoped; _scopedCompilation = compilation; _scopedRequest = desired;
-            _scopedSourceViews = Array.AsReadOnly(scoped.Regions.Select(region => region.Binding.Source).ToArray()); ScopedReadState = "Ready";
+            _scopedSourceViews = new ScopedSourceList(scoped.Regions.Select(region => region.Binding.Source)); ScopedReadState = "Ready";
         }
         catch (Exception error) when (error is FormatException or ArgumentException or UnsupportedSourceException)
         { ClearScopedSources(); ScopedReadState = "Unavailable"; }
@@ -85,12 +85,27 @@ public sealed partial class SyntheticWorkbenchViewModel
         { ClearSelection(); NavigationState = "unavailable"; Changed(); return false; }
         return NavigateScopedSource(diagnostic.Location);
     }
+    private sealed class ScopedSourceList : IReadOnlyList<ProjectSource>
+    {
+        private readonly ProjectSource[] _values;
+        internal ScopedSourceList(IEnumerable<ProjectSource> values) => _values = values.ToArray();
+        public int Count => _values.Length;
+        public ProjectSource this[int index] => (uint)index < (uint)_values.Length
+            ? _values[index] : throw new ArgumentOutOfRangeException(nameof(index));
+        public IEnumerator<ProjectSource> GetEnumerator()
+        {
+            foreach (var value in _values) yield return value;
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     private void ClearScopedSelection() { ScopedSource = null; ScopedSourceTarget = null; ScopedSourceRecord = null; }
     private void ClearScopedSources()
     {
+        ClearDiagnosticPremises();
         ClearCompilerRecording();
         ClearCompilerOutputSnapshot();
-        _scopedGeneration++; ClearSimulation(); ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
+        _scopedGeneration++; ClearRootSource(); ClearSimulation(); ClearScopedSelection(); _scopedSources = null; _scopedCompilation = null; _scopedRequest = null;
         _scopedSourceViews = Array.Empty<ProjectSource>(); ScopedReadState = "Idle";
     }
 }

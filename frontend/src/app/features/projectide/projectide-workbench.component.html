@@ -23,6 +23,12 @@
     }
     @if (store.state() === 'ready') {
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
+      <button type="button" data-testid="ide-pass-example" (click)="reload('pass-recordings')">{{ t('ide.passExample') }}</button>
+      <button type="button" data-testid="ide-operator-example" (click)="reload('operator-recordings')">{{ t('ide.operatorExample') }}</button>
+      <button type="button" (click)="reload('predicate-recordings')">{{ t('ide.predicateExample') }}</button>
+      <button type="button" (click)="reload('root-diagnostic-premises')">{{ t('ide.rootSourceExample') }}</button>
+      <button type="button" (click)="reload('diagnostic-premises')">{{ t('ide.premisesExample') }}</button>
+      <button type="button" (click)="reload('compiler-recordings')">{{ t('ide.recordingExample') }}</button>
       <button type="button" (click)="reload('plan')">{{ t('ide.planExample') }}</button>
       <button type="button" (click)="reload('simulation-profile')">{{ t('ide.profileExample') }}</button>
       <button type="button" (click)="reload('simulation-comparison')">{{ t('ide.comparisonExample') }}</button>
@@ -446,6 +452,130 @@
                   </div>
                 </dl>
               }
+              @if (store.diagnosticBasis(basisPage() * basisPageSize); as basis) {
+                <section data-testid="ide-diagnostic-basis" aria-labelledby="diagnostic-basis-title">
+                  <h3 id="diagnostic-basis-title">{{ t('ide.basisTitle') }}</h3>
+                  <p>{{ t('ide.basisNotice') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.identity') }}</dt><dd>{{ basis.diagnostic.diagnosticId }}</dd></div>
+                    <div><dt>{{ t('ide.basisInput') }}</dt><dd>{{ basis.inputId }} · {{ basis.inputDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.outputsResult') }}</dt><dd>{{ basis.resultId }} · {{ basis.resultDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.type') }}</dt><dd>{{ basis.diagnostic.evidence.kind }}</dd></div>
+                    <div><dt>{{ t('ide.basisMissing') }}</dt><dd data-testid="ide-diagnostic-basis-missing">{{ basis.diagnostic.evidence.missingReason ?? t('ide.basisNoMissingReason') }}</dd></div>
+                  </dl>
+                  <p>{{ t('ide.basisRule') }}: {{ basis.diagnostic.ruleId }} v{{ basis.diagnostic.ruleVersion }} · {{ basis.diagnostic.stageOrdinal }}</p>
+                  <details><summary>{{ t('ide.basisLocation') }}</summary><pre tabindex="0" data-testid="ide-diagnostic-basis-location">{{ basis.diagnostic.primaryLocation | json }}</pre></details>
+                  <p>{{ t('ide.basisReferences', { count: basis.total }) }}</p>
+                  @if (!basis.total) { <p>{{ t('ide.basisNoReferences') }}</p> }
+                  <ul>
+                    @for (premise of basis.premises; track $index) {
+                      <li data-testid="ide-diagnostic-basis-premise"><code>{{ premise.algorithm }}:{{ premise.value }}</code></li>
+                    }
+                  </ul>
+                  <p>{{ t('ide.basisRange', { start: basis.total ? basis.offset + 1 : 0, end: basis.offset + basis.premises.length, count: basis.total }) }}</p>
+                  <button type="button" [disabled]="basis.offset === 0" (click)="basisPage.set(basisPage() - 1)">{{ t('ide.basisPrevious') }}</button>
+                  <button type="button" [disabled]="!basis.hasNext" (click)="basisPage.set(basisPage() + 1)">{{ t('ide.basisNext') }}</button>
+                </section>
+              }
+              @if (ctx.operatorRecordings && store.diagnostic()) {
+                @if (store.operatorRecording(); as recording) {
+                  <section #recordedOperatorPanel tabindex="-1" data-testid="ide-recorded-operators" aria-labelledby="ide-recorded-operators-title">
+                    <h3 id="ide-recorded-operators-title">{{ t('ide.operatorSelectedTitle') }}</h3><p>{{ t('ide.operatorSelectedNotice') }}</p>
+                    <p>{{ t('ide.recordingRun') }}: <code>{{ recording.runId }}</code></p>
+                    <p>{{ t('ide.predicateCapture') }}: {{ operatorCaptureState(recording.originalCaptureState) }}</p>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div class="panels">
+                        <button type="button" (click)="loadRecordedOperators()" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                        <button type="button" data-testid="ide-operator-read-available" (click)="loadRecordedOperators('available')" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.operatorReadSelected') }}</button>
+                        <button type="button" (click)="loadRecordedOperators('budget')" [disabled]="store.recordedOperatorReadState() === 'loading'">{{ t('ide.predicateReadLimited') }}</button>
+                      </div>
+                    } @else { <p>{{ t('ide.operatorNoResult') }}</p> }
+                    @if (store.recordedOperatorReadState() === 'loading') { <p role="status">{{ t('ide.operatorLoading') }}</p> }
+                    @if (store.recordedOperatorReadState() === 'unavailable') { <p role="alert">{{ t('ide.operatorUnavailable') }}</p> }
+                    @if (store.recordedOperators(); as snapshot) {
+                      <p data-testid="ide-operator-view-state">{{ t('ide.predicateView') }}: {{ operatorViewState(snapshot.state) }}</p>
+                      <p>{{ t('ide.outputsRetainedBytes') }}: {{ snapshot.retainedBodyBytes }} / {{ snapshot.maximumBodyBytes }}</p>
+                      <p>{{ t('ide.operatorDerivedBytes') }}: {{ snapshot.retainedEvaluationFrameBytes }}</p>
+                      @for (evaluation of snapshot.evaluations; track evaluation.ordinal) {
+                        <section data-testid="ide-operator-evaluation">
+                          <h4>{{ t('ide.operatorEvaluation') }} {{ evaluation.ordinal }}</h4>
+                          <ul class="operator-tree" [attr.aria-label]="t('ide.operatorEvaluation')">
+                            @for (node of evaluation.nodes; track node.ordinal) {
+                              <li data-testid="ide-operator-node" [style.margin-inline-start.px]="node.path.length * 16">
+                                <p><strong>{{ t('ide.operatorNode') }} {{ node.ordinal }} · {{ operatorKind(node.kind) }} · {{ operatorTruth(node.truth) }}</strong></p>
+                                <p>{{ t('ide.operatorChildren') }}: {{ node.evaluatedChildren.join(', ') || '—' }} · {{ t('ide.operatorSkipped') }}: {{ node.skippedOperands }}</p>
+                                @if (node.literal; as literal) { <p>{{ t('ide.operatorPremise') }}: {{ literal.premiseOrdinal }} · <code>{{ literal.digest.value }}</code></p> }
+                                <details><summary>{{ t('ide.operatorOriginalNode') }}</summary><code>{{ node.original.digest.value }}</code><pre tabindex="0">{{ node.original.text }}</pre></details>
+                              </li>
+                            }
+                          </ul>
+                          <details><summary>{{ t('ide.operatorOriginalEvaluation') }}</summary><code>{{ evaluation.evaluationFrame.digest.value }}</code><pre tabindex="0">{{ evaluation.evaluationFrame.text }}</pre></details>
+                        </section>
+                      }
+                      <details><summary>{{ t('ide.predicateSnapshot') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                    }
+                  </section>
+                } @else {
+                  <p data-testid="ide-operator-require-run">{{ t('ide.predicateRequireRun') }}</p>
+                  <button type="button" (click)="open('source', true)">{{ t('ide.premisesOpenSource') }}</button>
+                }
+              }
+              @if (ctx.predicateRecordings && store.diagnostic()) {
+                @if (store.predicateRecording(); as recording) {
+                  <section #recordedPredicatePanel tabindex="-1" data-testid="ide-recorded-predicate" aria-labelledby="ide-recorded-predicate-title">
+                    <h3 id="ide-recorded-predicate-title">{{ t('ide.predicateSelectedTitle') }}</h3><p>{{ t('ide.predicateSelectedNotice') }}</p>
+                    <p>{{ t('ide.recordingRun') }}: <code>{{ recording.runId }}</code></p>
+                    <p>{{ t('ide.predicateCapture') }}: {{ predicateCaptureState(recording.originalCaptureState) }}</p>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div class="panels">
+                        <button type="button" (click)="loadRecordedPredicatePremises()" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                        <button type="button" (click)="loadRecordedPredicatePremises('available')" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.predicateReadSelected') }}</button>
+                        <button type="button" (click)="loadRecordedPredicatePremises('budget')" [disabled]="store.recordedPredicatePremiseReadState() === 'loading'">{{ t('ide.predicateReadLimited') }}</button>
+                      </div>
+                    } @else { <p>{{ t('ide.predicateNoResult') }}</p> }
+                    @if (store.recordedPredicatePremiseReadState() === 'loading') { <p role="status">{{ t('ide.predicateLoading') }}</p> }
+                    @if (store.recordedPredicatePremiseReadState() === 'unavailable') { <p role="alert">{{ t('ide.predicateUnavailable') }}</p> }
+                    @if (store.recordedPredicatePremises(); as snapshot) {
+                      <p data-testid="ide-predicate-view-state">{{ t('ide.predicateView') }}: {{ predicateViewState(snapshot.state) }}</p>
+                      <p>{{ t('ide.outputsRetainedBytes') }}: {{ snapshot.retainedBodyBytes }} / {{ snapshot.maximumBodyBytes }}</p>
+                      <ul>@for (body of snapshot.bodies; track body.digest.value) {
+                        <li><details data-testid="ide-recorded-predicate-body"><summary>{{ t('ide.predicateOriginalArray') }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
+                      }</ul>
+                      <details><summary>{{ t('ide.predicateSnapshot') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                    }
+                  </section>
+                } @else { <p data-testid="ide-predicate-require-run">{{ t('ide.predicateRequireRun') }}</p> }
+              }
+              @if (store.diagnostic() && store.context()?.diagnosticPremises) {
+                @if (!store.diagnosticSourceReady()) {
+                  <p>{{ t('ide.premisesRequireSources') }}</p>
+                  <button type="button" (click)="open('source', true)">{{ t('ide.premisesOpenSource') }}</button>
+                } @else {
+                  <button type="button" (click)="loadDiagnosticPremises()" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadManifest') }}</button>
+                  <button type="button" (click)="loadDiagnosticPremises('available')" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadBodies') }}</button>
+                  <button type="button" (click)="loadDiagnosticPremises('budget')" [disabled]="store.diagnosticPremiseReadState() === 'loading'">{{ t('ide.premisesReadLimited') }}</button>
+                }
+                @if (store.diagnosticPremiseReadState() === 'loading') { <p role="status">{{ t('ide.premisesLoading') }}</p> }
+                @if (store.diagnosticPremiseReadState() === 'unavailable') { <p role="alert">{{ t('ide.premisesUnavailable') }}</p> }
+              }
+              @if (store.diagnosticPremises(); as premises) {
+                <section #diagnosticPremisesPanel tabindex="-1" data-testid="ide-diagnostic-premises" aria-labelledby="diagnostic-premises-title">
+                  <h3 id="diagnostic-premises-title">{{ t('ide.premisesTitle') }}</h3>
+                  <p>{{ t('ide.premisesNotice') }}</p>
+                  <p data-testid="ide-diagnostic-premises-state">{{ premiseSnapshotState(premises.state) }}</p>
+                  <p>{{ t('ide.premisesBytes', { bytes: premises.retainedBodyBytes, budget: premises.maximumBodyBytes }) }}</p>
+                  <p>{{ t('ide.premisesNoticeCoverage') }}</p>
+                  @if (premises.data['bodyScope'] === 'RootCompilerInputObjects') { <p>{{ t('ide.rootSourceOnly') }}</p> }
+                  @for (row of premiseRows(); track row.reference.digest.value) {
+                    <article data-testid="ide-diagnostic-premise-reference">
+                      <p>{{ premiseBodyKind(row.reference.kind) }} · <code>{{ row.reference.digest.value }}</code></p>
+                      @if (row.body; as body) {
+                        <details data-testid="ide-diagnostic-premise-body"><summary>{{ premiseBodyKind(body.kind) }} · {{ body.digest.value }}</summary><pre tabindex="0">{{ body.text }}</pre></details>
+                      } @else if (row.reference.resolution !== 'ResolvedRetainedObject') { <p>{{ t('ide.premisesUnresolved') }}</p> }
+                    </article>
+                  }
+                </section>
+              }
               @if (store.inspectedRecord(); as record) {
                 <dl>
                   <div>
@@ -508,7 +638,13 @@
                     }
                     @if (store.referenceSearch(); as search) {
                       <div role="status" data-testid="ide-reference-search">
-                        @if (search.status === 'searching') {
+                        @if (search.page; as page) {
+                          <span #referencePagePanel tabindex="-1" data-testid="ide-reference-page">
+                            {{ t('ide.referencePage', { page: page.pageIndex + 1, pages: page.pageCount, count: page.references.length }) }}
+                            @if (!page.indexCoverageComplete) { {{ t('ide.referencePartial') }} }
+                            {{ t(page.scanComplete ? 'ide.referenceScanComplete' : 'ide.referenceContinue') }}
+                          </span>
+                        } @else if (search.status === 'searching') {
                           {{ t('ide.referenceSearching') }}
                         } @else {
                           {{ t('ide.referenceMatches', { count: search.references.length }) }}
@@ -516,7 +652,11 @@
                           @if (search.truncated) { {{ t('ide.referenceLimit') }} }
                         }
                       </div>
-                      <button type="button" (click)="store.cancelReferenceSearch()">
+                      @if (search.page; as page) {
+                        <button type="button" data-testid="ide-reference-previous" [disabled]="page.pageIndex === 0" (click)="moveReferencePage(page, page.pageIndex - 1)">{{ t('ide.referencePrevious') }}</button>
+                        <button type="button" data-testid="ide-reference-next" [disabled]="page.pageIndex + 1 >= page.pageCount" (click)="moveReferencePage(page, page.pageIndex + 1)">{{ t('ide.referenceNext') }}</button>
+                      }
+                      <button type="button" (click)="clearReferenceSearch()">
                         {{ t('ide.clearReferenceSearch') }}
                       </button>
                     }
@@ -591,6 +731,185 @@
               }
             }
             @case ('source') {
+              @if(ctx.rootSource){
+                <section #rootSourcePanel tabindex="-1" data-testid="ide-root-source" aria-labelledby="ide-root-source-title">
+                  <h3 id="ide-root-source-title">{{ t('ide.rootSourceTitle') }}</h3><p>{{ t('ide.rootSourceNotice') }}</p>
+                  <button type="button" (click)="loadRootSource()" [disabled]="store.rootSourceReadState()==='loading'">{{ t('ide.rootSourceLoad') }}</button>
+                  @if(store.rootSourceReadState()==='loading'){<p role="status">{{ t('ide.rootSourceLoading') }}</p>}
+                  @if(store.rootSourceReadState()==='unavailable'){<p role="alert">{{ t('ide.rootSourceUnavailable') }}</p>}
+                  @if(store.rootSource();as root){
+                    <p>{{ ctx.context.branch.projectId }} · {{ ctx.context.branch.branchId }} · {{ contextRevision(ctx.context) }}</p>
+                    <p>{{ t('ide.rootSourceReady') }}</p>
+                    <details data-testid="ide-root-source-body"><summary>{{ t('ide.rootSourceBody') }}</summary><pre tabindex="0">{{ root.sourceText }}</pre></details>
+                  }
+                </section>
+              }
+              @if (ctx.passRecordings && store.rootSource()) {
+                <div class="panels" data-testid="ide-pass-recording-actions">
+                  <button type="button" (click)="loadPassRecording()" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
+                  <button type="button" (click)="loadPassRecording('diagnostic')" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateDiagnostic') }}</button>
+                  <button type="button" (click)="loadPassRecording('budget')" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateBudget') }}</button>
+                  <button type="button" (click)="loadPassRecording('eventGap')" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.passEventGap') }}</button>
+                  <button type="button" (click)="loadPassRecording('cancelled')" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateCancelled') }}</button>
+                  <button type="button" (click)="loadPassRecording('retry')" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateRetry') }}</button>
+                </div>
+                @if (store.passRecordingReadState() === 'loading') { <p role="status">{{ t('ide.passLoading') }}</p> }
+                @if (store.passRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.passUnavailable') }}</p> }
+              }
+              @if (store.passRecording(); as recording) {
+                <section class="pass-recordings" #passRecordingPanel tabindex="-1" data-testid="ide-pass-recording" aria-labelledby="ide-pass-recording-title">
+                  <h3 id="ide-pass-recording-title">{{ t('ide.passTitle') }}</h3><p>{{ t('ide.passNotice') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-pass-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    @if (recording.originRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.predicateCapture') }}</dt><dd data-testid="ide-pass-capture-state">{{ passCaptureState(recording.originalCaptureState) }}</dd></div>
+                    <div><dt>{{ t('ide.predicateDeclaredBytes') }}</dt><dd>{{ recording.maximumBodyBytes }}</dd></div>
+                    <div><dt>{{ t('ide.passDeclaredEvents') }}</dt><dd>{{ recording.maximumEvents }}</dd></div>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div><dt>{{ t('ide.passVisited') }}</dt><dd data-testid="ide-pass-visited">{{ recording.visitedEvents }}</dd></div>
+                      <div><dt>{{ t('ide.passRetained') }}</dt><dd>{{ recording.retainedEvents }}</dd></div>
+                      <div><dt>{{ t('ide.passStoredBytes') }}</dt><dd>{{ recording.retainedBodyBytes }}</dd></div>
+                    }
+                  </dl>
+                  @if (recording.hostStatus === 'Cancelled') { <p data-testid="ide-pass-no-result">{{ t('ide.passNoResult') }}</p> }
+                  @else {
+                    <ol data-testid="ide-pass-events">@for (event of recording.events; track event.ordinal) {
+                      <li><strong>{{ passName(event.passId) }} · {{ t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned') }}</strong>
+                        <p>{{ event.gap }}</p><small>{{ t('ide.passReferences') }}: {{ event.originalBodies.length }}</small>
+                        <button type="button" data-testid="ide-pass-inspect-boundary" [attr.data-pass-ordinal]="event.ordinal"
+                          [attr.aria-label]="t('ide.passInspectBoundary') + ': ' + passName(event.passId) + ' · ' + t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned')"
+                          (click)="loadRecordedPassBoundary(event.ordinal)" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passInspectBoundary') }}</button></li>
+                    }</ol>
+                    <div class="panels">
+                      <button type="button" (click)="loadRecordedPasses()" [disabled]="store.recordedPassReadState() === 'loading'">{{ t('ide.passReadManifest') }}</button>
+                      <button type="button" (click)="loadRecordedPasses('available')" [disabled]="store.recordedPassReadState() === 'loading'">{{ t('ide.passReadBodies') }}</button>
+                      <button type="button" (click)="loadRecordedPasses('budget')" [disabled]="store.recordedPassReadState() === 'loading'">{{ t('ide.passReadLimited') }}</button>
+                    </div>
+                    @if (store.recordedPassReadState() === 'loading') { <p role="status">{{ t('ide.passLoading') }}</p> }
+                    @if (store.recordedPassReadState() === 'unavailable') { <p role="alert">{{ t('ide.passUnavailable') }}</p> }
+                  }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
+                </section>
+              }
+
+              @if (store.recordedPassBoundaryReadState() === 'loading') { <p role="status">{{ t('ide.passLoading') }}</p> }
+              @if (store.recordedPassBoundaryReadState() === 'unavailable') { <p role="alert">{{ t('ide.passUnavailable') }}</p> }
+              @if (store.recordedPassBoundary(); as boundary) {
+                <section class="pass-recordings" #recordedPassBoundaryPanel tabindex="-1" data-testid="ide-pass-boundary" aria-labelledby="ide-pass-boundary-title">
+                  <h3 id="ide-pass-boundary-title">{{ t('ide.passBoundaryTitle') }}</h3>
+                  <p>{{ t('ide.passBoundaryNotice') }}</p><p>{{ passViewState(boundary.state) }}</p>
+                  <dl><div><dt>{{ t('ide.recordingRun') }}</dt><dd>{{ boundary.recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.passBoundaryOrdinal') }}</dt><dd>{{ boundary.ordinal }}</dd></div>
+                    <div><dt>{{ t('ide.passViewBytes') }}</dt><dd>{{ boundary.retainedBodyBytes }} / {{ boundary.maximumBodyBytes }}</dd></div></dl>
+                  @if (boundary.originalBoundary; as event) {
+                    <strong>{{ passName(event.passId) }} · {{ t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned') }}</strong>
+                    <p data-testid="ide-pass-boundary-gap">{{ event.gap }}</p>
+                    <ul>@for (reference of event.originalBodies; track reference.role) {
+                      <li><code>{{ reference.role }} · {{ reference.domain }} · {{ reference.bytes }} · {{ reference.digest.value }}</code></li>
+                    }</ul>
+                    <div class="panels">
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal)" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadManifest') }}</button>
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal, 'available')" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadBodies') }}</button>
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal, 'budget')" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadLimited') }}</button>
+                    </div>
+                  }
+                  @for (body of boundary.bodies; track body.key) {
+                    <details data-testid="ide-pass-boundary-body"><summary>{{ body.domain }} · {{ body.bytes }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details>
+                    @if (body.domain === 'coglatas.semantic-source-map/1') {
+                      <button type="button" data-testid="ide-pass-source-read" (click)="loadPassBoundarySourcePage()">{{ t('ide.passSourceRead') }}</button>
+                    }
+                  }
+                  @if (store.passBoundarySourcePage(); as page) {
+                    <section data-testid="ide-pass-source-page" aria-labelledby="ide-pass-source-title">
+                      <h4 id="ide-pass-source-title">{{ t('ide.passSourceTitle') }}</h4><p>{{ t('ide.passSourceNotice') }}</p>
+                      <p><code>{{ page.originalMapDigest.value }}</code></p>
+                      <p>{{ page.offset }} / {{ page.totalTargets }} · {{ t('ide.passSourceLimit') }}: {{ page.maximumTargets }}</p>
+                      <ul>@for (target of page.targets; track $index) {
+                        <li><button type="button" data-testid="ide-pass-source-target" (click)="navigatePassBoundarySource(page, target)">{{ t('ide.passSourceOpen') }} · {{ target.kind }} · {{ target.identity }}</button></li>
+                      }</ul>
+                      <div class="panels">
+                        <button type="button" (click)="loadPassBoundarySourcePage(page.offset - page.maximumTargets)" [disabled]="page.offset === 0">{{ t('ide.passSourcePrevious') }}</button>
+                        <button type="button" (click)="loadPassBoundarySourcePage(page.offset + page.maximumTargets)" [disabled]="page.offset + page.targets.length >= page.totalTargets">{{ t('ide.passSourceNext') }}</button>
+                      </div>
+                    </section>
+                  }
+                </section>
+              }
+
+              @if (store.recordedPasses(); as snapshot) {
+                <section class="pass-recordings" #recordedPassPanel tabindex="-1" data-testid="ide-recorded-passes" aria-labelledby="ide-recorded-passes-title">
+                  <h3 id="ide-recorded-passes-title">{{ t('ide.passBodiesTitle') }}</h3><p>{{ passViewState(snapshot.state) }}</p>
+                  <p>{{ t('ide.passBodiesNotice') }}</p><p>{{ t('ide.passViewBytes') }}: {{ snapshot.retainedBodyBytes }} / {{ snapshot.maximumBodyBytes }}</p>
+                  <details><summary>{{ t('ide.passSnapshot') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
+                  @for (body of snapshot.bodies; track body.key) {
+                    <details data-testid="ide-pass-body"><summary>{{ body.domain }} · {{ body.bytes }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details>
+                  }
+                </section>
+              }
+              @if (ctx.operatorRecordings && store.rootSource()) {
+                <div class="panels" data-testid="ide-operator-recording-actions">
+                  <button type="button" (click)="loadOperatorRecording()" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('diagnostic')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateDiagnostic') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('budget')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateBudget') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('cancelled')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateCancelled') }}</button>
+                  <button type="button" (click)="loadOperatorRecording('retry')" [disabled]="store.operatorRecordingReadState() === 'loading'">{{ t('ide.predicateRetry') }}</button>
+                </div>
+                @if (store.operatorRecordingReadState() === 'loading') { <p role="status">{{ t('ide.operatorLoading') }}</p> }
+                @if (store.operatorRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.operatorUnavailable') }}</p> }
+              }
+              @if (store.operatorRecording(); as recording) {
+                <section #operatorRecordingPanel tabindex="-1" data-testid="ide-operator-recording" aria-labelledby="ide-operator-recording-title">
+                  <h3 id="ide-operator-recording-title">{{ t('ide.operatorTitle') }}</h3><p>{{ t('ide.operatorNotice') }}</p>
+                  <p data-testid="ide-operator-recording-selection">{{ t(recording.label === 'original' ? 'ide.predicateOriginal' : recording.label === 'diagnostic' ? 'ide.predicateDiagnostic' : recording.label === 'budget' ? 'ide.predicateBudget' : recording.label === 'cancelled' ? 'ide.predicateCancelled' : 'ide.predicateRetry') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-operator-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    @if (recording.originRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.predicateCapture') }}</dt><dd data-testid="ide-operator-capture-state">{{ operatorCaptureState(recording.originalCaptureState) }}</dd></div>
+                    <div><dt>{{ t('ide.predicateDeclaredBytes') }}</dt><dd>{{ recording.maximumBodyBytes }}</dd></div>
+                    @if (recording.hostStatus === 'Completed') {
+                      <div><dt>{{ t('ide.operatorStarted') }}</dt><dd>{{ recording.startedEvaluations }}</dd></div>
+                      <div><dt>{{ t('ide.operatorCompleted') }}</dt><dd>{{ recording.completedEvaluations }}</dd></div>
+                      <div><dt>{{ t('ide.operatorNodes') }}</dt><dd data-testid="ide-operator-visited">{{ recording.observedNodes }}</dd></div>
+                      <div><dt>{{ t('ide.operatorStoredBytes') }}</dt><dd>{{ recording.retainedBodyBytes }}</dd></div>
+                    }
+                  </dl>
+                  @if (recording.hostStatus === 'Cancelled') { <p data-testid="ide-operator-no-result">{{ t('ide.operatorNoResult') }}</p> }
+                  @else { <p>{{ t('ide.operatorSelectDiagnostic') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
+                </section>
+              }
+              @if (ctx.predicateRecordings && store.rootSource()) {
+                <div class="panels" data-testid="ide-predicate-recording-actions">
+                  <button type="button" (click)="loadPredicateRecording()" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('diagnostic')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateDiagnostic') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('budget')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateBudget') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('cancelled')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateCancelled') }}</button>
+                  <button type="button" (click)="loadPredicateRecording('retry')" [disabled]="store.predicateRecordingReadState() === 'loading'">{{ t('ide.predicateRetry') }}</button>
+                </div>
+                @if (store.predicateRecordingReadState() === 'loading') { <p role="status">{{ t('ide.predicateLoading') }}</p> }
+                @if (store.predicateRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.predicateUnavailable') }}</p> }
+              }
+              @if (store.predicateRecording(); as recording) {
+                <section #predicateRecordingPanel tabindex="-1" data-testid="ide-predicate-recording" aria-labelledby="ide-predicate-recording-title">
+                  <h3 id="ide-predicate-recording-title">{{ t('ide.predicateTitle') }}</h3><p>{{ t('ide.predicateNotice') }}</p>
+                  <p data-testid="ide-predicate-recording-selection">{{ t(recording.label === 'original' ? 'ide.predicateOriginal' : recording.label === 'diagnostic' ? 'ide.predicateDiagnostic' : recording.label === 'budget' ? 'ide.predicateBudget' : recording.label === 'cancelled' ? 'ide.predicateCancelled' : 'ide.predicateRetry') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-predicate-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    @if (recording.originRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.predicateCapture') }}</dt><dd data-testid="ide-predicate-capture-state">{{ predicateCaptureState(recording.originalCaptureState) }}</dd></div>
+                    <div><dt>{{ t('ide.predicateDeclaredBytes') }}</dt><dd>{{ recording.maximumBodyBytes }}</dd></div>
+                  </dl>
+                  @if (recording.hostStatus === 'Cancelled') { <p data-testid="ide-predicate-no-result">{{ t('ide.predicateNoResult') }}</p> }
+                  @else { <p>{{ t('ide.predicateSelectDiagnostic') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
+                </section>
+              }
               @if (ctx.scopedSources) {
                 <section data-testid="ide-scoped-sources">
                   <h3>{{ t('ide.scopedSources') }}</h3><p>{{ t('ide.scopedNotice') }}</p>
@@ -635,6 +954,39 @@
                   <details><summary>{{ t('ide.outputsOriginal') }}</summary><code>{{ snapshot.digest.value }}</code><pre tabindex="0">{{ snapshot.text }}</pre></details>
                 </section>
               }
+              @if (ctx.compilerRecordings && store.hasVerifiedPublication()) {
+                <div class="panels">
+                  <button type="button" (click)="loadCompilerRecording()" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingOriginal') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('diagnostic')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingDiagnostic') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('budget')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingBudget') }}</button>
+                  <button type="button" (click)="loadCompilerRecording('cancelled')" [disabled]="store.compilerRecordingReadState() === 'loading'">{{ t('ide.recordingCancelled') }}</button>
+                </div>
+                @if (store.compilerRecordingReadState() === 'loading') { <p role="status">{{ t('ide.recordingLoading') }}</p> }
+                @if (store.compilerRecordingReadState() === 'unavailable') { <p role="alert">{{ t('ide.recordingUnavailable') }}</p> }
+              }
+              @if (store.compilerRecording(); as recording) {
+                <section #compilerRecordingPanel tabindex="-1" data-testid="ide-compiler-recording" aria-labelledby="ide-compiler-recording-heading">
+                  <h3 id="ide-compiler-recording-heading">{{ t('ide.recordingTitle') }}</h3><p>{{ t('ide.recordingNotice') }}</p>
+                  <p data-testid="ide-compiler-recording-selection">{{ t(recording.label === 'original' ? 'ide.recordingOriginal' : recording.label === 'diagnostic' ? 'ide.recordingDiagnostic' : recording.label === 'budget' ? 'ide.recordingBudget' : 'ide.recordingCancelled') }}</p>
+                  <dl>
+                    <div><dt>{{ t('ide.recordingRun') }}</dt><dd data-testid="ide-compiler-recording-run">{{ recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingAttempt') }}</dt><dd>{{ recording.attemptId }}</dd></div>
+                    <div><dt>{{ t('ide.recordingSession') }}</dt><dd>{{ recording.sessionId }}</dd></div>
+                    @if (recording.originalRunId) { <div><dt>{{ t('ide.recordingOrigin') }}</dt><dd>{{ recording.originalRunId }}</dd></div> }
+                    <div><dt>{{ t('ide.sourceDigest') }}</dt><dd>{{ ctx.sourceDigest.value }}</dd></div>
+                    <div><dt>{{ t('ide.manifest') }}</dt><dd>{{ ctx.inputDigest.value }}</dd></div>
+                  </dl>
+                  @if (recording.output; as output) {
+                    <p data-testid="ide-compiler-recording-state">{{ t(output.state === 'ManifestOnly' ? 'ide.outputsManifestOnly' : output.state === 'BodyBudgetExceeded' ? 'ide.outputsBudgetExceeded' : 'ide.outputsCaptured') }}</p>
+                    <p>{{ t('ide.outputsRetainedBytes') }}: {{ output.retainedBodyBytes }} / {{ output.maximumBodyBytes }}</p>
+                    <ul>@for (body of output.bodies; track body.role) {
+                      <li><details data-testid="ide-compiler-recording-body"><summary>{{ compilerOutputRole(body.role) }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details></li>
+                    }</ul>
+                  } @else { <p data-testid="ide-compiler-recording-no-result">{{ t('ide.recordingNoResult') }}</p> }
+                  <details><summary>{{ t('ide.recordingDeclaration') }}</summary><code>{{ recording.manifest.digest.value }}</code><pre tabindex="0">{{ recording.manifest.text }}</pre></details>
+                  <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
+                </section>
+              }
               @if (store.planDefinition(); as plan) {
                 <section data-testid="ide-plan-definition"><h3>{{ t('ide.planDefinition') }}</h3>
                   <p>{{ t(ctx.simulationRun ? 'ide.planRecordedNotice' : 'ide.planNotice') }}</p>
@@ -649,7 +1001,7 @@
                 @if (store.simulationReadState() === 'unavailable') { <p role="alert">{{ t('ide.simulationUnavailable') }}</p> }
               }
               @if (store.simulation(); as run) {
-                <section data-testid="ide-simulation"><h3>{{ t('ide.simulation') }}</h3>
+                <section #simulationPanel data-testid="ide-simulation" tabindex="-1" aria-labelledby="ide-simulation-heading"><h3 id="ide-simulation-heading">{{ t('ide.simulation') }}</h3>
                   <p>{{ t('ide.simulationNotice') }}</p>
                   <p>{{ run.runId }} · {{ run.execution }} · {{ run.coverage }} · {{ run.reason }}</p>
                   <p>{{ t('ide.simulationClock') }}: {{ run.virtualTicks }} · {{ t('ide.simulationCompleted') }}: {{ run.completedTasks }}</p>
@@ -669,6 +1021,7 @@
                   <p data-testid="ide-profile-state">{{ t(profile.state === 'Complete' ? 'ide.profileComplete' : 'ide.profileIncomplete') }}</p>
                   <p>{{ t('ide.profilePeriod') }}: {{ profile.startTicks }} → {{ profile.throughTicks }} · {{ t('ide.profileTick') }}</p>
                   <p>{{ t('ide.profileAsOf') }}: {{ profile.simulation.runId }} · <code>{{ profile.simulation.digest.value }}</code></p>
+                  <button type="button" data-testid="ide-profile-recording" (click)="showTraceProfileRun(profile)">{{ t('ide.profileRecording') }}</button>
                   <dl>@for (row of traceProfileRows; track row.key) {
                     <div [attr.data-testid]="'ide-profile-' + row.key"><dt>{{ t(row.label) }}</dt>
                       <dd>{{ profile.metrics[row.key] }} {{ t(row.unit) }}<p>{{ t(row.definition) }}</p></dd>

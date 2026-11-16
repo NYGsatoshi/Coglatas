@@ -19,11 +19,30 @@ public sealed partial class SyntheticWorkbenchViewModel
         var simulationGeneration = _simulationGeneration; var run = SimulationRun; var request = _desired;
         bool Current() => !_disposed && generation == _profileGeneration && simulationGeneration == _simulationGeneration &&
             run is not null && ReferenceEquals(run, SimulationRun) && ReferenceEquals(request, _desired);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var profile = ProjectSimulationTraceProfile.Read(run!, expectedRun, maximumEvents, token);
         if (!Current()) return false;
         _simulationTraceProfile = profile; _profiledRun = run; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _profileGeneration && ReferenceEquals(_simulationTraceProfile, profile))
+            {
+                ClearSimulationTraceProfile(); Changed();
+            }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
+    }
+    /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
+    public ProjectSimulationRun? ReadSimulationTraceProfileRun(ProjectSimulationTraceProfile basis)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(basis);
+        return ReferenceEquals(SimulationTraceProfile, basis) ? basis.Run : null;
     }
     private void ClearSimulationTraceProfile()
     {

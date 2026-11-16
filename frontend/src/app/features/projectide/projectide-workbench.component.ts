@@ -1,7 +1,16 @@
+import { ReferenceSearchPage } from './projectide-reference-pages.reader';
+import {PassBoundarySourcePage, PassBoundarySourceTarget} from './projectide-pass-source-navigation.reader';
+import { PassRecordingLabel, RecordedPassChoice } from './projectide-pass-recordings.reader';
+import { OperatorRecordingLabel, RecordedOperatorChoice } from './projectide-operator-recordings.reader';
+import { PredicateRecordingLabel, RecordedPredicateChoice } from './projectide-predicate-recordings.reader';
+import { DiagnosticPremiseChoice } from './projectide-diagnostic-premises.reader';
+import { DIAGNOSTIC_BASIS_PAGE_SIZE } from './projectide-diagnostic-basis';
+import { CompilerRecordingLabel } from './projectide-compiler-recordings.reader';
 import { CompilerOutputMode } from './projectide-compiler-outputs.reader';
 import { RecordedDebugFrame } from './projectide-recorded-debug.reader';
 import { isProjectLocationShape } from './projectide-preview.validation';
 import { SimulationEvent } from './projectide-simulation.reader';
+import type { AdmittedTraceProfile } from './projectide-simulation-trace-profile.reader';
 import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
@@ -43,6 +52,18 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
+  private readonly rootSourceElement = viewChild<ElementRef<HTMLElement>>('rootSourcePanel');
+  async loadRootSource(): Promise<void> {
+    const generation=++this.focusGeneration;
+    if(!this.canRead()){this.store.clear('denied');return;}
+    const loaded=await this.store.loadRootSource();
+    if(generation!==this.focusGeneration)return;
+    if(!this.canRead()){this.store.clear('denied');return;}
+    const source=this.store.rootSource();
+    if(loaded&&source)setTimeout(()=>{
+      if(generation===this.focusGeneration&&this.canRead()&&source===this.store.rootSource())this.rootSourceElement()?.nativeElement.focus();
+    });
+  }
   async loadScopedSources(): Promise<void> {
     this.focusGeneration++;
     if (!this.canRead()) { this.store.clear('denied'); return; }
@@ -69,6 +90,8 @@ export class ProjectIdeWorkbenchComponent {
   private readonly realtime = inject(RealtimeFacade);
   private readonly document = inject(DOCUMENT);
   readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests' | 'scenario'>('overview');
+  readonly basisPage = signal(0);
+  readonly basisPageSize = DIAGNOSTIC_BASIS_PAGE_SIZE;
   readonly testPage = signal(0);
   readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
@@ -81,6 +104,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly heading = viewChild<ElementRef<HTMLElement>>('panelHeading');
   private readonly sourceTarget = viewChild<ElementRef<HTMLElement>>('sourceTarget');
   private readonly compilerOutputsElement = viewChild<ElementRef<HTMLElement>>('compilerOutputsPanel');
+  private readonly simulationElement = viewChild<ElementRef<HTMLElement>>('simulationPanel');
   private readonly traceProfileElement = viewChild<ElementRef<HTMLElement>>('traceProfilePanel');
   private readonly comparisonElement = viewChild<ElementRef<HTMLElement>>('comparisonPanel');
   private readonly recordedFrameElement = viewChild<ElementRef<HTMLElement>>('recordedFrame');
@@ -135,6 +159,7 @@ export class ProjectIdeWorkbenchComponent {
     parameters: Record<string, string | number> = {},
   ) => this.i18n.translate(key as TranslationKey, parameters);
   constructor() {
+    effect(() => { this.store.selection(); this.store.context(); this.store.result(); this.basisPage.set(0); });
     effect(() => { this.store.localTests(); this.testPage.set(0); });
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => {
@@ -161,7 +186,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'pass-recordings' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -173,10 +198,182 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
+  }
+  private readonly diagnosticPremisesElement = viewChild<ElementRef<HTMLElement>>('diagnosticPremisesPanel');
+  async loadDiagnosticPremises(choice: DiagnosticPremiseChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadDiagnosticPremises(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.diagnosticPremises();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.diagnosticPremises()) this.diagnosticPremisesElement()?.nativeElement.focus();
+    });
+  }
+  readonly premiseRows = () => {
+    const snapshot = this.store.diagnosticPremises();
+    return snapshot?.references.slice(this.basisPage() * this.basisPageSize, (this.basisPage() + 1) * this.basisPageSize)
+      .map(reference => ({ reference, body: snapshot.bodies.find(body => body.digest.value === reference.digest.value) })) ?? [];
+  };
+  premiseBodyKind(kind: string | null): string {
+    return this.t(kind === 'RootSource' ? 'ide.premisesRootSource' : kind === 'RootInput' ? 'ide.premisesRoot' : kind === 'BindingRegion' ? 'ide.premisesBinding' : kind === 'AnalysisRegion' ? 'ide.premisesAnalysis' : 'ide.premisesUnresolved');
+  }
+  premiseSnapshotState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',
+      NoKnownBodies: 'ide.premisesNoKnown', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', LookupLimitReached: 'ide.premisesLookupLimit' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.premisesUnavailable');
+  }
+  private readonly passRecordingElement = viewChild<ElementRef<HTMLElement>>('passRecordingPanel');
+  private readonly recordedPassElement = viewChild<ElementRef<HTMLElement>>('recordedPassPanel');
+  async loadPassRecording(label: PassRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPassRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.passRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.passRecording()) this.passRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedPasses(choice: RecordedPassChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPasses(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPasses();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPasses()) this.recordedPassElement()?.nativeElement.focus();
+    });
+  }
+
+  private readonly recordedPassBoundaryElement = viewChild<ElementRef<HTMLElement>>('recordedPassBoundaryPanel');
+  async loadRecordedPassBoundary(ordinal: number, choice: RecordedPassChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPassBoundary(ordinal, choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPassBoundary();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPassBoundary())
+        this.recordedPassBoundaryElement()?.nativeElement.focus();
+    });
+  }
+
+  loadPassBoundarySourcePage(offset = 0): void {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (!this.store.loadPassBoundarySourcePage(offset)) return;
+    const page = this.store.passBoundarySourcePage();
+    setTimeout(() => { if (generation === this.focusGeneration && this.canRead() && page === this.store.passBoundarySourcePage())
+      this.recordedPassBoundaryElement()?.nativeElement.focus(); });
+  }
+  navigatePassBoundarySource(page: PassBoundarySourcePage, target: PassBoundarySourceTarget): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigatePassBoundarySource(page, target)) this.open('source', true);
+  }
+
+  passCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.passCaptureManifest', AvailableOriginalJson: 'ide.passCaptureAvailable', NoActualPasses: 'ide.passCaptureNone',
+      BodyBudgetExceeded: 'ide.passCaptureBytes', EventLimitExceeded: 'ide.passCaptureEvents' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.passNoResult');
+  }
+  passViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.passManifestOnly', AvailableOriginalJson: 'ide.passAvailable', NoRecordedOriginalBodies: 'ide.passNoBodies',
+      BodyBudgetExceeded: 'ide.passBudgetExceeded', BoundaryNotRecorded: 'ide.passBoundaryMissing' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.passUnavailable');
+  }
+  passName(id: string): string {
+    const keys = { 'coglatas.parse-normalize': 'ide.passParse', 'coglatas.binding': 'ide.passBinding', 'coglatas.semantic-validation-ir': 'ide.passSemantic',
+      'coglatas.analysis': 'ide.passAnalysis', 'coglatas.publication': 'ide.passPublication' } as const;
+    return this.t(keys[id as keyof typeof keys] ?? 'ide.passUnavailable');
+  }
+  private readonly operatorRecordingElement = viewChild<ElementRef<HTMLElement>>('operatorRecordingPanel');
+  private readonly recordedOperatorElement = viewChild<ElementRef<HTMLElement>>('recordedOperatorPanel');
+  async loadOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadOperatorRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.operatorRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.operatorRecording()) this.operatorRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedOperators(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedOperators();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedOperators()) this.recordedOperatorElement()?.nativeElement.focus();
+    });
+  }
+  operatorCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.operatorCaptureManifest', RecordedInitialRootEvaluations: 'ide.operatorCaptureAvailable',
+      NoActualEvaluations: 'ide.operatorCaptureNone', BodyBudgetExceeded: 'ide.predicateCaptureBytes', NodeLimitReached: 'ide.operatorCaptureNodes',
+      EvaluationLimitReached: 'ide.operatorCaptureEvaluations', CaptureInterrupted: 'ide.predicateCaptureInterrupted' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.operatorNoResult');
+  }
+  operatorViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', AvailableOperators: 'ide.operatorViewAvailable', NoRecordedOperators: 'ide.operatorNoRecorded',
+      NoObservedPublishedDiagnostic: 'ide.operatorNoObserved', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', RefusedInvocation: 'ide.operatorUnavailable' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.operatorUnavailable');
+  }
+  operatorKind(kind: string): string {
+    return kind === 'coglatas.and' ? 'AND' : kind === 'coglatas.or' ? 'OR' : kind === 'coglatas.not' ? 'NOT' : this.t('ide.operatorLiteral');
+  }
+  operatorTruth(truth: string): string {
+    return this.t(truth === 'True' ? 'ide.operatorTrue' : truth === 'False' ? 'ide.operatorFalse' : 'ide.operatorUnknown');
+  }
+  private readonly predicateRecordingElement = viewChild<ElementRef<HTMLElement>>('predicateRecordingPanel');
+  private readonly recordedPredicateElement = viewChild<ElementRef<HTMLElement>>('recordedPredicatePanel');
+  async loadPredicateRecording(label: PredicateRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPredicateRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.predicateRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.predicateRecording()) this.predicateRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedPredicatePremises(choice: RecordedPredicateChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPredicatePremises(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPredicatePremises();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPredicatePremises()) this.recordedPredicateElement()?.nativeElement.focus();
+    });
+  }
+  predicateCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.predicateCaptureManifest', CapturedOriginalArrays: 'ide.predicateCaptureAvailable',
+      NoOriginalArraysObserved: 'ide.predicateCaptureNone', BodyBudgetExceeded: 'ide.predicateCaptureBytes',
+      BodyCountLimitReached: 'ide.predicateCaptureCount', CaptureInterrupted: 'ide.predicateCaptureInterrupted' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.predicateNoResult');
+  }
+  predicateViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedOriginalArrays: 'ide.predicateSelectedAvailable',
+      NoRecordedPremises: 'ide.premisesNone', NoAvailableOriginalArrays: 'ide.predicateSelectedNone', BodyBudgetExceeded: 'ide.premisesBudgetExceeded' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.predicateUnavailable');
+  }
+  private readonly compilerRecordingElement = viewChild<ElementRef<HTMLElement>>('compilerRecordingPanel');
+  async loadCompilerRecording(label: CompilerRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadCompilerRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.compilerRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.compilerRecording()) this.compilerRecordingElement()?.nativeElement.focus();
+    });
   }
   async loadCompilerOutputs(mode: CompilerOutputMode = 'Manifest'): Promise<void> {
     const generation = ++this.focusGeneration;
@@ -207,6 +404,12 @@ export class ProjectIdeWorkbenchComponent {
     if (loaded && profile) setTimeout(() => {
       if (generation === this.focusGeneration && this.canRead() && profile === this.store.simulationTraceProfile()) this.traceProfileElement()?.nativeElement.focus();
     });
+  }
+  showTraceProfileRun(profile: AdmittedTraceProfile): void {
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); return; }
+    if (!this.store.simulationTraceProfileRun(profile)) return;
+    this.focusGeneration++;
+    this.simulationElement()?.nativeElement.focus();
   }
   async loadSimulationComparison(): Promise<void> {
     const generation = ++this.focusGeneration;
@@ -309,10 +512,29 @@ export class ProjectIdeWorkbenchComponent {
       this.open('source', true);
     }
   }
+  private readonly referencePageElement = viewChild<ElementRef<HTMLElement>>('referencePagePanel');
   findReferences(symbol: InspectedSymbol): void {
-    this.focusGeneration++;
-    if (this.canRead()) void this.store.findReferences(symbol);
-    else this.store.clear('denied');
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    void this.store.findReferences(symbol).then(loaded => {
+      if (!loaded || generation !== this.focusGeneration || !this.canRead()) return;
+      const page = this.store.referencePage();
+      if (page) this.focusReferencePage(page, generation);
+    });
+  }
+  moveReferencePage(page: ReferenceSearchPage, pageIndex: number): void {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.moveReferencePage(page, pageIndex)) {
+      const current = this.store.referencePage(); if (current) this.focusReferencePage(current, generation);
+    }
+  }
+  clearReferenceSearch(): void { this.focusGeneration++; this.store.cancelReferenceSearch(); }
+  private focusReferencePage(page: ReferenceSearchPage, generation: number): void {
+    setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && this.panel() === 'inspector' && page === this.store.referencePage())
+        this.referencePageElement()?.nativeElement.focus();
+    });
   }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): void {
     this.focusGeneration++;
@@ -331,7 +553,10 @@ export class ProjectIdeWorkbenchComponent {
   }
   inspectReference(reference: BoundReference): void {
     this.focusGeneration++;
-    if (this.canRead()) this.store.selectReference(reference);
+    if (this.canRead()) {
+      const page = this.store.referencePage();
+      if (page) this.store.selectReferencePageOrigin(page, reference); else this.store.selectReference(reference);
+    }
     else this.store.clear('denied');
   }
   navigateReference(destination: 'origin' | 'definition'): void {

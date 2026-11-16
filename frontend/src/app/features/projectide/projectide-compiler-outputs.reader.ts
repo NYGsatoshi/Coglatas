@@ -35,6 +35,13 @@ export async function readCompilerOutputs(value: CompilerOutputCase, sources: Ad
   if (value.compilerOutputs == null) return null;
   if (!sources.publicationVerified || !sources.projection.publication || !fields(value.compilerOutputs, ['manifest', 'available'])) return fail();
   const selected = mode === 'Manifest' ? value.compilerOutputs.manifest : value.compilerOutputs.available;
+  const admitted = await readCompilerOutputFrame(value, sources, mode, selected);
+  if (!scopedSourcesMatch(value, sources) || !equal(mode === 'Manifest' ? value.compilerOutputs.manifest : value.compilerOutputs.available, selected)) return fail();
+  return admitted;
+}
+/** Validate one original frame against its admitted publication; recording ownership is checked by the recording reader. */
+export async function readCompilerOutputFrame(value: PreviewCase, sources: AdmittedScopedSources, mode: CompilerOutputMode, selected: CompilerOutputFrame): Promise<AdmittedCompilerOutputs> {
+  if (!scopedSourcesMatch(value, sources) || !['Manifest', 'AvailableOutputs'].includes(mode) || !sources.publicationVerified || !sources.projection.publication) return fail();
   const frame = structuredClone(selected);
   if (!fields(frame, ['text', 'digest', 'retainedBodyBytes', 'bodies']) || typeof frame.text !== 'string' || bytes(frame.text) > 262_144 || !digest(frame.digest) ||
       !Number.isSafeInteger(frame.retainedBodyBytes) || frame.retainedBodyBytes < 0 || frame.retainedBodyBytes > 33_554_432 || !Array.isArray(frame.bodies) || frame.bodies.length > 3 ||
@@ -61,6 +68,6 @@ export async function readCompilerOutputs(value: CompilerOutputCase, sources: Ad
     stages: result['stages'], outputs: artifacts.map(reference => ({ reference, body: state === 'CapturedAvailableOutputs' ? 'Captured' : 'NotCaptured' })),
     gaps: ['Original Source bodies are not retained by this produced-output snapshot.', 'Earlier intermediate states were not recorded.',
       'This snapshot is not FullDump or FullTrace.', 'Diagnostic reruns require a separately allocated execution and origin; no prior execution is reconstructed.'] };
-  if (!equal(data, expected) || !scopedSourcesMatch(value, sources) || !equal(mode === 'Manifest' ? value.compilerOutputs.manifest : value.compilerOutputs.available, frame)) return fail();
+  if (!equal(data, expected) || !scopedSourcesMatch(value, sources) || !equal(selected, frame)) return fail();
   return freeze({ sources, mode, state, digest: frame.digest, text: frame.text, data, maximumBodyBytes, retainedBodyBytes, bodies: frame.bodies });
 }

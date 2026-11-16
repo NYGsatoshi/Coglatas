@@ -446,4 +446,62 @@ public sealed class DraftRevertTests
         Assert.Equal(CandidateRevisionId.Parse(Id(81)), view.RevertPreview!.Plan!.After.Source.Context.Proposal!.CandidateRevisionId);
         Assert.Equal(c.Source.Data, view.Source!.Data);
     }
+
+    private sealed class CancelDraftPreview : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly PartialSemanticModel _parent;
+        private readonly PartialSemanticModel _reverted;
+        private readonly ProposalContext _proposal;
+        private readonly ProjectHistoryRevision[] _history;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public DraftRevertPreview? Published { get; private set; }
+        public DraftRevertPreview? Replacement { get; private set; }
+        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel parent, PartialSemanticModel reverted, ProposalContext proposal, ProjectHistoryRevision[] history)
+        { _vm = vm; _replace = replace; _parent = parent; _reverted = reverted; _proposal = proposal; _history = history; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.PreviewRevert(_parent, _reverted, _parent.Input.InputDigest, _reverted.Input.InputDigest, _proposal, _history, Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.RevertPreview is not { } published) return;
+            Fired = true; Published = published;
+            if (_replace) Replacement = _vm.PreviewRevert(_parent, _reverted, _parent.Input.InputDigest, _reverted.Input.InputDigest, _proposal, _history);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace)
+    {
+        var a = Input(source: Revision(60)); var b = Input(source: Revision(61, "Changed")); var input = Input(source: Revision(62, "Changed", "Later"));
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var parent = ProjectSemanticBinder.Bind(a); var reverted = ProjectSemanticBinder.Bind(b); var history = History(a.Source, b.Source, input.Source);
+        var proposal = DraftRenameTests.Proposal(input, 80);
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var selected = view.Selected; var tests = view.TestRun;
+        var previous = view.PreviewRevert(parent, reverted, a.InputDigest, b.InputDigest, proposal, history)!; Assert.Equal(DraftRevertState.Ready, previous.State); Assert.NotNull(previous.Plan);
+        var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
+        using var cancellation = new CancelDraftPreview(view, replace, parent, reverted, proposal, history); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.NotNull(cancellation.Published); Assert.Equal(DraftRevertState.Ready, cancellation.Published.State); Assert.NotNull(cancellation.Published.Plan);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Same(selected, view.Selected); Assert.Same(tests, view.TestRun); Assert.Equal(previousData, previous.Plan.After.Data);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Equal(DraftRevertState.Ready, cancellation.Replacement.State);
+            Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.RevertPreview);
+        }
+        else Assert.Null(view.RevertPreview);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

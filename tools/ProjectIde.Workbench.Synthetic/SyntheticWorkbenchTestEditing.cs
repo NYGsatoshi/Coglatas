@@ -26,6 +26,14 @@ public sealed partial class SyntheticWorkbenchViewModel
         var preview = ProjectTestEditing.Preview(model, target, _desired.Input.ExpectedInputDigest, definition, next, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _testEditGeneration || selection != _selectionGeneration) return null;
         TestEditPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _testEditGeneration && ReferenceEquals(TestEditPreview, preview))
+            {
+                ClearTestEdit(); Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         if (!_disposed && lifecycle == _lifecycle && generation == _testEditGeneration && selection == _selectionGeneration &&
             ReferenceEquals(TestEditPreview, preview)) return preview;
         // Clear only this interrupted publication; a reentrant newer preview belongs to its own generation.
