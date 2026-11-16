@@ -73,6 +73,48 @@ def comparisons_pass(values: dict) -> bool:
                and item["exactBytesEqual"] is True for item in values.values())
 
 
+def portable_comparisons_pass(result: dict) -> bool:
+    """Admit Main-compatible logical equality; preserve raw physical differences."""
+    comparisons = result.get("comparisons")
+    if not isinstance(comparisons, dict) or set(comparisons) != set(COMPARISONS):
+        return False
+    for name, item in comparisons.items():
+        if (not isinstance(item, dict) or set(item) !=
+                {"sourceSha256", "restoredSha256", "exactBytesEqual"}):
+            return False
+        if not (support.digest_value(item["sourceSha256"])
+                and support.digest_value(item["restoredSha256"])
+                and type(item["exactBytesEqual"]) is bool):
+            return False
+        same_hash = item["sourceSha256"] == item["restoredSha256"]
+        if item["exactBytesEqual"] is not same_hash:
+            return False
+        if name != "catalog.txt" and item["exactBytesEqual"] is not True:
+            return False
+    portable = result.get("portableCatalog")
+    if (not isinstance(portable, dict) or set(portable) !=
+            {"availability", "sourceSha256", "restoredSha256", "exactBytesEqual"}
+            or portable["availability"] != "AVAILABLE"
+            or not all(support.digest_value(portable[key])
+                       for key in ("sourceSha256", "restoredSha256"))
+            or portable["exactBytesEqual"] is not True
+            or portable["sourceSha256"] != portable["restoredSha256"]):
+        return False
+    raw = comparisons["catalog.txt"]
+    diagnostic = result.get("catalogDiagnostic")
+    if (not isinstance(diagnostic, dict) or diagnostic.get("availability") != "AVAILABLE"
+            or diagnostic.get("sourceCatalogSha256") != raw["sourceSha256"]
+            or diagnostic.get("restoredCatalogSha256") != raw["restoredSha256"]
+            or not isinstance(diagnostic.get("counts"), dict)):
+        return False
+    counts = diagnostic["counts"]
+    if (type(counts.get("SOURCE_RECORDS")) is not int
+            or type(counts.get("RESTORED_RECORDS")) is not int
+            or counts["SOURCE_RECORDS"] < 1 or counts["RESTORED_RECORDS"] < 1):
+        return False
+    return result.get("catalogAcceptancePolicy") == "MAIN_PORTABLE_LOGICAL_V1"
+
+
 def catalog_diagnostic(before: bytes, after: bytes) -> dict:
     """Closed structural metadata only; never an oracle or a semantic verdict."""
     output = {"availability": "UNAVAILABLE", "sourceCatalogSha256": None,
@@ -227,7 +269,7 @@ def named_index_diagnostic(before: bytes, after: bytes) -> dict:
 
 
 def portable_catalog_shadow(container: str, environment: dict) -> bytes:
-    """Evaluate Main's original portable catalog in memory; never an admission oracle."""
+    """Evaluate Main's original portable catalog for exact logical acceptance."""
     script = ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs"
     query = subprocess.run(["node", str(script), "queries"], cwd=ROOT, env=environment,
                            capture_output=True, check=False, timeout=15)
@@ -357,7 +399,7 @@ def candidate_complete(result: dict) -> bool:
             and 0 < result["restoreList"]["foreignKeyCount"] <= result["restoreList"]["entryCount"]
             and all(support.digest_value(result["restoreList"][key])
                     for key in ("originalSha256", "plannedSha256"))
-            and comparisons_pass(result.get("comparisons"))
+            and portable_comparisons_pass(result)
             and result.get("controls") == CONTROLS
             and result.get("cleanupState") == "VERIFIED"
             and type(result.get("admittedContainers")) is int and result["admittedContainers"] == 2
@@ -407,6 +449,14 @@ def prepare(private: Path, result: dict, environment: dict) -> tuple[Path, str, 
                 "probeSha256": support.sha(Path(probe.__file__).read_bytes()),
                 "callerSha256": support.sha(Path(__file__).read_bytes()),
                 "publicationSupportSha256": support.sha(Path(support.__file__).read_bytes()),
+                "portableHelperSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs").read_bytes()),
+                "triggerCatalogSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-trigger-catalog.mjs").read_bytes()),
+                "restoreListPlannerSha256": support.sha(
+                    (ROOT / "scripts/ci/synthetic-restore-list.mjs").read_bytes()),
+                "mainCatalogSourceSha256": support.sha(
+                    (ROOT / "scripts/ci/run-synthetic-logical-recovery.mjs").read_bytes()),
                 "ddlSha256": support.sha(ddl.read_bytes()),
                 "postgresImageId": image["id"], "postgresRepoDigests": image["digests"],
                 "assemblies": {name: support.sha((binaries / name).read_bytes()) for name in support.ASSEMBLIES}}
@@ -498,7 +548,7 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
             portable_before = portable_catalog_shadow(source, environment)
         except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError,
                 subprocess.SubprocessError):
-            result["portableCatalogShadow"]["availability"] = "UNAVAILABLE"
+            result["portableCatalog"]["availability"] = "UNAVAILABLE"
         result["failureCategory"] = "LOGICAL_COMMAND_FAILED"
         transfer_once(source, target, private, result, environment,
                       before_restore=prepare_fk_restore_list)
@@ -524,14 +574,14 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
         if portable_before is not None:
             try:
                 portable_after = portable_catalog_shadow(target, environment)
-                result["portableCatalogShadow"] = {
+                result["portableCatalog"] = {
                     "availability": "AVAILABLE",
                     "sourceSha256": support.sha(portable_before),
                     "restoredSha256": support.sha(portable_after),
                     "exactBytesEqual": portable_before == portable_after}
             except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError,
                     KeyError, subprocess.SubprocessError):
-                result["portableCatalogShadow"] = {"availability": "UNAVAILABLE"}
+                result["portableCatalog"] = {"availability": "UNAVAILABLE"}
         # Metadata queries cannot turn a strict recovery failure into PASS.
         try:
             result["catalogDiagnostic"]["namedIndex"] = named_index_diagnostic(
@@ -541,7 +591,7 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
             result["catalogDiagnostic"]["namedIndex"] = {
                 "availability": "UNAVAILABLE", "counts": {}}
         result["failureCategory"] = "STRICT_RESTORED_STATE_MISMATCH"
-        if not comparisons_pass(result["comparisons"]):
+        if not portable_comparisons_pass(result):
             return
         result["failureCategory"] = "CLEANUP_NOT_VERIFIED"
     finally:
@@ -566,12 +616,13 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
 
 def main() -> int:
     os.umask(0o077)
-    result = {"schemaVersion": 1, "kind": "ADVISORY_SYNTHETIC_LOGICAL_RECOVERY",
+    result = {"schemaVersion": 2, "kind": "ADVISORY_SYNTHETIC_LOGICAL_RECOVERY",
               "status": "FAIL", "phase": "ADMISSION", "failureCategory": "CALLER_REJECTED",
               "sourceSha": None, "sourceHeadSha": None, "baseSha": None, "runId": None, "runAttempt": None,
               "bindings": {}, "controls": {}, "comparisons": {}, "commands": {}, "dumpSha256": None,
               "catalogDiagnostic": {"availability": "NOT_EXECUTED", "schemaClassification": "UNCLASSIFIED"},
-              "portableCatalogShadow": {"availability": "NOT_EXECUTED"},
+              "portableCatalog": {"availability": "NOT_EXECUTED"},
+              "catalogAcceptancePolicy": "MAIN_PORTABLE_LOGICAL_V1",
               "resourceIds": [], "admittedContainers": 0, "stoppedContainers": 0, "cleanupState": "INCOMPLETE",
               "formalStrategyChanged": False, "formalRecoveryAcceptance": "NOT_GRANTED", "publicGo": False,
               "databaseAuthorityScope": "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",

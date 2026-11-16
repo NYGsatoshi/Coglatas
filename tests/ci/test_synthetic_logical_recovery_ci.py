@@ -27,6 +27,13 @@ def complete():
             "comparisons": caller.strict_comparisons(
                 {name: b"identical" for name in caller.COMPARISONS},
                 {name: b"identical" for name in caller.COMPARISONS}),
+            "portableCatalog": {"availability": "AVAILABLE", "sourceSha256": "a" * 64,
+                                "restoredSha256": "a" * 64, "exactBytesEqual": True},
+            "catalogAcceptancePolicy": "MAIN_PORTABLE_LOGICAL_V1",
+            "catalogDiagnostic": {
+                "availability": "AVAILABLE", "sourceCatalogSha256": caller.support.sha(b"identical"),
+                "restoredCatalogSha256": caller.support.sha(b"identical"),
+                "counts": {"SOURCE_RECORDS": 4, "RESTORED_RECORDS": 4}},
             "controls": caller.CONTROLS.copy(), "cleanupState": "VERIFIED",
             "admittedContainers": 2, "stoppedContainers": 2}
 
@@ -53,18 +60,31 @@ class LogicalRecoveryContracts(unittest.TestCase):
             result["comparisons"] = observed
             self.assertFalse(caller.candidate_complete(result))
 
-    def test_portable_shadow_cannot_approve_original_raw_catalog_failure(self):
+    def test_raw_catalog_failure_requires_exact_closed_digest_binding(self):
         result = complete()
-        result["portableCatalogShadow"] = {
-            "availability": "AVAILABLE",
-            "sourceSha256": "a" * 64,
-            "restoredSha256": "a" * 64,
-            "exactBytesEqual": True}
         comparison = result["comparisons"]["catalog.txt"]
         comparison["restoredSha256"] = "b" * 64
         comparison["exactBytesEqual"] = False
         self.assertFalse(caller.candidate_complete(result))
         self.assertFalse(caller.comparisons_pass(result["comparisons"]))
+
+    def test_portable_catalog_is_required_and_cannot_be_forged(self):
+        for invalid in (
+            {"availability": "UNAVAILABLE"},
+            {"availability": "AVAILABLE", "sourceSha256": "a" * 64,
+             "restoredSha256": "b" * 64, "exactBytesEqual": True},
+            {"availability": "AVAILABLE", "sourceSha256": "a" * 64,
+             "restoredSha256": "a" * 64, "exactBytesEqual": 1},
+            {"availability": "AVAILABLE", "sourceSha256": "a" * 64,
+             "restoredSha256": "a" * 64, "exactBytesEqual": False},
+        ):
+            result = complete()
+            result["portableCatalog"] = invalid
+            self.assertFalse(caller.candidate_complete(result))
+        for value in (None, "INCOMPATIBLE_V0"):
+            result = complete()
+            result["catalogAcceptancePolicy"] = value
+            self.assertFalse(caller.candidate_complete(result))
 
     def test_unknown_missing_and_nonbyte_inputs_rejected(self):
         original = {name: b"unchanged" for name in caller.COMPARISONS}
@@ -487,7 +507,10 @@ class CatalogMetadataContracts(unittest.TestCase):
             self.assertIs(comparisons["catalog.txt"]["exactBytesEqual"], False)
             result = complete()
             result["comparisons"], result["catalogDiagnostic"] = comparisons, diagnostic
-            self.assertFalse(caller.candidate_complete(result))
+            # The approved portable contract admits logically identical records
+            # even when their former raw JSON serialization differs.
+            self.assertTrue(caller.candidate_complete(result))
+            self.assertFalse(caller.comparisons_pass(result["comparisons"]))
 
     def test_raw_tree_diagnostics_never_override_catalog_or_schema_false(self):
         left, right = catalog_rows(), catalog_rows()
@@ -508,7 +531,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         result = complete()
         result["catalogDiagnostic"] = caller.catalog_diagnostic(b"invalid", b"invalid")
         self.assertEqual(result["catalogDiagnostic"]["interpretation"], "UNAVAILABLE")
-        self.assertTrue(caller.candidate_complete(result))
+        self.assertFalse(caller.candidate_complete(result))
 
 
 if __name__ == "__main__":

@@ -2,40 +2,56 @@
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
 
-## Main-compatible portable logical catalog shadow
+## Main-compatible portable logical recovery acceptance candidate
 
-The Owner permits backward-incompatible revisions to components already
-integrated into Main. This authorizes evaluating a replacement for the old
-raw physical-catalog acceptance contract; it is **not** target-operation,
-production-release or security-policy approval.
+The Owner explicitly permits backward-incompatible revisions to Main-integrated
+components. The held PR therefore replaces the *acceptance decision* for this
+single synthetic logical database candidate, not the backup strategy, roles or
+production release policy. The original PostgreSQL raw `catalog.txt` bytes
+remain captured and strictly compared with both hashes and exact-equality
+flag, but are now a **non-admission physical-identity diagnostic**.
+The six other original snapshot families remain byte-exact admission gates.
 
-The separate held PR's logical restore runner now evaluates a read-only
-shadow projection using Main's existing source-owned catalog SQL and the
-validated PostgreSQL 18 trigger catalog. The latter retains logical
-constraint/index/function/role/policy metadata and every trigger's verified
-logical identity, attributes and effective co-firing order. It admits generated
-RI names only after identity checks; other trigger identities stay exact.
-Only the closed source/restored hashes and an equality flag may enter the
-public receipt. The original raw `catalog.txt` bytes, original strict result,
-historical failures and seven original snapshot controls remain unchanged.
-A shadow equality result **cannot** turn a failing old oracle into PASS.
+The replacement admission uses Main's existing user catalog SQL and the
+validated PostgreSQL 18 logical trigger identity/co-firing projection.
+It checks full source/restored portable snapshot bytes, including the
+logical constraint/index/function/role/policy records, and preserves all
+user-created trigger names/definitions. Generated RI identities may only
+be converted after complete native function/constraint/parent validation,
+and any different trigger firing order remains a real mismatch. The
+closed portable before/after hashes must be exactly equal; unavailable,
+extra, inconsistent or untrusted receipt fields fail closed.
 
-The first native shadow execution at HEAD `f62a6237` successfully obtained
-the portable projection, but its source/restored hashes differed after a plain
-one-shot logical restore. This is a retained FAIL, not portable acceptance.
+Native first attempt at `f62a6237` retained a red raw catalog and a
+red portable shadow after ordinary `pg_restore`. Subsequent exact-head
+[logical run 43832879232](https://github.com/NYGsatoshi/Coglatas/actions/runs/43832879232)
+retained the red physical catalog while proving an exact-match portable
+projection after one complete Main-planned FK-slot restore (1330 native
+TOC entries, 232 FKs). This **did not** grant PASS under the older oracle.
 
-The follow-up source uses Main's previously qualified complete-list FK planner:
-the one original custom archive is listed once, every native entry/comment is
-verified, only complete FK lines move among their original slots by source OID,
-and one owned target receives the planned 0600 list with SHA-256 verification.
-The one original `pg_restore` now selects that complete list. A failed
-plan, install, original dump or native restore does not retry or start a
-replacement restore. The private lists and archive are never uploaded; only
-closed counts/digests enter the receipt. Main's restored-trigger co-firing
-contract remains an independent shadow, while the inherited raw `catalog.txt`
-byte comparison is still authoritative. No new logical acceptance decision
-follows until exact-head native proof and replacement-oracle negative tests
-are reviewed.
+The candidate now requires this same Main source-owned complete-list
+FK planner: one original custom dump, one native TOC list, no omissions,
+only whole FK-entry moves among original slots by source OID, and one
+`pg_restore --use-list` into a fresh owned target. The list is written
+with mode 0600 and digest verification before the sole restore. An
+unsupported list, change outside FK slots, failed write, missing native
+exit or failed cleanup fails closed. Original commands and unsuccessful
+historical attempts remain independently auditable.
+
+The new receipt uses `schemaVersion=2` and
+`catalogAcceptancePolicy=MAIN_PORTABLE_LOGICAL_V1`, with source-owned
+helper/planner/catalog source SHA-256 bindings. Full PostgreSQL rows,
+schema, sequences, roles, memberships, database permissions and original
+synthetic oracle negatives remain mandatory. The catalog breakdown
+counts only closed classes; no raw names, SQL, OIDs, dumps or secrets
+are uploaded.
+
+**Exact-head acceptance of this new candidate is still unqualified
+until its own native tests, required PR CI and independent review finish.**
+Even a genuine `SYNTHETIC_LOGICAL_DATABASE_CANDIDATE_PASS` is a bounded
+synthetic database verdict, not G09, product/application restoration,
+formal strategy adoption, external target, rollback/HTTPS or release GO.
+
 The canonical logical backup/restore runbook remains unchanged. Neither Owner
 HOLD is released. This candidate needs independent review, exact-source execution,
 Owner strategy approval and separate authorized-target qualification.

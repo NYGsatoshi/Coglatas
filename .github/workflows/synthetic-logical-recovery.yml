@@ -35,7 +35,10 @@ jobs:
       - name: Verify closed recovery publication contracts
         run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_logical_recovery_ci.py' -v
       - name: Verify Main-compatible portable catalog shadow contracts
-        run: node --test tests/ci/synthetic-portable-recovery-catalog.node-test.mjs
+        run: |
+          node --test tests/ci/synthetic-portable-recovery-catalog.node-test.mjs \
+            tests/ci/synthetic-trigger-catalog.node-test.mjs \
+            tests/ci/synthetic-restore-list.node-test.mjs
       - name: Verify existing redirect controls
         run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_physical_recovery_http_guard.py' -v
       - name: Execute the documented logical restore once
