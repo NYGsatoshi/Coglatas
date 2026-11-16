@@ -101,4 +101,56 @@ public sealed class SyntheticDiagnosticPremiseTests
         finally { vm.PropertyChanged -= cancellation.OnChanged; }
         Assert.Null(vm.DiagnosticPremises); Assert.Equal(3, original.Bodies.Count);
     }
+
+    private sealed class CancelOnPublication : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private readonly ContentDigest _expectedResult;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectDiagnosticPremiseSnapshot? Replacement { get; private set; }
+        public CancelOnPublication(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _replace = replace; _expectedResult = vm.Result!.ResultDigest; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadSyntheticDiagnosticPremises(_expectedResult, DiagnosticPremiseSnapshotMode.AvailableBodies, token: Token);
+        private void Changed(object? sender, PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.ReadSyntheticDiagnosticPremises(_vm.Result!.ResultDigest, DiagnosticPremiseSnapshotMode.AvailableBodies);
+                Replacement = _vm.DiagnosticPremises;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtPremisePublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)DiagnosticPremiseSnapshotTests.ProofCases().First()[0]);
+        using var vm = await Admit(request, host);
+        Assert.True(vm.LoadSyntheticScopedSources()); Assert.True(vm.SelectDiagnostic(vm.Problems.Single()));
+        var result = vm.Result!; var resultData = result.Data;
+        Assert.True(vm.ReadSyntheticDiagnosticPremises(result.ResultDigest, DiagnosticPremiseSnapshotMode.AvailableBodies));
+        var previous = vm.DiagnosticPremises!; Assert.Equal(3, previous.Bodies.Count);
+        using var cancellation = new CancelOnPublication(vm, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested); Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data);
+        Assert.Equal(3, previous.Bodies.Count);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, vm.DiagnosticPremises); Assert.Equal(3, vm.DiagnosticPremises!.Bodies.Count);
+        }
+        else Assert.Null(vm.DiagnosticPremises);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

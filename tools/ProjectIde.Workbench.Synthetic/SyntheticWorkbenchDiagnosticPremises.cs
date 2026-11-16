@@ -29,6 +29,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             : ProjectDiagnosticPremiseSnapshot.ReadRoot(_rootSourceAdmission!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _diagnosticPremises = snapshot; _premiseCompilation = compilation; _premiseDiagnostic = diagnostic; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _premiseGeneration && ReferenceEquals(_diagnosticPremises, snapshot))
+            { ClearDiagnosticPremises(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(DiagnosticPremises, snapshot) && snapshot.State is not
             (DiagnosticPremiseSnapshotState.RefusedWrongResult or DiagnosticPremiseSnapshotState.RefusedInputBinding or
              DiagnosticPremiseSnapshotState.RefusedDiagnostic or DiagnosticPremiseSnapshotState.RefusedBodyBinding);
