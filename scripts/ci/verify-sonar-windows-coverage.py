@@ -253,11 +253,11 @@ def qualify(root: Path, folder: Path, executable: Path, sha: str, run: str,
     project = source("tests/Coglatas.Tests/Coglatas.Tests.csproj")
     if b"<TargetFramework>net11.0</TargetFramework>" not in project:
         raise ValueError("Unexpected native test target framework")
-    if b'Include="coverlet.collector" Version="10.1.0"' not in project:
+    if b'Include="coverlet.collector" Version="10.1.1"' not in project:
         raise ValueError("Unexpected native collector version")
     receipt = {"schemaVersion": 1, "sourceSha": sha, "treeSha": tree,
                "runId": run, "attempt": attempt, "platform": "Windows",
-               "collectorVersion": "10.1.0", "filter": "Portability=CrossPlatform",
+               "collectorVersion": "10.1.1", "filter": "Portability=CrossPlatform",
                "producerCheckoutRoot": producer_root,
                "collectorReport": report, "identicalVSTestCopies": copies,
                "reportSha256": digest(raw), "trxSha256": digest(trx),
