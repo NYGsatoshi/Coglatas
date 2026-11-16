@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned pass Source target storage](verification/projectide-pass-source-target-immutability.md)
+keeps the native target page immutable through legacy collection surfaces.
+Actual-page regressions retain original entries and reject foreign-run targets;
+existing Source/run/lifecycle guards and all activation holds remain separate.
+
 [Bounded local reference search pages](verification/projectide-reference-search-pages.md)
 adds an owner-bound Core continuation over actual canonical reference facts.
 Index coverage and scan exhaustion remain separate. Existing paired-client

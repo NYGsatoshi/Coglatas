@@ -151,4 +151,53 @@ public sealed class SyntheticPassSourceNavigationTests
         Assert.False(vm.NavigatePassBoundarySource(page, page.Targets[0])); Assert.Same(page.Targets[1].Location, vm.SourceTarget);
         Assert.Throws<ArgumentOutOfRangeException>(() => vm.ReadPassBoundarySourcePage(-1)); Assert.Null(vm.SourceTarget); Assert.Null(vm.PassBoundarySourcePage);
     }
+
+    private static void AttemptLegacyTargetWrite(SyntheticPassSourcePage page, SyntheticPassSourceTarget replacement)
+    {
+        if (page.Targets is System.Collections.ICollection view &&
+            view.SyncRoot is IList<SyntheticPassSourceTarget> storage && storage.Count > 0)
+        {
+            try { storage[0] = replacement; }
+            catch (NotSupportedException) { }
+        }
+    }
+
+    [Fact]
+    public async Task PassTargetCollectionsKeepTheirOriginalRosterAfterLegacyStorageWrites()
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var vm = new SyntheticWorkbenchViewModel();
+        using var other = new SyntheticWorkbenchViewModel();
+
+        await Prepare(vm, session); await Prepare(other, session); Assert.True(Read(vm)); Assert.True(Read(other));
+        Assert.True(vm.ReadPassBoundarySourcePage(maximumTargets: 1));
+        Assert.True(other.ReadPassBoundarySourcePage(maximumTargets: 1));
+        var page = vm.PassBoundarySourcePage!; var original = Assert.Single(page.Targets);
+        var foreign = Assert.Single(other.PassBoundarySourcePage!.Targets); Assert.NotSame(original, foreign);
+        if (page.Targets is IList<SyntheticPassSourceTarget> direct)
+            Assert.Throws<NotSupportedException>(() => direct[0] = foreign);
+        AttemptLegacyTargetWrite(page, foreign);
+        Assert.Same(original, Assert.Single(page.Targets));
+    }
+
+    [Fact]
+    public async Task LegacyStorageCannotMakeAForeignRunTargetBelongToTheCurrentPage()
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var vm = new SyntheticWorkbenchViewModel();
+        using var other = new SyntheticWorkbenchViewModel();
+
+        await Prepare(vm, session); await Prepare(other, session); Assert.True(Read(vm)); Assert.True(Read(other));
+        Assert.True(vm.ReadPassBoundarySourcePage(maximumTargets: 1));
+        Assert.True(other.ReadPassBoundarySourcePage(maximumTargets: 1));
+        var page = vm.PassBoundarySourcePage!; var original = Assert.Single(page.Targets);
+        var foreign = Assert.Single(other.PassBoundarySourcePage!.Targets);
+        Assert.False(vm.NavigatePassBoundarySource(page, foreign)); Assert.Null(vm.SourceTarget);
+        Assert.Same(page, vm.PassBoundarySourcePage);
+        AttemptLegacyTargetWrite(page, foreign);
+        Assert.False(vm.NavigatePassBoundarySource(page, foreign)); Assert.Null(vm.SourceTarget);
+        Assert.True(vm.NavigatePassBoundarySource(page, original)); Assert.Same(original.Location, vm.SourceTarget);
+    }
 }
