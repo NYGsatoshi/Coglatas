@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned semantic query publication cancellation](verification/projectide-semantic-query-publication-cancellation.md)
+withdraws only cancelled current completion/Task-suggestion pages while retaining
+newer queries, original Compiler facts and candidate meaning. Qualification and
+current runtime authority remain separate.
+
 [Owned pass Source page publication cancellation](verification/projectide-pass-source-page-publication-cancellation.md)
 withdraws the cancelled read's owned page/target and preserves newer page
 navigation and original Compiler/map facts. Runtime authority and activation

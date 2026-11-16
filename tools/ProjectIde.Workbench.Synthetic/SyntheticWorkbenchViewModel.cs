@@ -281,6 +281,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
         TaskSuggestions = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
+            { _taskSuggestionGeneration++; TaskSuggestions = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
             ReferenceEquals(TaskSuggestions, page) ? page : null;
     }
@@ -307,6 +313,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             pageSize, cursor, cancellationToken);
         ReferenceCompletion = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
+            { ReferenceCompletion = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
 

@@ -204,4 +204,49 @@ public sealed class RequirementTaskSuggestionTests
         }
         Assert.Equal("coglatas.inconclusive", fixture.GetProperty("result").GetProperty("verdict").GetString());
     }
+
+    private sealed class CancelQueryPublication : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public RequirementTaskSuggestionPage? Replacement { get; private set; }
+        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.SuggestRequirementTasks(cancellationToken: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.TaskSuggestions is null) return;
+            Fired = true;
+            if (_replace) Replacement = _vm.SuggestRequirementTasks(1);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtSemanticQueryPublicationWithdrawsOnlyItsOwnedPage(bool replace)
+    {
+        var input = SuggestionInput();
+        using var view = await AcceptedView(input);
+        var result = view.Result!; var resultData = result.Data; var sourceData = view.Source!.Data; var inspection = view.Inspection;
+        var previous = view.SuggestRequirementTasks(); Assert.NotNull(previous); Assert.Equal(3, previous.Candidates.Count);
+        var previousCandidates = previous.Candidates.ToArray();
+        using var cancellation = new CancelQueryPublication(view, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, view.Source!.Data); Assert.Same(inspection, view.Inspection);
+        Assert.Equal(previousCandidates, previous.Candidates);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Single(cancellation.Replacement.Candidates);
+            Assert.Same(cancellation.Replacement, view.TaskSuggestions);
+        }
+        else Assert.Null(view.TaskSuggestions);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

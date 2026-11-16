@@ -161,4 +161,59 @@ public sealed class ReferenceCompletionTests
         Assert.False(view.NavigateCompletion(page, page.Candidates[0]));
         view.Reset(); Assert.Null(view.ReferenceCompletion); Assert.Null(view.SourceTarget);
     }
+
+    private static async Task<SyntheticWorkbenchViewModel> AcceptedCompletionView(CompilerInputManifest input)
+    {
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var port = view.Inspection!.Symbols.First(item => item.Symbol.PortId is not null); Assert.True(view.Select(port.Symbol.Location)); return view;
+    }
+
+    private sealed class CancelQueryPublication : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public ReferenceCompletionPage? Replacement { get; private set; }
+        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.CompleteEntityReference(cancellationToken: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.ReferenceCompletion is null) return;
+            Fired = true;
+            if (_replace) Replacement = _vm.CompleteEntityReference(1);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtSemanticQueryPublicationWithdrawsOnlyItsOwnedPage(bool replace)
+    {
+        var input = CompletionInput();
+        using var view = await AcceptedCompletionView(input);
+        var result = view.Result!; var resultData = result.Data; var sourceData = view.Source!.Data; var inspection = view.Inspection;
+        var previous = view.CompleteEntityReference(); Assert.NotNull(previous); Assert.Equal(3, previous.Candidates.Count);
+        var previousCandidates = previous.Candidates.ToArray();
+        using var cancellation = new CancelQueryPublication(view, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, view.Source!.Data); Assert.Same(inspection, view.Inspection);
+        Assert.Equal(previousCandidates, previous.Candidates);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Replacement); Assert.Single(cancellation.Replacement.Candidates);
+            Assert.Same(cancellation.Replacement, view.ReferenceCompletion);
+        }
+        else Assert.Null(view.ReferenceCompletion);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }
