@@ -308,6 +308,7 @@ jobs:
             scripts/ci/test_verify_sbom.py \
             scripts/ci/test_verify_grype_sbom_source.py \
             tests/ci/test_security_finding_policy.py \
+            tests/ci/test_sec17_realtime_finding_candidate.py \
             tests/ci/test_sec04_deep_ci.py \
             scripts/ci/test_sec17_deep_execution.py \
             scripts/ci/test_sec17_file_policy_execution.py \
