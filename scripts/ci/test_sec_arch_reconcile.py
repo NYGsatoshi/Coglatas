@@ -77,7 +77,8 @@ class ProducerBindingTests(unittest.TestCase):
         producer, execution, producer_digest, execution_digest = values
         return binding.reconcile(producer, execution, candidate, run, attempt, producer_digest, execution_digest)
 
-    @unittest.skipUnless(hasattr(os, "symlink"), "Symbolic-link control unavailable")
+    @unittest.skipUnless(hasattr(os, "symlink") and os.name == "posix",
+                         "Symbolic-link control requires a POSIX host")
     def test_symlinked_archive_does_not_gain_read_authority(self):
         producer, execution, producer_digest, execution_digest = self.archives()
         for target, expected in ((producer, producer_digest), (execution, execution_digest)):
