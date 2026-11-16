@@ -84,6 +84,22 @@ public sealed class SecurityArchitectureApiInventoryTests
             Assert.Equal("NONE", login.GetProperty("policySource").GetString());
             Assert.Equal(JsonValueKind.Null, login.GetProperty("effectivePolicy").ValueKind);
             Assert.False(login.GetProperty("authenticatedUserRequired").GetBoolean());
+            // Invitation bootstrap routes are intentionally public: authentication is
+            // established only after application-owned current-token validation.
+            foreach (var (route, method) in new[]
+            {
+                ("/api/invites/validate", "GET"),
+                ("/api/invites/accept", "POST")
+            })
+            {
+                var invite = Assert.Single(endpoints, row =>
+                    row.GetProperty("normalizedPath").GetString() == route &&
+                    row.GetProperty("method").GetString() == method);
+                Assert.True(invite.GetProperty("allowAnonymous").GetBoolean());
+                Assert.False(invite.GetProperty("authorizationRequired").GetBoolean());
+                Assert.False(invite.GetProperty("authenticatedUserRequired").GetBoolean());
+                Assert.Equal(JsonValueKind.Null, invite.GetProperty("effectivePolicy").ValueKind);
+            }
             var logout = Assert.Single(endpoints, row => row.GetProperty("normalizedPath").GetString() == "/api/auth/logout" &&
                 row.GetProperty("method").GetString() == "POST");
             Assert.True(logout.GetProperty("authenticatedUserRequired").GetBoolean());
@@ -217,7 +233,7 @@ public sealed class SecurityArchitectureApiInventoryTests
         // The inspection's pre-start provider alone omits those operations.
         Assert.Equal(producerDigest, Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(webAssembly))));
         foreach (var argument in new[] { tool, "--assembly", webAssembly,
-            "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v10.0",
+            "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v11.0",
             "--output", directory, "--project", "Coglatas.Web", "--assets-file", assetsPath,
             "--platform", "AnyCPU", "--file-name", "composed-host-openapi", "--openapi-version", "OpenApi3_1" })
             start.ArgumentList.Add(argument);

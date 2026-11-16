@@ -1,0 +1,81 @@
+name: .NET 11 GA compatibility (PR 1894)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - '.github/workflows/dotnet11-ga-compat.yml'
+      - 'global.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'scripts/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dotnet11-pr1894-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  migration-smoke:
+    if: >-
+      github.event.pull_request.number == 1894 &&
+      github.event.pull_request.draft == true &&
+      github.event.pull_request.head.ref == 'renovate/major-dotnet-monorepo' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Check out exact PR HEAD
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install pinned .NET 11 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Validate .NET 11 framework and provider hold
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(dotnet --version)" = "11.0.100"
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          projects = sorted([*Path('src').rglob('*.csproj'), *Path('tests').rglob('*.csproj'), *Path('tools').rglob('*.csproj')])
+          assert len(projects) == 9, len(projects)
+          for project in projects:
+              frameworks = [node.text for node in ET.parse(project).iter('TargetFramework')]
+              assert frameworks == ['net11.0'], (project, frameworks)
+          for p in ['src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj', 'tests/Coglatas.Tests/Coglatas.Tests.csproj']:
+              packages = [x.attrib for x in ET.parse(p).iter('PackageReference')]
+              provider = next(x for x in packages if x['Include'] == 'Npgsql.EntityFrameworkCore.PostgreSQL')
+              assert provider['Version'] == '10.0.3', provider
+          PY
+      - name: Verify committed NuGet locks with strict locked-mode restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/check-nuget-lock-policy.py
+          dotnet restore Coglatas.slnx --locked-mode --disable-parallel
+      - name: Build .NET 11 candidate (not release acceptance)
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
+      - name: Run architecture tests
+        run: dotnet test tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj --configuration Release --no-build --logger 'trx;LogFileName=dotnet11-arch.trx' --results-directory artifacts/dotnet11
+      - name: Run portable backend regression tests
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter 'Portability=CrossPlatform' --logger 'trx;LogFileName=dotnet11-portable.trx' --results-directory artifacts/dotnet11
+      - name: Publish diagnostic test receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dotnet11-ga-pr1894-receipts-${{ github.run_attempt }}
+          path: artifacts/dotnet11
+          if-no-files-found: warn
+          retention-days: 14
