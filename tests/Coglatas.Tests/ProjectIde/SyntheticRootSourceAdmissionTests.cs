@@ -74,4 +74,62 @@ public sealed class SyntheticRootSourceAdmissionTests
         }
         public void Dispose(){_vm.PropertyChanged-=Changed;}
     }
+
+    private sealed class CancelRootPublication : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly ContentDigest _expectedResult;
+        private readonly bool _replace;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public bool ReplacementPremisesRead { get; private set; }
+        public ProjectSource? Replacement { get; private set; }
+        public ProjectDiagnosticPremiseSnapshot? ReplacementPremises { get; private set; }
+        public CancelRootPublication(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _expectedResult = vm.Result!.ResultDigest; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.LoadSyntheticRootSource(_expectedResult, Token);
+        private void Changed(object? sender, PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.RootSourceReadState != "Ready") return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.LoadSyntheticRootSource(_expectedResult);
+                Replacement = _vm.RootSource;
+                ReplacementPremisesRead = _vm.ReadSyntheticDiagnosticPremises(_expectedResult, DiagnosticPremiseSnapshotMode.AvailableBodies);
+                ReplacementPremises = _vm.DiagnosticPremises;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtRootSourcePublicationWithdrawsOnlyItsOwnedAdmission(bool replace)
+    {
+        var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)Cases().First()[0]);
+        using var vm = new SyntheticWorkbenchViewModel(); vm.BeginSynthetic(request);
+        Assert.True(vm.TryAccept(await host.CompileAsync(request)));
+        var result = vm.Result!; var resultData = result.Data;
+        Assert.True(vm.SelectDiagnostic(vm.Problems.First(d => d.Evidence.Kind == CompilerEvidenceKind.ModelProof)));
+        Assert.True(vm.LoadSyntheticRootSource(result.ResultDigest));
+        var previous = vm.RootSource!; var previousData = previous.Data; Assert.NotEmpty(previousData.CanonicalText);
+        using var cancellation = new CancelRootPublication(vm, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(previousData, previous.Data);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, vm.RootSource); Assert.Equal("Ready", vm.RootSourceReadState);
+            Assert.True(cancellation.ReplacementPremisesRead); Assert.NotNull(cancellation.ReplacementPremises);
+            Assert.Same(cancellation.ReplacementPremises, vm.DiagnosticPremises); Assert.NotEmpty(vm.DiagnosticPremises!.Bodies);
+        }
+        else { Assert.Null(vm.RootSource); Assert.Equal("Idle", vm.RootSourceReadState); Assert.Null(vm.DiagnosticPremises); }
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }
