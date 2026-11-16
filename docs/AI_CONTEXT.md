@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned recorded simulation read cancellation](verification/projectide-recorded-simulation-read-cancellation.md)
+withdraws only cancelled current comparison/profile snapshots while preserving
+newer successful reads and original recordings. Numerical assurance and current
+runtime authority remain separate; qualification is recorded independently.
+
 [Owned semantic query publication cancellation](verification/projectide-semantic-query-publication-cancellation.md)
 withdraws only cancelled current completion/Task-suggestion pages while retaining
 newer queries, original Compiler facts and candidate meaning. Qualification and

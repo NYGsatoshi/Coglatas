@@ -23,6 +23,14 @@ public sealed partial class SyntheticWorkbenchViewModel
         var profile = ProjectSimulationTraceProfile.Read(run!, expectedRun, maximumEvents, token);
         if (!Current()) return false;
         _simulationTraceProfile = profile; _profiledRun = run; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _profileGeneration && ReferenceEquals(_simulationTraceProfile, profile))
+            {
+                ClearSimulationTraceProfile(); Changed();
+            }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
     private void ClearSimulationTraceProfile()
