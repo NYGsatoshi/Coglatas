@@ -167,7 +167,9 @@ public sealed class SyntheticPassSourceNavigationTests
     {
         var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
-        using var vm = new SyntheticWorkbenchViewModel(); using var other = new SyntheticWorkbenchViewModel();
+        using var vm = new SyntheticWorkbenchViewModel();
+        using var other = new SyntheticWorkbenchViewModel();
+
         await Prepare(vm, session); await Prepare(other, session); Assert.True(Read(vm)); Assert.True(Read(other));
         Assert.True(vm.ReadPassBoundarySourcePage(maximumTargets: 1));
         Assert.True(other.ReadPassBoundarySourcePage(maximumTargets: 1));
@@ -184,7 +186,9 @@ public sealed class SyntheticPassSourceNavigationTests
     {
         var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
-        using var vm = new SyntheticWorkbenchViewModel(); using var other = new SyntheticWorkbenchViewModel();
+        using var vm = new SyntheticWorkbenchViewModel();
+        using var other = new SyntheticWorkbenchViewModel();
+
         await Prepare(vm, session); await Prepare(other, session); Assert.True(Read(vm)); Assert.True(Read(other));
         Assert.True(vm.ReadPassBoundarySourcePage(maximumTargets: 1));
         Assert.True(other.ReadPassBoundarySourcePage(maximumTargets: 1));
