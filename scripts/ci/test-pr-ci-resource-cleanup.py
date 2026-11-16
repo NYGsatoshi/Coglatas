@@ -35,7 +35,27 @@ if state.get("fail_project") and any(state["fail_project"] in arg for arg in arg
     print("sensitive-docker-error-must-not-be-published", file=sys.stderr)
     sys.exit(17)
 resources = state[kind]
+if action in ("inspect", "rm") and state.get("vanish_on") == [kind, action]:
+    identifier = args[-1]
+    resources.pop(identifier, None)
+    if kind == "container":
+        for network in state["network"].values():
+            network.get("Containers", {}).pop(identifier, None)
+    p.write_text(json.dumps(state))
+    sys.exit(1)
+if action in ("inspect", "rm") and state.get("reject_on") == [kind, action]:
+    print("sensitive-docker-error-must-not-be-published", file=sys.stderr)
+    sys.exit(17)
 if action == "ls":
+    if "--filter" not in args:
+        if state.get("inventory_error"):
+            sys.exit(19)
+        if state.get("inventory_malformed"):
+            print("not a valid resource identifier")
+        else:
+            for identifier in resources:
+                print(identifier)
+        sys.exit(0)
     label = args[args.index("--filter") + 1][len("label="):]
     key, expected = label.split("=", 1)
     for identifier, record in resources.items():
@@ -247,6 +267,53 @@ class CleanupTests(unittest.TestCase):
         result = self.invoke()
         self.assertNotEqual(0, result.returncode)
         self.assertIn("residual-owned-resource", result.stderr)
+
+    def test_concurrent_disappearance_requires_successful_complete_inventory(self):
+        for kind in ("container", "network", "volume"):
+            for action in ("inspect", "rm"):
+                with self.subTest(kind=kind, action=action):
+                    self.state = {"calls": [], "container": {}, "network": {}, "volume": {}}
+                    self.add_project(f"coglatas-playwright-{RUN}-{ATTEMPT}-frontend-test")
+                    self.state["vanish_on"] = [kind, action]
+                    result = self.invoke()
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    inventories = [call for call in self.state["calls"] if call[:2] == [kind, "ls"] and "--filter" not in call]
+                    self.assertEqual(1, len(inventories))
+                    if kind == "container":
+                        self.assertIn("--all", inventories[0])
+                        self.assertIn("--no-trunc", inventories[0])
+
+    def test_failed_inspect_or_remove_keeps_a_present_resource_blocking(self):
+        for kind in ("container", "network", "volume"):
+            for action in ("inspect", "rm"):
+                with self.subTest(kind=kind, action=action):
+                    self.state = {"calls": [], "container": {}, "network": {}, "volume": {}}
+                    self.add_project(f"coglatas-playwright-{RUN}-{ATTEMPT}-frontend-test")
+                    self.state["reject_on"] = [kind, action]
+                    result = self.invoke()
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn(f"docker-{kind}-{action}-failed", result.stderr)
+                    self.assertTrue(self.state[kind])
+                    self.assertNotIn("sensitive-docker-error", result.stdout + result.stderr)
+
+    def test_failed_or_malformed_inventory_cannot_prove_disappearance(self):
+        for failure in ("inventory_error", "inventory_malformed"):
+            with self.subTest(failure=failure):
+                self.state = {"calls": [], "container": {}, "network": {}, "volume": {}}
+                self.add_project(f"coglatas-playwright-{RUN}-{ATTEMPT}-frontend-test")
+                self.state["vanish_on"] = ["container", "rm"]
+                self.state[failure] = True
+                result = self.invoke()
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("result=failure", result.stdout)
+
+    def test_standalone_scanner_disappearance_requires_absence_inventory(self):
+        project = f"coglatas-security-{RUN}-{ATTEMPT}-zap"
+        self.add_project(project, scanner=True)
+        self.state["vanish_on"] = ["container", "inspect"]
+        result = self.invoke("security-scan", GITHUB_JOB="security-scan")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertTrue(any(call[:2] == ["container", "ls"] and "--filter" not in call for call in self.state["calls"]))
 
     def test_hung_docker_process_is_killed_with_failure_within_fixed_deadline(self):
         self.state["hang"] = "container"

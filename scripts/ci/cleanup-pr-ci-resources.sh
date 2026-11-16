@@ -20,6 +20,10 @@ class CleanupError(Exception):
     pass
 
 
+class DockerFailure(CleanupError):
+    pass
+
+
 def require(condition: bool, code: str) -> None:
     if not condition:
         raise CleanupError(code)
@@ -72,7 +76,10 @@ def docker(*arguments: str) -> str:
         raise CleanupError("docker-timeout") from exc
     except OSError as exc:
         raise CleanupError("docker-unavailable") from exc
-    require(result.returncode == 0, "docker-failed")
+    if result.returncode != 0:
+        # All callers supply a fixed resource kind and operation. Do not emit
+        # raw arguments, identifiers, paths, daemon stderr or credential data.
+        raise DockerFailure(f"docker-{arguments[0]}-{arguments[1]}-failed")
     require(len(result.stdout) <= 262144, "docker-output-limit")
     return result.stdout
 
@@ -90,15 +97,52 @@ def listed(kind: str, label: str) -> list[str]:
     return values
 
 
-def inspected(kind: str, resource: str) -> dict:
+def absent(kind: str, resource: str) -> bool:
+    # A failed inspect/remove alone does not prove absence. Require a successful
+    # complete inventory, including stopped containers, and exact immutable ID
+    # or volume-name comparison. Do not infer absence from daemon error text or
+    # a name/ID filter whose matching semantics could omit the target.
+    arguments = [kind, "ls", "--quiet"]
+    if kind == "container":
+        arguments += ["--all", "--no-trunc"]
+    elif kind == "network":
+        arguments += ["--no-trunc"]
+    values = docker(*arguments).splitlines()
+    require(len(values) <= 1000 and len(values) == len(set(values)), "absence-inventory-limit")
+    pattern = r"[a-f0-9]{64}" if kind != "volume" else r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}"
+    require(all(re.fullmatch(pattern, value) for value in values), "invalid-absence-inventory")
+    return resource not in values
+
+
+def inspected(kind: str, resource: str) -> dict | None:
     try:
-        value = json.loads(docker(kind, "inspect", resource))
+        content = docker(kind, "inspect", resource)
+    except DockerFailure:
+        if absent(kind, resource):
+            return None
+        raise
+    try:
+        value = json.loads(content)
     except json.JSONDecodeError as exc:
         raise CleanupError("invalid-resource-metadata") from exc
     require(isinstance(value, list) and len(value) == 1 and isinstance(value[0], dict), "invalid-resource-metadata")
     record = value[0]
     require(record.get("Name" if kind == "volume" else "Id") == resource, "resource-identity-mismatch")
     return record
+
+
+def removed(kind: str, resource: str) -> None:
+    arguments = [kind, "rm"]
+    if kind == "container":
+        arguments += ["--force"]
+    try:
+        docker(*arguments, resource)
+    except DockerFailure:
+        # docker run --rm and existing worker EXIT cleanup can remove the
+        # resource after our ownership check. Accept only proven disappearance;
+        # a retained resource or failed inventory still fails the finalizer.
+        if not absent(kind, resource):
+            raise
 
 
 def container_labels(record: dict) -> dict:
@@ -137,9 +181,16 @@ def cleanup_project(project: str, state: Path | None) -> None:
 
     # Validate the complete target set before deleting anything in this project.
     for resource in sorted(containers):
-        require(container_labels(inspected("container", resource)).get("com.docker.compose.project") == project, "container-owner-mismatch")
+        record = inspected("container", resource)
+        if record is None:
+            containers.remove(resource)
+            continue
+        require(container_labels(record).get("com.docker.compose.project") == project, "container-owner-mismatch")
     for resource in sorted(networks):
         record = inspected("network", resource)
+        if record is None:
+            networks.remove(resource)
+            continue
         labels = record.get("Labels") or {}
         require(isinstance(labels, dict), "invalid-network-labels")
         default_owned = record.get("Name") == f"{project}_default" and labels.get("com.docker.compose.project") == project
@@ -155,18 +206,25 @@ def cleanup_project(project: str, state: Path | None) -> None:
                 # per-run credential subtree. Merely sharing a network is not
                 # permission to remove an unrelated container.
                 container = inspected("container", endpoint)
+                if container is None:
+                    continue
                 require(owns_scanner_mount(container, state), "unowned-network-endpoint")
                 containers.add(endpoint)
+    retained_volumes = []
     for resource in volumes:
-        labels = inspected("volume", resource).get("Labels") or {}
+        record = inspected("volume", resource)
+        if record is None:
+            continue
+        labels = record.get("Labels") or {}
         require(isinstance(labels, dict) and labels.get("com.docker.compose.project") == project, "volume-owner-mismatch")
+        retained_volumes.append(resource)
 
     for resource in sorted(containers):
-        docker("container", "rm", "--force", resource)
+        removed("container", resource)
     for resource in sorted(networks):
-        docker("network", "rm", resource)
-    for resource in volumes:
-        docker("volume", "rm", resource)
+        removed("network", resource)
+    for resource in retained_volumes:
+        removed("volume", resource)
     for kind in ("container", "network", "volume"):
         require(not listed(kind, owner), "residual-owned-resource")
     if state is not None:
