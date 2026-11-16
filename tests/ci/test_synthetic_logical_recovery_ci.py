@@ -371,7 +371,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
         self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
 
-    def test_generated_internal_trigger_name_drift_still_fails_strict_oracle(self):
+    def test_generated_internal_trigger_name_drift_keeps_raw_failure_but_portable_acceptance(self):
         source = catalog_rows()
         source[2][3] = "RI_ConstraintTrigger_a_1024"
         source[2][5] = True
@@ -392,7 +392,10 @@ class CatalogMetadataContracts(unittest.TestCase):
         result = complete()
         result["comparisons"] = caller.strict_comparisons(before, after)
         result["catalogDiagnostic"] = diagnostic
-        self.assertFalse(caller.candidate_complete(result))
+        self.assertFalse(caller.comparisons_pass(result["comparisons"]))
+        # Main's source-owned projector independently authenticates RI identity,
+        # trigger attributes and effective firing order before portable approval.
+        self.assertTrue(caller.candidate_complete(result))
 
     def test_index_definition_and_trigger_flag_differences_keep_distinct_counts(self):
         source = catalog_rows()
