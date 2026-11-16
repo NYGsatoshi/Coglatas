@@ -38,25 +38,31 @@ They test transport handling, not restored-product authorization.
 
 ## Reproduction and evidence
 
-Prepare the pinned SDK, locked dependencies and local tools through their normal
-installation process. Generate the original EF DDL from the exact reviewed source:
+Use the existing same-repository **pull request** workflow
+[`.github/workflows/synthetic-physical-recovery.yml`](../../.github/workflows/synthetic-physical-recovery.yml)
+and inspect its `bounded-synthetic-candidate` job. The only supported execution
+entry point is the pinned hosted Linux job's invocation of
+`python3 -B scripts/ci/run-synthetic-physical-recovery-ci.py`; a changed
+candidate or workflow file triggers that existing PR workflow. The sibling
+logical/continuation qualifications have their own separate workflow jobs and
+receipts. Preserve the exact revision, run ID, attempt and initial outcome.
 
-```bash
-dotnet build src/Coglatas.Web/Coglatas.Web.csproj --configuration Release --no-restore --disable-build-servers -m:1
-ConnectionStrings__DefaultConnection='Host=unused;Database=unused;Username=unused' \
-  dotnet ef migrations script --project src/Coglatas.Infrastructure \
-  --startup-project src/Coglatas.Web --configuration Release --no-build \
-  --output work/original-ef-ddl.sql
-python scripts/ci/synthetic-physical-recovery-probe.py \
-  --execute-isolated-synthetic --postgres-image-id '<existing local sha256:image-id>' \
-  --original-ef-ddl work/original-ef-ddl.sql --evidence-dir work/fresh-recovery-evidence \
-  --with-application-controls
-```
+The caller verifies the actual Git HEAD, SDK, restored dependencies, product
+build, original generated EF DDL and immutable local PostgreSQL image identity.
+It creates a fresh owner-private `cgr-*` workspace directly under the trusted
+`RUNNER_TEMP` using `tempfile.mkdtemp`, writes `original.sql` there and passes
+its absolute path and the as-yet-uncreated `e` child to the isolated physical
+probe. The probe rejects arbitrary local paths, symlinks, non-private parents,
+out-of-workspace DDL and non-hosted or untrusted runner contexts **before** any
+Docker or evidence mutation.
 
-Use a short, fresh private evidence path. Existing evidence is rejected. Files,
-keys, cookies, rows, raw schema/catalog and application logs remain private; do
-not attach that directory to public CI or a PR. Only sanitized outcome/digest
-metadata may be published. Cookies and passwords remain in process memory.
+The earlier direct CLI example using relative `work/...` paths is deliberately
+unsupported after this path-admission hardening. Do not reconstruct hosted
+environment flags locally to bypass admission or substitute a local command
+for actual hosted evidence. Only synthetic fixture data is permitted. Files,
+keys, cookies, rows, raw schema/catalog and application logs stay in the
+ephemeral private workspace; public artifacts contain only closed outcome
+and digest metadata. Never upload private evidence to PR comments.
 
 The probe checks collisions for every generated container/volume name, validates
 resource labels, immutable image, network mode and exact mounts before admitting

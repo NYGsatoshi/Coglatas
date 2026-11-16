@@ -93,6 +93,25 @@ class RecoveryHttpRedirectTests(unittest.TestCase):
 
 
 class RecoveryProbePathBoundaryTests(unittest.TestCase):
+    def test_reproduction_uses_hosted_workflow_not_unadmitted_local_probe(self) -> None:
+        guide = (ROOT / "docs/verification/synthetic-physical-recovery-candidate.md").read_text(
+            encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/synthetic-physical-recovery.yml").read_text(
+            encoding="utf-8")
+        caller = (ROOT / "scripts/ci/run-synthetic-physical-recovery-ci.py").read_text(
+            encoding="utf-8")
+        reproduction = guide.split("## Reproduction and evidence", 1)[1].split(
+            "The probe checks collisions", 1)[0]
+        self.assertIn("bounded-synthetic-candidate", reproduction)
+        self.assertIn("run-synthetic-physical-recovery-ci.py", reproduction)
+        self.assertNotIn("python scripts/ci/synthetic-physical-recovery-probe.py", reproduction)
+        self.assertNotIn("--original-ef-ddl work/", reproduction)
+        self.assertIn("RUNNER_TEMP", reproduction)
+        self.assertIn("run-synthetic-physical-recovery-ci.py", workflow)
+        self.assertIn('tempfile.mkdtemp(prefix="cgr-", dir=os.environ["RUNNER_TEMP"])', caller)
+        self.assertIn('"--original-ef-ddl", str(ddl)', caller)
+        self.assertIn('"--evidence-dir", str(evidence)', caller)
+
     def test_ci_recovery_admission_accepts_only_owned_private_fresh_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             runner = Path(directory)
