@@ -15,14 +15,15 @@ var simulationProfile = args is [_, "--simulation"] || debugProfile || compariso
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var predicateRecordingProfile = args is [_, "--predicate-recordings"];
 var operatorRecordingProfile = args is [_, "--operator-recordings"];
-var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile || operatorRecordingProfile;
+var passRecordingProfile = args is [_, "--pass-recordings"];
+var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile || operatorRecordingProfile || passRecordingProfile;
 var premiseProfile = args is [_, "--diagnostic-premises"];
 var recordingProfile = args is [_, "--compiler-recordings"];
 var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--pass-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -86,7 +87,7 @@ var requirementCandidates = RequirementCandidateInput();
 var names = new[] { "fail", "pass", "unknown", "unsupported", "not-run", "cancelled", "timeout", "stale-pass", "branch-pass", "other-project", "draft-before", "draft-after", "document-before", "document-after", "revert-draft", "envelope-before", "envelope-after", "requirement-candidates", "test-assertion-navigation", "tests-pass", "tests-fail", "tests-unknown", "tests-empty", "tests-unsupported", "tests-cancelled", "tests-stale", "tests-evaluator-mismatch", "tests-error", "tests-exhausted", "tests-unicode", "tests-many" };
 var legacyNames = names;
 if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
-if (operatorRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
+if (operatorRecordingProfile || passRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
@@ -97,7 +98,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     // Displayed committed revisions must never identify two different Sources.
     var input = name switch { "tests-scenario-base" => scenarioFixture!.Scenario.Basis, "tests-scenario-hypothesis" => scenarioFixture!.Scenario.Input, "tests-scenario-draft" => scenarioFixture!.Draft.After, "tests-edit-before" => testEditFixture!.Before, "tests-edit-after" => testEditFixture!.After, "draft-before" => renameFixture.Before, "draft-after" => renameFixture.After,
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
-        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when operatorRecordingProfile && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
+        "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), _ when (operatorRecordingProfile || passRecordingProfile) && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
     if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
     var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, declarationCache: declarationCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
@@ -212,6 +213,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation, rootSource));
         if (predicateRecordingProfile) fixture["predicateRecordings"] = await PredicateRecordingPreview.ExportAsync(input, result);
         if (operatorRecordingProfile) fixture["operatorRecordings"] = await OperatorRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
+        if (passRecordingProfile) fixture["passRecordings"] = await PassRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
         cases[^1] = fixture;
     }
     if (scenarioProfile)
@@ -303,6 +305,11 @@ Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
 if (predicateRecordingProfile)
 {
     var observed = JsonNode.Parse(output)!.AsObject(); observed["predicateRecordingProducer"] = JsonSerializer.SerializeToNode(PredicateRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
+if (passRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject(); observed["passRecordingProducer"] = JsonSerializer.SerializeToNode(PassRecordingPreview.Producer());
     output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }
 if (operatorRecordingProfile)

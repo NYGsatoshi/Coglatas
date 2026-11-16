@@ -1,5 +1,11 @@
 # AI Context
 
+[Owned pass recording preparation in the pure Workbench](verification/projectide-pure-workbench-pass-recordings.md)
+adds exact intended local run admission and explicit root-wide original pass
+reads to the Windows pure ViewModel, plus a separate actual Preview export.
+Capture gaps, viewer budgets and cancelled host outcomes stay separate. Angular
+consumption, actual Avalonia and current runtime access/retention remain gated.
+
 [Owned local initial-root pass host recording](verification/projectide-local-pass-host-recording.md)
 binds predeclared pass policy, actual input/materializations, intended local run
 and original response/receipt without rewriting the Domain record. The execution
