@@ -107,7 +107,9 @@ class BrowserEvidenceTests(unittest.TestCase):
     def test_native_risk_description_rejects_unclassified_private_content(self):
         self.native['site'][0]['alerts'][0]['riskdesc'] = 'synthetic-secret-marker'
         self.reject('NATIVE_RISK_CLASSIFICATION_CONFLICT')
-        self.assertNotIn('synthetic-secret-marker', str(self.run_command()))
+        self.assertEqual(1, self.run_command())
+        self.assertNotIn('synthetic-secret-marker',
+                         Path(self.args.output).read_text(encoding='utf-8'))
 
     def test_matching_native_risk_description_retains_medium_advisory(self):
         self.native['site'][0]['alerts'][0]['riskdesc'] = 'Medium (Medium)'
