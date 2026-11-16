@@ -32,8 +32,22 @@ public sealed class SyntheticDiagnosticBasisPage
         InputId = result.Input.InputId; InputDigest = result.Input.InputDigest;
         ResultId = result.ResultId; ResultDigest = result.ResultDigest; Diagnostic = diagnostic;
         Offset = offset; Total = diagnostic.Evidence.Premises.Count;
-        Premises = Array.AsReadOnly(diagnostic.Evidence.Premises.Skip(offset).Take(PageSize).ToArray());
+        Premises = new PremiseList(diagnostic.Evidence.Premises.Skip(offset).Take(PageSize));
     }
+    private sealed class PremiseList : IReadOnlyList<ContentDigest>
+    {
+        private readonly ContentDigest[] _values;
+        internal PremiseList(IEnumerable<ContentDigest> values) => _values = values.ToArray();
+        public int Count => _values.Length;
+        public ContentDigest this[int index] => (uint)index < (uint)_values.Length
+            ? _values[index] : throw new ArgumentOutOfRangeException(nameof(index));
+        public IEnumerator<ContentDigest> GetEnumerator()
+        {
+            foreach (var value in _values) yield return value;
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
 }
 
 public sealed partial class SyntheticWorkbenchViewModel

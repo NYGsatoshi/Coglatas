@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned diagnostic premise rosters](verification/projectide-diagnostic-basis-immutability.md)
+keeps retained basis pages faithful to actual recorded digests through legacy
+collection interfaces. Original Compiler evidence and result identities remain
+unchanged; bodies, logical/causal structure and all activation holds stay separate.
+
 [Paired local reference pages](verification/projectide-paired-reference-pages.md)
 adopts actual bounded Core pages in the pure ViewModel and the Angular offline
 preview, with explicit original root reads, current page/member ownership and

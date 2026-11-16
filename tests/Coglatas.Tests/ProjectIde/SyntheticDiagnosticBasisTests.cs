@@ -94,4 +94,32 @@ public sealed class SyntheticDiagnosticBasisTests
         }
         finally { vm.Dispose(); }
     }
+
+    [Fact]
+    public async Task AnActualRecordedPremisePageCannotBeRewrittenThroughTheLegacyCollectionRoot()
+    {
+        foreach (var row in Cases())
+        {
+            var (_, request, host) = Prepare((string)row[0]);
+            using var vm = new SyntheticWorkbenchViewModel();
+            vm.BeginSynthetic(request); Assert.True(vm.TryAccept(await host.CompileAsync(request)));
+            var result = vm.Result!;
+            var diagnostic = vm.Problems.FirstOrDefault(item => item.Evidence.Premises.Count > 0);
+            if (diagnostic is null) continue;
+            Assert.True(vm.SelectDiagnostic(diagnostic));
+            var page = Assert.IsType<SyntheticDiagnosticBasisPage>(vm.ReadDiagnosticBasis());
+            var original = page.Premises.ToArray(); var resultData = result.Data;
+            Assert.NotEmpty(original); Assert.DoesNotContain(result.ResultDigest, original);
+            if (page.Premises is System.Collections.ICollection legacy && legacy.SyncRoot is ContentDigest[] storage)
+                storage[0] = result.ResultDigest;
+            Assert.Equal(resultData, result.Data); Assert.Same(result, vm.Result);
+            Assert.Equal(original, diagnostic.Evidence.Premises);
+            Assert.Same(diagnostic, page.Diagnostic); Assert.Equal(result.ResultDigest, page.ResultDigest);
+            Assert.Equal(original, page.Premises);
+            Assert.Equal(diagnostic.Evidence.Premises, page.Premises);
+            Assert.False(page.PremiseBodiesResolved); Assert.False(page.LogicalStructureRecorded); Assert.False(page.CausalStructureRecorded);
+            return;
+        }
+        Assert.Fail("An actual diagnostic with recorded premises is required; an empty fixture cannot qualify immutability.");
+    }
 }
