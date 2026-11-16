@@ -33,6 +33,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
+    /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
+    public ProjectSimulationRun? ReadSimulationTraceProfileRun(ProjectSimulationTraceProfile basis)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(basis);
+        return ReferenceEquals(SimulationTraceProfile, basis) ? basis.Run : null;
+    }
     private void ClearSimulationTraceProfile()
     {
         _profileGeneration++; _simulationTraceProfile = null; _profiledRun = null;

@@ -172,4 +172,43 @@ public sealed class SyntheticSimulationTraceProfileTests
         else Assert.Null(view.SimulationTraceProfile);
         Assert.IsType<OperationCanceledException>(error);
     }
+
+    [Fact]
+    public async Task CurrentSummaryReadsOnlyItsOwnedOriginalRecordingWithoutStartingExecution()
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; var result = view.Result!; var source = view.Source!;
+        var runData = run.Data; var resultData = result.Data; var sourceData = source.Data;
+        Assert.NotEmpty(run.Events); Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        var basis = view.SimulationTraceProfile!; var summaryData = basis.Data;
+        Assert.Same(run, view.ReadSimulationTraceProfileRun(basis));
+        Assert.Same(run, view.SimulationRun); Assert.Same(result, view.Result); Assert.Same(source, view.Source);
+        Assert.Equal(runData, run.Data); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, source.Data); Assert.Equal(summaryData, basis.Data);
+        var detached = ProjectSimulationTraceProfile.Read(run, run.Digest);
+        Assert.Equal(summaryData, detached.Data); Assert.NotSame(basis, detached);
+        Assert.Null(view.ReadSimulationTraceProfileRun(detached)); Assert.Same(basis, view.SimulationTraceProfile);
+    }
+    [Theory]
+    [InlineData("profile")] [InlineData("run")] [InlineData("reload")] [InlineData("reset")]
+    public async Task AnOlderSummaryCannotOpenARecordingAfterOwnershipChanges(string mode)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; Assert.True(view.ProfileSyntheticSimulation(run.Digest)); var basis = view.SimulationTraceProfile!;
+        var original = basis.Data;
+        if (mode == "profile") Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        else Change(view, f.Request, mode);
+        Assert.Null(view.ReadSimulationTraceProfileRun(basis)); Assert.Equal(original, basis.Data);
+        if (mode == "profile") Assert.Same(run, view.ReadSimulationTraceProfileRun(view.SimulationTraceProfile!));
+    }
+    [Fact]
+    public async Task ARefusedSummaryDoesNotProvideARecordingRead()
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!; Assert.False(view.ProfileSyntheticSimulation(run.Manifest.Digest));
+        var refused = view.SimulationTraceProfile!; Assert.Equal(SimulationTraceProfileState.Refused, refused.State);
+        Assert.Null(view.ReadSimulationTraceProfileRun(refused)); Assert.Same(run, view.SimulationRun);
+    }
 }

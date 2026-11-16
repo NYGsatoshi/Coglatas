@@ -1001,7 +1001,7 @@
                 @if (store.simulationReadState() === 'unavailable') { <p role="alert">{{ t('ide.simulationUnavailable') }}</p> }
               }
               @if (store.simulation(); as run) {
-                <section data-testid="ide-simulation"><h3>{{ t('ide.simulation') }}</h3>
+                <section #simulationPanel data-testid="ide-simulation" tabindex="-1" aria-labelledby="ide-simulation-heading"><h3 id="ide-simulation-heading">{{ t('ide.simulation') }}</h3>
                   <p>{{ t('ide.simulationNotice') }}</p>
                   <p>{{ run.runId }} · {{ run.execution }} · {{ run.coverage }} · {{ run.reason }}</p>
                   <p>{{ t('ide.simulationClock') }}: {{ run.virtualTicks }} · {{ t('ide.simulationCompleted') }}: {{ run.completedTasks }}</p>
@@ -1021,6 +1021,7 @@
                   <p data-testid="ide-profile-state">{{ t(profile.state === 'Complete' ? 'ide.profileComplete' : 'ide.profileIncomplete') }}</p>
                   <p>{{ t('ide.profilePeriod') }}: {{ profile.startTicks }} → {{ profile.throughTicks }} · {{ t('ide.profileTick') }}</p>
                   <p>{{ t('ide.profileAsOf') }}: {{ profile.simulation.runId }} · <code>{{ profile.simulation.digest.value }}</code></p>
+                  <button type="button" data-testid="ide-profile-recording" (click)="showTraceProfileRun(profile)">{{ t('ide.profileRecording') }}</button>
                   <dl>@for (row of traceProfileRows; track row.key) {
                     <div [attr.data-testid]="'ide-profile-' + row.key"><dt>{{ t(row.label) }}</dt>
                       <dd>{{ profile.metrics[row.key] }} {{ t(row.unit) }}<p>{{ t(row.definition) }}</p></dd>

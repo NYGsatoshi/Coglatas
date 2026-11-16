@@ -67,3 +67,19 @@ for (const locale of ['en', 'ja'] as const) for (const mode of ['bytes', 'metric
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
   });
 }
+
+
+for (const locale of ['en', 'ja'] as const) for (const family of ['root', 'external', 'bounded']) {
+  test('opens the summary recording by keyboard without new execution in ' + locale + ' ' + family, async ({ page }) => {
+    const writes: string[] = []; page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+    await openExample(page, locale); await readRun(page, locale, 'tests-simulation-' + family + '-base', family === 'root' ? 1 : 2);
+    await page.getByRole('button', { name: locale === 'en' ? 'Read model trace summary' : 'モデル記録の集計を読む', exact: true }).click();
+    const profile = page.getByTestId('ide-trace-profile'); await expect(profile).toBeFocused();
+    const metrics = await profile.locator('dl').innerText(); const action = page.getByTestId('ide-profile-recording');
+    await action.focus(); await action.press('Enter'); await expect(page.getByTestId('ide-simulation')).toBeFocused();
+    await expect(profile.locator('dl')).toHaveText(metrics); expect(writes).toEqual([]);
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    await page.getByRole('button', { name: locale === 'en' ? 'Load fixed sources' : '固定ソースを読み込む', exact: true }).click();
+    await expect(action).toHaveCount(0); await expect(page.getByTestId('ide-simulation')).toHaveCount(0);
+  });
+}

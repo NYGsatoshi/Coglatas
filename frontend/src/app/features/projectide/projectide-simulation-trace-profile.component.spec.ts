@@ -140,3 +140,31 @@ describe('Actual model trace summary component', () => {
     expect(Array.from(root.querySelectorAll('button')).some(b => b.textContent === c.t('ide.profileLoad'))).toBe(false);
   });
 });
+
+
+describe('Summary to original recording focus', () => {
+  it.each(['en', 'ja'] as const)('focuses the current recording without replacing original facts in %s', async locale => {
+    const { c, fixture, root } = await profileReady(); c.i18n.setLocale(locale);
+    await c.loadSimulationTraceProfile(); fixture.detectChanges(); await fixture.whenStable();
+    const profile = c.store.simulationTraceProfile()!; const run = c.store.simulation(); const result = c.store.result();
+    const recording = root.querySelector('[data-testid="ide-simulation"]') as HTMLElement;
+    const action = root.querySelector('[data-testid="ide-profile-recording"]') as HTMLButtonElement;
+    expect(action.textContent).toContain(c.t('ide.profileRecording')); action.focus(); action.click();
+    expect(document.activeElement).toBe(recording); await fixture.whenStable(); expect(document.activeElement).toBe(recording);
+    expect(c.store.simulationTraceProfile()).toBe(profile); expect(c.store.simulation()).toBe(run); expect(c.store.result()).toBe(result);
+  });
+  it('does not focus a recording from a stale or revoked summary callback', async () => {
+    const { c, fixture, root, authenticated } = await profileReady(); await c.loadSimulationTraceProfile(); fixture.detectChanges();
+    const old = c.store.simulationTraceProfile()!; const recording = root.querySelector('[data-testid="ide-simulation"]') as HTMLElement;
+    const focus = vi.spyOn(recording, 'focus'); await c.loadSimulationTraceProfile(); fixture.detectChanges();
+    c.showTraceProfileRun(old); expect(focus).not.toHaveBeenCalled();
+    await fixture.whenStable();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-trace-profile"]'));
+    const current = c.store.simulationTraceProfile()!;
+    c.showTraceProfileRun({ ...current }); expect(focus).not.toHaveBeenCalled();
+    expect(c.store.simulationTraceProfile()).toBe(current);
+    authenticated.set(false); c.showTraceProfileRun(current); fixture.detectChanges();
+    expect(focus).not.toHaveBeenCalled(); expect(c.store.state()).toBe('denied'); expect(c.store.simulation()).toBeNull();
+  });
+});

@@ -564,6 +564,10 @@ export class ProjectIdeWorkbenchStore {
     return snapshot && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
       snapshot.context === this.context() && snapshot.context === this.result() && snapshot.admitted.simulation === this.simulation() ? snapshot.admitted : null;
   };
+  simulationTraceProfileRun(profile: AdmittedTraceProfile): AdmittedSimulation | null {
+    const current = this.simulationTraceProfile();
+    return current && current === profile ? current.simulation : null;
+  }
   async loadSimulationTraceProfile(): Promise<boolean> {
     this.clearSimulationTraceProfile(); const generation = this.traceProfileGeneration;
     const context = this.context(); const run = this.simulation(); const bundle = this.bundle();
