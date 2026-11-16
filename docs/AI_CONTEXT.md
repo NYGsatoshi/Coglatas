@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned pass Source page publication cancellation](verification/projectide-pass-source-page-publication-cancellation.md)
+withdraws the cancelled read's owned page/target and preserves newer page
+navigation and original Compiler/map facts. Runtime authority and activation
+holds remain separate; qualification is recorded independently.
+
 [Owned Root Source publication cancellation](verification/projectide-root-source-publication-cancellation.md)
 withdraws only the cancelled admission still owned by that read, preserves newer
 Source/premise views and original Compiler facts, and leaves runtime authority
