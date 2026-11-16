@@ -85,7 +85,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     }
 
     private void ClearPassSnapshot()
-    { _passSnapshotGeneration++; _recordedPasses = null; _passCompilation = null; }
+    { _passSnapshotGeneration++; _recordedPasses = null; _passCompilation = null; ClearPassBoundarySnapshot(); }
     private void ClearPassDisplay()
     { _passReadGeneration++; _passReceiptMetadata = null; _passRecordMetadata = null; ClearPassSnapshot(); }
     private void ClearPassContext()

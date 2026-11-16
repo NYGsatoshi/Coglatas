@@ -766,7 +766,10 @@
                   @else {
                     <ol data-testid="ide-pass-events">@for (event of recording.events; track event.ordinal) {
                       <li><strong>{{ passName(event.passId) }} · {{ t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned') }}</strong>
-                        <p>{{ event.gap }}</p><small>{{ t('ide.passReferences') }}: {{ event.originalBodies.length }}</small></li>
+                        <p>{{ event.gap }}</p><small>{{ t('ide.passReferences') }}: {{ event.originalBodies.length }}</small>
+                        <button type="button" data-testid="ide-pass-inspect-boundary" [attr.data-pass-ordinal]="event.ordinal"
+                          [attr.aria-label]="t('ide.passInspectBoundary') + ': ' + passName(event.passId) + ' · ' + t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned')"
+                          (click)="loadRecordedPassBoundary(event.ordinal)" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passInspectBoundary') }}</button></li>
                     }</ol>
                     <div class="panels">
                       <button type="button" (click)="loadRecordedPasses()" [disabled]="store.recordedPassReadState() === 'loading'">{{ t('ide.passReadManifest') }}</button>
@@ -780,6 +783,34 @@
                   <details><summary>{{ t('ide.recordingReceipt') }}</summary><code>{{ recording.receipt.digest.value }}</code><pre tabindex="0">{{ recording.receipt.text }}</pre></details>
                 </section>
               }
+
+              @if (store.recordedPassBoundaryReadState() === 'loading') { <p role="status">{{ t('ide.passLoading') }}</p> }
+              @if (store.recordedPassBoundaryReadState() === 'unavailable') { <p role="alert">{{ t('ide.passUnavailable') }}</p> }
+              @if (store.recordedPassBoundary(); as boundary) {
+                <section class="pass-recordings" #recordedPassBoundaryPanel tabindex="-1" data-testid="ide-pass-boundary" aria-labelledby="ide-pass-boundary-title">
+                  <h3 id="ide-pass-boundary-title">{{ t('ide.passBoundaryTitle') }}</h3>
+                  <p>{{ t('ide.passBoundaryNotice') }}</p><p>{{ passViewState(boundary.state) }}</p>
+                  <dl><div><dt>{{ t('ide.recordingRun') }}</dt><dd>{{ boundary.recording.runId }}</dd></div>
+                    <div><dt>{{ t('ide.passBoundaryOrdinal') }}</dt><dd>{{ boundary.ordinal }}</dd></div>
+                    <div><dt>{{ t('ide.passViewBytes') }}</dt><dd>{{ boundary.retainedBodyBytes }} / {{ boundary.maximumBodyBytes }}</dd></div></dl>
+                  @if (boundary.originalBoundary; as event) {
+                    <strong>{{ passName(event.passId) }} · {{ t(event.phase === 'Entered' ? 'ide.passEntered' : 'ide.passReturned') }}</strong>
+                    <p data-testid="ide-pass-boundary-gap">{{ event.gap }}</p>
+                    <ul>@for (reference of event.originalBodies; track reference.role) {
+                      <li><code>{{ reference.role }} · {{ reference.domain }} · {{ reference.bytes }} · {{ reference.digest.value }}</code></li>
+                    }</ul>
+                    <div class="panels">
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal)" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadManifest') }}</button>
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal, 'available')" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadBodies') }}</button>
+                      <button type="button" (click)="loadRecordedPassBoundary(boundary.ordinal, 'budget')" [disabled]="store.recordedPassBoundaryReadState() === 'loading'">{{ t('ide.passBoundaryReadLimited') }}</button>
+                    </div>
+                  }
+                  @for (body of boundary.bodies; track body.key) {
+                    <details data-testid="ide-pass-boundary-body"><summary>{{ body.domain }} · {{ body.bytes }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details>
+                  }
+                </section>
+              }
+
               @if (store.recordedPasses(); as snapshot) {
                 <section class="pass-recordings" #recordedPassPanel tabindex="-1" data-testid="ide-recorded-passes" aria-labelledby="ide-recorded-passes-title">
                   <h3 id="ide-recorded-passes-title">{{ t('ide.passBodiesTitle') }}</h3><p>{{ passViewState(snapshot.state) }}</p>

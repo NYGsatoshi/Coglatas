@@ -1,4 +1,13 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
+  "ide.passInspectBoundary": "Inspect boundary",
+  "ide.passBoundaryTitle": "Selected pass boundary",
+  "ide.passBoundaryNotice": "Only this recorded boundary and its retained original JSON are shown. Its capture gaps remain unchanged.",
+  "ide.passBoundaryOrdinal": "Original boundary ordinal",
+  "ide.passBoundaryReadManifest": "Read selected boundary metadata",
+  "ide.passBoundaryReadBodies": "Read this boundary’s original JSON",
+  "ide.passBoundaryReadLimited": "View this boundary with a one-byte limit",
+  "ide.passBoundaryMissing": "This boundary was not retained in the original capture.",
+
   "ide.passExample": "Open recorded pass example",
   "ide.passTitle": "Recorded compilation passes",
   "ide.passNotice": "Observed boundaries of one recorded initial-root compilation. Missing internal and regional data stay missing. Viewing starts no Compiler run and grants no current access or trusted evidence status.",
@@ -484,6 +493,15 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
   string
 > = {
+  "ide.passInspectBoundary": "境界の詳細を見る",
+  "ide.passBoundaryTitle": "選択したパス境界",
+  "ide.passBoundaryNotice": "この境界に記録された情報と保存済みの原本JSONのみを表示します。元の記録の欠落は変わりません。",
+  "ide.passBoundaryOrdinal": "元の境界番号",
+  "ide.passBoundaryReadManifest": "選択した境界のメタデータを読む",
+  "ide.passBoundaryReadBodies": "この境界の原本JSONを読む",
+  "ide.passBoundaryReadLimited": "この境界を1バイト上限で表示",
+  "ide.passBoundaryMissing": "この境界は元の記録に保存されていません。",
+
   "ide.passExample": "パス記録の例を開く",
   "ide.passTitle": "記録されたコンパイルパス",
   "ide.passNotice": "初期ルートのコンパイル1回分で観測した境界です。未記録の内部状態やリージョンのデータは補いません。表示してもCompilerの実行は始まらず、現在のアクセス権や信頼済み根拠の資格は与えません。",

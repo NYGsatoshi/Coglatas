@@ -1,3 +1,4 @@
+import { AdmittedRecordedPassBoundary, readRecordedPassBoundary, recordedPassBoundaryMatches } from './projectide-pass-boundary.reader';
 import { AdmittedPassRecording, AdmittedRecordedPasses, PassRecordingLabel, RecordedPassChoice, passRecordingMatches, recordedPassesMatch, readPassRecording, readRecordedPasses, passRunIdentitiesAreUnique } from './projectide-pass-recordings.reader';
 import { AdmittedOperatorRecording, AdmittedRecordedOperators, OperatorRecordingLabel, RecordedOperatorChoice, operatorRecordingMatches, recordedOperatorsMatch, readOperatorRecording, readRecordedOperators, operatorRunIdentitiesAreUnique } from './projectide-operator-recordings.reader';
 import { AdmittedPredicateRecording, AdmittedRecordedPredicatePremises, PredicateRecordingLabel, RecordedPredicateChoice, predicateRecordingMatches, recordedPredicatePremisesMatch, readPredicateRecording, readRecordedPredicatePremises } from './projectide-predicate-recordings.reader';
@@ -398,8 +399,42 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   private clearRecordedPasses(): void {
-    this.recordedPassGeneration++; this.recordedPassSnapshot.set(null); this.recordedPassReadState.set('idle');
+    this.recordedPassGeneration++; this.recordedPassSnapshot.set(null); this.recordedPassReadState.set('idle'); this.clearRecordedPassBoundary();
   }
+
+  private recordedPassBoundaryGeneration = 0;
+  readonly recordedPassBoundaryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPassBoundarySnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPassBoundary } | null>(null);
+  readonly recordedPassBoundary = (): AdmittedRecordedPassBoundary | null => {
+    const snapshot = this.recordedPassBoundarySnapshot(); const sources = this.passSources(); const recording = this.passRecording();
+    return snapshot && sources && recording && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPassBoundaryMatches(snapshot.context, sources, recording, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPassBoundary(ordinal: number, choice: RecordedPassChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPassBoundary(); const generation = this.recordedPassBoundaryGeneration;
+    const context = this.context(); const sources = this.passSources(); const recording = this.passRecording(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || !recording || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPassBoundaryGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPassBoundaryReadState.set('loading');
+    try {
+      if (!['manifest', 'available', 'budget'].includes(choice)) throw new Error('unsupported-pass-boundary-choice');
+      const admitted = await readRecordedPassBoundary(context, sources, recording, ordinal,
+        choice === 'manifest' ? 'Manifest' : 'AvailableOriginalJson', choice === 'budget' ? 1 : 1_048_576);
+      if (!current()) return false;
+      if (!admitted || sources !== this.passSources() || recording !== this.passRecording() || !bundle.cases.includes(context) ||
+        !recordedPassBoundaryMatches(context, sources, recording, admitted)) throw new Error('pass-boundary-unavailable');
+      this.recordedPassBoundarySnapshot.set({bundle, context, admitted}); this.recordedPassBoundaryReadState.set('ready');
+      return admitted.state !== 'BoundaryNotRecorded';
+    } catch {
+      if (current()) this.recordedPassBoundaryReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPassBoundary(): void {
+    this.recordedPassBoundaryGeneration++; this.recordedPassBoundarySnapshot.set(null); this.recordedPassBoundaryReadState.set('idle');
+  }
+
   private rootSourceGeneration = 0;
   readonly rootSourceReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly rootSourceSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRootSource } | null>(null);
