@@ -124,7 +124,7 @@ internal static class Program
         {
             try
             {
-                using var output = new FileStream(receiptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                await using var output = new FileStream(receiptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 await JsonSerializer.SerializeAsync(output, result, Json);
             }
             catch { return 1; }
@@ -317,10 +317,10 @@ internal static class Program
         Check("AUTH_FOREIGN_MESSAGE_REDACTION", !denied.Has("SEC02_BETA_MESSAGE_CANARY_DO_NOT_LEAK") && !denied.Has(beta.Conversation.ToString()));
         _phase = "AUTH_ALPHA_FILE";
         var alphaFile = await GetAsync(owner, $"/api/files/{alpha.File}/download", HttpStatusCode.OK);
-        Check("AUTH_ALPHA_FILE_BYTES", alphaFile.Bytes.SequenceEqual(Encoding.UTF8.GetBytes("SEC02_ALPHA_FILE_CANARY_DO_NOT_LEAK\n")));
+        Check("AUTH_ALPHA_FILE_BYTES", alphaFile.Bytes.AsSpan().SequenceEqual("SEC02_ALPHA_FILE_CANARY_DO_NOT_LEAK\n"u8));
         _phase = "AUTH_BETA_FILE";
         var betaFile = await GetAsync(foreign, $"/api/files/{beta.File}/download", HttpStatusCode.OK);
-        Check("AUTH_BETA_FILE_BYTES", betaFile.Bytes.SequenceEqual(Encoding.UTF8.GetBytes("SEC02_BETA_FILE_CANARY_DO_NOT_LEAK\n")));
+        Check("AUTH_BETA_FILE_BYTES", betaFile.Bytes.AsSpan().SequenceEqual("SEC02_BETA_FILE_CANARY_DO_NOT_LEAK\n"u8));
         _phase = "AUTH_FOREIGN_FILE";
         var deniedFile = await GetAsync(owner, $"/api/files/{beta.File}/download", HttpStatusCode.BadRequest);
         Check("AUTH_FOREIGN_FILE_REDACTION", !deniedFile.Has("SEC02_BETA_FILE_CANARY_DO_NOT_LEAK") && !deniedFile.Has("sec02-beta-private.txt"));
@@ -376,7 +376,7 @@ internal static class Program
         var checkpoint = new SourceSessionCheckpoint(1, Environment.GetEnvironmentVariable("GITHUB_SHA")!,
             Environment.GetEnvironmentVariable("GITHUB_RUN_ID")!, Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT")!,
             SecurityCiFixtureSeed.TenantAOwnerUserId, owner.SessionId, DateTimeOffset.UtcNow, cookies);
-        using var output = new FileStream(CookiePath(config), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await using var output = new FileStream(CookiePath(config), FileMode.CreateNew, FileAccess.Write, FileShare.None);
         await JsonSerializer.SerializeAsync(output, checkpoint, Json);
         await output.FlushAsync();
         output.Flush(flushToDisk: true);
@@ -402,7 +402,7 @@ internal static class Program
         {
             foreach (var cookie in checkpoint.Cookies)
             {
-                Require(Regex.IsMatch(cookie.Name, @"^[A-Za-z0-9_.-]{1,128}$",
+                Require(Regex.IsMatch(cookie.Name, "^[A-Za-z0-9_.-]{1,128}$",
                     RegexOptions.None, TimeSpan.FromMilliseconds(200))
                     && cookie.Value.Length is > 0 and <= 8192
                     && !cookie.Value.Any(character => character is '\r' or '\n' or '\0')
@@ -704,7 +704,7 @@ internal static class Program
         var state = new ContinuationState(message, produced.Id, request,
             DeliveredDigest(deliveredPending), DeliveredDigest(delivered));
         var path = Path.Combine(Path.GetDirectoryName(config.ReceiptPath)!, "continuation-state.json");
-        using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         await JsonSerializer.SerializeAsync(output, state, Json);
     }
 
