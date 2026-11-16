@@ -23,6 +23,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerOutputSnapshot.Read(compilation!, expectedResult, mode, maximumBodyBytes, token, compilation!.Input);
         if (!Current()) return false;
         _compilerOutputSnapshot = snapshot; _outputSnapshotCompilation = compilation; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _outputSnapshotGeneration && ReferenceEquals(_compilerOutputSnapshot, snapshot))
+            { ClearCompilerOutputSnapshot(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(CompilerOutputSnapshot, snapshot) && snapshot.State is not
             (CompilerOutputSnapshotState.RefusedWrongResult or CompilerOutputSnapshotState.RefusedInputBinding or CompilerOutputSnapshotState.RefusedOutputBinding);
     }

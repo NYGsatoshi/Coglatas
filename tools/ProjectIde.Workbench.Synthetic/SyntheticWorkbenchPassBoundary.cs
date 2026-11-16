@@ -28,6 +28,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             compilation!.Input.InputDigest, expectedResult, ordinal, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _recordedPassBoundary = snapshot; _passBoundaryCompilation = compilation; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _passBoundaryGeneration && ReferenceEquals(_recordedPassBoundary, snapshot))
+            { ClearPassBoundarySnapshot(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(RecordedPassBoundary, snapshot) && snapshot.State is not
             (CompilerPassBoundarySnapshotState.RefusedInvocation or CompilerPassBoundarySnapshotState.RefusedInputBinding or
             CompilerPassBoundarySnapshotState.RefusedWrongResult or CompilerPassBoundarySnapshotState.BoundaryNotRecorded);
