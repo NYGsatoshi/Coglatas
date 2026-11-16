@@ -100,6 +100,29 @@ class BrowserEvidenceTests(unittest.TestCase):
         self.context['scannerImage'] = evidence.IMAGE.replace('781a', 'ffff', 1)
         self.reject('SCANNER_IDENTITY_MISMATCH')
 
+    def test_native_risk_description_must_agree_with_numeric_severity(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'High (Medium)'
+        self.reject('NATIVE_RISK_CLASSIFICATION_CONFLICT')
+
+    def test_native_risk_description_rejects_unclassified_private_content(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'synthetic-secret-marker'
+        self.reject('NATIVE_RISK_CLASSIFICATION_CONFLICT')
+        self.assertNotIn('synthetic-secret-marker', str(self.run_command()))
+
+    def test_matching_native_risk_description_retains_medium_advisory(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'Medium (Medium)'
+        report = self.report()
+        self.assertEqual('MATCHED', report['toolingOutcome'])
+        self.assertEqual({'riskCode': 2, 'instanceCount': 2}, report['nativeRules']['10038'])
+
+    def test_high_with_consistent_risk_description_remains_blocking(self):
+        self.native['site'][0]['alerts'][0].update(riskcode='3', riskdesc='High (Medium)')
+        report = self.report()
+        self.assertEqual('FAILED', report['toolingOutcome'])
+        self.assertFalse(report['conditions']['noHighScannerFinding'])
+        self.assertEqual('BLOCKED', report['releaseAcceptance'])
+
+
     def test_native_wrong_version(self):
         self.native['@version'] = '2.16.0'
         self.reject('NATIVE_SCANNER_VERSION_MISMATCH')
