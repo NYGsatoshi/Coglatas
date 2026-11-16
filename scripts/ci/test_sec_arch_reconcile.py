@@ -77,6 +77,36 @@ class ProducerBindingTests(unittest.TestCase):
         producer, execution, producer_digest, execution_digest = values
         return binding.reconcile(producer, execution, candidate, run, attempt, producer_digest, execution_digest)
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "Symbolic-link control unavailable")
+    def test_symlinked_archive_does_not_gain_read_authority(self):
+        producer, execution, producer_digest, execution_digest = self.archives()
+        for target, expected in ((producer, producer_digest), (execution, execution_digest)):
+            with self.subTest(target=target.name):
+                linked = self.root / ("linked-" + target.name)
+                linked.symlink_to(target)
+                with self.assertRaisesRegex(binding.ReconciliationError,
+                                            "Artifact input must be a regular file"):
+                    with binding.verified_zip(linked, expected):
+                        self.fail("A linked artifact must not be opened")
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and os.name == "posix",
+                         "FIFO input control needs a POSIX host")
+    def test_fifo_artifact_fails_closed_without_waiting_for_writer(self):
+        fifo = self.root / "untrusted-input.fifo"
+        os.mkfifo(fifo)
+        with self.assertRaisesRegex(binding.ReconciliationError,
+                                    "Artifact size or file type is unsupported"):
+            with binding.verified_zip(fifo, "0" * 64):
+                self.fail("A FIFO must not be accepted")
+
+    def test_empty_archive_input_remains_rejected(self):
+        path = self.root / "empty.zip"
+        path.write_bytes(b"")
+        with self.assertRaisesRegex(binding.ReconciliationError,
+                                    "Artifact size or file type is unsupported"):
+            with binding.verified_zip(path, "0" * 64):
+                self.fail("An empty artifact must not qualify")
+
     def test_original_artifact_bytes_bind_without_creating_acceptance(self):
         values = self.archives()
         original = values[1].read_bytes()
