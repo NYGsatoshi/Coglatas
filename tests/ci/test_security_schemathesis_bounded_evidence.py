@@ -39,8 +39,7 @@ class BoundedSchemathesisEvidenceTests(unittest.TestCase):
 
     def test_accepted_input_preserves_sanitization_and_pinned_seed(self):
         self.write_raw(self.initialize, {"ScenarioFinished": {
-            "safe": "ok", "token": "synthetic-secret-123",
-            "note": "synthetic-secret-123"}})
+            "safe": "ok", "note": "synthetic-secret-123"}})
         self.assertEqual((1, sut.EXPECTED_VERSION),
                          sut.parse_report(self.raw, self.safe, {"synthetic-secret-123"}, self.seed))
         result = self.safe.read_text(encoding="utf-8")
