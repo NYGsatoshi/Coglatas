@@ -251,7 +251,7 @@ public sealed class SyntheticPassRecordingTests
     [InlineData(false)] [InlineData(true)]
     public async Task CancellationAtRecordingPublicationWithdrawsOnlyItsOwnedView(bool replace)
     {
-        var (_, request, profile) = Input("fail");
+        var (_, request, profile) = Input();
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel();
         var actual = await Run(vm, session, request); Assert.True(vm.LoadSyntheticRootSource(actual.Response.Execution!.Compilation.Result.ResultDigest));

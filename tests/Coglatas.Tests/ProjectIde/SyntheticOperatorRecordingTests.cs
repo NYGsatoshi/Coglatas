@@ -268,7 +268,7 @@ public sealed class SyntheticOperatorRecordingTests
     [InlineData(false)] [InlineData(true)]
     public async Task CancellationAtRecordingPublicationWithdrawsOnlyItsOwnedView(bool replace)
     {
-        var (_, request, profile) = Input("fail");
+        var (_, request, profile) = Input();
         using var session = new LocalPredicateObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel();
         var actual = await Run(vm, session, request); Select(vm, actual);
