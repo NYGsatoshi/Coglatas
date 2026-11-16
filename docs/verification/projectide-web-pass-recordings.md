@@ -41,7 +41,9 @@ producer or authenticity of an arbitrary external file.
 The actual ten entry/return boundaries preserve their order: parse/normalize,
 binding, semantic validation/IR, analysis and root publication. Typed body roles,
 domains, byte counts and original digests are checked. Source/input references
-bind the admitted root; semantic/IR/map references bind the original result
+bind both the admitted original digest and its known UTF-8 text length in every
+capture mode, including Manifest and capture-byte gaps without retained bodies.
+Semantic/IR/map references bind the original result
 artifacts. The case with no produced IR retains its original explicit gap and
 no invented semantic outputs. Root publication precedes dependency attachment;
 its body is not treated as an alias for every possible final result.

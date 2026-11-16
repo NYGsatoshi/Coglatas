@@ -4,6 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
 const bundle = JSON.parse(readFileSync('frontend/public/assets/projectide/pass-recordings-v1.json', 'utf8'));
 const hash = (domain: string, text: string) => ({algorithm: 'sha-256', value: createHash('sha256').update(domain + String.fromCharCode(0) + text).digest('hex')});
+const rewriteFrame = (frame: {text: string; digest: {algorithm: string; value: string}}, data: Record<string, unknown>) => {
+  frame.text = JSON.stringify(data); frame.digest = hash(String(data['format']), frame.text);
+};
 const roles = [['original', 'Read original Manifest run', '元のManifest実行を読む'], ['diagnostic', 'Read captured diagnostic run', '記録済みの診断実行を読む'],
   ['budget', 'Read capture-limited run', '記録上限に達した実行を読む'], ['eventGap', 'Read event-limited run', 'イベント上限ありの実行を読む'],
   ['cancelled', 'Read cancelled attempt', 'キャンセルされた試行を読む'], ['retry', 'Read run after cancellation', 'キャンセル後の実行を読む']] as const;
@@ -63,10 +66,26 @@ for (const locale of ['en', 'ja'] as const) for (const entry of bundle.cases) {
   });
 }
 for (const locale of ['en', 'ja'] as const) {
-  for (const mode of ['body', 'origin', 'foreign-member', 'cancel-result', 'snapshot', 'duplicate-run']) {
+  for (const mode of ['body', 'origin', 'foreign-member', 'cancel-result', 'snapshot', 'duplicate-run', 'known-input-bytes', 'known-source-bytes']) {
     test('refuses altered original pass member ' + mode + ' ' + locale, async ({page}) => {
       const altered = structuredClone(bundle); const entry = altered.cases[0]; const p = entry.passRecordings;
-      if (mode === 'body') p.retry.snapshots.available.bodies[0].text += ' ';
+      if (mode === 'known-input-bytes' || mode === 'known-source-bytes') {
+        const run = p.budget; const record = JSON.parse(run.observation.text);
+        for (const event of record.events) for (const ref of event.originalBodies)
+          if (mode === 'known-source-bytes' ? ['source', 'decoded-source'].includes(ref.role) : ref.role === 'input') ref.bytes++;
+        rewriteFrame(run.observation, record);
+        for (const view of Object.values(run.snapshots) as {frame: {text: string; digest: {algorithm: string; value: string}}}[]) {
+          const snapshot = JSON.parse(view.frame.text); snapshot.originalRecord = {digest: run.observation.digest, metadata: record}; rewriteFrame(view.frame, snapshot);
+        }
+        const response = JSON.parse(run.response.text); response.observationDigest = run.observation.digest; rewriteFrame(run.response, response);
+        const receipt = JSON.parse(run.receipt.text); receipt.observationRecordDigest = run.observation.digest; receipt.hostResponseDigest = run.response.digest; rewriteFrame(run.receipt, receipt);
+        for (const [child, parent] of [['diagnostic', 'original'], ['budget', 'diagnostic'], ['eventGap', 'budget'], ['retry', 'cancelled']]) {
+          const manifest = JSON.parse(p[child].manifest.text); manifest.origin = {runId: JSON.parse(p[parent].manifest.text).runId,
+            manifestDigest: p[parent].manifest.digest, receiptDigest: p[parent].receipt.digest, attemptId: JSON.parse(p[parent].response.text).attemptId};
+          rewriteFrame(p[child].manifest, manifest); const reply = JSON.parse(p[child].response.text); reply.manifestDigest = p[child].manifest.digest; rewriteFrame(p[child].response, reply);
+          const linked = JSON.parse(p[child].receipt.text); linked.manifestDigest = p[child].manifest.digest; linked.hostResponseDigest = p[child].response.digest; rewriteFrame(p[child].receipt, linked);
+        }
+      } else if (mode === 'body') p.retry.snapshots.available.bodies[0].text += ' ';
       else if (mode === 'foreign-member') p.diagnostic = altered.cases[1].passRecordings.diagnostic;
       else if (mode === 'cancel-result') p.cancelled.result = p.original.result;
       else if (mode === 'snapshot') p.diagnostic.snapshots.budget.frame.text += ' ';

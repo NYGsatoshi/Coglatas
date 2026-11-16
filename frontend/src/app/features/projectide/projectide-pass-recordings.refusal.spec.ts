@@ -70,3 +70,27 @@ describe('Original pass recording refusal', () => {
     expect(passRunIdentitiesAreUnique(data.cases)).toBe(false);
   });
 });
+
+function repairOriginalOrigins(p: PassRecordingProjection) {
+  for (const [child, parent] of [['diagnostic', 'original'], ['budget', 'diagnostic'], ['eventGap', 'budget'], ['retry', 'cancelled']] as const) {
+    rewrite(p[child].manifest, d => {d['origin'] = {runId: JSON.parse(p[parent].manifest.text).runId, manifestDigest: p[parent].manifest.digest,
+      receiptDigest: p[parent].receipt.digest, attemptId: JSON.parse(p[parent].response.text).attemptId};});
+    rewrite(p[child].response, d => {d['manifestDigest'] = p[child].manifest.digest;});
+    rewrite(p[child].receipt, d => {d['manifestDigest'] = p[child].manifest.digest; d['hostResponseDigest'] = p[child].response.digest;});
+  }
+}
+const knownByteCases = (['original', 'budget'] as const).flatMap(label => (['source', 'input'] as const).flatMap(role =>
+  ([-1, 1] as const).map(delta => ({label, role, delta}))));
+describe('Known original Source and input lengths in body-free capture', () => {
+  it.each(knownByteCases)('refuses fully rehashed $label $role byte count delta $delta', async ({label, role, delta}) => {
+    const value = bundle().cases[0]; const p = projection(value);
+    changedObservation(p[label], d => {
+      for (const event of events(d)) for (const ref of event['originalBodies'] as Record<string, unknown>[]) {
+        if (role === 'source' ? ['source', 'decoded-source'].includes(ref['role'] as string) : ref['role'] === 'input')
+          ref['bytes'] = Number(ref['bytes']) + delta;
+      }
+    });
+    repairOriginalOrigins(p); const sources = (await readRootSource(value))!;
+    await expect(readPassRecording(value, sources, label)).rejects.toThrow('unsupported-pass-recording');
+  });
+});

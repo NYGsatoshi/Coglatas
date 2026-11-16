@@ -131,7 +131,8 @@ const recordGaps = [
   'Root publication precedes dependency attachment and does not impersonate the final result.',
   'Thrown failures that do not return a compilation do not return an observation.', 'This observation is not FullDump or FullTrace.'
 ];
-function verifyObservation(value: PreviewCase, record: Record<string, unknown>, policy: Record<string, unknown>, compiler: unknown): Map<string, Readonly<Record<string, unknown>>> {
+function verifyObservation(value: PreviewCase, record: Record<string, unknown>, policy: Record<string, unknown>, compiler: unknown,
+  knownBodyBytes: Readonly<{source: number; input: number}>): Map<string, Readonly<Record<string, unknown>>> {
   const state = record['state']; const resultAxes = axes(obj(value.result));
   const wanted = policy['maximumEvents'] === 1 ? 'EventLimitExceeded' : policy['mode'] === 'Manifest' ? 'ManifestOnly' :
     policy['maximumBodyBytes'] === 1 ? 'BodyBudgetExceeded' : 'AvailableOriginalJson';
@@ -159,8 +160,8 @@ function verifyObservation(value: PreviewCase, record: Record<string, unknown>, 
       const ref = obj(rawRef); const role = ref['role'] as string;
       if (!digest(ref['digest']) || !integer(ref['bytes'], 1, 4_194_304)) return fail();
       expect(ref, { role, domain: roleDomains[role], digest: ref['digest'], bytes: ref['bytes'] });
-      if (role === 'source' || role === 'decoded-source') expect(ref['digest'], value.sourceDigest);
-      if (role === 'input') expect(ref['digest'], value.inputDigest);
+      if (role === 'source' || role === 'decoded-source') { expect(ref['digest'], value.sourceDigest); expect(ref['bytes'], knownBodyBytes.source); }
+      if (role === 'input') { expect(ref['digest'], value.inputDigest); expect(ref['bytes'], knownBodyBytes.input); }
       if (['semantic-model', 'ir', 'source-map'].includes(role)) {
         const matches = artifacts.filter(v => obj(v)['role'] === 'coglatas.' + role); if (matches.length !== 1) return fail();
         expect(ref['digest'], obj(matches[0])['digest']); expect(obj(matches[0])['inputDigest'], value.inputDigest);
@@ -207,7 +208,8 @@ async function verifyPassSnapshots(value: PreviewCase, run: PassRecordingFrame, 
   }
   return Object.freeze(verified);
 }
-async function verifyPassRun(value: PreviewCase, run: PassRecordingFrame, label: PassRecordingLabel, compiler: unknown): Promise<VerifiedPassRun> {
+async function verifyPassRun(value: PreviewCase, run: PassRecordingFrame, label: PassRecordingLabel, compiler: unknown,
+  knownBodyBytes: Readonly<{source: number; input: number}>): Promise<VerifiedPassRun> {
   if (!fields(run, ['request', 'policy', 'baseExecution', 'materializations', 'manifest', 'response', 'receipt', 'result', 'observation', 'snapshots'])) return fail();
   const [request, policy, base, materializations, manifest, response, receipt] = await Promise.all([
     frame(run.request, 'coglatas.local-pass-observation-compiler-host-input/1'), frame(run.policy, 'coglatas.local-pass-observation-capture-policy/1'),
@@ -242,7 +244,7 @@ async function verifyPassRun(value: PreviewCase, run: PassRecordingFrame, label:
     if (!run.result || !run.observation || run.result.text !== value.rootSource?.result.text || !equal(run.result.digest, value.resultDigest)) return fail();
     expect(await frame(run.result, 'coglatas.compiler-result/1', 'coglatas.compiler-result/1', false), value.result);
     record = await frame(run.observation, 'coglatas.local-initial-root-pass-observation/1');
-    const refs = verifyObservation(value, record, policy, compiler);
+    const refs = verifyObservation(value, record, policy, compiler, knownBodyBytes);
     snapshots = await verifyPassSnapshots(value, run, record, refs);
   }
   const resultAxes = axes(obj(value.result));
@@ -307,7 +309,8 @@ export async function readPassRecording(value: PreviewCase, sources: AdmittedRoo
   if (copy.source.text !== sources.sourceText || copy.input.text !== sources.projection.inputText || !equal(copy.source.digest, value.sourceDigest) ||
     !equal(copy.input.digest, value.inputDigest)) return fail();
   const compiler = obj(input['settings'])['compiler']; const verified = new Map<PassRecordingLabel, VerifiedPassRun>();
-  for (const name of labels) verified.set(name, await verifyPassRun(value, copy[name], name, compiler));
+  const knownBodyBytes = Object.freeze({source: bytes(copy.source.text), input: bytes(copy.input.text)});
+  for (const name of labels) verified.set(name, await verifyPassRun(value, copy[name], name, compiler, knownBodyBytes));
   const original = verified.get('original')!; const diagnostic = verified.get('diagnostic')!; const cancelled = verified.get('cancelled')!; const retry = verified.get('retry')!;
   const runs = new Set([...verified.values()].map(run => run.manifest['runId'])); const attempts = new Set([...verified.values()].map(run => run.response['attemptId']));
   if (runs.size !== 6 || attempts.size !== 6 || [...runs].some(id => attempts.has(id))) return fail();
