@@ -1,14 +1,19 @@
 # AI Context
 
+[Owned admitted Source rosters](verification/projectide-scoped-source-roster-ownership.md)
+keeps the pure ViewModel display sequence faithful to its accepted Core regions
+without exposing the copied backing array. Original Compiler facts, admission,
+navigation and all runtime/native activation holds remain separate.
+
 [Owned diagnostic premise rosters](verification/projectide-diagnostic-basis-immutability.md)
+keeps retained basis pages faithful to actual recorded digests through legacy
+collection interfaces. Original Compiler evidence and result identities remain
+unchanged; bodies, logical/causal structure and all activation holds stay separate.
 
 [Owned premise publication cancellation](verification/projectide-premise-publication-cancellation.md)
 tracks exact-generation/snapshot withdrawal of cancelled local reads while
 preserving newer successful reads and original Compiler facts; qualification
 is recorded separately.
-keeps retained basis pages faithful to actual recorded digests through legacy
-collection interfaces. Original Compiler evidence and result identities remain
-unchanged; bodies, logical/causal structure and all activation holds stay separate.
 
 [Paired local reference pages](verification/projectide-paired-reference-pages.md)
 adopts actual bounded Core pages in the pure ViewModel and the Angular offline
