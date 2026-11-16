@@ -75,7 +75,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _passSnapshotGeneration && root == _rootSourceGeneration &&
             CurrentPassSource && ReferenceEquals(request, _desiredPassRequest) && ReferenceEquals(actual, _acceptedPassInvocation) &&
             ReferenceEquals(compilation, _compilation) && compilation!.Result.ResultDigest.Equals(expectedResult);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPassObservationSnapshot.Read(execution, compilation!, execution.Observation, compilation!.Input.InputDigest, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;

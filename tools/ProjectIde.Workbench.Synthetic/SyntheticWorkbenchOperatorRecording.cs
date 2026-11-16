@@ -78,7 +78,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _operatorSnapshotGeneration && root == _rootSourceGeneration && selection == _selectionGeneration &&
             CurrentOperatorSource && diagnostic is not null && ReferenceEquals(request, _desiredOperatorRequest) && ReferenceEquals(actual, _acceptedOperatorInvocation) &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(diagnostic, SelectedDiagnostic) && compilation!.Result.ResultDigest.Equals(expectedResult);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, diagnostic!, mode, maximumBodyBytes, token);
         if (!Current()) return false;

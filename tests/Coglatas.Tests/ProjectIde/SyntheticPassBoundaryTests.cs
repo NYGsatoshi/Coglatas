@@ -160,4 +160,78 @@ public sealed class SyntheticPassBoundaryTests
         else Assert.Null(vm.RecordedPassBoundary);
         Assert.IsType<OperationCanceledException>(error);
     }
+
+    private sealed class CancelInitialRecordedRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly ContentDigest _expected;
+        private readonly ContentDigest _refused;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectCompilerPassBoundarySnapshot Initial { get; }
+        public ProjectCompilerPassBoundarySnapshot? Replacement { get; private set; }
+        public CancelInitialRecordedRead(SyntheticWorkbenchViewModel view, bool admitted)
+        {
+            _view = view; _admitted = admitted;
+            _expected = view.Result!.ResultDigest; _refused = view.Result.Input.InputDigest;
+            Assert.True(ReadCurrent(_expected, default));
+            Initial = view.RecordedPassBoundary!;
+            view.PropertyChanged += Changed;
+        }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => ReadCurrent(_expected, Token);
+        private bool ReadCurrent(ContentDigest expected, CancellationToken token) =>
+            _view.ReadRecordedPassBoundary(expected, 0, CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.RecordedPassBoundary is not null) return;
+            Fired = true;
+            ReplacementSucceeded = ReadCurrent(_admitted ? _expected : _refused, default);
+            Replacement = _view.RecordedPassBoundary;
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationAtInitialRecordedReadNotificationReportsCancellationWithoutErasingNewerRead(bool admitted)
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input();
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var view = new SyntheticWorkbenchViewModel();
+        await Prepare(view, session);
+        Assert.True(view.LoadSyntheticRootSource(view.Result!.ResultDigest));
+        var result = view.Result!;
+        var resultData = result.Data;
+        using var cancellation = new CancelInitialRecordedRead(view, admitted);
+        var previous = cancellation.Initial;
+        var previousData = previous.Data;
+        Assert.NotEmpty(previous.Bodies);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Equal(admitted, cancellation.ReplacementSucceeded);
+        var latest = cancellation.Replacement;
+        Assert.Same(latest, view.RecordedPassBoundary);
+        if (admitted)
+        {
+            Assert.NotNull(latest);
+            Assert.NotSame(previous, latest);
+            Assert.NotEmpty(latest.Bodies);
+        }
+        else
+        {
+            Assert.Null(latest);
+        }
+        Assert.Same(result, view.Result);
+        Assert.Equal(resultData, result.Data);
+        Assert.Equal(previousData, previous.Data);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }
