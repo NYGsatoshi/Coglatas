@@ -63,7 +63,7 @@ def verified_zip(path: Path, expected_digest: str):
     except OSError:
         raise ReconciliationError("Artifact input must be a regular file.") from None
     # Parse the exact hashed snapshot, even if the caller replaces its input path.
-    with tempfile.TemporaryFile() as snapshot, os.fdopen(descriptor, "rb") as source:
+    with os.fdopen(descriptor, "rb") as source, tempfile.TemporaryFile() as snapshot:
         opened = os.fstat(source.fileno())
         require(stat.S_ISREG(opened.st_mode) and 0 < opened.st_size <= MAX_ARCHIVE,
                 "Artifact size or file type is unsupported.")
