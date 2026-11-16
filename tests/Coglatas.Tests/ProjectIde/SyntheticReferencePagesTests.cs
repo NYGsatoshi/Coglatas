@@ -159,4 +159,28 @@ public sealed class SyntheticReferencePagesTests
         Assert.True(vm.LoadSyntheticRootSource(vm.Result!.ResultDigest));
         Assert.NotNull(vm.ReadReferenceSearchPage());
     }
+
+    [Theory]
+    [InlineData("page")] [InlineData("ordinary")]
+    public async Task CancellationDuringPublicationWithdrawsTheOwnedPageAndPreservesNewerOrdinaryNavigation(string action)
+    {
+        using var vm = await Ready();
+        using var cancellation = new CancellationTokenSource();
+        var root = vm.Selected!.Symbol.Location; var result = vm.Result;
+        var notifications = 0; var fired = false;
+        vm.PropertyChanged += (sender, _) => {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (fired || ++notifications != 2) return;
+            fired = true;
+            var page = Assert.IsType<ReferenceSearchPage>(current.ReferencePage);
+            Assert.True(current.NavigateReferencePageOrigin(page, page.References[0]));
+            if (action == "ordinary") Assert.True(current.Navigate());
+            cancellation.Cancel();
+        };
+        Assert.Throws<OperationCanceledException>(() => vm.ReadReferenceSearchPage(cancellationToken: cancellation.Token));
+        Assert.True(fired); Assert.Same(result, vm.Result);
+        Assert.Null(vm.ReferencePage);
+        if (action == "ordinary") Assert.Same(root, vm.SourceTarget);
+        else Assert.Null(vm.SourceTarget);
+    }
 }

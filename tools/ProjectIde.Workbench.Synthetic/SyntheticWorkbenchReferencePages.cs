@@ -59,7 +59,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         _referencePageOwner = owner; Changed();
         if (cancellationToken.IsCancellationRequested)
         {
-            if (Current() && ReferenceEquals(_referencePageOwner, owner)) { ClearReferenceSearchPage(); Changed(); }
+            if (query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner)) { ClearReferenceSearchPage(); Changed(); }
             cancellationToken.ThrowIfCancellationRequested();
         }
         return Current() && ReferenceEquals(ReferencePage, page) ? page : null;
