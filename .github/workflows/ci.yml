@@ -1001,6 +1001,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Collect bounded image keyboard observations from every attempt
+        id: collect-image-keyboard-observations
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
+        timeout-minutes: 2
+        run: node scripts/ci/collect-image-keyboard-observations.mjs
+
+      - name: Retain validated image keyboard observations after retry success
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.collect-image-keyboard-observations.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: image-keyboard-observations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/image-keyboard-observation-validated/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Collect bounded Search drawer observations from every attempt
         id: collect-search-drawer-observations
         if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
