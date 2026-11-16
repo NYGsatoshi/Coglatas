@@ -200,7 +200,11 @@ class CatalogMetadataContracts(unittest.TestCase):
         self.assertEqual(set(diagnostic), {"availability", "sourceCatalogSha256",
                          "restoredCatalogSha256", "schemaClassification", "interpretation", "counts"})
         self.assertEqual(diagnostic["schemaClassification"], "UNCLASSIFIED")
-        self.assertEqual(diagnostic["interpretation"], "STRUCTURAL_FIELD_DIFFERENCES_ONLY")
+        self.assertIn(diagnostic["interpretation"], {
+            "UNAVAILABLE", "EXACT_CATALOG_BYTES", "RAW_TREE_FIELD_DIFFERENCES_PRESENT",
+            "OTHER_OR_UNMATCHED_RECORDS", "SAME_RECORDS_DIFFERENT_BYTES"})
+        self.assertEqual(diagnostic["interpretation"] == "UNAVAILABLE",
+                         diagnostic["availability"] == "UNAVAILABLE")
         self.assertNotIn(CANARY.decode(), json.dumps(diagnostic))
         for key in ("sourceCatalogSha256", "restoredCatalogSha256"):
             self.assertTrue(diagnostic[key] is None or caller.support.digest_value(diagnostic[key]))
@@ -216,6 +220,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         diagnostic = caller.catalog_diagnostic(raw, raw)
         self.assert_closed(diagnostic)
         self.assertEqual(diagnostic["availability"], "AVAILABLE")
+        self.assertEqual(diagnostic["interpretation"], "EXACT_CATALOG_BYTES")
         self.assertEqual(diagnostic["sourceCatalogSha256"], caller.support.sha(raw))
         self.assertEqual(diagnostic["restoredCatalogSha256"], caller.support.sha(raw))
         self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 4)
@@ -228,6 +233,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         right[0][8] = "RAW_B"
         diagnostic = self.diagnose(left, right)
         self.assertEqual(diagnostic["counts"]["CONSTRAINT_RAW_TREE_FIELD_ONLY"], 1)
+        self.assertEqual(diagnostic["interpretation"], "RAW_TREE_FIELD_DIFFERENCES_PRESENT")
         self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
         self.assertNotEqual(diagnostic["sourceCatalogSha256"], diagnostic["restoredCatalogSha256"])
 
@@ -238,6 +244,7 @@ class CatalogMetadataContracts(unittest.TestCase):
             right[1][field] = None
             diagnostic = self.diagnose(left, right)
             self.assertEqual(diagnostic["counts"]["INDEX_RAW_TREE_FIELDS_ONLY"], 1)
+            self.assertEqual(diagnostic["interpretation"], "RAW_TREE_FIELD_DIFFERENCES_PRESENT")
             self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 0)
 
     def test_constraint_definition_flags_and_scope_mutations_are_not_raw_only(self):
@@ -266,18 +273,32 @@ class CatalogMetadataContracts(unittest.TestCase):
             right[row][field] = value
             diagnostic = self.diagnose(left, right)
             self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 1)
+            self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
             self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
 
     def test_added_removed_and_duplicate_records_do_not_invent_matches(self):
         rows = catalog_rows()
         diagnostic = self.diagnose(rows, rows[:-1])
         self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
         self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 0)
         diagnostic = self.diagnose(rows[:-1], rows)
         self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
         diagnostic = self.diagnose(rows + [rows[0]], rows)
         self.assertEqual(diagnostic["availability"], "UNAVAILABLE")
         self.assertEqual(diagnostic["counts"], {})
+
+    def test_mixed_raw_tree_and_unmatched_records_are_not_misreported_as_raw_only(self):
+        left = catalog_rows()
+        right = copy.deepcopy(left)
+        right[0][8] = "RAW_B"
+        right[1][7] = "DIFFERENT_INDEX_DEFINITION"
+        diagnostic = self.diagnose(left, right)
+        self.assertEqual(diagnostic["counts"]["CONSTRAINT_RAW_TREE_FIELD_ONLY"], 1)
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["interpretation"], "OTHER_OR_UNMATCHED_RECORDS")
 
     def test_malformed_unknown_nonfinite_and_nonbyte_inputs_are_closed(self):
         valid = catalog_bytes(catalog_rows())
@@ -307,6 +328,7 @@ class CatalogMetadataContracts(unittest.TestCase):
             diagnostic = caller.catalog_diagnostic(left, right)
             self.assert_closed(diagnostic)
             self.assertEqual(diagnostic["availability"], "AVAILABLE")
+            self.assertEqual(diagnostic["interpretation"], "SAME_RECORDS_DIFFERENT_BYTES")
             before = {name: b"identical" for name in caller.COMPARISONS}
             after = before.copy()
             before["catalog.txt"], after["catalog.txt"] = left, right
@@ -334,6 +356,7 @@ class CatalogMetadataContracts(unittest.TestCase):
     def test_unavailable_diagnostic_is_metadata_only(self):
         result = complete()
         result["catalogDiagnostic"] = caller.catalog_diagnostic(b"invalid", b"invalid")
+        self.assertEqual(result["catalogDiagnostic"]["interpretation"], "UNAVAILABLE")
         self.assertTrue(caller.candidate_complete(result))
 
 

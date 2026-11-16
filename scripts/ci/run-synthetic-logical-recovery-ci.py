@@ -64,7 +64,7 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
     """Closed structural metadata only; never an oracle or a semantic verdict."""
     output = {"availability": "UNAVAILABLE", "sourceCatalogSha256": None,
               "restoredCatalogSha256": None, "schemaClassification": "UNCLASSIFIED",
-              "interpretation": "STRUCTURAL_FIELD_DIFFERENCES_ONLY", "counts": {}}
+              "interpretation": "UNAVAILABLE", "counts": {}}
     if type(before) is not bytes or type(after) is not bytes:
         return output
     output["sourceCatalogSha256"], output["restoredCatalogSha256"] = support.sha(before), support.sha(after)
@@ -129,7 +129,17 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
             else:
                 category = "OTHER_CHANGED_RECORDS"
             counts[category] += 1
-        output.update(availability="AVAILABLE", counts=counts)
+        # Closed diagnostic labels never relax the strict byte-for-byte oracle.
+        if (counts["OTHER_CHANGED_RECORDS"] or counts["SOURCE_ONLY_RECORDS"]
+                or counts["RESTORED_ONLY_RECORDS"]):
+            interpretation = "OTHER_OR_UNMATCHED_RECORDS"
+        elif (counts["CONSTRAINT_RAW_TREE_FIELD_ONLY"] or counts["INDEX_RAW_TREE_FIELDS_ONLY"]):
+            interpretation = "RAW_TREE_FIELD_DIFFERENCES_PRESENT"
+        elif before == after:
+            interpretation = "EXACT_CATALOG_BYTES"
+        else:
+            interpretation = "SAME_RECORDS_DIFFERENT_BYTES"
+        output.update(availability="AVAILABLE", counts=counts, interpretation=interpretation)
     except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, IndexError, RecursionError):
         pass  # No partial classification, parser error or private value is emitted.
     return output
