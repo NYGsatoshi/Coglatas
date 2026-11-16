@@ -24,17 +24,25 @@ function changedObservation(run: PassRecordingFrame, change: (data: Record<strin
   rewrite(run.response, data => {data['observationDigest'] = run.observation!.digest;});
   rewrite(run.receipt, data => {data['observationRecordDigest'] = run.observation!.digest; data['hostResponseDigest'] = run.response.digest;});
 }
+
+function changedDiagnosticObservation(p: PassRecordingProjection, change: (data: Record<string, unknown>) => void) {
+  changedObservation(p.diagnostic, change);
+  put(p.retry, 'observation', structuredClone(p.diagnostic.observation));
+  changedObservation(p.retry, () => {});
+  repairOriginalOrigins(p);
+}
+
 const events = (d: Record<string, unknown>) => d['events'] as Record<string, unknown>[];
 const variants: readonly [string, (p: PassRecordingProjection) => void][] = [
-  ['changed event ordinal with repaired hashes', p => changedObservation(p.diagnostic, d => {events(d)[0]['ordinal'] = 1;})],
-  ['changed actual pass with repaired hashes', p => changedObservation(p.diagnostic, d => {events(d)[0]['passId'] = 'coglatas.publication';})],
-  ['changed entry phase with repaired hashes', p => changedObservation(p.diagnostic, d => {events(d)[0]['phase'] = 'Returned';})],
-  ['erased explicit boundary gap with repaired hashes', p => changedObservation(p.diagnostic, d => {events(d)[3]['gap'] = '';})],
-  ['changed visited counter with repaired hashes', p => changedObservation(p.diagnostic, d => {d['visitedEvents'] = 11;})],
-  ['changed retained counter with repaired hashes', p => changedObservation(p.diagnostic, d => {d['retainedEvents'] = 9;})],
-  ['changed original body role with repaired hashes', p => changedObservation(p.diagnostic, d => {(events(d)[0]['originalBodies'] as Record<string, unknown>[])[0]['role'] = 'input';})],
-  ['changed original byte count with repaired hashes', p => changedObservation(p.diagnostic, d => {const b = (events(d)[0]['originalBodies'] as Record<string, unknown>[])[0]; b['bytes'] = Number(b['bytes']) + 1;})],
-  ['injected event with repaired hashes', p => changedObservation(p.diagnostic, d => {events(d).push(events(d)[0]);})],
+  ['changed event ordinal with repaired hashes', p => changedDiagnosticObservation(p, d => {events(d)[0]['ordinal'] = 1;})],
+  ['changed actual pass with repaired hashes', p => changedDiagnosticObservation(p, d => {events(d)[0]['passId'] = 'coglatas.publication';})],
+  ['changed entry phase with repaired hashes', p => changedDiagnosticObservation(p, d => {events(d)[0]['phase'] = 'Returned';})],
+  ['erased explicit boundary gap with repaired hashes', p => changedDiagnosticObservation(p, d => {events(d)[3]['gap'] = '';})],
+  ['changed visited counter with repaired hashes', p => changedDiagnosticObservation(p, d => {d['visitedEvents'] = 11;})],
+  ['changed retained counter with repaired hashes', p => changedDiagnosticObservation(p, d => {d['retainedEvents'] = 9;})],
+  ['changed original body role with repaired hashes', p => changedDiagnosticObservation(p, d => {(events(d)[0]['originalBodies'] as Record<string, unknown>[])[0]['role'] = 'input';})],
+  ['changed original byte count with repaired hashes', p => changedDiagnosticObservation(p, d => {const b = (events(d)[0]['originalBodies'] as Record<string, unknown>[])[0]; b['bytes'] = Number(b['bytes']) + 1;})],
+  ['injected event with repaired hashes', p => changedDiagnosticObservation(p, d => {events(d).push(events(d)[0]);})],
   ['viewer changes original capture state', p => rewrite(p.diagnostic.snapshots!.available.frame, d => {d['originalRecord'] = null;})],
   ['viewer changes budget', p => rewrite(p.diagnostic.snapshots!.budget.frame, d => {d['maximumBodyBytes'] = 1_048_576;})],
   ['missing original body', p => put(p.diagnostic.snapshots!.available, 'bodies', p.diagnostic.snapshots!.available.bodies.slice(1))],
@@ -45,6 +53,16 @@ const variants: readonly [string, (p: PassRecordingProjection) => void][] = [
   ['genuine record from another context', p => put(p, 'diagnostic', structuredClone(projection(bundle().cases[1]).diagnostic))]
 ];
 describe('Original pass recording refusal', () => {
+  it('admits a no-op observation after repairing all dependent retry and origin bindings', async () => {
+    const value = bundle().cases[0]; const p = projection(value);
+    changedDiagnosticObservation(p, () => {}); const sources = (await readRootSource(value))!;
+    const diagnostic = (await readPassRecording(value, sources, 'diagnostic'))!;
+    const retry = (await readPassRecording(value, sources, 'retry'))!;
+    expect(diagnostic.observation).toEqual(retry.observation);
+    expect(passRecordingMatches(value, sources, diagnostic)).toBe(true);
+    expect(passRecordingMatches(value, sources, retry)).toBe(true);
+  });
+
   it.each(variants)('refuses %s', async (_, change) => {
     const value = bundle().cases[0]; change(projection(value)); const sources = (await readRootSource(value))!;
     await expect(readPassRecording(value, sources, 'diagnostic')).rejects.toThrow('unsupported-pass-recording');
