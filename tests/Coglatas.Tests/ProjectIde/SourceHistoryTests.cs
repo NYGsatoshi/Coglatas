@@ -387,4 +387,68 @@ public sealed class SourceHistoryTests
         Assert.NotNull(fixture.Newer); Assert.Equal(HistoryReadState.Ready, fixture.Newer.State); Assert.Equal(beforeData, fixture.Newer.Source!.Data);
         Assert.Same(fixture.Newer, view.History); Assert.Null(returned);
     }
+
+    private sealed class CancelSupersededHistoryRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly ProjectSource _before;
+        private readonly ProjectSource _after;
+        private readonly ProjectHistoryRevision[] _records;
+        private readonly bool _replace;
+        public bool Fired { get; private set; }
+        public bool OuterSupplierInvoked { get; private set; }
+        public bool ForeignSupplierInvoked { get; private set; }
+        public HistoryReconstruction? Newer { get; private set; }
+        public CancellationToken Token => _source.Token;
+        public CancelSupersededHistoryRead(SyntheticWorkbenchViewModel vm, ProjectSource before, ProjectSource after,
+            ProjectHistoryRevision[] records, bool replace)
+        { _vm = vm; _before = before; _after = after; _records = records; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadSyntheticHistory(Ref(_after), Supply(), Token);
+        private IEnumerable<ProjectHistoryRevision?> Supply()
+        { OuterSupplierInvoked = true; foreach (var record in _records) yield return record; }
+        private IEnumerable<ProjectHistoryRevision?> ForeignSupply()
+        { ForeignSupplierInvoked = true; yield return _records[0]; }
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _vm.History is not null) return;
+            Fired = true;
+            var foreign = new RevisionRef(new(_before.TenantId, ProjectId.Parse(Id(99)), _before.Context.Branch.BranchId), RevisionId.Parse(Id(50)));
+            Newer = _replace ? _vm.ReadSyntheticHistory(Ref(_before), [_records[0]]) : _vm.ReadSyntheticHistory(foreign, ForeignSupply());
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task SupersessionDuringInitialHistoryClearStillReportsOuterCancellation(bool replace)
+    {
+        var input = Input(); var before = Revision(50); var after = Revision(51, "Changed");
+        ProjectHistoryRevision[] records = [ProjectHistoryRevision.Checkpoint(before, 0),
+            ProjectHistoryRevision.ForwardDelta(ProjectSourceDelta.Create(before, after), 1)];
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel(); var request = new CompilerHostRequest(new(input), 1); view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var beforeData = before.Data; var afterData = after.Data;
+        var previous = view.ReadSyntheticHistory(Ref(after), records)!;
+        Assert.Equal(HistoryReadState.Ready, previous.State); Assert.Equal(2, previous.ReconstructionPath.Count); Assert.Equal(afterData, previous.Source!.Data);
+        using var cancellation = new CancelSupersededHistoryRead(view, before, after, records, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.False(cancellation.OuterSupplierInvoked); Assert.False(cancellation.ForeignSupplierInvoked);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Equal(beforeData, before.Data); Assert.Equal(afterData, after.Data); Assert.Equal(afterData, previous.Source!.Data);
+        if (replace)
+        {
+            Assert.NotNull(cancellation.Newer); Assert.Equal(HistoryReadState.Ready, cancellation.Newer.State);
+            Assert.Equal(beforeData, cancellation.Newer.Source!.Data); Assert.Same(cancellation.Newer, view.History);
+        }
+        else { Assert.Null(cancellation.Newer); Assert.Null(view.History); }
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }
