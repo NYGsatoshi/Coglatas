@@ -807,6 +807,23 @@
                   }
                   @for (body of boundary.bodies; track body.key) {
                     <details data-testid="ide-pass-boundary-body"><summary>{{ body.domain }} · {{ body.bytes }}</summary><code>{{ body.digest.value }}</code><pre tabindex="0">{{ body.text }}</pre></details>
+                    @if (body.domain === 'coglatas.semantic-source-map/1') {
+                      <button type="button" data-testid="ide-pass-source-read" (click)="loadPassBoundarySourcePage()">{{ t('ide.passSourceRead') }}</button>
+                    }
+                  }
+                  @if (store.passBoundarySourcePage(); as page) {
+                    <section data-testid="ide-pass-source-page" aria-labelledby="ide-pass-source-title">
+                      <h4 id="ide-pass-source-title">{{ t('ide.passSourceTitle') }}</h4><p>{{ t('ide.passSourceNotice') }}</p>
+                      <p><code>{{ page.originalMapDigest.value }}</code></p>
+                      <p>{{ page.offset }} / {{ page.totalTargets }} · {{ t('ide.passSourceLimit') }}: {{ page.maximumTargets }}</p>
+                      <ul>@for (target of page.targets; track $index) {
+                        <li><button type="button" data-testid="ide-pass-source-target" (click)="navigatePassBoundarySource(page, target)">{{ t('ide.passSourceOpen') }} · {{ target.kind }} · {{ target.identity }}</button></li>
+                      }</ul>
+                      <div class="panels">
+                        <button type="button" (click)="loadPassBoundarySourcePage(page.offset - page.maximumTargets)" [disabled]="page.offset === 0">{{ t('ide.passSourcePrevious') }}</button>
+                        <button type="button" (click)="loadPassBoundarySourcePage(page.offset + page.maximumTargets)" [disabled]="page.offset + page.targets.length >= page.totalTargets">{{ t('ide.passSourceNext') }}</button>
+                      </div>
+                    </section>
                   }
                 </section>
               }
