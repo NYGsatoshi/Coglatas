@@ -211,4 +211,67 @@ public sealed class SyntheticSimulationTraceProfileTests
         var refused = view.SimulationTraceProfile!; Assert.Equal(SimulationTraceProfileState.Refused, refused.State);
         Assert.Null(view.ReadSimulationTraceProfileRun(refused)); Assert.Same(run, view.SimulationRun);
     }
+
+    private sealed class CancelInitialRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly ProjectSimulationRun _run;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectSimulationTraceProfile? Replacement { get; private set; }
+        public CancelInitialRead(SyntheticWorkbenchViewModel view, bool admitted)
+        {
+            _view = view; _admitted = admitted; _run = view.SimulationRun!;
+            view.PropertyChanged += Changed;
+        }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.ProfileSyntheticSimulation(_run.Digest, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.SimulationTraceProfile is not null) return;
+            Fired = true;
+            ReplacementSucceeded = _view.ProfileSyntheticSimulation(_admitted ? _run.Digest : _run.Manifest.Digest);
+            Replacement = _view.SimulationTraceProfile;
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationDuringInitialNotificationReportsCancellationAndPreservesTheNewerSummary(bool admitted)
+    {
+        var f = await Ready();
+        using var view = f.View;
+        var run = view.SimulationRun!;
+        var result = view.Result!;
+        var runData = run.Data;
+        var resultData = result.Data;
+        Assert.True(view.ProfileSyntheticSimulation(run.Digest));
+        var previous = view.SimulationTraceProfile!;
+        var previousData = previous.Data;
+        using var cancellation = new CancelInitialRead(view, admitted);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Equal(admitted, cancellation.ReplacementSucceeded);
+        var latest = cancellation.Replacement;
+        Assert.NotNull(latest);
+        Assert.NotSame(previous, latest);
+        Assert.Same(latest, view.SimulationTraceProfile);
+        Assert.Equal(admitted ? SimulationTraceProfileState.Complete : SimulationTraceProfileState.Refused, latest.State);
+        if (admitted) Assert.Same(run, latest.Run);
+        else Assert.Null(latest.Run);
+        Assert.Same(run, view.SimulationRun);
+        Assert.Same(result, view.Result);
+        Assert.Equal(runData, run.Data);
+        Assert.Equal(resultData, result.Data);
+        Assert.Equal(previousData, previous.Data);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }

@@ -1,5 +1,10 @@
 # AI Context
 
+Read [initial model read cancellation](verification/projectide-model-read-initial-cancellation.md)
+for the pure Workbench profile/comparison initial notification boundary: a
+cancelled older read reports cancellation while retaining the newer admitted
+or refused view. This adds no execution, protocol or current access grant.
+
 [Fixed model summary recording navigation](verification/projectide-summary-recording-navigation.md)
 resolves only the exact current owned summary and focuses its existing recording.
 Metrics, original event data and simulated-model meaning are unchanged. Durable
