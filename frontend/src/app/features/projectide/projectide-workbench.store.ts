@@ -1,3 +1,4 @@
+import {PassBoundarySourcePage, PassBoundarySourceTarget, readPassBoundarySourcePage, passBoundarySourcePageMatches} from './projectide-pass-source-navigation.reader';
 import { AdmittedRecordedPassBoundary, readRecordedPassBoundary, recordedPassBoundaryMatches } from './projectide-pass-boundary.reader';
 import { AdmittedPassRecording, AdmittedRecordedPasses, PassRecordingLabel, RecordedPassChoice, passRecordingMatches, recordedPassesMatch, readPassRecording, readRecordedPasses, passRunIdentitiesAreUnique } from './projectide-pass-recordings.reader';
 import { AdmittedOperatorRecording, AdmittedRecordedOperators, OperatorRecordingLabel, RecordedOperatorChoice, operatorRecordingMatches, recordedOperatorsMatch, readOperatorRecording, readRecordedOperators, operatorRunIdentitiesAreUnique } from './projectide-operator-recordings.reader';
@@ -16,7 +17,7 @@ import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatch
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
 import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal, untracked } from '@angular/core';
 import {
   BoundReference,
   Diagnostic,
@@ -76,14 +77,18 @@ export class ProjectIdeWorkbenchStore {
   readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
   readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
-    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap'] } | null>(null);
+    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage } | null>(null);
   private readonly currentTarget = computed(() => {
     const target = this.target();
     return target && target.context === this.context() && target.result === this.result() &&
       target.sourceMap === target.context.sourceMap &&
       !(this.referenceSelection() && !this.currentReferenceSelection()) ? target : null;
   });
-  readonly sourceTarget = () => this.currentTarget() && (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? this.currentTarget()!.record : null;
+  readonly sourceTarget = () => {
+    const target = this.currentTarget();
+    return target && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
+      (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? target.record : null;
+  };
   readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
   readonly navigationState = signal('');
   readonly history = computed(() => {
@@ -432,7 +437,39 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   private clearRecordedPassBoundary(): void {
-    this.recordedPassBoundaryGeneration++; this.recordedPassBoundarySnapshot.set(null); this.recordedPassBoundaryReadState.set('idle');
+    this.recordedPassBoundaryGeneration++; this.recordedPassBoundarySnapshot.set(null); this.recordedPassBoundaryReadState.set('idle'); this.clearPassBoundarySourcePage();
+  }
+
+  private readonly passSourcePageSnapshot = signal<{context: PreviewCase; sources: AdmittedRootSource; boundary: AdmittedRecordedPassBoundary; admitted: PassBoundarySourcePage} | null>(null);
+  readonly passBoundarySourcePage = (): PassBoundarySourcePage | null => {
+    const snapshot = this.passSourcePageSnapshot(); const context = this.context(); const sources = this.passSources(); const boundary = this.recordedPassBoundary();
+    return snapshot && context && sources && boundary && snapshot.context === context && snapshot.sources === sources && snapshot.boundary === boundary &&
+      passBoundarySourcePageMatches(context, sources, boundary, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  loadPassBoundarySourcePage(offset = 0, maximumTargets = 32): boolean {
+    this.clearPassBoundarySourcePage(); const context = this.context(); const sources = this.passSources(); const boundary = this.recordedPassBoundary();
+    if (!context || !sources || !boundary) return false;
+    try {
+      const admitted = readPassBoundarySourcePage(context, sources, boundary, offset, maximumTargets);
+      if (!admitted || context !== this.context() || sources !== this.passSources() || boundary !== this.recordedPassBoundary()) return false;
+      this.passSourcePageSnapshot.set({context, sources, boundary, admitted}); return this.passBoundarySourcePage() === admitted;
+    } catch { return false; }
+  }
+  navigatePassBoundarySource(page: PassBoundarySourcePage, candidate: PassBoundarySourceTarget): boolean {
+    this.resetSelection(); const context = this.context();
+    if (!context || this.passBoundarySourcePage() !== page || !page.targets.includes(candidate)) { this.navigationState.set('unavailable'); return false; }
+    if (!this.navigateLocation(candidate.location, true)) return false;
+    const target = this.target();
+    if (!target || this.passBoundarySourcePage() !== page) { this.target.set(null); this.navigationState.set('unavailable'); return false; }
+    this.target.set({...target, passSourcePage: page}); return this.sourceLocation() === candidate.location;
+  }
+  private clearPassBoundarySourcePage(): void {
+    // Cleanup also runs inside the identity effect; it must not subscribe that effect to user selections.
+    untracked(() => {
+      const page = this.passSourcePageSnapshot()?.admitted;
+      if (page && this.target()?.passSourcePage === page) { this.target.set(null); this.navigationState.set(''); }
+      this.passSourcePageSnapshot.set(null);
+    });
   }
 
   private rootSourceGeneration = 0;

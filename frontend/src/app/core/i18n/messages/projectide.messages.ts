@@ -1,4 +1,11 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
+  "ide.passSourceRead": "Read mapped Source targets",
+  "ide.passSourceTitle": "Source targets from this boundary",
+  "ide.passSourceNotice": "Open an existing Source record named by the retained map.",
+  "ide.passSourceLimit": "Targets per page",
+  "ide.passSourceOpen": "Open Source",
+  "ide.passSourcePrevious": "Previous targets",
+  "ide.passSourceNext": "Next targets",
   "ide.passInspectBoundary": "Inspect boundary",
   "ide.passBoundaryTitle": "Selected pass boundary",
   "ide.passBoundaryNotice": "Only this recorded boundary and its retained original JSON are shown. Its capture gaps remain unchanged.",
@@ -493,6 +500,13 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   keyof typeof PROJECTIDE_ENGLISH_MESSAGES,
   string
 > = {
+  "ide.passSourceRead": "対応するSourceの移動先を読む",
+  "ide.passSourceTitle": "この境界に対応するSource",
+  "ide.passSourceNotice": "保存された対応表にあるSourceを開きます。",
+  "ide.passSourceLimit": "1ページの移動先数",
+  "ide.passSourceOpen": "Sourceを開く",
+  "ide.passSourcePrevious": "前の移動先",
+  "ide.passSourceNext": "次の移動先",
   "ide.passInspectBoundary": "境界の詳細を見る",
   "ide.passBoundaryTitle": "選択したパス境界",
   "ide.passBoundaryNotice": "この境界に記録された情報と保存済みの原本JSONのみを表示します。元の記録の欠落は変わりません。",

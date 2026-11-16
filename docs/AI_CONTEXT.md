@@ -1,5 +1,11 @@
 # AI Context
 
+[Original pass map Source navigation](verification/projectide-pass-source-navigation.md)
+adds explicit bounded targets from the selected retained original map to Angular
+and the Windows pure ViewModel. Current page/member identity and Source/run
+ownership fence navigation; missing maps stay missing. Actual Avalonia and all
+current authority/retention, independent Security and activation gates stay separate.
+
 [Selected original pass boundaries](verification/projectide-selected-pass-boundaries.md)
 adds explicit per-boundary original reads to the Windows pure ViewModel and an
 original-frame-derived Angular selection. Current Source/run ownership, original

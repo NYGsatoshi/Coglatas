@@ -34,5 +34,5 @@ public sealed partial class SyntheticWorkbenchViewModel
     }
 
     private void ClearPassBoundarySnapshot()
-    { _passBoundaryGeneration++; _recordedPassBoundary = null; _passBoundaryCompilation = null; }
+    { _passBoundaryGeneration++; _recordedPassBoundary = null; _passBoundaryCompilation = null; ClearPassBoundarySourcePage(); }
 }

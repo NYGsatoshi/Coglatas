@@ -1,3 +1,4 @@
+import {PassBoundarySourcePage, PassBoundarySourceTarget} from './projectide-pass-source-navigation.reader';
 import { PassRecordingLabel, RecordedPassChoice } from './projectide-pass-recordings.reader';
 import { OperatorRecordingLabel, RecordedOperatorChoice } from './projectide-operator-recordings.reader';
 import { PredicateRecordingLabel, RecordedPredicateChoice } from './projectide-predicate-recordings.reader';
@@ -257,6 +258,20 @@ export class ProjectIdeWorkbenchComponent {
       if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPassBoundary())
         this.recordedPassBoundaryElement()?.nativeElement.focus();
     });
+  }
+
+  loadPassBoundarySourcePage(offset = 0): void {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (!this.store.loadPassBoundarySourcePage(offset)) return;
+    const page = this.store.passBoundarySourcePage();
+    setTimeout(() => { if (generation === this.focusGeneration && this.canRead() && page === this.store.passBoundarySourcePage())
+      this.recordedPassBoundaryElement()?.nativeElement.focus(); });
+  }
+  navigatePassBoundarySource(page: PassBoundarySourcePage, target: PassBoundarySourceTarget): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigatePassBoundarySource(page, target)) this.open('source', true);
   }
 
   passCaptureState(state: string | null): string {
