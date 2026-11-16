@@ -95,7 +95,7 @@ def build_application(root: Path, evidence: Path, expected_ddl: bytes) -> dict[s
     return {"sourceSha": source_sha, "sourceTree": source_tree, "buildExitCode": 0,
             "sdkVersion": run(["dotnet", "--version"], cwd=root).decode().strip(),
             "buildLogSha256": digest(log.read_bytes()), "generatedDdlSha256": digest(generated.read_bytes()),
-            "assemblies": {name: digest((root / "src/Coglatas.Web/bin/Release/net10.0" / name).read_bytes())
+            "assemblies": {name: digest((root / "src/Coglatas.Web/bin/Release/net11.0" / name).read_bytes())
                            for name in ("Coglatas.Web.dll", "Coglatas.Infrastructure.dll",
                                         "Coglatas.Application.dll", "Coglatas.Domain.dll")}}
 
@@ -199,7 +199,7 @@ class SyntheticApplication:
         # Prevent a retained environment from accidentally enabling another seed.
         environment.pop("COGLATAS_BOOTSTRAP_ADMIN_EMAIL", None)
         environment.pop("BootstrapAdmin__Email", None)
-        dll = self.root / "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"
+        dll = self.root / "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll"
         self.log = (self.evidence / (phase + "-application.log")).open("wb")
         self.process = subprocess.Popen(["dotnet", str(dll)], env=environment,
                                         cwd=self.root / "src/Coglatas.Web", stdout=self.log, stderr=self.log)
@@ -215,7 +215,7 @@ class SyntheticApplication:
                     mappings = Path(f"/proc/{self.process.pid}/maps").read_text()
                     self.loaded_assemblies = {}
                     for name in ("Coglatas.Web.dll", "Coglatas.Infrastructure.dll", "Coglatas.Application.dll", "Coglatas.Domain.dll"):
-                        path = self.root / "src/Coglatas.Web/bin/Release/net10.0" / name
+                        path = self.root / "src/Coglatas.Web/bin/Release/net11.0" / name
                         if str(path) not in mappings:
                             raise ProbeFailure("EXPECTED_APPLICATION_ASSEMBLY_NOT_MAPPED")
                         self.loaded_assemblies[name] = digest(path.read_bytes())
@@ -480,7 +480,7 @@ def main() -> int:
             receipt["sourceFile"] = application.check_file(source)
             application.stop()
             shutil.copytree(evidence / "source-state", evidence / "restored-state")
-            receipt["webDllSha256"] = digest((root / "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll").read_bytes())
+            receipt["webDllSha256"] = digest((root / "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll").read_bytes())
         # A real sequence with a non-default, uncalled state provides a physical
         # sequence preservation control even if the product only uses UUIDs.
         sql(source, "CREATE SCHEMA recovery_control; CREATE SEQUENCE recovery_control.sequence_probe; "

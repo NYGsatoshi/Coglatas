@@ -62,6 +62,24 @@ def encoded(receipt):
 
 
 class ClosedRecoveryPublicationTests(unittest.TestCase):
+    def test_tool_framework_and_native_paths_match_current_product(self):
+        import xml.etree.ElementTree as ET
+        product = ET.parse(ROOT / "src/Coglatas.Web/Coglatas.Web.csproj").getroot()
+        candidate = ET.parse(ROOT / "tools/synthetic-recovery-acceptance/Coglatas.SyntheticRecoveryAcceptance.csproj").getroot()
+        framework = product.findtext(".//TargetFramework")
+        self.assertEqual("net11.0", framework)
+        self.assertEqual(framework, candidate.findtext(".//TargetFramework"))
+        for path in (
+            "scripts/ci/run-synthetic-physical-recovery-ci.py",
+            "scripts/ci/run-synthetic-logical-recovery-ci.py",
+            "scripts/ci/run-synthetic-recovery-continuation-ci.py",
+            "scripts/ci/synthetic-physical-recovery-probe.py",
+        ):
+            with self.subTest(path=path):
+                original = (ROOT / path).read_text(encoding="utf-8")
+                self.assertIn("Release/" + framework, original)
+                self.assertNotIn("Release/net10.0", original)
+
     def reject(self, mutation, exit_code=0):
         expected, receipt = fixture()
         mutation(receipt)

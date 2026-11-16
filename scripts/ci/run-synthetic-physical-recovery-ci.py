@@ -235,7 +235,7 @@ def main() -> int:
         require(isinstance(image["digests"], list) and image["digests"] and all(
             isinstance(item, str) and re.fullmatch(r"(?:docker.io/library/)?postgres@sha256:[a-f0-9]{64}", item)
             for item in image["digests"]))
-        binaries = ROOT / "src/Coglatas.Web/bin/Release/net10.0"
+        binaries = ROOT / "src/Coglatas.Web/bin/Release/net11.0"
         expected = {"sourceSha": source, "sourceTree": source_tree, "sdkVersion": sdk,
                     "probeSha256": sha(PROBE.read_bytes()), "ddlSha256": sha(ddl.read_bytes()),
                     "postgresImageId": image["id"], "assemblies": {name: sha((binaries / name).read_bytes()) for name in ASSEMBLIES},

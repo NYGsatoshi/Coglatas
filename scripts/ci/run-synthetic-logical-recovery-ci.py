@@ -235,7 +235,7 @@ def prepare(private: Path, result: dict, environment: dict) -> tuple[Path, str, 
     support.require(isinstance(image["digests"], list) and bool(image["digests"]) and all(
         isinstance(item, str) and re.fullmatch(r"(?:docker.io/library/)?postgres@sha256:[a-f0-9]{64}", item)
         for item in image["digests"]))
-    binaries = ROOT / "src/Coglatas.Web/bin/Release/net10.0"
+    binaries = ROOT / "src/Coglatas.Web/bin/Release/net11.0"
     expected = {"sourceSha": source, "sourceTree": source_tree, "sdkVersion": sdk,
                 "probeSha256": support.sha(Path(probe.__file__).read_bytes()),
                 "callerSha256": support.sha(Path(__file__).read_bytes()),

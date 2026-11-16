@@ -32,7 +32,7 @@ support, probe = logical.support, logical.probe
 PUBLIC = ROOT / "artifacts/synthetic-recovery-continuation-ci/result.json"
 TOOL_PROJECT = ROOT / "tools/synthetic-recovery-acceptance/Coglatas.SyntheticRecoveryAcceptance.csproj"
 TOOL_PROGRAM = TOOL_PROJECT.parent / "Program.cs"
-TOOL_DLL = TOOL_PROJECT.parent / "bin/Release/net10.0/Coglatas.SyntheticRecoveryAcceptance.dll"
+TOOL_DLL = TOOL_PROJECT.parent / "bin/Release/net11.0/Coglatas.SyntheticRecoveryAcceptance.dll"
 AUTH = {key: "PASS" for key in ("authenticatedOwnersPositive", "crossTenantReadDenied",
                                "readOnlyViewPositiveWriteDenied", "filePositiveAndCrossTenantDenial")}
 TOOL_CONTROLS = {
@@ -210,7 +210,7 @@ class SessionApplication(probe.SyntheticApplication):
             "Security__EvaluationMode": "Disabled", "Realtime__DispatcherPollSeconds": "1",
             "FileStorage__AllowedExtensions__0": ".txt", "FileStorage__AllowedContentTypes__0": "text/plain",
             "Logging__LogLevel__Default": "Warning", "Logging__LogLevel__Microsoft": "Warning"})
-        dll = self.root / "src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll"
+        dll = self.root / "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll"
         self.log = (self.evidence / (phase + "-application.log")).open("wb")
         self.process = subprocess.Popen(["dotnet", str(dll)], env=environment, cwd=self.root / "src/Coglatas.Web",
                                         stdout=self.log, stderr=self.log)
@@ -535,7 +535,7 @@ def main():
                  "--disable-parallel", "--verbosity", "minimal"], "TOOL_RESTORE")
         command(["dotnet", "build", str(TOOL_PROJECT), "--configuration", "Release", "--no-restore",
                  "--disable-build-servers", "-m:1"], "TOOL_BUILD")
-        binaries = ROOT / "src/Coglatas.Web/bin/Release/net10.0"
+        binaries = ROOT / "src/Coglatas.Web/bin/Release/net11.0"
         expected["assemblies"] = {name: support.sha((binaries / name).read_bytes()) for name in support.ASSEMBLIES}
         tool_hashes = {name: support.sha((TOOL_DLL.parent / name).read_bytes()) for name in TOOL_ASSEMBLIES}
         support.require(all(tool_hashes[name] == expected["assemblies"][name] for name in support.ASSEMBLIES))
