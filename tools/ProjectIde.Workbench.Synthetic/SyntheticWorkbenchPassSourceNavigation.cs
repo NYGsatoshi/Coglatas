@@ -23,7 +23,20 @@ public sealed class SyntheticPassSourcePage
         IReadOnlyList<SyntheticPassSourceTarget> targets, ContentDigest originalMap, ContentDigest originalRecord)
     {
         Offset = offset; MaximumTargets = maximumTargets; TotalTargets = totalTargets;
-        Targets = Array.AsReadOnly(targets.ToArray()); OriginalMapDigest = originalMap; OriginalRecordDigest = originalRecord;
+        Targets = new TargetList(targets); OriginalMapDigest = originalMap; OriginalRecordDigest = originalRecord;
+    }
+    private sealed class TargetList : IReadOnlyList<SyntheticPassSourceTarget>
+    {
+        private readonly SyntheticPassSourceTarget[] _values;
+        internal TargetList(IEnumerable<SyntheticPassSourceTarget> values) => _values = values.ToArray();
+        public int Count => _values.Length;
+        public SyntheticPassSourceTarget this[int index] => (uint)index < (uint)_values.Length
+            ? _values[index] : throw new ArgumentOutOfRangeException(nameof(index));
+        public IEnumerator<SyntheticPassSourceTarget> GetEnumerator()
+        {
+            foreach (var value in _values) yield return value;
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
 
