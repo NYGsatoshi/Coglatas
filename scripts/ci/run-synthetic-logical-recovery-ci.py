@@ -249,6 +249,47 @@ def portable_catalog_shadow(container: str, environment: dict) -> bytes:
     return projected.stdout
 
 
+def prepare_fk_restore_list(source: str, target: str, private: Path,
+                            result: dict, environment: dict) -> None:
+    """Install Main's verified complete-FK-slot ordering before the sole restore."""
+    archive = (private / "database.dump").read_bytes()
+    support.require(0 < len(archive) <= 128 * 1024 * 1024 and "restoreList" not in result)
+    listing = subprocess.run(probe.DOCKER + ["exec", "-i", source, "pg_restore", "--list"],
+                             input=archive, cwd=ROOT, env=environment,
+                             capture_output=True, check=False, timeout=120)
+    support.require(listing.returncode == 0 and 0 < len(listing.stdout) <= 16 * 1024 * 1024)
+    script = ROOT / "scripts/ci/synthetic-portable-recovery-catalog.mjs"
+    planned = subprocess.run(["node", str(script), "plan"], input=listing.stdout,
+                             cwd=ROOT, env=environment, capture_output=True,
+                             check=False, timeout=30)
+    support.require(planned.returncode == 0 and 0 < len(planned.stdout) <= 16 * 1024 * 1024)
+    source_lines = listing.stdout.splitlines()
+    target_lines = planned.stdout.splitlines()
+    # Main's planRestoreList verifies all original IDs/whole lines and only FK slots.
+    # These counts bind the published receipt to an actual nonempty complete list.
+    def entries(lines):
+        return [line for line in lines if line and not line.startswith(b";") and line.strip()]
+    selected, ordered = entries(source_lines), entries(target_lines)
+    support.require(len(selected) == len(ordered) and 0 < len(selected) <= 100000
+                    and len(selected) == len(set(selected)) and sorted(selected) == sorted(ordered))
+    fk_count = sum(b" FK CONSTRAINT " in line for line in selected)
+    support.require(fk_count > 0)
+    # The destination is a fresh owned isolated container. Never interpolate TOC content.
+    path = "/tmp/coglatas-recovery.list"
+    installer = ("set -eu; umask 077; test ! -e " + path + "; test ! -L " + path +
+                 "; (set -C; cat > " + path + "); test \"$(stat -c %a " + path +
+                 ")\" = 600; sha256sum " + path)
+    installed = subprocess.run(probe.DOCKER + ["exec", "-i", target, "/bin/sh", "-c", installer],
+                               input=planned.stdout, cwd=ROOT, env=environment,
+                               capture_output=True, check=False, timeout=30)
+    digest = support.sha(planned.stdout)
+    support.require(installed.returncode == 0
+                    and installed.stdout == (digest + "  " + path + "\n").encode())
+    result["restoreList"] = {"entryCount": len(selected), "foreignKeyCount": fk_count,
+                             "originalSha256": support.sha(listing.stdout),
+                             "plannedSha256": digest}
+
+
 def logical_commands(source: str, target: str) -> dict:
     support.require(all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value)
                         for value in (source, target)) and source != target)
@@ -256,12 +297,13 @@ def logical_commands(source: str, target: str) -> dict:
         "dump": probe.DOCKER + ["exec", source, "pg_dump", "-U", "postgres", "-d", "recovery",
                                 "--format=custom", "--no-owner", "--no-privileges"],
         "restore": probe.DOCKER + ["exec", "-i", target, "pg_restore", "-U", "postgres", "-d", "recovery",
-                                   "--no-owner", "--no-privileges", "--exit-on-error"],
+                                   "--no-owner", "--no-privileges", "--exit-on-error",
+                                   "--use-list=/tmp/coglatas-recovery.list"],
     }
 
 
 def transfer_once(source: str, target: str, private: Path, result: dict, environment: dict,
-                  runner=subprocess.run) -> None:
+                  runner=subprocess.run, before_restore=None) -> None:
     """Exactly one dump and at most one restore; retain the actual first result."""
     commands = logical_commands(source, target)
     support.require(not result.get("commands"))
@@ -269,6 +311,8 @@ def transfer_once(source: str, target: str, private: Path, result: dict, environ
                           for name, args in commands.items()}
     for name in ("dump", "restore"):
         result["phase"] = name.upper()
+        if name == "restore" and before_restore is not None:
+            before_restore(source, target, private, result, environment)
         data = None if name == "dump" else (private / "database.dump").read_bytes()
         try:
             process = runner(commands[name], input=data, cwd=ROOT, env=environment,
@@ -304,6 +348,15 @@ def candidate_complete(result: dict) -> bool:
                 and type(commands[name]["exitCode"]) is int and commands[name]["exitCode"] == 0
                 and commands[name]["timedOut"] is False for name in expected)
             and support.digest_value(result.get("dumpSha256"))
+            and isinstance(result.get("restoreList"), dict)
+            and set(result["restoreList"]) == {"entryCount", "foreignKeyCount",
+                                              "originalSha256", "plannedSha256"}
+            and type(result["restoreList"]["entryCount"]) is int
+            and 0 < result["restoreList"]["entryCount"] <= 100000
+            and type(result["restoreList"]["foreignKeyCount"]) is int
+            and 0 < result["restoreList"]["foreignKeyCount"] <= result["restoreList"]["entryCount"]
+            and all(support.digest_value(result["restoreList"][key])
+                    for key in ("originalSha256", "plannedSha256"))
             and comparisons_pass(result.get("comparisons"))
             and result.get("controls") == CONTROLS
             and result.get("cleanupState") == "VERIFIED"
@@ -447,7 +500,8 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
                 subprocess.SubprocessError):
             result["portableCatalogShadow"]["availability"] = "UNAVAILABLE"
         result["failureCategory"] = "LOGICAL_COMMAND_FAILED"
-        transfer_once(source, target, private, result, environment)
+        transfer_once(source, target, private, result, environment,
+                      before_restore=prepare_fk_restore_list)
         # Preserve first command failure even if a partial target cannot be read.
         commands_ok = all(type(result["commands"][key]["exitCode"]) is int
                           and result["commands"][key]["exitCode"] == 0

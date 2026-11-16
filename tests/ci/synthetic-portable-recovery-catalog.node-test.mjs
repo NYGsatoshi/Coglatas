@@ -35,6 +35,26 @@ await test('unknown, missing, and malformed categories or incomplete trigger inv
   }
 });
 
+await test('CLI uses the exact Main FK-slot planner without dropping archive elements', () => {
+  const script = 'scripts/ci/synthetic-portable-recovery-catalog.mjs';
+  const native = Buffer.from('; preserved comment\n' +
+    '1; 2615 2200 SCHEMA - public postgres\n' +
+    '7; 2606 900 FK CONSTRAINT public earlier fk_a postgres\n' +
+    '9; 2606 100 FK CONSTRAINT public later fk_z postgres\n');
+  const planned = spawnSync(process.execPath, [script, 'plan'], { input: native });
+  assert.equal(planned.status, 0);
+  const expected = Buffer.from('; preserved comment\n' +
+    '1; 2615 2200 SCHEMA - public postgres\n' +
+    '9; 2606 100 FK CONSTRAINT public later fk_z postgres\n' +
+    '7; 2606 900 FK CONSTRAINT public earlier fk_a postgres\n');
+  assert.deepEqual(planned.stdout, expected);
+  const invalid = spawnSync(process.execPath, [script, 'plan'],
+    { input: Buffer.from('invalid private archive content\n') });
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout.length, 0);
+  assert.ok(!invalid.stderr.toString().includes('private archive content'));
+});
+
 await test('CLI privately exposes only pinned SQL and rejects malformed input without echoing it', () => {
   const script = 'scripts/ci/synthetic-portable-recovery-catalog.mjs';
   const query = spawnSync(process.execPath, [script, 'queries'], { encoding: 'utf8' });

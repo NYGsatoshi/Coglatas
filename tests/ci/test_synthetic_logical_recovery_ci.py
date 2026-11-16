@@ -22,6 +22,8 @@ def complete():
             "commands": {key: {"argv": value, "exitCode": 0, "timedOut": False}
                          for key, value in commands.items()},
             "dumpSha256": caller.support.sha(b"custom archive"),
+            "restoreList": {"entryCount": 9, "foreignKeyCount": 2,
+                            "originalSha256": "a" * 64, "plannedSha256": "b" * 64},
             "comparisons": caller.strict_comparisons(
                 {name: b"identical" for name in caller.COMPARISONS},
                 {name: b"identical" for name in caller.COMPARISONS}),
@@ -106,6 +108,35 @@ class LogicalRecoveryContracts(unittest.TestCase):
             result[key] = value
             self.assertFalse(caller.candidate_complete(result))
 
+    def test_restore_list_witness_is_required_and_type_safe(self):
+        for key, value in (("restoreList", None),
+                           ("restoreList", {}),
+                           ("restoreList", {"entryCount": 0, "foreignKeyCount": 0,
+                                            "originalSha256": "a" * 64,
+                                            "plannedSha256": "b" * 64}),
+                           ("restoreList", {"entryCount": True, "foreignKeyCount": 1,
+                                            "originalSha256": "a" * 64,
+                                            "plannedSha256": "b" * 64})):
+            result = complete()
+            result[key] = value
+            self.assertFalse(caller.candidate_complete(result))
+
+    def test_restore_list_admission_failure_never_starts_pg_restore(self):
+        calls = []
+        def runner(args, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, b"synthetic-dump", b"")
+        def fail_list(*args):
+            raise caller.support.Rejected("RESTORE_LIST_REJECTED")
+        with tempfile.TemporaryDirectory() as directory:
+            result = {}
+            with self.assertRaises(caller.support.Rejected):
+                caller.transfer_once(SOURCE, TARGET, Path(directory), result, {},
+                                     runner=runner, before_restore=fail_list)
+        self.assertEqual(len(calls), 1)
+        self.assertIsNone(result["commands"]["restore"]["exitCode"])
+        self.assertNotIn("restoreList", result)
+
     def test_exact_documented_commands_and_fresh_distinct_targets(self):
         commands = caller.logical_commands(SOURCE, TARGET)
         self.assertEqual(commands, {
@@ -114,7 +145,8 @@ class LogicalRecoveryContracts(unittest.TestCase):
                      "--no-owner", "--no-privileges"],
             "restore": ["docker", "--host=unix:///var/run/docker.sock", "exec", "-i", TARGET,
                         "pg_restore", "-U", "postgres", "-d", "recovery", "--no-owner",
-                        "--no-privileges", "--exit-on-error"]})
+                        "--no-privileges", "--exit-on-error",
+                        "--use-list=/tmp/coglatas-recovery.list"]})
         for source, target in ((SOURCE, SOURCE), ("external-host", TARGET), (SOURCE, "../target")):
             with self.assertRaises(caller.support.Rejected):
                 caller.logical_commands(source, target)

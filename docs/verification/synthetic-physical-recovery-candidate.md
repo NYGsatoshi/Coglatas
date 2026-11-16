@@ -20,13 +20,22 @@ public receipt. The original raw `catalog.txt` bytes, original strict result,
 historical failures and seven original snapshot controls remain unchanged.
 A shadow equality result **cannot** turn a failing old oracle into PASS.
 
-The first native shadow execution must establish that the helper executes
-against the checked current source without revealing raw SQL/catalog values,
-that its independent negative controls pass, and whether the original archive
-restore produces the required firing order. Main's already-proven restore-list
-planner may be used in a separately validated corrective slice. No new
-logical acceptance decision follows until replacement-oracle negative tests
-and exact-head native evidence are independently qualified.
+The first native shadow execution at HEAD `f62a6237` successfully obtained
+the portable projection, but its source/restored hashes differed after a plain
+one-shot logical restore. This is a retained FAIL, not portable acceptance.
+
+The follow-up source uses Main's previously qualified complete-list FK planner:
+the one original custom archive is listed once, every native entry/comment is
+verified, only complete FK lines move among their original slots by source OID,
+and one owned target receives the planned 0600 list with SHA-256 verification.
+The one original `pg_restore` now selects that complete list. A failed
+plan, install, original dump or native restore does not retry or start a
+replacement restore. The private lists and archive are never uploaded; only
+closed counts/digests enter the receipt. Main's restored-trigger co-firing
+contract remains an independent shadow, while the inherited raw `catalog.txt`
+byte comparison is still authoritative. No new logical acceptance decision
+follows until exact-head native proof and replacement-oracle negative tests
+are reviewed.
 The canonical logical backup/restore runbook remains unchanged. Neither Owner
 HOLD is released. This candidate needs independent review, exact-source execution,
 Owner strategy approval and separate authorized-target qualification.

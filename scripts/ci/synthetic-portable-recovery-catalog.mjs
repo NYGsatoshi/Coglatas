@@ -2,6 +2,7 @@ import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { CATALOG_SQL } from './run-synthetic-logical-recovery.mjs';
 import { TRIGGER_CATALOG_SQL, logicalTriggerCatalog } from './synthetic-trigger-catalog.mjs';
+import { planRestoreList } from './synthetic-restore-list.mjs';
 
 // Reuse Main's original logical schema and fully validated trigger/firing-order
 // projection. This is a private shadow proof, not a replacement acceptance gate.
@@ -36,9 +37,14 @@ async function stdinBounded() {
 }
 
 async function main() {
-  require(process.argv.length === 3 && ['queries', 'project'].includes(process.argv[2]));
+  require(process.argv.length === 3 && ['queries', 'project', 'plan'].includes(process.argv[2]));
   if (process.argv[2] === 'queries') {
     process.stdout.write(JSON.stringify({ catalog: CATALOG_SQL, triggers: TRIGGER_CATALOG_SQL }));
+    return;
+  }
+  if (process.argv[2] === 'plan') {
+    // Only the source-owned Main TOC planner may reorder original FK slots.
+    process.stdout.write(planRestoreList(await stdinBounded()).bytes);
     return;
   }
   const source = JSON.parse((await stdinBounded()).toString('utf8'));
