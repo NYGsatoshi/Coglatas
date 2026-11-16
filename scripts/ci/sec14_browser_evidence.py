@@ -100,6 +100,14 @@ def normalized_rules(native: dict[str, Any]) -> dict[str, dict[str, int]]:
         risk = alert.get('riskcode')
         require(isinstance(rule, str) and re.fullmatch(r'[0-9]{1,10}', rule) is not None
                 and risk in ('0', '1', '2', '3'), 'NATIVE_RULE_CLASSIFICATION_INVALID')
+        description = alert.get('riskdesc')
+        if description is not None:
+            require(isinstance(description, str) and 0 < len(description) <= 80,
+                    'NATIVE_RISK_DESCRIPTION_INVALID')
+            described_risk = description.split(' ', 1)[0]
+            require(described_risk == {
+                '0': 'Informational', '1': 'Low', '2': 'Medium', '3': 'High'
+            }[risk], 'NATIVE_RISK_CLASSIFICATION_CONFLICT')
         require(rule not in counts, 'NATIVE_DUPLICATE_RULE')
         count = alert.get('count')
         require(isinstance(count, str) and re.fullmatch(r'[0-9]{1,7}', count) is not None,
