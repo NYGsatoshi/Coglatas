@@ -200,4 +200,60 @@ public sealed class SyntheticPassSourceNavigationTests
         Assert.False(vm.NavigatePassBoundarySource(page, foreign)); Assert.Null(vm.SourceTarget);
         Assert.True(vm.NavigatePassBoundarySource(page, original)); Assert.Same(original.Location, vm.SourceTarget);
     }
+
+    private sealed class CancelPagePublication : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _replace;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public bool PageOpened { get; private set; }
+        public SyntheticPassSourcePage? Published { get; private set; }
+        public CancelPagePublication(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadPassBoundarySourcePage(maximumTargets: 1, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace) ReplacementSucceeded = _vm.ReadPassBoundarySourcePage(1, 1);
+            Published = _vm.PassBoundarySourcePage;
+            if (Published is { } page && page.Targets.Count == 1) PageOpened = _vm.NavigatePassBoundarySource(page, page.Targets[0]);
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtSourcePagePublicationWithdrawsOnlyItsOwnedPageAndTarget(bool replace)
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Prepare(vm, session); Assert.True(Read(vm));
+        var result = vm.Result!; var resultData = result.Data; var receiptData = actual.Receipt.Data;
+        var boundary = vm.RecordedPassBoundary!; var boundaryData = boundary.Data; var root = vm.RootSource!; var rootData = root.Data;
+        Assert.True(vm.ReadPassBoundarySourcePage(maximumTargets: 1));
+        var previous = vm.PassBoundarySourcePage!; var previousTarget = Assert.Single(previous.Targets);
+        Assert.True(previous.TotalTargets > 1);
+        using var cancellation = new CancelPagePublication(vm, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested); Assert.True(cancellation.PageOpened);
+        Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(receiptData, actual.Receipt.Data);
+        Assert.Same(boundary, vm.RecordedPassBoundary); Assert.Equal(boundaryData, boundary.Data);
+        Assert.Same(root, vm.RootSource); Assert.Equal(rootData, root.Data); Assert.Same(previousTarget, Assert.Single(previous.Targets));
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Published);
+            Assert.Same(cancellation.Published, vm.PassBoundarySourcePage); Assert.Equal(1, vm.PassBoundarySourcePage!.Offset);
+            Assert.Same(vm.PassBoundarySourcePage.Targets[0].Location, vm.SourceTarget); Assert.Equal("ready", vm.NavigationState);
+        }
+        else { Assert.Null(vm.PassBoundarySourcePage); Assert.Null(vm.SourceTarget); }
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }

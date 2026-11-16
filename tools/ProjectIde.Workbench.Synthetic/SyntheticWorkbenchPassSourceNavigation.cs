@@ -88,6 +88,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         var page = new SyntheticPassSourcePage(offset, maximumTargets, total, targets, ir.SourceMapDigest, boundary.OriginalRecordDigest!);
         _passSourcePage = page; _passSourcePageBoundary = boundary; _passSourcePageRoot = source; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _passSourcePageGeneration && ReferenceEquals(_passSourcePage, page))
+            { ClearPassBoundarySourcePage(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(PassBoundarySourcePage, page);
     }
 
