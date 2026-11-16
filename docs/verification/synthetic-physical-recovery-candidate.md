@@ -2,6 +2,53 @@
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
 
+## Historical PR #1379 qualification and post-integration evidence boundary (2026-11-16 UTC)
+
+This pre-integration checkpoint applies only to [PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+at original HEAD `cb5bc64928bac2801bc21af86a923e9411e14209`, reviewed
+against `main` at `6672214698db4ebdab521c0c01172745c96df0db`.
+PR #1379 was subsequently **squash-merged into `main`** at
+[`8202ce1cca0913039adbf9dc9477172256a101c4`](https://github.com/NYGsatoshi/Coglatas/commit/8202ce1cca0913039adbf9dc9477172256a101c4)
+on 2026-11-16 at 11:04:27 UTC. This document update is a **standalone PR
+against `main`**; neither the original PR checks nor this documentation
+change establish independent qualification of the integrated Main commit.
+
+| Evidence at the pinned parent commit | Result | Source |
+| --- | --- | --- |
+| Six protected Main check contexts (`build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`) | 6/6 success | [PR #1379 checks](https://github.com/NYGsatoshi/Coglatas/pull/1379/checks) |
+| Ordinary PR CI | Success | [run 43848107917](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848107917) |
+| Native logical recovery with the `/run` list and complete TOC plan | Success; only Main-compatible portable catalog acceptance is qualified | [run 43848107794](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848107794) |
+| Synthetic physical recovery and bounded continuation | Success for isolated candidates | [physical 43848107581](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848107581), [continuation 43848107414](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848107414) |
+| CodeQL | Success | [run 43848107493](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848107493) |
+| Codex exact-head review | No major findings; advisory, not formal approval | [review receipt](https://github.com/NYGsatoshi/Coglatas/pull/1379#issuecomment-6913769123) |
+| Inline GitHub review conversations | 8/8 resolved on this parent HEAD | [PR review](https://github.com/NYGsatoshi/Coglatas/pull/1379) |
+| CodeRabbit current-head re-review | Rate limited; not a successful review | [review request](https://github.com/NYGsatoshi/Coglatas/pull/1379#issuecomment-6911895602) |
+| SonarQube Cloud for this HEAD | Not yet completed at checkpoint; no PASS claimed | [analysis workflow 43848099563](https://github.com/NYGsatoshi/Coglatas/actions/runs/43848099563) |
+
+An earlier SonarQube Cloud analysis reported a **failed** Quality Gate:
+new-code coverage 0.0% against 80%, Reliability C and Security D against A.
+Those historical failed conditions must remain visible until the scanner provides
+an exact-current-head result and each issue is remediated or formally disposed;
+successful PR CI, CodeQL and resolved review conversations are not substitutes
+for the Sonar gate. GitHub also reported `mergeable=true` but
+`mergeable_state=unstable` at this checkpoint.
+
+**Historical pre-merge decision: HOLD pending final Sonar qualification
+and explicit integration authorization at the time of review.** The
+subsequent Main merge is recorded above as an actual repository event,
+not retroactively classified as an earlier Sonar PASS or formal
+security/recovery approval. CodeRabbit's rate limit is not a successful review.
+The original physical `catalog.txt` mismatch remains a failed raw
+physical-identity comparison even when portable logical acceptance succeeds.
+
+**Post-merge qualification remains separate:** fresh CI, security analysis,
+logical/physical recovery and source-to-artifact evidence must be evaluated
+at the resulting Main SHA `8202ce1cca0913039adbf9dc9477172256a101c4`.
+A standalone documentation PR cannot validate those runtime gates or grant
+production authorization. Issue #1355 continues to hold full application
+restore, Audit, authentication/authorization, Files, Data Protection, RLS/roles,
+target HTTPS, rollback, custody and RPO/RTO, and release remains NO_GO.
+
 ## Main-compatible portable logical recovery acceptance candidate
 
 The Owner explicitly permits backward-incompatible revisions to Main-integrated
