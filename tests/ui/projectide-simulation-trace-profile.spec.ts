@@ -77,7 +77,7 @@ for (const locale of ['en', 'ja'] as const) for (const family of ['root', 'exter
     const profile = page.getByTestId('ide-trace-profile'); await expect(profile).toBeFocused();
     const metrics = await profile.locator('dl').innerText(); const action = page.getByTestId('ide-profile-recording');
     await action.focus(); await action.press('Enter'); await expect(page.getByTestId('ide-simulation')).toBeFocused();
-    await expect(profile.locator('dl')).toHaveText(metrics); expect(writes).toEqual([]);
+    await expect(profile.locator('dl')).toHaveText(metrics, { useInnerText: true }); expect(writes).toEqual([]);
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
     await page.getByRole('button', { name: locale === 'en' ? 'Load fixed sources' : '固定ソースを読み込む', exact: true }).click();
     await expect(action).toHaveCount(0); await expect(page.getByTestId('ide-simulation')).toHaveCount(0);

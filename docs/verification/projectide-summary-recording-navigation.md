@@ -46,6 +46,15 @@ callback ran; fixture.whenStable does not flush that callback. The same existing
 zero-delay macrotask flush now precedes the unchanged exact identity assertion.
 The original Node mirror's three stale reference-page inputs were separately
 refused and reconciled before compilation; no source guard or assertion changed.
+The first actual browser navigation checks captured rendered metric text with
+innerText but used the default toHaveText textContent comparison. Block separators
+differed even though recording focus had already passed. The original failed
+execution, source and traces are retained. The corrected assertion selects
+useInnerText: true so both sides compare the same full rendered metric text.
+It keeps every metric, keyboard focus, no-write, accessibility and withdrawal
+check, with the same default deadlines and zero retries. No runtime change is
+needed for that text collection mismatch.
+
 Record exact current source/Tree, executed counts, failures, pins, review and CI
 in the PR. Native-only, focused Angular, full Angular and actual browser results
 must remain separate until each has actually been executed and qualified.
