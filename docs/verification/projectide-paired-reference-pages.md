@@ -57,7 +57,7 @@ Native regressions use 35 actual distinct Requirement origins and cover
 continuation, foreign ownership, bounds, cancellation and Changed re-entry.
 Windows and Ubuntu strict builds and the full original inventories are checked
 separately. Both hosts generate byte-identical preview output. Browser unit,
-component and real Chromium/Firefox/mobile journeys exercise original Source
+component and real Chromium desktop/mobile journeys exercise original Source
 admission, 32 + 3 origins, keyboard Enter/Space, current focus, lifecycle cleanup,
 accessibility and absence of modifying requests. Execution status and exact
 source/test hashes belong to the current PR evidence; unexecuted checks are not

@@ -55,21 +55,27 @@ public sealed class SyntheticReferencePagesTests
     [InlineData("root")] [InlineData("selection")] [InlineData("reset")] [InlineData("dispose")] [InlineData("cancel")]
     public async Task AChangedBoundaryOrCancellationWithdrawsThePageAndItsOwnedTarget(string action)
     {
-        using var vm = await Ready();
-
-        var page = Assert.IsType<ReferenceSearchPage>(vm.ReadReferenceSearchPage());
-        Assert.True(vm.NavigateReferencePageOrigin(page, page.References[0]));
-        switch (action)
+        var vm = await Ready();
+        try
         {
-            case "root": Assert.True(vm.LoadSyntheticRootSource(vm.Result!.ResultDigest)); break;
-            case "selection": Assert.True(vm.Select(vm.Inspection!.Symbols.First(item => item.Symbol.Kind == "coglatas.requirement").Symbol.Location)); break;
-            case "reset": vm.Reset(); break;
-            case "dispose": vm.Dispose(); break;
-            default:
-                var token = new CancellationToken(true);
-                Assert.Throws<OperationCanceledException>(() => vm.ReadReferenceSearchPage(cancellationToken: token)); break;
+            var page = Assert.IsType<ReferenceSearchPage>(vm.ReadReferenceSearchPage());
+            Assert.True(vm.NavigateReferencePageOrigin(page, page.References[0]));
+            switch (action)
+            {
+                case "root": Assert.True(vm.LoadSyntheticRootSource(vm.Result!.ResultDigest)); break;
+                case "selection": Assert.True(vm.Select(vm.Inspection!.Symbols.First(item => item.Symbol.Kind == "coglatas.requirement").Symbol.Location)); break;
+                case "reset": vm.Reset(); break;
+                case "dispose": vm.Dispose(); break;
+                default:
+                    var token = new CancellationToken(true);
+                    Assert.Throws<OperationCanceledException>(() => vm.ReadReferenceSearchPage(cancellationToken: token)); break;
+            }
+            Assert.Null(vm.ReferencePage); Assert.Null(vm.SourceTarget);
         }
-        Assert.Null(vm.ReferencePage); Assert.Null(vm.SourceTarget);
+        finally
+        {
+            vm.Dispose();
+        }
     }
 
     [Theory]
