@@ -1,6 +1,11 @@
 # AI Context
 
 [Owned diagnostic premise rosters](verification/projectide-diagnostic-basis-immutability.md)
+
+[Owned premise publication cancellation](verification/projectide-premise-publication-cancellation.md)
+tracks exact-generation/snapshot withdrawal of cancelled local reads while
+preserving newer successful reads and original Compiler facts; qualification
+is recorded separately.
 keeps retained basis pages faithful to actual recorded digests through legacy
 collection interfaces. Original Compiler evidence and result identities remain
 unchanged; bodies, logical/causal structure and all activation holds stay separate.
