@@ -11,6 +11,7 @@ fail() {
 
 bash -n scripts/security/schemathesis-runner.sh
 bash -n scripts/ci/generate-security-openapi-contract.sh
+python3 -B -m unittest discover -s tests/ci -p test_security_schemathesis_bounded_evidence.py
 python3 -B -m unittest discover -s tests/ci -p test_security_schemathesis_operation_identity.py
 python3 -m py_compile \
   scripts/security/schemathesis_policy.py \
