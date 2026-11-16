@@ -1,5 +1,11 @@
 # AI Context
 
+[Selected original pass boundaries](verification/projectide-selected-pass-boundaries.md)
+adds explicit per-boundary original reads to the Windows pure ViewModel and an
+original-frame-derived Angular selection. Current Source/run ownership, original
+gaps and capture/viewer budgets remain separate; this grants no current access,
+trusted evidence, retention service or actual Avalonia acceptance.
+
 [Original offline pass recordings](verification/projectide-web-pass-recordings.md)
 adds exact original-byte admission and explicit whole-root pass reads to Angular,
 using the separately owned actual Preview runs. Boundaries, missing IR, capture

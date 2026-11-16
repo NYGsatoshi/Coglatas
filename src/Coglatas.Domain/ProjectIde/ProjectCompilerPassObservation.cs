@@ -47,6 +47,7 @@ public sealed class ProjectCompilerPassObservation
     private readonly RecordedPassCompilation _owner;
     private readonly CoreCompilation _compilation;
     internal IReadOnlyDictionary<string, SourceJson> Bodies { get; }
+    internal IReadOnlyList<SourceJson> BoundaryEvents { get; }
     public CompilerPassObservationPolicy Policy { get; }
     public CompilerPassObservationState State { get; }
     public int VisitedEvents { get; }
@@ -61,6 +62,7 @@ public sealed class ProjectCompilerPassObservation
     {
         _owner = owner; _compilation = compilation; Policy = policy; State = state;
         VisitedEvents = visited; RetainedEvents = events.Count;
+        BoundaryEvents = Array.AsReadOnly(events.ToArray());
         Bodies = new ImmutableMapView<string, SourceJson>(bodies, StringComparer.Ordinal);
         RetainedBodyBytes = Bodies.Values.Sum(v => Encoding.UTF8.GetByteCount(v.CanonicalText));
         Data = SourceJson.FromObject(new { format = Format, state = state.ToString(), scope = "ActualInitialRootFunctionBoundaries",

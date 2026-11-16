@@ -245,6 +245,20 @@ export class ProjectIdeWorkbenchComponent {
       if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPasses()) this.recordedPassElement()?.nativeElement.focus();
     });
   }
+
+  private readonly recordedPassBoundaryElement = viewChild<ElementRef<HTMLElement>>('recordedPassBoundaryPanel');
+  async loadRecordedPassBoundary(ordinal: number, choice: RecordedPassChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPassBoundary(ordinal, choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPassBoundary();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPassBoundary())
+        this.recordedPassBoundaryElement()?.nativeElement.focus();
+    });
+  }
+
   passCaptureState(state: string | null): string {
     const keys = { ManifestOnly: 'ide.passCaptureManifest', AvailableOriginalJson: 'ide.passCaptureAvailable', NoActualPasses: 'ide.passCaptureNone',
       BodyBudgetExceeded: 'ide.passCaptureBytes', EventLimitExceeded: 'ide.passCaptureEvents' } as const;
@@ -252,7 +266,7 @@ export class ProjectIdeWorkbenchComponent {
   }
   passViewState(state: string): string {
     const keys = { ManifestOnly: 'ide.passManifestOnly', AvailableOriginalJson: 'ide.passAvailable', NoRecordedOriginalBodies: 'ide.passNoBodies',
-      BodyBudgetExceeded: 'ide.passBudgetExceeded' } as const;
+      BodyBudgetExceeded: 'ide.passBudgetExceeded', BoundaryNotRecorded: 'ide.passBoundaryMissing' } as const;
     return this.t(keys[state as keyof typeof keys] ?? 'ide.passUnavailable');
   }
   passName(id: string): string {
