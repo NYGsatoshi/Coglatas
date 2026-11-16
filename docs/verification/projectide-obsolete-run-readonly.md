@@ -5,6 +5,11 @@ cancel/force-cancel/rerun endpoints, modify a workflow, approve a PR, waive
 required checks, change branch protection, or authorize any later side effect.
 A positive observation is **not** permission for an agent to stop a job.
 
+The separate [PR CI lifecycle repair](pr-ci-cancellation-lifecycle.md) makes
+long-running consumers cancellable under the existing per-PR concurrency and
+adds bounded resource finalization. Its source and hosted qualification are
+independent of this read-only observer; this script still grants no authority.
+
 ## Reproduced historical sequence
 
 The original ProjectIDE [PR #1972](https://github.com/NYGsatoshi/Coglatas/pull/1972)

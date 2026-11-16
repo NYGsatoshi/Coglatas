@@ -1,0 +1,93 @@
+# PR CI cancellation lifecycle (P0 #1974)
+
+## Problem and existing evidence
+
+[Issue #1974](https://github.com/NYGsatoshi/Coglatas/issues/1974) records
+repeated obsolete PR CI runs that retained their long-running `frontend-test`
+or `security-scan` job after cancellation. Their corrected HEAD could remain
+pending in the same PR concurrency group. Historical failures, cancellations
+and ReSharper reports remain evidence of those original sources; they are not
+converted into successful checks.
+
+The [read-only observer](projectide-obsolete-run-readonly.md) remains separate.
+It does not authorize or invoke cancellation. This change adds no GitHub
+cancel/force-cancel API, write token, cross-PR controller or branch-rule change.
+
+## Source behavior
+
+The long-running `build-test`, `frontend-test` and `security-scan` jobs use
+`${{ !cancelled() }}`. GitHub's
+[expression reference](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#always)
+recommends that condition for work that must run after success or failure but
+remain cancellable. Its
+[cancellation reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation)
+explains that job conditions are reevaluated on cancellation; job-level
+`always()` can keep the entire job running.
+
+Each consumer still starts with its original exact producer-result check.
+A failed, cancelled, skipped, missing or unknown producer result fails that
+admission step. The three job names, producer dependencies, 120/120/90-minute
+execution limits, test selections, retry policies and assertions are unchanged.
+The admission steps pin Bash and an empty `BASH_ENV` startup file so inherited
+shell defaults cannot replace the checked command.
+The short `functional-fast` and `performance-fast` aggregates retain `always()`
+and their existing failure/exemption rules.
+
+The required-check source validator accepts the cancellation-only expression
+only for these three registered consumers in `ci.yml`, and only with the
+unaltered first-step producer refusal. Additional selection predicates,
+failure masking, a different producer or an inserted earlier step are rejected.
+The evidence evaluator still accepts only terminal `success`; cancelled,
+skipped, neutral, unfinished or missing checks cannot qualify a source. A
+cancelled workflow may contain a job skipped before dispatch, which is not a
+successful required execution.
+
+## Bounded resource finalization
+
+The frontend and Security jobs have explicit `always()` finalizers after their
+own test/scanner step has actually started. Each finalizer is limited to two
+minutes. It runs after successful completion, failure or cancellation without
+changing the preceding step's result. The helper also has its own finite
+command and total execution budgets.
+
+`scripts/ci/cleanup-pr-ci-resources.sh` requires the native Actions marker,
+current job identity and numeric run/attempt identities. It handles only the
+derived frontend Compose project or the three derived Security lane projects
+and their own temporary credential state. It preserves unrelated projects,
+external cache volumes and collected artifacts. It emits no raw scanner logs
+or credential contents. Cleanup failure remains a failure.
+
+This step is a fallback for process-tree termination before the existing
+Compose runner or worker `EXIT` cleanup can finish. It does not promise that
+GitHub can execute finalizers after a force termination, runner loss or host
+failure. Hosted cancellation and teardown evidence must be recorded separately.
+
+## Validation and acceptance boundary
+
+Focused local verification uses:
+
+```bash
+python3 -B scripts/ci/check-required-pr-checks.py
+python3 -B scripts/ci/test-required-pr-checks.py
+python3 -B scripts/ci/test-functional-fast-gate.py
+python3 -B scripts/ci/test-pr-ci-resource-cleanup.py
+python3 -B scripts/ci/check-publication-readiness.py
+```
+
+The producer tests execute the actual workflow admission shell. Negative source
+mutations check producer changes, failure masking, skipped admission, unrelated
+job conditions and preserved timeouts. Resource controls exercise the actual
+helper against an isolated Docker command double; they are not evidence of
+GitHub runner cancellation or real Docker teardown.
+
+Before #1974 is closed, retain a real same-PR sequence in which an in-progress
+obsolete source ends `CANCELLED` through normal concurrency, its bounded
+finalizers are observed, and the corrected source completes all six current
+required checks and applicable reviews. Record both run IDs, attempts, source
+SHAs and terminal outcomes. A force-cancelled experiment does not establish
+the repaired native cancellation behavior. Source tests and an ordinary green
+run alone are insufficient to establish queue release.
+
+Integration targets `SecurityTestImplimation`. #1144 remains BLOCKED,
+#1128 remains SUSPENDED/NOT_EVALUATED, and existing Native, Production and
+Release holds remain unchanged.
