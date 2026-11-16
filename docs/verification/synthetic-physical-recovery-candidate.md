@@ -35,7 +35,10 @@ only whole FK-entry moves among original slots by source OID, and one
 `pg_restore --use-list` into a fresh owned target. The list is written exclusively under the container's root-owned, mode-0755
 `/run` directory (not a publicly writable `/tmp` path), with exclusive
 creation, mode-0600 owner verification and SHA-256 verification before the
-sole restore. Unsafe runtime directory ownership or mode fails closed. An
+sole restore. Unsafe runtime directory ownership or mode fails closed. The native logical
+workflow path filter also includes each imported restore-list/trigger planner,
+the Node regression files executed by that job, the HTTP guard test and the
+solution graph; a Python route regression rejects missing direct dependencies. An
 unsupported list, change outside FK slots, failed write, missing native
 exit or failed cleanup fails closed. Original commands and unsuccessful
 historical attempts remain independently auditable.

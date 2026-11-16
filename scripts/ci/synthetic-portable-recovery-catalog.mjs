@@ -5,7 +5,9 @@ import { TRIGGER_CATALOG_SQL, logicalTriggerCatalog } from './synthetic-trigger-
 import { planRestoreList } from './synthetic-restore-list.mjs';
 
 // Reuse Main's original logical schema and fully validated trigger/firing-order
-// projection. This is a private shadow proof, not a replacement acceptance gate.
+// projection for the bounded MAIN_PORTABLE_LOGICAL_V1 synthetic acceptance gate.
+// Raw PostgreSQL catalog-byte differences remain separately recorded; this
+// projection does not authorize production restore, backup strategy or release.
 const FIELDS = Object.freeze(['relations', 'constraints', 'indexes', 'triggers',
   'functions', 'policies', 'schemas', 'defaults', 'roles', 'memberships', 'migrations']);
 const reject = () => {

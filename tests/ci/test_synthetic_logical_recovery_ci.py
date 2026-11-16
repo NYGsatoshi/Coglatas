@@ -40,6 +40,38 @@ def complete():
 
 
 class LogicalRecoveryContracts(unittest.TestCase):
+    def test_native_logical_workflow_filter_covers_imports_and_invoked_tests(self):
+        workflow = (ROOT / ".github/workflows/synthetic-logical-recovery.yml").read_text()
+        self.assertIn("    paths:\n", workflow)
+        self.assertIn("\npermissions:", workflow)
+        selectors = workflow.split("    paths:\n", 1)[1].split("\npermissions:", 1)[0]
+        registered = {line.strip()[3:-1] for line in selectors.splitlines()
+                      if line.strip().startswith("- '") and line.strip().endswith("'")}
+        required = {
+            "scripts/ci/run-synthetic-logical-recovery-ci.py",
+            "scripts/ci/run-synthetic-logical-recovery.mjs",
+            "scripts/ci/synthetic-portable-recovery-catalog.mjs",
+            "scripts/ci/synthetic-trigger-catalog.mjs",
+            "scripts/ci/synthetic-restore-list.mjs",
+            "tests/ci/test_synthetic_logical_recovery_ci.py",
+            "tests/ci/synthetic-portable-recovery-catalog.node-test.mjs",
+            "tests/ci/synthetic-trigger-catalog.node-test.mjs",
+            "tests/ci/synthetic-restore-list.node-test.mjs",
+            "tests/ci/test_synthetic_physical_recovery_http_guard.py",
+            "Coglatas.slnx",
+        }
+        self.assertFalse(required - registered, sorted(required - registered))
+        for path in required:
+            self.assertTrue((ROOT / path).is_file(), path)
+        jobs = workflow.split("\njobs:", 1)[1]
+        for path in ("tests/ci/synthetic-portable-recovery-catalog.node-test.mjs",
+                     "tests/ci/synthetic-trigger-catalog.node-test.mjs",
+                     "tests/ci/synthetic-restore-list.node-test.mjs"):
+            self.assertIn("node --test", jobs)
+            self.assertIn(path, jobs)
+        self.assertIn("Verify Main-compatible portable catalog acceptance contracts", jobs)
+        self.assertNotIn("shadow contracts", jobs)
+
     def test_complete_bounded_database_control(self):
         self.assertTrue(caller.candidate_complete(complete()))
 
