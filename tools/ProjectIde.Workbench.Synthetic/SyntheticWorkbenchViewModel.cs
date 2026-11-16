@@ -400,7 +400,11 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
         var lifecycle = _lifecycle; var generation = ++_historyReadGeneration;
         if (History is not null) { History = null; Changed(); }
-        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration || History is not null) return null;
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration || History is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         if (_desired is null || Source is null || State != "Ready" ||
             revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
         var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
