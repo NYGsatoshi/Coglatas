@@ -205,6 +205,11 @@ jobs:
           node-version: "26"
           package-manager-cache: false
 
+      # Keep this job on the same npm CLI as the audit and other build producers.
+      # setup-node ships a newer npm version, which otherwise changes peer resolution.
+      - name: Use repository npm version without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
       - name: Classify changed npm install scopes
         id: scope
         shell: bash
