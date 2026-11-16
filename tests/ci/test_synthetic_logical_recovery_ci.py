@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
@@ -141,6 +142,56 @@ class LogicalRecoveryContracts(unittest.TestCase):
             result[key] = value
             self.assertFalse(caller.candidate_complete(result))
 
+    def test_restore_list_staging_is_private_and_install_failure_is_closed(self):
+        self.assertEqual(caller.RESTORE_LIST_PATH, "/run/coglatas-recovery.list")
+        listing = (b"; Synthetic archive\n"
+                   b"1; 10 0 TABLE public sample postgres\n"
+                   b"2; 11 0 FK CONSTRAINT public sample sample_fk postgres\n")
+        for installed_ok in (False, True):
+            with self.subTest(installed_ok=installed_ok):
+                calls = []
+
+                def runner(args, **kwargs):
+                    calls.append(args)
+                    if args[-2:] == ["pg_restore", "--list"]:
+                        self.assertEqual(kwargs["input"], b"synthetic archive")
+                        return subprocess.CompletedProcess(args, 0, listing, b"")
+                    if args[0] == "node" and args[-1] == "plan":
+                        self.assertEqual(kwargs["input"], listing)
+                        return subprocess.CompletedProcess(args, 0, listing, b"")
+                    self.assertEqual(args[-3:-1], ["/bin/sh", "-c"])
+                    self.assertEqual(kwargs["input"], listing)
+                    installer = args[-1]
+                    self.assertIn("test -d /run; test ! -L /run", installer)
+                    self.assertIn('test "$(stat -c %u:%a /run)" = 0:755', installer)
+                    self.assertIn("(set -C; cat > /run/coglatas-recovery.list)", installer)
+                    self.assertIn('test "$(stat -c %u:%a /run/coglatas-recovery.list)" = 0:600', installer)
+                    self.assertIn("sha256sum /run/coglatas-recovery.list", installer)
+                    self.assertNotIn("/tmp/", installer)
+                    digest = caller.support.sha(listing)
+                    return subprocess.CompletedProcess(
+                        args, 0 if installed_ok else 13,
+                        (digest + "  " + caller.RESTORE_LIST_PATH + "\n").encode()
+                        if installed_ok else b"", b"")
+
+                with tempfile.TemporaryDirectory() as directory:
+                    (Path(directory) / "database.dump").write_bytes(b"synthetic archive")
+                    result = {}
+                    with patch.object(caller.subprocess, "run", side_effect=runner):
+                        if installed_ok:
+                            caller.prepare_fk_restore_list(
+                                SOURCE, TARGET, Path(directory), result, {})
+                        else:
+                            with self.assertRaises(caller.support.Rejected):
+                                caller.prepare_fk_restore_list(
+                                    SOURCE, TARGET, Path(directory), result, {})
+                    self.assertEqual(len(calls), 3)
+                    if installed_ok:
+                        self.assertEqual(result["restoreList"]["entryCount"], 2)
+                        self.assertEqual(result["restoreList"]["foreignKeyCount"], 1)
+                    else:
+                        self.assertNotIn("restoreList", result)
+
     def test_restore_list_admission_failure_never_starts_pg_restore(self):
         calls = []
         def runner(args, **kwargs):
@@ -166,7 +217,7 @@ class LogicalRecoveryContracts(unittest.TestCase):
             "restore": ["docker", "--host=unix:///var/run/docker.sock", "exec", "-i", TARGET,
                         "pg_restore", "-U", "postgres", "-d", "recovery", "--no-owner",
                         "--no-privileges", "--exit-on-error",
-                        "--use-list=/tmp/coglatas-recovery.list"]})
+                        "--use-list=/run/coglatas-recovery.list"]})
         for source, target in ((SOURCE, SOURCE), ("external-host", TARGET), (SOURCE, "../target")):
             with self.assertRaises(caller.support.Rejected):
                 caller.logical_commands(source, target)

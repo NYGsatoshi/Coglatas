@@ -32,6 +32,7 @@ def module(path: Path, name: str):
 support = module(ROOT / "scripts/ci/run-synthetic-physical-recovery-ci.py", "logical_publication_support")
 probe = module(ROOT / "scripts/ci/synthetic-physical-recovery-probe.py", "logical_original_probe")
 COMPARISONS = support.COMPARISONS
+RESTORE_LIST_PATH = "/run/coglatas-recovery.list"
 CONTROLS = {key: "PASS" for key in (
     "sourceApplication", "assemblyBinding", "sourceFile", "sourceGuards",
     "oracleNegatives", "targetInitiallyEmpty", "sourceQuiescent", "ownedResources")}
@@ -317,10 +318,14 @@ def prepare_fk_restore_list(source: str, target: str, private: Path,
     fk_count = sum(b" FK CONSTRAINT " in line for line in selected)
     support.require(fk_count > 0)
     # The destination is a fresh owned isolated container. Never interpolate TOC content.
-    path = "/tmp/coglatas-recovery.list"
-    installer = ("set -eu; umask 077; test ! -e " + path + "; test ! -L " + path +
-                 "; (set -C; cat > " + path + "); test \"$(stat -c %a " + path +
-                 ")\" = 600; sha256sum " + path)
+    path = RESTORE_LIST_PATH
+    installer = ("set -eu; umask 077; "
+                 "test -d /run; test ! -L /run; "
+                 "test \"$(stat -c %u:%a /run)\" = 0:755; "
+                 "test ! -e " + path + "; test ! -L " + path +
+                 "; (set -C; cat > " + path + "); "
+                 "test \"$(stat -c %u:%a " + path + ")\" = 0:600; "
+                 "sha256sum " + path)
     installed = subprocess.run(probe.DOCKER + ["exec", "-i", target, "/bin/sh", "-c", installer],
                                input=planned.stdout, cwd=ROOT, env=environment,
                                capture_output=True, check=False, timeout=30)
@@ -340,7 +345,7 @@ def logical_commands(source: str, target: str) -> dict:
                                 "--format=custom", "--no-owner", "--no-privileges"],
         "restore": probe.DOCKER + ["exec", "-i", target, "pg_restore", "-U", "postgres", "-d", "recovery",
                                    "--no-owner", "--no-privileges", "--exit-on-error",
-                                   "--use-list=/tmp/coglatas-recovery.list"],
+                                   f"--use-list={RESTORE_LIST_PATH}"],
     }
 
 

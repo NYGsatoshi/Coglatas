@@ -32,8 +32,10 @@ TOC entries, 232 FKs). This **did not** grant PASS under the older oracle.
 The candidate now requires this same Main source-owned complete-list
 FK planner: one original custom dump, one native TOC list, no omissions,
 only whole FK-entry moves among original slots by source OID, and one
-`pg_restore --use-list` into a fresh owned target. The list is written
-with mode 0600 and digest verification before the sole restore. An
+`pg_restore --use-list` into a fresh owned target. The list is written exclusively under the container's root-owned, mode-0755
+`/run` directory (not a publicly writable `/tmp` path), with exclusive
+creation, mode-0600 owner verification and SHA-256 verification before the
+sole restore. Unsafe runtime directory ownership or mode fails closed. An
 unsupported list, change outside FK slots, failed write, missing native
 exit or failed cleanup fails closed. Original commands and unsuccessful
 historical attempts remain independently auditable.
@@ -46,8 +48,12 @@ synthetic oracle negatives remain mandatory. The catalog breakdown
 counts only closed classes; no raw names, SQL, OIDs, dumps or secrets
 are uploaded.
 
-**Exact-head acceptance of this new candidate is still unqualified
-until its own native tests, required PR CI and independent review finish.**
+At the recorded exact HEAD `2ad89b2c54eba5b8bf83f497d09b35c34c6ec523`,
+[native logical qualification 43834140649](https://github.com/NYGsatoshi/Coglatas/actions/runs/43834140649)
+completed successfully with the Main-compatible portable catalog and all six
+non-catalog byte-exact families. The original raw catalog remained unequal.
+That result qualifies only its recorded source; any later changes, including
+private restore-list staging hardening, require fresh exact-head verification.
 Even a genuine `SYNTHETIC_LOGICAL_DATABASE_CANDIDATE_PASS` is a bounded
 synthetic database verdict, not G09, product/application restoration,
 formal strategy adoption, external target, rollback/HTTPS or release GO.
