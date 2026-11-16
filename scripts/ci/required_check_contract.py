@@ -21,6 +21,14 @@ SCOPES = {"all-pr", "sensitive-only", "release"}
 PENDING = {"queued", "in_progress", "pending"}
 REJECTED = {"failure", "timed_out", "action_required", "cancelled", "skipped", "neutral", "stale", "error"}
 RUN_URL = re.compile(r"/actions/runs/(?P<id>\d+)(?:/|$)")
+# These long-running PR consumers must run after a failed producer, but must
+# stop when their workflow is cancelled. Routed, short aggregates still use
+# always() so that missing/failed prerequisite evidence is explicitly rejected.
+CANCELLABLE_PR_CONSUMERS = {
+    "build-test": ("dotnet-build", "Require successful build producer"),
+    "frontend-test": ("frontend-build", "Require successful frontend producer"),
+    "security-scan": ("dotnet-build", "Require successful build producer"),
+}
 
 
 def _load(path: Path, label: str) -> Any:
@@ -472,6 +480,40 @@ def _prerequisite_chain_errors(
     return errors
 
 
+def _cancellable_consumer_guard(text: str, block: tuple[int, int, int], job: str) -> bool:
+    """Admit the cancellation-only condition with its actual first-step refusal.
+
+    Keep this deliberately narrow: an if/continue-on-error, changed producer,
+    inserted command or alternate shell in the admission step requires review.
+    This is source validation, not a simulation of GitHub's cancellation engine.
+    """
+    producer, name = CANCELLABLE_PR_CONSUMERS[job]
+    fields = _direct_job_fields(text, block)
+    steps = fields.get("steps", [])
+    if len(steps) != 1 or steps[0][1]:
+        return False
+    lines = _lines(text)
+    steps_index = steps[0][0]
+    steps_indent = _indent(lines[steps_index])
+    first: list[str] = []
+    for line in lines[steps_index + 1:block[1]]:
+        if not line.strip():
+            continue
+        if _indent(line) <= steps_indent:
+            break
+        if first and _indent(line) == steps_indent + 2 and line.lstrip().startswith("-"):
+            break
+        first.append(line[steps_indent + 2:])
+    return first == [
+        f"- name: {name}",
+        "  shell: bash",
+        "  env:",
+        "    BASH_ENV: /dev/null",
+        f"    PRODUCER_RESULT: ${{{{ needs.{producer}.result }}}}",
+        '  run: test "$PRODUCER_RESULT" = success',
+    ]
+
+
 def required_check_errors(relative: str, text: str, registry: dict[str, Any] | None = None) -> list[str]:
     registry = registry or load_required_check_registry()
     entries = [c for c in expanded_checks(registry) if c["workflow"] == relative]
@@ -503,8 +545,15 @@ def required_check_errors(relative: str, text: str, registry: dict[str, Any] | N
                 errors.append(f"{relative}: required check job '{item['job']}' must keep name {item['context']!r}")
             condition = _field(text, block, "if")
             unconditional = {"always()", "${{ always() }}"}
-            if condition is not None and condition not in unconditional:
+            cancellable = (
+                relative == ".github/workflows/ci.yml"
+                and item["job"] in CANCELLABLE_PR_CONSUMERS
+                and condition == "${{ !cancelled() }}"
+            )
+            if condition is not None and condition not in unconditional and not cancellable:
                 errors.append(f"{relative}: required check job '{item['job']}' must not use job-level if")
+            if cancellable and not _cancellable_consumer_guard(text, block, item["job"]):
+                errors.append(f"{relative}: cancellable consumer '{item['job']}' must retain its first-step producer refusal")
             conditional = item.get("conditional_prerequisites", {})
             if conditional and condition not in unconditional:
                 errors.append(f"{relative}: routed aggregate must use always() to reject failed/cancelled/missing prerequisites")
