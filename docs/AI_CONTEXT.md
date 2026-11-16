@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned Scenario preview publication cancellation](verification/projectide-scenario-preview-publication-cancellation.md)
+withdraws only cancelled current Scenario/Draft previews, preserving newer
+previews, original Compiler facts and fixed Scenario baselines. Qualification
+and current runtime authority remain separate.
+
 [Owned recorded simulation read cancellation](verification/projectide-recorded-simulation-read-cancellation.md)
 withdraws only cancelled current comparison/profile snapshots while preserving
 newer successful reads and original recordings. Numerical assurance and current
