@@ -74,7 +74,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _recordedPredicateGeneration && root == _rootSourceGeneration && selection == _selectionGeneration &&
             CurrentPredicateSource && diagnostic is not null && ReferenceEquals(request, _desiredPredicateRequest) && ReferenceEquals(invocation, _acceptedPredicateInvocation) &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(diagnostic, SelectedDiagnostic);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var snapshot = ProjectRecordedPredicatePremiseSnapshot.Read(_rootSourceAdmission!, compilation!.PredicatePremises!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _recordedPredicatePremises = snapshot; _recordedPredicateDiagnostic = diagnostic; _recordedPredicateCompilation = compilation; Changed();

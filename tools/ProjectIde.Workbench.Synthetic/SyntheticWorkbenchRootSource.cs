@@ -21,7 +21,11 @@ public sealed partial class SyntheticWorkbenchViewModel
         RootSourceReadState = "Loading"; Changed();
         bool Current() => !_disposed && generation == _rootSourceGeneration && State == "Ready" && compilation is not null && request is not null &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(request, _desired) && ReferenceEquals(Result, compilation.Result);
-        if (!Current()) return false;
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         ProjectRootSourceAdmission? admission;
         try { admission = ProjectRootSourceAdmission.Read(compilation!, Result!, expectedResult, token); }
         catch (OperationCanceledException)

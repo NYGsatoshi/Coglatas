@@ -23,7 +23,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _premiseGeneration && selection == _selectionGeneration && scope == _scopedGeneration && rootScope == _rootSourceGeneration &&
             CurrentPremiseSource && compilation is not null && diagnostic is not null && ReferenceEquals(compilation, _compilation) &&
             ReferenceEquals(diagnostic, SelectedDiagnostic) && ReferenceEquals(request, _desired);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var snapshot = CurrentScopedSources
             ? ProjectDiagnosticPremiseSnapshot.Read(compilation!, diagnostic!, expectedResult, mode, maximumBodyBytes, token)
             : ProjectDiagnosticPremiseSnapshot.ReadRoot(_rootSourceAdmission!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);

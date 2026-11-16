@@ -22,7 +22,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _passBoundaryGeneration && root == _rootSourceGeneration &&
             CurrentPassSource && ReferenceEquals(request, _desiredPassRequest) && ReferenceEquals(actual, _acceptedPassInvocation) &&
             ReferenceEquals(compilation, _compilation) && compilation!.Result.ResultDigest.Equals(expectedResult);
-        Changed(); if (!Current()) return false;
+        Changed();
+        if (!Current())
+        {
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPassBoundarySnapshot.Read(execution, compilation!, execution.Observation,
             compilation!.Input.InputDigest, expectedResult, ordinal, mode, maximumBodyBytes, token);
