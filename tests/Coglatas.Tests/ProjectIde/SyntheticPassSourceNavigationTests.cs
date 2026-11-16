@@ -69,10 +69,11 @@ public sealed class SyntheticPassSourceNavigationTests
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel(); await Prepare(vm, session); Assert.True(Read(vm));
         var digest = vm.Result!.ResultDigest; var count = 0; var fired = false;
-        vm.PropertyChanged += (_, _) => {
+        vm.PropertyChanged += (sender, _) => {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             if (fired || ++count != notification) return; fired = true;
-            switch (action) { case "source": Assert.True(vm.LoadSyntheticRootSource(digest)); break;
-                case "body": Assert.True(Read(vm, 0)); break; case "reset": vm.Reset(); break; default: vm.Dispose(); break; }
+            switch (action) { case "source": Assert.True(current.LoadSyntheticRootSource(digest)); break;
+                case "body": Assert.True(Read(current, 0)); break; case "reset": current.Reset(); break; default: current.Dispose(); break; }
         };
         Assert.False(vm.ReadPassBoundarySourcePage()); Assert.True(fired); Assert.Null(vm.PassBoundarySourcePage); Assert.Null(vm.SourceTarget);
     }
@@ -85,11 +86,12 @@ public sealed class SyntheticPassSourceNavigationTests
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel(); await Prepare(vm, session); Assert.True(Read(vm));
         Assert.True(vm.ReadPassBoundarySourcePage()); var page = vm.PassBoundarySourcePage!; var digest = vm.Result!.ResultDigest;
-        var fired = false; vm.PropertyChanged += (_, _) => {
+        var fired = false; vm.PropertyChanged += (sender, _) => {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             if (fired) return; fired = true;
-            switch (action) { case "source": Assert.True(vm.LoadSyntheticRootSource(digest)); break;
-                case "body": Assert.True(Read(vm, 0)); break; case "page": Assert.True(vm.ReadPassBoundarySourcePage(1)); break;
-                case "reset": vm.Reset(); break; default: vm.Dispose(); break; }
+            switch (action) { case "source": Assert.True(current.LoadSyntheticRootSource(digest)); break;
+                case "body": Assert.True(Read(current, 0)); break; case "page": Assert.True(current.ReadPassBoundarySourcePage(1)); break;
+                case "reset": current.Reset(); break; default: current.Dispose(); break; }
         };
         Assert.False(vm.NavigatePassBoundarySource(page, page.Targets[0])); Assert.True(fired); Assert.Null(vm.SourceTarget);
         Assert.NotEmpty(page.Targets);
@@ -100,8 +102,11 @@ public sealed class SyntheticPassSourceNavigationTests
     {
         var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
-        using var vm = new SyntheticWorkbenchViewModel(); using var other = new SyntheticWorkbenchViewModel();
-        await Prepare(vm, session); await Prepare(other, session); Assert.True(Read(vm)); Assert.True(Read(other));
+        using var vm = new SyntheticWorkbenchViewModel();
+        using var other = new SyntheticWorkbenchViewModel();
+        await Prepare(vm, session);
+        await Prepare(other, session);
+        Assert.True(Read(vm)); Assert.True(Read(other));
         Assert.True(vm.ReadPassBoundarySourcePage()); var page = vm.PassBoundarySourcePage!;
         Assert.False(other.NavigatePassBoundarySource(page, page.Targets[0])); Assert.Null(other.SourceTarget);
         using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
@@ -124,7 +129,10 @@ public sealed class SyntheticPassSourceNavigationTests
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel(); await Prepare(vm, session); Assert.True(Read(vm));
         var count = 0; var fired = false;
-        vm.PropertyChanged += (_, _) => { if (fired || ++count != notification) return; fired = true; Assert.True(vm.ReadPassBoundarySourcePage(1, 1)); };
+        vm.PropertyChanged += (sender, _) => {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (fired || ++count != notification) return; fired = true; Assert.True(current.ReadPassBoundarySourcePage(1, 1));
+        };
         Assert.False(vm.ReadPassBoundarySourcePage()); Assert.True(fired); Assert.Equal(1, vm.PassBoundarySourcePage!.Offset);
         Assert.Single(vm.PassBoundarySourcePage.Targets);
     }
@@ -136,7 +144,10 @@ public sealed class SyntheticPassSourceNavigationTests
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
         using var vm = new SyntheticWorkbenchViewModel(); await Prepare(vm, session); Assert.True(Read(vm)); Assert.True(vm.ReadPassBoundarySourcePage());
         var page = vm.PassBoundarySourcePage!; Assert.True(page.Targets.Count > 1); var fired = false;
-        vm.PropertyChanged += (_, _) => { if (fired) return; fired = true; Assert.True(vm.NavigatePassBoundarySource(page, page.Targets[1])); };
+        vm.PropertyChanged += (sender, _) => {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (fired) return; fired = true; Assert.True(current.NavigatePassBoundarySource(page, page.Targets[1]));
+        };
         Assert.False(vm.NavigatePassBoundarySource(page, page.Targets[0])); Assert.Same(page.Targets[1].Location, vm.SourceTarget);
         Assert.Throws<ArgumentOutOfRangeException>(() => vm.ReadPassBoundarySourcePage(-1)); Assert.Null(vm.SourceTarget); Assert.Null(vm.PassBoundarySourcePage);
     }
