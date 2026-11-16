@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned explicit Draft preview cancellation](verification/projectide-draft-preview-publication-cancellation.md)
+withdraws only cancelled current Rename/Revert/Test-definition plans and preserves
+newer previews, original Compiler/Source/history facts and explicit Apply guards.
+Qualification and current runtime authority remain separate.
+
 [Owned Scenario preview publication cancellation](verification/projectide-scenario-preview-publication-cancellation.md)
 withdraws only cancelled current Scenario/Draft previews, preserving newer
 previews, original Compiler facts and fixed Scenario baselines. Qualification

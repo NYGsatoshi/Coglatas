@@ -225,6 +225,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             name, nextContext, cancellationToken);
         RenamePreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
+            {
+                RenamePreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
     }
 
@@ -253,6 +261,14 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
         RevertPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
+            {
+                _revertPreviewGeneration++; RevertPreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 
