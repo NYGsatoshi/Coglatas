@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_VERSION = "4.25.2"
+MAX_RAW_NDJSON_BYTES = 128 * 1024 * 1024
+MAX_EXECUTION_NDJSON_BYTES = 32 * 1024 * 1024
+MAX_NDJSON_LINE_BYTES = 4 * 1024 * 1024
+MAX_NDJSON_RECORDS = 100_000
+MAX_SAFE_NDJSON_BYTES = 128 * 1024 * 1024
 SENSITIVE_KEY = re.compile(
     r"(?:token|secret|password|passwd|cookie|session|csrf|credential)"
     r"|(?:^|[-_])auth(?:orization)?(?:$|[-_])"
@@ -81,52 +86,78 @@ def sanitize(value: Any, secrets: set[str]) -> Any:
     return value
 
 
+def bounded_ndjson(path: Path, *, maximum: int, label: str):
+    """Read hostile scanner NDJSON with fixed per-line, record and total limits."""
+    total = 0
+    count = 0
+    try:
+        with path.open("rb") as source:
+            while line := source.readline(MAX_NDJSON_LINE_BYTES + 1):
+                count += 1
+                total += len(line)
+                if (len(line) > MAX_NDJSON_LINE_BYTES or total > maximum
+                        or count > MAX_NDJSON_RECORDS):
+                    fail(f"{label} exceeds bounded input")
+                try:
+                    yield count, line.decode("utf-8")
+                except UnicodeDecodeError:
+                    fail(f"{label} has invalid UTF-8")
+    except OSError:
+        fail(f"{label} is unavailable")
+    if count == 0:
+        fail(f"{label} is missing or empty")
+
+
 def parse_report(raw_report: Path, output: Path, secrets: set[str], expected_seed: int) -> tuple[int, str]:
     if not raw_report.is_file() or raw_report.stat().st_size == 0:
         fail("raw NDJSON report is missing or empty")
 
     initialize_count = 0
     observed_version = ""
+    safe_bytes = 0
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as temp:
-        temp_path = Path(temp.name)
-        try:
-            with raw_report.open(encoding="utf-8") as source:
-                for line_number, line in enumerate(source, start=1):
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError as exc:
-                        fail(f"invalid NDJSON at line {line_number}: {exc}")
-                    if not isinstance(event, dict):
-                        fail(f"NDJSON line {line_number} is not an object")
-                    initialize = event.get("Initialize")
-                    if initialize is not None:
-                        initialize_count += 1
-                        if not isinstance(initialize, dict):
-                            fail("Initialize event is not an object")
-                        observed_version = str(initialize.get("schemathesis_version", ""))
-                        if observed_version != EXPECTED_VERSION:
-                            fail(f"expected Schemathesis {EXPECTED_VERSION}, got {observed_version!r}")
-                        if initialize.get("seed") != expected_seed:
-                            fail(f"report seed {initialize.get('seed')!r} does not match expected {expected_seed}")
-                    safe = sanitize(event, secrets)
-                    temp.write(json.dumps(safe, separators=(",", ":"), sort_keys=True))
-                    temp.write("\n")
-        except BaseException:
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as temp:
+            temp_path = Path(temp.name)
+            for line_number, line in bounded_ndjson(raw_report, maximum=MAX_RAW_NDJSON_BYTES, label="raw report"):
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    fail(f"invalid NDJSON at line {line_number}: {exc}")
+                if not isinstance(event, dict):
+                    fail(f"NDJSON line {line_number} is not an object")
+                initialize = event.get("Initialize")
+                if initialize is not None:
+                    initialize_count += 1
+                    if not isinstance(initialize, dict):
+                        fail("Initialize event is not an object")
+                    observed_version = str(initialize.get("schemathesis_version", ""))
+                    if observed_version != EXPECTED_VERSION:
+                        fail(f"expected Schemathesis {EXPECTED_VERSION}, got {observed_version!r}")
+                    if initialize.get("seed") != expected_seed:
+                        fail(f"report seed {initialize.get('seed')!r} does not match expected {expected_seed}")
+                safe = sanitize(event, secrets)
+                serialized = json.dumps(safe, separators=(",", ":"), sort_keys=True)
+                safe_bytes += len(serialized.encode("utf-8")) + 1
+                if safe_bytes > MAX_SAFE_NDJSON_BYTES:
+                    fail("sanitized report exceeds bounded output")
+                temp.write(serialized)
+                temp.write("\n")
+        # The temporary file is closed before any failure cleanup or rename,
+        # including on Windows hosts where unlink of an open file is prohibited.
+        if initialize_count != 1:
+            fail(f"expected exactly one Initialize event, got {initialize_count}")
+        safe_text = temp_path.read_text(encoding="utf-8")
+        for secret in secrets:
+            if secret in safe_text or base64.b64encode(secret.encode("utf-8")).decode("ascii") in safe_text:
+                fail("sanitized report still contains ephemeral authentication material")
+        temp_path.replace(output)
+    except BaseException:
+        if temp_path is not None:
             temp_path.unlink(missing_ok=True)
-            raise
-    if initialize_count != 1:
-        temp_path.unlink(missing_ok=True)
-        fail(f"expected exactly one Initialize event, got {initialize_count}")
-
-    safe_text = temp_path.read_text(encoding="utf-8")
-    for secret in secrets:
-        if secret in safe_text or base64.b64encode(secret.encode("utf-8")).decode("ascii") in safe_text:
-            temp_path.unlink(missing_ok=True)
-            fail("sanitized report still contains ephemeral authentication material")
-    temp_path.replace(output)
+        raise
     return initialize_count, observed_version
-
 
 def contract_operations(raw: bytes) -> set[str]:
     """Bind evidence labels to the exact canonical OpenAPI contract bytes."""
@@ -158,34 +189,33 @@ def parse_evidence(path: Path, expected_role: str, allowed_operations: set[str])
     responses = 0
     network_errors = 0
     operations: set[str] = set()
-    with path.open(encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError as exc:
-                fail(f"invalid execution evidence at line {line_number}: {exc}")
-            if not isinstance(event, dict) or event.get("role") != expected_role:
-                fail(f"execution evidence role mismatch at line {line_number}")
-            kind = event.get("event")
-            if kind == "response":
-                responses += 1
-            elif kind == "network_error":
-                network_errors += 1
-            else:
-                fail(f"unknown execution evidence event {kind!r}")
-            operation = event.get("operation")
-            method = event.get("method")
-            if not isinstance(operation, str) or operation not in allowed_operations:
-                fail("scanner evidence operation is not bound to authoritative OpenAPI")
-            if not isinstance(method, str) or re.fullmatch(r"[A-Za-z]{2,20}", method) is None:
-                fail("scanner evidence HTTP method is invalid")
-            # SEC-04's Schemathesis coverage phase intentionally exercises
-            # unsupported HTTP methods against a *declared* operation. Its
-            # case.method can therefore differ from case.operation.label.
-            # Keep the request/response in the evidence count, but never
-            # credit the off-method probe as declared operation coverage.
-            if method.upper() == operation.split(" ", 1)[0]:
-                operations.add(operation)
+    for line_number, line in bounded_ndjson(path, maximum=MAX_EXECUTION_NDJSON_BYTES, label="execution evidence"):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as exc:
+            fail(f"invalid execution evidence at line {line_number}: {exc}")
+        if not isinstance(event, dict) or event.get("role") != expected_role:
+            fail(f"execution evidence role mismatch at line {line_number}")
+        kind = event.get("event")
+        if kind == "response":
+            responses += 1
+        elif kind == "network_error":
+            network_errors += 1
+        else:
+            fail(f"unknown execution evidence event {kind!r}")
+        operation = event.get("operation")
+        method = event.get("method")
+        if not isinstance(operation, str) or operation not in allowed_operations:
+            fail("scanner evidence operation is not bound to authoritative OpenAPI")
+        if not isinstance(method, str) or re.fullmatch(r"[A-Za-z]{2,20}", method) is None:
+            fail("scanner evidence HTTP method is invalid")
+        # SEC-04's Schemathesis coverage phase intentionally exercises
+        # unsupported HTTP methods against a *declared* operation. Its
+        # case.method can therefore differ from case.operation.label.
+        # Keep the request/response in the evidence count, but never
+        # credit the off-method probe as declared operation coverage.
+        if method.upper() == operation.split(" ", 1)[0]:
+            operations.add(operation)
     if responses == 0:
         fail(f"scanner sent no successful HTTP request for role {expected_role}")
     if not operations:
