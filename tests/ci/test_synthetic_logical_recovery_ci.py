@@ -195,6 +195,10 @@ def catalog_bytes(rows):
     return ("\n".join(json.dumps(row) for row in rows) + "\n").encode()
 
 
+def named_index_bytes(rows):
+    return ("\n".join(json.dumps(row) for row in rows) + "\n").encode()
+
+
 class CatalogMetadataContracts(unittest.TestCase):
     def assert_closed(self, diagnostic):
         self.assertEqual(set(diagnostic), {"availability", "sourceCatalogSha256",
@@ -355,7 +359,7 @@ class CatalogMetadataContracts(unittest.TestCase):
         target.append([private, private, private + "5", None, None, True, True,
                        "CREATE INDEX five"])
         diagnostic = caller.named_index_diagnostic(
-            json.dumps(original).encode(), json.dumps(target).encode())
+            named_index_bytes(original), named_index_bytes(target))
         self.assertEqual(diagnostic["availability"], "AVAILABLE")
         self.assertEqual(diagnostic["counts"], {
             "SOURCE_INDEXES": 4, "RESTORED_INDEXES": 4,
@@ -377,11 +381,11 @@ class CatalogMetadataContracts(unittest.TestCase):
     def test_named_index_metadata_rejects_duplicate_and_malformed_records(self):
         private = CANARY.decode()
         record = [private, private, private, None, None, True, True, "CREATE INDEX"]
-        good = json.dumps([record]).encode()
+        good = named_index_bytes([record])
         bad = (b"", b"null", b"[1]", b"not-json", b"\\xff",
-               json.dumps([record, record]).encode(),
-               json.dumps([[private, private, private, None, None, 1, True, "CREATE INDEX"]]).encode(),
-               json.dumps([[private, private, private, None, None, True, True]]).encode())
+               named_index_bytes([record, record]),
+               named_index_bytes([[private, private, private, None, None, 1, True, "CREATE INDEX"]]),
+               named_index_bytes([[private, private, private, None, None, True, True]]))
         for invalid in bad:
             result = caller.named_index_diagnostic(good, invalid)
             self.assertEqual(result, {"availability": "UNAVAILABLE", "counts": {}})

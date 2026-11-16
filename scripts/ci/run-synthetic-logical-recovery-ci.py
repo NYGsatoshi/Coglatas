@@ -39,15 +39,14 @@ CONTROLS = {key: "PASS" for key in (
 # Diagnostic read only: index names remain private in the owned disposable DB.
 # This is separate from the immutable byte-exact catalog.txt acceptance oracle.
 NAMED_INDEX_SQL = """
-SELECT coalesce(json_agg(json_build_array(
+SELECT json_build_array(
  n.nspname,c.relname,idx.relname,i.indexprs::text,i.indpred::text,
- i.indisvalid,i.indisready,pg_get_indexdef(i.indexrelid))
- ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",idx.relname COLLATE "C"),
- '[]'::json)::text
+ i.indisvalid,i.indisready,pg_get_indexdef(i.indexrelid))::text
 FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid
 JOIN pg_class idx ON idx.oid=i.indexrelid
 JOIN pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname NOT IN ('pg_catalog','information_schema');
+WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",idx.relname COLLATE "C";
 """
 
 
@@ -185,10 +184,11 @@ def named_index_diagnostic(before: bytes, after: bytes) -> dict:
     try:
         def records(data):
             support.require(type(data) is bytes and 0 < len(data) <= 2097152)
-            rows = support.closed_json(data)
-            support.require(type(rows) is list and len(rows) <= 10000)
+            lines = data.decode("utf-8").splitlines()
+            support.require(0 < len(lines) <= 10000)
             output = {}
-            for row in rows:
+            for line in lines:
+                row = support.closed_json(line.encode("utf-8"))
                 support.require(type(row) is list and len(row) == 8)
                 support.require(all(type(value) is str and 0 < len(value) <= 256
                                     for value in row[:3]))
