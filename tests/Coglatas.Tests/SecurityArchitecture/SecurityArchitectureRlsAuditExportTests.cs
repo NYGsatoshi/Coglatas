@@ -373,7 +373,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
         Assert.Equal(storedDigest, digest);
         bytes.Position = 0;
         await using var zip = new ZipArchive(bytes, ZipArchiveMode.Read);
-        Assert.Equal(new[] { "audit-report.json", "claim-evidence.json", "risk-decisions.json", "run-metadata.json", "source-manifest.json" },
+        Assert.Equal(["audit-report.json", "claim-evidence.json", "risk-decisions.json", "run-metadata.json", "source-manifest.json"],
             zip.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal));
         Assert.All(zip.Entries, entry => Assert.True(entry.Length > 0));
         await using var projectionStream = await zip.GetEntry("claim-evidence.json")!.OpenAsync();
