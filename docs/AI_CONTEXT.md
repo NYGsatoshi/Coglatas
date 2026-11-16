@@ -1,5 +1,11 @@
 # AI Context
 
+[Bounded local reference search pages](verification/projectide-reference-search-pages.md)
+adds an owner-bound Core continuation over actual canonical reference facts.
+Index coverage and scan exhaustion remain separate. Existing paired-client
+search limits and navigation checks are unchanged; paged UI adoption and current
+query/open authority remain separate work.
+
 [Original pass map Source navigation](verification/projectide-pass-source-navigation.md)
 adds explicit bounded targets from the selected retained original map to Angular
 and the Windows pure ViewModel. Current page/member identity and Source/run
