@@ -1,69 +1,72 @@
-# Initial recorded read cancellation and newer view ownership
+# Initial Workbench read cancellation and newer ownership
 
-Existing work: #1034 / #782 under #888. This is a Product correction for six
-pure Workbench reads of already-owned compiler outputs, diagnostic premises,
-selected pass boundaries, whole passes, operators and recorded predicates.
+Existing work: #1034 / #782 under #888; related original recording and Source
+admission contracts. This corrects seven initial read-notification guards:
+compiler outputs, diagnostic premises, selected pass boundary, whole pass,
+operator recording, predicate premises and Root Source admission. Metadata-only
+non-token reads and the already-token-checked pass Source page are unchanged.
 
-## Trigger and bounded correction
+## Trigger and behavior
 
-Each read clears its previous view and notifies PropertyChanged before
-admitting an original recorded body. A synchronous subscriber can start a
-newer admitted or refused read, then cancel the outer token. Previously the
-outer generation check returned false without reporting cancellation.
+Each read withdraws its previous view and emits PropertyChanged. A synchronous
+subscriber can establish a newer successful or refused read and cancel the
+outer token. Previously the outer initial generation check returned false
+before observing cancellation. The older caller therefore received no
+OperationCanceledException even though its token was cancelled.
 
-Each of the six initial supersession guards now checks its own token before
-returning false. It reports OperationCanceledException while retaining the
-exact newer admitted snapshot, unbound refusal or empty view. Uncancelled
-supersession still returns false. The later source/generation/publication
-checks and owned cancellation cleanup remain unchanged. Metadata-only reads
-have no token and are unchanged.
+Each initial supersession guard now checks its own token before returning
+false. It does not clear or replace newer state. Ordinary uncancelled
+supersession still returns false; argument validation, current-source admission,
+refusal boundaries and later read/publication cleanup remain unchanged.
 
-The twelve new cases use actual fixed-source compilation/recording sessions,
-explicit original Source admission and selected diagnostics where required.
-They retain the original result, result data and previous snapshot data, then
-verify the replacement object and its original bodies or actual wrong-result
-refusal before asserting the cancellation exception. The test subscriber owns
-its token source, uses a method-group read and unsubscribes before disposal.
+The six recording tests retain actual original result/body data and require
+the exact newer admitted view or its actual wrong-result refusal/empty state.
+The Root Source tests also retain a newer successful admission and the actual
+diagnostic premises read from it, or the newer Unavailable refusal. All these
+facts are asserted before the cancellation exception. Owned IDisposable test
+subscribers use method-group reads and unsubscribe before disposing tokens.
 
-## Original failure evidence
+## Original failure and validation evidence
 
-Based on dedicated integration f9f4af9c2312f6c6bd02bdb8696436a48451f45e
-(tree e67966a8ec5add08bbbe1cfac0480f0f849bb120), the original runtime failed
-all twelve cases on both Windows and Linux only at the final expected
-OperationCanceledException assertion: actual null. All preceding data and
-newer admitted/refused view assertions passed. The twelve raw GUID/name/outcome
-inventories match across hosts. SDK10.0.403 fresh nonincremental Release builds
-had zero warnings/errors, with 317 relevant source inputs exact before/after.
+On dedicated integration f9f4af9c2312f6c6bd02bdb8696436a48451f45e
+(tree e67966a8ec5add08bbbe1cfac0480f0f849bb120), all fourteen new cases
+failed on both Windows and Linux only at the final expected cancellation
+assertion: actual null. Earlier original-data/newer-view and Root Source premise
+assertions passed. All fourteen raw GUID/name/outcome identities match across
+hosts. SDK10.0.403 fresh nonincremental Release builds had zero warnings/errors;
+317 relevant source inputs match before/after. Original failed TRX and source
+pins are retained. The final positive run uses byte-identical test sources.
 
-The first fixture attempt failed compilation before running any cases because
-the new operator fixture named a nonexistent snapshot mode. The fixture was
-corrected to the existing AvailableOperators mode; original source, failed
-strict build logs and input pins are retained. The first Windows positive
-harness also refused obsolete input pins before compilation; its original
-helper/log were retained and the input-file reference corrected. Neither
-preflight failure is counted as an executed regression or successful check.
+The earlier six-read phase separately passed192 affected,2790 full ProjectIDE
+and12 architecture cases per host after its twelve original failures. Prior
+180 affected/2778 full/12 architecture identities were retained with exact
+cross-host raw parity. Its complete fourteen-file CLI review had zero findings.
+These earlier results are retained as a separate source phase, not promoted to
+the expanded seven-read candidate. First static analysis reported67 overall /
+1 changed RedundantNameQualifier in the new premise fixture. It now uses the
+existing imported PropertyChangedEventArgs type; no condition/assertion changed.
+The corrected fixture still failed the same twelve original cases before
+expanding to the fourteen-case original-runtime negative execution above.
 
-## Validation record
+The first fixture attempt used a nonexistent operator snapshot mode and failed
+compilation before running cases. It was corrected to existing AvailableOperators.
+The first Windows positive harness also refused obsolete source pins before
+compilation; its input-file reference was corrected. Both original source/helper
+and failed logs remain retained; neither preflight counts as executed acceptance.
 
-With only the six initial guards corrected, each host passes192 affected,
-2790 full ProjectIDE and12 architecture cases with zero skips/failures. All
-previous180 affected,2778 full and12 architecture raw GUID/name/outcome rows
-are retained, and all three suites match exactly across hosts. The same twelve
-original failed IDs now pass with byte-identical test sources. Fresh strict
-nonincremental Release builds have zero warnings/errors; all317 relevant inputs
-match before/after. Metadata-only non-token methods remain byte-identical.
+Record the final current-source positive inventory, static analysis, full
+technical review, hosted CI and original archive/source digests in the PR. New
+documentation must not be retrospectively bound to earlier compiled checks.
 
-Record current static analysis, complete technical review and hosted checks
-in the PR with exact source/Tree and original archive/source digests. A new
-documentation file must not be retrospectively attributed to an earlier
-compiled execution.
+## Scope and remaining gates
 
-No Angular/Web API, recording protocol, generated fixture, execution/session,
-metric, current authorization, acquisition, storage, export or CI change is
-included. These Product checks do not establish independent security, actual
-Avalonia UI, operational data, Native activation or production readiness.
+This starts no compiler, simulation, body acquisition, export or new storage
+during a read. No Angular/Web API, recording protocol, generated fixture, metric,
+current authorization, CI or normative specification change is included.
 
-Independent actor/Tenant/session and privacy/redaction/retention qualification
-remain OPEN/P0 #1962. Shared CI remains P0 #795. Wider parent Issues remain
-OPEN; #1144 BLOCKED; #1128 SUSPENDED/NOT_EVALUATED; Registry/Trust/Eligibility/
-RLS/Native/Production/Release HOLDs remain unchanged.
+These Product checks do not establish independent security, actual Avalonia UI,
+operational data, Native activation or production readiness. Independent actor/
+Tenant/session and privacy/redaction/retention qualification remain OPEN/P0
+#1962; shared CI remains P0 #795. Wider parents remain OPEN; #1144 BLOCKED;
+#1128 SUSPENDED/NOT_EVALUATED; Registry/Trust/Eligibility/RLS/Native/Production/
+Release HOLDs remain unchanged.

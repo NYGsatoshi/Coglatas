@@ -1,10 +1,10 @@
 # AI Context
 
-Read [initial recorded-read cancellation](verification/projectide-recorded-read-initial-cancellation.md)
-for six token-bearing original recording/output/premise reads. A cancelled
-older read reports cancellation after initial notification supersession while
-retaining the newer successful, refused or empty view; metadata-only reads
-and current permission/Native/Production HOLDs remain unchanged.
+Read [initial Workbench read cancellation](verification/projectide-recorded-read-initial-cancellation.md)
+for seven token-bearing original recording/output/premise and Root Source reads.
+A cancelled older read reports cancellation after initial notification
+supersession while retaining newer success/refusal and owned Source premises.
+Metadata-only reads and current permission/Native/Production HOLDs remain unchanged.
 
 Read [initial model read cancellation](verification/projectide-model-read-initial-cancellation.md)
 for the pure Workbench profile/comparison initial notification boundary: a

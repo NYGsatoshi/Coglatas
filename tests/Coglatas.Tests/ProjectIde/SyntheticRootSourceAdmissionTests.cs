@@ -132,4 +132,80 @@ public sealed class SyntheticRootSourceAdmissionTests
         else { Assert.Null(vm.RootSource); Assert.Equal("Idle", vm.RootSourceReadState); Assert.Null(vm.DiagnosticPremises); }
         Assert.IsType<OperationCanceledException>(error);
     }
+
+    private sealed class CancelInitialRootRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly ContentDigest _expected;
+        private readonly bool _admitted;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public bool ReplacementPremisesRead { get; private set; }
+        public ProjectSource? Replacement { get; private set; }
+        public ProjectDiagnosticPremiseSnapshot? ReplacementPremises { get; private set; }
+        public CancellationToken Token => _source.Token;
+        public CancelInitialRootRead(SyntheticWorkbenchViewModel view, bool admitted)
+        { _view = view; _expected = view.Result!.ResultDigest; _admitted = admitted; view.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.LoadSyntheticRootSource(_expected, Token);
+        private void Changed(object? sender, PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.RootSourceReadState != "Loading") return;
+            Fired = true;
+            ReplacementSucceeded = _view.LoadSyntheticRootSource(_admitted ? _expected : _view.Result!.Input.InputDigest);
+            Replacement = _view.RootSource;
+            if (_admitted)
+            {
+                ReplacementPremisesRead = _view.ReadSyntheticDiagnosticPremises(_expected, DiagnosticPremiseSnapshotMode.AvailableBodies);
+                ReplacementPremises = _view.DiagnosticPremises;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InitialRootReadCancellationPreservesNewerAdmissionOrRefusalAndItsPremises(bool admitted)
+    {
+        var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)Cases().First()[0]);
+        using var view = new SyntheticWorkbenchViewModel();
+        view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var result = view.Result!;
+        var resultData = result.Data;
+        Assert.True(view.SelectDiagnostic(view.Problems.First(d => d.Evidence.Kind == CompilerEvidenceKind.ModelProof)));
+        Assert.True(view.LoadSyntheticRootSource(result.ResultDigest));
+        var previous = view.RootSource!;
+        var previousData = previous.Data;
+        Assert.NotEmpty(previousData.CanonicalText);
+        using var cancellation = new CancelInitialRootRead(view, admitted);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Equal(admitted, cancellation.ReplacementSucceeded);
+        Assert.Same(cancellation.Replacement, view.RootSource);
+        Assert.Same(result, view.Result);
+        Assert.Equal(resultData, result.Data);
+        Assert.Equal(previousData, previous.Data);
+        if (admitted)
+        {
+            Assert.NotNull(cancellation.Replacement);
+            Assert.Equal("Ready", view.RootSourceReadState);
+            Assert.True(cancellation.ReplacementPremisesRead);
+            Assert.NotNull(cancellation.ReplacementPremises);
+            Assert.Same(cancellation.ReplacementPremises, view.DiagnosticPremises);
+            Assert.NotEmpty(view.DiagnosticPremises!.Bodies);
+        }
+        else
+        {
+            Assert.Null(view.RootSource);
+            Assert.Equal("Unavailable", view.RootSourceReadState);
+            Assert.Null(view.DiagnosticPremises);
+        }
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }

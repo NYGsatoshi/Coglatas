@@ -178,7 +178,7 @@ public sealed class SyntheticDiagnosticPremiseTests
         private void ReadCore() => ReadCurrent(_expected, Token);
         private bool ReadCurrent(ContentDigest expected, CancellationToken token) =>
             _view.ReadSyntheticDiagnosticPremises(expected, DiagnosticPremiseSnapshotMode.AvailableBodies, token: token);
-        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        private void Changed(object? sender, PropertyChangedEventArgs args)
         {
             if (Fired || _view.DiagnosticPremises is not null) return;
             Fired = true;
