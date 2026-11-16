@@ -83,6 +83,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, diagnostic!, mode, maximumBodyBytes, token);
         if (!Current()) return false;
         _recordedOperators = snapshot; _operatorDiagnostic = diagnostic; _operatorCompilation = compilation; _operatorSnapshotSelection = selection; Changed();
+        if (token.IsCancellationRequested)
+        {
+            if (generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
+            { ClearOperatorSnapshot(); Changed(); }
+            token.ThrowIfCancellationRequested();
+        }
         return Current() && ReferenceEquals(RecordedOperators, snapshot) && snapshot.State != CompilerPredicateObservationSnapshotState.RefusedInvocation;
     }
 

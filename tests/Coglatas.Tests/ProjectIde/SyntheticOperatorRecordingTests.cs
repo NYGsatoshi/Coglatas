@@ -234,4 +234,59 @@ public sealed class SyntheticOperatorRecordingTests
         var (_, retry, _) = Input(generation: 9); var retried = await Run(vm, session, retry, cancelled.Receipt); Select(vm, retried); Assert.True(Read(vm, retried));
         Assert.Single(vm.RecordedOperators!.Bodies); Assert.Null(cancelled.Response.Execution);
     }
+
+    private sealed class CancelPublishedRead : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _vm;
+        private readonly CancellationTokenSource _source = new();
+        private readonly ContentDigest _expectedResult;
+        private readonly bool _replace;
+        private int _notifications;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public bool ReplacementSucceeded { get; private set; }
+        public ProjectCompilerPredicateObservationSnapshot? Replacement { get; private set; }
+        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace)
+        { _vm = vm; _expectedResult = vm.Result!.ResultDigest; _replace = replace; vm.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _vm.ReadRecordedOperators(_expectedResult, CompilerPredicateObservationSnapshotMode.AvailableOperators, token: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || ++_notifications != 2) return;
+            Fired = true;
+            if (_replace)
+            {
+                ReplacementSucceeded = _vm.ReadRecordedOperators(_expectedResult, CompilerPredicateObservationSnapshotMode.AvailableOperators);
+                Replacement = _vm.RecordedOperators;
+            }
+            _source.Cancel();
+        }
+        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationAtRecordingPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    {
+        var (_, request, profile) = Input("fail");
+        using var session = new LocalPredicateObservationCompilerRecordingSession(profile);
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request); Select(vm, actual);
+        var compilation = actual.Response.Execution!.Compilation; var result = compilation.Result; var resultData = result.Data;
+        var receiptData = actual.Receipt.Data;
+        Assert.True(Read(vm, actual));
+        var previous = vm.RecordedOperators!; var previousData = previous.Data; Assert.NotEmpty(previous.Bodies);
+        using var cancellation = new CancelPublishedRead(vm, replace); var token = cancellation.Token;
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
+        Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(receiptData, actual.Receipt.Data);
+        Assert.Equal(previousData, previous.Data); Assert.NotEmpty(previous.Bodies);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded); Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, vm.RecordedOperators); Assert.NotEmpty(vm.RecordedOperators!.Bodies);
+        }
+        else Assert.Null(vm.RecordedOperators);
+        Assert.IsType<OperationCanceledException>(error);
+    }
 }
