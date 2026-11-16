@@ -1,3 +1,4 @@
+import { PassRecordingLabel, RecordedPassChoice } from './projectide-pass-recordings.reader';
 import { OperatorRecordingLabel, RecordedOperatorChoice } from './projectide-operator-recordings.reader';
 import { PredicateRecordingLabel, RecordedPredicateChoice } from './projectide-predicate-recordings.reader';
 import { DiagnosticPremiseChoice } from './projectide-diagnostic-premises.reader';
@@ -181,7 +182,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'pass-recordings' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -193,7 +194,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -221,6 +222,43 @@ export class ProjectIdeWorkbenchComponent {
     const keys = { ManifestOnly: 'ide.premisesManifestOnly', CapturedKnownBodies: 'ide.premisesCaptured', NoRecordedPremises: 'ide.premisesNone',
       NoKnownBodies: 'ide.premisesNoKnown', BodyBudgetExceeded: 'ide.premisesBudgetExceeded', LookupLimitReached: 'ide.premisesLookupLimit' } as const;
     return this.t(keys[state as keyof typeof keys] ?? 'ide.premisesUnavailable');
+  }
+  private readonly passRecordingElement = viewChild<ElementRef<HTMLElement>>('passRecordingPanel');
+  private readonly recordedPassElement = viewChild<ElementRef<HTMLElement>>('recordedPassPanel');
+  async loadPassRecording(label: PassRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadPassRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.passRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.passRecording()) this.passRecordingElement()?.nativeElement.focus();
+    });
+  }
+  async loadRecordedPasses(choice: RecordedPassChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedPasses(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedPasses();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedPasses()) this.recordedPassElement()?.nativeElement.focus();
+    });
+  }
+  passCaptureState(state: string | null): string {
+    const keys = { ManifestOnly: 'ide.passCaptureManifest', AvailableOriginalJson: 'ide.passCaptureAvailable', NoActualPasses: 'ide.passCaptureNone',
+      BodyBudgetExceeded: 'ide.passCaptureBytes', EventLimitExceeded: 'ide.passCaptureEvents' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.passNoResult');
+  }
+  passViewState(state: string): string {
+    const keys = { ManifestOnly: 'ide.passManifestOnly', AvailableOriginalJson: 'ide.passAvailable', NoRecordedOriginalBodies: 'ide.passNoBodies',
+      BodyBudgetExceeded: 'ide.passBudgetExceeded' } as const;
+    return this.t(keys[state as keyof typeof keys] ?? 'ide.passUnavailable');
+  }
+  passName(id: string): string {
+    const keys = { 'coglatas.parse-normalize': 'ide.passParse', 'coglatas.binding': 'ide.passBinding', 'coglatas.semantic-validation-ir': 'ide.passSemantic',
+      'coglatas.analysis': 'ide.passAnalysis', 'coglatas.publication': 'ide.passPublication' } as const;
+    return this.t(keys[id as keyof typeof keys] ?? 'ide.passUnavailable');
   }
   private readonly operatorRecordingElement = viewChild<ElementRef<HTMLElement>>('operatorRecordingPanel');
   private readonly recordedOperatorElement = viewChild<ElementRef<HTMLElement>>('recordedOperatorPanel');

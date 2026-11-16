@@ -1,3 +1,4 @@
+import { AdmittedPassRecording, AdmittedRecordedPasses, PassRecordingLabel, RecordedPassChoice, passRecordingMatches, recordedPassesMatch, readPassRecording, readRecordedPasses, passRunIdentitiesAreUnique } from './projectide-pass-recordings.reader';
 import { AdmittedOperatorRecording, AdmittedRecordedOperators, OperatorRecordingLabel, RecordedOperatorChoice, operatorRecordingMatches, recordedOperatorsMatch, readOperatorRecording, readRecordedOperators, operatorRunIdentitiesAreUnique } from './projectide-operator-recordings.reader';
 import { AdmittedPredicateRecording, AdmittedRecordedPredicatePremises, PredicateRecordingLabel, RecordedPredicateChoice, predicateRecordingMatches, recordedPredicatePremisesMatch, readPredicateRecording, readRecordedPredicatePremises } from './projectide-predicate-recordings.reader';
 import { AdmittedRootSource, readRootSource, rootSourceMatches } from './projectide-root-source.reader';
@@ -332,6 +333,73 @@ export class ProjectIdeWorkbenchStore {
   private clearRecordedOperators(): void {
     this.recordedOperatorGeneration++; this.recordedOperatorSnapshot.set(null); this.recordedOperatorReadState.set('idle');
   }
+  private passRecordingGeneration = 0;
+  readonly passRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly passRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedPassRecording } | null>(null);
+  private passSources(): AdmittedRootSource | null {
+    try { return this.rootSource(); } catch { return null; }
+  }
+  readonly passRecording = (): AdmittedPassRecording | null => {
+    const snapshot = this.passRecordingSnapshot(); const sources = this.passSources();
+    return snapshot && sources && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      passRunIdentitiesAreUnique(snapshot.bundle.cases) && passRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadPassRecording(label: PassRecordingLabel = 'original'): Promise<boolean> {
+    this.clearPassRecording(); const generation = this.passRecordingGeneration;
+    const context = this.context(); const sources = this.passSources(); const bundle = this.bundle();
+    if (!bundle || !context || !sources || context !== this.result() || !bundle.cases.includes(context)) return false;
+    if (!passRunIdentitiesAreUnique(bundle.cases)) { this.passRecordingReadState.set('unavailable'); return false; }
+    const projection = context.passRecordings; const member = projection?.[label]; const manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const manifestText = manifest.text; const manifestDigest = JSON.stringify(manifest.digest);
+    const current = () => generation === this.passRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.passRecordingReadState.set('loading');
+    try {
+      const admitted = await readPassRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || !passRunIdentitiesAreUnique(bundle.cases) || sources !== this.passSources() || !bundle.cases.includes(context) || context.passRecordings !== projection ||
+        projection[label] !== member || member.manifest !== manifest || manifest.text !== manifestText || JSON.stringify(manifest.digest) !== manifestDigest || admitted.manifest.text !== manifestText || JSON.stringify(admitted.manifest.digest) !== manifestDigest ||
+        !passRecordingMatches(context, sources, admitted)) throw new Error('pass-recording-unavailable');
+      this.passRecordingSnapshot.set({ bundle, context, admitted }); this.passRecordingReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.passRecordingReadState.set('unavailable'); return false;
+    }
+  }
+  private clearPassRecording(): void {
+    this.passRecordingGeneration++; this.passRecordingSnapshot.set(null); this.passRecordingReadState.set('idle');
+    this.clearRecordedPasses();
+  }
+  private recordedPassGeneration = 0;
+  readonly recordedPassReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedPassSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedPasses } | null>(null);
+  readonly recordedPasses = (): AdmittedRecordedPasses | null => {
+    const snapshot = this.recordedPassSnapshot(); const sources = this.passSources(); const recording = this.passRecording();
+    return snapshot && sources && recording && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() &&
+      recordedPassesMatch(snapshot.context, sources, recording, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedPasses(choice: RecordedPassChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedPasses(); const generation = this.recordedPassGeneration;
+    const context = this.context(); const sources = this.passSources(); const recording = this.passRecording();
+    const bundle = this.bundle();
+    if (!bundle || !context || !sources || !recording || context !== this.result() || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedPassGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedPassReadState.set('loading');
+    try {
+      const admitted = await readRecordedPasses(context, sources, recording, choice); if (!current()) return false;
+      if (!admitted || sources !== this.passSources() || recording !== this.passRecording() ||
+        !bundle.cases.includes(context) || !recordedPassesMatch(context, sources, recording, admitted))
+        throw new Error('recorded-passes-unavailable');
+      this.recordedPassSnapshot.set({ bundle, context, admitted }); this.recordedPassReadState.set('ready'); return true;
+    } catch {
+      if (current()) this.recordedPassReadState.set('unavailable'); return false;
+    }
+  }
+  private clearRecordedPasses(): void {
+    this.recordedPassGeneration++; this.recordedPassSnapshot.set(null); this.recordedPassReadState.set('idle');
+  }
   private rootSourceGeneration = 0;
   readonly rootSourceReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly rootSourceSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRootSource } | null>(null);
@@ -358,7 +426,7 @@ export class ProjectIdeWorkbenchStore {
     }catch{if(current())this.rootSourceReadState.set('unavailable');return false;}
   }
   private clearRootSource(): void {
-    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();
+    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();this.clearPassRecording();
   }
   private diagnosticPremiseGeneration = 0;
   readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');

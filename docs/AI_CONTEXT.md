@@ -1,5 +1,11 @@
 # AI Context
 
+[Original offline pass recordings](verification/projectide-web-pass-recordings.md)
+adds exact original-byte admission and explicit whole-root pass reads to Angular,
+using the separately owned actual Preview runs. Boundaries, missing IR, capture
+and viewer limits and cancelled outcomes remain separate. No current runtime
+access/retention, independent Security or actual Avalonia acceptance is implied.
+
 [Owned pass recording preparation in the pure Workbench](verification/projectide-pure-workbench-pass-recordings.md)
 adds exact intended local run admission and explicit root-wide original pass
 reads to the Windows pure ViewModel, plus a separate actual Preview export.
