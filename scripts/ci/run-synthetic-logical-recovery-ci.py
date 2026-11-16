@@ -36,6 +36,20 @@ CONTROLS = {key: "PASS" for key in (
     "sourceApplication", "assemblyBinding", "sourceFile", "sourceGuards",
     "oracleNegatives", "targetInitiallyEmpty", "sourceQuiescent", "ownedResources")}
 
+# Diagnostic read only: index names remain private in the owned disposable DB.
+# This is separate from the immutable byte-exact catalog.txt acceptance oracle.
+NAMED_INDEX_SQL = """
+SELECT coalesce(json_agg(json_build_array(
+ n.nspname,c.relname,idx.relname,i.indexprs::text,i.indpred::text,
+ i.indisvalid,i.indisready,pg_get_indexdef(i.indexrelid))
+ ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C",idx.relname COLLATE "C"),
+ '[]'::json)::text
+FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid
+JOIN pg_class idx ON idx.oid=i.indexrelid
+JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname NOT IN ('pg_catalog','information_schema');
+"""
+
 
 def strict_comparisons(before: dict, after: dict) -> dict:
     support.require(isinstance(before, dict) and isinstance(after, dict)
@@ -64,7 +78,8 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
     """Closed structural metadata only; never an oracle or a semantic verdict."""
     output = {"availability": "UNAVAILABLE", "sourceCatalogSha256": None,
               "restoredCatalogSha256": None, "schemaClassification": "UNCLASSIFIED",
-              "interpretation": "UNAVAILABLE", "counts": {}}
+              "interpretation": "UNAVAILABLE", "counts": {},
+              "namedIndex": {"availability": "NOT_EXECUTED", "counts": {}}}
     if type(before) is not bytes or type(after) is not bytes:
         return output
     output["sourceCatalogSha256"], output["restoredCatalogSha256"] = support.sha(before), support.sha(after)
@@ -162,6 +177,50 @@ def catalog_diagnostic(before: bytes, after: bytes) -> dict:
     except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, IndexError, RecursionError):
         pass  # No partial classification, parser error or private value is emitted.
     return output
+
+
+def named_index_diagnostic(before: bytes, after: bytes) -> dict:
+    """Read-only closed counts by actual index name; never part of admission."""
+    unavailable = {"availability": "UNAVAILABLE", "counts": {}}
+    try:
+        def records(data):
+            support.require(type(data) is bytes and 0 < len(data) <= 2097152)
+            rows = support.closed_json(data)
+            support.require(type(rows) is list and len(rows) <= 10000)
+            output = {}
+            for row in rows:
+                support.require(type(row) is list and len(row) == 8)
+                support.require(all(type(value) is str and 0 < len(value) <= 256
+                                    for value in row[:3]))
+                support.require(all(value is None or type(value) is str for value in row[3:5])
+                                and all(type(value) is bool for value in row[5:7])
+                                and type(row[7]) is str and bool(row[7]))
+                identity = tuple(row[:3])
+                support.require(identity not in output)
+                output[identity] = row
+            return output
+        source, restored = records(before), records(after)
+        counts = {"SOURCE_INDEXES": len(source), "RESTORED_INDEXES": len(restored),
+                  "SOURCE_ONLY_NAMES": len(source.keys() - restored.keys()),
+                  "RESTORED_ONLY_NAMES": len(restored.keys() - source.keys()),
+                  "EXACT_NAMED_INDEXES": 0, "RAW_TREE_ONLY_NAMED_INDEXES": 0,
+                  "DECOMPILED_SQL_CHANGED": 0, "FLAGS_CHANGED": 0, "OTHER_CHANGED": 0}
+        for identity in source.keys() & restored.keys():
+            left, right = source[identity], restored[identity]
+            if left == right:
+                category = "EXACT_NAMED_INDEXES"
+            elif left[5:] == right[5:] and left[3:5] != right[3:5]:
+                category = "RAW_TREE_ONLY_NAMED_INDEXES"
+            elif left[7] != right[7]:
+                category = "DECOMPILED_SQL_CHANGED"
+            elif left[5:7] != right[5:7]:
+                category = "FLAGS_CHANGED"
+            else:
+                category = "OTHER_CHANGED"
+            counts[category] += 1
+        return {"availability": "AVAILABLE", "counts": counts}
+    except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, RecursionError):
+        return unavailable
 
 
 def logical_commands(source: str, target: str) -> dict:
@@ -376,6 +435,14 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
         result["controls"]["sourceQuiescent"] = "PASS"
         if not commands_ok:
             return
+        # Metadata queries cannot turn a strict recovery failure into PASS.
+        try:
+            result["catalogDiagnostic"]["namedIndex"] = named_index_diagnostic(
+                probe.sql(source, NAMED_INDEX_SQL), probe.sql(target, NAMED_INDEX_SQL))
+        except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError,
+                KeyError, subprocess.SubprocessError):
+            result["catalogDiagnostic"]["namedIndex"] = {
+                "availability": "UNAVAILABLE", "counts": {}}
         result["failureCategory"] = "STRICT_RESTORED_STATE_MISMATCH"
         if not comparisons_pass(result["comparisons"]):
             return

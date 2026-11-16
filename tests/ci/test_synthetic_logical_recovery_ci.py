@@ -198,7 +198,9 @@ def catalog_bytes(rows):
 class CatalogMetadataContracts(unittest.TestCase):
     def assert_closed(self, diagnostic):
         self.assertEqual(set(diagnostic), {"availability", "sourceCatalogSha256",
-                         "restoredCatalogSha256", "schemaClassification", "interpretation", "counts"})
+                         "restoredCatalogSha256", "schemaClassification", "interpretation",
+                         "counts", "namedIndex"})
+        self.assertEqual(diagnostic["namedIndex"], {"availability": "NOT_EXECUTED", "counts": {}})
         self.assertEqual(diagnostic["schemaClassification"], "UNCLASSIFIED")
         self.assertIn(diagnostic["interpretation"], {
             "UNAVAILABLE", "EXACT_CATALOG_BYTES", "RAW_TREE_FIELD_DIFFERENCES_PRESENT",
@@ -335,6 +337,55 @@ class CatalogMetadataContracts(unittest.TestCase):
         self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 1)
         self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RI_TRIGGER_RECORDS"], 0)
         self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RI_TRIGGER_RECORDS"], 0)
+
+    def test_named_index_read_only_metadata_separates_definitions_and_raw_fields(self):
+        # Real index names are private; only closed aggregate counts may escape.
+        private = CANARY.decode()
+        original = [
+            [private, private, private + "1", "EXPR_A", None, True, True, "CREATE INDEX one"],
+            [private, private, private + "2", None, "PRED_A", True, True, "CREATE INDEX two"],
+            [private, private, private + "3", None, None, True, True, "CREATE INDEX three"],
+            [private, private, private + "4", None, None, True, True, "CREATE INDEX four"],
+        ]
+        target = copy.deepcopy(original)
+        target[0][3] = "EXPR_B"
+        target[1][7] = "CREATE INDEX two modified"
+        target[2][5] = False
+        target.pop()
+        target.append([private, private, private + "5", None, None, True, True,
+                       "CREATE INDEX five"])
+        diagnostic = caller.named_index_diagnostic(
+            json.dumps(original).encode(), json.dumps(target).encode())
+        self.assertEqual(diagnostic["availability"], "AVAILABLE")
+        self.assertEqual(diagnostic["counts"], {
+            "SOURCE_INDEXES": 4, "RESTORED_INDEXES": 4,
+            "SOURCE_ONLY_NAMES": 1, "RESTORED_ONLY_NAMES": 1,
+            "EXACT_NAMED_INDEXES": 0, "RAW_TREE_ONLY_NAMED_INDEXES": 1,
+            "DECOMPILED_SQL_CHANGED": 1, "FLAGS_CHANGED": 1, "OTHER_CHANGED": 0})
+        self.assertNotIn(private, json.dumps(diagnostic))
+        # Additional evidence cannot waive the original catalog mismatch.
+        before = {name: b"identical" for name in caller.COMPARISONS}
+        after = before.copy()
+        after["catalog.txt"] = b"DIFFERENT"
+        result = complete()
+        result["comparisons"] = caller.strict_comparisons(before, after)
+        result["catalogDiagnostic"] = caller.catalog_diagnostic(
+            catalog_bytes(catalog_rows()), catalog_bytes(catalog_rows()))
+        result["catalogDiagnostic"]["namedIndex"] = diagnostic
+        self.assertFalse(caller.candidate_complete(result))
+
+    def test_named_index_metadata_rejects_duplicate_and_malformed_records(self):
+        private = CANARY.decode()
+        record = [private, private, private, None, None, True, True, "CREATE INDEX"]
+        good = json.dumps([record]).encode()
+        bad = (b"", b"null", b"[1]", b"not-json", b"\\xff",
+               json.dumps([record, record]).encode(),
+               json.dumps([[private, private, private, None, None, 1, True, "CREATE INDEX"]]).encode(),
+               json.dumps([[private, private, private, None, None, True, True]]).encode())
+        for invalid in bad:
+            result = caller.named_index_diagnostic(good, invalid)
+            self.assertEqual(result, {"availability": "UNAVAILABLE", "counts": {}})
+            self.assertNotIn(private, json.dumps(result))
 
     def test_malformed_unknown_nonfinite_and_nonbyte_inputs_are_closed(self):
         valid = catalog_bytes(catalog_rows())
