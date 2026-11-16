@@ -2,13 +2,16 @@
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
 
-## Exact-parent qualification and outstanding merge gates (2026-11-16 UTC)
+## Historical PR #1379 qualification and post-integration evidence boundary (2026-11-16 UTC)
 
-This checkpoint belongs only to parent PR [#1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
-at commit `cb5bc64928bac2801bc21af86a923e9411e14209`, targeting `main` at
-`6672214698db4ebdab521c0c01172745c96df0db`. The separate
-documentation-only follow-up is stacked on that parent branch; its new commit
-does **not** inherit these test results as independent exact-head qualification.
+This pre-integration checkpoint applies only to [PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+at original HEAD `cb5bc64928bac2801bc21af86a923e9411e14209`, reviewed
+against `main` at `6672214698db4ebdab521c0c01172745c96df0db`.
+PR #1379 was subsequently **squash-merged into `main`** at
+[`8202ce1cca0913039adbf9dc9477172256a101c4`](https://github.com/NYGsatoshi/Coglatas/commit/8202ce1cca0913039adbf9dc9477172256a101c4)
+on 2026-11-16 at 11:04:27 UTC. This document update is a **standalone PR
+against `main`**; neither the original PR checks nor this documentation
+change establish independent qualification of the integrated Main commit.
 
 | Evidence at the pinned parent commit | Result | Source |
 | --- | --- | --- |
@@ -30,16 +33,21 @@ successful PR CI, CodeQL and resolved review conversations are not substitutes
 for the Sonar gate. GitHub also reported `mergeable=true` but
 `mergeable_state=unstable` at this checkpoint.
 
-**Integration decision: HOLD pending final Sonar qualification and explicit
-integration authorization.** CodeRabbit rate limits and unresolved formal
-approval are reported, not silently counted as passes. The original physical
-`catalog.txt` byte mismatch remains a failed raw physical-identity comparison
-even when the separately approved portable logical acceptance succeeds.
-Merge of this documentation child cannot authorize PR #1379, a release, or a
-production recovery strategy. A later parent integration would require fresh
-validation at the resulting integrated source revision, and #1355 retains full
-application restore, Audit, authentication/authorization, Files, Data Protection,
-RLS/roles, target HTTPS, rollback, custody and RPO/RTO holds.
+**Historical pre-merge decision: HOLD pending final Sonar qualification
+and explicit integration authorization at the time of review.** The
+subsequent Main merge is recorded above as an actual repository event,
+not retroactively classified as an earlier Sonar PASS or formal
+security/recovery approval. CodeRabbit's rate limit is not a successful review.
+The original physical `catalog.txt` mismatch remains a failed raw
+physical-identity comparison even when portable logical acceptance succeeds.
+
+**Post-merge qualification remains separate:** fresh CI, security analysis,
+logical/physical recovery and source-to-artifact evidence must be evaluated
+at the resulting Main SHA `8202ce1cca0913039adbf9dc9477172256a101c4`.
+A standalone documentation PR cannot validate those runtime gates or grant
+production authorization. Issue #1355 continues to hold full application
+restore, Audit, authentication/authorization, Files, Data Protection, RLS/roles,
+target HTTPS, rollback, custody and RPO/RTO, and release remains NO_GO.
 
 ## Main-compatible portable logical recovery acceptance candidate
 
