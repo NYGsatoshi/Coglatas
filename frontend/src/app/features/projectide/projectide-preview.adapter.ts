@@ -1,3 +1,4 @@
+import { admitPreparedReferenceSearches } from './projectide-reference-pages.reader';
 import { Injectable } from '@angular/core';
 import {
   isPreviewBundleShape,
@@ -37,6 +38,7 @@ export function readPreviewBundle(raw: unknown): PreviewBundle {
   for (const item of bundle.cases) if (item.preparedDiff && item.semanticInspection) validateSemanticDiffPair(bundle, item);
   for (const item of bundle.cases) if (item.preparedHistory) validatePreparedHistory(bundle, item);
   for (const item of bundle.cases) if (item.preparedRevert) validatePreparedRevert(bundle, item);
+  for (const item of bundle.cases) admitPreparedReferenceSearches(item);
   return bundle;
 }
 

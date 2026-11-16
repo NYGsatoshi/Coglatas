@@ -222,6 +222,7 @@ export interface SemanticInspection {
   }[];
 }
 export interface PreviewCase {
+  readonly referenceSearches?: readonly import('./projectide-reference-pages.reader').PreparedReferenceSearch[] | null;
   readonly passRecordings?: import('./projectide-pass-recordings.reader').PassRecordingProjection | null;
   readonly operatorRecordings?: import('./projectide-operator-recordings.reader').OperatorRecordingProjection | null;
   readonly predicateRecordings?: import('./projectide-predicate-recordings.reader').PredicateRecordingProjection | null;

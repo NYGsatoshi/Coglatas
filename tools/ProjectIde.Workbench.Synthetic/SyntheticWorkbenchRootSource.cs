@@ -36,6 +36,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     }
     private void ClearRootSource()
     {
+        ClearReferenceSearchPage();
         _rootSourceGeneration++; _rootSourceAdmission = null; _rootSourceRequest = null; RootSourceReadState = "Idle";
         ClearDiagnosticPremises(); ClearPredicateDisplay(); ClearOperatorDisplay(); ClearPassDisplay();
     }

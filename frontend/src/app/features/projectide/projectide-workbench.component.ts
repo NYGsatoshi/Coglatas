@@ -1,3 +1,4 @@
+import { ReferenceSearchPage } from './projectide-reference-pages.reader';
 import {PassBoundarySourcePage, PassBoundarySourceTarget} from './projectide-pass-source-navigation.reader';
 import { PassRecordingLabel, RecordedPassChoice } from './projectide-pass-recordings.reader';
 import { OperatorRecordingLabel, RecordedOperatorChoice } from './projectide-operator-recordings.reader';
@@ -503,10 +504,29 @@ export class ProjectIdeWorkbenchComponent {
       this.open('source', true);
     }
   }
+  private readonly referencePageElement = viewChild<ElementRef<HTMLElement>>('referencePagePanel');
   findReferences(symbol: InspectedSymbol): void {
-    this.focusGeneration++;
-    if (this.canRead()) void this.store.findReferences(symbol);
-    else this.store.clear('denied');
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    void this.store.findReferences(symbol).then(loaded => {
+      if (!loaded || generation !== this.focusGeneration || !this.canRead()) return;
+      const page = this.store.referencePage();
+      if (page) this.focusReferencePage(page, generation);
+    });
+  }
+  moveReferencePage(page: ReferenceSearchPage, pageIndex: number): void {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.moveReferencePage(page, pageIndex)) {
+      const current = this.store.referencePage(); if (current) this.focusReferencePage(current, generation);
+    }
+  }
+  clearReferenceSearch(): void { this.focusGeneration++; this.store.cancelReferenceSearch(); }
+  private focusReferencePage(page: ReferenceSearchPage, generation: number): void {
+    setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && this.panel() === 'inspector' && page === this.store.referencePage())
+        this.referencePageElement()?.nativeElement.focus();
+    });
   }
   navigateCompletion(page: ReferenceCompletion, candidate: ReferenceCompletion['candidates'][number]): void {
     this.focusGeneration++;
@@ -525,7 +545,10 @@ export class ProjectIdeWorkbenchComponent {
   }
   inspectReference(reference: BoundReference): void {
     this.focusGeneration++;
-    if (this.canRead()) this.store.selectReference(reference);
+    if (this.canRead()) {
+      const page = this.store.referencePage();
+      if (page) this.store.selectReferencePageOrigin(page, reference); else this.store.selectReference(reference);
+    }
     else this.store.clear('denied');
   }
   navigateReference(destination: 'origin' | 'definition'): void {

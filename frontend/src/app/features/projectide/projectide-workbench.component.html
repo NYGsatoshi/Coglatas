@@ -638,7 +638,13 @@
                     }
                     @if (store.referenceSearch(); as search) {
                       <div role="status" data-testid="ide-reference-search">
-                        @if (search.status === 'searching') {
+                        @if (search.page; as page) {
+                          <span #referencePagePanel tabindex="-1" data-testid="ide-reference-page">
+                            {{ t('ide.referencePage', { page: page.pageIndex + 1, pages: page.pageCount, count: page.references.length }) }}
+                            @if (!page.indexCoverageComplete) { {{ t('ide.referencePartial') }} }
+                            {{ t(page.scanComplete ? 'ide.referenceScanComplete' : 'ide.referenceContinue') }}
+                          </span>
+                        } @else if (search.status === 'searching') {
                           {{ t('ide.referenceSearching') }}
                         } @else {
                           {{ t('ide.referenceMatches', { count: search.references.length }) }}
@@ -646,7 +652,11 @@
                           @if (search.truncated) { {{ t('ide.referenceLimit') }} }
                         }
                       </div>
-                      <button type="button" (click)="store.cancelReferenceSearch()">
+                      @if (search.page; as page) {
+                        <button type="button" data-testid="ide-reference-previous" [disabled]="page.pageIndex === 0" (click)="moveReferencePage(page, page.pageIndex - 1)">{{ t('ide.referencePrevious') }}</button>
+                        <button type="button" data-testid="ide-reference-next" [disabled]="page.pageIndex + 1 >= page.pageCount" (click)="moveReferencePage(page, page.pageIndex + 1)">{{ t('ide.referenceNext') }}</button>
+                      }
+                      <button type="button" (click)="clearReferenceSearch()">
                         {{ t('ide.clearReferenceSearch') }}
                       </button>
                     }

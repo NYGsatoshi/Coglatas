@@ -30,10 +30,11 @@ semantic-inspection bytes/digest are unchanged.
 
 ## Adoption and verification boundary
 
-This primitive does not replace the existing Angular or Windows pure ViewModel
-reference searches. Their 4096-reference / 64-origin-check / 32-result limits
-and Source-map/navigation checks remain unchanged. Actual paged client adoption,
-keyboard/IME journeys, current actor query/open checks, persisted index behavior
+The primitive preserves the existing unpaged queries. The subsequent
+[paired local adoption](projectide-paired-reference-pages.md) uses actual Core
+pages in the Windows pure ViewModel and a Core-prepared Angular offline profile.
+Legacy query limits and Source-map/navigation checks remain unchanged. Actual
+Avalonia, runtime current-actor query/open checks, persisted/incremental indexes
 and full #1030 editor acceptance remain separate work. No Compiler artifact,
 Registry schema, dependency or CI/Security change is introduced.
 

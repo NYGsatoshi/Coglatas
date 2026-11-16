@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
 
@@ -781,3 +782,55 @@ test('ProjectIDE synthetic Find References interpolates the count in Japanese', 
   await expect(search).toContainText('移動可能なローカル参照: 1 件');
   await expect(search).toContainText('参照の取得範囲は不完全です。');
 });
+
+const referencePageCase = JSON.parse(readFileSync('frontend/public/assets/projectide/preview-v1.json', 'utf8')).cases
+  .find((item: {key: string}) => item.key === 'reference-pages');
+for (const locale of ['en', 'ja'] as const) {
+  test('pages through all 35 original Core references with keyboard in ' + locale, async ({page}) => {
+    await page.addInitScript(locale => {
+      localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = {'projectide.syntheticPreview': true};
+    }, locale);
+    const writes: string[] = [];
+    page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+    await page.goto('/app/projectide/preview');
+    const button = (en: string, ja: string) => page.getByRole('button', {name: locale === 'en' ? en : ja, exact: true});
+    const origins = page.getByRole('button', {name: locale === 'en' ? /^Reference origin ·/u : /^参照元 ·/u});
+    for (const key of ['Enter', 'Space']) {
+      await page.getByTestId('ide-context').selectOption('reference-pages');
+      await button('Load result fixture', '結果Fixtureを読み込む').click(); await button('Source', 'ソース').click();
+      await button('Read fixed root Source', '固定されたルートソースを読む').focus(); await page.keyboard.press(key);
+      await expect(page.getByTestId('ide-root-source')).toBeFocused();
+      await page.getByRole('button', {name: /^coglatas.project ·/u}).click();
+      const query = page.getByRole('button', {name: locale === 'en' ? /^Find references · coglatas.project ·/u : /^参照を検索 · coglatas.project ·/u});
+      await query.focus(); await query.press(key);
+      const current = page.getByTestId('ide-reference-page'); await expect(current).toBeFocused();
+      await expect(current).toContainText(locale === 'en' ? 'Reference page 1 of 2 · 32' : '参照ページ 1 / 2 · 移動可能な参照元 32');
+      await expect(origins).toHaveCount(32); await expect(page.getByTestId('ide-reference-previous')).toBeDisabled();
+      await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      await page.getByTestId('ide-reference-next').focus(); await page.keyboard.press(key);
+      await expect(current).toBeFocused(); await expect(origins).toHaveCount(3);
+      await expect(page.getByTestId('ide-reference-next')).toBeDisabled();
+      await expect(current).toContainText(locale === 'en' ? 'End of this local index; evidence coverage remains separate.' : 'ローカル索引の末尾です。証拠の網羅性とは別です。');
+      const last = referencePageCase.semanticInspection.references[34];
+      const record = referencePageCase.declarations.find((item: {identity: string}) => item.identity === last.origin.entityId);
+      await origins.nth(2).focus(); await page.keyboard.press(key);
+      await button('Go to reference origin', '参照元へ移動').focus(); await page.keyboard.press(key);
+      await expect(page.getByTestId('ide-source-target')).toBeFocused();
+      await expect(page.getByTestId('ide-source-target').locator('pre')).toHaveText(JSON.stringify(record.data, null, 2));
+      await expect(page.getByTestId('ide-source-location')).toHaveText(last.origin.propertyPath);
+      await expect(page.getByTestId('ide-analysis-status')).toContainText(referencePageCase.result.verdict);
+      expect(referencePageCase.result.evidenceComplete).toBe(false);
+      await button('Inspector', 'インスペクター').click();
+      await page.getByTestId('ide-reference-previous').focus(); await page.keyboard.press(key);
+      await expect(current).toBeFocused(); await expect(origins).toHaveCount(32);
+      await button('Source', 'ソース').click(); await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+      await button('Read fixed root Source', '固定されたルートソースを読む').click();
+      await button('Inspector', 'インスペクター').click(); await expect(current).toHaveCount(0);
+      await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+      await page.getByTestId('ide-context').selectOption('branch-pass'); await expect(current).toHaveCount(0);
+    }
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(writes).toEqual([]);
+  });
+}

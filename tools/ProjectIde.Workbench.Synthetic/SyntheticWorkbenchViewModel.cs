@@ -379,6 +379,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private void ClearContext() { ClearPassContext(); ClearOperatorContext(); ClearPredicateContext(); ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
     private long ClearSelection()
     {
+        ClearReferenceSearchPage();
         ClearDiagnosticPremises(); ClearRecordedPredicatePremises(); ClearOperatorSnapshot();
         ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
         SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;

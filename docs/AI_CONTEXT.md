@@ -1,5 +1,11 @@
 # AI Context
 
+[Paired local reference pages](verification/projectide-paired-reference-pages.md)
+adopts actual bounded Core pages in the pure ViewModel and the Angular offline
+preview, with explicit original root reads, current page/member ownership and
+keyboard continuation. Local scan/index coverage grants no evidence or access.
+Actual Avalonia, runtime authority and all activation holds remain separate.
+
 [Owned pass Source target storage](verification/projectide-pass-source-target-immutability.md)
 keeps the native target page immutable through legacy collection surfaces.
 Actual-page regressions retain original entries and reject foreign-run targets;
@@ -7,9 +13,8 @@ existing Source/run/lifecycle guards and all activation holds remain separate.
 
 [Bounded local reference search pages](verification/projectide-reference-search-pages.md)
 adds an owner-bound Core continuation over actual canonical reference facts.
-Index coverage and scan exhaustion remain separate. Existing paired-client
-search limits and navigation checks are unchanged; paged UI adoption and current
-query/open authority remain separate work.
+Index coverage and scan exhaustion remain separate. Paired offline adoption is
+described above; legacy queries and current query/open authority remain separate.
 
 [Original pass map Source navigation](verification/projectide-pass-source-navigation.md)
 adds explicit bounded targets from the selected retained original map to Angular
