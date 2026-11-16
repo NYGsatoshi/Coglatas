@@ -114,6 +114,25 @@ inventories and disappearing standalone scanner endpoints. This source-level
 repair still requires a fresh native Security cancellation and successful
 successor checks before its hosted behavior can be claimed.
 
+### Native Security race-fix candidate checkpoint
+
+The reviewed race-fix source is
+`e4a9f87e38953f3147af3bf28821781ee515b9c1`, tree
+`bca6b1b8f4c5463ff3e6c820707bdb6c727dceab`.
+[PR CI 43905078796](https://github.com/NYGsatoshi/Coglatas/actions/runs/43905078796),
+attempt 1, ran Security job `133433985793`. Its actual
+`Run isolated security runtime lanes in parallel` step started at
+2026-11-16 16:21:13 UTC after the runtime-image build and preceding contracts
+passed. At 2026-11-16 16:22:36 UTC, the step was still in progress
+and the authoritative open PR HEAD still matched that source.
+
+Public logs were unavailable while the job was running, so this observation
+does not establish a live resource census or quantify containers removed.
+This documentation checkpoint records the active source before ordinary
+same-PR concurrency supersedes it. The cancellation result, bounded finalizer
+outcome and successor's current-source checks must be retained in PR #2034
+after they are observed. No cancellation API or force-cancel action is used.
+
 ### Local controls and completion criteria
 
 Focused local verification uses:
