@@ -104,6 +104,17 @@ class LogicalRecoveryContracts(unittest.TestCase):
                 with self.assertRaises(caller.support.Rejected):
                     caller.admitted_run_revisions({**base, **update})
 
+    def test_checked_out_sha_mismatch_stops_before_build_or_docker(self):
+        result = {}
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(caller.subprocess, "run", return_value=
+                    subprocess.CompletedProcess([], 0, ("b" * 40 + "\n").encode(), b"")) as command:
+                with self.assertRaises(caller.support.Rejected):
+                    caller.prepare(Path(directory), result, {"GITHUB_SHA": "a" * 40})
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(command.call_args.args[0], ["git", "rev-parse", "HEAD"])
+        self.assertNotIn("sourceSha", result)
+
     def test_main_push_routes_and_retains_pr_contracts(self):
         workflow = (ROOT / ".github/workflows/synthetic-logical-recovery.yml").read_text()
         self.assertIn("  pull_request:\n", workflow)

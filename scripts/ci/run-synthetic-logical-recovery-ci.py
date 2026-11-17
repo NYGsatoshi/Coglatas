@@ -622,8 +622,7 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
 
 def admitted_run_revisions(environment: dict) -> tuple[str, str | None]:
     """Bind a hosted PR merge or a repository Main push to the exact source."""
-    support.require(environment.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                    and environment.get("RUNNER_OS") == "Linux")
+    support.require_hosted_recovery_event(environment)
     event = environment.get("GITHUB_EVENT_NAME")
     if event == "pull_request":
         head = environment.get("COGLATAS_PR_HEAD_SHA", "")
@@ -632,15 +631,8 @@ def admitted_run_revisions(environment: dict) -> tuple[str, str | None]:
                         and re.fullmatch(r"[a-f0-9]{40}", head) is not None
                         and re.fullmatch(r"[a-f0-9]{40}", base) is not None)
         return head, base
-    support.require(event == "push"
-                    and environment.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
-                    and environment.get("GITHUB_REF") == "refs/heads/main"
-                    and environment.get("COGLATAS_PR_HEAD_SHA", "") == ""
-                    and environment.get("COGLATAS_PR_BASE_SHA", "") == "")
-    source = environment.get("GITHUB_SHA", "")
-    support.require(isinstance(source, str)
-                    and re.fullmatch(r"[a-f0-9]{40}", source) is not None)
-    return source, None
+    return environment["GITHUB_SHA"], None
+
 
 def main() -> int:
     os.umask(0o077)

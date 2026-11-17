@@ -6,13 +6,26 @@ on:
       - 'scripts/ci/synthetic-physical-recovery-probe.py'
       - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
       - 'tests/ci/test_synthetic_physical_recovery_ci.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
+      - 'src/**'
+      - 'global.json'
+      - '.config/dotnet-tools.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/synthetic-physical-recovery.yml'
+      - 'scripts/ci/synthetic-physical-recovery-probe.py'
+      - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
+      - 'tests/ci/test_synthetic_physical_recovery_ci.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
       - 'src/**'
       - 'global.json'
       - '.config/dotnet-tools.json'
 permissions:
   contents: read
 concurrency:
-  group: synthetic-physical-recovery-${{ github.event.pull_request.number }}
+  group: synthetic-physical-recovery-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 jobs:
   bounded-synthetic-candidate:

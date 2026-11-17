@@ -128,6 +128,18 @@ class RecoveryProbePathBoundaryTests(unittest.TestCase):
             }
             with patch.dict(os.environ, selected):
                 self.assertEqual((ddl, evidence), PROBE.admit_ephemeral_probe_paths(ddl, evidence))
+                main = {"GITHUB_EVENT_NAME": "push", "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
+                        "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": "a" * 40,
+                        "COGLATAS_PR_HEAD_SHA": "", "COGLATAS_PR_BASE_SHA": ""}
+                with patch.dict(os.environ, main):
+                    self.assertEqual((ddl, evidence), PROBE.admit_ephemeral_probe_paths(ddl, evidence))
+                    for change in ({"GITHUB_REPOSITORY": "foreign/Coglatas"},
+                                   {"GITHUB_REF": "refs/heads/other"}, {"GITHUB_SHA": "bad"},
+                                   {"COGLATAS_PR_HEAD_SHA": "b" * 40},
+                                   {"COGLATAS_PR_BASE_SHA": "c" * 40}):
+                        with self.subTest(change=change), patch.dict(os.environ, change):
+                            with self.assertRaises(PROBE.ProbeFailure):
+                                PROBE.admit_ephemeral_probe_paths(ddl, evidence)
                 for invalid_ddl, invalid_evidence in (
                     (ddl, runner / "external"),
                     (ddl, private / "other"),
@@ -158,6 +170,19 @@ class RecoveryProbePathBoundaryTests(unittest.TestCase):
                 PROBE.admit_ephemeral_probe_paths(ddl, evidence)
 
 
+
+    def test_probe_rejects_checked_out_sha_mismatch_before_docker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ddl, evidence = Path(directory) / "original.sql", Path(directory) / "e"
+            argv = ["probe", "--execute-isolated-synthetic", "--postgres-image-id", "sha256:" + "a" * 64,
+                    "--original-ef-ddl", str(ddl), "--evidence-dir", str(evidence)]
+            with patch("sys.argv", argv), patch.dict(os.environ, {"GITHUB_SHA": "a" * 40}), \
+                 patch.object(PROBE, "admit_ephemeral_probe_paths", return_value=(ddl, evidence)), \
+                 patch.object(PROBE, "run", return_value=("b" * 40 + "\n").encode()), \
+                 patch.object(PROBE, "docker") as docker:
+                with self.assertRaisesRegex(PROBE.ProbeFailure, "SOURCE_IDENTITY_REJECTED"):
+                    PROBE.main()
+                docker.assert_not_called()
 
 
 if __name__ == "__main__":

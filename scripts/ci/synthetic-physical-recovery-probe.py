@@ -400,8 +400,14 @@ COPY file_versions FROM stdin;
 def admit_ephemeral_probe_paths(original_ddl: Path, evidence_dir: Path) -> tuple[Path, Path]:
     """Require the single fresh, owner-private recovery workspace created by the CI caller."""
     runner = os.environ.get("RUNNER_TEMP")
+    main_push = (os.environ.get("GITHUB_EVENT_NAME") == "push"
+                 and os.environ.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
+                 and os.environ.get("GITHUB_REF") == "refs/heads/main"
+                 and re.fullmatch(r"[a-f0-9]{40}", os.environ.get("GITHUB_SHA", "")) is not None
+                 and os.environ.get("COGLATAS_PR_HEAD_SHA", "") == ""
+                 and os.environ.get("COGLATAS_PR_BASE_SHA", "") == "")
     if (os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") != "github-hosted"
-            or os.environ.get("GITHUB_EVENT_NAME") != "pull_request"
+            or not (os.environ.get("GITHUB_EVENT_NAME") == "pull_request" or main_push)
             or os.environ.get("RUNNER_OS") != "Linux" or not runner):
         raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
     runner_root = Path(runner)
@@ -454,6 +460,8 @@ def main() -> int:
         directory.mkdir(mode=0o777)
         directory.chmod(0o777)  # Only this fresh, isolated server socket directory.
     source_sha = run(["git", "-C", str(root), "rev-parse", "HEAD"]).decode().strip()
+    if not re.fullmatch(r"[a-f0-9]{40}", source_sha) or source_sha != os.environ.get("GITHUB_SHA"):
+        raise ProbeFailure("SOURCE_IDENTITY_REJECTED")
     ddl = ddl_path.read_bytes()
     identifier = "coglatas-synthetic-recovery-" + uuid.uuid4().hex[:12]
     source = identifier + "-source"

@@ -299,6 +299,9 @@ jobs:
           for control in \
             scripts/ci/test-sonar-python-process-coverage.py \
             tests/ci/test_synthetic_logical_recovery_ci.py \
+            tests/ci/test_synthetic_physical_recovery_ci.py \
+            tests/ci/test_synthetic_physical_recovery_http_guard.py \
+            tests/ci/test_synthetic_recovery_continuation_ci.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
             scripts/ci/test-sonar-windows-coverage.py \
             scripts/ci/test-required-pr-checks.py \

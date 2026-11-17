@@ -505,16 +505,11 @@ def main():
               "targetHttps": "NOT_EXECUTED", "productionRollbackRehearsal": "NOT_EXECUTED",
               "globalExactlyOnceDelivery": "NOT_CLAIMED", "privateEvidenceAfterHostedTeardown": "NOT_RETAINED"}
     try:
-        support.require(os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                        and os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
-                        and os.environ.get("RUNNER_OS") == "Linux"
-                        and not PUBLIC.exists() and not PUBLIC.is_symlink())
+        result["sourceHeadSha"], result["baseSha"] = logical.admitted_run_revisions(os.environ)
+        support.require(not PUBLIC.exists() and not PUBLIC.is_symlink())
         for variable, key in (("GITHUB_RUN_ID", "runId"), ("GITHUB_RUN_ATTEMPT", "runAttempt")):
             support.require(re.fullmatch(r"[1-9][0-9]*", os.environ.get(variable, "")) is not None)
             result[key] = int(os.environ[variable])
-        for variable, key in (("COGLATAS_PR_HEAD_SHA", "sourceHeadSha"), ("COGLATAS_PR_BASE_SHA", "baseSha")):
-            support.require(re.fullmatch(r"[a-f0-9]{40}", os.environ.get(variable, "")) is not None)
-            result[key] = os.environ[variable]
         private = Path(tempfile.mkdtemp(prefix="cga-", dir=os.environ["RUNNER_TEMP"]))
         environment = os.environ.copy()
         for key in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
