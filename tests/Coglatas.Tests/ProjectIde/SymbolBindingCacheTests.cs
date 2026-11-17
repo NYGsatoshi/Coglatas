@@ -153,6 +153,36 @@ public sealed class SymbolBindingCacheTests
         Assert.Equal(0, tiny.RetainedCount); Assert.Equal(0, tiny.RetainedCanonicalBytes);
     }
 
+    [Fact]
+    public void WarmSymbolPartitionsDoNotTransferFullIndexCursorsAfterAnIdenticalRecompile()
+    {
+        var fixture = CompilerBindingClosureTests.Graph(backToRoot: true, withRelation: true);
+        var cache = new ProjectSymbolBindingCache();
+        var first = AssertEquivalent(fixture.Input, cache, fixture.Snapshots);
+        var second = AssertEquivalent(fixture.Input, cache, fixture.Snapshots);
+        var original = CompilerSemanticIndex.Build(first.Dependencies!.Binding, fixture.Input.InputDigest);
+        var current = CompilerSemanticIndex.Build(second.Dependencies!.Binding, fixture.Input.InputDigest);
+        Assert.Equal(CompilerSemanticIndexState.Complete, current.State); Assert.Equal(3, current.Regions.Count);
+        Assert.Equal(original.Data, current.Data);
+        foreach (var symbol in first.Model!.Symbols)
+            Assert.Same(symbol, Assert.Single(second.Model!.Symbols, item => item.Key == symbol.Key));
+        var origin = Assert.Single(original.Symbols, item => item.Symbol.Context.Equals(fixture.Input.Source.Context) &&
+            item.Symbol.EntityId == EntityId.Parse(Id(7)) && item.Symbol.PortId == PortId.Parse(Id(8))).Symbol.Location;
+        var completion = original.CompleteEntityReference(origin, fixture.Input.InputDigest, 1);
+        Assert.NotNull(completion.NextCursor);
+        var refusedCompletion = current.CompleteEntityReference(origin, fixture.Input.InputDigest, 1, completion.NextCursor);
+        Assert.Equal(CompilerIndexQueryState.InvalidCursor, refusedCompletion.State);
+        Assert.Empty(refusedCompletion.Candidates); Assert.Null(refusedCompletion.InputDigest); Assert.Null(refusedCompletion.Origin);
+        Assert.False(refusedCompletion.IndexCoverageComplete); Assert.Equal(0, refusedCompletion.ScannedSymbols); Assert.Null(refusedCompletion.NextCursor);
+        var references = original.Symbols.Select(item => original.FindReferences(item.Symbol.Location, fixture.Input.InputDigest, 1))
+            .First(page => page.NextCursor is not null);
+        var refusedReferences = current.FindReferences(references.Target!, fixture.Input.InputDigest, 1, references.NextCursor);
+        Assert.Equal(CompilerIndexQueryState.InvalidCursor, refusedReferences.State);
+        Assert.Empty(refusedReferences.References); Assert.Null(refusedReferences.InputDigest); Assert.Null(refusedReferences.Target);
+        Assert.False(refusedReferences.IndexCoverageComplete); Assert.Equal(0, refusedReferences.ScannedReferences); Assert.Null(refusedReferences.NextCursor);
+        Assert.Equal(original.Data, current.Data); Assert.Equal(first.Result.Data, second.Result.Data);
+    }
+
     [Theory]
     [InlineData("tenant")] [InlineData("project")] [InlineData("branch")]
     public void ChangingRootOwnershipClearsEvenAnIdenticalRestoredInput(string dimension)
@@ -354,8 +384,63 @@ public sealed class SymbolBindingCacheTests
             Assert.Equal(expected.Findings.Select(item => item.State + item.Diagnostic.Data.CanonicalText),
                 model.Findings.Select(item => item.State + item.Diagnostic.Data.CanonicalText));
             Assert.Equal(new CompilerSemanticInspection(expected).Data, new CompilerSemanticInspection(model).Data);
+            AssertFullIndexEquivalent(full, actual);
         }
         else Assert.Null(actual.Model);
         return actual;
+    }
+
+    private static void AssertFullIndexEquivalent(CoreCompilation full, CoreCompilation actual)
+    {
+        var input = full.Model!.Input;
+        var expected = CompilerSemanticIndex.Build(full.Dependencies?.Binding ?? CompilerBindingClosure.Build(full.Model, input.InputDigest), input.InputDigest);
+        var current = CompilerSemanticIndex.Build(actual.Dependencies?.Binding ?? CompilerBindingClosure.Build(actual.Model!, input.InputDigest), input.InputDigest);
+        var originalResult = actual.Result.Data; var originalSource = input.Source.Data;
+        Assert.Equal(expected.Data, current.Data); Assert.Equal(expected.Digest, current.Digest);
+        Assert.Equal(expected.LogicalOperationsConsumed, current.LogicalOperationsConsumed);
+        foreach (var reference in expected.References)
+        {
+            var definition = expected.FindDefinition(reference.Origin, input.InputDigest);
+            var found = current.FindDefinition(reference.Origin, input.InputDigest);
+            Assert.Equal(definition.State, found.State); Assert.Equal(definition.Resolution, found.Resolution);
+            Assert.Equal(definition.Target?.Symbol.Key, found.Target?.Symbol.Key);
+            Assert.Equal(definition.Target?.Symbol.Location.Data, found.Target?.Symbol.Location.Data);
+        }
+        foreach (var symbol in expected.Symbols)
+        {
+            var location = symbol.Symbol.Location;
+            Assert.Equal(expected.Inspect(location, input.InputDigest)?.Symbol.Key, current.Inspect(location, input.InputDigest)?.Symbol.Key);
+            CompilerIndexCursor? expectedCursor = null, currentCursor = null;
+            var pages = 0;
+            do
+            {
+                Assert.InRange(++pages, 1, expected.References.Count + 1);
+                var page = expected.FindReferences(location, input.InputDigest, 1, expectedCursor);
+                var found = current.FindReferences(location, input.InputDigest, 1, currentCursor);
+                Assert.Equal(page.State, found.State); Assert.Equal(page.InputDigest, found.InputDigest);
+                Assert.Equal(page.Target?.Data, found.Target?.Data); Assert.Equal(page.IndexCoverageComplete, found.IndexCoverageComplete);
+                Assert.Equal(page.ScannedReferences, found.ScannedReferences); Assert.Equal(page.ScanComplete, found.ScanComplete);
+                Assert.Equal(page.References.Select(row => (row.Origin.Data, row.State, row.SymbolKey)),
+                    found.References.Select(row => (row.Origin.Data, row.State, row.SymbolKey)));
+                Assert.Equal(page.NextCursor is null, found.NextCursor is null);
+                expectedCursor = page.NextCursor; currentCursor = found.NextCursor;
+            } while (expectedCursor is not null);
+            expectedCursor = null; currentCursor = null; pages = 0;
+            do
+            {
+                Assert.InRange(++pages, 1, expected.Symbols.Count + 1);
+                var page = expected.CompleteEntityReference(location, input.InputDigest, 1, expectedCursor);
+                var found = current.CompleteEntityReference(location, input.InputDigest, 1, currentCursor);
+                Assert.Equal(page.State, found.State); Assert.Equal(page.InputDigest, found.InputDigest);
+                Assert.Equal(page.Origin?.Data, found.Origin?.Data); Assert.Equal(page.ExpectedKind, found.ExpectedKind);
+                Assert.Equal(page.IndexCoverageComplete, found.IndexCoverageComplete);
+                Assert.Equal(page.ScannedSymbols, found.ScannedSymbols); Assert.Equal(page.ScanComplete, found.ScanComplete);
+                Assert.Equal(page.Candidates.Select(row => row.Symbol.Key), found.Candidates.Select(row => row.Symbol.Key));
+                Assert.Equal(page.NextCursor is null, found.NextCursor is null);
+                expectedCursor = page.NextCursor; currentCursor = found.NextCursor;
+            } while (expectedCursor is not null);
+        }
+        Assert.Equal(originalResult, actual.Result.Data); Assert.Equal(originalSource, input.Source.Data);
+        Assert.Equal(expected.Data, current.Data); Assert.Equal(expected.Digest, current.Digest);
     }
 }

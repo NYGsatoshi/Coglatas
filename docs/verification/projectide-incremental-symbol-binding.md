@@ -55,6 +55,21 @@ switches, private storage, resource Tenant checks, concurrent local-host
 requests and cancellation. Current execution and source/artifact qualification
 belong to the PR evidence.
 
+The same differential oracle now builds the full regional semantic index from
+each uncached and symbol-cached compilation. It compares canonical index bytes,
+digests, derived logical charges, every original reference definition, and every
+symbol's inspection, typed completion and reference-search pages with page size
+one. Query states, exact anchors/input stamps, candidate/reference order, coverage,
+scan counts, empty continuation pages and termination must agree. The existing
+dependency admission/replacement, rule, unit, calendar, observation, descriptor,
+package, budget, context, document and bounded-retention cases all use this oracle.
+Compiler result and Source bytes remain unchanged by the queries. An identical
+warm recompile also rejects the earlier full index's completion/reference cursors,
+even while actually reusing the original immutable symbols.
+
+These are Product differential regressions against fresh uncached compilation.
+They do not add dependency-directed reference caching or independent acceptance.
+
 This is incremental declaration/symbol construction, not dependency-directed
 reference resolution or semantic-verdict reuse. Full compilation remains the
 correctness reference. Full incremental-index/editor/Graph acceptance, current
