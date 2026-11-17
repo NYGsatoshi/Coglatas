@@ -1,5 +1,11 @@
 # AI Context
 
+[Full semantic index and paired local readers](verification/projectide-full-semantic-index.md)
+retain actual admitted regional symbols/references and original root input stamps.
+Typed completion, definitions and bounded reference pages require original Source
+admission and current query/member ownership in both local consumers. Compiler
+facts, runtime authority and independent Security/Native qualification remain separate.
+
 [Fresh binding reference indexes](verification/projectide-binding-reference-index.md)
 share complete-context and typed entity/port lookups within each freshly admitted
 Binder invocation. Canonical public keys, ambiguity, authorization and original
