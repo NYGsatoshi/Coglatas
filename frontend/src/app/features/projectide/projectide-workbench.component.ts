@@ -1,3 +1,4 @@
+import type { AdmittedRegionalOperatorRegion } from './projectide-regional-operator-recordings.reader';
 import { ReferenceSearchPage } from './projectide-reference-pages.reader';
 import {PassBoundarySourcePage, PassBoundarySourceTarget} from './projectide-pass-source-navigation.reader';
 import { PassRecordingLabel, RecordedPassChoice } from './projectide-pass-recordings.reader';
@@ -186,7 +187,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'pass-recordings' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'regional-operator-recordings' | 'pass-recordings' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -198,7 +199,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'regional-operator-recordings' ? 'assets/projectide/regional-operator-recordings-v1.json' : profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -313,6 +314,47 @@ export class ProjectIdeWorkbenchComponent {
     if (loaded && snapshot) setTimeout(() => {
       if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedOperators()) this.recordedOperatorElement()?.nativeElement.focus();
     });
+  }
+  private readonly regionalOperatorRecordingElement = viewChild<ElementRef<HTMLElement>>('regionalOperatorRecordingPanel');
+  private readonly recordedRegionalOperatorElement = viewChild<ElementRef<HTMLElement>>('recordedRegionalOperatorPanel');
+  async loadRegionalOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRegionalOperatorRecording(label); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const recording = this.store.regionalOperatorRecording();
+    if (loaded && recording) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && recording === this.store.regionalOperatorRecording()) this.regionalOperatorRecordingElement()?.nativeElement.focus();
+    });
+  }
+  selectRegionalOperatorDiagnostic(region: AdmittedRegionalOperatorRegion, diagnostic: Diagnostic): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else this.store.selectRegionalOperatorDiagnostic(region, diagnostic);
+  }
+  navigateRegionalOperatorDiagnostic(): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateRegionalOperatorDiagnostic()) this.open('source', true);
+  }
+  async loadRecordedRegionalOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadRecordedRegionalOperators(choice); if (generation !== this.focusGeneration) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const snapshot = this.store.recordedRegionalOperators();
+    if (loaded && snapshot) setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && snapshot === this.store.recordedRegionalOperators()) this.recordedRegionalOperatorElement()?.nativeElement.focus();
+    });
+  }
+  regionalOperatorCaptureState(state: string | null): string {
+    if (state === 'RecordedRegionalEvaluations') return this.t('ide.regionalOperatorCaptured');
+    if (state === 'NoActualRegionalEvaluations') return this.t('ide.regionalOperatorNone');
+    if (state === 'MetadataBudgetExceeded') return this.t('ide.regionalOperatorMetadataGap');
+    return this.operatorCaptureState(state);
+  }
+  regionalOperatorViewState(state: string): string {
+    return state === 'NoObservedRegionalDiagnostic' ? this.t('ide.regionalOperatorNoObserved') : this.operatorViewState(state);
   }
   operatorCaptureState(state: string | null): string {
     const keys = { ManifestOnly: 'ide.operatorCaptureManifest', RecordedInitialRootEvaluations: 'ide.operatorCaptureAvailable',

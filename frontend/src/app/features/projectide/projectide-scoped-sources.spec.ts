@@ -99,3 +99,15 @@ describe('Original-byte fixed scoped source readers', () => {
     expect(bundle.cases[1].result.verdict).toBe('coglatas.fail');
   });
 });
+
+describe('Scoped Source admission remains private and owned', () => {
+  it('refuses cloned views even if a caller supplies the complete old public fingerprint', async () => {
+    const value = fixture(), admitted = (await readScopedSources(value))!;
+    expect(scopedSourcesMatch(value, admitted)).toBe(true); expect(Object.hasOwn(admitted, 'basis')).toBe(false);
+    const location = admitted.regions[0].records[0].location;
+    expect(resolveScopedSource(value, admitted, location)).not.toBeNull();
+    for (const copy of [structuredClone(admitted), { ...admitted }, { ...admitted, basis: JSON.stringify(value) }]) {
+      expect(scopedSourcesMatch(value, copy)).toBe(false); expect(resolveScopedSource(value, copy, location)).toBeNull();
+    }
+  });
+});

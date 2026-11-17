@@ -57,6 +57,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(location);
         var generation = ClearSelection();
         if (!CurrentScopedSources) { NavigationState = "unavailable"; Changed(); return false; }
+        ResolveScopedSourceTarget(location);
+        Changed(); return !_disposed && generation == _selectionGeneration && CurrentScopedSources && ScopedSourceTarget is not null;
+    }
+
+    private void ResolveScopedSourceTarget(ProjectLocation location)
+    {
         var region = _scopedSources!.Regions.SingleOrDefault(region => region.Binding.Source.Context.Equals(location.Context));
         NavigationState = "unavailable";
         if (region is not null && (location.EntityId is not null ^ location.RelationId is not null))
@@ -74,7 +80,6 @@ public sealed partial class SyntheticWorkbenchViewModel
                 if (NavigationState == "ready") { ScopedSource = source; ScopedSourceTarget = location; ScopedSourceRecord = records[0]; }
             }
         }
-        Changed(); return !_disposed && generation == _selectionGeneration && CurrentScopedSources && ScopedSourceTarget is not null;
     }
 
     public bool NavigateScopedDiagnostic(CompilerDependencyRegion region, CompilerDiagnostic diagnostic)
@@ -102,6 +107,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     private void ClearScopedSelection() { ScopedSource = null; ScopedSourceTarget = null; ScopedSourceRecord = null; }
     private void ClearScopedSources()
     {
+        ClearRegionalOperatorDisplay();
         ClearDiagnosticPremises();
         ClearCompilerRecording();
         ClearCompilerOutputSnapshot();

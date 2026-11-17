@@ -1,3 +1,5 @@
+import { type AdmittedRegionalOperatorRecording, type AdmittedRegionalOperatorRegion, type AdmittedRecordedRegionalOperators, type RegionalOperatorSources,
+  readRegionalOperatorRecording, readRecordedRegionalOperators, regionalOperatorRecordingMatches, recordedRegionalOperatorsMatch, regionalOperatorRunIdentitiesAreUnique } from './projectide-regional-operator-recordings.reader';
 import { ReferenceSearchPage, hasPreparedReferenceSearch, readReferenceSearchPage, referenceSearchPageMatches } from './projectide-reference-pages.reader';
 import {PassBoundarySourcePage, PassBoundarySourceTarget, readPassBoundarySourcePage, passBoundarySourcePageMatches} from './projectide-pass-source-navigation.reader';
 import { AdmittedRecordedPassBoundary, readRecordedPassBoundary, recordedPassBoundaryMatches } from './projectide-pass-boundary.reader';
@@ -342,6 +344,95 @@ export class ProjectIdeWorkbenchStore {
   private clearRecordedOperators(): void {
     this.recordedOperatorGeneration++; this.recordedOperatorSnapshot.set(null); this.recordedOperatorReadState.set('idle');
   }
+  private regionalOperatorRecordingGeneration = 0;
+  readonly regionalOperatorRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly regionalOperatorRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRegionalOperatorRecording } | null>(null);
+  private currentRegionalOperatorSources(): RegionalOperatorSources | null {
+    try { return this.admittedScoped() ?? this.rootSource(); } catch { return null; }
+  }
+  readonly regionalOperatorRecording = (): AdmittedRegionalOperatorRecording | null => {
+    const snapshot = this.regionalOperatorRecordingSnapshot(), sources = this.currentRegionalOperatorSources();
+    return snapshot && sources && this.state() === 'ready' && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && regionalOperatorRunIdentitiesAreUnique(snapshot.bundle.cases) &&
+      regionalOperatorRecordingMatches(snapshot.context, sources, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRegionalOperatorRecording(label: OperatorRecordingLabel = 'original'): Promise<boolean> {
+    this.clearRegionalOperatorRecording(); const generation = this.regionalOperatorRecordingGeneration;
+    const context = this.context(), sources = this.currentRegionalOperatorSources(), bundle = this.bundle();
+    if (!bundle || !context || !sources || this.state() !== 'ready' || context !== this.result() || !bundle.cases.includes(context)) return false;
+    if (!regionalOperatorRunIdentitiesAreUnique(bundle.cases)) { this.regionalOperatorRecordingReadState.set('unavailable'); return false; }
+    const projection = context.regionalOperatorRecordings, member = projection?.[label], manifest = member?.manifest;
+    if (!projection || !member || !manifest) return false;
+    const manifestText = manifest.text, manifestDigest = JSON.stringify(manifest.digest);
+    const current = () => generation === this.regionalOperatorRecordingGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.regionalOperatorRecordingReadState.set('loading');
+    try {
+      const admitted = await readRegionalOperatorRecording(context, sources, label); if (!current()) return false;
+      if (!admitted || sources !== this.currentRegionalOperatorSources() || !bundle.cases.includes(context) || !regionalOperatorRunIdentitiesAreUnique(bundle.cases) ||
+        context.regionalOperatorRecordings !== projection || projection[label] !== member || member.manifest !== manifest || manifest.text !== manifestText ||
+        JSON.stringify(manifest.digest) !== manifestDigest || admitted.manifest.text !== manifestText || JSON.stringify(admitted.manifest.digest) !== manifestDigest ||
+        !regionalOperatorRecordingMatches(context, sources, admitted)) throw new Error('regional-operator-recording-unavailable');
+      this.regionalOperatorRecordingSnapshot.set({ bundle, context, admitted }); this.regionalOperatorRecordingReadState.set('ready'); return true;
+    } catch { if (current()) this.regionalOperatorRecordingReadState.set('unavailable'); return false; }
+  }
+  private clearRegionalOperatorRecording(): void {
+    this.regionalOperatorRecordingGeneration++; this.regionalOperatorRecordingSnapshot.set(null); this.regionalOperatorRecordingReadState.set('idle');
+    this.clearRegionalOperatorSelection();
+  }
+  private readonly regionalOperatorSelected = signal<{ recording: AdmittedRegionalOperatorRecording; region: AdmittedRegionalOperatorRegion; diagnostic: Diagnostic } | null>(null);
+  readonly regionalOperatorSelection = () => {
+    const selected = this.regionalOperatorSelected(), recording = this.regionalOperatorRecording();
+    return selected && recording === selected.recording && recording.regions.includes(selected.region) && selected.region.diagnostics.includes(selected.diagnostic) ? selected : null;
+  };
+  selectRegionalOperatorDiagnostic(region: AdmittedRegionalOperatorRegion, diagnostic: Diagnostic): boolean {
+    this.resetSelection(); const recording = this.regionalOperatorRecording();
+    if (!recording || recording.hostStatus !== 'Completed' || !recording.regions.includes(region) || !region.diagnostics.includes(diagnostic)) return false;
+    this.regionalOperatorSelected.set(Object.freeze({ recording, region, diagnostic })); return true;
+  }
+  navigateRegionalOperatorDiagnostic(): boolean {
+    const selected = this.regionalOperatorSelection(), context = this.context(), sources = this.currentRegionalOperatorSources();
+    if (!selected || !context || !sources) { this.navigationState.set('unavailable'); return false; }
+    const location = selected.diagnostic.primaryLocation;
+    this.scopedTarget.set(null); this.target.set(null);
+    if (!('kind' in sources)) {
+      const target = resolveScopedSource(context, sources, location);
+      if (!target || !sameContext(target.region.context, selected.region.context) || selected !== this.regionalOperatorSelection() ||
+        sources !== this.currentRegionalOperatorSources()) { this.navigationState.set('unavailable'); return false; }
+      this.scopedTarget.set({ context, admitted: sources, ...target, location }); this.navigationState.set('ready'); return true;
+    }
+    return this.navigateLocation(location);
+  }
+  private clearRegionalOperatorSelection(): void {
+    this.regionalOperatorSelected.set(null); this.clearRecordedRegionalOperators();
+  }
+  private recordedRegionalOperatorGeneration = 0;
+  readonly recordedRegionalOperatorReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly recordedRegionalOperatorSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedRecordedRegionalOperators } | null>(null);
+  readonly recordedRegionalOperators = (): AdmittedRecordedRegionalOperators | null => {
+    const snapshot = this.recordedRegionalOperatorSnapshot(), sources = this.currentRegionalOperatorSources(), selection = this.regionalOperatorSelection();
+    return snapshot && sources && selection && this.state() === 'ready' && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) &&
+      snapshot.context === this.context() && snapshot.context === this.result() && recordedRegionalOperatorsMatch(snapshot.context, sources, selection.recording,
+        selection.region, selection.diagnostic, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadRecordedRegionalOperators(choice: RecordedOperatorChoice = 'manifest'): Promise<boolean> {
+    this.clearRecordedRegionalOperators(); const generation = this.recordedRegionalOperatorGeneration;
+    const context = this.context(), sources = this.currentRegionalOperatorSources(), bundle = this.bundle(), selection = this.regionalOperatorSelection();
+    if (!bundle || !context || !sources || !selection || context !== this.result() || this.state() !== 'ready' || !bundle.cases.includes(context)) return false;
+    const current = () => generation === this.recordedRegionalOperatorGeneration && bundle === this.bundle() &&
+      context === this.context() && context === this.result() && this.state() === 'ready';
+    this.recordedRegionalOperatorReadState.set('loading');
+    try {
+      const admitted = await readRecordedRegionalOperators(context, sources, selection.recording, selection.region, selection.diagnostic, choice);
+      if (!current()) return false;
+      if (!admitted || sources !== this.currentRegionalOperatorSources() || selection !== this.regionalOperatorSelection() || !bundle.cases.includes(context) ||
+        !recordedRegionalOperatorsMatch(context, sources, selection.recording, selection.region, selection.diagnostic, admitted)) throw new Error('recorded-regional-operators-unavailable');
+      this.recordedRegionalOperatorSnapshot.set({ bundle, context, admitted }); this.recordedRegionalOperatorReadState.set('ready'); return true;
+    } catch { if (current()) this.recordedRegionalOperatorReadState.set('unavailable'); return false; }
+  }
+  private clearRecordedRegionalOperators(): void {
+    this.recordedRegionalOperatorGeneration++; this.recordedRegionalOperatorSnapshot.set(null); this.recordedRegionalOperatorReadState.set('idle');
+  }
   private passRecordingGeneration = 0;
   readonly passRecordingReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly passRecordingSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedPassRecording } | null>(null);
@@ -502,7 +593,7 @@ export class ProjectIdeWorkbenchStore {
   }
   private clearRootSource(): void {
     untracked(() => { if (this.referencePageSnapshot()) this.cancelReferenceSearch(); });
-    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();this.clearPassRecording();
+    this.rootSourceGeneration++; this.rootSourceSnapshot.set(null); this.rootSourceReadState.set('idle');this.clearDiagnosticPremises();this.clearPredicateRecording();this.clearOperatorRecording();this.clearRegionalOperatorRecording();this.clearPassRecording();
   }
   private diagnosticPremiseGeneration = 0;
   readonly diagnosticPremiseReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
@@ -1216,6 +1307,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.clearRegionalOperatorSelection();
     this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises(); this.clearRecordedOperators();
     this.scopedTarget.set(null);
     this.cancelReferenceSearch();

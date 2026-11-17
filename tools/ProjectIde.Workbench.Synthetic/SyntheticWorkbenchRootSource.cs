@@ -48,6 +48,6 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ClearReferenceSearchPage();
         _rootSourceGeneration++; _rootSourceAdmission = null; _rootSourceRequest = null; RootSourceReadState = "Idle";
-        ClearDiagnosticPremises(); ClearPredicateDisplay(); ClearOperatorDisplay(); ClearPassDisplay();
+        ClearDiagnosticPremises(); ClearPredicateDisplay(); ClearOperatorDisplay(); ClearPassDisplay(); ClearRegionalOperatorDisplay();
     }
 }
