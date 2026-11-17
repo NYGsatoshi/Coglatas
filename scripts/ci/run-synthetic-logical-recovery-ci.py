@@ -619,6 +619,29 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
         result["cleanupState"] = "VERIFIED" if verified else "INCOMPLETE"
 
 
+
+def admitted_run_revisions(environment: dict) -> tuple[str, str | None]:
+    """Bind a hosted PR merge or a repository Main push to the exact source."""
+    support.require(environment.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
+                    and environment.get("RUNNER_OS") == "Linux")
+    event = environment.get("GITHUB_EVENT_NAME")
+    if event == "pull_request":
+        head = environment.get("COGLATAS_PR_HEAD_SHA", "")
+        base = environment.get("COGLATAS_PR_BASE_SHA", "")
+        support.require(isinstance(head, str) and isinstance(base, str)
+                        and re.fullmatch(r"[a-f0-9]{40}", head) is not None
+                        and re.fullmatch(r"[a-f0-9]{40}", base) is not None)
+        return head, base
+    support.require(event == "push"
+                    and environment.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
+                    and environment.get("GITHUB_REF") == "refs/heads/main"
+                    and environment.get("COGLATAS_PR_HEAD_SHA", "") == ""
+                    and environment.get("COGLATAS_PR_BASE_SHA", "") == "")
+    source = environment.get("GITHUB_SHA", "")
+    support.require(isinstance(source, str)
+                    and re.fullmatch(r"[a-f0-9]{40}", source) is not None)
+    return source, None
+
 def main() -> int:
     os.umask(0o077)
     result = {"schemaVersion": 2, "kind": "ADVISORY_SYNTHETIC_LOGICAL_RECOVERY",
@@ -634,16 +657,11 @@ def main() -> int:
               "fullApplicationRecovery": "NOT_EXECUTED", "targetHttps": "NOT_EXECUTED",
               "rollbackRehearsal": "NOT_EXECUTED", "privateEvidenceAfterHostedTeardown": "NOT_RETAINED"}
     try:
-        support.require(os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                        and os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
-                        and os.environ.get("RUNNER_OS") == "Linux")
+        result["sourceHeadSha"], result["baseSha"] = admitted_run_revisions(os.environ)
         support.require(not PUBLIC.exists() and not PUBLIC.is_symlink())
         for variable, key in (("GITHUB_RUN_ID", "runId"), ("GITHUB_RUN_ATTEMPT", "runAttempt")):
             support.require(re.fullmatch(r"[1-9][0-9]*", os.environ.get(variable, "")) is not None)
             result[key] = int(os.environ[variable])
-        for variable, key in (("COGLATAS_PR_HEAD_SHA", "sourceHeadSha"), ("COGLATAS_PR_BASE_SHA", "baseSha")):
-            support.require(re.fullmatch(r"[a-f0-9]{40}", os.environ.get(variable, "")) is not None)
-            result[key] = os.environ[variable]
         private = Path(tempfile.mkdtemp(prefix="cgl-", dir=os.environ["RUNNER_TEMP"]))
         environment = os.environ.copy()
         for key in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
