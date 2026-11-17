@@ -2,6 +2,29 @@
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
 
+## Main exact-SHA logical qualification proposal (2026-11-16 UTC)
+
+The native logical recovery workflow was previously PR-triggered only, so the
+successful synthetic PR merge-ref checks of #1379 do **not** prove that the
+exact squash-merged Main source ran a native logical restore. The
+incremental CI candidate enables this **same guarded logical workflow** on
+`push` to `main` when the original source, test or workflow paths change.
+The hosted runner admits either an existing PR context with its recorded
+head/base SHAs, or an exact `refs/heads/main` push in
+`NYGsatoshi/Coglatas` with a validated `GITHUB_SHA`; Main evidence
+records that SHA as the source head and uses `baseSha=null` (no PR base).
+Other refs, repositories, events, self-hosted runners, malformed SHAs
+and forged PR metadata fail admission before Docker or private workspace
+mutation. The existing exact checkout, strict comparisons, single custom
+dump and one restore, portable catalog, original raw-catalog diagnostic,
+controlled publication and verified cleanup remain unchanged.
+
+**This is a proposed qualification path, not a Main test PASS.** The
+resulting native run on a future exact Main commit must finish successfully
+and be inspected before asserting Main qualification. Physical recovery
+and continuation remain separate PR-only jobs; this change gives neither
+independent Main native credit nor any production recovery/release GO.
+
 ## Historical PR #1379 qualification and post-integration evidence boundary (2026-11-16 UTC)
 
 This pre-integration checkpoint applies only to [PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
