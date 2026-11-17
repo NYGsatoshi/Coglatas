@@ -1,3 +1,4 @@
+import { IndexedSymbol } from './projectide-semantic-index.reader';
 import type { AdmittedRegionalOperatorRegion } from './projectide-regional-operator-recordings.reader';
 import { ReferenceSearchPage } from './projectide-reference-pages.reader';
 import {PassBoundarySourcePage, PassBoundarySourceTarget} from './projectide-pass-source-navigation.reader';
@@ -64,6 +65,49 @@ export class ProjectIdeWorkbenchComponent {
     if(loaded&&source)setTimeout(()=>{
       if(generation===this.focusGeneration&&this.canRead()&&source===this.store.rootSource())this.rootSourceElement()?.nativeElement.focus();
     });
+  }
+  private readonly semanticIndexElement = viewChild<ElementRef<HTMLElement>>('semanticIndexPanel');
+  async loadSemanticIndex(): Promise<void> {
+    const generation = ++this.focusGeneration; const context = this.store.context();
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadScopedSources();
+    if (generation !== this.focusGeneration || context !== this.store.context()) return;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const loaded = await this.store.loadSemanticIndex();
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (loaded && generation === this.focusGeneration) this.focusSemanticIndex(generation);
+  }
+  private focusSemanticIndex(generation: number): void {
+    const index = this.store.semanticIndex(); setTimeout(() => {
+      if (this.canRead() && generation === this.focusGeneration && index && index === this.store.semanticIndex()) this.semanticIndexElement()?.nativeElement.focus();
+    });
+  }
+  indexedAction(action: 'select' | 'references' | 'complete' | 'source', symbol: IndexedSymbol): void {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const ready = action === 'select' ? this.store.selectIndexedSymbol(symbol) : action === 'references' ? this.store.findIndexedReferences(symbol) :
+      action === 'complete' ? this.store.completeIndexedReference(symbol) : this.store.navigateIndexedSymbol(symbol);
+    if (ready && action === 'source') this.open('source', true); else if (ready) this.focusSemanticIndex(generation);
+  }
+  moveIndexedSymbols(delta: number): void {
+    const generation = ++this.focusGeneration; if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.moveSemanticSymbols(delta)) this.focusSemanticIndex(generation);
+  }
+  moveIndexedReferences(query: NonNullable<ReturnType<ProjectIdeWorkbenchStore['indexedReferenceQuery']>>, delta: number): void {
+    const generation = ++this.focusGeneration; if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.moveIndexedReferences(query, delta)) this.focusSemanticIndex(generation);
+  }
+  moveIndexedCompletion(query: NonNullable<ReturnType<ProjectIdeWorkbenchStore['indexedCompletionQuery']>>, delta: number): void {
+    const generation = ++this.focusGeneration; if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.moveIndexedCompletion(query, delta)) this.focusSemanticIndex(generation);
+  }
+  openIndexedReference(query: NonNullable<ReturnType<ProjectIdeWorkbenchStore['indexedReferenceQuery']>>, reference: BoundReference, definition = false): void {
+    this.focusGeneration++; if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.navigateIndexedReference(query, reference, definition)) this.open('source', true);
+  }
+  openIndexedCandidate(query: NonNullable<ReturnType<ProjectIdeWorkbenchStore['indexedCompletionQuery']>>, symbol: IndexedSymbol): void {
+    this.focusGeneration++; if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (this.store.navigateIndexedCandidate(query, symbol)) this.open('source', true);
   }
   async loadScopedSources(): Promise<void> {
     this.focusGeneration++;
@@ -187,7 +231,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'regional-operator-recordings' | 'pass-recordings' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'regional-operator-recordings' | 'pass-recordings' | 'semantic-index' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -199,7 +243,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'regional-operator-recordings' ? 'assets/projectide/regional-operator-recordings-v1.json' : profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'semantic-index' ? 'assets/projectide/semantic-index-v1.json' : profile === 'regional-operator-recordings' ? 'assets/projectide/regional-operator-recordings-v1.json' : profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );

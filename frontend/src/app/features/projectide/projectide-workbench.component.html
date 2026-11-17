@@ -22,6 +22,7 @@
       <button type="button" (click)="reload()">{{ t('ide.retry') }}</button>
     }
     @if (store.state() === 'ready') {
+      <button type="button" data-testid="ide-index-example" (click)="reload('semantic-index')">{{ t('ide.indexExample') }}</button>
       <button type="button" (click)="reload('compiler-outputs')">{{ t('ide.outputsExample') }}</button>
       <button type="button" data-testid="ide-pass-example" (click)="reload('pass-recordings')">{{ t('ide.passExample') }}</button>
       <button type="button" data-testid="ide-regional-operator-example" (click)="reload('regional-operator-recordings')">{{ t('ide.regionalOperatorExample') }}</button>
@@ -745,6 +746,52 @@
                   }
                 </section>
               }
+              @if (ctx.semanticIndex) {
+                <section #semanticIndexPanel tabindex="-1" data-testid="ide-semantic-index" [attr.aria-label]="t('ide.indexTitle')">
+                  <h3>{{ t('ide.indexTitle') }}</h3>
+                  <button type="button" data-testid="ide-load-index" (click)="loadSemanticIndex()" [disabled]="store.semanticIndexReadState() === 'loading'">{{ t('ide.indexLoad') }}</button>
+                  @if (store.semanticIndexReadState() === 'loading') { <p role="status">{{ t('ide.indexLoading') }}</p> }
+                  @if (store.semanticIndexReadState() === 'unavailable') { <p role="alert">{{ t('ide.indexUnavailable') }}</p> }
+                  @if (store.semanticIndex(); as index) {
+                    @let indexedSelection = store.selectedIndexedSymbol();
+                    <p>{{ t('ide.indexScope') }}: {{ index.symbols.length }} · {{ t('ide.references') }}: {{ index.references.length }}</p>
+                    <ul>
+                      @for (symbol of store.indexedSymbols(); track symbol.key) {
+                        <li><button type="button" data-testid="ide-index-symbol" [attr.aria-pressed]="symbol === indexedSelection" (click)="indexedAction('select', symbol)">{{ symbol.displayName || symbol.kind }} · {{ symbol.kind }} · {{ contextRevision(symbol.location.context) }} · {{ symbol.location.entityId || symbol.location.documentId }} {{ symbol.location.propertyPath }}</button></li>
+                      }
+                    </ul>
+                    <button type="button" (click)="moveIndexedSymbols(-1)" [disabled]="store.semanticSymbolPage() === 0">{{ t('ide.indexSymbolsPrevious') }}</button>
+                    <button type="button" data-testid="ide-index-symbols-next" (click)="moveIndexedSymbols(1)" [disabled]="(store.semanticSymbolPage() + 1) * 32 >= index.symbols.length">{{ t('ide.indexSymbolsNext') }}</button>
+                    @if (store.selectedIndexedSymbol(); as selected) {
+                      <p data-testid="ide-index-selection">{{ selected.key }}</p>
+                      <button type="button" (click)="indexedAction('source', selected)">{{ t('ide.indexOpen') }}</button>
+                      <button type="button" data-testid="ide-index-find" (click)="indexedAction('references', selected)">{{ t('ide.findReferences') }}</button>
+                      @if (selected.declaredType) { <button type="button" data-testid="ide-index-complete" (click)="indexedAction('complete', selected)">{{ t('ide.indexComplete') }}</button> }
+                    }
+                    @if (store.indexedReferenceQuery(); as query) {
+                      @let page = query.pages[query.at];
+                      <p data-testid="ide-index-reference-status">{{ t('ide.indexScope') }} · {{ t('ide.indexScanned') }}: {{ page.scannedReferences }} · {{ page.scanComplete ? t('ide.indexScanComplete') : t('ide.indexScanMore') }}</p>
+                      <ul>@for (reference of store.indexedReferenceRows(query); track reference) {
+                        <li data-testid="ide-index-reference">{{ contextRevision(reference.origin.context) }} · {{ reference.origin.entityId || reference.origin.relationId || reference.origin.documentId }} {{ reference.origin.propertyPath }}
+                          <button type="button" data-testid="ide-index-reference-open" (click)="openIndexedReference(query, reference)">{{ t('ide.indexOpen') }}</button>
+                          <button type="button" data-testid="ide-index-reference-definition" (click)="openIndexedReference(query, reference, true)">{{ t('ide.indexDefinition') }}</button>
+                        </li>
+                      }</ul>
+                      <button type="button" data-testid="ide-index-references-previous" (click)="moveIndexedReferences(query, -1)" [disabled]="query.at === 0">{{ t('ide.indexPrevious') }}</button>
+                      <button type="button" data-testid="ide-index-references-next" (click)="moveIndexedReferences(query, 1)" [disabled]="query.at + 1 >= query.pages.length">{{ t('ide.indexNext') }}</button>
+                    }
+                    @if (store.indexedCompletionQuery(); as query) {
+                      @let page = query.pages[query.at];
+                      <p data-testid="ide-index-completion-status">@if (page.state === 'Unsupported') { {{ t('ide.indexUnsupported') }} } @else { {{ page.expectedKind }} · {{ t('ide.indexScanned') }}: {{ page.scannedSymbols }} · {{ page.scanComplete ? t('ide.indexScanComplete') : t('ide.indexScanMore') }} }</p>
+                      <ul>@for (candidate of store.indexedCompletionRows(query); track candidate.key) {
+                        <li><button type="button" data-testid="ide-index-candidate" (click)="openIndexedCandidate(query, candidate)">{{ candidate.displayName || candidate.kind }} · {{ contextRevision(candidate.location.context) }} · {{ candidate.location.entityId }}</button></li>
+                      }</ul>
+                      <button type="button" (click)="moveIndexedCompletion(query, -1)" [disabled]="query.at === 0">{{ t('ide.indexPrevious') }}</button>
+                      <button type="button" (click)="moveIndexedCompletion(query, 1)" [disabled]="query.at + 1 >= query.pages.length">{{ t('ide.indexNext') }}</button>
+                    }
+                  }
+                </section>
+              }
               @if (ctx.passRecordings && store.rootSource()) {
                 <div class="panels" data-testid="ide-pass-recording-actions">
                   <button type="button" (click)="loadPassRecording()" [disabled]="store.passRecordingReadState() === 'loading'">{{ t('ide.predicateOriginal') }}</button>
@@ -1196,7 +1243,8 @@
               @if (store.scopedSourceTarget(); as scoped) {
                 <section #scopedTarget tabindex="-1" data-testid="ide-scoped-source-target" [attr.aria-label]="t('ide.scopedSources')">
                   <h3>{{ t('ide.scopedSources') }}</h3>
-                  <p>{{ scoped.region.context.branch.projectId }} · {{ scoped.region.context.branch.branchId }} · {{ contextRevision(scoped.region.context) }} · {{ scoped.record.identity }}</p>
+                  <p data-testid="ide-scoped-source-identity">{{ scoped.region.context.branch.projectId }} · {{ scoped.region.context.branch.branchId }} · {{ contextRevision(scoped.region.context) }} · {{ scoped.record.identity }}</p>
+                  @if (scoped.location.propertyPath) { <p data-testid="ide-scoped-source-path"><code>{{ scoped.location.propertyPath }}</code></p> }
                   <pre tabindex="0">{{ scoped.record.data | json }}</pre>
                   <details><summary>{{ t('ide.buffer') }}</summary><pre class="source-buffer" tabindex="0">{{ scoped.region.sourceText }}</pre></details>
                 </section>

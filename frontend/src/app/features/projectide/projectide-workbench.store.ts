@@ -1,3 +1,4 @@
+import { AdmittedSemanticIndex, IndexedSymbol, IndexedReferencePage, IndexedCompletionPage, readSemanticIndex, semanticIndexMatches } from './projectide-semantic-index.reader';
 import { type AdmittedRegionalOperatorRecording, type AdmittedRegionalOperatorRegion, type AdmittedRecordedRegionalOperators, type RegionalOperatorSources,
   readRegionalOperatorRecording, readRecordedRegionalOperators, regionalOperatorRecordingMatches, recordedRegionalOperatorsMatch, regionalOperatorRunIdentitiesAreUnique } from './projectide-regional-operator-recordings.reader';
 import { ReferenceSearchPage, hasPreparedReferenceSearch, readReferenceSearchPage, referenceSearchPageMatches } from './projectide-reference-pages.reader';
@@ -786,7 +787,118 @@ export class ProjectIdeWorkbenchStore {
     if (!target) { this.navigationState.set('unavailable'); return false; }
     this.scopedTarget.set({ context, admitted, ...target, location: diagnostic.primaryLocation }); this.navigationState.set('ready'); return true;
   }
+  private semanticIndexGeneration = 0;
+  readonly semanticIndexReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  private readonly semanticIndexSnapshot = signal<{ context: PreviewCase; sources: AdmittedScopedSources; index: AdmittedSemanticIndex } | null>(null);
+  private readonly indexedSelection = signal<{ index: AdmittedSemanticIndex; symbol: IndexedSymbol } | null>(null);
+  private readonly indexedReferences = signal<{ index: AdmittedSemanticIndex; symbol: IndexedSymbol; pages: readonly IndexedReferencePage[]; at: number } | null>(null);
+  private readonly indexedCompletion = signal<{ index: AdmittedSemanticIndex; symbol: IndexedSymbol; pages: readonly IndexedCompletionPage[]; at: number } | null>(null);
+  readonly semanticSymbolPage = signal(0);
+  readonly semanticIndex = (): AdmittedSemanticIndex | null => {
+    const snapshot = this.semanticIndexSnapshot(); const context = this.context();
+    return snapshot && this.state() === 'ready' && snapshot.context === context && context === this.result() &&
+      snapshot.sources === this.admittedScoped() && semanticIndexMatches(context, snapshot.sources, snapshot.index) ? snapshot.index : null;
+  };
+  readonly indexedSymbols = () => this.semanticIndex()?.symbols.slice(this.semanticSymbolPage() * 32, (this.semanticSymbolPage() + 1) * 32) ?? [];
+  readonly selectedIndexedSymbol = (): IndexedSymbol | null => {
+    const selected = this.indexedSelection(); return selected?.index === this.semanticIndex() && selected.index.symbols.includes(selected.symbol) ? selected.symbol : null;
+  };
+  selectIndexedSymbol(symbol: IndexedSymbol): boolean {
+    const index = this.semanticIndex(); this.resetSelection();
+    if (!index || !index.symbols.includes(symbol)) return false;
+    this.indexedSelection.set({ index, symbol }); return true;
+  }
+  moveSemanticSymbols(delta: number): boolean {
+    const index = this.semanticIndex(); const at = this.semanticSymbolPage() + delta;
+    if (!index || !Number.isInteger(delta) || Math.abs(delta) !== 1 || at < 0 || at * 32 >= index.symbols.length) return false;
+    this.resetSelection(); this.semanticSymbolPage.set(at); return true;
+  }
+  async loadSemanticIndex(signal?: AbortSignal): Promise<boolean> {
+    this.clearSemanticIndex(); this.resetSelection(); const generation = this.semanticIndexGeneration;
+    const context = this.context(); const sources = this.admittedScoped();
+    if (signal?.aborted || !context || context !== this.result() || this.state() !== 'ready') return false;
+    if (!sources) { this.semanticIndexReadState.set('unavailable'); return false; }
+    this.semanticIndexReadState.set('loading');
+    try {
+      const index = await readSemanticIndex(context, sources);
+      if (generation !== this.semanticIndexGeneration || context !== this.context() || sources !== this.admittedScoped()) return false;
+      if (signal?.aborted) { this.clearSemanticIndex(); return false; }
+      if (!index || !semanticIndexMatches(context, sources, index)) throw new Error('semantic-index-unavailable');
+      this.semanticIndexSnapshot.set({ context, sources, index }); this.semanticIndexReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.semanticIndexGeneration && context === this.context() && sources === this.admittedScoped()) {
+        this.clearSemanticIndex(); this.semanticIndexReadState.set(signal?.aborted ? 'idle' : 'unavailable');
+      }
+      return false;
+    }
+  }
+  findIndexedReferences(symbol: IndexedSymbol): boolean {
+    const index = this.semanticIndex(); this.indexedReferences.set(null); this.indexedCompletion.set(null);
+    if (!index || symbol !== this.selectedIndexedSymbol()) return false;
+    const group = index.projection.referenceSearches.find(g => g.targetKey === symbol.key); if (!group) return false;
+    this.indexedReferences.set({ index, symbol, pages: group.pages, at: 0 }); return true;
+  }
+  completeIndexedReference(symbol: IndexedSymbol): boolean {
+    const index = this.semanticIndex(); this.indexedReferences.set(null); this.indexedCompletion.set(null);
+    if (!index || symbol !== this.selectedIndexedSymbol()) return false;
+    const group = index.projection.completions.find(g => g.originKey === symbol.key); if (!group) return false;
+    this.indexedCompletion.set({ index, symbol, pages: group.pages, at: 0 }); return true;
+  }
+  readonly indexedReferenceQuery = () => {
+    const query = this.indexedReferences(); return query?.index === this.semanticIndex() && query?.symbol === this.selectedIndexedSymbol() ? query : null;
+  };
+  readonly indexedCompletionQuery = () => {
+    const query = this.indexedCompletion(); return query?.index === this.semanticIndex() && query?.symbol === this.selectedIndexedSymbol() ? query : null;
+  };
+  moveIndexedReferences(query: NonNullable<ReturnType<typeof this.indexedReferenceQuery>>, delta: number): boolean {
+    if (query !== this.indexedReferenceQuery() || !Number.isInteger(delta) || Math.abs(delta) !== 1 || query.at + delta < 0 || query.at + delta >= query.pages.length) return false;
+    this.scopedTarget.set(null); this.indexedReferences.set({ ...query, at: query.at + delta }); return true;
+  }
+  moveIndexedCompletion(query: NonNullable<ReturnType<typeof this.indexedCompletionQuery>>, delta: number): boolean {
+    if (query !== this.indexedCompletionQuery() || !Number.isInteger(delta) || Math.abs(delta) !== 1 || query.at + delta < 0 || query.at + delta >= query.pages.length) return false;
+    this.scopedTarget.set(null); this.indexedCompletion.set({ ...query, at: query.at + delta }); return true;
+  }
+  indexedReferenceRows(query: NonNullable<ReturnType<typeof this.indexedReferenceQuery>>): readonly BoundReference[] {
+    return query === this.indexedReferenceQuery() ? query.pages[query.at].referenceIndices.map(i => query.index.references[i]) : [];
+  }
+  indexedCompletionRows(query: NonNullable<ReturnType<typeof this.indexedCompletionQuery>>): readonly IndexedSymbol[] {
+    return query === this.indexedCompletionQuery() ? query.pages[query.at].symbolKeys.map(key => query.index.symbols.find(s => s.key === key)!) : [];
+  }
+  navigateIndexedSymbol(symbol: IndexedSymbol): boolean {
+    const index = this.semanticIndex(); if (!index || symbol !== this.selectedIndexedSymbol()) return false;
+    return this.openIndexedLocation(symbol.location, symbol.isDocument);
+  }
+  navigateIndexedCandidate(query: NonNullable<ReturnType<typeof this.indexedCompletionQuery>>, symbol: IndexedSymbol): boolean {
+    if (query !== this.indexedCompletionQuery() || !this.indexedCompletionRows(query).includes(symbol)) return false;
+    return this.openIndexedLocation(symbol.location);
+  }
+  navigateIndexedReference(query: NonNullable<ReturnType<typeof this.indexedReferenceQuery>>, reference: BoundReference, definition = false): boolean {
+    if (query !== this.indexedReferenceQuery() || !this.indexedReferenceRows(query).includes(reference)) return false;
+    if (!definition) return this.openIndexedLocation(reference.origin);
+    const at = query.index.references.indexOf(reference); const result = query.index.projection.definitions[at];
+    const symbol = result?.state === 'Ready' ? query.index.symbols.find(s => s.key === result.targetKey) : null;
+    return !!symbol && this.openIndexedLocation(symbol.location, symbol.isDocument);
+  }
+  private openIndexedLocation(location: ProjectLocation, document = false): boolean {
+    const snapshot = this.semanticIndexSnapshot();
+    if (!snapshot || snapshot.index !== this.semanticIndex()) return false;
+    let mapped = location;
+    if (document) {
+      const region = snapshot.sources.regions.find(r => sameContext(r.context, location.context));
+      const original = region && JSON.parse(region.sourceText).documents.find((d: { documentId: string }) => d.documentId === location.documentId);
+      const root = region?.records.find(r => r.recordType === 'entity' && r.identity === original?.root.entityId && r.location.documentId === location.documentId);
+      if (!root) return false; mapped = root.location;
+    }
+    const target = resolveScopedSource(snapshot.context, snapshot.sources, mapped);
+    if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.scopedTarget.set({ context: snapshot.context, admitted: snapshot.sources, ...target, location }); this.navigationState.set('ready'); return true;
+  }
+  private clearSemanticIndexSelection(): void { this.indexedSelection.set(null); this.indexedReferences.set(null); this.indexedCompletion.set(null); }
+  private clearSemanticIndex(): void {
+    this.semanticIndexGeneration++; this.semanticIndexSnapshot.set(null); this.clearSemanticIndexSelection(); this.semanticSymbolPage.set(0); this.semanticIndexReadState.set('idle');
+  }
   private clearScopedSources(): void {
+    this.clearSemanticIndex();
     this.clearRootSource();
     this.clearDiagnosticPremises();
     this.clearCompilerRecording();
@@ -1307,6 +1419,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
+    this.clearSemanticIndexSelection();
     this.clearRegionalOperatorSelection();
     this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises(); this.clearRecordedOperators();
     this.scopedTarget.set(null);
