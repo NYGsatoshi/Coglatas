@@ -546,9 +546,9 @@ public sealed class SecurityScenarioCoreCandidateTests
             descriptor = new { descriptorId = RelationKinds.DependsOn, version = 1 }, source = Endpoint(FirstTask), target = Endpoint(SecondTask),
             payload = new { mode = "coglatas.finish-to-start", lag = Known("coglatas.elapsed-duration", "0").Value } } });
         var source = ProjectSource.Create(context, documents, Json(declarations), relations,
-            opaque ? Json(new[] { new { future = "kept-exactly" } }) : null,
-            opaque ? Json(new[] { new { package = "fixed-opaque-package" } }) : null,
-            opaque ? Json(new[] { new { reference = "opaque-reference" } }) : null,
+            opaque ? Json(new[] { new { @namespace = "coglatas.security-scenario.opaque-extension", future = "kept-exactly" } }) : null,
+            opaque ? Json(new[] { new { artifactId = "coglatas.security-scenario.opaque-package", package = "fixed-opaque-package" } }) : null,
+            opaque ? Json(new[] { new { documentId = FirstDocument.ToString(), kind = "coglatas.security-scenario.opaque-reference", reference = "opaque-reference" } }) : null,
             opaque ? Json(new { context = "opaque-root-context", nested = new[] { "original" } }) : null);
         if (opaque)
         {

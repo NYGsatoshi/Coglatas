@@ -22,7 +22,7 @@ They do not execute a compiler, test manifest, simulator or comparison engine.
 | Product shared `ProjectDraftRename.cs` transition | `fb998c7ee934ef39c577f0f677eabcc3f7d81156` |
 | Product `CompilerInputManifest.cs` | `862bdf70c22ee3daee9ab821f7191061ed0f7a50` |
 | Product `SourceContext.cs` | `e191cc347f72c0a5e915a4b12f7239d7ca0f9081` |
-| Independent C# candidate | `dc1e214a7d39db2dc4cba91cec177addee7633aa` |
+| Independent C# candidate | `abdd8eb8d2975567602d22d19f969458587b3a04` |
 | Independent composition runner | `9c1ba77b4eda7c7102a4ca9b86b3f9f3ed5ec44a` |
 
 The runner admits only the pinned Product commit and tree. It stages only the
@@ -83,6 +83,16 @@ binder; this candidate requires structural decoding for the selected
 transition and makes no complete compilation or semantic verdict claim.
 The typed-reference case tests context reservation and origin preservation,
 without resolving or authorizing the target.
+
+The first native [run 44072196028/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/44072196028)
+at Test HEAD `6d1b6e178aab28713f0a4edb346a74c19ca24d3b` compiled all twenty
+facts on both hosts, with **19 PASS / 1 FAIL / 0 skipped**. The opaque-source
+fact failed during fixture construction: its extension and package records
+lacked the required `namespace` and `artifactId` set keys, and its opaque
+reference lacked `documentId` and `kind`. Those structural headers are now
+supplied while retaining the original opaque payloads and every assertion.
+The original failure remains historical failure evidence; qualification of
+the corrected fixture requires fresh exact-source native results.
 
 ## Native evidence admission
 
