@@ -274,3 +274,47 @@ All 17 provenance mutation tests pass, including the new generated-path and
 mandatory tool-binary controls. These local parser results are not replacement
 Windows producer evidence: the amended source must repeat native capture,
 independent Linux consumption, scanner analysis and the official Gate.
+
+## Composed-host canonical dependency follow-up
+
+Candidate `ac0f6367644e82f0e372b3659b00c7e1a21fdd57` passed full Qodana
+(2015 findings, zero regressions), native recovery and Windows provenance, but
+PR CI `44062599594`, build-test job `133974674508`, failed: 4542/4552 backend
+tests passed and ten composed-host RLS tests failed, with zero skips. The twelve
+Architecture tests passed. Sonar run `44062590636`, Linux job `133971313438`,
+passed 170 Angular test files, then encountered the same ten backend failures;
+no official Quality Gate PASS is credited. CodeRabbit's completed advisory
+review with no actionable comments does not override these actual failures.
+
+The new test-project reference placed the recovery acceptance-tool DLL beside
+the test assembly. The composed-host fixture correctly rejected it before child
+startup because it was absent from the canonical dependency bindings. The repair
+captures its actual loaded assembly and exact producer path through the existing
+bounded PE/MVID, digest and collector-original-backup checks. Its copied child
+module must be the canonical producer bytes, with the loaded copy independently
+bound. Unknown product modules still hit the original rejection assertion.
+This copy diagnostic already includes test-only UI/tool dependencies and does
+not change or grant authority to the separate formal six-assembly runtime
+reconciliation scope. No unknown-module exemption or security assertion is added.
+
+Five new cross-platform copier controls exercise canonical versus instrumented
+copy selection, rejection before copying an unknown module, producer/test-copy
+tampering, and preservation/rejection of an existing incorrect destination.
+An isolated, network-free PostgreSQL 18.6 fixture reproduced the original ten
+failures (2 PASS / 10 FAIL / 0 SKIP). After the repair, the same twelve tests plus
+the five copier controls and 29 admission controls passed: **46/46, zero skips**.
+The Solution rebuild passed with zero errors and the two existing NU1510 warnings.
+
+Initial local fixture setup attempts failed before tests: the custom Socket
+conflicted with the image's initialization client, then a redundant EF CLI
+pre-step lacked a restored local tool. The final fixture uses the image's
+standard private Socket mount and the existing tests' real IMigrator template
+creation. Test/migration implementation and assertions are unchanged. Only
+nonce-labeled immutable owned containers and tmpfs data were used; stopped
+fixtures were removed and absence verified. No production data, endpoint or
+external data volume was used. The initial failures remain failed records.
+
+This source repair requires another exact-HEAD CI, full inventory, native
+recovery, formal Gate and independent review cycle; earlier successful results
+are not inherited. Main integration and all production/strategy/release holds
+remain separate and unchanged.
