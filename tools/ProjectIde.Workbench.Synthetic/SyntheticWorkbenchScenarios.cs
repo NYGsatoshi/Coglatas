@@ -51,7 +51,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             clientGeneration <= _lastGeneration || plan.Materialize(_compilation.Input, cancellationToken) is not { } input) return null;
         var result = Result; var tests = TestRun;
         var request = new CompilerHostRequest(new(input), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
-        BeginSynthetic(request);
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken);
         if (_disposed || !ReferenceEquals(_desired, request)) return null;
         _activeScenario = plan; _scenarioBaselineResult = result; _scenarioBaselineTests = tests; Changed();
         return !_disposed && ReferenceEquals(_desired, request) && ReferenceEquals(_activeScenario, plan) ? request : null;
@@ -92,7 +92,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (State != "Ready" || !ReferenceEquals(ScenarioDraftPreview?.Plan, plan) || !ReferenceEquals(ActiveScenario, plan.Scenario) ||
             _desired is null || clientGeneration <= _lastGeneration || plan.ApplyToDraft(currentBase, cancellationToken) is not { } after) return null;
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
-        BeginSynthetic(request); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
     private void ClearScenarioPreview() { _scenarioPreviewGeneration++; ScenarioPreview = null; ScenarioDraftPreview = null; }
     private void ClearScenarioContext() { ClearScenarioPreview(); _activeScenario = null; _scenarioBaselineResult = null; _scenarioBaselineTests = null; }

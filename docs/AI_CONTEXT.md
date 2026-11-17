@@ -1,5 +1,11 @@
 # AI Context
 
+Read [local context start cancellation](verification/projectide-context-start-cancellation.md)
+for five token-bearing local replacement operations. Cancellation during the
+initial context notification aborts the older publication while preserving
+newer contexts and original facts. Source publication remains the existing
+commit point; this adds no durable write, execution or runtime authority.
+
 Read [synthetic inspection admission](verification/projectide-inspection-admission.md)
 for explicit display refusal when a completed Compiler model cannot be projected
 within the existing canonical JSON bound. All four pure Workbench protocols
