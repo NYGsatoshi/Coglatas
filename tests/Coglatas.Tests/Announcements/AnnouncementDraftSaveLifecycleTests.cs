@@ -257,7 +257,7 @@ public sealed partial class AnnouncementDraftServiceTests
         return rows.ToDictionary(row => row.Id, row =>
         {
             var properties = fixture.Db.Entry(row).Properties.ToArray();
-            Assert.Empty(properties.Where(property => property.Metadata.IsShadowProperty()));
+            Assert.DoesNotContain(properties, property => property.Metadata.IsShadowProperty());
             string[] expectedFields = ["Id", "CreatedAt", "UpdatedAt", "TenantId", "AuthorUserId", "WorkspaceId", "GroupId", "ChannelId",
                 "Title", "Body", "Priority", "IsPinned", "RequiresReadConfirmation", "ExpiresAt", "Status", "VersionNo", "ScheduledForUtc",
                 "ScheduleTimeZoneId", "ScheduleLocalDateTime", "ScheduleUtcOffsetMinutes", "PublishedAnnouncementId", "PublishedAtUtc",
