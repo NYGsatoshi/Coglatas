@@ -91,6 +91,17 @@ async function readyIndex(locale: 'en' | 'ja' = 'en') {
   await f.c.loadSemanticIndex(); await settle(f); return f;
 }
 describe('Full semantic index in the Angular Workbench', () => {
+  for (const [locale, message] of [['en', 'Loading project symbols…'], ['ja', 'プロジェクトのシンボルを読み込んでいます…']] as const)
+    it('translates the pending index status in ' + locale, async () => {
+      const f = await render(); f.c.i18n.setLocale(locale); f.c.choose('tests-index-base'); f.c.loadResult(); f.c.open('source');
+      expect(await f.c.store.loadScopedSources()).toBe(true);
+      const pending = f.c.store.loadSemanticIndex(); f.fixture.detectChanges();
+      expect(f.c.store.semanticIndexReadState()).toBe('loading');
+      expect(f.root.querySelector('[data-testid="ide-semantic-index"] [role="status"]')?.textContent?.trim()).toBe(message);
+      await pending; await settle(f);
+      expect(f.c.store.semanticIndexReadState()).toBe('ready');
+      expect(f.root.querySelector('[data-testid="ide-semantic-index"] [role="status"]')).toBeNull();
+    });
   for (const locale of ['en', 'ja'] as const) it('shows real 32 plus 4 references and focuses the current index in ' + locale, async () => {
     const f = await readyIndex(locale); const { c, root } = f; const index = c.store.semanticIndex()!;
     expect(index).not.toBeNull(); expect(root.querySelectorAll('[data-testid="ide-index-example"]')).toHaveLength(1); expect(root.querySelector('[data-testid="ide-semantic-index"]')).not.toBeNull();

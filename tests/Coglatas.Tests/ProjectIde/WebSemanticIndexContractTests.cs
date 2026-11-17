@@ -11,6 +11,30 @@ public sealed class WebSemanticIndexContractTests
     [InlineData("tests-index-base")]
     [InlineData("tests-index-hypothesis")]
     [InlineData("tests-index-draft")]
+    public void NarrowProjectionBoundOmitsOnlyIndexAndPreservesOriginalCompilerFacts(string key)
+    {
+        var path = Path.Combine(Path.GetDirectoryName(SyntheticOperatorRecordingTests.FixturePath())!, "semantic-index-v1.json");
+        using var fixture = JsonDocument.Parse(File.ReadAllBytes(path));
+        var row = fixture.RootElement.GetProperty("cases").EnumerateArray().Single(item => item.GetProperty("key").GetString() == key);
+        var source = ProjectSourceCodec.Decode(Encoding.UTF8.GetBytes(row.GetProperty("sourceText").GetString()!)).RequireSource();
+        var input = CompilerInputManifest.ReadEnvelope(source, SourceJson.Parse(row.GetProperty("manifest").GetRawText()));
+        var compilation = PureCoreCompiler.Compile(input, input.Compiler, WebPreviewContractTests.Snapshots(row, input));
+        var originalResult = compilation.Result.Data;
+        var originalInput = compilation.Input;
+        var originalBinding = compilation.Dependencies!.Binding;
+        var original = SourceJson.Parse(row.GetProperty("semanticIndex").GetRawText());
+        Assert.Equal(original, SyntheticSemanticIndexProjection.Export(compilation));
+        Assert.Null(SyntheticSemanticIndexProjection.Export(compilation, maximumProjectionBytes: 1024));
+        Assert.Same(originalResult, compilation.Result.Data);
+        Assert.Same(originalInput, compilation.Input);
+        Assert.Same(originalBinding, compilation.Dependencies.Binding);
+        Assert.Equal(original, SyntheticSemanticIndexProjection.Export(compilation));
+    }
+
+    [Theory]
+    [InlineData("tests-index-base")]
+    [InlineData("tests-index-hypothesis")]
+    [InlineData("tests-index-draft")]
     [InlineData("tests-index-partial-base")]
     [InlineData("tests-index-partial-hypothesis")]
     [InlineData("tests-index-partial-draft")]

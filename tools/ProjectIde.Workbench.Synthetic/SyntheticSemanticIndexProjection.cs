@@ -7,9 +7,12 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 public static class SyntheticSemanticIndexProjection
 {
     public const string Format = "coglatas.local-semantic-index-projection/1";
-    public static SourceJson? Export(CoreCompilation compilation)
+    public const int MaximumProjectionBytes = 4_194_304;
+    /// <summary>Absent when the prepared projection exceeds its local export bound; original Compiler facts remain available.</summary>
+    public static SourceJson? Export(CoreCompilation compilation, int maximumProjectionBytes = MaximumProjectionBytes)
     {
         ArgumentNullException.ThrowIfNull(compilation);
+        if (maximumProjectionBytes is < 1 or > MaximumProjectionBytes) throw new ArgumentOutOfRangeException(nameof(maximumProjectionBytes));
         if (compilation.Model is not { } model) return null;
         var input = compilation.Input;
         var binding = compilation.Dependencies?.Binding ?? CompilerBindingClosure.Build(model, input.InputDigest);
@@ -51,7 +54,9 @@ public static class SyntheticSemanticIndexProjection
                 completions.Add(new { originKey = symbol.Symbol.Key, pages });
             }
         }
-        return SourceJson.Parse(JsonSerializer.Serialize(new { format = Format, resultDigest = compilation.Result.ResultDigest.Data.Value,
-            index = new { text = index.Data.CanonicalText, digest = index.Digest.Data.Value }, definitions, completions, referenceSearches = searches }));
+        var json = JsonSerializer.Serialize(new { format = Format, resultDigest = compilation.Result.ResultDigest.Data.Value,
+            index = new { text = index.Data.CanonicalText, digest = index.Digest.Data.Value }, definitions, completions, referenceSearches = searches });
+        try { return SourceJson.Parse(json, new SourceCodecLimits(MaximumBytes: maximumProjectionBytes)); }
+        catch (FormatException) { return null; }
     }
 }
