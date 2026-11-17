@@ -1,5 +1,10 @@
 # AI Context
 
+[Owned local regional observation runs](verification/projectide-owned-regional-observation-host.md)
+bind a separate predeclared regional policy, exact local request/manifest, actual
+attempt and paired receipt. Older host protocols and Domain records stay unchanged;
+current authorization, retention and Native activation remain separate.
+
 [Actual regional predicate observation](verification/projectide-regional-predicate-observation.md)
 adds a separately labelled, explicitly predeclared pure Compiler record and owned
 regional diagnostic reads. Actual call/evaluation counts, execution/coverage/verdict,
