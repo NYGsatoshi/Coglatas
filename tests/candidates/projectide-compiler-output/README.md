@@ -19,21 +19,25 @@ snapshot queries on that accepted compilation through public APIs.
   facts**. The original eleven method identities, bodies and helpers remain
   byte-for-byte intact from Test blob
   `a7832c98fcded823532b974eee11b74168ddfbf2`.
-- Independent composition runner `1bf29bec7e2094b033b5d1057d5d9de77f9a8bc6`
+- Independent composition runner `04d0959a5d0d492217acedccb189f667b8bdcadc`
   (current Security Test-owner runner model). The runner stages **only** the
   original exact Test blob into a detached, clean Product worktree, verifies
-  the Git index identity, actual source bytes before and after execution and
-  denies unrelated tracked Product file changes. Product and Test source
-  remain separate.
+  the actual source bytes, Git index identity, Product HEAD and unrelated
+  tracked Product files after composition, restore, test and discovery.
+  Product and Test source remain separate.
 - Product `global.json` pins .NET 10.0.403 and roll-forward disabled;
   the nonrequired Windows-latest and Ubuntu-24.04 advisory checks SDK/source
   pinning and requires **35/35 actual compiled xUnit PASS**, 0 failed,
   skipped or not executed on each host.
-- The runner freezes the exact fully qualified native roster. Original TRX
-  result names must equal that roster; result, definition and entry IDs must
-  form a unique bijection with matching raw names. Compiled discovery must
-  contain the same 35 distinct identities. Count-only, duplicated, substituted,
-  missing or non-Passed cases cannot qualify.
+- The runner requires the native TeamTest/2010 `TestRun` namespace, one direct
+  result summary and counter set, and one direct supported result, definition
+  and entry inventory each. Extra containers, foreign namespaces and
+  unsupported inventory records cannot be ignored. Each definition binds
+  the exact class and bare method separately. Result names must equal the
+  frozen roster; result, definition and entry IDs form a unique bijection
+  with matching raw names. Compiled discovery contains the same 35 distinct
+  identities. Count-only, duplicated, substituted, missing or non-Passed
+  cases cannot qualify.
 - Original TRX, compiled discovery, source blobs, Product and composed tree,
   logs and SHA256 receipts are retained as separate hosted artifacts.
 
@@ -94,6 +98,57 @@ object may remain valid after a ViewModel clears its own retained reference;
 view withdrawal is not physical erasure. Running these pure .NET controls on
 Windows does not qualify an actual Windows/Avalonia UI or native runtime.
 Regional collector/host coverage remains outside this lifecycle slice.
+
+## Native evidence admission regressions
+
+The bounded follow-up to
+[#1966 comment 6946003242](https://github.com/NYGsatoshi/Coglatas/issues/1966#issuecomment-6946003242)
+repairs two malformed-input admissions in the original #2055 runner:
+
+- Moving the class suffix into a dotted method name no longer preserves
+  admission merely because concatenating the two strings produces a known FQN.
+- A second `Results` container with a failed `GenericTestResult` is rejected
+  even when the first container retains all 35 valid passing facts.
+
+`test_compose_and_verify.py` requires retained native TRX and compiled discovery
+inputs. Its 21 controls include the unchanged authentic positive and both
+counterexamples, namespace and complete-inventory refusals, native identity
+bijection, counter and discovery failures, and real temporary Git/worktree
+composition boundaries. Only the `dotnet` outputs in the temporary main-path
+controls are controlled; actual source bytes, index and Product HEAD changes
+are performed and must be rejected after restore, test and discovery. Every
+receipt retains all six false qualification flags and failure never receives
+`nativeXunit` credit. The command wrapper also preserves nonzero process exits.
+
+Before any Main fixture initializes Git, both retained inputs must pass the
+frozen native/discovery admission checks; empty, malformed and foreign fixtures
+stop the controls instead of supplying negative-test credit. Each Main refusal
+checks its exact error, receipt error and complete reached-stage sequence.
+Local Git children, including the raw source read and temporary fixture setup,
+remove inherited `GIT_*` process settings while preserving every non-Git
+environment variable. These operations perform no remote Git access. A real
+disposable two-repository control demonstrates the old environment redirect,
+runs the repaired Main path under the same pollution, and compares every file
+in the disposable caller repository to prove it was unchanged. The original
+caller repository is never used as the pollution target.
+
+Both advisory hosts run these controls against their newly produced original
+TRX/discovery and retain a separate `admission-controls.log`. The workflow pins
+the controls blob independently. These are parser and composition regressions,
+not additional native xUnit executions. Local replay uses the original #2055
+Ubuntu TRX SHA256
+`c7737d8da98d5f4f93aec468f88f340dfdbb6e121fbdb7a3a0b4a3878b9feb00`
+from run `44054347293`, attempt 1, artifact `14315037803`.
+
+The original #2055 native 35/35 results, source/tree binding and cross-host
+artifact audit remain valid. The malformed copies demonstrated future evidence
+admission defects; they did not demonstrate a hosted execution bypass. The
+native command's exit status remains independently required. Fresh exact-source
+hosted qualification is still required for this repaired runner.
+
+```text
+python -B tests/candidates/projectide-compiler-output/test_compose_and_verify.py --native-trx <retained-candidate.trx> --compiled-discovery <retained-compiled-discovery.log> -v
+```
 
 ## Admission and open work
 
