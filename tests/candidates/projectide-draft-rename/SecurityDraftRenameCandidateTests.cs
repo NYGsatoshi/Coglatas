@@ -536,7 +536,7 @@ public sealed class SecurityDraftRenameCandidateTests
     private static void Refused(DraftRenamePreview preview, DraftRenameState state)
     { Assert.Equal(state, preview.State); Assert.Null(preview.Plan); }
     private static PlanDeclaration Declaration(CompilerInputManifest input, EntityId id) =>
-        Assert.Single(PlanDeclarationReader.Read(input).Where(item => item.Declaration?.EntityId == id)).Declaration!;
+        Assert.Single(PlanDeclarationReader.Read(input.Source).Where(item => item.Declaration?.EntityId == id)).Declaration!;
     private static SourceJson Type(string kind) => Json(new { kind, schemaVersion = 1, nullable = false, acceptsUnknown = true });
     private static SourceJson Known(string kind, object value) => Json(new { type = Type(kind).Value, state = "coglatas.known", value });
     private static object Pin(SourceRevisionContext context, ContentDigest digest) => new

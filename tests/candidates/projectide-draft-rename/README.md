@@ -12,6 +12,7 @@ contains no imported Product test fixture or authored Compiler result.
 - Product SDK: `10.0.403`, from that commit's `global.json`.
 - Initial Security base: `f0e188d090f7542b4c824b5a4ed7aaa2c64fe6d9`.
 - Independent class: `Coglatas.Tests.ProjectIde.SecurityDraftRenameCandidateTests`.
+- Independent C# blob: `26dd7e610f1c1a26652ca4644ab11b0fbe334cda`.
 - Independent runner blob: `5a7f587b38d45d8875a33f485fe39668c8f71635`.
 - Execution scope: `SYNTHETIC_DRAFT_RENAME_CORE_AND_VIEWMODEL_ONLY`.
 
@@ -104,6 +105,13 @@ host. Clean composition and exact raw-source reads remained valid with hostile
 common-directory, object-directory and alternate-object variables; host/SDK and
 non-Git command environments stayed intact. The C# blob and fact roster did not
 change. These are verifier controls, with no .NET execution result.
+
+The original Ubuntu advisory run `44118464426` failed compilation with CS1503:
+the declaration helper passed a Compiler input manifest to the public
+`PlanDeclarationReader.Read(ProjectSource)` overload. The helper now passes
+that input's exact `Source`; all 24 facts and assertions remain unchanged.
+The original failed evidence is retained. Fresh hosted verification of the
+corrected C# blob remains pending; no local .NET result is claimed.
 
 ## Qualification limits
 

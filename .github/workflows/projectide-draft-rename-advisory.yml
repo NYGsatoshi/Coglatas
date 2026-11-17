@@ -24,7 +24,7 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: b9ef7552dd029aa2c6e4d1f1742e4dfd0193115b
+      SOURCE_BLOB: 26dd7e610f1c1a26652ca4644ab11b0fbe334cda
       RUNNER_BLOB: 5a7f587b38d45d8875a33f485fe39668c8f71635
     steps:
       - name: Preserve committed source bytes
@@ -108,7 +108,7 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: b9ef7552dd029aa2c6e4d1f1742e4dfd0193115b
+      SOURCE_BLOB: 26dd7e610f1c1a26652ca4644ab11b0fbe334cda
       RUNNER_BLOB: 5a7f587b38d45d8875a33f485fe39668c8f71635
     steps:
       - name: Preserve committed source bytes
