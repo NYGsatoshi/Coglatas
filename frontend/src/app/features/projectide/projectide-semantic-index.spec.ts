@@ -18,19 +18,23 @@ const rehash = (row: ReturnType<typeof value>) => { const frame = row.semanticIn
   (frame.digest as { value: string }).value = createHash('sha256').update('coglatas.semantic-index/1\0' + frame.text).digest('hex'); };
 
 describe('Whole admitted binding index and Core-prepared queries', () => {
-  const largeBundle = () => readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/semantic-index-large-v1.json'), 'utf8')));
-  it('keeps a complete Core index unavailable when original scoped transport exceeds its earlier byte bound', async () => {
-    const bundle = largeBundle(); expect(bundle.cases).toHaveLength(2); const row = bundle.cases.find(r => r.key === 'tests-index-large-base')!;
-    const data = JSON.parse(row.semanticIndex!.index.text); expect(data.state).toBe('Complete'); expect(data.indexCoverageComplete).toBe(true);
-    expect(data.symbols.length * data.references.length).toBeGreaterThan(1_000_000);
-    expect(row.scopedSources).toBeUndefined(); expect(await readScopedSources(row)).toBeNull();
-    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => bundle); store.choose(row.key); store.loadResult();
-    expect(await store.loadScopedSources()).toBe(false); expect(await store.loadSemanticIndex()).toBe(false);
-    expect(store.semanticIndexReadState()).toBe('unavailable'); expect(store.semanticIndex()).toBeNull();
-    expect(store.selectedIndexedSymbol()).toBeNull(); expect(store.indexedReferenceQuery()).toBeNull(); expect(store.scopedSourceTarget()).toBeNull();
+  const rawLargeBundle = () => JSON.parse(readFileSync(resolve('public/assets/projectide/semantic-index-large-v1.json'), 'utf8'));
+  const boundedBundle = () => {
+    const data = rawLargeBundle(); return readPreviewBundle({ ...data, cases: data.cases.filter((r: { key: string }) => r.key === 'tests-index-bounded-base') });
+  };
+  it('rejects a complete Core index at the earlier missing scoped transport binding', async () => {
+    const raw = rawLargeBundle(); expect(raw.cases).toHaveLength(2); const row = raw.cases.find((r: { key: string }) => r.key === 'tests-index-large-base');
+    const data = JSON.parse(row.semanticIndex.index.text); expect(data.state).toBe('Complete'); expect(data.indexCoverageComplete).toBe(true);
+    expect(data.symbols.length * data.references.length).toBeGreaterThan(1_000_000); expect(row.scopedSources).toBeUndefined();
+    expect(() => readPreviewBundle(raw)).toThrow('wrong-scope');
+    const wideOnly = { ...raw, cases: [row] }; expect(() => readPreviewBundle(wideOnly)).toThrow('wrong-scope');
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(wideOnly));
+    expect(store.state()).toBe('wrong-scope'); expect(await store.loadSemanticIndex()).toBe(false);
+    expect(store.semanticIndex()).toBeNull(); expect(store.selectedIndexedSymbol()).toBeNull();
+    expect(store.indexedReferenceQuery()).toBeNull(); expect(store.scopedSourceTarget()).toBeNull();
   });
   it('admits original bounded Core pages including an empty 256-reference continuation', async () => {
-    const row = largeBundle().cases.find(r => r.key === 'tests-index-bounded-base')!;
+    const row = boundedBundle().cases[0];
     const source = await readScopedSources(row); expect(source).not.toBeNull();
     const index = await readSemanticIndex(row, source!); expect(index).not.toBeNull(); expect(index!.references.length).toBeGreaterThan(256);
     const group = index!.projection.referenceSearches.find(g => g.pages[0].referenceIndices.length === 0 && g.pages[0].scannedReferences === 256 && g.pages.some(p => p.referenceIndices.length > 0))!;
@@ -39,7 +43,7 @@ describe('Whole admitted binding index and Core-prepared queries', () => {
     expect(group.pages.flatMap(p => p.referenceIndices).map(i => index!.references[i])).toEqual(index!.references.filter(r => r.symbolKey === group.targetKey));
   });
   it.each(['omitted-empty-page', 'foreign-scan-member'])('refuses altered bounded %s after original Source admission', async mode => {
-    const row = largeBundle().cases.find(r => r.key === 'tests-index-bounded-base')!;
+    const row = boundedBundle().cases[0];
     const projection = row.semanticIndex! as any;
     const group = projection.referenceSearches.find((g: any) => g.pages[0].referenceIndices.length === 0 && g.pages[0].scannedReferences === 256 && g.pages.some((p: any) => p.referenceIndices.length > 0));
     expect(group).toBeDefined();
@@ -159,7 +163,8 @@ describe('Whole admitted binding index and Core-prepared queries', () => {
     expect(await pending).toBe(false); expect(store.semanticIndexReadState()).toBe('unavailable');
     expect(store.semanticIndex()).toBeNull(); expect(store.selectedIndexedSymbol()).toBeNull();
     expect(store.indexedReferenceQuery()).toBeNull(); expect(store.scopedSourceTarget()).toBeNull();
-    (row as { projectName: string }).projectName = name; edýän    expect(await store.loadScopedSources()).toBe(true); expect(await store.loadSemanticIndex()).toBe(true);
+    (row as { projectName: string }).projectName = name;
+    expect(await store.loadScopedSources()).toBe(true); expect(await store.loadSemanticIndex()).toBe(true);
     expect(store.semanticIndexReadState()).toBe('ready');
   });
 
