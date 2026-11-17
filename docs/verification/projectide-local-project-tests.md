@@ -101,6 +101,12 @@ failures have a distinct CLI-failure envelope and cannot impersonate a bound
 Test run. Unsupported input settings (including future scheduler, solver,
 coverage or execution-profile values) produce an unbound CLI-failure envelope
 with execution/verdict NotRun, reason coglatas.unsupported-input and exit 2.
+An unsupported Source format/schema/canonical encoding with no admitted Source
+is also Unsupported, rather than InvalidInput: run returns the unbound NotRun
+failure above, while definition export/preview returns its Unsupported failure.
+Both use exit 2; malformed Source remains an invalid-input error/exit 3. Opaque
+Source that is still structurally admitted retains its existing binding and Test
+coverage behavior; no new semantic support is inferred.
 This does not establish manifest integrity or evaluator support. Existing output
 paths still fail CreateNew with exit 3 and retain their original bytes.
 Cancellation is explicit. The console subscription owns its cancellation

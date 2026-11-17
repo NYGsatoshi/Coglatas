@@ -20,7 +20,11 @@ internal static class ProjectTestDefinitionsCommand
             SourceJson artifact; int code;
             try
             {
-                var source = ProjectSourceCodec.Decode(await Read(args[1], token), cancellationToken: token).RequireSource();
+                var decoded = ProjectSourceCodec.Decode(await Read(args[1], token), cancellationToken: token);
+                token.ThrowIfCancellationRequested();
+                if (decoded.Status == SourceDecodeStatus.Unsupported && decoded.Source is null)
+                    throw new UnsupportedSourceException("Source representation is unsupported.");
+                var source = decoded.RequireSource();
                 var input = CompilerInputManifest.ReadEnvelope(source, SourceJson.Parse(await Read(args[2], token)));
                 var model = ProjectSemanticBinder.Bind(input, cancellationToken: token); var id = EntityId.Parse(args[3]);
                 var declarations = model.Declarations.Where(item => item.Data.Value.TryGetProperty("entityId", out var identity) &&
