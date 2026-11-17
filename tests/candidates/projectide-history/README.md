@@ -25,6 +25,7 @@ distinct from durable transaction atomicity.
 | Product `ProjectSourceCodec.cs` | `b0c3323032d708f18fc65acc9a9bb15419b4a99f` |
 | Independent C# candidate | `8ddbb5b95651fb6a3ba68f1d6db67f6421dac9df` |
 | Independent composition runner | `6230ca0a40c5b5f384cd4078f1c534fe8425c4b7` |
+| Committed verifier controls | `ff688f47ec3d2a1abe1a41b0f346cbd867e817f6` |
 
 The runner stages only the exact independent Test blob at
 `tests/Coglatas.Tests/ProjectIde/SecurityProjectHistoryCandidateTests.cs` in a
@@ -42,7 +43,7 @@ checkout. Ordinary host and SDK variables remain inherited, and non-Git
 commands retain their original environment.
 
 The read-only, nonrequired advisory runs separate Ubuntu-24.04 and
-Windows-latest jobs. Both use immutable Test/runner blob pins, the same Product
+Windows-latest jobs. Both inherit shared immutable Test/runner/controls blob pins, the same Product
 commit and its actual `global.json` policy. The actual SDK must be **10.0.403**
 before `dotnet test -warnaserror` executes. No registered Required Check,
 Product implementation, branch protection or existing CI lane is changed.
@@ -98,12 +99,34 @@ ZIP's reported size, SHA256 and member bytes before accepting its internal
 hashes. Both hosts must agree on Product/Test source, composed tree and raw
 test-ID/name identities; host execution IDs and archive hashes may differ.
 
-Local validation at preparation time covers Python syntax, literal C# fact
-roster and structural-header review, workflow structure, 22 native-reader /
-discovery fixture controls and seven temporary-Git source-binding controls.
-These tests do **not** execute C#, reproduce an old Product build or establish
-native qualification. Fresh exact-source Ubuntu and Windows results and current
-ordinary CI/review must be recorded before claiming this bounded slice passed.
+Original preparation included ad hoc local parser, discovery and temporary-Git
+checks alongside syntax, roster, workflow and structural-header review. Their
+commands were not retained as a committed regression suite; those historical
+checks do not supply a reproducible repository test count.
+
+The committed `test_compose_and_verify.py` now supplies **14 portable unittest
+methods**. Synthetic native-shaped TRX/discovery positives precede targeted
+counter, Execution, binding, class/method, container and raw-name refusals.
+Disposable Git repositories exercise actual source, index, same-tree HEAD and
+unrelated tracked drift. A hostile `GIT_DIR` demonstrably redirects an
+unprotected read while the runner stays on its requested repository, with every
+disposable caller file unchanged. Fixture setup independently scrubs inherited
+Git overrides before initializing either repository. Negative checks require
+the exact intended rejection reason, and restored valid compositions pass.
+
+```text
+python -B -m unittest discover -s tests/candidates/projectide-history -p test_compose_and_verify.py -v
+```
+
+Both advisory jobs validate the controls blob and run this suite before native
+composition. Each retains `admission-controls.log` in its workflow-context
+directory and records `controlsBlob` in `workflow-context.json`. The separate
+native evidence directory and its eight retained files remain unchanged.
+
+These verifier tests do **not** execute C#, reproduce a Product build or supply
+native qualification. Native TRX, compiled discovery and current CI/review
+remain separate gates for the exact published head; previous hosted results
+retain only their original source identity.
 
 The Git-environment follow-up used actual Git with fresh local checkouts of the
 fixed Product. Three formerly admitted drift cases (repository/worktree,
