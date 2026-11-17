@@ -229,7 +229,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             references.Add(reference);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(references.AsReadOnly(), coverageComplete && !truncated, truncated);
+        return new(new SyntheticReadOnlyList<CompilerBoundReference>(references), coverageComplete && !truncated, truncated);
     }
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);

@@ -1,5 +1,11 @@
 # AI Context
 
+[Retained Workbench read rosters](verification/projectide-retained-read-rosters.md)
+keeps legacy reference-search and synthetic materialization read lists faithful
+to their original admitted facts without exposing synchronization storage. Existing
+generic reads and write refusals remain; this adds no query, runtime authority
+or independent Security acceptance.
+
 Read [local context start cancellation](verification/projectide-context-start-cancellation.md)
 for five token-bearing local replacement operations. Cancellation during the
 initial context notification aborts the older publication while preserving

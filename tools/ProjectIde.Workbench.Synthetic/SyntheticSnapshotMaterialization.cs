@@ -57,7 +57,7 @@ public static class SyntheticSnapshotMaterialization
             else source = ProjectSource.Create(context, input.Source.Documents.Take(1));
             result.Add(new(id, version, new(source, available, declarations, relations)));
         }
-        return result.AsReadOnly();
+        return new SyntheticReadOnlyList<CompilerMaterializedSnapshot>(result);
     }
     private static SourceJson Json(JsonElement value) => SourceJson.Parse(value.GetRawText());
     private static void Fields(JsonElement value, params string[] names)
