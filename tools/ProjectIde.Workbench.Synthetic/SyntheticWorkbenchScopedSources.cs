@@ -102,6 +102,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     private void ClearScopedSelection() { ScopedSource = null; ScopedSourceTarget = null; ScopedSourceRecord = null; }
     private void ClearScopedSources()
     {
+        ClearRegionalOperatorDisplay();
         ClearDiagnosticPremises();
         ClearCompilerRecording();
         ClearCompilerOutputSnapshot();

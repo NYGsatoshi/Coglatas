@@ -1,5 +1,12 @@
 # AI Context
 
+[Paired local regional operator consumers](verification/projectide-paired-regional-operator-consumers.md)
+read original local runs in the pure Workbench and Angular after explicit Source,
+region and diagnostic admission. Actual traversal, original capture and view limits
+stay separate. Scoped Source fingerprints remain private, and stale/foreign reads
+cannot borrow original bodies. These synthetic reads add no remote deserializer,
+current authority, causal reconstruction or actual Avalonia/Native activation.
+
 [Owned local regional observation runs](verification/projectide-owned-regional-observation-host.md)
 bind a separate predeclared regional policy, exact local request/manifest, actual
 attempt and paired receipt. Older host protocols and Domain records stay unchanged;

@@ -15,6 +15,7 @@ var simulationProfile = args is [_, "--simulation"] || debugProfile || compariso
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
 var predicateRecordingProfile = args is [_, "--predicate-recordings"];
 var operatorRecordingProfile = args is [_, "--operator-recordings"];
+var regionalOperatorRecordingProfile = args is [_, "--regional-operator-recordings"];
 var passRecordingProfile = args is [_, "--pass-recordings"];
 var rootPremiseProfile = args is [_, "--root-diagnostic-premises"] || predicateRecordingProfile || operatorRecordingProfile || passRecordingProfile;
 var premiseProfile = args is [_, "--diagnostic-premises"];
@@ -22,8 +23,8 @@ var recordingProfile = args is [_, "--compiler-recordings"];
 var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfile || premiseProfile;
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
-var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--pass-recordings profile.");
+var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile || regionalOperatorRecordingProfile;
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -47,6 +48,18 @@ if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-simulation-external"] = ReferenceScenarioFixture(2600, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
     ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
     ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
+};
+if (regionalOperatorRecordingProfile) scenarioFixtures = new(StringComparer.Ordinal) {
+    ["tests-regional-root"] = ScenarioFixture(publication: true),
+    ["tests-regional-true"] = ReferenceScenarioFixture(9200, dependencyConstraint: true, publication: true, truth: true, uniqueDependencyIdentity: true),
+    ["tests-regional-false"] = ReferenceScenarioFixture(9300, dependencyConstraint: true, publication: true, truth: false, uniqueDependencyIdentity: true),
+    ["tests-regional-unknown"] = ReferenceScenarioFixture(9400, dependencyConstraint: true, publication: true, truth: null, uniqueDependencyIdentity: true),
+    ["tests-regional-versioned"] = ReferenceScenarioFixture(9500, dependencyConstraint: true, additionalVersion: true, publication: true, truth: false),
+    ["tests-regional-nested-duplicates"] = ReferenceScenarioFixture(9600, dependencyConstraint: true, publication: true, uniqueDependencyIdentity: true, operatorExample: "operator-nested-duplicates"),
+    ["tests-regional-or-unknown"] = ReferenceScenarioFixture(9700, dependencyConstraint: true, publication: true, uniqueDependencyIdentity: true, operatorExample: "operator-or-unknown"),
+    ["tests-regional-requirement-false"] = ReferenceScenarioFixture(9800, dependencyConstraint: true, publication: true, uniqueDependencyIdentity: true, operatorExample: "operator-requirement-false-nested"),
+    ["tests-regional-requirement-true"] = ReferenceScenarioFixture(9900, dependencyConstraint: true, publication: true, uniqueDependencyIdentity: true, operatorExample: "operator-requirement-true-short-circuit"),
+    ["tests-regional-requirement-unknown"] = ReferenceScenarioFixture(10000, dependencyConstraint: true, publication: true, uniqueDependencyIdentity: true, operatorExample: "operator-requirement-unknown")
 };
 var cases = new List<object>();
 var comparisonRuns = new Dictionary<string, ProjectSimulationRun>(StringComparer.Ordinal);
@@ -228,7 +241,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             definitionText = testEditFixture.Exported.CanonicalText, importedText = testEditFixture.Imported.CanonicalText });
         cases[^1] = fixture;
     }
-    if (rootPremiseProfile)
+    if (rootPremiseProfile || regionalOperatorRecordingProfile)
     {
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
         var rootSource = ProjectRootSourceAdmission.Read(compilation, result, result.ResultDigest) ?? throw new FormatException("Root Source binding unavailable.");
@@ -237,6 +250,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         fixture["diagnosticPremises"] = JsonSerializer.SerializeToNode(DiagnosticPremisePreview.Export(compilation, rootSource));
         if (predicateRecordingProfile) fixture["predicateRecordings"] = await PredicateRecordingPreview.ExportAsync(input, result);
         if (operatorRecordingProfile) fixture["operatorRecordings"] = await OperatorRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
+        if (regionalOperatorRecordingProfile) fixture["regionalOperatorRecordings"] = await RegionalOperatorRecordingPreview.ExportAsync(input, snapshots, result, compilation.LogicalOperationsConsumed);
         if (passRecordingProfile) fixture["passRecordings"] = await PassRecordingPreview.ExportAsync(input, result, compilation.LogicalOperationsConsumed);
         cases[^1] = fixture;
     }
@@ -341,6 +355,14 @@ if (operatorRecordingProfile)
     var observed = JsonNode.Parse(output)!.AsObject(); observed["operatorRecordingProducer"] = JsonSerializer.SerializeToNode(OperatorRecordingPreview.Producer());
     output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }
+if (regionalOperatorRecordingProfile)
+{
+    var observed = JsonNode.Parse(output)!.AsObject();
+    if (observed["cases"]!.AsArray().Count != names.Length || observed["cases"]!.AsArray().Any(item => item is null || item["regionalOperatorRecordings"] is null || item["rootSource"] is null))
+        throw new InvalidOperationException("Every regional fixture case requires its actual payload and admitted root Source.");
+    observed["regionalOperatorRecordingProducer"] = JsonSerializer.SerializeToNode(RegionalOperatorRecordingPreview.Producer());
+    output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+}
 File.WriteAllText(args[0], output.Replace("\r\n", "\n") + "\n", new System.Text.UTF8Encoding(false));
 Console.WriteLine($"Exported {cases.Count} synthetic Core results; no browser/runtime compilation is enabled.");
 
@@ -394,7 +416,7 @@ static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool pl
         throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
     return new(plan, draft);
 }
-static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000, bool uniqueDependencyIdentity = false)
+static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000, bool uniqueDependencyIdentity = false, string? operatorExample = null)
 {
     var template = Input("reference-scenario", revision); var context = template.Source.Context;
     var suppliedSnapshot = planTarget || uniqueDependencyIdentity ? revision + 300 : 230;
@@ -402,18 +424,29 @@ static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool neste
     var external = ProjectSource.Create(externalContext, template.Source.Documents, Json(new[] { new { entityId = Id(16), documentId = Id(4), kind = "coglatas.project", schemaVersion = 1, payload = new { } } }));
     if (dependencyConstraint)
     {
-        var predicate = Literal(truth);
-        var constraint = new { entityId = Id(17), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1,
-            payload = new { predicate, classification = "coglatas.required" } };
-        object Ref(int entity) => new { tenantId = Id(1), projectId = Id(202), entityId = Id(entity), context = externalContext.Data.Value };
-        var relation = new { relationId = Id(18), documentId = Id(4), kind = RelationKinds.Constrains, schemaVersion = 1,
-            descriptor = new { descriptorId = RelationKinds.Constrains, version = 1 },
-            source = new { kind = "coglatas.entity", expectedKind = "coglatas.constraint", reference = Ref(17) },
-            target = new { kind = "coglatas.entity", expectedKind = "coglatas.project", reference = Ref(16) },
-            payload = new { predicateReference = Ref(17), version = externalContext.CommittedRevision!.RevisionId.ToString(),
-                predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(predicate).ToCanonicalBytes()).Data.Value } };
-        external = ProjectSource.Create(externalContext, external.Documents,
-            Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(constraint).ToArray()), Json(new[] { relation }));
+        var predicate = operatorExample is null ? Literal(truth) : OperatorPredicate(operatorExample);
+        if (operatorExample?.StartsWith("operator-requirement-", StringComparison.Ordinal) == true)
+        {
+            var requirement = new { entityId = Id(17), documentId = Id(4), kind = "coglatas.requirement", schemaVersion = 1,
+                payload = new { target = new { tenantId = Id(1), projectId = Id(202), entityId = Id(16), context = externalContext.Data.Value },
+                    condition = predicate, evidenceKind = "coglatas.model-proof" } };
+            external = ProjectSource.Create(externalContext, external.Documents,
+                Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(requirement).ToArray()));
+        }
+        else
+        {
+            var constraint = new { entityId = Id(17), documentId = Id(4), kind = "coglatas.constraint", schemaVersion = 1,
+                payload = new { predicate, classification = "coglatas.required" } };
+            object Ref(int entity) => new { tenantId = Id(1), projectId = Id(202), entityId = Id(entity), context = externalContext.Data.Value };
+            var relation = new { relationId = Id(18), documentId = Id(4), kind = RelationKinds.Constrains, schemaVersion = 1,
+                descriptor = new { descriptorId = RelationKinds.Constrains, version = 1 },
+                source = new { kind = "coglatas.entity", expectedKind = "coglatas.constraint", reference = Ref(17) },
+                target = new { kind = "coglatas.entity", expectedKind = "coglatas.project", reference = Ref(16) },
+                payload = new { predicateReference = Ref(17), version = externalContext.CommittedRevision!.RevisionId.ToString(),
+                    predicateDigest = ContentDigest.Compute("coglatas.predicate/1", Json(predicate).ToCanonicalBytes()).Data.Value } };
+            external = ProjectSource.Create(externalContext, external.Documents,
+                Json(external.Declarations.Value.EnumerateArray().Select(item => (object)item).Append(constraint).ToArray()), Json(new[] { relation }));
+        }
     }
     if (planTarget) external = ProjectSource.Create(external.Context, external.Documents, Json(external.Declarations.Value.EnumerateArray().Select(row => (object)row).Append(PlanTask(19)).ToArray()), external.Relations);
     ProjectSource? versionedDependency = null;
@@ -498,8 +531,11 @@ static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool neste
     var runs = new[] { basis, plan.Input, draft.After }.Select(input => ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input, snapshots), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
     if (admission == "available" ? !runs.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]) : runs.Any(result => result == CompilerVerdict.Pass))
         throw new InvalidOperationException("Reference Scenario verdicts did not preserve actual snapshot admission.");
+    var expectedPredicateVerdict = operatorExample switch {
+        "operator-or-unknown" or "operator-requirement-true-short-circuit" or "operator-requirement-unknown" => CompilerVerdict.Inconclusive,
+        _ => truth == true ? CompilerVerdict.Pass : truth == false ? CompilerVerdict.Fail : CompilerVerdict.Inconclusive };
     if (dependencyConstraint && !(planTarget && planBudget == 200000) && new[] { basis, plan.Input, draft.After }.Any(input =>
-        PureCoreCompiler.Compile(input, input.Compiler, snapshots).Result.Verdict != (truth == true ? CompilerVerdict.Pass : truth == false ? CompilerVerdict.Fail : CompilerVerdict.Inconclusive)))
+        PureCoreCompiler.Compile(input, input.Compiler, snapshots).Result.Verdict != expectedPredicateVerdict))
         throw new InvalidOperationException("The actual Compiler predicate/plan result did not match the fixture: " + string.Join(";", new[] { basis, plan.Input, draft.After }.Select(input => { var result = PureCoreCompiler.Compile(input, input.Compiler, snapshots); return result.Result.Verdict + ":ops=" + result.LogicalOperationsConsumed + ":max=" + input.ExecutionProfile.MaximumOperations + ":scope=" + (result.Dependencies?.ScopedIr is not null) + ":" + result.Publication?.PlanNotProducedReason + ":" + string.Join(",", result.Result.Diagnostics.Select(d => d.Code)); })));
     if (graphCycle)
         foreach (var input in new[] { basis, plan.Input, draft.After })
@@ -627,11 +663,10 @@ static object Literal(bool? value) => new
     value = value.HasValue ? (object)new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.known", value = value.Value }
         : new { type = new { kind = "coglatas.boolean", schemaVersion = 1, nullable = false, acceptsUnknown = true }, state = "coglatas.unknown", reason = "coglatas.missing-input", basis = new { coverage = "coglatas.partial" } }
 };
-static CompilerInputManifest OperatorInput(string name, int revision)
+static object OperatorPredicate(string name)
 {
     object Op(string kind, params object[] operands) => new { kind, operands };
-    var template = Input("fail", revision);
-    var predicate = name switch {
+    return name switch {
         "operator-and-short-circuit" => Op("coglatas.and", Literal(false), Literal(true)),
         "operator-nested-duplicates" => Op("coglatas.and", Op("coglatas.or", Literal(false), Literal(true)), Op("coglatas.not", Literal(true)), Literal(null)),
         "operator-or-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
@@ -640,6 +675,11 @@ static CompilerInputManifest OperatorInput(string name, int revision)
         "operator-requirement-true-short-circuit" => Op("coglatas.or", Literal(true), Literal(null)),
         "operator-requirement-unknown" => Op("coglatas.or", Literal(null), Literal(false)),
         _ => throw new ArgumentException("Unknown synthetic operator example.", nameof(name)) };
+}
+static CompilerInputManifest OperatorInput(string name, int revision)
+{
+    var template = Input("fail", revision);
+    var predicate = OperatorPredicate(name);
     if (name.StartsWith("operator-requirement-", StringComparison.Ordinal))
     {
         var context = template.Source.Context;

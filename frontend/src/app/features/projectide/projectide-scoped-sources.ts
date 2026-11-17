@@ -14,7 +14,7 @@ export interface ScopedSourceRegion {
   readonly context: RevisionContext; readonly sourceText: string; readonly records: readonly SourceRecord[]; readonly diagnostics: readonly Diagnostic[];
 }
 export interface AdmittedScopedSources {
-  readonly basis: string; readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean; readonly plan: { readonly definition: Record<string, unknown>; readonly digest: Digest; readonly taskCount: number; readonly dependencyCount: number } | null; readonly planNotProducedReason: string | null;
+  readonly projection: ScopedSourceProjection; readonly regions: readonly ScopedSourceRegion[]; readonly publicationVerified: boolean; readonly plan: { readonly definition: Record<string, unknown>; readonly digest: Digest; readonly taskCount: number; readonly dependencyCount: number } | null; readonly planNotProducedReason: string | null;
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => equal(v, b[i])) ||
@@ -26,9 +26,11 @@ const fields = (v: unknown, keys: readonly string[]) => Object.keys(obj(v)).leng
 const dig = (v: unknown): v is Digest => object(v) && fields(v, ['algorithm', 'value']) && v['algorithm'] === 'sha-256' && typeof v['value'] === 'string' && /^[a-f0-9]{64}$/u.test(v['value']);
 const id = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(v);
 const basis = (value: PreviewCase) => JSON.stringify(value);
+// A complete fixture fingerprint can include unselected recording bodies; publish only the admitted Source view.
+const scopedSourceAdmissions = new WeakMap<AdmittedScopedSources, string>();
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
 export function scopedSourcesMatch(value: PreviewCase, admitted: AdmittedScopedSources): boolean {
-  return value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === admitted.basis;
+  return scopedSourceAdmissions.has(admitted) && value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === scopedSourceAdmissions.get(admitted);
 }
 async function frame(value: unknown, domain: string): Promise<Record<string, unknown>> {
   const v = obj(value);
@@ -251,8 +253,9 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
     const orderIndex = indexed(order, row => key(row['context'], row['irNodeId']));
     if ([...taskIndex.keys()].some(key => !orderIndex.has(key))) return fail();
   }
-  const resultAdmission = { basis: captured, projection, regions: admitted, publicationVerified: publishedModel !== null, plan, planNotProducedReason };
-  if (!scopedSourcesMatch(value, resultAdmission)) return fail(); return freeze(resultAdmission);
+  const resultAdmission: AdmittedScopedSources = freeze({ projection, regions: admitted, publicationVerified: publishedModel !== null, plan, planNotProducedReason });
+  scopedSourceAdmissions.set(resultAdmission, captured);
+  if (!scopedSourcesMatch(value, resultAdmission)) return fail(); return resultAdmission;
 }
 
 export function resolveScopedSource(value: PreviewCase, admitted: AdmittedScopedSources, location: ProjectLocation): { region: ScopedSourceRegion; record: SourceRecord } | null {

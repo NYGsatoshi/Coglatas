@@ -225,6 +225,7 @@ export interface PreviewCase {
   readonly referenceSearches?: readonly import('./projectide-reference-pages.reader').PreparedReferenceSearch[] | null;
   readonly passRecordings?: import('./projectide-pass-recordings.reader').PassRecordingProjection | null;
   readonly operatorRecordings?: import('./projectide-operator-recordings.reader').OperatorRecordingProjection | null;
+  readonly regionalOperatorRecordings?: import('./projectide-regional-operator-recordings.reader').RegionalOperatorRecordingProjection | null;
   readonly predicateRecordings?: import('./projectide-predicate-recordings.reader').PredicateRecordingProjection | null;
   readonly rootSource?: import('./projectide-root-source.reader').RootSourceProjection | null;
   readonly diagnosticPremises?: import('./projectide-diagnostic-premises.reader').DiagnosticPremiseProjection | null;
