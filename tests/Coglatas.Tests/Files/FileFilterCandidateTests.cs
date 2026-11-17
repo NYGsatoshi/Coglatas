@@ -208,9 +208,9 @@ public sealed class FileFilterCandidateTests
         await f.Db.SaveChangesAsync();
         var result = (await f.List()).Value!;
         Assert.Equal(4, result.TotalCount);
-        Assert.Contains(result.Items, x => x.OriginalFileName == "quarantined.txt" && x.Status == "Quarantined");
-        Assert.Contains(result.Items, x => x.OriginalFileName == "pending.txt" && x.ScanStatus == "Pending");
-        Assert.Contains(result.Items, x => x.OriginalFileName == "infected.txt" && x.ScanStatus == "Infected");
+        Assert.Contains(result.Items, x => x is { OriginalFileName: "quarantined.txt", Status: "Quarantined" });
+        Assert.Contains(result.Items, x => x is { OriginalFileName: "pending.txt", ScanStatus: "Pending" });
+        Assert.Contains(result.Items, x => x is { OriginalFileName: "infected.txt", ScanStatus: "Infected" });
         Assert.DoesNotContain(result.Items, x => x.OriginalFileName == "archived.txt" || x.OriginalFileName == "stale-folder.txt");
     }
 
