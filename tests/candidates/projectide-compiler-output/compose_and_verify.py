@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose independent Security Compiler output snapshot assertions over immutable Product."""
+"""Compose independent Core and pure ViewModel output-snapshot assertions over immutable Product."""
 from __future__ import annotations
 
 import argparse
@@ -14,17 +14,121 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = "tests/candidates/projectide-compiler-output/SecurityCompilerOutputSnapshotCandidateTests.cs"
 DESTINATION = "tests/Coglatas.Tests/ProjectIde/SecurityCompilerOutputSnapshotCandidateTests.cs"
 TEST_CLASS = "SecurityCompilerOutputSnapshotCandidateTests"
-EXPECTED = 11
+ORIGINAL_CORE_METHODS = (
+    "DefaultManifestRetainsRealInputAndResultAxesWithoutPrivateOutputBodies",
+    "ActualCorePublicationOnlyCapturesThreeDeclaredBoundOutputObjects",
+    "WrongExpectedResultRefusesAllSourceResultAndOutputExistenceDetails",
+    "ExactByteBudgetSucceedsButLastMissingByteAtomicallyRefusesAllBodies",
+    "PublicBodyMapKeysAndValuesDoNotOfferGenericOrLegacyMutation",
+    "NestedOutputJsonAndCopiedCanonicalBytesCannotRewriteOwnedEvidence",
+    "DesiredFreshnessNeverOverwritesActualCompilerAxesOrSourceScope",
+    "LegacyCompilerArtifactsNeverBecomeInventedCapturedBodies",
+    "CancellationRejectsCaptureWithoutChangingTheRealResult",
+    "CancelledCompilationDoesNotFabricateEarlierBodiesOrCompletedVerdict",
+    "InvalidLimitsUnsupportedModeAndUnallocatedAuthorityNeverQualify",
+)
+VIEWMODEL_METHODS = (
+    "ViewModelNeedsExplicitAdmissionAndKeepsOriginalCompilerPlanAndSimulation",
+    "RejectedAndInvalidQueriesWithdrawTheOldViewWithoutChangingItsCompiler",
+    "ResetRequiresANewGenerationAndReadmissionWithoutErasingReturnedBodies",
+    "DisposalWithdrawsCurrentBodiesAndRejectsLaterQueries",
+    "NewGenerationRejectsTheEarlierGenuineSameContentResponse",
+    "ScopedReadmissionWithdrawsOnlyTheCurrentViewAndNeedsANewQuery",
+    "ResetDuringInitialQueryNotificationPreventsOldPublication",
+    "ResetDuringPublishedQueryNotificationWithdrawsOldPublication",
+    "DisposalDuringInitialQueryNotificationPreventsOldPublication",
+    "DisposalDuringPublishedQueryNotificationWithdrawsOldPublication",
+    "NewInputDuringInitialQueryNotificationCannotBorrowOldPublication",
+    "NewInputDuringPublishedQueryNotificationCannotBorrowOldPublication",
+    "ReadmissionDuringInitialQueryNotificationPreservesItsNewerQuery",
+    "ReadmissionDuringPublishedQueryNotificationPreservesItsNewerQuery",
+    "CancellationDuringInitialNotificationKeepsTheNewerAdmittedQuery",
+    "CancellationDuringPublicationKeepsTheNewerAdmittedQuery",
+    "CancellationDuringInitialNotificationKeepsTheNewerRefusal",
+    "CancellationDuringPublicationKeepsTheNewerRefusal",
+    "CancellationWithoutReplacementWithdrawsOnlyTheInterruptedSnapshot",
+    "NewerAdmittedQueryDuringInitialNotificationOwnsTheVisibleSnapshot",
+    "NewerAdmittedQueryDuringPublicationOwnsTheVisibleSnapshot",
+    "NewerRefusedQueryDuringInitialNotificationOwnsTheVisibleSnapshot",
+    "NewerRefusedQueryDuringPublicationOwnsTheVisibleSnapshot",
+    "PreCancelledViewModelQueryWithdrawsThePriorSnapshotBeforeThrowing",
+)
+EXPECTED_IDENTITIES = frozenset(
+    "Coglatas.Tests.ProjectIde." + TEST_CLASS + "." + method
+    for method in ORIGINAL_CORE_METHODS + VIEWMODEL_METHODS
+)
+EXPECTED = 35
+EXECUTION_SCOPE = "SYNTHETIC_COMPILER_OUTPUT_CORE_AND_VIEWMODEL_ONLY"
 
 
-def command(args: list[str], cwd: Path, log: Path | None = None) -> str:
+def native_inventory(path: Path) -> list[str]:
+    """Admit the frozen raw fact identities and their complete native TRX binding."""
+    trx = ET.parse(path).getroot()
+    summaries = trx.findall("{*}ResultSummary")
+    if len(summaries) != 1:
+        raise ValueError("Native TRX must contain exactly one result summary")
+    summary = summaries[0]
+    counter_nodes = summary.findall("{*}Counters")
+    if len(counter_nodes) != 1:
+        raise ValueError("Native TRX must contain exactly one counter set")
+    counters = counter_nodes[0]
+    if (summary.get("outcome") != "Completed"
+            or len(EXPECTED_IDENTITIES) != EXPECTED
+            or any(counters.get(key) != str(EXPECTED) for key in ("total", "executed", "passed"))
+            or any(int(value) != 0 for key, value in counters.attrib.items()
+                   if key not in ("total", "executed", "passed"))):
+        raise ValueError("Native TRX must contain exactly thirty-five complete passing candidate facts")
+    cases = trx.findall("{*}Results/{*}UnitTestResult")
+    definitions = trx.findall("{*}TestDefinitions/{*}UnitTest")
+    entries = trx.findall("{*}TestEntries/{*}TestEntry")
+    names = [item.get("testName", "") for item in cases]
+    if (any(len(items) != EXPECTED for items in (cases, definitions, entries))
+            or set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
+            or any(item.get("outcome") != "Passed" for item in cases)):
+        raise ValueError("Native TRX does not match the exact original Core and ViewModel fact roster")
+    result_pairs = [(item.get("testId"), item.get("executionId")) for item in cases]
+    entry_pairs = [(item.get("testId"), item.get("executionId")) for item in entries]
+    definition_pairs = []
+    for item in definitions:
+        executions = item.findall("{*}Execution")
+        methods = item.findall("{*}TestMethod")
+        if len(executions) != 1 or len(methods) != 1:
+            raise ValueError("Native TRX definitions require one execution and one method")
+        method = methods[0]
+        identity = method.get("className", "") + "." + method.get("name", "")
+        if identity != item.get("name") or identity not in EXPECTED_IDENTITIES:
+            raise ValueError("Native TRX method metadata disagrees with its frozen fact identity")
+        definition_pairs.append((item.get("id"), executions[0].get("id")))
+    for pairs in (result_pairs, entry_pairs, definition_pairs):
+        if (any(not all(pair) for pair in pairs) or len(set(pairs)) != EXPECTED
+                or len({pair[0] for pair in pairs}) != EXPECTED
+                or len({pair[1] for pair in pairs}) != EXPECTED):
+            raise ValueError("Native TRX contains missing or duplicate test/execution identities")
+    if set(result_pairs) != set(entry_pairs) or set(result_pairs) != set(definition_pairs):
+        raise ValueError("Native TRX result, definition and entry identities are not bijective")
+    definition_names = {item.get("id"): item.get("name") for item in definitions}
+    if any(definition_names[item.get("testId")] != item.get("testName") for item in cases):
+        raise ValueError("Native TRX definition names disagree with their original results")
+    return sorted(names)
+
+
+def compiled_inventory(discovery: str) -> list[str]:
+    # Remove only the CLI's four-space presentation prefix; preserve each raw FQN.
+    # Foreign namespaces must also be counted so an unexpected test cannot disappear.
+    names = [line[4:] for line in discovery.splitlines() if line.startswith("    ") and line[4:]]
+    if len(names) != EXPECTED or len(set(names)) != EXPECTED or set(names) != EXPECTED_IDENTITIES:
+        raise ValueError("Compiled discovery does not match the exact thirty-five-fact candidate roster")
+    return sorted(names)
+
+
+def command(args: list[str], cwd: Path, log: Path | None = None, *, preserve_output: bool = False) -> str:
     completed = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8",
                                errors="replace", check=False)
     if log is not None:
         log.write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode:
         raise RuntimeError("Candidate command failed: " + args[0] + "; inspect retained log")
-    return completed.stdout.strip()
+    return completed.stdout if preserve_output else completed.stdout.strip()
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -57,7 +161,10 @@ def main() -> None:
     receipt: dict[str, object] = {
         "testHead": test_head,
         "productHead": arguments.product_head,
-        "executionScope": "SYNTHETIC_COMPILER_OUTPUT_CORE_ONLY",
+        "executionScope": EXECUTION_SCOPE,
+        "expectedOriginalCoreFacts": len(ORIGINAL_CORE_METHODS),
+        "expectedViewModelFacts": len(VIEWMODEL_METHODS),
+        "expectedIdentities": sorted(EXPECTED_IDENTITIES),
         "requiredCheckQualified": False,
         "independentReviewComplete": False,
         "nativeUiQualified": False,
@@ -104,29 +211,19 @@ def main() -> None:
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
                  "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
-        trx = ET.parse(evidence / "candidate.trx").getroot()
-        summary = trx.find("{*}ResultSummary")
-        counters = trx.find("{*}ResultSummary/{*}Counters")
-        cases = trx.findall("{*}Results/{*}UnitTestResult")
-        names = [item.get("testName", "") for item in cases]
-        if (summary is None or summary.get("outcome") != "Completed" or
-                counters is None or any(counters.get(k) != v for k, v in
-                                         (("total", str(EXPECTED)), ("passed", str(EXPECTED)),
-                                          ("failed", "0"), ("notExecuted", "0"))) or
-                len(names) != EXPECTED or len(set(names)) != EXPECTED or
-                any(TEST_CLASS not in name for name in names) or
-                any(item.get("outcome") != "Passed" for item in cases)):
-            raise ValueError("Native TRX must prove exactly eleven distinct passing Compiler output candidate facts")
+        names = native_inventory(evidence / "candidate.trx")
         discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
                              "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
-                            worktree, evidence / "compiled-discovery.log")
-        if any(name.rsplit(".", 1)[-1] not in discovery for name in names):
-            raise ValueError("A passed TRX identity was absent from compiled test discovery")
+                            worktree, evidence / "compiled-discovery.log", preserve_output=True)
+        if compiled_inventory(discovery) != names:
+            raise ValueError("Original native TRX and compiled discovery identities differ")
         if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
             raise ValueError("Composed source identity drifted after real compilation")
         verify_working_tree()
         receipt["nativeXunit"] = {"total": EXPECTED, "passed": EXPECTED,
-                                   "failed": 0, "skipped": 0, "identities": sorted(names)}
+                                   "failed": 0, "skipped": 0,
+                                   "originalCoreFacts": len(ORIGINAL_CORE_METHODS),
+                                   "viewModelFacts": len(VIEWMODEL_METHODS), "identities": names}
         receipt["status"] = "SYNTHETIC_COMPILER_OUTPUT_PASSED"
     except Exception as error:
         receipt["status"] = "FAILED_OR_INCOMPLETE"
