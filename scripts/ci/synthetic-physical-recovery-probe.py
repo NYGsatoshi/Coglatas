@@ -397,17 +397,22 @@ COPY file_versions FROM stdin;
             "fileTriggerSourceSha256": digest(file_migration.read_bytes())}
 
 
+def is_main_recovery_push(environment: dict) -> bool:
+    """Recognize only exact Main metadata; hosted/path admission remains separate."""
+    return (environment.get("GITHUB_EVENT_NAME") == "push"
+                 and environment.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
+                 and environment.get("GITHUB_REF") == "refs/heads/main"
+                 and re.fullmatch(r"[a-f0-9]{40}", environment.get("GITHUB_SHA", "")) is not None
+                 and environment.get("COGLATAS_PR_HEAD_SHA", "") == ""
+                 and environment.get("COGLATAS_PR_BASE_SHA", "") == "")
+
+
 def admit_ephemeral_probe_paths(original_ddl: Path, evidence_dir: Path) -> tuple[Path, Path]:
     """Require the single fresh, owner-private recovery workspace created by the CI caller."""
     runner = os.environ.get("RUNNER_TEMP")
-    main_push = (os.environ.get("GITHUB_EVENT_NAME") == "push"
-                 and os.environ.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
-                 and os.environ.get("GITHUB_REF") == "refs/heads/main"
-                 and re.fullmatch(r"[a-f0-9]{40}", os.environ.get("GITHUB_SHA", "")) is not None
-                 and os.environ.get("COGLATAS_PR_HEAD_SHA", "") == ""
-                 and os.environ.get("COGLATAS_PR_BASE_SHA", "") == "")
+
     if (os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") != "github-hosted"
-            or not (os.environ.get("GITHUB_EVENT_NAME") == "pull_request" or main_push)
+            or not (os.environ.get("GITHUB_EVENT_NAME") == "pull_request" or is_main_recovery_push(os.environ))
             or os.environ.get("RUNNER_OS") != "Linux" or not runner):
         raise ProbeFailure("ISOLATED_PATH_ADMISSION_DENIED")
     runner_root = Path(runner)

@@ -101,9 +101,8 @@ class LogicalRecoveryContracts(unittest.TestCase):
             {"RUNNER_OS": "Windows"},
             {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "self-hosted"},
         ):
-            with self.subTest(update=update):
-                with self.assertRaises(caller.support.Rejected):
-                    caller.admitted_run_revisions({**base, **update})
+            with self.subTest(update=update), self.assertRaises(caller.support.Rejected):
+                caller.admitted_run_revisions({**base, **update})
 
     def test_main_receipt_uses_exact_head_and_invalid_pr_metadata_stays_rejected(self):
         main = {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
@@ -130,11 +129,11 @@ class LogicalRecoveryContracts(unittest.TestCase):
 
     def test_checked_out_sha_mismatch_stops_before_build_or_docker(self):
         result = {}
-        with tempfile.TemporaryDirectory() as directory:
-            with patch.object(caller.subprocess, "run", return_value=
-                    subprocess.CompletedProcess([], 0, ("b" * 40 + "\n").encode(), b"")) as command:
-                with self.assertRaises(caller.support.Rejected):
-                    caller.prepare(Path(directory), result, {"GITHUB_SHA": "a" * 40})
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(caller.subprocess, "run", return_value=
+                 subprocess.CompletedProcess([], 0, ("b" * 40 + "\n").encode(), b"")) as command, \
+             self.assertRaises(caller.support.Rejected):
+            caller.prepare(Path(directory), result, {"GITHUB_SHA": "a" * 40})
         self.assertEqual(command.call_count, 1)
         self.assertEqual(command.call_args.args[0], ["git", "rev-parse", "HEAD"])
         self.assertNotIn("sourceSha", result)

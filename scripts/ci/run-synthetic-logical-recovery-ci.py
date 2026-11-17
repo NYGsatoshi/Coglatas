@@ -20,6 +20,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLIC = ROOT / "artifacts/synthetic-logical-recovery-ci/result.json"
+COMMIT_SHA_PATTERN = r"[a-f0-9]{40}"
 
 
 def module(path: Path, name: str):
@@ -423,7 +424,7 @@ def prepare(private: Path, result: dict, environment: dict) -> tuple[Path, str, 
         support.require(process.returncode == 0)
         return process.stdout
     source = command(["git", "rev-parse", "HEAD"], "SOURCE").decode().strip()
-    support.require(re.fullmatch(r"[a-f0-9]{40}", source) is not None and source == os.environ.get("GITHUB_SHA"))
+    support.require(re.fullmatch(COMMIT_SHA_PATTERN, source) is not None and source == os.environ.get("GITHUB_SHA"))
     result["sourceSha"] = source
     source_tree = command(["git", "rev-parse", "HEAD:src"], "SOURCE_TREE").decode().strip()
     sdk = support.closed_json((ROOT / "global.json").read_bytes())["sdk"]["version"]
@@ -628,8 +629,8 @@ def admitted_run_revisions(environment: dict) -> tuple[str, str | None]:
         head = environment.get("COGLATAS_PR_HEAD_SHA", "")
         base = environment.get("COGLATAS_PR_BASE_SHA", "")
         support.require(isinstance(head, str) and isinstance(base, str)
-                        and re.fullmatch(r"[a-f0-9]{40}", head) is not None
-                        and re.fullmatch(r"[a-f0-9]{40}", base) is not None)
+                        and re.fullmatch(COMMIT_SHA_PATTERN, head) is not None
+                        and re.fullmatch(COMMIT_SHA_PATTERN, base) is not None)
         return head, base
     return environment["GITHUB_SHA"], None
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import os
@@ -137,9 +138,9 @@ class RecoveryProbePathBoundaryTests(unittest.TestCase):
                                    {"GITHUB_REF": "refs/heads/other"}, {"GITHUB_SHA": "bad"},
                                    {"COGLATAS_PR_HEAD_SHA": "b" * 40},
                                    {"COGLATAS_PR_BASE_SHA": "c" * 40}):
-                        with self.subTest(change=change), patch.dict(os.environ, change):
-                            with self.assertRaises(PROBE.ProbeFailure):
-                                PROBE.admit_ephemeral_probe_paths(ddl, evidence)
+                        with self.subTest(change=change), patch.dict(os.environ, change), \
+                             self.assertRaises(PROBE.ProbeFailure):
+                            PROBE.admit_ephemeral_probe_paths(ddl, evidence)
                 for invalid_ddl, invalid_evidence in (
                     (ddl, runner / "external"),
                     (ddl, private / "other"),
@@ -171,18 +172,31 @@ class RecoveryProbePathBoundaryTests(unittest.TestCase):
 
 
 
-    def test_probe_rejects_checked_out_sha_mismatch_before_docker(self):
-        with tempfile.TemporaryDirectory() as directory:
-            ddl, evidence = Path(directory) / "original.sql", Path(directory) / "e"
-            argv = ["probe", "--execute-isolated-synthetic", "--postgres-image-id", "sha256:" + "a" * 64,
-                    "--original-ef-ddl", str(ddl), "--evidence-dir", str(evidence)]
-            with patch("sys.argv", argv), patch.dict(os.environ, {"GITHUB_SHA": "a" * 40}), \
-                 patch.object(PROBE, "admit_ephemeral_probe_paths", return_value=(ddl, evidence)), \
-                 patch.object(PROBE, "run", return_value=("b" * 40 + "\n").encode()), \
-                 patch.object(PROBE, "docker") as docker:
-                with self.assertRaisesRegex(PROBE.ProbeFailure, "SOURCE_IDENTITY_REJECTED"):
-                    PROBE.main()
-                docker.assert_not_called()
+    def test_probe_checkout_identity_rejects_forgery_and_admits_only_exact_source(self):
+        for source, admitted in (("b" * 40, False), ("malformed", False), ("a" * 40, True)):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                ddl, evidence = Path(directory) / "original.sql", Path(directory) / "e"
+                ddl.write_bytes(b"CREATE TABLE synthetic_identity_control (id integer);")
+                argv = ["probe", "--execute-isolated-synthetic", "--postgres-image-id", "sha256:" + "a" * 64,
+                        "--original-ef-ddl", str(ddl), "--evidence-dir", str(evidence)]
+                with patch("sys.argv", argv), patch.dict(os.environ, {"GITHUB_SHA": "a" * 40}), \
+                     patch.object(PROBE, "admit_ephemeral_probe_paths", return_value=(ddl, evidence)), \
+                     patch.object(PROBE, "run", return_value=(source + "\n").encode()), \
+                     patch.object(PROBE, "docker", side_effect=PROBE.ProbeFailure("IDENTITY_CONTROL_STOP")) as docker, \
+                     patch("builtins.print"):
+                    if admitted:
+                        # Stop at the first mocked daemon observation: no real Docker is invoked.
+                        self.assertEqual(PROBE.main(), 1)
+                        docker.assert_called_once_with("info", "--format", "{{.ServerVersion}}")
+                        receipt = json.loads((evidence / "receipt.json").read_bytes())
+                        self.assertEqual(receipt["sourceSha"], source)
+                        self.assertEqual(receipt["status"], "FAIL")
+                        self.assertEqual(receipt["failureCategory"], "IDENTITY_CONTROL_STOP")
+                        self.assertEqual(receipt["cleanupState"], "INCOMPLETE")
+                    else:
+                        with self.assertRaisesRegex(PROBE.ProbeFailure, "SOURCE_IDENTITY_REJECTED"):
+                            PROBE.main()
+                        docker.assert_not_called()
 
 
 if __name__ == "__main__":

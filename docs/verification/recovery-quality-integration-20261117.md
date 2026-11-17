@@ -181,3 +181,30 @@ credential, operational backup, real user data, target execution, Enforce
 activation, backup-strategy adoption, HOLD release or Main merge is performed.
 The next permissible step is to review the concrete branch and its actual checks;
 Main integration and target operations remain separate decisions.
+
+## Retained official Sonar failure and bounded repair
+
+The earlier candidate `8859ee020ff13a4205fd6475b736e628d8148de2` passed all
+six required checks, full Community Qodana (2015 findings, zero regressions),
+and native logical/physical/continuation qualification. Its Sonar analyzer run
+`44048050836` succeeded, but the separate official `SonarCloud Code Analysis`
+check `133936881080` **failed**: new-code coverage was **78.8%**, below the
+unchanged **80%** requirement. Analyzer success is not Quality Gate success.
+The check's annotations also identified a duplicated SHA regex, excessive
+path-admission complexity and three nested context-manager suggestions.
+
+The follow-up keeps the exact SHA regex in one logical-runner constant,
+extracts the existing Main-event predicate from private-path admission, and
+combines adjacent test context managers without changing their evaluation or
+cleanup order. The checkout control now exercises malformed and mismatched
+identities plus a genuine matching identity. Only the matching identity may
+reach the first mocked Docker observation; that deliberate stop must still
+publish FAIL with incomplete cleanup, never synthetic recovery PASS. No real
+Docker operation is executed by this unit control. Native positive admission
+and complete recovery remain separate exact-source workflow requirements.
+
+The original failed check and its percentage remain failed evidence. No
+coverage threshold, exclusion, source classification, security rule, baseline
+or success condition is relaxed. Source changes require new current-HEAD
+native, quality, security and review evidence; none of the earlier candidate's
+successful checks is inherited by the amended SHA.
