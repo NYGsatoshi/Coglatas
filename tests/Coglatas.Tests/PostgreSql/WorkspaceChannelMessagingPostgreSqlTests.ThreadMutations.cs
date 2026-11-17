@@ -205,7 +205,7 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         return rows.ToDictionary(identity, row =>
         {
             var properties = reader.Entry(row).Properties.ToArray();
-            Assert.Empty(properties.Where(property => property.Metadata.IsShadowProperty()));
+            Assert.DoesNotContain(properties, property => property.Metadata.IsShadowProperty());
             return properties.ToDictionary(property => property.Metadata.Name, property => property.CurrentValue);
         });
     }
