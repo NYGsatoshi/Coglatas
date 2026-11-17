@@ -212,6 +212,86 @@ public sealed class SymbolBindingCacheTests
         Assert.NotSame(symbol, Symbol(AssertEquivalent(local, cache).Model!, source.Context, 70));
     }
 
+    [Fact]
+    public void AProjectRootReferenceResolvesToTheNewRevisionWithUnchangedDeclarationData()
+    {
+        var original = ReferenceCompletionTests.CompletionInput(1);
+        var root = JsonNode.Parse(original.Source.Documents[0].Root.Data.CanonicalText)!;
+        root["payload"]!["roots"] = new JsonArray(Id(10));
+        var document = SourceDocument.Create(original.Source.Documents[0].DocumentId, "root", Json(root));
+        var basis = Input(source: ProjectSource.Create(original.Source.Context, [document], original.Source.Declarations));
+        var cache = new ProjectSymbolBindingCache(); var first = AssertEquivalent(basis, cache).Model!;
+        Assert.Equal(ReferenceResolutionState.Resolved, Assert.Single(first.References).State);
+        var next = Input(source: ProjectSource.Create(Source(90).Context, [document], original.Source.Declarations));
+        var second = AssertEquivalent(next, cache).Model!;
+        Assert.True(second.BindingComplete);
+        var reference = Assert.Single(second.References); Assert.Equal(ReferenceResolutionState.Resolved, reference.State);
+        Assert.Equal(next.Source.Context, reference.Origin.Context);
+        Assert.Equal(Symbol(second, next.Source.Context, 10).Key, reference.SymbolKey);
+        Assert.NotSame(Symbol(first, basis.Source.Context, 10), Symbol(second, next.Source.Context, 10));
+        Assert.Equal(basis.Source.Data, first.Input.Source.Data);
+    }
+
+    [Fact]
+    public async Task OverlappingBindersWithDifferentOwnersKeepTheirCompleteOriginalModels()
+    {
+        var first = ReferenceCompletionTests.CompletionInput(8); var branch = first.Source.Context.Branch;
+        var context = SourceRevisionContext.Committed(new(new(branch.TenantId, branch.ProjectId, BranchId.Parse(Id(90))), RevisionId.Parse(Id(5))));
+        var second = Input(source: ProjectSource.Create(context, first.Source.Documents, first.Source.Declarations));
+        var cache = new ProjectSymbolBindingCache(2); using var overlap = new Barrier(2); var entered = 0;
+        IEnumerable<CompilerMaterializedSnapshot?> Supply()
+        {
+            Interlocked.Increment(ref entered);
+            if (!overlap.SignalAndWait(TimeSpan.FromSeconds(30))) throw new TimeoutException("Both actual Binder suppliers must overlap.");
+            yield break;
+        }
+        Task<PartialSemanticModel> Bind(CompilerInputManifest input) => Task.Factory.StartNew(
+            () => ProjectSemanticBinder.Bind(input, Supply(), symbolBindingCache: cache),
+            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        var models = await Task.WhenAll(Bind(first), Bind(second)); Assert.Equal(2, entered);
+        for (var index = 0; index < models.Length; index++)
+        {
+            var input = index == 0 ? first : second; var expected = ProjectSemanticBinder.Bind(input);
+            Assert.True(models[index].BindingComplete);
+            Assert.Equal(new CompilerSemanticInspection(expected).Data, new CompilerSemanticInspection(models[index]).Data);
+            Assert.All(models[index].Symbols, symbol => Assert.Equal(input.Source.Context, symbol.Context));
+            Assert.Equal(input.Source.Data, models[index].Input.Source.Data);
+        }
+        Assert.InRange(cache.RetainedCount, 1, 2);
+    }
+
+    [Fact]
+    public void ColdAndWarmSymbolPartitionsPreserveInteriorBindingBudgetExhaustionBoundaries()
+    {
+        var original = ReferenceCompletionTests.CompletionInput();
+        var declarations = JsonNode.Parse(original.Source.Declarations.CanonicalText)!.AsArray();
+        var port = declarations[0]!["payload"]!["ports"]![0]!;
+        var ports = new JsonArray();
+        for (var index = 0; index < 6; index++) { var copy = port.DeepClone(); copy["portId"] = Id(10000 + index); ports.Add(copy); }
+        declarations[0]!["payload"]!["ports"] = ports;
+        var basis = Input(source: ProjectSource.Create(original.Source.Context, original.Source.Documents, Json(declarations)));
+        var complete = ProjectSemanticBinder.Bind(basis); Assert.True(complete.BindingComplete);
+        var endpoint = complete.LogicalOperationsConsumed; Assert.True(endpoint > 12);
+        var warm = new ProjectSymbolBindingCache(); AssertEquivalent(basis, warm);
+        var beforeSymbols = false; var insideBinding = false; var completed = false;
+        foreach (var limit in new[] { 1 }.Concat(Enumerable.Range(endpoint - 12, 16)))
+        {
+            var settings = JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject(); settings["executionProfile"]!["maximumOperations"] = limit;
+            var input = Input(settings, basis.Source);
+            var cold = AssertEquivalent(input, new ProjectSymbolBindingCache()).Model!;
+            var current = AssertEquivalent(input, warm).Model!;
+            Assert.Equal(cold.LogicalOperationsConsumed, current.LogicalOperationsConsumed);
+            if (current.Findings.Any(finding => finding.Diagnostic.Code == "coglatas.binding.budget-exhausted"))
+            {
+                if (current.Symbols.Count == 0) beforeSymbols = true;
+                else { insideBinding = true; Assert.Empty(current.Declarations); }
+            }
+            else { completed = true; Assert.True(current.BindingComplete); }
+        }
+        Assert.True(beforeSymbols); Assert.True(insideBinding); Assert.True(completed);
+        AssertEquivalent(basis, warm);
+    }
+
     private static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) External(ProjectSource external, SourceRevisionContext? context = null)
     {
         var basis = ReferenceCompletionTests.CompletionInput(1); context ??= basis.Source.Context;
@@ -240,7 +320,7 @@ public sealed class SymbolBindingCacheTests
 
     private static CompilerSymbol Symbol(PartialSemanticModel model, SourceRevisionContext context, int entity, int? port = null) =>
         Assert.Single(model.Symbols, symbol => symbol.Context.Equals(context) && symbol.EntityId == EntityId.Parse(Id(entity)) &&
-            symbol.PortId == (port is null ? (PortId?)null : PortId.Parse(Id(port.Value))));
+            symbol.PortId == (port is null ? null : PortId.Parse(Id(port.Value))));
 
     private static CoreCompilation AssertEquivalent(CompilerInputManifest input, ProjectSymbolBindingCache cache, CompilerMaterializedSnapshot[]? snapshots = null)
     {
