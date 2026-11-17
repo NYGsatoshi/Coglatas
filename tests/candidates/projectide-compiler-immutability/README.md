@@ -14,9 +14,13 @@ tests as an independent reviewer. The nine xUnit facts are separately authored.
   in this Security PR. The workflow binds the exact source Git blob
   `067043361a2e7a83613886234e1afc0b499d70e9`.
 - Composition runner: `compose_and_verify.py`, bound by its exact Git blob
-  `355323433b114fee2efe7b0c0c5a586bfea83b22`.
+  `5d476f82d0fda88bfa60d0af45f640715b0cacd4`.
+- Committed admission regression controls: `test_compose_and_verify.py`,
+  Git blob `d52e587c524c9d2d37eba988508417424c79f6ca`, verified and executed on both hosts before the native suite.
 - Only the original Test candidate is copied into a clean, detached Product
-  worktree, after byte-level Git index/blob verification. Neither repository's
+  worktree. Its actual compiler-input bytes, staged blob, Product HEAD and
+  unrelated tracked Product changes are checked initially, again after restore
+  before compilation, after native execution and after discovery. Neither repository's
   branch ref is rewritten by the runner. Fail-closed identity checks distinguish
   Product, independent Test, and composed source tree.
 - The Product SDK is pinned by its own `global.json` to .NET 10.0.403 with
@@ -40,10 +44,41 @@ tests as an independent reviewer. The nine xUnit facts are separately authored.
    collection probes (also run headlessly on Ubuntu for parity).
 9. Empty NotRun and Missing-evidence collections retain immutable semantics.
 
-The explicit runner verifies precisely **9 passing distinct TRX identities**,
-actual compiled discovery, source identity before and after execution, Product
-and combined tree SHAs, and hashes of original retained logs/TRX. Ordinary
+The explicit runner requires the **nine frozen fully qualified fact identities**
+in native results and compiled discovery. Each result binds to a unique native
+test/execution pair, matching definition, exact class and bare method, and entry.
+Duplicate summaries, counter sets or inventory containers, unsupported result
+records, non-Passed outcomes, nonzero failure counters and foreign discovery
+entries fail closed. Discovery removes only the four-space CLI presentation
+prefix; case, namespace and method whitespace are preserved. Product and
+combined tree SHAs and original retained-file hashes remain recorded. Ordinary
 Security required CI does **not** discover these candidate tests automatically.
+
+### Admission regressions and source verification
+
+The earlier runner accepted substituted nine-method inventories, extra foreign
+discovery entries, missing method metadata and a second failed summary. It also
+checked only the staged source blob after execution, allowing changed working
+compiler-input bytes to retain an earlier source hash. Controlled original-runner
+probes reproduced these acceptance defects; they do not invalidate previously
+independently audited native artifacts.
+
+The committed Python controls retain a valid original-roster positive and reject
+missing, duplicate, substituted, inconsistent or failed native inventories,
+unsupported XML children, foreign discovery and raw-name whitespace. Actual
+`main()` controls use temporary real Git repositories, indexes and worktrees,
+with only the dotnet process controlled. They verify failure receipts for bad
+inventories and actual source, index, HEAD and tracked Product drift, including
+refusal after restore before compilation. The controls are not native C# results.
+All original nine C# fact bodies and helpers, the Product pin and the separate
+historical RED source/runner/workflow remain unchanged.
+
+Artifacts retain source identities/hashes and pre/post verification receipts;
+the raw C# file is obtained independently from its pinned Git blob. Each host's
+ZIP and retained-file digests must be verified separately. Compare unchanged raw
+`(testId, testName)` sets and source/composed identities across hosts; per-run
+execution IDs and whole artifact bytes need not be equal. These checks detect
+observed source drift and do not claim continuous execution attestation.
 
 ### Qualification boundaries
 
@@ -51,7 +86,7 @@ Passing this advisory is **synthetic headless Core and pure ViewModel
 qualification only**. It is not actual Avalonia/Native UI, current authority
 or Tenant authorization, remote Compiler, production API, Trust/Eligibility,
 Artifact provenance, runtime activation, or Release. No CI required context,
-protected ruleset, permissions, existing workflow, Product source, or Main
+protected ruleset, permissions, Product source, or Main
 branch is altered. The workflow and source/compiled-results receipts explicitly
 set all relevant admission flags to `false` independent of the test outcome.
 

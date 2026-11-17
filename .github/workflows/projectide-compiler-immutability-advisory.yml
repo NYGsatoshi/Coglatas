@@ -25,7 +25,8 @@ jobs:
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RUNNER_BLOB: 355323433b114fee2efe7b0c0c5a586bfea83b22
+      RUNNER_BLOB: 5d476f82d0fda88bfa60d0af45f640715b0cacd4
+      REGRESSION_BLOB: d52e587c524c9d2d37eba988508417424c79f6ca
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -50,6 +51,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:REGRESSION_BLOB) { throw 'Admission regression source blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -62,6 +65,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            regressionBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -81,6 +85,12 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Test native evidence admission and source drift refusal
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
@@ -109,7 +119,8 @@ jobs:
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RUNNER_BLOB: 355323433b114fee2efe7b0c0c5a586bfea83b22
+      RUNNER_BLOB: 5d476f82d0fda88bfa60d0af45f640715b0cacd4
+      REGRESSION_BLOB: d52e587c524c9d2d37eba988508417424c79f6ca
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -134,6 +145,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:REGRESSION_BLOB) { throw 'Admission regression source blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -146,6 +159,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            regressionBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -165,6 +179,12 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Test native evidence admission and source drift refusal
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
