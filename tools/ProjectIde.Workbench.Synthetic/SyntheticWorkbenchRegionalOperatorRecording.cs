@@ -144,8 +144,21 @@ public sealed partial class SyntheticWorkbenchViewModel
     public bool NavigateRegionalOperatorDiagnostic()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return CurrentRegionalOperatorSelection && (_regionalOperatorRegion!.Binding.IsRoot
-            ? NavigateTo(_regionalOperatorDiagnostic!.Location) : NavigateScopedSource(_regionalOperatorDiagnostic!.Location));
+        if (!CurrentRegionalOperatorSelection) return false;
+        var root = _rootSourceGeneration; var scope = _scopedGeneration; var selection = _selectionGeneration;
+        var actual = _acceptedRegionalOperatorInvocation; var region = _regionalOperatorRegion!; var diagnostic = _regionalOperatorDiagnostic!;
+        bool Current() => root == _rootSourceGeneration && scope == _scopedGeneration && selection == _selectionGeneration &&
+            CurrentRegionalOperatorSelection && ReferenceEquals(actual, _acceptedRegionalOperatorInvocation) &&
+            ReferenceEquals(region, _regionalOperatorRegion) && ReferenceEquals(diagnostic, _regionalOperatorDiagnostic);
+        SourceTarget = null; ClearScopedSelection();
+        if (region.Binding.IsRoot)
+        {
+            NavigationState = Resolve(diagnostic.Location);
+            if (NavigationState == "ready") SourceTarget = diagnostic.Location;
+        }
+        else ResolveScopedSourceTarget(diagnostic.Location);
+        Changed();
+        return Current() && ReferenceEquals(region.Binding.IsRoot ? SourceTarget : ScopedSourceTarget, diagnostic.Location);
     }
     private void ClearRegionalOperatorSnapshot()
     {

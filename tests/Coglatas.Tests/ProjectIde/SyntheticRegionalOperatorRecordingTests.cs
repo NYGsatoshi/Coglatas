@@ -225,6 +225,94 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         Assert.Single(vm.RecordedRegionalOperators!.Bodies);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RegionalDiagnosticNavigationPreservesTheSelectedOriginalFrames(bool root, bool rootOnly)
+    {
+        var f = TwoRegions(false); var request = Full(new(new(f.Input), 7, f.Snapshots));
+        using var session = new LocalRegionalPredicateObservationCompilerRecordingSession(Profile(f.Input));
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request);
+        if (rootOnly)
+        {
+            Assert.True(vm.LoadSyntheticRootSource(actual.Response.Execution!.Compilation.Result.ResultDigest));
+            var selected = Region(actual); Assert.True(vm.SelectRegionalOperatorDiagnostic(selected, Assert.Single(selected.Diagnostics)));
+        }
+        else AdmitAndSelect(vm, actual, root);
+        Assert.True(Read(vm, actual));
+        var region = vm.SelectedRegionalOperatorRegion; var diagnostic = vm.SelectedRegionalOperatorDiagnostic; var retained = vm.RecordedRegionalOperators;
+        Assert.True(vm.NavigateRegionalOperatorDiagnostic()); Assert.Equal("ready", vm.NavigationState);
+        Assert.Same(region, vm.SelectedRegionalOperatorRegion); Assert.Same(diagnostic, vm.SelectedRegionalOperatorDiagnostic);
+        Assert.Same(retained, vm.RecordedRegionalOperators); Assert.True(Read(vm, actual));
+        Assert.Equal(diagnostic!.Location, root ? vm.SourceTarget : vm.ScopedSourceTarget);
+    }
+
+    public static IEnumerable<object[]> NavigationBoundaries()
+    {
+        foreach (var root in new[] { true, false })
+        foreach (var boundary in new[] { "reset", "dispose", "selection", "root-source", "scoped-sources" }) yield return [root, boundary];
+    }
+
+    [Theory]
+    [MemberData(nameof(NavigationBoundaries))]
+    public async Task RegionalNavigationCannotReportSuccessAcrossANewerBoundary(bool root, string boundary)
+    {
+        var f = TwoRegions(false); var request = Full(new(new(f.Input), 7, f.Snapshots));
+        using var session = new LocalRegionalPredicateObservationCompilerRecordingSession(Profile(f.Input));
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request); AdmitAndSelect(vm, actual, root); Assert.True(Read(vm, actual));
+        var retained = vm.RecordedRegionalOperators!; var next = Region(actual, !root); var switched = false;
+        ProjectCompilerRegionalPredicateObservationSnapshot? newer = null;
+        vm.PropertyChanged += (sender, _) => {
+            if (switched) return;
+            switched = true;
+            var notifying = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            switch (boundary)
+            {
+                case "reset": notifying.Reset(); break;
+                case "dispose": notifying.Dispose(); break;
+                case "selection":
+                    Assert.True(notifying.SelectRegionalOperatorDiagnostic(next, Assert.Single(next.Diagnostics)));
+                    Assert.True(Read(notifying, actual)); newer = notifying.RecordedRegionalOperators; break;
+                case "root-source": Assert.True(notifying.LoadSyntheticRootSource(actual.Response.Execution!.Compilation.Result.ResultDigest)); break;
+                case "scoped-sources": Assert.True(notifying.LoadSyntheticScopedSources()); break;
+                default: throw new ArgumentException("Unknown navigation boundary.", nameof(boundary));
+            }
+        };
+        Assert.False(vm.NavigateRegionalOperatorDiagnostic()); Assert.True(switched); Assert.Single(retained.Bodies);
+        if (boundary == "selection")
+        {
+            Assert.Same(next, vm.SelectedRegionalOperatorRegion); Assert.Same(newer, vm.RecordedRegionalOperators);
+            Assert.NotSame(retained, newer); Assert.Single(newer!.Bodies);
+        }
+        else Assert.Null(vm.RecordedRegionalOperators);
+        if (boundary is "reset" or "dispose") Assert.Null(vm.Result);
+        else Assert.Same(actual.Response.Execution!.Compilation.Result, vm.Result);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task NewerReadOfTheSameRegionalSelectionSurvivesNavigationNotification(bool root)
+    {
+        var f = TwoRegions(false); var request = Full(new(new(f.Input), 7, f.Snapshots));
+        using var session = new LocalRegionalPredicateObservationCompilerRecordingSession(Profile(f.Input));
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request); AdmitAndSelect(vm, actual, root); Assert.True(Read(vm, actual));
+        var retained = vm.RecordedRegionalOperators; var switched = false;
+        ProjectCompilerRegionalPredicateObservationSnapshot? newer = null;
+        vm.PropertyChanged += (sender, _) => {
+            if (switched) return;
+            switched = true;
+            var notifying = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            Assert.True(Read(notifying, actual)); newer = notifying.RecordedRegionalOperators;
+        };
+        Assert.True(vm.NavigateRegionalOperatorDiagnostic()); Assert.True(switched);
+        Assert.NotSame(retained, newer); Assert.Same(newer, vm.RecordedRegionalOperators); Assert.Single(newer!.Bodies);
+    }
+
     private sealed class CancelOnNotification : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _vm;

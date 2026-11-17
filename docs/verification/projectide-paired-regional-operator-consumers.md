@@ -8,7 +8,7 @@ The separate `--regional-operator-recordings` preview profile exports 30 actual 
 
 The committed fixture retains its original observation history. Its 32,750,992 bytes have SHA256 `5ccabfed2a82a7cb19d3427d11526294b510f96e7d1aa470f00d7f5e856361ba`. The original producer made 150 host attempts, including 120 completed Compiler envelopes and 30 cancelled attempts without envelopes. A later validation run after test-lifetime and publisher-null-guard corrections made fresh attempts; all 30 outer Source/input/result cases and 1,350 original run-role projections match the original payload. Fresh identity envelopes are kept separate from the original fixture.
 
-Consumers require an admitted root Source or scoped Sources, an exact owned recording, an actual region, and that region's actual diagnostic. Root-only admission cannot expose external regional diagnostics or bodies. Matching IDs, digests, root summary diagnostics, cloned objects and older admissions do not substitute for current ownership. External navigation resolves the selected captured Source version.
+Consumers require an admitted root Source or scoped Sources, an exact owned recording, an actual region, and that region's actual diagnostic. Root-only admission cannot expose external regional diagnostics or bodies. Matching IDs, digests, root summary diagnostics, cloned objects and older admissions do not substitute for current ownership. External navigation resolves the selected captured Source version. Dedicated diagnostic navigation retains that same selection and its original recording; reset, disposal, Source reload or a newer selection during notification cannot make the older navigation report success. A newer read for the same diagnostic remains current.
 
 Angular eagerly checks all five runs, original UTF8 digest subjects, original Source predicates, invocation/receipt/origin links, region membership, diagnostic links, snapshot modes and supplied operator/evaluation maps before admitting metadata. Shared Source admission fingerprints stay in a private WeakMap; serialized metadata does not contain unselected recording bodies. All run/attempt IDs are checked across the bundle. Numeric metadata aliases, duplicate members, invalid original frames and partial metadata-budget publication are refused.
 
@@ -22,7 +22,7 @@ These are local synthetic inspection contracts. They add no remote record deseri
 
 ## Validation evidence
 
-The current native candidate passes a strict Release build with zero warnings/errors, 149 focused tests, 3,040 ProjectIDE tests and 12 Architecture tests. Original raw IDs, names and outcomes from the earlier cohorts remain present. Default 32-case and scoped three-case exports remain byte-identical.
+The current native candidate passes a strict Release build with zero warnings/errors, 164 focused tests, 3,055 ProjectIDE tests and 12 Architecture tests. Original raw IDs, names and outcomes from the earlier cohorts remain present. Default 32-case and scoped three-case exports remain byte-identical.
 
 The current Angular candidate passes 3,779 tests in 229 files, app/spec type checks, architecture validation, 66 architecture Node tests, four license Node tests, production build, theme sanitization and lazy-bundle validation. All 285 focused identities and the earlier 3,738 identities remain present. Existing build warnings are retained. The initial private mirror's three inherited baseline differences were preserved and restored from exact current Git blobs before this final run.
 
