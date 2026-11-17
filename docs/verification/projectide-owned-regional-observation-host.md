@@ -67,7 +67,7 @@ cannot borrow that origin. Original run, manifest digest, receipt digest,
 attempt ID and known ancestor run IDs remain explicit. A later successful
 diagnostic run cannot promote the earlier Manifest or cancelled outcome.
 
-The session retains at most32 reserved executions and31 diagnostic ancestors.
+The session retains at most 32 reserved executions and 31 diagnostic ancestors.
 Duplicate run IDs, foreign declarations/origins, lineage cycles/overflow and
 capacity exhaustion are refused. Concurrent duplicate execution reserves one
 actual attempt. Preparation retains no unbounded session list of declarations.
@@ -83,11 +83,11 @@ It does not physically erase already returned caller-owned metadata or frames.
 
 ## Verification and remaining acceptance
 
-Strict local SDK10.0.403/runtime10.0.14 solution builds have zero warnings/errors.
-The final runtime cohort passes222 focused,3013 complete ProjectIDE and12
-Architecture cases, zero failures/skips. All2965 prior ProjectIDE/12 Architecture
-and215 initial focused GUID/name/outcome identities remain;48 new host/session
-cases pass. All320 pinned runtime inputs match before and after the complete
+Strict local SDK 10.0.403/runtime 10.0.14 solution builds have zero warnings/errors.
+The final runtime cohort passes 222 focused, 3013 complete ProjectIDE and 12
+Architecture cases, zero failures/skips. All 2965 prior ProjectIDE/12 Architecture
+and 215 initial focused GUID/name/outcome identities remain; 48 new host/session
+cases pass. All 320 pinned runtime inputs match before and after the complete
 validation/static sequence. The associated PR records exact-source static,
 review and applicable hosted qualification before integration. No local Windows
 build or actual client/Native acceptance is inferred.
