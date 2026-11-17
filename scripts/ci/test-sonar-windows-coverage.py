@@ -163,8 +163,9 @@ class WindowsCoverageTests(unittest.TestCase):
         for old, new in ((b'synthetic-recovery-acceptance', b'unknown-tool'),
                          (b'OpenApiXmlCommentSupport.generated.cs', b'Handwritten.cs'),
                          (b'/obj/', b'/../obj/')):
+            changed = raw.replace(old, new)
             with self.subTest(new=new), self.assertRaises(ValueError):
-                MODULE.verify_report(raw.replace(old, new), self.sources.__getitem__)
+                MODULE.verify_report(changed, self.sources.__getitem__)
 
     def test_acceptance_tool_binary_and_symbols_are_required_and_bound(self):
         for extension in ("dll", "pdb"):

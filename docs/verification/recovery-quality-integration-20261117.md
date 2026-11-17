@@ -318,3 +318,45 @@ This source repair requires another exact-HEAD CI, full inventory, native
 recovery, formal Gate and independent review cycle; earlier successful results
 are not inherited. Main integration and all production/strategy/release holds
 remain separate and unchanged.
+
+## Closed observation catalogue integration follow-up
+
+At candidate `9db46bde102d16410bcb295d8c7fbb7e7d9a148a`, PR CI
+`44069805917`, build-test `133994217186`, successfully executed all
+**4557/4557 backend tests and 12/12 Architecture tests**, with zero skips. The
+subsequent SEC-ARCH observation capture failed closed because the five new
+copier cases were absent from its explicit catalogue. Test success did not make
+the required build-test job successful; no green qualification is inferred.
+
+The repair explicitly registers those four methods / five cases, including both
+producer/test-copy tamper variants. Required observations increase from 353 to
+358; every existing case remains mandatory. Unknown cases still raise an error;
+missing, skipped, failed, aborted and duplicate new cases cannot produce complete
+PASS. This is advisory observation-catalogue maintenance for real new regression
+tests, with no threshold reduction, ignored test, runtime-acceptance promotion,
+formal six-assembly scope change or Owner/attestation/HOLD change.
+
+Reproduction uses the untouched original backend TRX from artifact
+`14322493839`, SHA-256
+`e83ab3220b8bf48003f119563e3a8e98ea71280ce937c5d24bf3bac4fd26cc17`.
+The previous parser raises `Unclassified or duplicate SEC-ARCH test case.`;
+the amended catalogue observes exactly 358/358 required cases with no missing
+methods. All 129 catalogue/evidence controls pass, including new unknown-case,
+missing/skipped/failed/aborted and duplicate-name mutations. This local replay
+does not substitute for a new clean-checkout/build-stamped CI capture: the old
+failed job retains its original outcome and the amended SHA must run all gates.
+
+The 25 producer/reconciliation controls and 19 Python process-coverage controls
+also pass. The first reconciliation run retained three environment errors because
+Ruby was absent; a signed-distribution Ruby runtime was extracted only into the
+private task work directory, then all 25 tests passed. No system setting,
+repository dependency, test condition or skip was changed to address that setup.
+
+The separate official Sonar check `134011381543` for the same prior candidate
+subsequently passed at **80.7% new-code coverage**, above the unchanged 80%
+requirement, with zero new hotspots and zero duplication. Its single annotation
+requested one potentially throwing call in the generated-document rejection
+test. The follow-up constructs the mutated input before the exception assertion,
+so only the actual verifier can satisfy it. All seventeen Windows provenance
+controls still pass. The failed build-test observation capture is not overwritten
+by that Sonar success; the amended source requires a fresh complete CI/Gate cycle.
