@@ -22,6 +22,7 @@ import sec_arch_evidence as evidence
 import sec_arch_assembly_binding as assemblies
 
 NOW = datetime(2026, 10, 9, 13, tzinfo=timezone.utc)
+UNCLASSIFIED_CASE_PATTERN = "Unclassified or duplicate SEC-ARCH test case"
 Q = "{" + evidence.NS["t"] + "}"
 
 
@@ -619,7 +620,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual(1, evidence.EXPECTED[method])
         original_catalogue = {name: count for name, count in evidence.EXPECTED.items() if name != method}
         with patch.object(evidence, "EXPECTED", original_catalogue):
-            with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+            with self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
                 observe(root)
 
     def test_readonly_reconnect_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
@@ -656,7 +657,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual(5, sum(count for method, count in evidence.EXPECTED.items() if method.startswith(prefix)))
         previous_catalogue = {method: count for method, count in evidence.EXPECTED.items() if not method.startswith(prefix)}
         with patch.object(evidence, "EXPECTED", previous_catalogue), \
-             self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+             self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
             observe(root)
 
     def test_copier_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
@@ -699,7 +700,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         definitions[1].attrib["name"] = definitions[0].attrib["name"]
         result = next(item for item in root.find(Q + "Results") if item.attrib["testId"] == definitions[1].attrib["id"])
         result.attrib["testName"] = definitions[0].attrib["name"]
-        with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+        with self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
             observe(root)
 
     def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
