@@ -245,7 +245,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         return rows.Select(row =>
             {
                 var properties = fixture.Db.Entry(row).Properties.ToArray();
-                Assert.Empty(properties.Where(property => property.Metadata.IsShadowProperty()));
+                Assert.DoesNotContain(properties, property => property.Metadata.IsShadowProperty());
                 return properties.OrderBy(property => property.Metadata.Name)
                     .ToDictionary(property => property.Metadata.Name, property => property.CurrentValue);
             })
