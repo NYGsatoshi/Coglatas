@@ -46,7 +46,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (response.Compilation is not { PredicatePremises: { } record } compilation ||
             !record.IsOwnedBy(compilation) || !ReferenceEquals(record.Policy, request.CapturePolicy) ||
             !compilation.Input.Data.Equals(compilation.Result.Input.Data) || !compilation.Input.Source.Data.Equals(Source?.Data)) return false;
-        var inspection = compilation.Model is { } model ? new CompilerSemanticInspection(model) : null; var lifecycle = _lifecycle;
+        if (!TryPrepareInspection(compilation.Model, out var inspection)) return false; var lifecycle = _lifecycle;
         ClearResult(); _compilation = compilation; _acceptedPredicateInvocation = invocation;
         Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed();
         return !_disposed && lifecycle == _lifecycle && ReferenceEquals(Result, compilation.Result) && ReferenceEquals(_acceptedPredicateInvocation, invocation);

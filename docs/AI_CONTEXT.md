@@ -1,5 +1,11 @@
 # AI Context
 
+Read [synthetic inspection admission](verification/projectide-inspection-admission.md)
+for explicit display refusal when a completed Compiler model cannot be projected
+within the existing canonical JSON bound. All four pure Workbench protocols
+preserve original Compiler facts and newer notification contexts; no runtime
+authority, actual Avalonia or numerical assurance is inferred.
+
 The [local Project Test CLI](verification/projectide-local-project-tests.md)
 reports unsupported input settings and unrepresentable Source as explicit
 unsupported failures with exit 2, distinct from malformed input. Structurally
