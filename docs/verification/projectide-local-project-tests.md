@@ -98,7 +98,12 @@ and envelope reads are each bounded by the existing 4 MiB default. Output uses
 CreateNew: no existing file, Source or manifest is overwritten. Exit codes are
 0 Pass, 1 Fail, 2 Inconclusive/NotRun, 3 Error or input/output failure. Early
 failures have a distinct CLI-failure envelope and cannot impersonate a bound
-Test run. Cancellation is explicit. The console subscription owns its cancellation
+Test run. Unsupported input settings (including future scheduler, solver,
+coverage or execution-profile values) produce an unbound CLI-failure envelope
+with execution/verdict NotRun, reason coglatas.unsupported-input and exit 2.
+This does not establish manifest integrity or evaluator support. Existing output
+paths still fail CreateNew with exit 3 and retain their original bytes.
+Cancellation is explicit. The console subscription owns its cancellation
 source and defers cleanup until in-flight callbacks return, including reentrant
 and concurrent disposal. These host lifecycle controls are tested separately
 from Domain cancellation. The CLI provides no remote snapshot loader;
