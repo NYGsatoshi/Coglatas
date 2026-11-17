@@ -63,7 +63,7 @@ contained 2055 results. Do not substitute either snapshot for candidate results.
 The six currently over-budget rules are covered by reused #2047/#2049 source
 changes. Their candidate observed counts remain **UNMEASURED** until the new
 complete inventory is inspected. Zero excess does not mean zero retained debt.
-The branch adds a credential-free push workflow invoking the immutable existing
+The branch adds a credential-free push workflow invoking the existing source-owned
 trusted Qodana reusable workflow on integration branches. Push context selects
 its original full scan and original full ratchet, rather than PR changed-file
 mode. Protected Cloud publication remains Main-only; no token, baseline,
@@ -135,6 +135,14 @@ PR native logical run `44045983233`, physical `44045983195` and continuation
 `44045983421` completed successfully. They qualify that source only; later
 Main-routing changes require fresh exact-head runs. Their initial successes
 are not used as the final branch qualification.
+
+The initial `91e6c6ec` publication run `44047083309` failed action-pin policy
+because a same-repository workflow was expressed as an external action outside
+the allowlist. The caller now uses the existing local reusable-workflow form;
+the allowlist, reusable workflow and its gates remain unchanged. The obsolete
+`b08f416c` full scan was canceled only after a newer source superseded it, so the
+current source could qualify without running two serialized obsolete scans.
+Those outcomes remain canceled/failed, never PASS.
 
 The final exact-HEAD checklist and provider links are maintained in #2054:
 required build-test/frontend-test/security-scan/publication-readiness/

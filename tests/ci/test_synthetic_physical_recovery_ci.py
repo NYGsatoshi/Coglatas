@@ -97,6 +97,16 @@ class ClosedRecoveryPublicationTests(unittest.TestCase):
             self.assertIn("  cancel-in-progress: false\n", workflow)
             self.assertIn("  contents: read\n", workflow)
 
+    def test_full_qodana_caller_uses_existing_unmodified_local_gate_without_secrets(self):
+        workflow = (ROOT / ".github/workflows/recovery-integration-quality.yml").read_text()
+        self.assertIn("uses: ./.github/workflows/qodana_trusted_gate.yml", workflow)
+        self.assertIn("  contents: read\n", workflow)
+        self.assertIn("  push:\n", workflow)
+        self.assertNotIn("secrets:", workflow)
+        self.assertNotIn("workflow_dispatch:", workflow)
+        self.assertNotIn("pull_request_target:", workflow)
+        self.assertNotIn("reuse_main_artifacts:", workflow)
+
     def test_tool_framework_and_native_paths_match_current_product(self):
         import xml.etree.ElementTree as ET
         product = ET.parse(ROOT / "src/Coglatas.Web/Coglatas.Web.csproj").getroot()

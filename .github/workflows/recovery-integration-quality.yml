@@ -14,4 +14,4 @@ concurrency:
 jobs:
   full-qodana:
     if: github.repository == 'NYGsatoshi/Coglatas'
-    uses: NYGsatoshi/Coglatas/.github/workflows/qodana_trusted_gate.yml@ffd069e53df4f91b01f9cdc2df48fc347a77a171
+    uses: ./.github/workflows/qodana_trusted_gate.yml
