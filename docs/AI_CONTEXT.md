@@ -1,5 +1,11 @@
 # AI Context
 
+[Incremental symbol binding](verification/projectide-incremental-symbol-binding.md)
+reuses exact immutable declaration/context symbol partitions after fresh admission.
+Root input stamps, references, diagnostics, budgets and global validation remain
+fresh. The optional local session and offline fixture exporter grant no runtime
+access or independent Security qualification.
+
 [Paired local regional operator consumers](verification/projectide-paired-regional-operator-consumers.md)
 read original local runs in the pure Workbench and Angular after explicit Source,
 region and diagnostic admission. Actual traversal, original capture and view limits

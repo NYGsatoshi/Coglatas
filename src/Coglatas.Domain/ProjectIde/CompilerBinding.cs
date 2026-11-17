@@ -59,17 +59,18 @@ public sealed class PartialSemanticModel
 public static class ProjectSemanticBinder
 {
     public static PartialSemanticModel Bind(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized = null,
-        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null) =>
-        BindCore(input, materialized, cancellationToken, declarationCache, null);
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null, ProjectSymbolBindingCache? symbolBindingCache = null) =>
+        BindCore(input, materialized, cancellationToken, declarationCache, null, symbolBindingCache);
 
     // Only closure construction can reuse the original admitted root as an implicit scope. It invents no snapshot ID/version or pin.
     internal static PartialSemanticModel BindRegion(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot> materialized,
-        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache) =>
+        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null) =>
         BindCore(input, materialized, cancellationToken, declarationCache,
-            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete));
+            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete), symbolBindingCache, root.Source.Context.Branch);
 
     private static PartialSemanticModel BindCore(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized,
-        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, RelationScopeSnapshot? closureRoot)
+        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, RelationScopeSnapshot? closureRoot,
+        ProjectSymbolBindingCache? symbolBindingCache = null, BranchRef? ownerScope = null)
     {
         ArgumentNullException.ThrowIfNull(input); cancellationToken.ThrowIfCancellationRequested();
         foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
@@ -202,21 +203,21 @@ public static class ProjectSemanticBinder
             snapshots.Add(closureRoot);
         }
         var local = new RelationScopeSnapshot(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete);
-        var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item => (Snapshot: item,
-            Results: declarationCache is not null && ReferenceEquals(item.Source, source)
-                ? declarationCache.Read(source, cancellationToken) : PlanDeclarationReader.Read(item.Source))).ToArray();
+        var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item =>
+        {
+            var bindings = symbolBindingCache?.Read(item.Source, ownerScope ?? source.Context.Branch, cancellationToken);
+            IReadOnlyList<DeclarationDecodeResult> results = bindings is not null
+                ? bindings.Select(binding => binding.Declaration).ToArray()
+                : declarationCache is not null && ReferenceEquals(item.Source, source)
+                    ? declarationCache.Read(source, cancellationToken) : PlanDeclarationReader.Read(item.Source);
+            return (Snapshot: item, Results: results, Bindings: bindings);
+        }).ToArray();
         foreach (var set in declarationSets)
         {
-            foreach (var result in set.Results)
-            {
-                var entity = SourceFields.Identity<EntityId>(result.Data.Value, "entityId");
-                var location = ProjectLocation.Create(result.DocumentId, set.Snapshot.Source.Context, entityId: entity);
-                symbols.Add(new(Key(set.Snapshot.Source.Context, entity), SourceFields.Token(result.Data.Value, "kind"), entity, null, set.Snapshot.Source.Context, location, result.Status));
-                if (result.Declaration is TaskPlanDeclaration task)
-                    symbols.AddRange(task.Ports.Select(port => new CompilerSymbol(Key(set.Snapshot.Source.Context, entity, port.PortId), port.Type.Kind,
-                        entity, port.PortId, set.Snapshot.Source.Context, ProjectLocation.Create(result.DocumentId, set.Snapshot.Source.Context,
-                            "/payload/ports/" + port.PortId, entityId: entity), ValueDecodeStatus.Decoded)));
-            }
+            if (set.Bindings is not null)
+                foreach (var binding in set.Bindings) symbols.AddRange(binding.Symbols);
+            else
+                foreach (var result in set.Results) symbols.AddRange(BindSymbols(result, set.Snapshot.Source.Context));
         }
         var declarations = declarationSets[0].Results;
         var symbolIndex = symbols.GroupBy(item => item.Key).ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
@@ -377,6 +378,17 @@ public static class ProjectSemanticBinder
                     ReferenceResolutionState.Unsupported => RelationFindingState.Unsupported, _ => RelationFindingState.Invalid
                 }, origin);
         }
+    }
+
+    internal static IEnumerable<CompilerSymbol> BindSymbols(DeclarationDecodeResult result, SourceRevisionContext context)
+    {
+        var entity = SourceFields.Identity<EntityId>(result.Data.Value, "entityId");
+        yield return new(Key(context, entity), SourceFields.Token(result.Data.Value, "kind"), entity, null, context,
+            ProjectLocation.Create(result.DocumentId, context, entityId: entity), result.Status);
+        if (result.Declaration is TaskPlanDeclaration task)
+            foreach (var port in task.Ports)
+                yield return new(Key(context, entity, port.PortId), port.Type.Kind, entity, port.PortId, context,
+                    ProjectLocation.Create(result.DocumentId, context, "/payload/ports/" + port.PortId, entityId: entity), ValueDecodeStatus.Decoded);
     }
 
     private static string Key(SourceRevisionContext context, EntityId entity, PortId? port = null) =>

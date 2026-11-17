@@ -38,6 +38,10 @@ canonical bytes are not a managed heap measurement or a performance SLA. A
 cancelled request produces no accepted current result; immutable decode entries
 alone cannot authorize a later request.
 
+A separate opt-in [symbol binding session](projectide-incremental-symbol-binding.md)
+also retains exact context-bound declaration/port symbol partitions after fresh
+root/dependency admission. It does not change this decode-only cache's contract.
+
 This does not complete the incremental Semantic Index acceptance criterion:
 dependency-directed incremental binding/validation, broader differential traces,
 real editor integration and operational lifecycle/permission/retention qualification
