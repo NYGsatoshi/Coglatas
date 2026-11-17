@@ -244,3 +244,33 @@ retains its 28 PASS / 1 FAIL outcome: its supposed valid SHA fixture contained
 42 characters. Correcting that fixture to 40 characters, rather than relaxing
 the admission predicate, produced the successful rerun. The negative fixtures
 separately retain 39/41-character, uppercase, non-hexadecimal and newline cases.
+
+## Native Windows provenance follow-up
+
+At `8d02c8dee4e1421a60994b383f49d8854ffa6af3`, native recovery passed again,
+but Sonar run `44061070670`, Windows job `133963023410`, failed after all
+188 portable tests passed with zero skips. Original coverage artifact
+`14317908296` contained the newly measured acceptance tool's actual compiler
+document under `/_/tools/synthetic-recovery-acceptance/obj/Release/net11.0/`
+and the existing OpenAPI XML-comment generator identity. The provenance
+verifier rejected this known project path as nondeterministic. The dependent
+Linux analyzer was skipped; neither stage is recorded as Quality Gate PASS.
+
+The follow-up recognizes that exact tool project root under the existing
+compiler-document policy. Generated documents retain their original bytes,
+ranges and zero hits and receive no mapped Git-source coverage credit. Unknown
+tool roots, handwritten substitutes and traversal still fail closed. The newly
+executed acceptance-tool DLL and PDB are also added to the mandatory
+source-stamped, project-output/effective-test-output identity manifest: eight
+assemblies / sixteen artifacts, with missing or differing tool binaries rejected.
+No report is rewritten and no source is excluded or reclassified.
+
+Reproduction against the untouched failed-run Windows report now verifies
+630 mapped Git source files, four uncredited generated documents, 319784 native
+line entries (318721 zero-hit / 1063 covered), and the original 24262/610
+total/covered conditions. Original report SHA-256 is
+`2285000d39007509c65e805bdaa8d810c857ea6791b79eb9a11d9327e5328b30`.
+All 17 provenance mutation tests pass, including the new generated-path and
+mandatory tool-binary controls. These local parser results are not replacement
+Windows producer evidence: the amended source must repeat native capture,
+independent Linux consumption, scanner analysis and the official Gate.
