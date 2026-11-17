@@ -178,5 +178,14 @@ internal sealed class CompilerPredicateObservationCollector(CompilerPredicateObs
         return new(compilation, policy, state, _started, _completed, _nodes, _entries);
     }
 
+    internal int RegionalStartedEvaluations => _started;
+
+    internal CompilerRegionalCaptureSnapshot FinishRegional(CoreCompilation compilation, CancellationToken token)
+    {
+        if (token.IsCancellationRequested || compilation.Result.Execution != CompilerExecutionState.Completed)
+            Gap(CompilerPredicateObservationCaptureState.CaptureInterrupted);
+        return new(_gap, _started, _completed, _nodes, new ImmutableListView<CompilerPredicateObservationEntry>(_entries));
+    }
+
     private void Gap(CompilerPredicateObservationCaptureState state) { _gap ??= state; _entries.Clear(); _bytes = 0; }
 }
