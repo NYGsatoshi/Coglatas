@@ -50,7 +50,8 @@ for (const locale of ['en', 'ja'] as const) for (const value of bundle.cases) {
             const text = await details.locator('pre').textContent(); expect(text).toBe(frame.text); expect(hash('coglatas.local-predicate-evaluation/1', text ?? '')).toEqual(frame.digest);
           }
           if (value.key === 'tests-regional-nested-duplicates-base' && locale === 'en' && role === 'diagnostic' && choice === 'available') {
-            await test.info().attach('original-regional-operators', { body: await selected.screenshot(), contentType: 'image/png' });
+            await nodes.first().scrollIntoViewIfNeeded();
+            await test.info().attach('original-regional-operators', { body: await page.screenshot(), contentType: 'image/png' });
           }
           const diagnostic = JSON.parse(entry.diagnostic.text);
           if (diagnostic.code === 'coglatas.analysis.requirement-evidence-unavailable') { expect(retained).toHaveLength(0); expect(supplied.evaluationFrames).toHaveLength(0); }

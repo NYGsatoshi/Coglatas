@@ -151,6 +151,10 @@ async function verifyRegions(value: PreviewCase, run: RegionalOperatorRecordingF
   if (!run.dependencyAnalysis || !run.bindingClosure || !Array.isArray(run.regions) || run.regions.length > 33) return fail();
   const analysis = await frame(run.dependencyAnalysis, 'coglatas.compiler-dependency-analysis/1');
   const closure = await frame(run.bindingClosure, 'coglatas.semantic-binding-closure/1');
+  const stages = list(obj(value.result)['stages'], 32).map(obj).filter(stage => stage['stageId'] === 'coglatas.dependency-analysis');
+  if (stages.length !== 1 || stages[0]['version'] !== 1 || stages[0]['execution'] !== 'coglatas.completed' ||
+    stages[0]['coverage'] !== 'coglatas.complete' || !equal(stages[0]['inputDigest'], value.inputDigest) ||
+    !list(stages[0]['outputs'], 1024).some(output => equal(output, run.dependencyAnalysis!.digest))) return fail();
   if (!equal(analysis['rootInputDigest'], value.inputDigest) || !equal(closure['inputDigest'], value.inputDigest) ||
     !equal(analysis['bindingClosureDigest'], run.bindingClosure.digest)) return fail();
   const declared = list(analysis['regions'], 33).map(obj); const bindings = list(closure['regions'], 33).map(obj);

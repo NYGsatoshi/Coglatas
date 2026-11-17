@@ -208,3 +208,22 @@ describe('Original metadata budget publication refuses partial call lists', () =
     });
   });
 });
+
+describe('Exact Compiler-result dependency publication', () => {
+  const cases = (['original', 'diagnostic', 'budget', 'retry'] as const).flatMap(label =>
+    (['root', 'scoped'] as const).map(admission => [label, admission] as const));
+  it.each(cases)('refuses a rehashed dependency publication absent from the unchanged Compiler result: %s %s', async (label, admission) => {
+    const clean = fixture();
+    const cleanSource = admission === 'root' ? await readRootSource(clean) : await readScopedSources(clean);
+    expect(cleanSource).not.toBeNull(); expect(await readRegionalOperatorRecording(clean, cleanSource!, label)).not.toBeNull();
+    const value = fixture(), run = value.regionalOperatorRecordings![label];
+    const originalResult = run.result!.text, originalDigest = structuredClone(run.dependencyAnalysis!.digest);
+    const analysis = JSON.parse(run.dependencyAnalysis!.text); analysis.logicalOperationsConsumed++;
+    frame(run.dependencyAnalysis!, 'coglatas.compiler-dependency-analysis/1', JSON.stringify(analysis));
+    expect(run.dependencyAnalysis!.digest).not.toEqual(originalDigest); expect(run.result!.text).toBe(originalResult);
+    expect(JSON.parse(originalResult).stages.find((stage: { stageId: string }) => stage.stageId === 'coglatas.dependency-analysis')!.outputs).toContainEqual(originalDigest);
+    const sources = admission === 'root' ? await readRootSource(value) : await readScopedSources(value);
+    expect(sources).not.toBeNull();
+    await expect(readRegionalOperatorRecording(value, sources!, label)).rejects.toThrow();
+  });
+});
