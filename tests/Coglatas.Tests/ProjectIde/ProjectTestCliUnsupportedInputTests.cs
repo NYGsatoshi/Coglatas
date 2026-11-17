@@ -16,7 +16,7 @@ public sealed class ProjectTestCliUnsupportedInputTests
     [InlineData("rounding", false)] [InlineData("rounding", true)]
     [InlineData("coverage", false)] [InlineData("coverage", true)]
     [InlineData("solver", false)] [InlineData("solver", true)]
-    public void ActualCliReportsUnsupportedInputAndPreservesExistingFiles(string mode, bool existingOutput)
+    public async Task ActualCliReportsUnsupportedInputAndPreservesExistingFiles(string mode, bool existingOutput)
     {
         var directory = Path.Combine(Path.GetTempPath(), "projectide-cli-unsupported-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -46,7 +46,11 @@ public sealed class ProjectTestCliUnsupportedInputTests
 
             int? exitCode = null;
             var entry = typeof(ConsoleCancellation).Assembly.EntryPoint!;
-            var error = Record.Exception(() => exitCode = (int)entry.Invoke(null, [new[] { sourcePath, envelopePath, outputPath }])!);
+            // The generated entry point blocks on async Main; keep it outside the test synchronization context.
+            var error = await Record.ExceptionAsync(async () =>
+            {
+                exitCode = await Task.Run(() => (int)entry.Invoke(null, [new[] { sourcePath, envelopePath, outputPath }])!);
+            });
             Assert.Equal(sourceBytes, File.ReadAllBytes(sourcePath));
             Assert.Equal(envelopeBytes, File.ReadAllBytes(envelopePath));
             if (existingOutput) Assert.Equal(retainedOutput, File.ReadAllBytes(outputPath));
