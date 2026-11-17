@@ -19,7 +19,7 @@ snapshot queries on that accepted compilation through public APIs.
   facts**. The original eleven method identities, bodies and helpers remain
   byte-for-byte intact from Test blob
   `a7832c98fcded823532b974eee11b74168ddfbf2`.
-- Independent composition runner `ff8aafb631f6e628257940b29106e502422b31ba`
+- Independent composition runner `04d0959a5d0d492217acedccb189f667b8bdcadc`
   (current Security Test-owner runner model). The runner stages **only** the
   original exact Test blob into a detached, clean Product worktree, verifies
   the actual source bytes, Git index identity, Product HEAD and unrelated
@@ -111,7 +111,7 @@ repairs two malformed-input admissions in the original #2055 runner:
   even when the first container retains all 35 valid passing facts.
 
 `test_compose_and_verify.py` requires retained native TRX and compiled discovery
-inputs. Its 18 controls include the unchanged authentic positive and both
+inputs. Its 21 controls include the unchanged authentic positive and both
 counterexamples, namespace and complete-inventory refusals, native identity
 bijection, counter and discovery failures, and real temporary Git/worktree
 composition boundaries. Only the `dotnet` outputs in the temporary main-path
@@ -119,6 +119,18 @@ controls are controlled; actual source bytes, index and Product HEAD changes
 are performed and must be rejected after restore, test and discovery. Every
 receipt retains all six false qualification flags and failure never receives
 `nativeXunit` credit. The command wrapper also preserves nonzero process exits.
+
+Before any Main fixture initializes Git, both retained inputs must pass the
+frozen native/discovery admission checks; empty, malformed and foreign fixtures
+stop the controls instead of supplying negative-test credit. Each Main refusal
+checks its exact error, receipt error and complete reached-stage sequence.
+Local Git children, including the raw source read and temporary fixture setup,
+remove inherited `GIT_*` process settings while preserving every non-Git
+environment variable. These operations perform no remote Git access. A real
+disposable two-repository control demonstrates the old environment redirect,
+runs the repaired Main path under the same pollution, and compares every file
+in the disposable caller repository to prove it was unchanged. The original
+caller repository is never used as the pollution target.
 
 Both advisory hosts run these controls against their newly produced original
 TRX/discovery and retain a separate `admission-controls.log`. The workflow pins

@@ -9,6 +9,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -27,6 +28,35 @@ NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 SOURCE_BYTES = (HERE / "SecurityCompilerOutputSnapshotCandidateTests.cs").read_bytes()
 NATIVE_TRX_BYTES = b""
 NATIVE_DISCOVERY = ""
+
+
+def validate_retained_inputs() -> None:
+    """Admit the authentic positive before any temporary Git fixture is initialized."""
+    if not NATIVE_TRX_BYTES:
+        raise ValueError("Retained native TRX input is required; no synthetic positive is substituted")
+    if not NATIVE_DISCOVERY:
+        raise ValueError("Retained compiled discovery input is required")
+    with tempfile.TemporaryDirectory(prefix="retained-input-admission-") as temporary:
+        path = Path(temporary) / "candidate.trx"
+        path.write_bytes(NATIVE_TRX_BYTES)
+        try:
+            native_names = RUNNER.native_inventory(path)
+        except (ET.ParseError, ValueError) as error:
+            raise ValueError("Retained native TRX input does not match the frozen candidate") from error
+    try:
+        compiled_names = RUNNER.compiled_inventory(NATIVE_DISCOVERY)
+    except ValueError as error:
+        raise ValueError("Retained compiled discovery input does not match the frozen candidate") from error
+    if native_names != compiled_names:
+        raise ValueError("Retained native TRX and compiled discovery identities differ")
+
+
+COMPOSITION_ERRORS = {
+    "source": "Actual compiler-input bytes differ from the committed candidate",
+    "product": "Unrelated tracked Product source changed during composition",
+    "index": "Composed candidate index differs from its committed Git blob",
+    "head": "Composed Product HEAD changed",
+}
 
 
 def native_fixture() -> ET.Element:
@@ -248,6 +278,7 @@ class MainAdmissionTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        validate_retained_inputs()
         cls.temporary = tempfile.TemporaryDirectory(prefix="compiler-output-main-")
         cls.addClassCleanup(cls.temporary.cleanup)
         cls.root = Path(cls.temporary.name)
@@ -272,7 +303,7 @@ class MainAdmissionTests(unittest.TestCase):
     @classmethod
     def git(cls, *args: str) -> str:
         result = subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=cls.repository,
-                                capture_output=True, text=True, check=True)
+                                capture_output=True, text=True, check=True, env=RUNNER.local_git_environment())
         return result.stdout.strip()
 
     def mutate_composition(self, kind: str, worktree: Path) -> None:
@@ -353,39 +384,150 @@ class MainAdmissionTests(unittest.TestCase):
         self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), receipt["nativeXunit"]["identities"])
         self.assertEqual(["--version", "restore", "test", "discovery"], calls)
 
-    def test_main_refuses_both_reproduced_corruptions_and_other_foreign_evidence(self) -> None:
-        for scenario in ("split-method", "second-failed-results", "substituted-roster", "foreign-discovery"):
+    def assert_main_refusal(self, scenario: str, message: str, expected_calls: list[str]) -> None:
+        error, receipt, calls = self.run_main(scenario)
+        self.assertIsInstance(error, ValueError)
+        self.assertEqual(message, str(error))
+        self.assertEqual("ValueError: " + message, receipt["error"])
+        self.assertEqual("FAILED_OR_INCOMPLETE", receipt["status"])
+        self.assertNotIn("nativeXunit", receipt)
+        self.assertEqual(expected_calls, calls)
+
+    def test_main_refuses_malformed_reports_and_foreign_evidence(self) -> None:
+        scenarios = (
+            ("split-method", "Native TRX method metadata disagrees with its frozen fact identity", False),
+            ("second-failed-results", "Native TRX requires one Results element", False),
+            ("substituted-roster", "Native TRX does not match the exact original Core and ViewModel fact roster", False),
+            ("foreign-discovery", "Compiled discovery does not match the exact thirty-five-fact candidate roster", True),
+        )
+        for scenario, message, discovery_reached in scenarios:
             with self.subTest(scenario=scenario):
-                error, receipt, _ = self.run_main(scenario)
-                self.assertIsInstance(error, ValueError)
-                self.assertEqual("FAILED_OR_INCOMPLETE", receipt["status"])
-                self.assertNotIn("nativeXunit", receipt)
+                calls = ["--version", "restore", "test"] + (["discovery"] if discovery_reached else [])
+                self.assert_main_refusal(scenario, message, calls)
 
     def test_main_rechecks_actual_composition_after_restore_before_compilation(self) -> None:
-        for kind in ("source", "product", "index", "head"):
+        for kind, message in COMPOSITION_ERRORS.items():
             with self.subTest(kind=kind):
-                error, receipt, calls = self.run_main(kind + "-after-restore")
-                self.assertIsInstance(error, ValueError)
-                self.assertEqual("FAILED_OR_INCOMPLETE", receipt["status"])
-                self.assertNotIn("nativeXunit", receipt)
-                self.assertEqual(["--version", "restore"], calls)
+                self.assert_main_refusal(kind + "-after-restore", message, ["--version", "restore"])
 
     def test_main_refuses_actual_composition_drift_after_test_and_discovery(self) -> None:
         for stage in ("test", "discovery"):
-            for kind in ("source", "product", "index", "head"):
+            for kind, message in COMPOSITION_ERRORS.items():
                 with self.subTest(stage=stage, kind=kind):
-                    error, receipt, calls = self.run_main(kind + "-after-" + stage)
-                    self.assertIsInstance(error, ValueError)
-                    self.assertEqual("FAILED_OR_INCOMPLETE", receipt["status"])
-                    self.assertNotIn("nativeXunit", receipt)
-                    self.assertEqual(stage, calls[-1])
+                    calls = ["--version", "restore", "test"] + (["discovery"] if stage == "discovery" else [])
+                    self.assert_main_refusal(kind + "-after-" + stage, message, calls)
 
     def test_main_preserves_native_command_failure(self) -> None:
         error, receipt, calls = self.run_main("tool-failure")
         self.assertIsInstance(error, RuntimeError)
+        self.assertEqual("Controlled dotnet failure", str(error))
+        self.assertEqual("RuntimeError: Controlled dotnet failure", receipt["error"])
         self.assertEqual("FAILED_OR_INCOMPLETE", receipt["status"])
         self.assertNotIn("nativeXunit", receipt)
-        self.assertNotIn("discovery", calls)
+        self.assertEqual(["--version", "restore", "test"], calls)
+
+
+class FixtureBoundaryTests(unittest.TestCase):
+    def test_git_child_environment_preserves_all_non_git_settings(self) -> None:
+        overrides = {
+            "GIT_DIR": "unused-repository-override",
+            "GIT_INDEX_FILE": "unused-index-override",
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "core.worktree",
+            "GIT_CONFIG_VALUE_0": "unused-worktree-override",
+            "QUALIFICATION_ENV_CANARY": "host-setting-preserved",
+        }
+        with patch.dict(os.environ, overrides):
+            before = dict(os.environ)
+            expected = {key: value for key, value in before.items() if not key.upper().startswith("GIT_")}
+            self.assertEqual(expected, RUNNER.local_git_environment())
+            self.assertEqual(before, dict(os.environ))
+            actual = RUNNER.command(
+                [sys.executable, "-c", "import os; print(os.environ['QUALIFICATION_ENV_CANARY'])"], HERE)
+            self.assertEqual("host-setting-preserved", actual)
+
+    def test_invalid_retained_inputs_fail_before_main_git_setup(self) -> None:
+        foreign = native_fixture()
+        foreign.find(NAMESPACE + "Results")[0].set("testName", "Foreign.Namespace.Fact")
+        cases = (
+            (b"", NATIVE_DISCOVERY,
+             "Retained native TRX input is required; no synthetic positive is substituted"),
+            (b"<broken", NATIVE_DISCOVERY,
+             "Retained native TRX input does not match the frozen candidate"),
+            (ET.tostring(foreign), NATIVE_DISCOVERY,
+             "Retained native TRX input does not match the frozen candidate"),
+            (NATIVE_TRX_BYTES, "", "Retained compiled discovery input is required"),
+            (NATIVE_TRX_BYTES, "    Foreign.Namespace.Fact\n",
+             "Retained compiled discovery input does not match the frozen candidate"),
+        )
+        for trx, discovery, message in cases:
+            with self.subTest(message=message, bytes=len(trx)):
+                class InvalidMainFixture(MainAdmissionTests):
+                    pass
+
+                try:
+                    with patch.dict(globals(), {"NATIVE_TRX_BYTES": trx, "NATIVE_DISCOVERY": discovery}), \
+                            patch.object(InvalidMainFixture, "git", side_effect=AssertionError(
+                                "Invalid retained inputs reached Git fixture setup")) as git_command:
+                        with self.assertRaisesRegex(ValueError, "^" + re.escape(message) + "$"):
+                            InvalidMainFixture.setUpClass()
+                        git_command.assert_not_called()
+                finally:
+                    InvalidMainFixture.doClassCleanups()
+
+    def test_polluted_environment_redirects_unprotected_git_but_isolates_actual_main(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="git-caller-isolation-") as temporary:
+            caller = Path(temporary) / "caller"
+            caller.mkdir()
+            for args in (("init", "--quiet"), ("config", "user.name", "Disposable caller"),
+                         ("config", "user.email", "disposable-caller@example.invalid"),
+                         ("config", "commit.gpgsign", "false")):
+                RUNNER.git(caller, *args)
+            (caller / "caller.txt").write_text("Untouched disposable caller\n", encoding="utf-8")
+            RUNNER.git(caller, "add", "--", "caller.txt")
+            RUNNER.git(caller, "commit", "--quiet", "-m", "Disposable caller")
+
+            def snapshot() -> dict[str, bytes]:
+                return {str(path.relative_to(caller)): path.read_bytes()
+                        for path in caller.rglob("*") if path.is_file()}
+
+            before = snapshot()
+            polluted = RUNNER.local_git_environment()
+            polluted.update({
+                "GIT_DIR": str(caller / ".git"),
+                "GIT_COMMON_DIR": str(caller / ".git"),
+                "GIT_WORK_TREE": str(caller),
+                "GIT_INDEX_FILE": str(caller / ".git" / "index"),
+                "GIT_OBJECT_DIRECTORY": str(caller / ".git" / "objects"),
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "core.worktree",
+                "GIT_CONFIG_VALUE_0": str(caller),
+            })
+
+            class PollutedMainFixture(MainAdmissionTests):
+                pass
+
+            try:
+                with patch.dict(os.environ, polluted, clear=True):
+                    PollutedMainFixture.setUpClass()
+                    repository = PollutedMainFixture.repository
+                    # This read-only probe reproduces the old inherited-environment redirect.
+                    unprotected = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=repository,
+                                                 capture_output=True, text=True, check=True, env=polluted)
+                    self.assertEqual(caller.resolve(), Path(unprotected.stdout.strip()).resolve())
+                    self.assertEqual(repository.resolve(), Path(
+                        RUNNER.git(repository, "rev-parse", "--show-toplevel")).resolve())
+                    self.assertEqual(repository.resolve(), Path(
+                        PollutedMainFixture.git("rev-parse", "--show-toplevel")).resolve())
+                    fixture = PollutedMainFixture("test_main_positive_control_uses_real_git_and_preserves_false_flags")
+                    error, receipt, calls = fixture.run_main("valid")
+                    self.assertIsNone(error)
+                    self.assertEqual("SYNTHETIC_COMPILER_OUTPUT_PASSED", receipt["status"])
+                    self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), receipt["nativeXunit"]["identities"])
+                    self.assertEqual(["--version", "restore", "test", "discovery"], calls)
+            finally:
+                PollutedMainFixture.doClassCleanups()
+            self.assertEqual(before, snapshot())
 
 
 if __name__ == "__main__":
@@ -395,6 +537,7 @@ if __name__ == "__main__":
     arguments, unittest_arguments = parser.parse_known_args()
     NATIVE_TRX_BYTES = arguments.native_trx.read_bytes()
     NATIVE_DISCOVERY = arguments.compiled_discovery.read_bytes().decode("utf-8")
+    validate_retained_inputs()
     print("Admission controls reuse retained TRX SHA256 " + hashlib.sha256(NATIVE_TRX_BYTES).hexdigest()
           + "; they do not execute dotnet.", flush=True)
     unittest.main(argv=[sys.argv[0], *unittest_arguments])

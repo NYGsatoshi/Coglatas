@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -126,9 +127,16 @@ def compiled_inventory(discovery: str) -> list[str]:
     return sorted(names)
 
 
+def local_git_environment() -> dict[str, str]:
+    # All Git operations are local: inherit host/SDK settings, not a caller's
+    # repository, index, object store or config overrides (including core.worktree).
+    return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+
+
 def command(args: list[str], cwd: Path, log: Path | None = None, *, preserve_output: bool = False) -> str:
     completed = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-                               errors="replace", check=False)
+                               errors="replace", check=False,
+                               env=local_git_environment() if args[0] == "git" else None)
     if log is not None:
         log.write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode:
@@ -197,7 +205,7 @@ def main() -> None:
         if output.exists():
             raise ValueError("Product already contains candidate destination; refuse overwrite")
         raw = subprocess.run(["git", "show", test_head + ":" + SOURCE], cwd=ROOT,
-                             check=True, capture_output=True).stdout
+                             check=True, capture_output=True, env=local_git_environment()).stdout
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(raw)
         source_blob = git(ROOT, "rev-parse", test_head + ":" + SOURCE)
