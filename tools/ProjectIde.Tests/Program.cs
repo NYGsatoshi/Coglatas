@@ -41,6 +41,10 @@ try
     {
         artifact = Failure("Cancelled", "NotRun", "coglatas.cancelled"); exitCode = 2;
     }
+    catch (UnsupportedSourceException)
+    {
+        artifact = Failure("NotRun", "NotRun", "coglatas.unsupported-input"); exitCode = 2;
+    }
     catch (Exception error) when (error is FormatException or ArgumentException or OverflowException or JsonException)
     {
         artifact = Failure("NotRun", "Error", "coglatas.invalid-or-mismatched-input"); exitCode = 3;
