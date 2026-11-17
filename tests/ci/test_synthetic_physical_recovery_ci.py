@@ -68,7 +68,8 @@ class ClosedRecoveryPublicationTests(unittest.TestCase):
         admitted = {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
                     "RUNNER_OS": "Linux", "GITHUB_EVENT_NAME": "push",
                     "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
-                    "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": "a" * 40}
+                    "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": "a" * 40,
+                    "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "1", "RUNNER_TEMP": "/unused"}
         ci.require_hosted_recovery_event(admitted)
         ci.require_hosted_recovery_event({**admitted, "GITHUB_EVENT_NAME": "pull_request"})
         for change in ({"GITHUB_EVENT_NAME": "workflow_dispatch"},
@@ -83,6 +84,8 @@ class ClosedRecoveryPublicationTests(unittest.TestCase):
                  patch.object(ci.tempfile, "mkdtemp") as workspace, \
                  patch.object(ci.subprocess, "run") as command, \
                  patch.object(ci, "publish_once"), patch("builtins.print"):
+                with self.assertRaises(ci.Rejected):
+                    ci.require_hosted_recovery_event({**admitted, **change})
                 self.assertEqual(ci.main(), 1)
                 workspace.assert_not_called()
                 command.assert_not_called()

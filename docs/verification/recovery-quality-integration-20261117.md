@@ -360,3 +360,19 @@ test. The follow-up constructs the mutated input before the exception assertion,
 so only the actual verifier can satisfy it. All seventeen Windows provenance
 controls still pass. The failed build-test observation capture is not overwritten
 by that Sonar success; the amended source requires a fresh complete CI/Gate cycle.
+
+## Admission negative-control review follow-up
+
+CodeRabbit review `5937870888` of candidate
+`afb41dbd3e916049df7573317b1b5c7320248a47` found one valid test gap: physical
+admission negatives omitted run ID/attempt, so a broken admission guard could
+still appear rejected at the later metadata check. The test now provides valid
+run metadata and independently requires the admission function itself to raise
+for each invalid context. Existing main-entry workspace/subprocess ordering
+assertions remain intact. All 89 Recovery Python controls pass. A private
+mutation check replaces only the admission function with a no-op: all eleven
+invalid-context subtests then fail as expected, with no real Docker operation;
+the original guard is restored after that controlled patch context. This is a
+test-strengthening change, not a production-admission or acceptance-rule change.
+The reviewed candidate's results remain bound to its own SHA; the final source
+must repeat all checks and independent review before readiness.
