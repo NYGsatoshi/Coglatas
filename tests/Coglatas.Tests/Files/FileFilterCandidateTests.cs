@@ -342,8 +342,7 @@ public sealed class FileFilterCandidateTests
         var sql = FileFilterProjectionQuery.Order(query, filter, true).Skip(3).Take(3).ToQueryString();
         Assert.Contains("NOT EXISTS", sql); Assert.Contains("ORDER BY", sql); Assert.Contains("LIMIT", sql);
         Assert.Contains("TenantId", sql); Assert.Contains("FileObjectId", sql);
-        if (sort == "name") Assert.Contains("COLLATE", sql);
-        else Assert.Contains("COALESCE", sql);
+        Assert.Contains(sort == "name" ? "COLLATE" : "COALESCE", sql);
         // Compilation only: no connection, PostgreSQL execution, plan or runtime PASS claimed.
     }
 }
