@@ -1,5 +1,11 @@
 # AI Context
 
+Recovery/quality integration is a review candidate in #2054. Logical, physical
+and continuation Main-SHA paths are configured but have no integrated-Main
+execution credit. Current source, Qodana inventory, exact-run evidence and
+unchanged production/release holds are tracked in
+[the integration ledger](verification/recovery-quality-integration-20261117.md).
+
 This is the primary entry point for future Codex work on Coglatas.
 
 Legacy Project comment edits and deletes read the current persisted account,
