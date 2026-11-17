@@ -57,7 +57,7 @@ public sealed class SyntheticInspectionAdmissionTests
                 view.BeginSynthetic(core);
                 return new(response.Compilation!, () => view.TryAccept(response));
             case "predicate":
-                var predicate = new PredicateCompilerHostRequest(core, new(CompilerPredicateCaptureMode.Manifest));
+                var predicate = new PredicateCompilerHostRequest(core, new());
                 var predicateSession = new LocalPredicateCompilerRecordingSession(profile);
                 var predicateManifest = predicateSession.Prepare(predicate, Guid.NewGuid());
                 view.BeginPredicateSynthetic(predicateManifest, predicate);
@@ -65,7 +65,7 @@ public sealed class SyntheticInspectionAdmissionTests
                 Assert.Equal(CompilerHostStatus.Completed, arrays.Response.Status);
                 return new(arrays.Response.Compilation!, () => view.TryAcceptPredicate(arrays), predicateSession);
             case "operator":
-                var operators = new PredicateObservationCompilerHostRequest(core, new(PredicateEvaluationCaptureMode.Manifest));
+                var operators = new PredicateObservationCompilerHostRequest(core, new());
                 var operatorSession = new LocalPredicateObservationCompilerRecordingSession(profile);
                 var operatorManifest = operatorSession.Prepare(operators, Guid.NewGuid());
                 view.BeginOperatorSynthetic(operatorManifest, operators);
@@ -73,7 +73,7 @@ public sealed class SyntheticInspectionAdmissionTests
                 Assert.Equal(CompilerHostStatus.Completed, observed.Response.Status);
                 return new(observed.Response.Execution!.Compilation, () => view.TryAcceptOperator(observed), operatorSession);
             case "pass":
-                var passes = new PassObservationCompilerHostRequest(core, new(CompilerPassObservationMode.Manifest));
+                var passes = new PassObservationCompilerHostRequest(core, new());
                 var passSession = new LocalPassObservationCompilerRecordingSession(profile);
                 var passManifest = passSession.Prepare(passes, Guid.NewGuid());
                 view.BeginPassSynthetic(passManifest, passes);
@@ -115,21 +115,23 @@ public sealed class SyntheticInspectionAdmissionTests
         if (notification == "new-refused") cancelled.Cancel();
         var newerResponse = await new LocalNetCompilerHost(Profile(newerInput)).CompileAsync(newer, cancelled.Token);
         var notified = false;
-        view.PropertyChanged += (_, _) =>
+        view.PropertyChanged += (sender, _) =>
         {
-            if (notified || view.State != "InspectionUnavailable") return;
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (notified || current.State != "InspectionUnavailable") return;
             notified = true;
             switch (notification)
             {
-                case "reset": view.Reset(); break;
-                case "dispose": view.Dispose(); break;
-                case "new-waiting": view.BeginSynthetic(newer); break;
-                case "new-ready": view.BeginSynthetic(newer); Assert.True(view.TryAccept(newerResponse)); break;
-                case "new-refused": view.BeginSynthetic(newer); Assert.False(view.TryAccept(newerResponse)); break;
+                case "reset": current.Reset(); break;
+                case "dispose": current.Dispose(); break;
+                case "new-waiting": current.BeginSynthetic(newer); break;
+                case "new-ready": current.BeginSynthetic(newer); Assert.True(current.TryAccept(newerResponse)); break;
+                case "new-refused": current.BeginSynthetic(newer); Assert.False(current.TryAccept(newerResponse)); break;
             }
         };
         var accepted = true;
-        var error = Record.Exception(() => accepted = actual.Accept());
+        var accept = actual.Accept;
+        var error = Record.Exception(() => accepted = accept());
         Assert.Equal(source, input.Source.Data); Assert.Equal(result, compilation.Result.Data);
         Assert.Equal(CompilerVerdict.Pass, compilation.Result.Verdict);
         Assert.Null(error); Assert.False(accepted); Assert.True(notified);
