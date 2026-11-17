@@ -1,0 +1,183 @@
+name: ProjectIDE Scenario Core exact-source advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-scenario-core-advisory.yml
+      - tests/candidates/projectide-scenario-core/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scenario-core-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scenario-core-ubuntu:
+    name: Scenario Core independent synthetic composition (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BLOB: abdd8eb8d2975567602d22d19f969458587b3a04
+      RUNNER_BLOB: 9c1ba77b4eda7c7102a4ca9b86b3f9f3ed5ec44a
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-scenario-core/SecurityScenarioCoreCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'scenario-core-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SCENARIO_CORE_TRANSITIONS_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/scenario-core-qualification-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Scenario Core independent synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scenario-core-qualification-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scenario-core-qualification-context
+            ${{ runner.temp }}/scenario-core-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+
+  scenario-core-windows:
+    name: Scenario Core independent synthetic composition (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BLOB: abdd8eb8d2975567602d22d19f969458587b3a04
+      RUNNER_BLOB: 9c1ba77b4eda7c7102a4ca9b86b3f9f3ed5ec44a
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-scenario-core/SecurityScenarioCoreCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'scenario-core-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SCENARIO_CORE_TRANSITIONS_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/scenario-core-qualification-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Scenario Core independent synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scenario-core-qualification-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scenario-core-qualification-context
+            ${{ runner.temp }}/scenario-core-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7
