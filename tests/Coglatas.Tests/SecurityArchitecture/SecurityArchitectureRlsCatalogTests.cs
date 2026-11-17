@@ -53,7 +53,7 @@ public sealed class SecurityArchitectureRlsCatalogTests
                     Assert.Equal(predicates.Keys.Order(StringComparer.Ordinal), baseline.Select(row => row.Table));
                     foreach (var row in baseline)
                     {
-                        Assert.True(row.Enabled && row.Forced && row.NonOwner);
+                        Assert.True(row is { Enabled: true, Forced: true, NonOwner: true });
                         Assert.Equal("*", row.Command);
                         Assert.True(row.RoleMatches);
                         Assert.NotEqual("true", row.Using);
