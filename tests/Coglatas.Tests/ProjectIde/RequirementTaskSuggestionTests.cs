@@ -276,7 +276,9 @@ public sealed class RequirementTaskSuggestionTests
     [InlineData(false)] [InlineData(true)]
     public async Task CancellationDuringInitialSuggestionNotificationReportsCancellationAndPreservesTheNewerPage(bool admitted)
     {
-        var input = SuggestionInput(); using var view = await AcceptedView(input);
+        var input = SuggestionInput();
+        using var view = await AcceptedView(input);
+
         var foreignInspection = Index(input);
         var foreignPage = foreignInspection.SuggestRequirementTasks(Origin(foreignInspection), input.InputDigest, 1);
         Assert.Single(foreignPage.Candidates); Assert.NotNull(foreignPage.NextCursor);
