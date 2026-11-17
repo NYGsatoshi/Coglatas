@@ -125,7 +125,9 @@ public sealed class SecurityDraftRenameCandidateTests
         var fixture = Make(opaque: true);
         var original = Frozen(fixture.Input);
         var plan = Ready(fixture);
-        foreach (var field in new[] { "extensionDeclarations", "packageLock", "sourceReferences", "opaqueMetadata" })
+        var opaqueMetadata = Property(Property(fixture.Input.Source.Data, "extensions"), "opaqueMetadata");
+        Assert.Equal(Json(new { displayName = OriginalName, context = fixture.Input.Source.Context.Data.Value }), opaqueMetadata);
+        foreach (var field in new[] { "extensionDeclarations", "packageLock", "sourceReferences", "extensions" })
             Assert.Equal(Property(fixture.Input.Source.Data, field), Property(plan.After.Source.Data, field));
         var opaqueBefore = fixture.Input.Source.Declarations.Value.EnumerateArray().Single(item => item.GetProperty("kind").GetString() == "coglatas.security-rename.future");
         var opaqueAfter = plan.After.Source.Declarations.Value.EnumerateArray().Single(item => item.GetProperty("kind").GetString() == "coglatas.security-rename.future");
@@ -536,7 +538,7 @@ public sealed class SecurityDraftRenameCandidateTests
     private static void Refused(DraftRenamePreview preview, DraftRenameState state)
     { Assert.Equal(state, preview.State); Assert.Null(preview.Plan); }
     private static PlanDeclaration Declaration(CompilerInputManifest input, EntityId id) =>
-        Assert.Single(PlanDeclarationReader.Read(input.Source).Where(item => item.Declaration?.EntityId == id)).Declaration!;
+        Assert.Single(PlanDeclarationReader.Read(input.Source), item => item.Declaration?.EntityId == id).Declaration!;
     private static SourceJson Type(string kind) => Json(new { kind, schemaVersion = 1, nullable = false, acceptsUnknown = true });
     private static SourceJson Known(string kind, object value) => Json(new { type = Type(kind).Value, state = "coglatas.known", value });
     private static object Pin(SourceRevisionContext context, ContentDigest digest) => new

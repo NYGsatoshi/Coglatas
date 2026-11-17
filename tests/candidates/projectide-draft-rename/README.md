@@ -12,7 +12,7 @@ contains no imported Product test fixture or authored Compiler result.
 - Product SDK: `10.0.403`, from that commit's `global.json`.
 - Initial Security base: `f0e188d090f7542b4c824b5a4ed7aaa2c64fe6d9`.
 - Independent class: `Coglatas.Tests.ProjectIde.SecurityDraftRenameCandidateTests`.
-- Independent C# blob: `26dd7e610f1c1a26652ca4644ab11b0fbe334cda`.
+- Independent C# blob: `2518da1e6358a5fb3512cf49f0ceb469530cb4b7`.
 - Independent runner blob: `5a7f587b38d45d8875a33f485fe39668c8f71635`.
 - Execution scope: `SYNTHETIC_DRAFT_RENAME_CORE_AND_VIEWMODEL_ONLY`.
 
@@ -112,6 +112,15 @@ the declaration helper passed a Compiler input manifest to the public
 that input's exact `Source`; all 24 facts and assertions remain unchanged.
 The original failed evidence is retained. Fresh hosted verification of the
 corrected C# blob remains pending; no local .NET result is claimed.
+
+Run `44119507599` then reported 23 passing facts and one failed opaque-object
+fact, plus analyzer error xUnit2031. The public Source factory stores supplied
+opaque metadata inside `extensions`; the fact now asserts that nested fixture
+value and preserves the entire before/after `extensions` object. The declaration
+helper uses the predicate overload of `Assert.Single`, retaining its exact
+single-match requirement. The 24-fact roster and Product/runner pins remain
+fixed. Both failed runs remain historical evidence; fresh hosted verification
+of this correction is pending.
 
 ## Qualification limits
 
