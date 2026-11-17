@@ -1,0 +1,49 @@
+name: GitHub Action pin-structure Security advisory
+
+# Non-required, read-only validation of the dedicated pin-policy source owner.
+# Not an admission, review approval, or replacement for protected CI contexts.
+on:
+  pull_request:
+    branches:
+      - SecurityTestImplimation
+    paths:
+      - .github/workflows/action-pin-structure-advisory.yml
+      - scripts/ci/github_action_pins.py
+      - scripts/ci/github_action_yaml_structure.rb
+      - scripts/ci/test_github_action_pins.py
+      - docs/ci/github-action-pinning.md
+      - governance/github-actions-allowlist.json
+
+permissions:
+  contents: read
+
+jobs:
+  action-pin-structure-advisory:
+    name: action-pin-structure-advisory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR test tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify Python and Ruby parser syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -c scripts/ci/github_action_yaml_structure.rb
+          python3 -m py_compile scripts/ci/github_action_pins.py scripts/ci/test_github_action_pins.py
+
+      - name: Execute original and new immutable-action-pin controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/test_github_action_pins.py
+
+      - name: Validate unchanged repository-wide Action allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/github_action_pins.py

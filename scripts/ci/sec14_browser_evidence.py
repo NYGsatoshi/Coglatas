@@ -41,7 +41,13 @@ def require(condition: bool, code: str) -> None:
 
 
 def bounded_regular_bytes(path: Path) -> bytes:
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0))
+    # The producer's native report/receipt paths are data, not an authority to
+    # follow filesystem links outside the test-owned artifact directory.
+    # O_NOFOLLOW closes the check/open race on supported POSIX hosts.
+    if path.is_symlink():
+        raise OSError('Regular evidence input required')
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0)
+                         | getattr(os, 'O_NOFOLLOW', 0))
     with os.fdopen(descriptor, 'rb') as handle:
         if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
             raise OSError('Regular evidence input required')
@@ -94,6 +100,14 @@ def normalized_rules(native: dict[str, Any]) -> dict[str, dict[str, int]]:
         risk = alert.get('riskcode')
         require(isinstance(rule, str) and re.fullmatch(r'[0-9]{1,10}', rule) is not None
                 and risk in ('0', '1', '2', '3'), 'NATIVE_RULE_CLASSIFICATION_INVALID')
+        description = alert.get('riskdesc')
+        if description is not None:
+            require(isinstance(description, str) and 0 < len(description) <= 80,
+                    'NATIVE_RISK_DESCRIPTION_INVALID')
+            described_risk = description.split(' ', 1)[0]
+            require(described_risk == {
+                '0': 'Informational', '1': 'Low', '2': 'Medium', '3': 'High'
+            }[risk], 'NATIVE_RISK_CLASSIFICATION_CONFLICT')
         require(rule not in counts, 'NATIVE_DUPLICATE_RULE')
         count = alert.get('count')
         require(isinstance(count, str) and re.fullmatch(r'[0-9]{1,7}', count) is not None,

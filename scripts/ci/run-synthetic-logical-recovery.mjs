@@ -10,7 +10,7 @@ import { writeRecoveryReceipt } from './synthetic-logical-recovery-receipt.mjs';
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const DOCKER = '/usr/bin/docker', GIT = '/usr/bin/git', SOCKET = '/var/run/docker.sock';
 const NODE_IMAGE = 'node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413';
-const SDK_IMAGE = 'mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e';
+const SDK_IMAGE = 'mcr.microsoft.com/dotnet/sdk:11.0.100@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea';
 const BASE = 'infra/compose/test/real-backend-smoke.yml';
 const OVERLAY = 'infra/compose/test/acceptance/logical-recovery-source.yml';
 const TARGET = 'infra/compose/test/logical-recovery-target.yml';

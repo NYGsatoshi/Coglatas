@@ -14,7 +14,7 @@ namespace Coglatas.Tests.Events;
 // Exercises the production service, authorizers, repositories and audit logger with EF InMemory.
 // Only attendance counts use a test adapter because InMemory cannot translate the repository's final GroupBy.
 // This proves application contracts, not PostgreSQL translation, constraints, locking or RLS.
-public sealed class EventLifecycleContractTests
+public sealed partial class EventLifecycleContractTests
 {
     [Theory]
     [InlineData(false, true, "You are not allowed to update this event.")]

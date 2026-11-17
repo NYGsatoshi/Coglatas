@@ -1,0 +1,184 @@
+name: ProjectIDE Compiler immutable source composition advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-compiler-immutability-advisory.yml
+      - tests/candidates/projectide-compiler-immutability/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-immutable-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  immutability-ubuntu:
+    name: Compiler immutable synthetic composition (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
+      RUNNER_BLOB: 355323433b114fee2efe7b0c0c5a586bfea83b22
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/SecurityCompilerImmutableBoundaryCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'compiler-immutability-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_HEADLESS_CORE_WINDOWS_PURE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/compiler-immutability-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: compiler-immutability-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/compiler-immutability-context
+            ${{ runner.temp }}/compiler-immutability-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+
+  immutability-windows:
+    name: Compiler immutable synthetic composition (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
+      RUNNER_BLOB: 355323433b114fee2efe7b0c0c5a586bfea83b22
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/SecurityCompilerImmutableBoundaryCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'compiler-immutability-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_HEADLESS_CORE_WINDOWS_PURE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/compiler-immutability-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: compiler-immutability-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/compiler-immutability-context
+            ${{ runner.temp }}/compiler-immutability-evidence
+          if-no-files-found: error
+          retention-days: 7
+

@@ -21,6 +21,14 @@ SCOPES = {"all-pr", "sensitive-only", "release"}
 PENDING = {"queued", "in_progress", "pending"}
 REJECTED = {"failure", "timed_out", "action_required", "cancelled", "skipped", "neutral", "stale", "error"}
 RUN_URL = re.compile(r"/actions/runs/(?P<id>\d+)(?:/|$)")
+# These long-running PR consumers must run after a failed producer, but must
+# stop when their workflow is cancelled. Routed, short aggregates still use
+# always() so that missing/failed prerequisite evidence is explicitly rejected.
+CANCELLABLE_PR_CONSUMERS = {
+    "build-test": ("dotnet-build", "Require successful build producer"),
+    "frontend-test": ("frontend-build", "Require successful frontend producer"),
+    "security-scan": ("dotnet-build", "Require successful build producer"),
+}
 
 
 def _load(path: Path, label: str) -> Any:
@@ -472,6 +480,40 @@ def _prerequisite_chain_errors(
     return errors
 
 
+def _cancellable_consumer_guard(text: str, block: tuple[int, int, int], job: str) -> bool:
+    """Admit the cancellation-only condition with its actual first-step refusal.
+
+    Keep this deliberately narrow: an if/continue-on-error, changed producer,
+    inserted command or alternate shell in the admission step requires review.
+    This is source validation, not a simulation of GitHub's cancellation engine.
+    """
+    producer, name = CANCELLABLE_PR_CONSUMERS[job]
+    fields = _direct_job_fields(text, block)
+    steps = fields.get("steps", [])
+    if len(steps) != 1 or steps[0][1]:
+        return False
+    lines = _lines(text)
+    steps_index = steps[0][0]
+    steps_indent = _indent(lines[steps_index])
+    first: list[str] = []
+    for line in lines[steps_index + 1:block[1]]:
+        if not line.strip():
+            continue
+        if _indent(line) <= steps_indent:
+            break
+        if first and _indent(line) == steps_indent + 2 and line.lstrip().startswith("-"):
+            break
+        first.append(line[steps_indent + 2:])
+    return first == [
+        f"- name: {name}",
+        "  shell: bash",
+        "  env:",
+        "    BASH_ENV: /dev/null",
+        f"    PRODUCER_RESULT: ${{{{ needs.{producer}.result }}}}",
+        '  run: test "$PRODUCER_RESULT" = success',
+    ]
+
+
 def required_check_errors(relative: str, text: str, registry: dict[str, Any] | None = None) -> list[str]:
     registry = registry or load_required_check_registry()
     entries = [c for c in expanded_checks(registry) if c["workflow"] == relative]
@@ -503,8 +545,15 @@ def required_check_errors(relative: str, text: str, registry: dict[str, Any] | N
                 errors.append(f"{relative}: required check job '{item['job']}' must keep name {item['context']!r}")
             condition = _field(text, block, "if")
             unconditional = {"always()", "${{ always() }}"}
-            if condition is not None and condition not in unconditional:
+            cancellable = (
+                relative == ".github/workflows/ci.yml"
+                and item["job"] in CANCELLABLE_PR_CONSUMERS
+                and condition == "${{ !cancelled() }}"
+            )
+            if condition is not None and condition not in unconditional and not cancellable:
                 errors.append(f"{relative}: required check job '{item['job']}' must not use job-level if")
+            if cancellable and not _cancellable_consumer_guard(text, block, item["job"]):
+                errors.append(f"{relative}: cancellable consumer '{item['job']}' must retain its first-step producer refusal")
             conditional = item.get("conditional_prerequisites", {})
             if conditional and condition not in unconditional:
                 errors.append(f"{relative}: routed aggregate must use always() to reject failed/cancelled/missing prerequisites")
@@ -582,8 +631,12 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
     if live.get("enforcement") != "active":
         errors.append("live required-check ruleset must be active")
     ref = live.get("conditions", {}).get("ref_name", {}) if isinstance(live.get("conditions"), dict) else {}
-    if "~DEFAULT_BRANCH" not in ref.get("include", []):
+    included = ref.get("include") if isinstance(ref, dict) else None
+    if not isinstance(included, list) or not all(isinstance(value, str) and value for value in included) or "~DEFAULT_BRANCH" not in included:
         errors.append("live required-check ruleset must include ~DEFAULT_BRANCH")
+    excluded = ref.get("exclude") if isinstance(ref, dict) else None
+    if not isinstance(excluded, list) or excluded:
+        errors.append("live required-check ruleset must provide an empty exclusion array; exclusion matching is not verified")
     rules = live.get("rules")
     if not isinstance(rules, list):
         return errors + ["live ruleset rules must be an array"]
@@ -606,6 +659,9 @@ def live_ruleset_errors(registry: dict[str, Any], live: Any) -> list[str]:
             continue
         context = value["context"]
         integration = value.get("integration_id")
+        if integration is not None and (not isinstance(integration, int) or isinstance(integration, bool)):
+            errors.append(f"live required status check at index {i} has malformed integration_id")
+            continue
         actual.append((context, integration))
         counts[context] = counts.get(context, 0) + 1
     for context, count in counts.items():
@@ -628,23 +684,23 @@ def _time(value: Any) -> dt.datetime | None:
         return None
     try:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)).astimezone(dt.timezone.utc)
+    except (ValueError, OverflowError):
         return None
-    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)).astimezone(dt.timezone.utc)
 
 
-def _head(candidate: dict[str, Any], sha: str) -> bool:
-    return candidate.get("head_sha", candidate.get("sha")) == sha
+def _head(candidate: dict[str, Any], sha: str, kind: str) -> bool:
+    return candidate.get("head_sha" if kind == "workflow-job" else "sha") == sha
 
 
 def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, base_ref: str | None) -> str | None:
-    if not _head(candidate, sha):
+    if not _head(candidate, sha, item["kind"]):
         return "non-current-head"
     if candidate.get("workflow") != item["workflow"]:
         return "workflow-producer-drift"
     producer = item["producer"]
     if item["kind"] == "workflow-job":
-        if candidate.get("workflow_head_sha") not in {None, sha}:
+        if candidate.get("workflow_head_sha") != sha:
             return "workflow-run-head-drift"
         app = candidate.get("app")
         if not isinstance(app, dict) or app.get("id") != producer["integration_id"] or app.get("slug") != producer["app_slug"]:
@@ -655,7 +711,7 @@ def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, b
         creator = candidate.get("creator")
         if not isinstance(creator, dict) or creator.get("login") != producer["creator_login"]:
             return "status-creator-drift"
-        if candidate.get("workflow_event") not in set(item["trigger"]["events"]):
+        if not isinstance(candidate.get("workflow_event"), str) or candidate["workflow_event"] not in set(item["trigger"]["events"]):
             return "trusted-status-event-drift"
         if base_ref is not None and candidate.get("workflow_head_branch") != base_ref:
             return "trusted-status-ref-drift"
@@ -664,17 +720,25 @@ def _producer_error(item: dict[str, Any], candidate: dict[str, Any], sha: str, b
 
 def _state(item: dict[str, Any], candidate: dict[str, Any]) -> str:
     if item["kind"] == "commit-status":
+        if candidate.get("state") is not None and not isinstance(candidate["state"], str):
+            raise RuntimeError("GitHub commit status state is malformed")
         return str(candidate.get("state") or "unknown")
     status = candidate.get("status")
-    return str(status) if status in PENDING or status != "completed" else str(candidate.get("conclusion") or "unknown")
+    if not isinstance(status, str) or (candidate.get("conclusion") is not None and not isinstance(candidate["conclusion"], str)):
+        raise RuntimeError("GitHub check-run state is malformed")
+    if status != "completed":
+        return status if status in PENDING else "unknown"
+    conclusion = candidate.get("conclusion")
+    return conclusion if conclusion in REJECTED | {"success"} else "unknown"
 
 
-def _stamp(candidate: dict[str, Any]) -> dt.datetime:
-    for key in ("completed_at", "updated_at", "started_at", "created_at"):
+def _stamp(candidate: dict[str, Any], kind: str) -> dt.datetime:
+    keys = ("updated_at",) if kind == "commit-status" else ("completed_at",) if candidate.get("status") == "completed" else ("started_at", "created_at")
+    for key in keys:
         parsed = _time(candidate.get(key))
         if parsed:
             return parsed
-    return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    raise RuntimeError("GitHub evidence ordering timestamp is missing or invalid")
 
 
 def exact_entries(registry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -698,12 +762,16 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
         source = runs if item["kind"] == "workflow-job" else status_values
         key = "name" if item["kind"] == "workflow-job" else "context"
         candidates = [x for x in source if x.get(key) == item["context"]]
-        current_candidates = [x for x in candidates if _head(x, head_sha)]
+        current_candidates = [x for x in candidates if _head(x, head_sha, item["kind"])]
         valid = []
         producer_errors = []
         for candidate in current_candidates:
             error = _producer_error(item, candidate, head_sha, trusted_base_ref)
-            valid.append(candidate) if error is None else producer_errors.append(error)
+            if error is None:
+                _state(item, candidate)
+                valid.append(candidate)
+            else:
+                producer_errors.append(error)
         gate = {
             "gate_id": item["gate_id"],
             "source_gate_id": item.get("source_gate_id", item["gate_id"]),
@@ -722,7 +790,24 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
             overall = "fail"
             gates.append(gate)
             continue
-        selected = sorted(valid, key=lambda c: (_stamp(c), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
+        states = [_state(item, candidate) for candidate in valid]
+        if any(state not in PENDING | REJECTED | {"success"} for state in states):
+            gate["reason"] = "unknown-state"
+            overall = "fail"
+            gates.append(gate)
+            continue
+        if any(state in PENDING and (started := _time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is not None and started > current for candidate, state in zip(valid, states)):
+            raise RuntimeError("GitHub pending timeout clock is in the future")
+        if any(state in PENDING and ((started := _time(candidate.get("started_at")) or _time(candidate.get("created_at"))) is None or current - started > dt.timedelta(minutes=item["timeout_minutes"])) for candidate, state in zip(valid, states)):
+            gate["reason"] = "pending-timeout"
+            overall = "fail"
+            gates.append(gate)
+            continue
+        for candidate in valid:
+            if _stamp(candidate, item["kind"]) > current:
+                raise RuntimeError("GitHub evidence ordering timestamp is in the future")
+        unsettled = [candidate for candidate, state in zip(valid, states) if state in PENDING]
+        selected = sorted(unsettled or valid, key=lambda c: (_stamp(c, item["kind"]), int(c.get("id", 0)) if str(c.get("id", "")).isdigit() else 0), reverse=True)[0]
         state = _state(item, selected)
         gate["observed_state"] = state
         if state == "success":
@@ -830,6 +915,8 @@ def _run_id(url: Any) -> int | None:
 
 
 def _enrich(api: Any, repository: str, candidate: dict[str, Any], url_key: str, cache: dict[int, dict[str, Any]]) -> None:
+    for key in ("workflow", "workflow_event", "workflow_head_sha", "workflow_head_branch"):
+        candidate.pop(key, None)
     run_id = _run_id(candidate.get(url_key))
     if run_id is None:
         return
@@ -855,18 +942,44 @@ def _ruleset(api: Any, repository: str, registry: dict[str, Any]) -> dict[str, A
     return live
 
 
-def _pages(api: Any, path: str, key: str | None) -> list[dict[str, Any]]:
+def _pages(api: Any, path: str, key: str | None, *, expected_head_sha: str | None = None) -> list[dict[str, Any]]:
     out = []
     page = 1
+    declared_total = None
+    seen_ids = set()
     while True:
         payload = api.get(path if page == 1 else f"{path}&page={page}")
+        if expected_head_sha is not None and (not isinstance(payload, dict) or payload.get("sha") != expected_head_sha):
+            raise RuntimeError("GitHub combined status head identity is missing or mismatched")
         batch = payload.get(key) if key and isinstance(payload, dict) else payload
         if not isinstance(batch, list):
             raise RuntimeError("GitHub paginated response is malformed")
-        values = [dict(x) for x in batch if isinstance(x, dict)]
+        if any(not isinstance(value, dict) for value in batch):
+            raise RuntimeError("GitHub pagination page entries must be objects")
+        values = [dict(x) for x in batch]
+        for value in values:
+            identity = value.get("id")
+            if not isinstance(identity, int) or isinstance(identity, bool) or identity <= 0 or identity in seen_ids:
+                raise RuntimeError("GitHub pagination contains a duplicate or invalid entry ID")
+            seen_ids.add(identity)
+        if expected_head_sha is not None:
+            for value in values:
+                if "sha" in value and value["sha"] != expected_head_sha:
+                    raise RuntimeError("GitHub commit status head identity conflicts with its combined response")
+                value["sha"] = expected_head_sha
         out.extend(values)
         total = payload.get("total_count") if isinstance(payload, dict) else None
-        if len(values) < 100 or (isinstance(total, int) and len(out) >= total):
+        if (key is not None or total is not None) and (not isinstance(total, int) or isinstance(total, bool) or total < 0):
+            raise RuntimeError("GitHub pagination total_count is malformed")
+        if isinstance(total, int):
+            if declared_total is not None and total != declared_total:
+                raise RuntimeError("GitHub pagination total_count changed between pages")
+            declared_total = total
+            if len(out) > total or (not values and len(out) < total):
+                raise RuntimeError("GitHub pagination total_count is inconsistent with returned entries")
+            if len(out) == total:
+                return out
+        elif len(values) < 100:
             return out
         page += 1
         if page > 100:
@@ -883,17 +996,20 @@ def evaluate_live_pr(api: Any, repository: str, pr_number: int, registry: dict[s
         raise RuntimeError("Pull Request API response is missing authoritative head/base")
     ruleset_errors = live_ruleset_errors(registry, _ruleset(api, repository, registry))
     checks = _pages(api, f"repos/{repository}/commits/{sha}/check-runs?filter=latest&per_page=100", "check_runs")
-    statuses = _pages(api, f"repos/{repository}/commits/{sha}/statuses?per_page=100", None)
-    for candidate in checks:
-        candidate.setdefault("head_sha", sha)
-    for candidate in statuses:
-        candidate.setdefault("sha", sha)
+    if any(item["kind"] == "commit-status" for item in exact_entries(registry)):
+        statuses = _pages(api, f"repos/{repository}/commits/{sha}/status?per_page=100", "statuses", expected_head_sha=sha)
+    else:
+        statuses = _pages(api, f"repos/{repository}/commits/{sha}/statuses?per_page=100", None)
     contexts = {x["context"] for x in exact_entries(registry)}
     cache = {}
     for candidate in checks:
+        if not isinstance(candidate.get("name"), str) or not candidate["name"]:
+            raise RuntimeError("GitHub check-run context identity is missing or malformed")
         if candidate.get("name") in contexts:
             _enrich(api, repository, candidate, "details_url", cache)
     for candidate in statuses:
+        if not isinstance(candidate.get("context"), str) or not candidate["context"]:
+            raise RuntimeError("GitHub commit status context identity is missing or malformed")
         if candidate.get("context") in contexts:
             _enrich(api, repository, candidate, "target_url", cache)
     exact = exact_head_report(registry, sha, checks, statuses, now=now, trusted_base_ref=base)
