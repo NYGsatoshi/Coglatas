@@ -1,5 +1,10 @@
 # AI Context
 
+The [local Project Test CLI](verification/projectide-local-project-tests.md)
+reports unsupported input settings as an explicit unbound NotRun failure with
+exit 2. Input and existing output bytes remain preserved; no bound Test result,
+manifest integrity, runtime authority or CI adoption is inferred.
+
 Read [initial preview and suggestion cancellation](verification/projectide-initial-preview-cancellation.md)
 for five pure Workbench initial notification guards. Cancelled older Revert,
 Task-suggestion, Scenario, Scenario-to-Draft and Test-definition requests report
