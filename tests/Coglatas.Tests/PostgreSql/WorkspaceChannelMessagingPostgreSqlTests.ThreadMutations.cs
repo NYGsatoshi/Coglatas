@@ -83,7 +83,7 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         // PostgreSQL timestamp storage has microsecond precision; allow its sub-microsecond truncation.
         var storageLowerBound = startedAt.AddTicks(-9);
         await using var afterReader = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var after = await afterReader.Messages.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == replyId);
+        var after = await afterReader.Messages.IgnoreQueryFilters().AsNoTracking().SingleAsync(row => row.Id == replyId, CancellationToken.None);
         Assert.Equal(2L, after.Version);
         Assert.NotNull(after.UpdatedAt);
         Assert.InRange(after.UpdatedAt!.Value, storageLowerBound, completedAt);
@@ -114,7 +114,7 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         Assert.Empty(ThreadScalarDifferences(expectedMessages, await CaptureThreadScalarRowsAsync(afterReader, afterReader.Messages, row => row.Id)));
         Assert.Empty(ThreadScalarDifferences(beforeConversations, await CaptureThreadScalarRowsAsync(afterReader, afterReader.Conversations, row => row.Id)));
 
-        var outboxRows = await afterReader.OutboxEvents.IgnoreQueryFilters().AsNoTracking().ToArrayAsync();
+        var outboxRows = await afterReader.OutboxEvents.IgnoreQueryFilters().AsNoTracking().ToArrayAsync(CancellationToken.None);
         var addedEvents = outboxRows.Where(row => !beforeOutbox.ContainsKey(row.Id)).ToArray();
         Assert.Equal(2, addedEvents.Length);
         var retainedOutbox = (await CaptureThreadScalarRowsAsync(afterReader, afterReader.OutboxEvents, row => row.Id))
@@ -182,7 +182,7 @@ public sealed partial class WorkspaceChannelMessagingPostgreSqlTests
         Assert.DoesNotContain(editedBody, threadEvent.PayloadJson, StringComparison.Ordinal);
         Assert.DoesNotContain(scenario.Actor.DisplayName, threadEvent.PayloadJson, StringComparison.Ordinal);
 
-        var auditRows = await afterReader.AuditLogs.IgnoreQueryFilters().AsNoTracking().ToArrayAsync();
+        var auditRows = await afterReader.AuditLogs.IgnoreQueryFilters().AsNoTracking().ToArrayAsync(CancellationToken.None);
         var addedAudit = Assert.Single(auditRows, row => !beforeAudit.ContainsKey(row.Id));
         var retainedAudit = (await CaptureThreadScalarRowsAsync(afterReader, afterReader.AuditLogs, row => row.Id))
             .Where(row => beforeAudit.ContainsKey(row.Key)).ToDictionary(row => row.Key, row => row.Value);
