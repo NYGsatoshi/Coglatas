@@ -114,9 +114,9 @@ public sealed partial class AnnouncementDraftServiceTests
         var expectedRows = before.ToDictionary(row => row.Key, row => new Dictionary<string, object?>(row.Value));
         expectedRows[originalId] = expected;
         Assert.Empty(FindDraftRowDifferences(expectedRows, afterSave));
-        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync(CancellationToken.None));
         Assert.Empty(fixture.Invalidations.AnnouncementChanges);
-        var idempotencyIds = await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
+        var idempotencyIds = await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync(CancellationToken.None);
 
         var stale = await fixture.Service.SaveAsync(originalId,
             new SaveAnnouncementDraftRequest(originalVersion, fixture.Content("Rejected stale replacement")), cancellation.Token);
@@ -124,8 +124,8 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.False(stale.IsSuccess);
         Assert.Equal("ANNOUNCEMENT_DRAFT_STALE", stale.ErrorDetail!.Code);
         Assert.Empty(FindDraftRowDifferences(afterSave, await CaptureDraftRowsAsync(fixture)));
-        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync());
-        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal(idempotencyIds, await fixture.Db.IdempotencyRecords.IgnoreQueryFilters().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync(CancellationToken.None));
+        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync(CancellationToken.None));
         Assert.Empty(fixture.Invalidations.AnnouncementChanges);
     }
 
@@ -247,7 +247,7 @@ public sealed partial class AnnouncementDraftServiceTests
         Assert.Empty(fixture.Audiences.Outcomes);
         Assert.Equal(expectedCalls, observedAudience.Calls);
         Assert.Empty(FindDraftRowDifferences(before, await CaptureDraftRowsAsync(fixture)));
-        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await fixture.Db.Announcements.IgnoreQueryFilters().ToListAsync(CancellationToken.None));
         Assert.Empty(fixture.Invalidations.AnnouncementChanges);
     }
 

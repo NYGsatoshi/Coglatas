@@ -46,8 +46,8 @@ public sealed class FilesController(
                     Request.Query.TryGetValue(name, out var values) &&
                     (values.Count != 1 || string.IsNullOrWhiteSpace(values[0]))))
                 return InvalidFileFilter();
-            Guid parsedProject = default, parsedFolder = default;
-            bool parsedRoot = default;
+            Guid parsedProject = Guid.Empty, parsedFolder = Guid.Empty;
+            bool parsedRoot = false;
             if ((projectId is not null && !Guid.TryParse(projectId, out parsedProject)) ||
                 (folderId is not null && !Guid.TryParse(folderId, out parsedFolder)) ||
                 (atRoot is not null && !bool.TryParse(atRoot, out parsedRoot)))
