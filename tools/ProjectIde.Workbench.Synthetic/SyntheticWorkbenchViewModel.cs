@@ -257,7 +257,11 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var lifecycle = _lifecycle; var generation = ++_revertPreviewGeneration;
         if (RevertPreview is not null) { RevertPreview = null; Changed(); }
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration || RevertPreview is not null || State != "Ready" ||
-            _compilation?.Model is not { } model || _desired is null) return null;
+            _compilation?.Model is not { } model || _desired is null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
@@ -291,7 +295,11 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         ObjectDisposedException.ThrowIf(_disposed, this);
         var lifecycle = _lifecycle; var selection = _selectionGeneration; var generation = ++_taskSuggestionGeneration;
         if (TaskSuggestions is not null) { TaskSuggestions = null; Changed(); }
-        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         cancellationToken.ThrowIfCancellationRequested();
         if (Inspection is not { } inspection || Selected is not { } selected || _desired is null ||
             Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;

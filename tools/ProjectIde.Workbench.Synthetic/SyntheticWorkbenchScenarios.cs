@@ -23,7 +23,11 @@ public sealed partial class SyntheticWorkbenchViewModel
         var lifecycle = _lifecycle; var selection = _selectionGeneration; var generation = ++_scenarioPreviewGeneration;
         ScenarioPreview = null; ScenarioDraftPreview = null; Changed();
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration ||
-            State != "Ready" || _compilation?.Model is not { } model || _desired is null) return null;
+            State != "Ready" || _compilation?.Model is not { } model || _desired is null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         var preview = ProjectScenarios.Prepare(model, _desired.Input.ExpectedInputDigest, id, revision, overrides, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
         ScenarioPreview = preview; Changed();
@@ -60,7 +64,11 @@ public sealed partial class SyntheticWorkbenchViewModel
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(currentBase); cancellationToken.ThrowIfCancellationRequested();
         var lifecycle = _lifecycle; var selection = _selectionGeneration; var generation = ++_scenarioPreviewGeneration;
         ScenarioDraftPreview = null; Changed();
-        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration || ActiveScenario is not { } plan) return null;
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration || ActiveScenario is not { } plan)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         var preview = ProjectScenarios.ToDraft(plan, currentBase, expectedBase, proposal, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
         ScenarioDraftPreview = preview; Changed();

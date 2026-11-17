@@ -22,7 +22,11 @@ public sealed partial class SyntheticWorkbenchViewModel
         var lifecycle = _lifecycle; var generation = ++_testEditGeneration; var selection = _selectionGeneration;
         if (TestEditPreview is not null) { TestEditPreview = null; Changed(); }
         if (_disposed || lifecycle != _lifecycle || generation != _testEditGeneration || selection != _selectionGeneration ||
-            State != "Ready" || _compilation?.Model is not { } model || _desired is null) return null;
+            State != "Ready" || _compilation?.Model is not { } model || _desired is null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
         var preview = ProjectTestEditing.Preview(model, target, _desired.Input.ExpectedInputDigest, definition, next, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _testEditGeneration || selection != _selectionGeneration) return null;
         TestEditPreview = preview; Changed();

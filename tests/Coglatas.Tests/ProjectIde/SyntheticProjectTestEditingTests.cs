@@ -134,4 +134,54 @@ public sealed class SyntheticProjectTestEditingTests
         else Assert.Null(view.TestEditPreview);
         Assert.IsType<OperationCanceledException>(error);
     }
+    private sealed class CancelInitialDefinitionPreview : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly ProjectLocation _target;
+        private readonly SourceJson _definition;
+        private readonly SourceRevisionContext _next;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public ProjectTestEditPreview? Replacement { get; private set; }
+        public CancelInitialDefinitionPreview(SyntheticWorkbenchViewModel view, bool admitted,
+            ProjectLocation target, SourceJson definition, SourceRevisionContext next)
+        { _view = view; _admitted = admitted; _target = target; _definition = definition; _next = next; view.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.PreviewTestDefinition(_target, _definition, _next, Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.TestEditPreview is not null) return;
+            Fired = true;
+            Replacement = _view.PreviewTestDefinition(_target, _definition, _admitted ? _next : _target.Context);
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationDuringInitialDefinitionNotificationReportsCancellationAndPreservesTheNewerPlan(bool admitted)
+    {
+        var f = await Ready(); using var view = f.View; Assert.True(view.RunSyntheticTests());
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var selected = view.Selected; var tests = view.TestRun!; var testsData = tests.Data;
+        var previous = view.PreviewTestDefinition(f.Target, f.Definition, f.Next)!;
+        Assert.Equal(ProjectTestEditState.Ready, previous.State); Assert.NotNull(previous.Plan);
+        var previousData = previous.Plan.After.Data;
+        using var cancellation = new CancelInitialDefinitionPreview(view, admitted, f.Target, f.Definition, f.Next);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.NotNull(cancellation.Replacement); Assert.NotSame(previous, cancellation.Replacement);
+        Assert.Same(cancellation.Replacement, view.TestEditPreview);
+        Assert.Equal(admitted ? ProjectTestEditState.Ready : ProjectTestEditState.InvalidContext, cancellation.Replacement.State);
+        if (admitted) { Assert.NotNull(cancellation.Replacement.Plan); Assert.Equal(previousData, cancellation.Replacement.Plan.After.Data); }
+        else Assert.Null(cancellation.Replacement.Plan);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Same(selected, view.Selected); Assert.Same(tests, view.TestRun); Assert.Equal(testsData, tests.Data);
+        Assert.Equal(previousData, previous.Plan.After.Data);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }
