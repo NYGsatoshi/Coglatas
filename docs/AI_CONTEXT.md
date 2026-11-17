@@ -1,5 +1,11 @@
 # AI Context
 
+[Fresh binding reference indexes](verification/projectide-binding-reference-index.md)
+share complete-context and typed entity/port lookups within each freshly admitted
+Binder invocation. Canonical public keys, ambiguity, authorization and original
+logical charges remain unchanged; full incremental reference invalidation and
+actual editor/Graph acceptance remain separate.
+
 [Incremental symbol binding](verification/projectide-incremental-symbol-binding.md)
 reuses exact immutable declaration/context symbol partitions after fresh admission.
 Root input stamps, references, diagnostics, budgets and global validation remain

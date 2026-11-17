@@ -220,7 +220,11 @@ public static class ProjectSemanticBinder
                 foreach (var result in set.Results) symbols.AddRange(BindSymbols(result, set.Snapshot.Source.Context));
         }
         var declarations = declarationSets[0].Results;
-        var symbolIndex = symbols.GroupBy(item => item.Key).ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        // These indexes belong only to this freshly admitted invocation. Keep every
+        // matching snapshot/symbol so indexing cannot turn ambiguity into a winner.
+        var snapshotIndex = snapshots.GroupBy(item => item.Source.Context).ToDictionary(group => group.Key, group => group.ToArray());
+        var localSnapshotIndex = snapshots.Prepend(local).GroupBy(item => item.Source.Context).ToDictionary(group => group.Key, group => group.ToArray());
+        var symbolIndex = symbols.GroupBy(item => (item.Context, item.EntityId, item.PortId)).ToDictionary(group => group.Key, group => group.ToArray());
         foreach (var result in declarations)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -298,7 +302,7 @@ public static class ProjectSemanticBinder
             string? key = null;
             string? code = null;
             var invalid = false;
-            var matches = snapshots.Where(item => item.Source.Context.Equals(reference.Context)).ToArray();
+            var matches = snapshotIndex.GetValueOrDefault(reference.Context) ?? [];
             if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
             else if (!reference.Origin.Context.Equals(origin.Context) || reference.Origin.DocumentId != origin.DocumentId ||
                 reference.Origin.EntityId != origin.EntityId || reference.Origin.RelationId != origin.RelationId ||
@@ -319,7 +323,7 @@ public static class ProjectSemanticBinder
             { code = "coglatas.binding.value-reference-manifest-mismatch"; invalid = true; }
             else if (reference.EntityId is { } target)
             {
-                var candidates = symbolIndex.GetValueOrDefault(Key(reference.Context, target)) ?? [];
+                var candidates = symbolIndex.GetValueOrDefault((reference.Context, target, null)) ?? [];
                 if (candidates.Length == 0) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
                 else if (candidates.Length != 1) state = ReferenceResolutionState.Ambiguous;
                 else if (candidates[0].Status != ValueDecodeStatus.Decoded) state = ReferenceResolutionState.Unsupported;
@@ -355,7 +359,7 @@ public static class ProjectSemanticBinder
         {
             ReferenceResolutionState state;
             string? key = null;
-            var matches = snapshots.Prepend(local).Where(item => item.Source.Context.Equals(reference.Context)).ToArray();
+            var matches = localSnapshotIndex.GetValueOrDefault(reference.Context) ?? [];
             if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
             else if (deniedContexts.Contains(reference.Context)) state = ReferenceResolutionState.OutOfScope;
             else if (conflictingContexts.Contains(reference.Context)) state = ReferenceResolutionState.Ambiguous;
@@ -364,7 +368,7 @@ public static class ProjectSemanticBinder
             else if (matches.Length != 1) state = ReferenceResolutionState.Ambiguous;
             else
             {
-                var candidates = symbolIndex.GetValueOrDefault(Key(reference.Context, reference.EntityId, port)) ?? [];
+                var candidates = symbolIndex.GetValueOrDefault((reference.Context, reference.EntityId, port)) ?? [];
                 if (candidates.Length == 0) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
                 else if (candidates.Length != 1) state = ReferenceResolutionState.Ambiguous;
                 else if (candidates[0].Status != ValueDecodeStatus.Decoded) state = ReferenceResolutionState.Unsupported;
