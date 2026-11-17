@@ -100,7 +100,8 @@ public sealed partial class CompilerDependencyAnalysis
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
     }
 
-    internal static CoreCompilation Attach(CoreCompilation local, CancellationToken cancellationToken, PlanDeclarationReadCache? cache)
+    internal static CoreCompilation Attach(CoreCompilation local, CancellationToken cancellationToken, PlanDeclarationReadCache? cache,
+        CompilerRegionalPredicateObservationCollector? regionalObservation = null)
     {
         var model = local.Model; var validation = local.Validation; var input = local.Input;
         if (model is null || validation is null || !validation.SuppliesRead ||
@@ -159,7 +160,9 @@ public sealed partial class CompilerDependencyAnalysis
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (remaining <= 0) { state = CompilerDependencyAnalysisState.ResourceLimit; break; }
-                    var result = PureCoreCompiler.CompileRegion(region.Model, checkedRegion, attachments, remaining, cancellationToken);
+                    var observationStart = regionalObservation?.Collector.RegionalStartedEvaluations ?? 0;
+                    var result = PureCoreCompiler.CompileRegion(region.Model, checkedRegion, attachments, remaining, cancellationToken, regionalObservation?.Collector);
+                    regionalObservation?.RegionCompleted(region, result, observationStart);
                     if (result.Result.Execution == CompilerExecutionState.Cancelled) cancellationToken.ThrowIfCancellationRequested();
                     remaining -= result.LogicalOperationsConsumed - checkedRegion.LogicalOperationsConsumed;
                     evaluatedRules.AddRange(result.Result.RuleOutcomes);

@@ -72,9 +72,24 @@ public static class PureCoreCompiler
         return collector.Complete(completed);
     }
 
+    /// <summary>Explicit actual regional observation; existing root-only observation and host contracts remain unchanged.</summary>
+    public static RecordedRegionalPredicateCompilation CompileWithRegionalPredicateObservation(CompilerInputManifest input,
+        CompilerArtifactIdentity expectedCompiler, CompilerRegionalPredicateObservationPolicy policy,
+        IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
+        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default,
+        PlanDeclarationReadCache? declarationCache = null)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        var collector = new CompilerRegionalPredicateObservationCollector(policy);
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache, collector);
+        return collector.Complete(completed, cancellationToken);
+    }
+
     internal static CoreCompilation CompileRegion(PartialSemanticModel model, CompilerSemanticValidation validation,
-        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken) =>
-        CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments);
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)> attachments, int remainingOperations, CancellationToken cancellationToken,
+        CompilerPredicateObservationCollector? predicateObservation = null) =>
+        CompileSingle(model.Input, model.Input.Compiler, null, null, null, cancellationToken, null, model, remainingOperations, validation, attachments, predicateObservation: predicateObservation);
 
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,

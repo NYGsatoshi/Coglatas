@@ -1,5 +1,11 @@
 # AI Context
 
+[Actual regional predicate observation](verification/projectide-regional-predicate-observation.md)
+adds a separately labelled, explicitly predeclared pure Compiler record and owned
+regional diagnostic reads. Actual call/evaluation counts, execution/coverage/verdict,
+capture gaps and viewer budgets stay distinct. Initial-root records, host/client
+protocols and runtime/retention/Native activation gates remain unchanged.
+
 [Retained Workbench read rosters](verification/projectide-retained-read-rosters.md)
 keeps legacy reference-search and synthetic materialization read lists faithful
 to their original admitted facts without exposing synchronization storage. Existing
