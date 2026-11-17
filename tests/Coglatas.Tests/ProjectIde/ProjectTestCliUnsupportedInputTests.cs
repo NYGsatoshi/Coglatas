@@ -69,4 +69,67 @@ public sealed class ProjectTestCliUnsupportedInputTests
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
+
+    [Theory]
+    [InlineData("format", false, false)] [InlineData("format", false, true)]
+    [InlineData("format", true, false)] [InlineData("format", true, true)]
+    [InlineData("schemaId", false, false)] [InlineData("schemaId", false, true)]
+    [InlineData("schemaId", true, false)] [InlineData("schemaId", true, true)]
+    [InlineData("schemaVersion", false, false)] [InlineData("schemaVersion", false, true)]
+    [InlineData("schemaVersion", true, false)] [InlineData("schemaVersion", true, true)]
+    [InlineData("canonicalEncodingVersion", false, false)] [InlineData("canonicalEncodingVersion", false, true)]
+    [InlineData("canonicalEncodingVersion", true, false)] [InlineData("canonicalEncodingVersion", true, true)]
+    public async Task UnrepresentableSourceIsUnsupportedInBothCliCommands(string field, bool export, bool existingOutput)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "projectide-cli-source-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var source = Source();
+            var future = JsonNode.Parse(source.Data.CanonicalText)!.AsObject();
+            if (field is "schemaVersion" or "canonicalEncodingVersion") future[field] = 2;
+            else future[field] = "example.future";
+            var sourceBytes = SourceJson.Parse(future.ToJsonString()).ToCanonicalBytes();
+            var admission = ProjectSourceCodec.Decode(sourceBytes);
+            Assert.Equal(SourceDecodeStatus.Unsupported, admission.Status); Assert.Null(admission.Source);
+            var envelopeBytes = Input(source: source).ToEnvelope().ToCanonicalBytes();
+            var retainedOutput = Encoding.UTF8.GetBytes("Existing result must survive unsupported Source.");
+            var sourcePath = Path.Combine(directory, "source.json");
+            var envelopePath = Path.Combine(directory, "input.json");
+            var outputPath = Path.Combine(directory, "result.json");
+            File.WriteAllBytes(sourcePath, sourceBytes); File.WriteAllBytes(envelopePath, envelopeBytes);
+            if (existingOutput) File.WriteAllBytes(outputPath, retainedOutput);
+            string[] arguments = export ? ["--export-test", sourcePath, envelopePath, Id(9), outputPath] : [sourcePath, envelopePath, outputPath];
+            int? exitCode = null;
+            var entry = typeof(ConsoleCancellation).Assembly.EntryPoint!;
+            var error = await Record.ExceptionAsync(async () =>
+            {
+                exitCode = await Task.Run(() => (int)entry.Invoke(null, [arguments])!);
+            });
+            Assert.Equal(sourceBytes, File.ReadAllBytes(sourcePath));
+            Assert.Equal(envelopeBytes, File.ReadAllBytes(envelopePath));
+            if (existingOutput) Assert.Equal(retainedOutput, File.ReadAllBytes(outputPath));
+            Assert.Null(error);
+            Assert.Equal(existingOutput ? 3 : 2, exitCode);
+            if (!existingOutput)
+            {
+                var failure = SourceJson.Parse(File.ReadAllBytes(outputPath)).Value;
+                Assert.Equal(export ? "coglatas.project-test-definition-cli-failure/1" : "coglatas.project-test-cli-failure/1", failure.GetProperty("format").GetString());
+                if (export)
+                {
+                    Assert.Equal("Unsupported", failure.GetProperty("state").GetString());
+                    Assert.Equal(2, failure.EnumerateObject().Count());
+                }
+                else
+                {
+                    Assert.Equal("NotRun", failure.GetProperty("execution").GetString());
+                    Assert.Equal("NotRun", failure.GetProperty("verdict").GetString());
+                    Assert.Equal("coglatas.unsupported-input", failure.GetProperty("reason").GetString());
+                    Assert.Equal(4, failure.EnumerateObject().Count());
+                }
+            }
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
 }

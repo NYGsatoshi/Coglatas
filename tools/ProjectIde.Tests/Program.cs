@@ -27,6 +27,8 @@ try
         var sourceBytes = await ReadBounded(args[0], cancellation.Token);
         var decoded = ProjectSourceCodec.Decode(sourceBytes, cancellationToken: cancellation.Token);
         cancellation.Token.ThrowIfCancellationRequested();
+        if (decoded.Status == SourceDecodeStatus.Unsupported && decoded.Source is null)
+            throw new UnsupportedSourceException("Source representation is unsupported.");
         var source = decoded.RequireSource();
         var envelope = SourceJson.Parse(await ReadBounded(args[1], cancellation.Token));
         // Reconstructing the envelope rejects Source, dependency and setting drift; it never rewrites a lock.

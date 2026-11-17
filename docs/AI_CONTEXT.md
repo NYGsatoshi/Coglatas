@@ -1,8 +1,9 @@
 # AI Context
 
 The [local Project Test CLI](verification/projectide-local-project-tests.md)
-reports unsupported input settings as an explicit unbound NotRun failure with
-exit 2. Input and existing output bytes remain preserved; no bound Test result,
+reports unsupported input settings and unrepresentable Source as explicit
+unsupported failures with exit 2, distinct from malformed input. Structurally
+admitted opaque Source retains its existing limited binding/Test behavior. Input and existing output bytes remain preserved; no bound Test result,
 manifest integrity, runtime authority or CI adoption is inferred.
 
 Read [initial preview and suggestion cancellation](verification/projectide-initial-preview-cancellation.md)
