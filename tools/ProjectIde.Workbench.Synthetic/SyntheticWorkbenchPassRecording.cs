@@ -45,7 +45,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             !execution.Compilation.Input.Data.Equals(execution.Compilation.Result.Input.Data) ||
             !execution.Compilation.Input.Source.Data.Equals(Source?.Data)) return false;
         var compilation = execution.Compilation;
-        var inspection = compilation.Model is { } model ? new CompilerSemanticInspection(model) : null;
+        if (!TryPrepareInspection(compilation.Model, out var inspection)) return false;
         var lifecycle = _lifecycle;
         ClearResult(); _compilation = compilation; _acceptedPassInvocation = actual;
         Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed();

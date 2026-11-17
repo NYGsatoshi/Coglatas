@@ -122,10 +122,25 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         {
             return false;
         }
-        var inspection = new CompilerSemanticInspection(model);
+        if (!TryPrepareInspection(model, out var inspection)) return false;
         var lifecycle = _lifecycle;
         ClearResult(); _compilation = compilation; Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed();
         return !_disposed && lifecycle == _lifecycle && ReferenceEquals(Result, compilation.Result);
+    }
+
+    private bool TryPrepareInspection(PartialSemanticModel? model, out CompilerSemanticInspection? inspection)
+    {
+        try
+        {
+            inspection = model is null ? null : new CompilerSemanticInspection(model);
+            return true;
+        }
+        catch (FormatException)
+        {
+            // Refuse this display projection without changing the actual Compiler outcome.
+            inspection = null; ClearResult(); State = "InspectionUnavailable"; Changed();
+            return false;
+        }
     }
 
     public bool Select(ProjectLocation location)
