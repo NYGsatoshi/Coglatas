@@ -25,7 +25,8 @@ jobs:
       PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
-      RUNNER_BLOB: 1bf29bec7e2094b033b5d1057d5d9de77f9a8bc6
+      RUNNER_BLOB: ff8aafb631f6e628257940b29106e502422b31ba
+      CONTROLS_BLOB: e720e70a80424ce927206793e10ce425418eb644
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -50,6 +51,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-output/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-compiler-output/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -62,6 +65,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            controlsBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -87,6 +91,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python -B tests/candidates/projectide-compiler-output/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-output-qualification-product" --evidence "$env:RUNNER_TEMP/compiler-output-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Compiler output independent synthetic qualification did not complete' }
+      - name: Exercise admission regressions over original native outputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/compiler-output-qualification-context/admission-controls.log"
+          python -B tests/candidates/projectide-compiler-output/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/compiler-output-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/compiler-output-qualification-evidence/compiled-discovery.log" -v *> $log
+          $result = $LASTEXITCODE
+          Get-Content $log
+          if ($result -ne 0) { throw 'Compiler output native evidence admission controls failed' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -109,7 +122,8 @@ jobs:
       PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
-      RUNNER_BLOB: 1bf29bec7e2094b033b5d1057d5d9de77f9a8bc6
+      RUNNER_BLOB: ff8aafb631f6e628257940b29106e502422b31ba
+      CONTROLS_BLOB: e720e70a80424ce927206793e10ce425418eb644
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -134,6 +148,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-output/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-compiler-output/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -146,6 +162,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            controlsBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -171,6 +188,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python -B tests/candidates/projectide-compiler-output/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-output-qualification-product" --evidence "$env:RUNNER_TEMP/compiler-output-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Compiler output independent synthetic qualification did not complete' }
+      - name: Exercise admission regressions over original native outputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/compiler-output-qualification-context/admission-controls.log"
+          python -B tests/candidates/projectide-compiler-output/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/compiler-output-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/compiler-output-qualification-evidence/compiled-discovery.log" -v *> $log
+          $result = $LASTEXITCODE
+          Get-Content $log
+          if ($result -ne 0) { throw 'Compiler output native evidence admission controls failed' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
