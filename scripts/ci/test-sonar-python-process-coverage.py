@@ -238,6 +238,20 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertTrue(statements)
             self.assertGreaterEqual(len(statements & run_lines) / len(statements), 0.80)
 
+    def test_logical_main_push_admission_is_measured_by_existing_python_cohort(self):
+        """The native logical suite must be selected; no coverage exclusion or bypass."""
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(cohort.count('tests/ci/test_synthetic_logical_recovery_ci.py'), 1)
+        self.assertIn('python3 -B -m coverage run "$control"', workflow)
+        subject = (ROOT / 'scripts/ci/run-synthetic-logical-recovery-ci.py').resolve()
+        with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
+            config = coverage.Coverage(config_file=str(CONFIG))
+        self.assertEqual(config.get_option('run:include').count(str(subject)), 1)
+        cases = unittest.TestLoader().discover(str(ROOT / 'tests/ci'),
+                                               pattern='test_synthetic_logical_recovery_ci.py')
+        self.assertGreater(cases.countTestCases(), 10)
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -285,6 +299,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/db-ci.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
+            ROOT.as_posix() + '/scripts/ci/run-synthetic-logical-recovery-ci.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract_check.py',
             ROOT.as_posix() + '/scripts/ci/sec_arch_http_accounting.py',

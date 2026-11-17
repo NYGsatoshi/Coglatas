@@ -72,6 +72,54 @@ class LogicalRecoveryContracts(unittest.TestCase):
         self.assertIn("Verify Main-compatible portable catalog acceptance contracts", jobs)
         self.assertNotIn("shadow contracts", jobs)
 
+    def test_main_push_identity_is_exact_and_cannot_claim_pr_metadata(self):
+        base = {
+            "COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
+            "GITHUB_EVENT_NAME": "push",
+            "RUNNER_OS": "Linux",
+            "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_SHA": "a" * 40,
+            "COGLATAS_PR_HEAD_SHA": "",
+            "COGLATAS_PR_BASE_SHA": "",
+        }
+        self.assertEqual(caller.admitted_run_revisions(base), ("a" * 40, None))
+        pr = {**base, "GITHUB_EVENT_NAME": "pull_request",
+              "COGLATAS_PR_HEAD_SHA": "b" * 40,
+              "COGLATAS_PR_BASE_SHA": "c" * 40}
+        self.assertEqual(caller.admitted_run_revisions(pr), ("b" * 40, "c" * 40))
+        for update in (
+            {"GITHUB_EVENT_NAME": "workflow_dispatch"},
+            {"GITHUB_EVENT_NAME": "pull_request_target"},
+            {"GITHUB_REF": "refs/heads/release"},
+            {"GITHUB_REF": "refs/tags/main"},
+            {"GITHUB_REPOSITORY": "someone-else/Coglatas"},
+            {"GITHUB_SHA": "not-a-commit"},
+            {"COGLATAS_PR_HEAD_SHA": "b" * 40},
+            {"COGLATAS_PR_BASE_SHA": "c" * 40},
+            {"RUNNER_OS": "Windows"},
+            {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "self-hosted"},
+        ):
+            with self.subTest(update=update):
+                with self.assertRaises(caller.support.Rejected):
+                    caller.admitted_run_revisions({**base, **update})
+
+    def test_main_push_routes_and_retains_pr_contracts(self):
+        workflow = (ROOT / ".github/workflows/synthetic-logical-recovery.yml").read_text()
+        self.assertIn("  pull_request:\n", workflow)
+        marker = "  push:\n    branches:\n      - main\n    paths:\n"
+        self.assertEqual(workflow.count(marker), 1)
+        push_paths = workflow.split(marker, 1)[1].split("\npermissions:", 1)[0]
+        pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split(
+            "\n  push:\n", 1)[0]
+        self.assertEqual(push_paths, pr_paths)
+        self.assertIn("  contents: read\n", workflow)
+        self.assertIn("  cancel-in-progress: false\n", workflow)
+        self.assertIn("github.event.pull_request.number || github.ref", workflow)
+        self.assertIn("ref: " + chr(36) + "{{ github.sha }}", workflow)
+        self.assertIn("COGLATAS_PR_HEAD_SHA: " + chr(36) + "{{ github.event.pull_request.head.sha }}", workflow)
+        self.assertIn("COGLATAS_PR_BASE_SHA: " + chr(36) + "{{ github.event.pull_request.base.sha }}", workflow)
+
     def test_complete_bounded_database_control(self):
         self.assertTrue(caller.candidate_complete(complete()))
 
