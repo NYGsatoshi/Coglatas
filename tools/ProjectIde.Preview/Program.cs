@@ -5,7 +5,8 @@ using Coglatas.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
 
 // Offline synthetic export only. This tool exposes no HTTP, auth, database or job endpoint.
-var semanticIndexProfile = args is [_, "--semantic-index"];
+var largeSemanticIndexProfile = args is [_, "--semantic-index-large"];
+var semanticIndexProfile = args is [_, "--semantic-index"] || largeSemanticIndexProfile;
 var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
@@ -25,7 +26,7 @@ var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfil
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile || regionalOperatorRecordingProfile || semanticIndexProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index/--semantic-index-large profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -37,6 +38,7 @@ var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenario
 if (dependencyProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-dependency"] = ReferenceScenarioFixture(1300, dependencyConstraint: true) };
 if (scopedProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-scoped"] = ReferenceScenarioFixture(1500, dependencyConstraint: true, additionalVersion: true) };
 if (semanticIndexProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-index"] = ReferenceScenarioFixture(10400, dependencyConstraint: true, additionalVersion: true, publication: true, truth: true, uniqueDependencyIdentity: true, indexReferences: 35, indexDisplayName: "Symbols 日本語 \n\t\"\\"), ["tests-index-partial"] = ReferenceScenarioFixture(10500, admission: "missing", publication: true, uniqueDependencyIdentity: true) };
+if (largeSemanticIndexProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-index-large"] = LargeSemanticIndexFixture(10600, 1000, 500), ["tests-index-bounded"] = LargeSemanticIndexFixture(10700, 160, 150) };
 if (graphProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-graph"] = ReferenceScenarioFixture(1400, graphCycle: true) };
 if (publicationProfile) scenarioFixtures = new(StringComparer.Ordinal) { ["tests-publication-root"] = ScenarioFixture(publication: true), ["tests-publication-true"] = ReferenceScenarioFixture(1600, dependencyConstraint: true, publication: true, truth: true, uniqueDependencyIdentity: outputSnapshotProfile), ["tests-publication-false"] = ReferenceScenarioFixture(1700, dependencyConstraint: true, publication: true, truth: false, uniqueDependencyIdentity: outputSnapshotProfile), ["tests-publication-unknown"] = ReferenceScenarioFixture(1800, dependencyConstraint: true, publication: true, truth: null, uniqueDependencyIdentity: outputSnapshotProfile) };
 if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
@@ -105,6 +107,7 @@ if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navi
 if (operatorRecordingProfile || passRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
+if (largeSemanticIndexProfile) names = scenarioFixtures!.Keys.Select(key => key + "-base").ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
 {
     var scenarioKey = scenarioProfile ? scenarioFixtures!.Keys.Single(key => name == key + "-base" || name == key + "-hypothesis" || name == key + "-draft") : null;
@@ -258,22 +261,33 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
     }
     if (scenarioProfile)
     {
+        var capturedScenario = scenarioFixture ?? throw new InvalidOperationException("Scenario capture requires its prepared fixture.");
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
-        fixture["preparedScenario"] = JsonSerializer.SerializeToNode(new { baselineCaseKey = scenarioKey + "-base", scenarioCaseKey = scenarioKey + "-hypothesis", draftCaseKey = scenarioKey + "-draft",
-            overlay = new { text = scenarioFixture!.Scenario.Overlay.CanonicalText, digest = scenarioFixture.Scenario.OverlayDigest.Data.Value }, draftPlan = scenarioFixture.Draft.Data.Value,
-            appliedValues = new { scenario = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Scenario, scenarioFixture.Scenario.Input)),
-                draft = AppliedValues(ProjectScenarioAppliedValues.Read(scenarioFixture.Draft, scenarioFixture.Draft.After)) } });
-        if (name == scenarioKey + "-base" || name == scenarioKey + "-hypothesis")
+        if (!largeSemanticIndexProfile)
         {
-            var after = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
-            if (inspection is not null && PureCoreCompiler.Compile(after, after.Compiler, snapshots).Result.Execution == CompilerExecutionState.Completed)
-                fixture["preparedDiff"] = JsonSerializer.SerializeToNode(new { afterCaseKey = name == scenarioKey + "-base" ? scenarioKey + "-hypothesis" : scenarioKey + "-draft",
-                comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(input, snapshots), ProjectSemanticBinder.Bind(after, snapshots), input.InputDigest, after.InputDigest).Data.Value });
+            fixture["preparedScenario"] = JsonSerializer.SerializeToNode(new { baselineCaseKey = scenarioKey + "-base", scenarioCaseKey = scenarioKey + "-hypothesis", draftCaseKey = scenarioKey + "-draft",
+                overlay = new { text = capturedScenario.Scenario.Overlay.CanonicalText, digest = capturedScenario.Scenario.OverlayDigest.Data.Value }, draftPlan = capturedScenario.Draft.Data.Value,
+                appliedValues = new { scenario = AppliedValues(ProjectScenarioAppliedValues.Read(capturedScenario.Scenario, capturedScenario.Scenario.Input)),
+                    draft = AppliedValues(ProjectScenarioAppliedValues.Read(capturedScenario.Draft, capturedScenario.Draft.After)) } });
+            if (name == scenarioKey + "-base" || name == scenarioKey + "-hypothesis")
+            {
+                var after = name == scenarioKey + "-base" ? capturedScenario.Scenario.Input : capturedScenario.Draft.After;
+                if (inspection is not null && PureCoreCompiler.Compile(after, after.Compiler, snapshots).Result.Execution == CompilerExecutionState.Completed)
+                    fixture["preparedDiff"] = JsonSerializer.SerializeToNode(new { afterCaseKey = name == scenarioKey + "-base" ? scenarioKey + "-hypothesis" : scenarioKey + "-draft",
+                    comparison = ProjectSemanticDiff.Compare(ProjectSemanticBinder.Bind(input, snapshots), ProjectSemanticBinder.Bind(after, snapshots), input.InputDigest, after.InputDigest).Data.Value });
+            }
         }
-        if (snapshots.Count != 0 || scenarioFixture.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
+        if (snapshots.Count != 0 || capturedScenario.Scenario.Basis.Settings.Value.GetProperty("authorizedExternalSnapshots").GetArrayLength() != 0)
             fixture["materializedSnapshots"] = JsonSerializer.SerializeToNode(SyntheticSnapshotMaterialization.Export(input, snapshots).Value);
-        if (SyntheticScopedSourceProjection.Export(compilation) is { } scopedProjection)
-            fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
+        SourceJson? scopedProjection;
+        try { scopedProjection = SyntheticScopedSourceProjection.Export(compilation); }
+        catch (FormatException error) when (largeSemanticIndexProfile && error.Message is
+            "JSON exceeds the byte processing bound." or "Canonical JSON exceeds the byte processing bound." or "Synthetic scoped projection exceeds its byte bound.")
+        {
+            scopedProjection = null;
+            Console.WriteLine("The original scoped Source transport is unavailable at its existing byte bound.");
+        }
+        if (scopedProjection is not null) fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
         if (semanticIndexProfile && SyntheticSemanticIndexProjection.Export(compilation) is { } indexProjection)
             fixture["semanticIndex"] = JsonSerializer.SerializeToNode(indexProjection.Value);
         if (outputSnapshotProfile && !premiseProfile) {
@@ -306,6 +320,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             }
             if (comparisonProfile) comparisonRuns.Add(name, run);
         }
+        if (largeSemanticIndexProfile) { fixture.Remove("preparedScenario"); fixture.Remove("preparedDiff"); }
         cases[^1] = fixture;
     }
     if (name == "requirement-candidates")
@@ -338,7 +353,7 @@ if (comparisonProfile)
         }
     if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
 }
-var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true });
+var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true, Encoder = largeSemanticIndexProfile ? System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping : null });
 if (recordingProfile) {
     var observed = JsonNode.Parse(output)!.AsObject(); observed["recordingProducer"] = JsonSerializer.SerializeToNode(CompilerRecordingPreview.Producer());
     output = observed.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
@@ -420,6 +435,40 @@ static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool pl
         throw new InvalidOperationException("Actual Scenario Test results did not preserve baseline and fresh input verdicts.");
     return new(plan, draft);
 }
+static PreparedScenarioFixture LargeSemanticIndexFixture(int revision, int projectCount, int relationCount)
+{
+    var original = LocalTestInput("tests-fail", revision);
+    var settings = JsonNode.Parse(original.Settings.CanonicalText)!.AsObject();
+    settings["semantics"]!["version"] = "2"; settings["ir"]!["version"] = "2";
+    settings["executionProfile"]!["maximumOperations"] = 10000000;
+    var declarations = original.Source.Declarations.Value.EnumerateArray().Select(row => (object)row).ToList();
+    for (var i = 0; i < projectCount; i++) declarations.Add(new { entityId = Id(11000 + i), documentId = Id(4), kind = "coglatas.project", schemaVersion = 1,
+        displayName = "Indexed project " + i, payload = new { } });
+    object Endpoint(int id) => new { kind = "coglatas.entity", expectedKind = "coglatas.project",
+        reference = new { tenantId = Id(1), projectId = Id(2), entityId = Id(id), context = original.Source.Context.Data.Value } };
+    var relations = original.Source.Relations.Value.EnumerateArray().Select(row => (object)row).ToList();
+    for (var i = 0; i < relationCount; i++) relations.Add(new { relationId = Id(20000 + i), documentId = Id(4), kind = RelationKinds.RelatedTo, schemaVersion = 1,
+        descriptor = new { descriptorId = RelationKinds.RelatedTo, version = 1 }, source = Endpoint(11000 + i % projectCount), target = Endpoint(11000 + (i + 1 + i / projectCount) % projectCount), payload = new { } });
+    var source = ProjectSource.Create(original.Source.Context, original.Source.Documents, Json(declarations), Json(relations));
+    var basis = new CompilerInputManifest(source, Json(settings));
+    var model = ProjectSemanticBinder.Bind(basis);
+    var task = model.Declarations.Select(row => row.Declaration).OfType<TaskPlanDeclaration>().Single(row => row.EntityId == EntityId.Parse(Id(8)));
+    var port = task.Ports.Single(); var value = JsonNode.Parse(port.DefaultValue!.Data.CanonicalText)!.AsObject(); value["value"] = true;
+    var change = new ProjectScenarioOverride(ProjectLocation.Create(task.DocumentId, source.Context, entityId: task.EntityId),
+        ProjectScenarioOverrideKind.TaskInputDefault, Json(value), port.PortId);
+    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(revision + 10)), ScenarioRevisionId.Parse(Id(revision + 11)), [change]).Plan
+        ?? throw new InvalidOperationException("Large index Scenario preparation unavailable.");
+    var committed = source.Context.CommittedRevision!;
+    var draft = ProjectScenarios.ToDraft(plan, model, basis.InputDigest,
+        new(ProposalId.Parse(Id(revision + 20)), CandidateRevisionId.Parse(Id(revision + 21)), committed, committed)).Plan
+        ?? throw new InvalidOperationException("Large index Draft preparation unavailable.");
+    var verdicts = new[] { basis, plan.Input, draft.After }.Select(input =>
+        ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), SyntheticProjectTestConfiguration.Evaluator).Execute(input.InputDigest).Verdict).ToArray();
+    if (!verdicts.SequenceEqual([CompilerVerdict.Fail, CompilerVerdict.Pass, CompilerVerdict.Pass]))
+        throw new InvalidOperationException("Large index fixture lost the original Project Test verdicts.");
+    return new(plan, draft);
+}
+
 static PreparedScenarioFixture ReferenceScenarioFixture(int revision, bool nested = false, string admission = "available", bool dependencyConstraint = false, bool graphCycle = false, bool additionalVersion = false, bool publication = false, bool? truth = false, bool planTarget = false, int planBudget = 400000, bool uniqueDependencyIdentity = false, string? operatorExample = null, int indexReferences = 0, string? indexDisplayName = null)
 {
     var template = Input("reference-scenario", revision); var context = template.Source.Context;

@@ -101,26 +101,37 @@ export async function readSemanticIndex(value: PreviewCase, sources: AdmittedSco
     if (!fields(d, ['referenceIndex', 'state', 'targetKey', 'resolution']) || d.referenceIndex !== i || d.state !== (unique ? 'Ready' : 'Unavailable') ||
         d.targetKey !== (unique ? references[i].symbolKey : null) || d.resolution !== (unique ? 'Resolved' : null)) return fail();
   }
+  const referenceOffsets = new Map<string, number[]>();
+  for (const [i, reference] of references.entries()) {
+    charge(); const key = reference.symbolKey; if (typeof key !== 'string') return fail();
+    const rows = referenceOffsets.get(key) ?? []; rows.push(i); referenceOffsets.set(key, rows);
+  }
   if (list(projection.referenceSearches).length !== symbols.length || new Set(projection.referenceSearches.map(g => g.targetKey)).size !== symbols.length) return fail();
   for (const group of projection.referenceSearches) {
     charge(); if (!fields(group, ['targetKey', 'pages']) || !expected.has(group.targetKey)) return fail();
-    const pages = list(group.pages); if (!pages.length || pages.length > references.length + 1) return fail(); let offset = 0;
+    const pages = list(group.pages); if (!pages.length || pages.length > references.length + 1) return fail(); let offset = 0; let match = 0;
+    const matches = referenceOffsets.get(group.targetKey) ?? [];
     for (const [i, raw] of pages.entries()) {
-      const page = raw as IndexedReferencePage; const indices: number[] = []; let scanned = 0;
-      while (offset < references.length && scanned < 256 && indices.length < 32) {
-        charge(); const at = offset++; scanned++; if (references[at].symbolKey === group.targetKey) indices.push(at);
-      }
+      charge(); const page = raw as IndexedReferencePage; const indices: number[] = []; const end = Math.min(offset + 256, references.length);
+      while (match < matches.length && matches[match] < end && indices.length < 32) { charge(); indices.push(matches[match++]); }
+      const next = indices.length === 32 ? indices[31] + 1 : end; const scanned = next - offset; offset = next;
       const complete = offset === references.length;
       if (!fields(page, ['state', 'indexCoverageComplete', 'scanComplete', 'scannedReferences', 'referenceIndices']) || page.state !== 'Ready' ||
           page.indexCoverageComplete !== true || page.scanComplete !== complete || page.scannedReferences !== scanned || !equal(page.referenceIndices, indices) || complete !== (i === pages.length - 1)) return fail();
     }
+  }
+  const candidateOffsets = new Map<string, number[]>();
+  for (const [i, symbol] of symbols.entries()) {
+    charge(); if (symbol.isDocument || symbol.declaredType !== null) continue;
+    const rows = candidateOffsets.get(symbol.kind) ?? []; rows.push(i); candidateOffsets.set(symbol.kind, rows);
   }
   const ports = symbols.filter(s => !s.isDocument && s.declaredType !== null);
   if (list(projection.completions).length !== ports.length || new Set(projection.completions.map(g => g.originKey)).size !== ports.length) return fail();
   for (const group of projection.completions) {
     charge(); const port = ports.find(s => s.key === group.originKey); if (!fields(group, ['originKey', 'pages']) || !port) return fail();
     const pages = list(group.pages); if (!pages.length || pages.length > symbols.length + 1) return fail();
-    const type = obj(port.declaredType); const ready = type['kind'] === 'coglatas.entity-reference' && type['schemaVersion'] === 1 && typeof type['expectedKind'] === 'string'; let offset = 0;
+    const type = obj(port.declaredType); const ready = type['kind'] === 'coglatas.entity-reference' && type['schemaVersion'] === 1 && typeof type['expectedKind'] === 'string'; let offset = 0; let match = 0;
+    const matches = ready ? candidateOffsets.get(String(type['expectedKind'])) ?? [] : [];
     for (const [i, raw] of pages.entries()) {
       const page = raw as IndexedCompletionPage;
       if (!fields(page, ['state', 'expectedKind', 'indexCoverageComplete', 'scanComplete', 'scannedSymbols', 'symbolKeys'])) return fail();
@@ -128,11 +139,10 @@ export async function readSemanticIndex(value: PreviewCase, sources: AdmittedSco
         if (pages.length !== 1 || page.state !== 'Unsupported' || page.expectedKind !== null || page.indexCoverageComplete !== false || page.scanComplete !== false || page.scannedSymbols !== 0 || !equal(page.symbolKeys, [])) return fail();
         continue;
       }
-      const keys: string[] = []; let scanned = 0;
-      while (offset < symbols.length && scanned < 256 && keys.length < 32) {
-        charge(); const candidate = symbols[offset++]; scanned++;
-        if (!candidate.isDocument && candidate.declaredType === null && candidate.kind === type['expectedKind']) keys.push(candidate.key);
-      }
+      charge(); const indices: number[] = []; const end = Math.min(offset + 256, symbols.length);
+      while (match < matches.length && matches[match] < end && indices.length < 32) { charge(); indices.push(matches[match++]); }
+      const next = indices.length === 32 ? indices[31] + 1 : end; const scanned = next - offset; offset = next;
+      const keys = indices.map(i => symbols[i].key);
       const complete = offset === symbols.length;
       if (page.state !== 'Ready' || page.expectedKind !== type['expectedKind'] || page.indexCoverageComplete !== true || page.scanComplete !== complete || page.scannedSymbols !== scanned || !equal(page.symbolKeys, keys) || complete !== (i === pages.length - 1)) return fail();
     }

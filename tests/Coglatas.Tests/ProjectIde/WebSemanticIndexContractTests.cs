@@ -7,6 +7,45 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class WebSemanticIndexContractTests
 {
+    [Fact]
+    public void OriginalCapturedIndexRetainsScopedTransportRefusalAndActualBoundedPages()
+    {
+        var path = Path.Combine(Path.GetDirectoryName(SyntheticOperatorRecordingTests.FixturePath())!, "semantic-index-large-v1.json");
+        using var fixture = JsonDocument.Parse(File.ReadAllBytes(path));
+        var rows = fixture.RootElement.GetProperty("cases").EnumerateArray().ToArray(); Assert.Equal(2, rows.Length);
+        foreach (var row in rows)
+        {
+            new WebPreviewContractTests().BrowserFixturesReproduceExactCoreInputsResultsAndSourceLocations(row.GetRawText());
+            var source = ProjectSourceCodec.Decode(Encoding.UTF8.GetBytes(row.GetProperty("sourceText").GetString()!)).RequireSource();
+            var input = CompilerInputManifest.ReadEnvelope(source, SourceJson.Parse(row.GetProperty("manifest").GetRawText()));
+            var compilation = PureCoreCompiler.Compile(input, input.Compiler, WebPreviewContractTests.Snapshots(row, input));
+            var original = SourceJson.Parse(row.GetProperty("semanticIndex").GetRawText());
+            Assert.Equal(original, SyntheticSemanticIndexProjection.Export(compilation));
+            var data = SourceJson.Parse(original.Value.GetProperty("index").GetProperty("text").GetString()!);
+            Assert.True(data.Value.GetProperty("indexCoverageComplete").GetBoolean());
+            Assert.Equal("Complete", data.Value.GetProperty("state").GetString());
+            var symbols = data.Value.GetProperty("symbols").GetArrayLength();
+            var references = data.Value.GetProperty("references").GetArrayLength();
+            Assert.True(references > 256); Assert.True(original.ToCanonicalBytes().Length < 4194304);
+            Assert.Equal(symbols, original.Value.GetProperty("referenceSearches").GetArrayLength());
+            if (row.GetProperty("key").GetString() == "tests-index-large-base")
+            {
+                Assert.True((long)symbols * references > 1000000);
+                var refusal = Assert.Throws<FormatException>(() => SyntheticScopedSourceProjection.Export(compilation));
+                Assert.Contains("byte", refusal.Message, StringComparison.Ordinal);
+                Assert.False(row.TryGetProperty("scopedSources", out _));
+            }
+            else
+            {
+                Assert.Equal("tests-index-bounded-base", row.GetProperty("key").GetString());
+                Assert.Equal(SourceJson.Parse(row.GetProperty("scopedSources").GetRawText()), SyntheticScopedSourceProjection.Export(compilation));
+                Assert.Contains(original.Value.GetProperty("referenceSearches").EnumerateArray(), group =>
+                    group.GetProperty("pages").EnumerateArray().Any(page => !page.GetProperty("scanComplete").GetBoolean() &&
+                        page.GetProperty("referenceIndices").GetArrayLength() == 0 && page.GetProperty("scannedReferences").GetInt32() == 256));
+            }
+        }
+    }
+
     [Theory]
     [InlineData("tests-index-base")]
     [InlineData("tests-index-hypothesis")]

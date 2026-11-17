@@ -55,7 +55,7 @@ public static class SyntheticSemanticIndexProjection
             }
         }
         var json = JsonSerializer.Serialize(new { format = Format, resultDigest = compilation.Result.ResultDigest.Data.Value,
-            index = new { text = index.Data.CanonicalText, digest = index.Digest.Data.Value }, definitions, completions, referenceSearches = searches });
+            index = new { text = index.Data.CanonicalText, digest = index.Digest.Data.Value }, definitions, completions, referenceSearches = searches }, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         try { return SourceJson.Parse(json, new SourceCodecLimits(MaximumBytes: maximumProjectionBytes)); }
         catch (FormatException) { return null; }
     }

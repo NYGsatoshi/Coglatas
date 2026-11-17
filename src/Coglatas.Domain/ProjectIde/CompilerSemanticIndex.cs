@@ -101,15 +101,22 @@ public sealed class CompilerSemanticIndex
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (--remaining < 0) return Empty(CompilerSemanticIndexState.ResourceLimit);
-                var declarations = region.Declarations.GroupBy(row => SourceFields.Identity<EntityId>(row.Data.Value, "entityId"))
-                    .ToDictionary(group => group.Key, group => group.ToArray());
+                var declarations = new Dictionary<EntityId, List<DeclarationDecodeResult>>();
+                foreach (var declaration in region.Declarations)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (--remaining < 0) return Empty(CompilerSemanticIndexState.ResourceLimit);
+                    var id = SourceFields.Identity<EntityId>(declaration.Data.Value, "entityId");
+                    if (!declarations.TryGetValue(id, out var rows)) declarations.Add(id, rows = []);
+                    rows.Add(declaration);
+                }
                 foreach (var symbol in region.Model.Symbols.Where(item => item.Context.Equals(region.Source.Context)))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     remaining -= symbol.Key.Length + 1;
                     if (remaining < 0) return Empty(CompilerSemanticIndexState.ResourceLimit);
                     SourceJson? type = null; string? name = null;
-                    if (declarations.TryGetValue(symbol.EntityId, out var rows) && rows.Length == 1 && rows[0].Declaration is { } declaration)
+                    if (declarations.TryGetValue(symbol.EntityId, out var rows) && rows.Count == 1 && rows[0].Declaration is { } declaration)
                     {
                         name = declaration.DisplayName;
                         if (symbol.PortId is { } port && declaration is TaskPlanDeclaration task)

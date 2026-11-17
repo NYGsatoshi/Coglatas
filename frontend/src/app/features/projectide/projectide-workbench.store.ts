@@ -821,12 +821,15 @@ export class ProjectIdeWorkbenchStore {
     this.semanticIndexReadState.set('loading');
     try {
       const index = await readSemanticIndex(context, sources);
-      if (generation !== this.semanticIndexGeneration || context !== this.context() || sources !== this.admittedScoped()) return false;
+      if (generation !== this.semanticIndexGeneration) return false;
+      if (context !== this.context() || context !== this.result() || sources !== this.admittedScoped()) {
+        this.clearSemanticIndex(); this.semanticIndexReadState.set('unavailable'); return false;
+      }
       if (signal?.aborted) { this.clearSemanticIndex(); return false; }
       if (!index || !semanticIndexMatches(context, sources, index)) throw new Error('semantic-index-unavailable');
       this.semanticIndexSnapshot.set({ context, sources, index }); this.semanticIndexReadState.set('ready'); return true;
     } catch {
-      if (generation === this.semanticIndexGeneration && context === this.context() && sources === this.admittedScoped()) {
+      if (generation === this.semanticIndexGeneration) {
         this.clearSemanticIndex(); this.semanticIndexReadState.set(signal?.aborted ? 'idle' : 'unavailable');
       }
       return false;

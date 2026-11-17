@@ -32,7 +32,14 @@ public sealed class CompilerSemanticIndexTests
         var settings = JsonNode.Parse(fixture.Input.Settings.CanonicalText)!.AsObject(); settings["executionProfile"]!["maximumOperations"] = 3000000;
         var input = Input(settings, ProjectSource.Create(fixture.Input.Source.Context,
             fixture.Input.Source.Documents, Json(declarations), fixture.Input.Source.Relations));
-        var (_, index) = Build(fixture with { Input = input }); Assert.Equal(CompilerSemanticIndexState.Complete, index.State); Assert.True(index.IndexCoverageComplete);
+        var (compilation, index) = Build(fixture with { Input = input }); Assert.Equal(CompilerSemanticIndexState.Complete, index.State); Assert.True(index.IndexCoverageComplete);
+        var originalResult = compilation.Result.Data;
+        var binding = compilation.Dependencies!.Binding;
+        var tiny = CompilerSemanticIndex.Build(binding, input.InputDigest, maximumOperations: 2);
+        Assert.Equal(CompilerSemanticIndexState.ResourceLimit, tiny.State);
+        Assert.Equal(2, tiny.LogicalOperationsConsumed); Assert.Empty(tiny.Symbols); Assert.Empty(tiny.Regions);
+        Assert.Same(originalResult, compilation.Result.Data);
+        Assert.Equal(index.Data, CompilerSemanticIndex.Build(binding, input.InputDigest).Data);
         var found = new List<CompilerIndexedSymbol>(); CompilerIndexCursor? cursor = null; var emptyContinuation = false;
         do
         {
