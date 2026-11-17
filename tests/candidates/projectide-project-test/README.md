@@ -13,21 +13,23 @@ Core and CLI, already integrated through ProjectIDE Product PR #1946.
   `SecurityProjectTestCandidateTests.cs`, source Git blob
   `50e2718d6d88d1020a21640b1d2a46ac4275d07c`.
 - Runner `compose_and_verify.py`, Git blob
-  `5241b5929e0a014d0ab657844855c6dd91bee66b`.
+  `b8138ca3fcd82353c4c11d189c7df1c2e31c9543`.
 - The runner requires a clean committed Security Test checkout and distinct,
-  fresh worktree/evidence paths. It checks the copied candidate's actual
-  working-tree bytes both before compilation and after native discovery,
-  independently of the staged Git blob; it rejects any other tracked Product
-  changes instead of certifying the index alone. It composes exactly one immutable Test blob
-  with a detached immutable Product commit without rewriting Product source.
+  fresh worktree/evidence paths. It checks regular, nonsymlink candidate bytes,
+  the staged Git blob, exact Product HEAD and complete tracked Product delta
+  after composition, restore, native test and compiled discovery. It composes
+  exactly one immutable Test blob with a detached immutable Product commit.
 - GitHub-hosted Ubuntu 24.04 and Windows runners use immutable
   `actions/checkout`, `setup-dotnet`, `setup-python`, `upload-artifact`
   actions, no persistent checkout credentials and read-only contents access.
 - Product `global.json` pins .NET SDK 10.0.403 without roll-forward.
-- Native actual compiled xUnit discovery must match **all twelve distinct**
-  passing TRX results, with zero failed/skipped/not-executed and a successful
-  run-level summary. The raw original logs, TRX and source receipts are retained
-  with per-file SHA-256 and Product/composed Git trees for independent audit.
+- Native actual compiled xUnit discovery and the complete TRX must match
+  the **frozen original twelve facts**. Require the TeamTest/2010 namespace,
+  exactly one supported summary/counter/inventory container, independently exact
+  class and bare-method names, unique test/execution IDs and matching result,
+  definition and entry bijections. Every non-PASS counter must be zero.
+  Original logs, TRX and source receipts retain per-file SHA-256 and
+  Product/composed Git trees for independent audit.
 
 ## Scope of the twelve tests
 
@@ -61,9 +63,54 @@ building blocks already included in the immutable Product tree. They are not
 duplicates of Product-authored `ProjectTestRunnerTests` source or copies of
 those tests into the Security branch.
 
+## Native admission repair
+
+The existing reader admitted same-count reports with substituted class names,
+duplicate native IDs, missing definitions/entries and nonzero incomplete
+counters. Its discovery check accepted longer method aliases because it searched
+for a bare-method substring. This follow-up preserves the original twelve
+C# facts and immutable Product pin while requiring complete native identity
+binding and exact compiled discovery.
+
+`test_compose_and_verify.py` exercises 21 admission controls using original
+native TRX/discovery inputs, including the authentic positive, malformed
+copies, unsupported or duplicate containers, class/method and native identity
+refusals, counters, discovery aliases and significant whitespace. Real temporary
+Git worktrees exercise actual candidate-byte, tracked Product, index-only and
+same-tree Product HEAD changes after restore, test and discovery. Only the
+dotnet boundary is controlled in those main-path regressions; they do not count
+as native execution. Every failure remains `FAILED_OR_INCOMPLETE`, receives no
+`nativeXunit` credit and preserves all six false flags.
+
+Before any Main fixture initializes Git, both retained inputs must pass the
+frozen native/discovery admission checks; empty, malformed and foreign fixtures
+stop the controls instead of supplying negative-test credit. Each Main refusal
+checks its exact error, receipt error and complete reached-stage sequence.
+Local Git children, including the raw source read and temporary fixture setup,
+remove inherited `GIT_*` process settings while preserving every non-Git
+environment variable. These operations perform no remote Git access. A real
+disposable two-repository control demonstrates the old environment redirect,
+runs the repaired Main path under the same pollution, and compares every file
+in the disposable caller repository to prove it was unchanged. The original
+caller repository is never used as the pollution target.
+
+Both advisory hosts run the pinned controls against their own newly produced
+original native outputs and retain `admission-controls.log` separately.
+Local replay uses original run `43619001017`, attempt 1, Ubuntu artifact
+`14123266465`, whose ZIP SHA256 is
+`ff361b43a21acd722c8589ed5c37990413c4067b4bc817f33d8fb05a6a601889`.
+Original #1958 native evidence remains historical and valid for its source.
+Malformed copies demonstrate reader defects, not a hosted execution bypass.
+Fresh native twelve-case execution and exact-head CI are required for this repair.
+
+```text
+python -B tests/candidates/projectide-project-test/test_compose_and_verify.py --native-trx <retained-candidate.trx> --compiled-discovery <retained-compiled-discovery.log> -v
+```
+
 ## Original and remaining acceptance boundaries
 
 The tests are a **local synthetic Core-only** slice. They do not exercise
+Test-definition editing and lifecycle, browser original-byte admission,
 current persisted actor/session/Tenant/Project/Branch capability admission,
 Query/Open/Preview/Run/Cancel/Export authority, server-side redaction and
 revocation, durable jobs, artifacts/caches, an actual cross-host attested CLI
@@ -75,7 +122,8 @@ The current first candidate has no real hosted execution claim until its
 **exact HEAD** two-host advisory completes, original TRX and ZIP artifacts are
 downloaded and verified, and original six app15368 Required Check contexts
 succeed. A passing supplemental advisory never replaces required checks,
-a human current-HEAD `APPROVED`, or Security Owner governance.
+independent current-source review or applicable Security Owner governance.
+No formal GitHub `APPROVED` status is inferred from parser or native results.
 
 All recorded receipt flags are explicitly false:
 `requiredCheckQualified`, `independentReviewComplete`,
