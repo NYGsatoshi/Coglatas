@@ -122,6 +122,10 @@ is superseded only by this configured integration candidate.
 
 ## Verification ledger
 
+This is an implementation-time checkpoint, not a live final-status assertion.
+The final current-HEAD receipt is maintained in #2054 without embedding a
+self-referential commit SHA into this source document.
+
 Local recovery contract cohort: **86 tests PASS**, no skips. Portable catalog,
 trigger and restore-list Node cohort: **23 tests PASS**, no skips. These are
 contract/oracle tests, not native PostgreSQL recovery executions.

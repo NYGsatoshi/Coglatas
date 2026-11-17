@@ -94,6 +94,8 @@ class ClosedRecoveryPublicationTests(unittest.TestCase):
             self.assertEqual(pr.split("    paths:\n", 1)[1], push.split("permissions:\n", 1)[0])
             self.assertIn("github.event.pull_request.number || github.ref", workflow)
             self.assertIn("ref: " + chr(36) + "{{ github.sha }}", workflow)
+            self.assertIn("tests/ci/test_synthetic_physical_recovery_http_guard.py", pr)
+            self.assertIn("tests/ci/test_synthetic_physical_recovery_http_guard.py", push)
             self.assertIn("  cancel-in-progress: false\n", workflow)
             self.assertIn("  contents: read\n", workflow)
 
