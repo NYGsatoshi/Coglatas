@@ -26,8 +26,8 @@ public sealed class AuditFindingDecisionServiceTests
         Assert.True(result.Value.CanReview);
         var acceptedRisk = Assert.Single(result.Value.Options, option => option.Decision == "AcceptedRisk");
         Assert.True(acceptedRisk.RationaleRequired);
-        Assert.Contains(result.Value.Options, option => option.Decision == "NoIssue" && !option.RationaleRequired);
-        Assert.Contains(result.Value.Options, option => option.Decision == "NeedsFix" && !option.RationaleRequired);
+        Assert.Contains(result.Value.Options, option => option is { Decision: "NoIssue", RationaleRequired: false });
+        Assert.Contains(result.Value.Options, option => option is { Decision: "NeedsFix", RationaleRequired: false });
     }
 
     [Fact]
