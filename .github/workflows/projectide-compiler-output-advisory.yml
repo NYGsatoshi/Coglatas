@@ -22,10 +22,10 @@ jobs:
     timeout-minutes: 35
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 510986d31a9bb111eee02779b6a8efb88b03c257
+      PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: a7832c98fcded823532b974eee11b74168ddfbf2
-      RUNNER_BLOB: 6462aee5866215997585e7259aacd6e7541b400f
+      SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
+      RUNNER_BLOB: 1bf29bec7e2094b033b5d1057d5d9de77f9a8bc6
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -65,7 +65,7 @@ jobs:
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
-            executionScope = 'SYNTHETIC_COMPILER_OUTPUT_CORE_ONLY'
+            executionScope = 'SYNTHETIC_COMPILER_OUTPUT_CORE_AND_VIEWMODEL_ONLY'
             requiredCheckQualified = $false
             independentReviewComplete = $false
             nativeUiQualified = $false
@@ -106,10 +106,10 @@ jobs:
     timeout-minutes: 35
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 510986d31a9bb111eee02779b6a8efb88b03c257
+      PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      SOURCE_BLOB: a7832c98fcded823532b974eee11b74168ddfbf2
-      RUNNER_BLOB: 6462aee5866215997585e7259aacd6e7541b400f
+      SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
+      RUNNER_BLOB: 1bf29bec7e2094b033b5d1057d5d9de77f9a8bc6
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -149,7 +149,7 @@ jobs:
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
-            executionScope = 'SYNTHETIC_COMPILER_OUTPUT_CORE_ONLY'
+            executionScope = 'SYNTHETIC_COMPILER_OUTPUT_CORE_AND_VIEWMODEL_ONLY'
             requiredCheckQualified = $false
             independentReviewComplete = $false
             nativeUiQualified = $false
