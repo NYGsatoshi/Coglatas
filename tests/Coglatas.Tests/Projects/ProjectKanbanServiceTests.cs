@@ -149,7 +149,7 @@ public sealed class ProjectKanbanServiceTests
         Assert.Equal(50, parentCard.ProgressPercent);
         Assert.Equal(new DateOnly(2026, 6, 15), parentCard.PlannedStartDate);
         Assert.Equal(new DateOnly(2026, 8, 15), parentCard.PlannedEndDate);
-        Assert.Contains(snapshot.Cards, card => card is { Summary: "Child A", UiPermissions: { CanMove: true } });
+        Assert.Contains(snapshot.Cards, card => card.Summary == "Child A" && card.UiPermissions.CanMove);
     }
 
     [Fact]
