@@ -87,17 +87,20 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private void BeginSyntheticContext(CompilerHostRequest desired, PredicateCompilerHostRequest? predicateRequest,
         LocalPredicateCompilerRecordingManifest? predicateManifest, PredicateObservationCompilerHostRequest? operatorRequest = null,
         LocalPredicateObservationCompilerRecordingManifest? operatorManifest = null,
-        PassObservationCompilerHostRequest? passRequest = null, LocalPassObservationCompilerRecordingManifest? passManifest = null)
+        PassObservationCompilerHostRequest? passRequest = null, LocalPassObservationCompilerRecordingManifest? passManifest = null, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(desired);
+        cancellationToken.ThrowIfCancellationRequested();
         if (desired.ClientGeneration <= _lastGeneration) throw new ArgumentException("A new lifecycle needs a strictly newer generation.", nameof(desired));
         var lifecycle = ++_lifecycle;
         _lastGeneration = desired.ClientGeneration;
         ClearContext(); Changed();
+        cancellationToken.ThrowIfCancellationRequested();
         // A synchronous notification may reset, dispose or begin a newer context.
         if (_disposed || lifecycle != _lifecycle) return;
         // Materialize before publishing context, so malformed input cannot leave a partial selection.
         var source = desired.Input.Materialize().Source;
+        cancellationToken.ThrowIfCancellationRequested();
         _desired = desired; _desiredPredicateRequest = predicateRequest; _desiredPredicateManifest = predicateManifest;
         _desiredOperatorRequest = operatorRequest; _desiredOperatorManifest = operatorManifest;
         _desiredPassRequest = passRequest; _desiredPassManifest = passManifest;
@@ -260,7 +263,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             !plan.Target.Data.Equals(Selected.Symbol.Location.Data) || Resolve(plan.Target, requireSourceMap: true) != "ready" ||
             clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
-        BeginSynthetic(request);
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken);
         return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
 
@@ -299,7 +302,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         if (!ReferenceEquals(RevertPreview?.Plan, plan) || _compilation is null || _desired is null ||
             clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
-        BeginSynthetic(request);
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken);
         return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
 

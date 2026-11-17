@@ -51,7 +51,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             clientGeneration <= _lastGeneration || Resolve(plan.Target) != "ready" ||
             plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
-        BeginSynthetic(request); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
     private void ClearTestEdit() { _testEditGeneration++; TestEditPreview = null; }
 }
