@@ -137,6 +137,6 @@ public sealed class FileFilterCandidateHttpTests
             return new Host(app, new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(address) });
         }
         public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); }
-        private sealed class Marker : IFileFilterReviewHost { }
+        private sealed class Marker : IFileFilterReviewHost;
     }
 }
