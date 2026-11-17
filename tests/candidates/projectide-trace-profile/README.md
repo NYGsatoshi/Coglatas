@@ -24,11 +24,11 @@ Native/Avalonia UI.
   method names, bodies and helpers remain byte-identical to source blob
   `680b7da997b4d9abee16536b7915df749d293972`.
 - Composition script `compose_and_verify.py` Git blob
-  `81f2a0fe7d171c872cd1f627ab6d2fc6566981f8`.
-  It checks the exact original Test Git blob/index and actual working-tree
-  bytes before composition execution, after restore and after compilation,
-  rejects unrelated Product tracked
-  changes, uses a detached immutable Product worktree and retains the source,
+  `222114dc16d4774b70759b4dbb3abaf33f2684d7`.
+  It checks the exact original Test Git blob/index, regular nonsymlink candidate
+  bytes and unchanged immutable Product HEAD before composition execution, after
+  restore, immediately after native tests and after compiled discovery. It rejects
+  unrelated tracked Product changes, uses a detached Product worktree and retains the source,
   Product/composed tree, SDK and actual compiled TRX/discovery evidence.
 - Product `global.json` pins SDK `10.0.403` without roll-forward.
   The read-only nonrequired advisory uses pinned GitHub Actions, the literal
@@ -40,8 +40,12 @@ Native/Avalonia UI.
 The runner freezes every full native test identity. It rejects missing,
 duplicate, substituted, foreign-namespace or non-Passed cases; TRX results,
 definitions and entries must form one bijection, and each definition's
-`TestMethod` must reproduce its exact raw fully qualified name. One result
-summary/counter set and exact compiled discovery equality are required.
+`TestMethod` must contain the exact class and bare method separately. Moving
+part of the class into a dotted method name cannot substitute for that binding.
+The result summary/counters and Results/TestDefinitions/TestEntries containers
+must each occur exactly once in the native TRX namespace; inventory containers
+may contain only their supported native record types. Exact compiled discovery
+equality is required.
 Discovery removes only its four-space CLI presentation prefix and preserves
 the remaining raw identity, including trailing whitespace.
 

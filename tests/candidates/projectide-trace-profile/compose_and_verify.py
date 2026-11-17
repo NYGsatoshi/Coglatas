@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = "tests/candidates/projectide-trace-profile/SecuritySimulationTraceProfileCandidateTests.cs"
 DESTINATION = "tests/Coglatas.Tests/ProjectIde/SecuritySimulationTraceProfileCandidateTests.cs"
 TEST_CLASS = "SecuritySimulationTraceProfileCandidateTests"
+TEST_CLASS_FQN = "Coglatas.Tests.ProjectIde." + TEST_CLASS
 ORIGINAL_METHODS = (
     "ActualFixedRecordingSeparatesElapsedUnionTaskTimeAndUnattributedIdle",
     "OverlapCountsOnceInBusyUnionButTwiceInTaskIntegral",
@@ -50,51 +51,55 @@ LIFECYCLE_METHODS = (
     "PreCancelledProfileQueryWithdrawsPriorSummaryAndPreservesRecording",
     "CancellationWithoutReplacementWithdrawsOnlyTheInterruptedProfile",
 )
-EXPECTED_IDENTITIES = frozenset(
-    "Coglatas.Tests.ProjectIde." + TEST_CLASS + "." + method
-    for method in ORIGINAL_METHODS + LIFECYCLE_METHODS
-)
+EXPECTED_METHODS = ORIGINAL_METHODS + LIFECYCLE_METHODS
+EXPECTED_IDENTITIES = frozenset(TEST_CLASS_FQN + "." + method for method in EXPECTED_METHODS)
 EXPECTED = 32
+TRX_NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
+
+
+def single_element(parent: ET.Element, name: str) -> ET.Element:
+    elements = parent.findall("{*}" + name)
+    if len(elements) != 1 or elements[0].tag != TRX_NAMESPACE + name:
+        raise ValueError("Native TRX requires one " + name + " element")
+    return elements[0]
 
 
 def native_inventory(path: Path) -> list[str]:
     """Admit the frozen raw fact identities and their complete native TRX binding."""
     trx = ET.parse(path).getroot()
-    summaries = trx.findall("{*}ResultSummary")
-    if len(summaries) != 1:
-        raise ValueError("Native TRX must contain exactly one result summary")
-    summary = summaries[0]
-    counter_nodes = summary.findall("{*}Counters")
-    if len(counter_nodes) != 1:
-        raise ValueError("Native TRX must contain exactly one counter set")
-    counters = counter_nodes[0]
+    if trx.tag != TRX_NAMESPACE + "TestRun":
+        raise ValueError("Native TRX root or namespace is invalid")
+    summary = single_element(trx, "ResultSummary")
+    counters = single_element(summary, "Counters")
     if (summary.get("outcome") != "Completed"
             or len(EXPECTED_IDENTITIES) != EXPECTED
             or any(counters.get(key) != str(EXPECTED) for key in ("total", "executed", "passed"))
-            or any(int(value) != 0 for key, value in counters.attrib.items()
+            or any(counters.get(key) != "0" for key in ("failed", "notExecuted"))
+            or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly thirty-two complete passing candidate facts")
-    cases = trx.findall("{*}Results/{*}UnitTestResult")
-    definitions = trx.findall("{*}TestDefinitions/{*}UnitTest")
-    entries = trx.findall("{*}TestEntries/{*}TestEntry")
+    containers = []
+    for container_name, child_name in (("Results", "UnitTestResult"),
+                                       ("TestDefinitions", "UnitTest"), ("TestEntries", "TestEntry")):
+        children = list(single_element(trx, container_name))
+        if len(children) != EXPECTED or any(child.tag != TRX_NAMESPACE + child_name for child in children):
+            raise ValueError("Native TRX contains missing or unsupported inventory records")
+        containers.append(children)
+    cases, definitions, entries = containers
     names = [item.get("testName", "") for item in cases]
-    if (any(len(items) != EXPECTED for items in (cases, definitions, entries))
-            or set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
+    if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
             or any(item.get("outcome") != "Passed" for item in cases)):
         raise ValueError("Native TRX does not match the exact original and lifecycle trace profile fact roster")
     result_pairs = [(item.get("testId"), item.get("executionId")) for item in cases]
     entry_pairs = [(item.get("testId"), item.get("executionId")) for item in entries]
     definition_pairs = []
     for item in definitions:
-        executions = item.findall("{*}Execution")
-        methods = item.findall("{*}TestMethod")
-        if len(executions) != 1 or len(methods) != 1:
-            raise ValueError("Native TRX definitions require one execution and one method")
-        method = methods[0]
-        identity = method.get("className", "") + "." + method.get("name", "")
-        if identity != item.get("name") or identity not in EXPECTED_IDENTITIES:
+        execution = single_element(item, "Execution")
+        method = single_element(item, "TestMethod")
+        if (method.get("className") != TEST_CLASS_FQN or method.get("name") not in EXPECTED_METHODS
+                or TEST_CLASS_FQN + "." + method.get("name", "") != item.get("name")):
             raise ValueError("Native TRX method metadata disagrees with its frozen fact identity")
-        definition_pairs.append((item.get("id"), executions[0].get("id")))
+        definition_pairs.append((item.get("id"), execution.get("id")))
     for pairs in (result_pairs, entry_pairs, definition_pairs):
         if (any(not all(pair) for pair in pairs) or len(set(pairs)) != EXPECTED
                 or len({pair[0] for pair in pairs}) != EXPECTED
@@ -185,8 +190,12 @@ def main() -> None:
             raise ValueError("Composed candidate differs from original committed Git blob")
         def verify_working_tree() -> None:
             # The index identity is insufficient: inspect actual compiler input bytes.
-            if output.read_bytes() != raw:
+            if output.is_symlink() or not output.is_file() or output.read_bytes() != raw:
                 raise ValueError("Composed working-tree Test source changed from the committed blob")
+            if git(worktree, "rev-parse", "HEAD") != arguments.product_head:
+                raise ValueError("Composed Product HEAD changed from its immutable pin")
+            if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
+                raise ValueError("Composed candidate index changed from its committed Git blob")
             changed = git(worktree, "diff", "--name-only", "HEAD", "--").splitlines()
             if changed != [DESTINATION]:
                 raise ValueError("Tracked Product source changed during independent composition")
@@ -208,6 +217,7 @@ def main() -> None:
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
                  "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
+        verify_working_tree()
         names = native_inventory(evidence / "candidate.trx")
         discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
                              "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
