@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../tools/Coglatas.SecurityArchitecture/Coglatas.SecurityArchitecture.csproj" />
+    <ProjectReference Include="../../tools/synthetic-recovery-acceptance/Coglatas.SyntheticRecoveryAcceptance.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Application\Coglatas.Application.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Domain\Coglatas.Domain.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Infrastructure\Coglatas.Infrastructure.csproj" />

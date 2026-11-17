@@ -380,6 +380,12 @@
       "coglatas.securityarchitecture": {
         "type": "Project"
       },
+      "coglatas.syntheticrecoveryacceptance": {
+        "type": "Project",
+        "dependencies": {
+          "Coglatas.Web": "[1.0.0, )"
+        }
+      },
       "coglatas.ui.core": {
         "type": "Project"
       },

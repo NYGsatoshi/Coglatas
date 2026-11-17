@@ -208,3 +208,39 @@ coverage threshold, exclusion, source classification, security rule, baseline
 or success condition is relaxed. Source changes require new current-HEAD
 native, quality, security and review evidence; none of the earlier candidate's
 successful checks is inherited by the amended SHA.
+
+## Continuation acceptance-tool admission follow-up
+
+CodeRabbit review `5936171841` of candidate
+`b069300231ac855b9c7d2076848d3039fe211460` identified a valid remaining
+Main-route defect: the Python caller admitted qualified Main pushes, but the
+compiled acceptance tool still accepted only `pull_request`. Successful PR
+continuation receipts do not exercise or qualify that Main-only path.
+
+The tool now applies an independently tested admission predicate before any
+private configuration path or file is read. Existing hosted-Linux PR behavior
+is preserved. Pushes additionally require the exact repository
+`NYGsatoshi/Coglatas`, `refs/heads/main`, an exact 40-character lowercase
+hexadecimal SHA, and absent or empty PR head/base metadata. Other events,
+repositories, refs, malformed identities, PR metadata, self-hosted runners and
+other operating systems fail closed. The caller's actual checkout-SHA check,
+private-path ownership, closed configuration, assembly identities, all recovery
+controls and receipt privacy remain unchanged.
+
+The pure predicate is tested against real compiled C# code through a test-only
+friend assembly and project reference, without changing process environment or
+starting Docker, PostgreSQL or HTTP. The dependency lock update records only
+this existing local tool project; no package version changes. The Python
+contract also requires the actual tool entry to call the predicate before
+configuration I/O. This is Lane C operational-tool behavior with a D-to-C
+contract audit (no product API, DI, serialization or persistence change), plus
+Lane B negative/positive tests. A new source epoch must repeat native recovery,
+full quality gates and independent reviews. Future exact-Main push execution
+and all production/strategy/release holds remain unexecuted and unchanged.
+
+Local locked Solution restore and the compiled helper cohort passed (29/29,
+zero skips); the Recovery Python cohort passed 89/89. The initial helper run
+retains its 28 PASS / 1 FAIL outcome: its supposed valid SHA fixture contained
+42 characters. Correcting that fixture to 40 characters, rather than relaxing
+the admission predicate, produced the successful rerun. The negative fixtures
+separately retain 39/41-character, uppercase, non-hexadecimal and newline cases.

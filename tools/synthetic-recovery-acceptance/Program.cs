@@ -60,9 +60,7 @@ internal static class Program
         var assemblies = new Dictionary<string, string>();
         try
         {
-            Require(args.Length == 1 && Environment.GetEnvironmentVariable("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                && Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME") == "pull_request"
-                && Environment.GetEnvironmentVariable("RUNNER_OS") == "Linux");
+            Require(args.Length == 1 && RunAdmission.IsAllowed(Environment.GetEnvironmentVariable));
             var path = Path.GetFullPath(args[0]);
             var root = Path.GetDirectoryName(path)!;
             var temporary = Path.GetFullPath(Environment.GetEnvironmentVariable("RUNNER_TEMP")!);

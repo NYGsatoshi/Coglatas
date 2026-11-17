@@ -325,6 +325,13 @@ class ContinuationContracts(unittest.TestCase):
                 self.assertIsNone(receipt["baseSha"])
                 self.assertEqual(receipt["status"], "FAIL")
 
+    def test_compiled_tool_admission_precedes_private_configuration_io(self):
+        source = (ROOT / "tools/synthetic-recovery-acceptance/Program.cs").read_text()
+        admission = "Require(args.Length == 1 && RunAdmission.IsAllowed(Environment.GetEnvironmentVariable));"
+        self.assertEqual(source.count(admission), 1)
+        self.assertLess(source.index(admission), source.index("Path.GetFullPath(args[0])"))
+        self.assertLess(source.index(admission), source.index("File.ReadAllBytesAsync(path)"))
+
 
 if __name__ == "__main__":
     unittest.main()
