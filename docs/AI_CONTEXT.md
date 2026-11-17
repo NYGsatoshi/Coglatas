@@ -1,5 +1,11 @@
 # AI Context
 
+Read [initial preview and suggestion cancellation](verification/projectide-initial-preview-cancellation.md)
+for five pure Workbench initial notification guards. Cancelled older Revert,
+Task-suggestion, Scenario, Scenario-to-Draft and Test-definition requests report
+cancellation while preserving newer ready/refused views and original facts.
+This adds no Apply, execution, protocol or current permission grant.
+
 Read [initial Workbench read cancellation](verification/projectide-recorded-read-initial-cancellation.md)
 for seven token-bearing original recording/output/premise and Root Source reads.
 A cancelled older read reports cancellation after initial notification

@@ -249,4 +249,55 @@ public sealed class RequirementTaskSuggestionTests
         else Assert.Null(view.TaskSuggestions);
         Assert.IsType<OperationCanceledException>(error);
     }
+    private sealed class CancelInitialSuggestion : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly CancellationTokenSource _source = new();
+        private readonly bool _admitted;
+        private readonly RequirementTaskSuggestionCursor _foreignCursor;
+        public CancellationToken Token => _source.Token;
+        public bool Fired { get; private set; }
+        public RequirementTaskSuggestionPage? Replacement { get; private set; }
+        public CancelInitialSuggestion(SyntheticWorkbenchViewModel view, bool admitted, RequirementTaskSuggestionCursor foreignCursor)
+        { _view = view; _admitted = admitted; _foreignCursor = foreignCursor; view.PropertyChanged += Changed; }
+        public Exception? Read() => Record.Exception(ReadCore);
+        private void ReadCore() => _view.SuggestRequirementTasks(cancellationToken: Token);
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Fired || _view.TaskSuggestions is not null) return;
+            Fired = true;
+            Replacement = _view.SuggestRequirementTasks(1, _admitted ? null : _foreignCursor);
+            _source.Cancel();
+        }
+        public void Dispose() { _view.PropertyChanged -= Changed; _source.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancellationDuringInitialSuggestionNotificationReportsCancellationAndPreservesTheNewerPage(bool admitted)
+    {
+        var input = SuggestionInput();
+        using var view = await AcceptedView(input);
+
+        var foreignInspection = Index(input);
+        var foreignPage = foreignInspection.SuggestRequirementTasks(Origin(foreignInspection), input.InputDigest, 1);
+        Assert.Single(foreignPage.Candidates); Assert.NotNull(foreignPage.NextCursor);
+        var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data;
+        var inspection = view.Inspection; var selected = view.Selected;
+        var previous = view.SuggestRequirementTasks()!; Assert.Equal(3, previous.Candidates.Count);
+        var previousCandidates = previous.Candidates.ToArray();
+        using var cancellation = new CancelInitialSuggestion(view, admitted, foreignPage.NextCursor);
+        var error = cancellation.Read();
+        Assert.True(cancellation.Fired); Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.NotNull(cancellation.Replacement); Assert.NotSame(previous, cancellation.Replacement);
+        Assert.Same(cancellation.Replacement, view.TaskSuggestions);
+        Assert.Equal(admitted ? RequirementTaskSuggestionState.Ready : RequirementTaskSuggestionState.InvalidCursor, cancellation.Replacement.State);
+        if (admitted) Assert.Single(cancellation.Replacement.Candidates);
+        else Assert.Empty(cancellation.Replacement.Candidates);
+        Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
+        Assert.Same(inspection, view.Inspection); Assert.Same(selected, view.Selected);
+        Assert.Equal(previousCandidates, previous.Candidates);
+        Assert.IsType<OperationCanceledException>(error);
+    }
+
 }
