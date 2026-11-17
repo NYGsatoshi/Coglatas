@@ -757,8 +757,8 @@ internal static class Program
 
 internal static class Assert
 {
-    public static void True(bool value, string? message = null) { if (!value) throw new InvalidOperationException("SYNTHETIC_SOCKET_CONTROL_REJECTED"); }
-    public static void False(bool value, string? message = null) => True(!value);
+    public static void True(bool value) { if (!value) throw new InvalidOperationException("SYNTHETIC_SOCKET_CONTROL_REJECTED"); }
+    public static void False(bool value) => True(!value);
 }
 
 internal sealed class RecoverySocket : IAsyncDisposable
@@ -824,11 +824,10 @@ internal sealed class RecoverySocket : IAsyncDisposable
         var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
         while (_events.GetValueOrDefault(eventId) < minimumCount && DateTimeOffset.UtcNow < deadline)
         {
-            Assert.True(_receiver is { IsCompleted: false }, "The authenticated real transport must remain connected.");
+            Assert.True(_receiver is { IsCompleted: false });
             await Task.Delay(50);
         }
-        Assert.True(_events.GetValueOrDefault(eventId) >= minimumCount,
-            "A positive control event was not delivered over the authenticated real transport.");
+        Assert.True(_events.GetValueOrDefault(eventId) >= minimumCount);
     }
 
     public async Task AssertNotReceivedAsync(Guid eventId)
@@ -836,9 +835,8 @@ internal sealed class RecoverySocket : IAsyncDisposable
         var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
         while (true)
         {
-            Assert.True(_receiver is { IsCompleted: false } && _socket.State == WebSocketState.Open,
-                "The passive observation requires an active receiver and open real transport.");
-            Assert.False(Received(eventId), "An excluded event arrived over the authenticated real transport.");
+            Assert.True(_receiver is { IsCompleted: false } && _socket.State == WebSocketState.Open);
+            Assert.False(Received(eventId));
             if (DateTimeOffset.UtcNow >= deadline) return;
             await Task.Delay(50);
         }

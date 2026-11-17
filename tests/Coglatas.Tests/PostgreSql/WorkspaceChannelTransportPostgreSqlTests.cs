@@ -306,7 +306,7 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
                 conversation = json.RootElement.GetProperty("id").GetGuid();
                 Assert.Equal("Private", json.RootElement.GetProperty("visibility").GetString());
             }
-            var scope = new ChannelScope(workspaceScope.Tenant, workspaceScope.Workspace, conversation);
+            var scope = workspaceScope with { Conversation = conversation };
             var invitationRoute = $"{route}/{conversation:D}/members";
             using (var invited = await ownerClient.PostAsJsonAsync(invitationRoute,
                 new { userId = SecurityCiFixtureSeed.TenantAMemberUserId }))
