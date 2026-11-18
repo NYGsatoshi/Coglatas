@@ -23,7 +23,7 @@ They do not execute a compiler, test manifest, simulator or comparison engine.
 | Product `CompilerInputManifest.cs` | `862bdf70c22ee3daee9ab821f7191061ed0f7a50` |
 | Product `SourceContext.cs` | `e191cc347f72c0a5e915a4b12f7239d7ca0f9081` |
 | Independent C# candidate | `abdd8eb8d2975567602d22d19f969458587b3a04` |
-| Independent composition runner | `9c1ba77b4eda7c7102a4ca9b86b3f9f3ed5ec44a` |
+| Independent composition runner | `04614357f9a534a133b0eb33445c995d3b3e4c87` |
 
 The runner admits only the pinned Product commit and tree. It stages only the
 exact independent Test blob at
@@ -153,4 +153,36 @@ Product commit, with fresh disjoint output directories:
 
 ```text
 python -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head ea339ed0bc094630654262ebb28568a95ba4198f --worktree <fresh-product-path> --evidence <fresh-evidence-path>
+```
+
+## Git environment isolation regressions
+
+Every Git subprocess, including the raw committed-source read and detached
+worktree creation, removes inherited `GIT_*` variables case-insensitively.
+It preserves non-Git settings and never edits the caller's process environment.
+This closes a reproduced source-binding gap: with `GIT_DIR` and `GIT_WORK_TREE`
+pointing at a different disposable repository, the old runner resolved that
+repository's HEAD despite receiving the intended checkout as its working
+directory. No Product API or existing C# test source changes in this repair.
+
+`test_compose_and_verify.py` contains **eight** regression methods. It admits
+original retained native TRX/discovery before constructing fixtures, freezes
+the unchanged C# blob and method roster, reproduces the old redirect with a
+read-only unprotected Git call, and executes the actual runner's `main()`
+against real disposable Git repositories. Separate controls cover a clean
+environment, foreign repository/worktree, foreign index, foreign object/common
+directories, counted Git configuration and parameter-based Git configuration.
+Each controlled composition verifies the intended Test/Product/blob/tree and
+all six false qualification flags, and compares every file in the foreign
+repository before and after, including its index and object database.
+
+Only the controls' `dotnet` command outputs are supplied from the retained
+native inputs. These controls do **not** execute C#, add native passing cases,
+or turn retained results into fresh execution evidence. The advisory first
+runs the actual unchanged native candidate on each OS, then runs the eight
+controls with that same host's original TRX and compiled discovery. It pins
+the controls blob and retains their log separately in the workflow context.
+
+```text
+python -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx <original-candidate.trx> --compiled-discovery <original-compiled-discovery.log> -v
 ```
