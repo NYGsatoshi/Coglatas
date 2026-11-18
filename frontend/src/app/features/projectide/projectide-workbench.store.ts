@@ -55,6 +55,7 @@ export class ProjectIdeWorkbenchStore {
   readonly context = signal<PreviewCase | null>(null);
   readonly result = signal<PreviewCase | null>(null);
   readonly selection = signal<Selection | null>(null);
+  private sourceIntentGeneration = 0;
   private readonly referenceSelection = signal<{
     reference: BoundReference;
     page?: ReferenceSearchPage;
@@ -85,7 +86,8 @@ export class ProjectIdeWorkbenchStore {
   readonly selectedReference = () => this.currentReferenceSelection()?.reference ?? null;
   readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
-    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage; referencePage?: ReferenceSearchPage } | null>(null);
+    result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage; referencePage?: ReferenceSearchPage;
+    discovery?: { admitted: AdmittedProjectTestDiscovery; test: LocalDiscoveredTest } } | null>(null);
   private readonly currentTarget = computed(() => {
     const target = this.target();
     return target && target.context === this.context() && target.result === this.result() &&
@@ -94,7 +96,7 @@ export class ProjectIdeWorkbenchStore {
   });
   readonly sourceTarget = () => {
     const target = this.currentTarget();
-    return target && (!target.referencePage || target.referencePage === this.referencePage()) && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
+    return target && (!target.discovery || this.localTestDiscovery() === target.discovery.admitted && target.discovery.admitted.inventory.tests.includes(target.discovery.test)) && (!target.referencePage || target.referencePage === this.referencePage()) && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
       (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? target.record : null;
   };
   readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
@@ -997,8 +999,8 @@ export class ProjectIdeWorkbenchStore {
     this.choose(result.after.key); this.loadResult(); return true;
   }
   private testDiscoveryGeneration = 0;
-  private discoveryOwnsSourceSelection = false;
   readonly testDiscoveryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
+  readonly testDiscoveryNavigationState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly testDiscoverySnapshot = signal<{ context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
   readonly localTestDiscovery = (): AdmittedProjectTestDiscovery | null => {
     const snapshot = this.testDiscoverySnapshot();
@@ -1032,21 +1034,25 @@ export class ProjectIdeWorkbenchStore {
       return false;
     }
   }
-  async navigateDiscoveredTest(test: LocalDiscoveredTest): Promise<boolean> {
+  async navigateDiscoveredTest(test: LocalDiscoveredTest, isCurrent: () => boolean = () => true): Promise<boolean> {
     const admitted = this.localTestDiscovery(); const context = this.context(); const bundle = this.bundle();
-    const generation = this.testDiscoveryGeneration; this.resetSelection();
-    if (!admitted || !context || !admitted.inventory.tests.includes(test)) { this.navigationState.set('unavailable'); return false; }
+    const generation = this.testDiscoveryGeneration;
+    if (!isCurrent()) return false;
+    if (!admitted || !context || !admitted.inventory.tests.includes(test)) { this.testDiscoveryNavigationState.set('unavailable'); return false; }
     try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
-    let scopedAvailable = true;
-    if (context.result.artifacts.some(artifact => artifact.version === 2) && !this.admittedScoped()) scopedAvailable = await this.loadScopedSources();
-    if (generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle() ||
+    this.resetSelection();
+    const scopedRead = context.result.artifacts.some(artifact => artifact.version === 2) && !this.admittedScoped() ? this.loadScopedSources() : null;
+    const intent = this.sourceIntentGeneration; this.testDiscoveryNavigationState.set('loading');
+    const scopedAvailable = scopedRead ? await scopedRead : true;
+    if (!isCurrent() || intent !== this.sourceIntentGeneration || generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle() ||
         this.localTestDiscovery() !== admitted || !admitted.inventory.tests.includes(test)) return false;
-    if (!scopedAvailable) { this.navigationState.set('unavailable'); return false; }
-    const navigated = this.navigateLocation(test.location); this.discoveryOwnsSourceSelection = navigated; return navigated;
+    if (!scopedAvailable) { this.navigationState.set('unavailable'); this.testDiscoveryNavigationState.set('unavailable'); return false; }
+    const navigated = this.navigateLocation(test.location, false, { admitted, test });
+    this.testDiscoveryNavigationState.set(navigated ? 'ready' : 'unavailable'); return navigated;
   }
   private clearLocalTestDiscovery(): void {
-    if (this.discoveryOwnsSourceSelection) this.resetSelection();
-    this.testDiscoveryGeneration++; this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('idle');
+    if (untracked(() => this.target())?.discovery) this.resetSelection();
+    this.testDiscoveryGeneration++; this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('idle'); this.testDiscoveryNavigationState.set('idle');
   }
   private testGeneration = 0;
   readonly testReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
@@ -1444,7 +1450,8 @@ export class ProjectIdeWorkbenchStore {
   navigateDiagnosticSymbol(): boolean {
     return this.navigateLocation(this.diagnosticSymbol()?.location);
   }
-  private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false): boolean {
+  private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false, discovery?: { admitted: AdmittedProjectTestDiscovery; test: LocalDiscoveredTest }): boolean {
+    this.sourceIntentGeneration++;
     this.scopedTarget.set(null);
     this.target.set(null);
     const context = this.context();
@@ -1457,7 +1464,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(target);
       return false;
     }
-    this.target.set({ record: target, location, context, result: this.result(), sourceMap: context.sourceMap });
+    this.target.set({ record: target, location, context, result: this.result(), sourceMap: context.sourceMap, discovery });
     this.navigationState.set('ready');
     return true;
   }
@@ -1476,7 +1483,7 @@ export class ProjectIdeWorkbenchStore {
     controller?.abort();
   }
   private resetSelection(): void {
-    this.discoveryOwnsSourceSelection = false;
+    this.sourceIntentGeneration++; this.testDiscoveryNavigationState.set('idle');
     this.clearSemanticIndexSelection();
     this.clearRegionalOperatorSelection();
     this.clearDiagnosticPremises(); this.clearRecordedPredicatePremises(); this.clearRecordedOperators();

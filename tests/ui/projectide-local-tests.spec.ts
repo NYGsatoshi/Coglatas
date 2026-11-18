@@ -70,6 +70,15 @@ for (const locale of ['en', 'ja'] as const) {
       await page.getByTestId('ide-context').selectOption(key); await page.getByRole('button', { name: load, exact: true }).click();
       await page.getByRole('button', { name: tests, exact: true }).click();
     };
+    const expectDefinitionSource = async (revisionId: string) => {
+      await expect(page.getByTestId('ide-source-location')).toHaveText('/');
+      const record = JSON.parse((await page.getByTestId('ide-source-target').locator('pre').textContent())!);
+      expect(record).toMatchObject({ entityId: '0000000a-0000-4000-8000-000000000001', documentId: '00000004-0000-4000-8000-000000000001', kind: 'coglatas.project-test' });
+      const buffer = page.locator('pre.source-buffer'); await expect(buffer).toHaveCount(1);
+      const source = JSON.parse((await buffer.textContent())!);
+      expect(source.context).toEqual({ branch: { tenantId: '00000001-0000-4000-8000-000000000001', projectId: '00000002-0000-4000-8000-000000000001', branchId: '00000003-0000-4000-8000-000000000001' }, kind: 'coglatas.committed', revisionId });
+      expect(source.declarations.find((declaration: { entityId: string }) => declaration.entityId === record.entityId)).toEqual(record);
+    };
     await choose('tests-fail');
     const action = page.getByRole('button', { name: list, exact: true }); await action.focus(); await action.press('Enter');
     await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'Definition inventory available' : '定義の一覧を取得しました');
@@ -77,6 +86,8 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(page.getByTestId('ide-analysis-status')).toContainText('coglatas.pass');
     await page.getByRole('button', { name: loadTests, exact: true }).click();
     await expect(page.getByTestId('ide-tests-summary')).toContainText(locale === 'en' ? 'Failed' : '失敗');
+    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveText('');
+    await expect(page.getByTestId('ide-test-discovery-rows')).toHaveCount(0);
     await action.focus(); await action.press('Space');
     await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'Assertions evaluated: 0' : '評価したアサーション: 0');
     await expect(page.getByTestId('ide-tests-summary')).toContainText(locale === 'en' ? 'Failed' : '失敗');
@@ -84,6 +95,7 @@ for (const locale of ['en', 'ja'] as const) {
     const open = page.getByTestId('ide-test-discovery-rows').getByRole('button'); await expect(open).toHaveCount(1);
     await open.focus(); await open.press('Enter'); await expect(page.getByTestId('ide-source-target')).toBeFocused();
     await expect(page.locator('pre.source-buffer')).toContainText('coglatas.project-test');
+    await expectDefinitionSource('000000c8-0000-4000-8000-000000000001');
     await page.getByTestId('ide-context').selectOption('branch-pass'); await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
     await choose('tests-unsupported'); await page.getByRole('button', { name: list, exact: true }).click();
     await expect(page.getByTestId('ide-test-discovery-rows')).toContainText(locale === 'en' ? 'Unknown' : '不明');
@@ -94,6 +106,9 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(rows).toHaveCount(1); await expect(page.getByTestId('ide-test-discovery-summary')).toContainText('33');
     for (const key of ['tests-stale', 'tests-exhausted']) {
       await choose(key); await page.getByRole('button', { name: list, exact: true }).click();
+      await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(key === 'tests-stale'
+        ? locale === 'en' ? 'The requested input differs from this snapshot.' : '要求された入力がこのスナップショットと異なります。'
+        : locale === 'en' ? 'The full inventory exceeds the local reading limit.' : '全件一覧がローカルの読み取り上限を超えています。');
       await expect(rows).toHaveCount(0); await expect(page.getByTestId('ide-test-discovery-summary')).toBeVisible();
       await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(0);
       await expect(page.getByTestId('ide-test-discovery-summary')).not.toContainText(locale === 'en' ? 'Definitions listed: 0' : '表示した定義: 0');
@@ -106,6 +121,7 @@ for (const locale of ['en', 'ja'] as const) {
     const scopedOpen = page.getByTestId('ide-test-discovery-rows').getByRole('button'); await expect(scopedOpen).toHaveCount(1);
     await scopedOpen.focus(); await scopedOpen.press('Enter'); await expect(page.getByTestId('ide-source-target')).toBeFocused();
     await expect(page.locator('pre.source-buffer')).toContainText('coglatas.project-test');
+    await expectDefinitionSource('00000898-0000-4000-8000-000000000001');
     await page.getByTestId('ide-test-discovery-example').click();
     await page.getByTestId('ide-context').selectOption('tests-discovery-unavailable');
     await page.getByRole('button', { name: load, exact: true }).click(); await page.getByRole('button', { name: tests, exact: true }).click();

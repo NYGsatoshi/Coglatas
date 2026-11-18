@@ -25,15 +25,17 @@ public sealed partial class SyntheticWorkbenchViewModel
         var inventory = ProjectTestPlan.Compile(model, SyntheticProjectTestConfiguration.Evaluator, limits, cancellationToken)
             .Discover(_desired.Input.ExpectedInputDigest, cancellationToken);
         if (_disposed || generation != _testGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
-        TestDiscovery = inventory; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        cancellationToken.ThrowIfCancellationRequested();
+        TestDiscovery = inventory;
+        try { Changed(); }
+        finally
         {
-            if (generation == _testGeneration && ReferenceEquals(TestDiscovery, inventory))
+            if (cancellationToken.IsCancellationRequested && generation == _testGeneration && ReferenceEquals(TestDiscovery, inventory))
             {
                 _testGeneration++; ClearTestDiscovery(); Changed();
             }
-            cancellationToken.ThrowIfCancellationRequested();
         }
+        cancellationToken.ThrowIfCancellationRequested();
         return !_disposed && generation == _testGeneration && lifecycle == _lifecycle &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
     }
@@ -41,15 +43,11 @@ public sealed partial class SyntheticWorkbenchViewModel
     public bool SelectDiscoveredTest(ProjectDiscoveredTest test)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(test);
+        if (State != "Ready" || TestDiscovery is not { State: ProjectTestDiscoveryState.Ready } inventory || _desired is null ||
+            !inventory.InputDigest!.Equals(_desired.Input.ExpectedInputDigest) || _compilation?.Model is not { } model ||
+            !model.Input.Source.Data.Equals(Source?.Data) || !inventory.Tests.Any(item => ReferenceEquals(item, test)) || Resolve(test.Location) != "ready") return false;
         var generation = ClearSelection();
-        if (State == "Ready" && TestDiscovery is { State: ProjectTestDiscoveryState.Ready } inventory && _desired is not null &&
-            inventory.InputDigest!.Equals(_desired.Input.ExpectedInputDigest) && _compilation?.Model is { } model &&
-            model.Input.Source.Data.Equals(Source?.Data) && inventory.Tests.Any(item => ReferenceEquals(item, test)))
-        {
-            NavigationState = Resolve(test.Location);
-            if (NavigationState == "ready") SelectedDiscoveredTest = test;
-        }
-        else NavigationState = "unavailable";
+        NavigationState = "ready"; SelectedDiscoveredTest = test;
         Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedDiscoveredTest, test);
     }
 

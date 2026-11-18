@@ -48,6 +48,12 @@ public sealed class SyntheticProjectTestDiscoveryTests
         var limits = key == "tests-exhausted" ? new ProjectTestLimits(256, 1) : null;
         var inventory = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests(limits: limits));
         Assert.Same(inventory, view.TestDiscovery); Assert.Null(view.TestRun); Assert.Same(compilation, view.Result);
+        if (key is "tests-discovery-unavailable" or "tests-exhausted")
+        {
+            Assert.Equal(key == "tests-exhausted" ? ProjectTestDiscoveryState.ResourceLimit : ProjectTestDiscoveryState.Unavailable, inventory.State);
+            Assert.Empty(inventory.Tests); Assert.Null(inventory.InputDigest); Assert.Null(inventory.PlanDigest);
+            Assert.Equal(0, inventory.DiscoveredTests); Assert.False(inventory.BindingComplete); Assert.False(inventory.EvaluatorMatches);
+        }
         var input = compilation!.Input;
         var expected = ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), SyntheticProjectTestConfiguration.Evaluator, limits)
             .Discover(input.InputDigest);
@@ -67,10 +73,12 @@ public sealed class SyntheticProjectTestDiscoveryTests
     {
         using var view = await Ready(); Assert.True(view.RunSyntheticTests());
         var run = view.TestRun; var compilation = view.Result; Assert.Equal(CompilerVerdict.Fail, run!.Verdict);
-        var inventory = view.DiscoverSyntheticTests(); Assert.NotNull(inventory);
+        var inventory = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests());
         Assert.Same(run, view.TestRun); Assert.Same(compilation, view.Result);
+        var row = Assert.Single(inventory.Tests); Assert.True(view.SelectDiscoveredTest(row)); Assert.True(view.Navigate());
+        Assert.Same(row, view.SelectedDiscoveredTest); Assert.NotNull(view.SourceTarget);
         var entered = false;
-        view.PropertyChanged += (sender, _) => { if (entered) return; entered = true; var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender); Assert.Null(current.TestDiscovery); Assert.Null(current.SelectedDiscoveredTest); };
+        view.PropertyChanged += (sender, _) => { if (entered) return; entered = true; var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender); Assert.Null(current.TestDiscovery); Assert.Null(current.SelectedDiscoveredTest); Assert.Null(current.SourceTarget); };
         Assert.True(view.RunSyntheticTests()); Assert.True(entered); Assert.Null(view.TestDiscovery);
         Assert.Equal(CompilerVerdict.Fail, view.TestRun!.Verdict); Assert.Same(compilation, view.Result);
     }
@@ -94,7 +102,7 @@ public sealed class SyntheticProjectTestDiscoveryTests
     public async Task PrecancelledDiscoveryDoesNotWithdrawAnEarlierOwnedInventoryOrRun()
     {
         using var view = await Ready(); Assert.True(view.RunSyntheticTests());
-        var run = view.TestRun; var inventory = view.DiscoverSyntheticTests();
+        var run = view.TestRun; var inventory = view.DiscoverSyntheticTests(); Assert.NotNull(run); Assert.NotNull(inventory);
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(cancellation.Token));
         Assert.Same(inventory, view.TestDiscovery); Assert.Same(run, view.TestRun);
@@ -114,12 +122,15 @@ public sealed class SyntheticProjectTestDiscoveryTests
         try
         {
             using var cancellation = new CancellationTokenSource();
-            var entered = false; var notifications = 0; ProjectTestDiscovery? nested = null; var input = view.Result!.Input;
+            var entered = false; var observedPublication = false; ProjectTestDiscovery? nested = null; var input = view.Result!.Input;
             Action requestCancellation = cancellation.Cancel;
             PropertyChangedEventHandler onChange = (sender, _) =>
             {
-                if (entered || ++notifications != boundary) return; entered = true;
+                if (entered) return;
                 var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+                var publishing = current.TestDiscovery is not null;
+                if (publishing != (boundary == 2)) return;
+                entered = true; observedPublication = publishing;
                 if (mode == "reset") current.Reset();
                 if (mode == "dispose") current.Dispose();
                 if (mode == "begin") current.BeginSynthetic(new(new(input), 2));
@@ -135,7 +146,8 @@ public sealed class SyntheticProjectTestDiscoveryTests
                 else Assert.Null(view.DiscoverSyntheticTests(cancellation.Token));
             }
             finally { view.PropertyChanged -= onChange; }
-            Assert.True(entered); Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
+            Assert.True(entered); Assert.Equal(boundary == 2, observedPublication);
+            Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
             if (mode is "nested-discovery" or "cancel-nested-discovery") Assert.Same(nested, view.TestDiscovery);
             else Assert.Null(view.TestDiscovery);
             if (mode == "nested-run") Assert.Equal(CompilerVerdict.Fail, view.TestRun!.Verdict);
@@ -195,5 +207,58 @@ public sealed class SyntheticProjectTestDiscoveryTests
         Assert.True(entered); Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest);
         if (selectDiscovery) { Assert.Null(view.Selected); Assert.Null(view.SourceTarget); }
         else { Assert.Same(symbol, view.Selected); Assert.Equal(symbol.Symbol.Location, view.SourceTarget); }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task ObsoleteAndCopiedRowsCannotWithdrawTheCurrentSourceSelection(bool copied)
+    {
+        using var view = await Ready();
+        var old = Assert.Single(Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests()).Tests);
+        var inventory = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests());
+        var current = Assert.Single(inventory.Tests);
+        Assert.True(view.SelectDiscoveredTest(current)); Assert.True(view.Navigate()); var target = view.SourceTarget;
+        Assert.False(view.SelectDiscoveredTest(copied ? current with { } : old));
+        Assert.Same(inventory, view.TestDiscovery); Assert.Same(current, view.SelectedDiscoveredTest); Assert.Same(target, view.SourceTarget);
+        Assert.True(view.Navigate()); Assert.Same(target, view.SourceTarget);
+    }
+
+    [Theory]
+    [InlineData("discovery")] [InlineData("unrelated")] [InlineData("nested")]
+    public async Task CancelledThrowingPublicationWithdrawsOnlyItsOwnInventory(string mode)
+    {
+        using var view = await Ready();
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token; Action cancel = cancellation.Cancel; var entered = false;
+        var symbol = view.Inspection!.Symbols.First(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
+        ProjectTestDiscovery? nested = null; ProjectDiscoveredTest? selected = null;
+        PropertyChangedEventHandler onChange = (sender, _) =>
+        {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || current.TestDiscovery is not { } inventory) return;
+            entered = true;
+            if (mode == "nested") nested = inventory = Assert.IsType<ProjectTestDiscovery>(current.DiscoverSyntheticTests());
+            if (mode != "unrelated")
+            {
+                selected = Assert.Single(inventory.Tests); Assert.True(current.SelectDiscoveredTest(selected));
+            }
+            else Assert.True(current.Select(symbol.Symbol.Location));
+            Assert.True(current.Navigate()); cancel(); token.ThrowIfCancellationRequested();
+        };
+        view.PropertyChanged += onChange;
+        try { Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(token)); }
+        finally { view.PropertyChanged -= onChange; }
+        Assert.True(entered);
+        if (mode == "nested")
+        {
+            Assert.NotNull(nested); Assert.Same(nested, view.TestDiscovery); Assert.Same(selected, view.SelectedDiscoveredTest);
+            Assert.Equal(selected!.Location, view.SourceTarget);
+        }
+        else
+        {
+            Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest);
+            if (mode == "unrelated") { Assert.Same(symbol, view.Selected); Assert.Equal(symbol.Symbol.Location, view.SourceTarget); }
+            else Assert.Null(view.SourceTarget);
+        }
     }
 }

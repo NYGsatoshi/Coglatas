@@ -177,10 +177,14 @@ describe('Reviewed inventory admission regressions', () => {
   });
   it('validates one immutable Source snapshot throughout all asynchronous hashes', async () => {
     const value = current(); const originalText = value.sourceText; const altered = originalText + ' '; value.sourceText = altered;
-    const digest = crypto.subtle.digest.bind(crypto.subtle);
-    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, data) => { value.sourceText = altered; return digest(algorithm, data); });
+    const digest = crypto.subtle.digest.bind(crypto.subtle); const sourceInputs: string[] = [];
+    vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (algorithm, data) => {
+      const bytes = new TextDecoder().decode(data);
+      if (bytes.startsWith('coglatas.project-source/1\0')) { sourceInputs.push(bytes); value.sourceText = altered; }
+      return digest(algorithm, data);
+    });
     const pending = readLocalTestDiscovery(value); value.sourceText = originalText;
-    await expect(pending).rejects.toThrow();
+    await expect(pending).rejects.toThrow(); expect(sourceInputs).toEqual(['coglatas.project-source/1\0' + altered]);
   });
   it('opens a version-2 definition without a separate prior Scoped Sources action', async () => {
     const data = profile('simulation-v1'); const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(data));
@@ -230,5 +234,79 @@ describe('Discovery ownership across supplementary binding and Source verificati
     if (mode === 'newer-inventory') expect(await store.loadLocalTestDiscovery()).toBe(true);
     release(); expect(await pending).toBe(false); expect(store.sourceTarget()).toBeNull();
     if (mode === 'denied') expect(store.state()).toBe('denied');
+  });
+});
+
+describe('Reviewed Source publication, stamps and bounded basis regressions', () => {
+  const asset = (name: string) => JSON.parse(readFileSync(resolve('public/assets/projectide/' + name + '.json'), 'utf8'));
+  const ready = async (name = 'preview-v1', key = 'tests-pass') => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(asset(name)));
+    store.choose(key); store.loadResult(); expect(await store.loadLocalTestDiscovery()).toBe(true); return store;
+  };
+  it.each(['explicit', 'inspection'])('rejects a self-rehashed non-string reference state from %s binding', async mode => {
+    const value = mode === 'explicit' ? asset('execution-plan-v1').cases.find((item: { key: string }) => item.key === 'tests-plan-budget-hypothesis') : current();
+    const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    const references = mode === 'explicit' ? p.binding.references : value.semanticInspection.references;
+    references[0].state = ['Resolved'];
+    plan.references = references.map((item: { origin: unknown; state: unknown; symbolKey: unknown }) => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }));
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['compilerInputId', 'inputDigest', 'sourceDigest', 'context'])('rejects an inspection with a foreign own %s stamp', async field => {
+    const value = current();
+    if (field === 'compilerInputId') value.semanticInspection.compilerInputId = '000000ff-0000-4000-8000-000000000001';
+    else if (field === 'context') value.semanticInspection.context.revisionId = '000000ff-0000-4000-8000-000000000001';
+    else value.semanticInspection[field].value = 'a'.repeat(64);
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['context', 'tenantId', 'projectId'])('rejects fully rehashed Source with a foreign root %s', async field => {
+    const value = current(); const p = value.localProjectTestDiscovery;
+    if (field === 'context') value.source.context.revisionId = '000000ff-0000-4000-8000-000000000001';
+    else value.source[field] = '000000ff-0000-4000-8000-000000000001';
+    value.sourceText = JSON.stringify(value.source); value.sourceDigest = hash('coglatas.project-source/1', value.sourceText);
+    const input = JSON.parse(p.inputText); input.sourceDigest = value.sourceDigest;
+    p.inputText = JSON.stringify(input); value.manifest.manifest = input; value.inputDigest = hash('coglatas.compiler-input/1', p.inputText);
+    value.semanticInspection.inputDigest = value.inputDigest; value.semanticInspection.sourceDigest = value.sourceDigest;
+    p.requestedInputDigest = value.inputDigest; p.inventory.inputDigest = value.inputDigest;
+    const plan = JSON.parse(p.plan.text); plan.inputDigest = value.inputDigest;
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['old', 'copied'])('preserves the current Source target when an %s row is rejected', async mode => {
+    const store = await ready(); const old = store.localTestDiscovery()!.inventory.tests[0];
+    expect(await store.loadLocalTestDiscovery()).toBe(true); const admitted = store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); const target = store.sourceTarget(); expect(target).not.toBeNull();
+    expect(await store.navigateDiscoveredTest(mode === 'old' ? old : { ...row })).toBe(false);
+    expect(store.localTestDiscovery()).toBe(admitted); expect(store.sourceTarget()).toBe(target); expect(store.sourceLocation()).toEqual(row.location);
+  });
+  it('withdraws the Source target if its admitting projection changes in place', async () => {
+    const store = await ready(); const row = store.localTestDiscovery()!.inventory.tests[0];
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceTarget()).not.toBeNull();
+    Object.assign(store.context()!.localProjectTestDiscovery!.inventory.tests[0], { displayName: 'Changed after admission' });
+    expect(store.localTestDiscovery()).toBeNull(); expect(store.sourceTarget()).toBeNull(); expect(store.sourceLocation()).toBeNull();
+  });
+  it('does not publish a late definition target after a newer Inspector selection in the same case', async () => {
+    const store = await ready('simulation-v1', 'tests-simulation-root-base'); const admitted = store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
+    const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return original(algorithm, value); });
+    const pending = store.navigateDiscoveredTest(row); await began;
+    const task = store.context()!.declarations.find(item => item.kind === 'coglatas.task')!; expect(task).toBeTruthy();
+    if (task.recordType !== 'entity') throw new Error('Expected the actual Task entity fixture');
+    expect(store.select({ kind: 'entity', id: task.identity })).toBe(true); const selection = store.selection();
+    release(); expect(await pending).toBe(false); expect(store.selection()).toBe(selection); expect(store.sourceTarget()).toBeNull(); expect(store.localTestDiscovery()).toBe(admitted);
+  });
+  it('admits the actual 1001-reference inventory inside the unchanged discovery basis bound', async () => {
+    const value = asset('semantic-index-large-v1').cases.find((item: { key: string }) => item.key === 'tests-index-large-base');
+    expect(JSON.parse(value.localProjectTestDiscovery.plan.text).references).toHaveLength(1001);
+    const admitted = (await readLocalTestDiscovery(value))!;
+    expect(admitted.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 }); expect(new TextEncoder().encode(admitted.basis).byteLength).toBeLessThanOrEqual(4_194_304);
+    expect(admitted.inventory.tests[0].location.context).toEqual(value.context);
+  });
+  it.each(['base', 'hypothesis', 'draft'])('admits the version-alias regional %s inventory and opens its exact local Source', async suffix => {
+    const store = await ready('regional-operator-recordings-v1', 'tests-regional-versioned-' + suffix); const row = store.localTestDiscovery()!.inventory.tests[0];
+    expect(store.localTestDiscovery()!.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 }); expect(row.assertionCount).toBe(2);
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceTarget()!.identity).toBe(row.testId); expect(store.sourceLocation()).toEqual(row.location);
+    expect(row.location.context).toEqual(store.context()!.context); expect(store.localTests()).toBeNull();
   });
 });

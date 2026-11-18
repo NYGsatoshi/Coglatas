@@ -230,14 +230,15 @@
               }
 
               <section class="local-tests-summary" aria-labelledby="ide-test-discovery-title">
+                @let discovery = store.localTestDiscovery();
                 <h3 id="ide-test-discovery-title">{{ t('ide.discoveryTitle') }}</h3>
                 <p>{{ t('ide.discoveryNotice') }}</p>
                 <button type="button" (click)="loadLocalTestDiscovery()" [disabled]="store.testDiscoveryReadState() === 'loading' || !store.result()">{{ t('ide.discoveryLoad') }}</button>
                 <div data-testid="ide-test-discovery-summary" aria-live="polite">
                   @if (store.testDiscoveryReadState() === 'loading') { <p>{{ t('ide.discoveryLoading') }}</p> }
                   @if (store.testDiscoveryReadState() === 'unsupported') { <p role="alert">{{ t('ide.discoveryUnreadable') }}</p> }
-                  @if (store.testDiscoveryReadState() === 'unavailable' || store.testDiscoveryReadState() === 'ready' && !store.localTestDiscovery()) { <p>{{ t('ide.discoveryUnavailable') }}</p> }
-                  @if (store.localTestDiscovery(); as discovery) {
+                  @if (store.testDiscoveryReadState() === 'unavailable' || store.testDiscoveryReadState() === 'ready' && !discovery) { <p>{{ t('ide.discoveryUnavailable') }}</p> }
+                  @if (discovery) {
                     <p>{{ discoveryValue(discovery.inventory.state) }}</p>
                     @if (discovery.inventory.state === 'Ready') {
                       <p>{{ t('ide.discoveryCounts', { tests: discovery.inventory.discoveredTests }) }}</p>
@@ -248,9 +249,9 @@
                     }
                   }
                 </div>
-                @if (store.localTestDiscovery(); as discovery) {
+                @if (discovery) {
                   <ol class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
-                    @for (test of discoveryRows(); track test.testId) {
+                    @for (test of discovery.inventory.tests.slice(discoveryPage() * 32, (discoveryPage() + 1) * 32); track test.testId) {
                       <li><h4>{{ test.displayName || test.testId }}</h4>
                         <p>{{ discoveryValue(test.decodeStatus) }} · {{ t('ide.discoveryAssertions') }}: {{ test.assertionCount ?? t('ide.discoveryUnknownCount') }}</p>
                         <button type="button" (click)="navigateDiscoveredTest(test)">{{ t('ide.discoveryOpen') }} · {{ test.displayName || test.testId }}</button>
@@ -261,6 +262,9 @@
                     <button type="button" [disabled]="discoveryPage() === 0" (click)="discoveryPage.set(discoveryPage() - 1)">{{ t('ide.discoveryPrevious') }}</button>
                     <button type="button" [disabled]="(discoveryPage() + 1) * 32 >= discovery.inventory.tests.length" (click)="discoveryPage.set(discoveryPage() + 1)">{{ t('ide.discoveryNext') }}</button>
                   }
+                }
+                @if (store.testDiscoveryNavigationState() === 'unavailable') {
+                  <p role="alert" data-testid="ide-test-discovery-source-error">{{ t('ide.discoverySourceUnavailable') }}</p>
                 }
               </section>
 

@@ -19,15 +19,19 @@ function freeze<T>(value: T): T {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 }
+type DiscoveryBinding = NonNullable<LocalProjectTestDiscoveryProjection['binding']>;
+function bindingEvidence(value: unknown): value is DiscoveryBinding {
+  return record(value) && fields(value, ['inputDigest', 'sourceDigest', 'bindingComplete', 'references']) &&
+    digest(value['inputDigest']) && digest(value['sourceDigest']) && typeof value['bindingComplete'] === 'boolean' &&
+    Array.isArray(value['references']) && value['references'].length <= 4096 && value['references'].every(item =>
+      record(item) && fields(item, ['origin', 'state', 'symbolKey']) && isProjectLocationShape(item['origin']) &&
+      typeof item['state'] === 'string' && ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope'].includes(item['state']) &&
+      (item['symbolKey'] === null || token(item['symbolKey'])));
+}
 function projection(value: unknown): value is LocalProjectTestDiscoveryProjection {
   return record(value) && fields(value, ['format', 'inputText', 'requestedInputDigest', 'binding', 'plan', 'definitions', 'inventory']) &&
     value['format'] === 'coglatas.local-test-discovery-projection/1' && text(value['inputText']) && digest(value['requestedInputDigest']) &&
-    (value['binding'] === null || record(value['binding']) && fields(value['binding'], ['inputDigest', 'sourceDigest', 'bindingComplete', 'references']) &&
-    digest(value['binding']['inputDigest']) && digest(value['binding']['sourceDigest']) && typeof value['binding']['bindingComplete'] === 'boolean' &&
-    Array.isArray(value['binding']['references']) && value['binding']['references'].length <= 4096 && value['binding']['references'].every(item =>
-      record(item) && fields(item, ['origin', 'state', 'symbolKey']) && isProjectLocationShape(item['origin']) &&
-      ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope'].includes(String(item['state'])) &&
-      (item['symbolKey'] === null || token(item['symbolKey'])))) &&
+    (value['binding'] === null || bindingEvidence(value['binding'])) &&
     record(value['plan']) && fields(value['plan'], ['text', 'digest']) && text(value['plan']['text']) && digest(value['plan']['digest']) &&
     Array.isArray(value['definitions']) && value['definitions'].length <= 256 && value['definitions'].every(item =>
       record(item) && fields(item, ['testId', 'text']) && token(item['testId']) && text(item['text'])) &&
@@ -40,8 +44,10 @@ function projection(value: unknown): value is LocalProjectTestDiscoveryProjectio
 function basis(value: PreviewCase): string {
   return JSON.stringify({ context: value.context, desiredContext: value.desiredContext, freshness: value.freshness,
     inputId: value.inputId, inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, source: value.source, sourceText: value.sourceText,
-    manifest: value.manifest, declarations: value.declarations, relations: value.relations, materializedSnapshots: value.materializedSnapshots,
-    semanticInspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
+    manifest: value.manifest, declarations: value.declarations, materializedSnapshots: value.materializedSnapshots,
+    semanticInspection: value.semanticInspection ? { format: value.semanticInspection.format, context: value.semanticInspection.context,
+      compilerInputId: value.semanticInspection.compilerInputId, inputDigest: value.semanticInspection.inputDigest, sourceDigest: value.semanticInspection.sourceDigest,
+      bindingComplete: value.semanticInspection.bindingComplete, references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey })) } : null, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
 }
 export function localTestDiscoveryMatchesCase(value: PreviewCase, admitted: AdmittedProjectTestDiscovery): boolean {
   return value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === admitted.basis &&
@@ -58,6 +64,7 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   const value = { ...JSON.parse(capturedBasis), localProjectTestDiscovery: data } as PreviewCase;
   const source = parseLocalTestJson(value.sourceText); const input = parseLocalTestJson(data.inputText); const plan = parseLocalTestJson(data.plan.text);
   if (!record(source) || !record(input) || !record(plan) || !equal(source, value.source) || !equal(input, value.manifest['manifest']) ||
+      !equal(source['context'], value.context) || source['tenantId'] !== value.context.branch.tenantId || source['projectId'] !== value.context.branch.projectId ||
       !equal(input['sourceDigest'], value.sourceDigest) || !equal(input['sourceContext'], value.context) || !equal(input['sourceManifest'], source['manifest']) ||
       plan['format'] !== 'coglatas.project-test-plan/1' || plan['compilerInputId'] !== value.inputId || !equal(plan['inputDigest'], value.inputDigest) ||
       typeof plan['withinLimits'] !== 'boolean' || typeof plan['discoveryComplete'] !== 'boolean' || typeof plan['bindingComplete'] !== 'boolean' ||
@@ -68,12 +75,15 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   const engine = plan['engine']; const settings = input['settings'];
   if (!record(engine) || engine['artifactId'] !== 'coglatas.synthetic-project-test-evaluator' || engine['version'] !== '1' || !digest(engine['digest']) ||
       engine['digest'].value !== 'ff7ca4ae92e2186d05eb83f5898637ce6eb2d01afbbb4f130b739b8aa93b5488' || !record(settings)) return fail();
+  if (value.semanticInspection && (value.semanticInspection.compilerInputId !== value.inputId ||
+      !equal(value.semanticInspection.inputDigest, value.inputDigest) || !equal(value.semanticInspection.sourceDigest, value.sourceDigest) ||
+      !equal(value.semanticInspection.context, value.context))) return fail();
   const binding = data.binding ?? (value.semanticInspection ? {
     inputDigest: value.inputDigest, sourceDigest: value.sourceDigest,
     bindingComplete: value.semanticInspection.bindingComplete,
     references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))
   } : fail());
-  if (!equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
+  if (!bindingEvidence(binding) || !equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
       binding.bindingComplete !== plan['bindingComplete'] || !equal(binding.references, plan['references'])) return fail();
   if (value.semanticInspection && (binding.bindingComplete !== value.semanticInspection.bindingComplete ||
       !equal(binding.references, value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))))) return fail();

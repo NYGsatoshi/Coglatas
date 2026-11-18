@@ -103,6 +103,27 @@ describe('ProjectIDE Workbench components', () => {
     expect(c.store.localTestDiscovery()).toBeNull(); expect(c.store.localTests()).toBeNull(); expect(c.store.sourceTarget()).toBeNull();
     expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBeNull();
   });
+
+  it('does not publish an abandoned definition Source when the user opens Overview during verification', async () => {
+    const { c, fixture } = await render(true, true, false, 'simulation'); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); const row = c.store.localTestDiscovery()!.inventory.tests[0];
+    const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return original(algorithm, value); });
+    const pending = c.navigateDiscoveredTest(row); await began; c.open('overview'); release(); await pending; fixture.detectChanges();
+    expect(c.panel()).toBe('overview'); expect(c.store.sourceTarget()).toBeNull();
+  });
+  it.each(['en', 'ja'] as const)('shows a retryable Source action failure inside the %s Tests panel', async locale => {
+    const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); const admitted = c.store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
+    vi.spyOn(c.store, 'loadScopedSources').mockResolvedValueOnce(false); await c.navigateDiscoveredTest(row); fixture.detectChanges();
+    expect(c.panel()).toBe('tests'); expect(c.store.localTestDiscovery()).toBe(admitted);
+    const error = root.querySelector('[data-testid="ide-test-discovery-source-error"]'); expect(error).not.toBeNull(); expect(error!.getAttribute('role')).toBe('alert'); expect(error!.textContent!.trim()).not.toBe('');
+    expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(1);
+    await c.navigateDiscoveredTest(row); fixture.detectChanges(); expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+    c.open('tests'); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-source-error"]')).toBeNull();
+  });
   it('pages all33 actual Core definitions without dropping the full count or evaluating assertions', async () => {
     const { c, fixture, root } = await render(); c.choose('tests-many'); c.loadResult(); c.open('tests');
     await c.loadLocalTestDiscovery(); fixture.detectChanges();

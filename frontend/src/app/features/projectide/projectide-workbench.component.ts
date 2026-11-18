@@ -140,7 +140,6 @@ export class ProjectIdeWorkbenchComponent {
   readonly basisPage = signal(0);
   readonly basisPageSize = DIAGNOSTIC_BASIS_PAGE_SIZE;
   readonly discoveryPage = signal(0);
-  readonly discoveryRows = computed(() => this.store.localTestDiscovery()?.inventory.tests.slice(this.discoveryPage() * 32, (this.discoveryPage() + 1) * 32) ?? []);
   readonly testPage = signal(0);
   readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
@@ -711,7 +710,7 @@ export class ProjectIdeWorkbenchComponent {
   async navigateDiscoveredTest(test: LocalDiscoveredTest): Promise<void> {
     const generation = ++this.focusGeneration;
     if (!this.canRead()) { this.store.clear('denied'); return; }
-    const navigated = await this.store.navigateDiscoveredTest(test);
+    const navigated = await this.store.navigateDiscoveredTest(test, () => generation === this.focusGeneration && this.canRead());
     if (!this.canRead()) { this.store.clear('denied'); return; }
     if (navigated && generation === this.focusGeneration) this.open('source', true);
   }
