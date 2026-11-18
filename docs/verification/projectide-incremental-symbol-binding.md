@@ -18,7 +18,9 @@ Denied, missing or mismatched materializations cannot be supplied by the cache.
 The cache stores no admitted snapshot registry, permission, resolved reference,
 diagnostic, Compiler result, semantic validation or execution plan. References,
 coverage, diagnostics, dependency closure and global graph/semantic validation
-are rebuilt for every invocation. Rules, descriptors, packages, units, calendars,
+are rebuilt for every invocation. Without a separate optional
+[reference-binding session](projectide-incremental-reference-binding.md), all
+reference resolution is also fresh. Rules, descriptors, packages, units, calendars,
 observations and execution limits retain their original fresh processing.
 Logical charges match full compilation even when symbol construction is reused.
 
@@ -68,7 +70,8 @@ warm recompile also rejects the earlier full index's completion/reference cursor
 even while actually reusing the original immutable symbols.
 
 These are Product differential regressions against fresh uncached compilation.
-They do not add dependency-directed reference caching or independent acceptance.
+The separate reference-binding session adds dependency-directed resolution reuse;
+neither session provides independent acceptance.
 
 This is incremental declaration/symbol construction, not dependency-directed
 reference resolution or semantic-verdict reuse. Full compilation remains the

@@ -6,6 +6,6 @@ public static class ProjectCompilation
 {
     public static CoreCompilation Compile(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
-        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null, ProjectSymbolBindingCache? symbolBindingCache = null) =>
-        PureCoreCompiler.Compile(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, symbolBindingCache);
+        IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null) =>
+        PureCoreCompiler.Compile(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, symbolBindingCache, referenceBindingCache);
 }

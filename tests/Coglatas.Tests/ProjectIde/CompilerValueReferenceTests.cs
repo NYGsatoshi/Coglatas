@@ -12,7 +12,7 @@ public sealed class CompilerValueReferenceTests
         ports = ports ?? new JsonArray()
     } });
 
-    private static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) Fixture(string change = "", string shape = "scalar")
+    internal static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) Fixture(string change = "", string shape = "scalar")
     {
         var original = Source();
         var context = SourceRevisionContext.Committed(new(new(original.TenantId, ProjectId.Parse(Id(22)), BranchId.Parse(Id(23))), RevisionId.Parse(Id(24))));

@@ -28,10 +28,10 @@ public static class PureCoreCompiler
     public static CoreCompilation Compile(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots = null, IEnumerable<UnitDefinition?>? units = null,
         IEnumerable<CalendarSnapshot?>? calendars = null, CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null,
-        ProjectSymbolBindingCache? symbolBindingCache = null)
+        ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
     {
-        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache);
-        return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache);
+        var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
+        return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
     }
 
     /// <summary>Explicit pre-run root predicate recording. The existing Compile path and host/cache protocol stay unchanged.</summary>
@@ -95,7 +95,7 @@ public static class PureCoreCompiler
     private static CoreCompilation CompileSingle(CompilerInputManifest input, CompilerArtifactIdentity expectedCompiler,
         IEnumerable<CompilerMaterializedSnapshot?>? snapshots, IEnumerable<UnitDefinition?>? units, IEnumerable<CalendarSnapshot?>? calendars,
         CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, PartialSemanticModel? boundRegion = null, int? operationBudget = null, CompilerSemanticValidation? preparedValidation = null,
-        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null, CompilerPredicateObservationCollector? predicateObservation = null, CompilerPassObservationCollector? passObservation = null, ProjectSymbolBindingCache? symbolBindingCache = null)
+        IReadOnlySet<(SourceRevisionContext Context, EntityId Entity)>? constraintAttachments = null, CompilerPredicateCaptureCollector? predicateCapture = null, CompilerPredicateObservationCollector? predicateObservation = null, CompilerPassObservationCollector? passObservation = null, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
     {
         ArgumentNullException.ThrowIfNull(input); ArgumentNullException.ThrowIfNull(expectedCompiler);
         if (!input.Compiler.Data.Equals(expectedCompiler.Data)) throw new UnsupportedSourceException("Compiler identity differs from the host's fixed engine binding.");
@@ -111,7 +111,7 @@ public static class PureCoreCompiler
                 throw new UnsupportedSourceException("Source exceeds the supported canonical AST profile.");
             passObservation?.Returned("coglatas.parse-normalize", "The actual decoded Source returned.", new CompilerPassObservationFrame("decoded-source", ProjectSource.Format, reparsed.Source.Data));
             passObservation?.Enter("coglatas.binding", "External materializations are not pre-enumerated by capture.", new CompilerPassObservationFrame("input", CompilerInputManifest.Format, input.Data));
-            var model = boundRegion ?? ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache, symbolBindingCache);
+            var model = boundRegion ?? ProjectSemanticBinder.Bind(input, snapshots, cancellationToken, declarationCache, symbolBindingCache, referenceBindingCache);
             passObservation?.Returned("coglatas.binding", "The original binding model has no published canonical body at this boundary.");
             passObservation?.Enter("coglatas.semantic-validation-ir", "Actual binding model and lazy unit/calendar supplies are not serialized here.");
             var initialRemaining = operationBudget ?? input.ExecutionProfile.MaximumOperations - model.LogicalOperationsConsumed;

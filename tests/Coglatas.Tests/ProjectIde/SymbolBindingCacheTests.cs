@@ -322,7 +322,7 @@ public sealed class SymbolBindingCacheTests
         AssertEquivalent(basis, warm);
     }
 
-    private static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) External(ProjectSource external, SourceRevisionContext? context = null)
+    internal static (CompilerInputManifest Input, CompilerMaterializedSnapshot Snapshot) External(ProjectSource external, SourceRevisionContext? context = null)
     {
         var basis = ReferenceCompletionTests.CompletionInput(1); context ??= basis.Source.Context;
         var declarations = JsonNode.Parse(basis.Source.Declarations.CanonicalText)!.AsArray();
@@ -352,10 +352,11 @@ public sealed class SymbolBindingCacheTests
         Assert.Single(model.Symbols, symbol => symbol.Context.Equals(context) && symbol.EntityId == EntityId.Parse(Id(entity)) &&
             symbol.PortId == (port is null ? null : PortId.Parse(Id(port.Value))));
 
-    private static CoreCompilation AssertEquivalent(CompilerInputManifest input, ProjectSymbolBindingCache cache, CompilerMaterializedSnapshot[]? snapshots = null)
+    internal static CoreCompilation AssertEquivalent(CompilerInputManifest input, ProjectSymbolBindingCache cache, CompilerMaterializedSnapshot[]? snapshots = null,
+        ProjectReferenceBindingCache? referenceBindingCache = null)
     {
         var full = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
-        var actual = PureCoreCompiler.Compile(input, input.Compiler, snapshots, symbolBindingCache: cache);
+        var actual = PureCoreCompiler.Compile(input, input.Compiler, snapshots, symbolBindingCache: cache, referenceBindingCache: referenceBindingCache);
         Assert.Equal(full.Result.Data, actual.Result.Data); Assert.Equal(full.Result.ResultDigest, actual.Result.ResultDigest);
         Assert.Equal(full.LogicalOperationsConsumed, actual.LogicalOperationsConsumed);
         Assert.Equal(full.Dependencies?.Data, actual.Dependencies?.Data);
