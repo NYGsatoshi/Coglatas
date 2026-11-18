@@ -130,3 +130,18 @@ pre {
 .simulation-trace-profile:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
 .pass-recordings { min-width: 0; overflow-wrap: anywhere; }
+
+.reference-graph { margin-inline: 0; min-width: 0; overflow-wrap: anywhere; }
+.reference-graph figcaption { font-weight: 700; }
+.reference-graph figcaption p { font-weight: 400; }
+.reference-graph-nodes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 0.75rem; }
+.reference-graph-origin { grid-column: 1; display: flex; align-items: center; min-width: 0; }
+.reference-graph-origin button, .reference-graph-target button { max-width: 100%; min-width: 0; overflow-wrap: anywhere; text-align: start; }
+.reference-graph-edge { flex: 1 0 2rem; text-align: end; border-block-end: 1px solid currentColor; }
+.reference-graph-target { grid-column: 2; display: flex; align-items: center; padding-inline-start: 1rem; border-inline-start: 1px solid currentColor; }
+@media (max-width: 40rem) {
+  .reference-graph-nodes { display: flex; flex-direction: column; }
+  .reference-graph-origin { padding-inline-start: 0.5rem; border-inline-start: 1px solid currentColor; }
+  .reference-graph-edge { flex: 0 0 2rem; }
+  .reference-graph-target { padding: 0.75rem; border: 1px solid currentColor; border-radius: 0.375rem; }
+}

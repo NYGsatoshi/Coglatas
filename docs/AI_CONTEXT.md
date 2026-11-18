@@ -1,5 +1,11 @@
 # AI Context
 
+[Local reference neighborhoods](verification/projectide-reference-neighborhood.md)
+render only the current owned Find References page in the Angular Workbench and
+Windows pure ViewModel. Original regional Source navigation, coverage and scan
+continuation stay explicit; runtime authority and actual Native acceptance remain
+separate.
+
 [Full semantic index and paired local readers](verification/projectide-full-semantic-index.md)
 retain actual admitted regional symbols/references and original root input stamps.
 Typed completion, definitions and bounded reference pages require original Source

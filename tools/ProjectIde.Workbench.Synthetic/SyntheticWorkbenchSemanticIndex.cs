@@ -14,6 +14,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     private CompilerIndexedSymbol? _indexedSymbol;
     private CompilerIndexCompletionPage? _indexedCompletion;
     private CompilerIndexReferencePage? _indexedReferences;
+    private SyntheticReferenceGraphPage? _indexedReferenceGraph;
     private CompilerIndexDefinition? _indexedDefinition;
     public string SemanticIndexReadState { get; private set; } = "Idle";
     public CompilerSemanticIndex? SemanticIndex => CurrentScopedSources && _semanticIndexOwner is { } owner &&
@@ -24,6 +25,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     public CompilerIndexCompletionPage? IndexedCompletion => CurrentSemanticQuery ? _indexedCompletion : null;
     public CompilerIndexReferencePage? IndexedReferences => CurrentSemanticQuery ? _indexedReferences : null;
     public CompilerIndexDefinition? IndexedDefinition => CurrentSemanticQuery ? _indexedDefinition : null;
+    public SyntheticReferenceGraphPage? IndexedReferenceGraph => CurrentSemanticQuery ? _indexedReferenceGraph : null;
 
     /// <summary>Explicit synthetic whole-scope read after original regional Source admission; no runtime authority is inferred.</summary>
     public bool LoadSyntheticSemanticIndex(CancellationToken token = default)
@@ -82,7 +84,23 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         if (pageSize is < 1 or > CompilerSemanticIndex.MaximumPageSize) throw new ArgumentOutOfRangeException(nameof(pageSize));
         return ReadSemanticQuery((index, symbol) => index.FindReferences(symbol.Symbol.Location, index.Input.InputDigest, pageSize, cursor, cancellationToken),
-            value => _indexedReferences = value, cancellationToken);
+            value =>
+            {
+                _indexedReferences = value;
+                _indexedReferenceGraph = value.State == CompilerIndexQueryState.Ready && _indexedSymbol is { } target
+                    ? new SyntheticReferenceGraphPage(target, value) : null;
+            }, cancellationToken);
+    }
+    public bool NavigateIndexedGraphOrigin(SyntheticReferenceGraphPage graph, CompilerBoundReference reference)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(graph); ArgumentNullException.ThrowIfNull(reference);
+        return ReferenceEquals(graph, IndexedReferenceGraph) && graph.Edges.Any(item => ReferenceEquals(item, reference)) &&
+            NavigateIndexedReference(graph.Page, reference);
+    }
+    public bool NavigateIndexedGraphTarget(SyntheticReferenceGraphPage graph)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(graph);
+        return ReferenceEquals(graph, IndexedReferenceGraph) && NavigateIndexedSymbol(graph.Target);
     }
     public CompilerIndexDefinition? ReadIndexedDefinition(CompilerBoundReference reference, CancellationToken cancellationToken = default)
     {
@@ -130,6 +148,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     private void ClearSemanticQueries()
     {
         _semanticQueryGeneration++; _semanticQueryOwner = null; _indexedCompletion = null; _indexedReferences = null; _indexedDefinition = null;
+        _indexedReferenceGraph = null;
         if (_semanticNavigationSelection == _selectionGeneration) { ClearScopedSelection(); NavigationState = ""; }
         _semanticNavigationSelection = null;
     }
