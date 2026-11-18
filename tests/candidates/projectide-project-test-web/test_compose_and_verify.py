@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 import copy
 import hashlib
 import importlib.util
+import shutil
 import io
 import json
 import os
@@ -343,6 +344,20 @@ class MainAdmissionControls(ExactRejection):
             self.run_main(stage="npm-ci", mutate=change,
                           reason="Tracked Product source changed during independent composition")
 
+    def test_main_refuses_masked_product_bytes_after_every_external_command(self) -> None:
+        for stage in ("node", "npm-version", "npm-ci", "vitest"):
+            for flag in ("assume-unchanged", "skip-worktree"):
+                with self.subTest(stage=stage, flag=flag):
+                    def change(target, evidence):
+                        product = target / "product.txt"
+                        original_blob = fixture_git(target, "rev-parse", ":product.txt")
+                        fixture_git(target, "update-index", "--" + flag, "--", "product.txt")
+                        product.write_bytes(product.read_bytes() + b"Unreviewed masked Product input\n")
+                        self.assertEqual(original_blob, fixture_git(target, "rev-parse", ":product.txt"))
+                        self.assertEqual("", fixture_git(target, "diff", "--name-only", "--"))
+                    self.run_main(stage=stage, mutate=change,
+                                  reason="Git index flags hide tracked Product source")
+
     def test_main_rejects_untracked_compile_input(self) -> None:
         def change(target, evidence):
             output = target / "frontend/src/app/features/projectide/Injected.spec.ts"
@@ -419,6 +434,22 @@ class UntrackedInputControls(ExactRejection):
     def verify(self, phase: str = "source") -> None:
         RUNNER.verify_working_tree(self.repository, self.raw_sources, self.source_blobs, phase=phase)
 
+    def test_git_index_masks_are_rejected_in_every_phase(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        original_blob = fixture_git(self.repository, "rev-parse", ":product.txt")
+        for flag in ("assume-unchanged", "skip-worktree"):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", "--" + flag, "--", "product.txt")
+                tracked.write_bytes(original + b"Unreviewed masked Product input\n")
+                self.assertEqual(original_blob, fixture_git(self.repository, "rev-parse", ":product.txt"))
+                self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                for phase in ("source", "dependencies", "tests"):
+                    self.reject("Git index flags hide tracked Product source", lambda: self.verify(phase))
+                fixture_git(self.repository, "update-index", "--no-" + flag, "--", "product.txt")
+                tracked.write_bytes(original)
+                self.verify()
+
     def test_ignored_compile_inputs_are_rejected_in_every_phase(self) -> None:
         for name in ("Injected.d.ts", "Injected.ts", "tsconfig.json"):
             relative = "frontend/src/app/data/" + name
@@ -463,6 +494,84 @@ class UntrackedInputControls(ExactRejection):
         self.verify("tests")
         for destination, raw in self.raw_sources.items():
             self.assertEqual(raw, (self.repository / destination).read_bytes())
+
+
+class WorkflowBootstrapControls(unittest.TestCase):
+    """Execute the actual advisory bootstrap over disposable helper bytes, not Product code."""
+
+    HELPER = "tests/candidates/workflow-provenance/verify_workflow_provenance.py"
+    HELPER_BYTES = (b"import json, os, sys\nfrom pathlib import Path\n"
+                    b"Path(os.environ['BOOTSTRAP_RESULT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+
+    def setUp(self) -> None:
+        self.pwsh = shutil.which("pwsh")
+        if self.pwsh is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted workflow bootstrap controls require PowerShell")
+            self.skipTest("PowerShell is unavailable; hosted bootstrap execution remains required")
+        temporary = tempfile.TemporaryDirectory(prefix="workflow-bootstrap-controls-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.repository = self.directory / "source"
+        self.repository.mkdir()
+        fixture_git(self.repository, "init", "--quiet", "--template=")
+        self.helper = self.repository / self.HELPER
+        self.helper.parent.mkdir(parents=True)
+        self.helper.write_bytes(self.HELPER_BYTES)
+        fixture_git(self.repository, "add", "--", self.HELPER)
+        fixture_git(self.repository, "commit", "--quiet", "-m", "Disposable pinned helper")
+        self.pinned = fixture_git(self.repository, "rev-parse", "HEAD:" + self.HELPER)
+        self.result = self.directory / "executed.json"
+        self.shadow = self.directory / "shadow-loaded.txt"
+        workflow = Path(__file__).resolve().parents[3] / ".github/workflows/projectide-project-test-web-advisory.yml"
+        self.scripts = re.findall(
+            r"      - name: Bind the immutable executing workflow to the reviewed Test source\n"
+            r"        shell: pwsh\n        run: \|\n((?:          [^\n]*\n)+)",
+            workflow.read_text(encoding="utf-8"))
+        self.assertEqual(2, len(self.scripts), "Both hosted bootstrap blocks must be exercised")
+
+    def execute(self, script: str) -> subprocess.CompletedProcess:
+        path = self.directory / "bootstrap.ps1"
+        path.write_text("\n".join(line[10:] for line in script.splitlines()) + "\n", encoding="utf-8")
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.upper().startswith("GIT_")}
+        environment.update(PROVENANCE_BLOB=self.pinned, RUNNER_TEMP=str(self.directory),
+                           BOOTSTRAP_RESULT=str(self.result), BOOTSTRAP_SHADOW=str(self.shadow))
+        return subprocess.run([self.pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(path)],
+                              cwd=self.repository, env=environment, capture_output=True, text=True, timeout=30)
+
+    def test_changed_helper_is_refused_before_any_helper_instruction(self) -> None:
+        changed = self.HELPER_BYTES + b"# Different executable bytes.\n"
+        for kind in ("working", "normalized-working", "committed"):
+            with self.subTest(kind=kind):
+                fixture_git(self.repository, "config", "core.autocrlf", "false")
+                self.helper.write_bytes(changed)
+                if kind == "normalized-working":
+                    fixture_git(self.repository, "config", "core.autocrlf", "true")
+                    self.helper.write_bytes(self.HELPER_BYTES.replace(b"\n", b"\r\n"))
+                    self.assertEqual(self.pinned, fixture_git(
+                        self.repository, "-c", "core.autocrlf=true", "hash-object", "--", self.HELPER))
+                if kind == "committed":
+                    fixture_git(self.repository, "add", "--", self.HELPER)
+                    fixture_git(self.repository, "commit", "--quiet", "-m", "Different committed helper")
+                for script in self.scripts:
+                    result = self.execute(script)
+                    self.assertNotEqual(0, result.returncode)
+                    reason = "Provenance helper blob mismatch" if kind == "committed" else "Provenance helper working bytes mismatch"
+                    self.assertIn(reason, result.stdout + result.stderr)
+                    self.assertFalse(self.result.exists(), "Changed executable must not reach its first instruction")
+
+    def test_original_helper_load_ignores_neighboring_import_shadow(self) -> None:
+        shadow = self.helper.with_name("json.py")
+        shadow.write_text("import os\nfrom pathlib import Path\n"
+                          "Path(os.environ['BOOTSTRAP_SHADOW']).write_text('shadow executed')\n"
+                          "raise RuntimeError('Neighboring import shadow executed')\n", encoding="utf-8")
+        for script in self.scripts:
+            result = self.execute(script)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual({"isolated": 1}, json.loads(self.result.read_text(encoding="utf-8")))
+            self.assertFalse(self.shadow.exists())
+            self.result.unlink()
 
 
 if __name__ == "__main__":
