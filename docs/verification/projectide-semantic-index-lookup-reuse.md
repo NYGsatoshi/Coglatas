@@ -18,7 +18,9 @@ The session has explicit LRU entry/key-byte limits and owner-scoped reuse
 counts. Key bytes do not measure managed heap usage or establish a performance
 SLA. Oversized keys use fresh tables without retention. Root Tenant/Project/Branch
 changes clear prior tables even for a stale/empty index. Clear invalidates
-pending publication by an earlier builder. Prepared tables are committed only
+pending publication by an earlier builder, including invalidation between build
+start and lookup preparation. A build carries its original owner/epoch token
+through preparation and commit; invalidation cannot restore an earlier owner. Prepared tables are committed only
 after the complete index has passed its original derived-work, canonical-byte
 and cancellation checks; a refused build publishes no partial roster or new
 prepared cache entry. Existing Compiler and derived-index logical charges stay unchanged.

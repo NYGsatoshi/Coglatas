@@ -38,24 +38,26 @@ public sealed class ProjectSemanticIndexLookupCache
         lock (_gate) { ClearEntries(); _ownerScope = null; }
     }
 
-    internal void BeginBinding(BranchRef ownerScope, CancellationToken token)
+    internal SemanticIndexLookupScope BeginBinding(BranchRef ownerScope, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         lock (_gate)
         {
             token.ThrowIfCancellationRequested();
             if (_ownerScope != ownerScope) { ClearEntries(); _ownerScope = ownerScope; }
+            return new(ownerScope, _generation);
         }
     }
 
-    internal SemanticIndexLookupLease Prepare(BranchRef ownerScope, IEnumerable<string> dependencies,
+    internal SemanticIndexLookupLease Prepare(SemanticIndexLookupScope scope, IEnumerable<string> dependencies,
         Func<SemanticIndexLookupTables> create, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         lock (_gate)
         {
             token.ThrowIfCancellationRequested();
-            if (_ownerScope != ownerScope) { ClearEntries(); _ownerScope = ownerScope; }
+            if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
+                return new(scope.Owner, scope.Generation, null, 0, create(), false);
             var text = new StringBuilder(); var bytes = 0;
             foreach (var part in dependencies)
             {
@@ -63,13 +65,13 @@ public sealed class ProjectSemanticIndexLookupCache
                 var length = part.Length.ToString(CultureInfo.InvariantCulture);
                 var partBytes = Encoding.UTF8.GetByteCount(part);
                 if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
-                    return new(ownerScope, _generation, null, 0, create(), false);
+                    return new(scope.Owner, scope.Generation, null, 0, create(), false);
                 text.Append(length).Append(':').Append(part); bytes += partBytes + length.Length + 1;
             }
             var key = text.ToString();
             return _entries.TryGetValue(key, out var retained)
-                ? new(ownerScope, _generation, key, bytes, retained.Value.Tables, true)
-                : new(ownerScope, _generation, key, bytes, create(), false);
+                ? new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true)
+                : new(scope.Owner, scope.Generation, key, bytes, create(), false);
         }
     }
 
@@ -105,6 +107,8 @@ public sealed class ProjectSemanticIndexLookupCache
     }
     private sealed record Entry(string Key, SemanticIndexLookupTables Tables, int Bytes);
 }
+
+internal sealed record SemanticIndexLookupScope(BranchRef Owner, object Generation);
 
 internal sealed record SemanticIndexLookupLease(BranchRef Owner, object Generation, string? Key, int Bytes,
     SemanticIndexLookupTables Tables, bool Reused);

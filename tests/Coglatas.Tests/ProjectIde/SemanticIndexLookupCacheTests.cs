@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using System.Linq.Expressions;
+using System.Reflection;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
@@ -190,6 +192,34 @@ public sealed class SemanticIndexLookupCacheTests
         Assert.Equal(1, cache.RetainedCount); Assert.Equal(0, cache.LookupReuseCount);
     }
 
+    [Theory]
+    [InlineData("clear")] [InlineData("owner")]
+    public void InvalidationBetweenBuildStartAndLookupPreparationCannotRepopulateTheEarlierOwner(string invalidation)
+    {
+        var input = Input(); var binding = CompilerBindingClosure.Build(ProjectSemanticBinder.Bind(input), input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest); var owner = input.Source.Context.Branch;
+        var cache = new ProjectSemanticIndexLookupCache(); const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var begin = typeof(ProjectSemanticIndexLookupCache).GetMethod("BeginBinding", flags)!;
+        var prepare = typeof(ProjectSemanticIndexLookupCache).GetMethod("Prepare", flags)!;
+        var commit = typeof(ProjectSemanticIndexLookupCache).GetMethod("Commit", flags)!;
+        // Exercise the real staging boundary without adding a production timing hook.
+        // The void-return fallback also runs the same control against the original implementation.
+        var earlierScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
+        if (invalidation == "clear") cache.Clear();
+        else begin.Invoke(cache, [new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), CancellationToken.None]);
+        var tablesType = prepare.ReturnType.GetProperty("Tables")!.PropertyType;
+        var constructor = tablesType.GetConstructors(flags).Single();
+        var factory = Expression.Lambda(prepare.GetParameters()[2].ParameterType, Expression.New(constructor,
+            Expression.Constant(index.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>)),
+            Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)))).Compile();
+        var prepared = prepare.Invoke(cache, [earlierScope, new[] { "exact-roster-control" }, factory, CancellationToken.None]);
+        commit.Invoke(cache, [prepared, CancellationToken.None]);
+        Assert.Equal(0, cache.RetainedCount); Assert.Equal(0, cache.LookupReuseCount);
+        var currentScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
+        var current = prepare.Invoke(cache, [currentScope, new[] { "exact-roster-control" }, factory, CancellationToken.None]);
+        commit.Invoke(cache, [current, CancellationToken.None]); Assert.Equal(1, cache.RetainedCount);
+    }
+
     [Fact]
     public async Task OverlappingBuildersAndExplicitClearKeepTheirOwnInputDataAndNeverPublishAPartialTable()
     {
@@ -213,7 +243,8 @@ public sealed class SemanticIndexLookupCacheTests
         CompilerArtifactIdentity Artifact(string name) => new(SourceJson.Parse(input.Settings.Value.GetProperty(name).GetRawText()));
         var profile = new CompilerHostProfile(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
             input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString()));
-        var cache = new ProjectSemanticIndexLookupCache(); using var vm = new SyntheticWorkbenchViewModel(cache);
+        var cache = new ProjectSemanticIndexLookupCache();
+        using var vm = new SyntheticWorkbenchViewModel(cache);
         var request = new CompilerHostRequest(new(input), 1, fixture.Snapshots); vm.BeginSynthetic(request);
         Assert.True(vm.TryAccept(await new LocalNetCompilerHost(profile).CompileAsync(request)));
         Assert.False(vm.LoadSyntheticSemanticIndex()); Assert.Equal(0, cache.RetainedCount);
@@ -235,7 +266,14 @@ public sealed class SemanticIndexLookupCacheTests
         var expected = SyntheticSemanticIndexProjection.Export(compilation); Assert.NotNull(expected);
         var cache = new ProjectSemanticIndexLookupCache();
         Assert.Equal(expected, SyntheticSemanticIndexProjection.Export(compilation, lookupCache: cache));
-        Assert.Equal(expected, SyntheticSemanticIndexProjection.Export(compilation, lookupCache: cache)); Assert.Equal(1, cache.LookupReuseCount);
+        var independentlyCompiled = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots);
+        Assert.NotSame(compilation.Model, independentlyCompiled.Model);
+        Assert.NotSame(compilation.Model!.References[0], independentlyCompiled.Model!.References[0]);
+        Assert.Equal(expected, SyntheticSemanticIndexProjection.Export(independentlyCompiled, lookupCache: cache)); Assert.Equal(1, cache.LookupReuseCount);
+        var index = CompilerSemanticIndex.Build(independentlyCompiled.Dependencies!.Binding, fixture.Input.InputDigest, lookupCache: cache);
+        foreach (var symbol in index.Symbols)
+            foreach (var reference in index.FindReferences(symbol.Symbol.Location, index.Input.InputDigest).References)
+                Assert.Contains(index.References, original => ReferenceEquals(original, reference));
         Assert.Null(SyntheticSemanticIndexProjection.Export(compilation, 1, cache)); Assert.Equal(1, cache.RetainedCount);
     }
 

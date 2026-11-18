@@ -51,7 +51,7 @@ public sealed class CompilerSemanticIndex
 
     private CompilerSemanticIndex(CompilerBindingClosure binding, CompilerSemanticIndexState state,
         IEnumerable<CompilerBindingRegion> regions, IEnumerable<CompilerIndexedSymbol> symbols, IEnumerable<CompilerBoundReference> references,
-        int maximumOperations, ref int remaining, bool charge, CancellationToken token, ProjectSemanticIndexLookupCache? lookupCache = null)
+        int maximumOperations, ref int remaining, bool charge, CancellationToken token, ProjectSemanticIndexLookupCache? lookupCache = null, SemanticIndexLookupScope? lookupScope = null)
     {
         Input = binding.Input; BindingClosureDigest = binding.Digest; State = state; IncludesDeclaredSnapshots = binding.IncludesDeclaredSnapshots;
         Regions = new ImmutableListView<CompilerBindingRegion>(regions);
@@ -59,7 +59,7 @@ public sealed class CompilerSemanticIndex
         References = new ImmutableListView<CompilerBoundReference>(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal)
             .ThenBy(item => item.State).ThenBy(item => item.SymbolKey, StringComparer.Ordinal));
         _contexts = Regions.Select(region => region.Source.Context).ToHashSet();
-        var preparedLookups = lookupCache?.Prepare(Input.Source.Context.Branch, LookupDependencies(Symbols, References),
+        var preparedLookups = lookupScope is null ? null : lookupCache!.Prepare(lookupScope, LookupDependencies(Symbols, References),
             () => new SemanticIndexLookupTables(Symbols, References), token);
         _lookups = preparedLookups?.Tables ?? new SemanticIndexLookupTables(Symbols, References);
         IndexCoverageComplete = state == CompilerSemanticIndexState.Complete && IncludesDeclaredSnapshots &&
@@ -87,7 +87,7 @@ public sealed class CompilerSemanticIndex
         ArgumentNullException.ThrowIfNull(binding); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
         var maximum = maximumOperations ?? binding.Input.ExecutionProfile.MaximumOperations;
         if (maximum < 1 || maximum > binding.Input.ExecutionProfile.MaximumOperations) throw new ArgumentOutOfRangeException(nameof(maximumOperations));
-        lookupCache?.BeginBinding(binding.Input.Source.Context.Branch, cancellationToken);
+        var lookupScope = lookupCache?.BeginBinding(binding.Input.Source.Context.Branch, cancellationToken);
         var remaining = maximum;
         CompilerSemanticIndex Empty(CompilerSemanticIndexState state) => new(binding, state, [], [], [], maximum, ref remaining, false, cancellationToken);
         if (!binding.Input.InputDigest.Equals(expectedInput) || binding.State == CompilerBindingClosureState.StaleInput) return Empty(CompilerSemanticIndexState.StaleInput);
@@ -141,7 +141,7 @@ public sealed class CompilerSemanticIndex
             }
             var state = binding.State == CompilerBindingClosureState.ResourceLimit ? CompilerSemanticIndexState.ResourceLimit :
                 binding.State == CompilerBindingClosureState.Complete && binding.IncludesDeclaredSnapshots ? CompilerSemanticIndexState.Complete : CompilerSemanticIndexState.Incomplete;
-            return new(binding, state, binding.Regions, symbols, references, maximum, ref remaining, true, cancellationToken, lookupCache);
+            return new(binding, state, binding.Regions, symbols, references, maximum, ref remaining, true, cancellationToken, lookupCache, lookupScope);
         }
         catch (FormatException) { return Empty(CompilerSemanticIndexState.ResourceLimit); }
     }
