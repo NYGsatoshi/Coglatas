@@ -15,6 +15,8 @@ public sealed class ProjectSymbolBindingCache
     private readonly Dictionary<Key, LinkedListNode<Entry>> _entries = new();
     private readonly LinkedList<Entry> _recent = new();
     private BranchRef? _ownerScope;
+    private readonly object _identity = new();
+    private object _generation = new();
     private int _canonicalBytes;
 
     public ProjectSymbolBindingCache(int maximumEntries = 256, int maximumCanonicalBytes = 4_194_304)
@@ -33,13 +35,31 @@ public sealed class ProjectSymbolBindingCache
         lock (_gate) { ClearEntries(); _ownerScope = null; }
     }
 
-    internal IReadOnlyList<BoundProjectDeclaration> Read(ProjectSource source, BranchRef ownerScope, CancellationToken cancellationToken)
+    internal SymbolBindingScope BeginBinding(BranchRef ownerScope, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            token.ThrowIfCancellationRequested();
+            if (_ownerScope != ownerScope) { ClearEntries(); _ownerScope = ownerScope; }
+            return new(_identity, ownerScope, _generation);
+        }
+    }
+
+    internal SymbolBindingScope ContinueBinding(BranchRef ownerScope, SymbolBindingScope? earlier, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        return earlier is not null && ReferenceEquals(earlier.CacheIdentity, _identity) && earlier.Owner == ownerScope
+            ? earlier : BeginBinding(ownerScope, token);
+    }
+
+    internal IReadOnlyList<BoundProjectDeclaration> Read(ProjectSource source, SymbolBindingScope scope, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_ownerScope != ownerScope) { ClearEntries(); _ownerScope = ownerScope; }
+            var retain = ReferenceEquals(scope.CacheIdentity, _identity) && _ownerScope == scope.Owner && ReferenceEquals(scope.Generation, _generation);
             var result = new List<BoundProjectDeclaration>();
             foreach (var document in source.Documents) result.Add(ReadOne(document.Root.Data, document.DocumentId));
             foreach (var declaration in source.Declarations.Value.EnumerateArray())
@@ -51,7 +71,7 @@ public sealed class ProjectSymbolBindingCache
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var key = new Key(source.Context, document, data.Limits, data);
-                if (_entries.TryGetValue(key, out var retained))
+                if (retain && _entries.TryGetValue(key, out var retained))
                 {
                     _recent.Remove(retained); _recent.AddLast(retained);
                     return retained.Value.Binding;
@@ -61,7 +81,7 @@ public sealed class ProjectSymbolBindingCache
                     new ImmutableListView<CompilerSymbol>(ProjectSemanticBinder.BindSymbols(decoded, source.Context)));
                 cancellationToken.ThrowIfCancellationRequested();
                 var bytes = Encoding.UTF8.GetByteCount(data.CanonicalText) + Encoding.UTF8.GetByteCount(source.Context.Data.CanonicalText);
-                if (bytes <= _maximumCanonicalBytes)
+                if (retain && bytes <= _maximumCanonicalBytes)
                 {
                     while (_entries.Count >= _maximumEntries || _canonicalBytes > _maximumCanonicalBytes - bytes)
                     {
@@ -75,9 +95,11 @@ public sealed class ProjectSymbolBindingCache
         }
     }
 
-    private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; }
+    private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; _generation = new(); }
     private sealed record Key(SourceRevisionContext Context, DocumentId Document, SourceCodecLimits Limits, SourceJson Data);
     private sealed record Entry(Key Key, BoundProjectDeclaration Binding, int Bytes);
 }
+
+internal sealed record SymbolBindingScope(object CacheIdentity, BranchRef Owner, object Generation);
 
 internal sealed record BoundProjectDeclaration(DeclarationDecodeResult Declaration, IReadOnlyList<CompilerSymbol> Symbols);

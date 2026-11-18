@@ -35,8 +35,10 @@ actual editor/Graph acceptance remain separate.
 [Incremental symbol binding](verification/projectide-incremental-symbol-binding.md)
 reuses exact immutable declaration/context symbol partitions after fresh admission.
 Root input stamps, references, diagnostics, budgets and global validation remain
-fresh. The optional local session and offline fixture exporter grant no runtime
-access or independent Security qualification.
+fresh. The original symbol-session epoch survives root/regional/full-Compile
+continuation, so Clear or an owner change prevents late lookup/retention. The
+optional local session and offline fixture exporter grant no runtime access or
+independent Security qualification.
 
 [Paired local regional operator consumers](verification/projectide-paired-regional-operator-consumers.md)
 read original local runs in the pure Workbench and Angular after explicit Source,

@@ -42,13 +42,14 @@ public sealed class PartialSemanticModel
     internal IReadOnlyList<CompilerMaterializedSnapshot> MaterializedSnapshots { get; }
     // Noncanonical lifetime metadata; retains no cache, Source or authority.
     internal ReferenceBindingScope? ReferenceScope { get; }
+    internal SymbolBindingScope? SymbolScope { get; }
     public bool BindingComplete => Findings.Count == 0 && Input.SourceCoverageComplete;
     public int LogicalOperationsConsumed { get; }
     internal PartialSemanticModel(CompilerInputManifest input, IEnumerable<DeclarationDecodeResult> declarations, IEnumerable<RelationDecodeResult> relations,
         IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots,
-        int logicalOperationsConsumed = 0, IEnumerable<CompilerMaterializedSnapshot>? materializedSnapshots = null, ReferenceBindingScope? referenceScope = null)
+        int logicalOperationsConsumed = 0, IEnumerable<CompilerMaterializedSnapshot>? materializedSnapshots = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null)
     {
-        Input = input; ReferenceScope = referenceScope; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = new ImmutableListView<DeclarationDecodeResult>(declarations); Relations = new ImmutableListView<RelationDecodeResult>(relations);
+        Input = input; ReferenceScope = referenceScope; SymbolScope = symbolScope; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = new ImmutableListView<DeclarationDecodeResult>(declarations); Relations = new ImmutableListView<RelationDecodeResult>(relations);
         Symbols = new ImmutableListView<CompilerSymbol>(symbols.OrderBy(item => item.Key, StringComparer.Ordinal));
         References = new ImmutableListView<CompilerBoundReference>(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal));
         Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
@@ -66,13 +67,13 @@ public static class ProjectSemanticBinder
 
     // Only closure construction can reuse the original admitted root as an implicit scope. It invents no snapshot ID/version or pin.
     internal static PartialSemanticModel BindRegion(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot> materialized,
-        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, ReferenceBindingScope? referenceScope = null) =>
+        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null) =>
         BindCore(input, materialized, cancellationToken, declarationCache,
-            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete), symbolBindingCache, referenceBindingCache, root.Source.Context.Branch, referenceScope);
+            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete), symbolBindingCache, referenceBindingCache, root.Source.Context.Branch, referenceScope, symbolScope);
 
     private static PartialSemanticModel BindCore(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized,
         CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, RelationScopeSnapshot? closureRoot,
-        ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, BranchRef? ownerScope = null, ReferenceBindingScope? earlierReferenceScope = null)
+        ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, BranchRef? ownerScope = null, ReferenceBindingScope? earlierReferenceScope = null, SymbolBindingScope? earlierSymbolScope = null)
     {
         ArgumentNullException.ThrowIfNull(input); cancellationToken.ThrowIfCancellationRequested();
         foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
@@ -80,6 +81,7 @@ public static class ProjectSemanticBinder
                 throw new ArgumentException("Binding requires the locked platform structural rule baseline.");
         var source = input.Source;
         var referenceScope = referenceBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierReferenceScope, cancellationToken);
+        var symbolScope = symbolBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierSymbolScope, cancellationToken);
         var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
         var findings = new List<CompilerBindingFinding>(); var references = new List<CompilerBoundReference>(); var symbols = new List<CompilerSymbol>();
         var findingIds = new HashSet<Guid>();
@@ -95,7 +97,7 @@ public static class ProjectSemanticBinder
             if (findingIds.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
         }
         var remainingOperations = input.ExecutionProfile.MaximumOperations;
-        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope);
+        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope, symbolScope);
         var remainingDeclarations = input.ExecutionProfile.MaximumDeclarations - source.Declarations.Value.GetArrayLength() - source.Documents.Count;
         if (!WithinBudget(source.Data.Value, ref remainingOperations) || !WithinNumericProfile(source.Data.Value, input.ExecutionProfile.Numbers) ||
             source.Declarations.Value.GetArrayLength() + source.Documents.Count > input.ExecutionProfile.MaximumDeclarations ||
@@ -208,7 +210,7 @@ public static class ProjectSemanticBinder
         var local = new RelationScopeSnapshot(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete);
         var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item =>
         {
-            var bindings = symbolBindingCache?.Read(item.Source, ownerScope ?? source.Context.Branch, cancellationToken);
+            var bindings = symbolBindingCache?.Read(item.Source, symbolScope!, cancellationToken);
             IReadOnlyList<DeclarationDecodeResult> results = bindings is not null
                 ? bindings.Select(binding => binding.Declaration).ToArray()
                 : declarationCache is not null && ReferenceEquals(item.Source, source)
@@ -297,7 +299,7 @@ public static class ProjectSemanticBinder
                 entityId = SourceFields.String(reference, "entityId"), context = source.Context.Data.Value })), location, CoreCompilerRules.Declarations);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope);
+        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope, symbolScope);
 
         void ResolveValue(TypedProjectReference reference, ProjectLocation origin)
         {

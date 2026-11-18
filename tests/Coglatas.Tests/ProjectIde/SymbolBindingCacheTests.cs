@@ -445,4 +445,93 @@ public sealed class SymbolBindingCacheTests
         Assert.Equal(expected.Data, current.Data); Assert.Equal(expected.Digest, current.Digest);
         return current;
     }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void SymbolLifetimeInvalidationDuringSupplyCannotRestoreTheEarlierOwner(string invalidation)
+    {
+        var fixture = External(Source(9)); var cache = new ProjectSymbolBindingCache();
+        (int Count, int Bytes, PartialSemanticModel? Foreign, CompilerInputManifest? Input) state = default;
+        IEnumerable<CompilerMaterializedSnapshot> Supply()
+        {
+            state = InvalidateSymbolLifetime(cache, fixture.Input, invalidation);
+            yield return fixture.Snapshot;
+        }
+        var actual = ProjectSemanticBinder.Bind(fixture.Input, Supply(), symbolBindingCache: cache);
+        AssertSymbolLifetime(cache, state);
+        var expected = ProjectSemanticBinder.Bind(fixture.Input, [fixture.Snapshot]);
+        Assert.Equal(CompilerBindingClosure.Build(expected, fixture.Input.InputDigest).Data,
+            CompilerBindingClosure.Build(actual, fixture.Input.InputDigest).Data);
+    }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void SymbolLifetimeRegionalContinuationCannotAcquireANewerEpoch(string invalidation)
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true); var cache = new ProjectSymbolBindingCache();
+        var root = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, symbolBindingCache: cache);
+        Assert.True(cache.RetainedCount > 0);
+        var state = InvalidateSymbolLifetime(cache, fixture.Input, invalidation);
+        var actual = CompilerBindingClosure.Build(root, fixture.Input.InputDigest, symbolBindingCache: cache);
+        AssertSymbolLifetime(cache, state);
+        Assert.Equal(CompilerBindingClosure.Build(root, fixture.Input.InputDigest).Data, actual.Data);
+        var fresh = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, symbolBindingCache: cache);
+        Assert.Equal(actual.Data, CompilerBindingClosure.Build(fresh, fixture.Input.InputDigest, symbolBindingCache: cache).Data);
+        Assert.True(cache.RetainedCount > 0);
+    }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void SymbolLifetimeFullCompilationPreservesTheInvalidatedRootEpoch(string invalidation)
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true); var cache = new ProjectSymbolBindingCache();
+        (int Count, int Bytes, PartialSemanticModel? Foreign, CompilerInputManifest? Input) state = default;
+        var observed = false;
+        IEnumerable<UnitDefinition> Units()
+        {
+            Assert.True(cache.RetainedCount > 0); observed = true;
+            state = InvalidateSymbolLifetime(cache, fixture.Input, invalidation);
+            yield break;
+        }
+        var actual = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots, Units(), symbolBindingCache: cache);
+        Assert.True(observed); AssertSymbolLifetime(cache, state);
+        var expected = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots);
+        Assert.Equal(expected.Result.Data, actual.Result.Data); Assert.Equal(expected.Dependencies!.Data, actual.Dependencies!.Data);
+        Assert.Equal(expected.LogicalOperationsConsumed, actual.LogicalOperationsConsumed); AssertFullIndexEquivalent(expected, actual);
+    }
+
+    [Fact]
+    public void SymbolLifetimeDifferentSessionCanIndependentlyBindAnEarlierImmutableRoot()
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true);
+        var first = new ProjectSymbolBindingCache(); var second = new ProjectSymbolBindingCache();
+        var root = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, symbolBindingCache: first); first.Clear();
+        var actual = CompilerBindingClosure.Build(root, fixture.Input.InputDigest, symbolBindingCache: second);
+        Assert.Equal(0, first.RetainedCount); Assert.True(second.RetainedCount > 0);
+        Assert.Equal(CompilerBindingClosure.Build(root, fixture.Input.InputDigest).Data, actual.Data);
+    }
+
+    private static (int Count, int Bytes, PartialSemanticModel? Foreign, CompilerInputManifest? Input) InvalidateSymbolLifetime(
+        ProjectSymbolBindingCache cache, CompilerInputManifest input, string invalidation)
+    {
+        if (invalidation == "clear") { cache.Clear(); return (0, 0, null, null); }
+        var owner = input.Source.Context.Branch;
+        var context = SourceRevisionContext.Committed(new(new(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), RevisionId.Parse(Id(5))));
+        var foreignInput = Input(source: ProjectSource.Create(context, Source().Documents));
+        var foreign = ProjectSemanticBinder.Bind(foreignInput, symbolBindingCache: cache);
+        Assert.True(cache.RetainedCount > 0);
+        return (cache.RetainedCount, cache.RetainedCanonicalBytes, foreign, foreignInput);
+    }
+
+    private static void AssertSymbolLifetime(ProjectSymbolBindingCache cache,
+        (int Count, int Bytes, PartialSemanticModel? Foreign, CompilerInputManifest? Input) state)
+    {
+        Assert.Equal(state.Count, cache.RetainedCount); Assert.Equal(state.Bytes, cache.RetainedCanonicalBytes);
+        if (state.Foreign is not { } foreign) return;
+        var current = ProjectSemanticBinder.Bind(state.Input!, symbolBindingCache: cache);
+        Assert.All(foreign.Symbols, symbol => Assert.Contains(current.Symbols, row => ReferenceEquals(symbol, row)));
+    }
 }
