@@ -68,9 +68,19 @@ All Source contexts, private-document names and materializations are synthetic.
 The supplied local `IsAuthorized` flag is an input admission fixture, not a
 persisted current actor/tenant authorization proof.
 
+The issue #2095 admission boundary additionally refuses nested native result
+records while preserving the complete flat roster and counters. Raw NUL-delimited
+Git index flags reject tracked changes hidden by assume-unchanged or skip-worktree
+before ordinary diffs are trusted. Restore, test and compiled discovery explicitly
+disable ancestor `Directory.Build.props` and `Directory.Build.targets` imports;
+the frozen Product has no tracked files with either name. Regression controls
+retain the original index blob and demonstrate the hidden working-byte edit,
+then restore and readmit the original fixture. These Python controls confer no
+native C# execution credit; fresh hosted execution remains a separate gate.
+
 ## Verifier controls and qualification limits
 
-Sixteen Python unittest methods exercise synthetic positive TRX/discovery
+Nineteen Python unittest methods exercise synthetic positive TRX/discovery
 inventories, exact-error negative mutations and real disposable Git
 HEAD/index/source/environment isolation. An index-only unrelated edit hidden by
 restored working bytes and an unexpected untracked C# input must both fail
