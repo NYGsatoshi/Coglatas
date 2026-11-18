@@ -86,7 +86,7 @@ describe('Whole admitted binding index and Core-prepared queries', () => {
       if (mode === 'completion-kind') projection.completions[0].pages[0].expectedKind = 'coglatas.future';
       if (mode === 'completion-membership') projection.completions.find((g: any) => g.pages.some((p: any) => p.symbolKeys.length)).pages[0].symbolKeys.push(projection.completions[0].originKey);
       if (mode === 'unknown-field') projection.authority = true;
-      if (mode === 'duplicate-key') { projection.index.text = projection.index.text.replace('{', '{"format":"duplicate",'); rehash(row); }
+      if (mode === 'duplicate-key') { projection.index.text = projection.index.text.replace(/{/g, '{"format":"duplicate",'); rehash(row); }
       if (mode === 'rehash-kind') { projection.index.text = projection.index.text.replace('"kind":"coglatas.project"', '"kind":"example.unknown"'); rehash(row); }
       const source = await readScopedSources(row); expect(source).not.toBeNull();
       await expect(readSemanticIndex(row, source!)).rejects.toThrow();
