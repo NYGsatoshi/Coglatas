@@ -15,8 +15,8 @@ env:
   PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
-  RUNNER_BLOB: 6a00381518ea527e4a50c039b9bbae93621a6826
-  CONTROLS_BLOB: bee4e3a71e7eb5b9bdd2f774106e0fff74b333fd
+  RUNNER_BLOB: 0fca7914fa17fe66b4470848fa1e34a0f5cd8ce3
+  CONTROLS_BLOB: cad83b72161e347957c411e684c457be9113ae34
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}
@@ -76,6 +76,10 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-reference-cache/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
           if ($LASTEXITCODE -ne 0) {
             git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
@@ -121,7 +125,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh
@@ -217,6 +221,10 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-reference-cache/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
           if ($LASTEXITCODE -ne 0) {
             git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
@@ -262,7 +270,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh
