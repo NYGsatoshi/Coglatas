@@ -69,14 +69,21 @@ exact `frontend/node_modules/` subtree is admitted after `npm ci`; the actual
 `frontend/.angular/cache/` subtree is additionally admitted after Angular tests.
 Nested dependency/cache names and other ignored paths remain refused.
 
-After genuine Angular execution, 22 controls include 19 that replay its original retained JSON
-and receipt plus disposable real Git repositories. They exercise malformed
+After genuine Angular execution, 26 controls include the original retained-JSON
+and receipt checks plus disposable real Git repositories. They exercise malformed
 counters, identities, paths, failures, snapshots, duplicate/nonfinite JSON,
 source/index/mode/HEAD/Product drift, untracked inputs, nonzero commands and Git
 environment redirection. Controlled process responses are verifier tests only.
 Three additional disposable-Git controls independently verify ignored compiler
 input refusal, nested output-name refusal and phase-specific output admission.
 Those three controls also run locally without fabricating a native receipt.
+Two further controls reject `assume-unchanged` and `skip-worktree` Product
+changes with unchanged index blobs and empty ordinary diffs, across every
+composition phase and after each external command. Two PowerShell controls
+execute both actual workflow bootstrap blocks: changed committed or working
+helper bytes must be refused before execution, and an adjacent import shadow
+must not load. These two controls explicitly skip without local PowerShell;
+missing PowerShell fails on GitHub Actions. None of these controls runs Angular.
 The control report and `ANGULAR_ADMISSION_CONTROLS_COMPLETE` marker bind the
 unchanged original Vitest SHA256 and grant no new Angular execution credit.
 
@@ -101,6 +108,9 @@ remain false. #1144 stays BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_
 Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
 from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
 complete tree are checked independently from the Test checkout and Product pin.
+Before loading the helper, each job checks its committed blob and actual working
+bytes, then invokes Python in isolated mode. This #2095 repair preserves the
+original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.

@@ -16,8 +16,8 @@ env:
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
-  RUNNER_BLOB: 93ffe90330edc87a0ad1192e9052434be09844b5
-  CONTROLS_BLOB: 40a59fa87ed4d8382edef1a7bd4f7d3537bbe190
+  RUNNER_BLOB: 23728902ccc211fd801220382be41ad76377048a
+  CONTROLS_BLOB: add7ef44c265e2dd9279b72f5f66c6c0691463d1
 
 concurrency:
   group: semantic-index-web-${{ github.event.pull_request.number }}
@@ -92,7 +92,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh
@@ -209,7 +213,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh
