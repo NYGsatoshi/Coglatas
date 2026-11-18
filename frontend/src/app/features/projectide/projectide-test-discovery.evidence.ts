@@ -2,1609 +2,2078 @@
 // Fixed synthetic example integrity only; no Registry, producer Trust, execution or access grant.
 // Do not regenerate from served projections during tests or build.
 type CoreStatus = 'Decoded' | 'Invalid' | 'Unsupported';
-const retainedByInput = new Map<string, readonly (readonly [string, CoreStatus])[]>(
+interface PinnedEvidence { readonly planDigest: string; readonly requestedInputDigest: string; readonly retainedTests: readonly (readonly [string, CoreStatus])[]; }
+const evidenceByInput = new Map<string, PinnedEvidence>(
 [
   [
     "03ff30484446df8b3700bcd9f996c2a405f315cee055c16346dcbc9aea87dc98",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "a4528661a864fe4bdc17e1ea312cfacb10a752761277d7b9f2daabed0c9bcca8",
+      "requestedInputDigest": "03ff30484446df8b3700bcd9f996c2a405f315cee055c16346dcbc9aea87dc98",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "058726c073c4e741510ab52709c29bdb36c77c14255407ee4b737d266d476c96",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0f0d2ffa2bcdf83aa4fdc30c24685982810a45c7606c1d9df4b386e6eb83217e",
+      "requestedInputDigest": "058726c073c4e741510ab52709c29bdb36c77c14255407ee4b737d266d476c96",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "08d11805bfd158796dbe4d4f8513cb525af3970ba8633a43670b2d21976e9ad0",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0e076592060692f73698bd8e8a3be6f0cba0207908f51a12872bf485de57a11e",
+      "requestedInputDigest": "08d11805bfd158796dbe4d4f8513cb525af3970ba8633a43670b2d21976e9ad0",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "08dc97a47cbfad0e444b082dae3796cf1099636ade8a3a8065d6a9df549aeb8a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "e6c405f9fe8d59733b042c41fd1101ad512d1ac333839ba9428f05afc097a838",
+      "requestedInputDigest": "08dc97a47cbfad0e444b082dae3796cf1099636ade8a3a8065d6a9df549aeb8a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "0ae1eab7f321f61afdbf2e90e74a2f76f7e7e9429541e4e99fc9837f9f4251e0",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "9f89276026b40f7a5447626de1717428b44f52b1dc18407e9b3f0df36cf48619",
+      "requestedInputDigest": "0ae1eab7f321f61afdbf2e90e74a2f76f7e7e9429541e4e99fc9837f9f4251e0",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "0b8ad31b953efd0b0791fe74744dc88ca7cade001c03d176a592ef0d619a24ec",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "fcb9d09b92c81443fb52336d31d396b30d7e39cced721c7c3293d9ba79c81161",
+      "requestedInputDigest": "0b8ad31b953efd0b0791fe74744dc88ca7cade001c03d176a592ef0d619a24ec",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "0c9061ec9d77eeea1b3a059314abbbb4ac87b06b7b9dd45420c8d56f9ddd5508",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "83343beb5c23644a4be200206b71f6325a97ebc4737a516cfb6cf546bb5d67d3",
+      "requestedInputDigest": "0c9061ec9d77eeea1b3a059314abbbb4ac87b06b7b9dd45420c8d56f9ddd5508",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "0e0b8bbb6bea9ed4da2b859e11b29dd38f7e20b3434b702a44f81419eb57c1d0",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "1e4a46fc6f778e23d4dac676aadae4ff5c4f5ed5ce202cf47d083cfb0aadd4b8",
+      "requestedInputDigest": "0e0b8bbb6bea9ed4da2b859e11b29dd38f7e20b3434b702a44f81419eb57c1d0",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "10bcb47f01a29f4667ab86c9006c7981c3dbca5508b68d4f039fa35c25d03f2b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "629244bd983632c3fc72c00c14c6d5cf53da82a9ea377572af18de68b270e1e7",
+      "requestedInputDigest": "10bcb47f01a29f4667ab86c9006c7981c3dbca5508b68d4f039fa35c25d03f2b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "119239975ffb94e4b0056288702e0ed434f47e1f9ce709521ff4ad645eda92f2",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "12729003805ffc0956343022e8e790a898da8a79ba45924db92f8d5232acab41",
+      "requestedInputDigest": "119239975ffb94e4b0056288702e0ed434f47e1f9ce709521ff4ad645eda92f2",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "127536a87a8f7da9beb249024844c2b52b0c4989dcd26c581cfb906e5c88e7bc",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "7437e70bcfe742097d1cfb5ab3adc764f47db47046c46d17d8d5bff06a7b0293",
+      "requestedInputDigest": "127536a87a8f7da9beb249024844c2b52b0c4989dcd26c581cfb906e5c88e7bc",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "187eb624b77aa009bc304f508f4c1e6b8f293952526aed2fd124f837c69854ad",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "5cb626d88243bcec31cd20b937cd90e98d467b250cd82e5b01dc455aeff7ff9d",
+      "requestedInputDigest": "187eb624b77aa009bc304f508f4c1e6b8f293952526aed2fd124f837c69854ad",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "19feae08e8667789902065d5b5e46986b18d38c460b5fe336da56efaf28ad511",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "d61c2f7e0379458eb12d69c550fc5212a676a2c2d8d6b5528729279e2690df15",
+      "requestedInputDigest": "19feae08e8667789902065d5b5e46986b18d38c460b5fe336da56efaf28ad511",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "20d7865af60982fbe400ccbb3433b2c798a362d99f33a4ec2b22a898ebe2f80b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Unsupported"
+    {
+      "planDigest": "d6153f344265ff4102c3ec9804932ad2e3281e1d1614942151cb68c339d348d1",
+      "requestedInputDigest": "20d7865af60982fbe400ccbb3433b2c798a362d99f33a4ec2b22a898ebe2f80b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Unsupported"
+        ]
       ]
-    ]
+    }
   ],
   [
     "217358f1fdc187df827162f788ce183136f23d941cf1624d999396411a229c56",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8f667ba3d0589311d7ae587e4b5bddfa2556c76ab704f2f0dea84aea16b8fffb",
+      "requestedInputDigest": "217358f1fdc187df827162f788ce183136f23d941cf1624d999396411a229c56",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "21b5cb412b2b4cc390c0cad231304fdbaba41ffb58507bf6a695371075f5faed",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8162daf529384ff40efe0796095283ab7841b4abb483c7bc14ac9ae3f23fc3f5",
+      "requestedInputDigest": "21b5cb412b2b4cc390c0cad231304fdbaba41ffb58507bf6a695371075f5faed",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "21f80df291dacc80b804cf19313b87a9bc40e426c4b3c469731cc7068b9d7cc9",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af8-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af9-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afa-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afb-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afc-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afd-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afe-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002aff-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b00-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b01-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b02-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b03-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b04-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b05-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b06-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b07-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b08-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b09-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0b-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0c-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0d-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0e-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0f-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b10-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b11-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b12-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b13-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b14-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b15-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b16-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b17-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b18-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b19-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b1a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6127b770f7ebc8253f3c3b7360176847512f8bca11248c530be0b12fd2e79f78",
+      "requestedInputDigest": "21f80df291dacc80b804cf19313b87a9bc40e426c4b3c469731cc7068b9d7cc9",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af8-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af9-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afa-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afb-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afc-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afd-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afe-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002aff-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b00-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b01-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b02-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b03-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b04-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b05-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b06-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b07-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b08-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b09-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0b-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0c-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0d-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0e-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0f-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b10-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b11-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b12-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b13-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b14-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b15-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b16-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b17-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b18-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b19-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b1a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "230b45006a935dc82c8fd6e7b18ab9f4bf371ae4a4e7d0451a9e626f5a37b02c",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "3e10be3fd36a0bd551b455c6857be94d234342799065d103bdf5f3ab007e872c",
+      "requestedInputDigest": "230b45006a935dc82c8fd6e7b18ab9f4bf371ae4a4e7d0451a9e626f5a37b02c",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "25783d3fa7246ebba1faecfcfdb3b2b9012b61896a6169cf1051141bbbba47e9",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0b620f0e3cff1e57ab94b8042e44d1c8afac2e3eb13906046e2ca8212d5d21c7",
+      "requestedInputDigest": "25783d3fa7246ebba1faecfcfdb3b2b9012b61896a6169cf1051141bbbba47e9",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "2a49b1163eb86d22bf9b3e59feb4bc2a29b27e1d4a8b95494b32d501260f7e72",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "ee11504f5b2e020277f7c0700ccc6943e384230f83f4a09933e21b2cb8aba9ec",
+      "requestedInputDigest": "2a49b1163eb86d22bf9b3e59feb4bc2a29b27e1d4a8b95494b32d501260f7e72",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "2b35cfd81ffbeed8d512971ed0f2374bd0546ac9525ccbf6176750e486719dcd",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "16a439d3a4726b6ed527226f8ec1a872d72db96be50e947de55d6f1528ee83d4",
+      "requestedInputDigest": "2b35cfd81ffbeed8d512971ed0f2374bd0546ac9525ccbf6176750e486719dcd",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "2bb0bb139315bcf7dd05365ca5784722f3f7317a2aed4c09d3e0c0a7b6e6af95",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "fa65af9efb980d267542781a5942243612dde4ace2196795edab494bcdce98dc",
+      "requestedInputDigest": "2bb0bb139315bcf7dd05365ca5784722f3f7317a2aed4c09d3e0c0a7b6e6af95",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "2ddd6b566dceb9187302506eaf9966f7339e8d0f39adfccb376e49523bf0bd8a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "83c68850cd389d62beb9b7d8be820ab2f1d22917e2118dd98ea6aaa5667e5654",
+      "requestedInputDigest": "2ddd6b566dceb9187302506eaf9966f7339e8d0f39adfccb376e49523bf0bd8a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "2fabf8772f96f2711c6650ee3a52e15105b6fd8bd2441947ddadcbe020cc368d",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0fb225fa386937f0477a035148a8a3bf7c309ed12564d9d08217605ff7b24dfa",
+      "requestedInputDigest": "2fabf8772f96f2711c6650ee3a52e15105b6fd8bd2441947ddadcbe020cc368d",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "313a6f4561dbf35af33062f44e576176e9ed1c2a689dceca012af2fd1e06f522",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "4088199edaab191ef7c33fa8c66cfddf701be2ccf6c8a50cc840f3d8c53f0844",
+      "requestedInputDigest": "313a6f4561dbf35af33062f44e576176e9ed1c2a689dceca012af2fd1e06f522",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "31d59363f0316ca200511a9f605537888bbb46ad7f05d2459fb5b880a7717b8e",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "e79648e9243f1ff8b9c44e68856375c133af8a56127945c0e715e8c372f9626b",
+      "requestedInputDigest": "31d59363f0316ca200511a9f605537888bbb46ad7f05d2459fb5b880a7717b8e",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "3230098dd42d8de9f585cf6891e3fa32709d304963573bbfd5697869fc2c3dca",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "fcf3a7ffa6d00b50f1440c2e2ea4f561babdd435a669e6d2fed8e709f9fafe0f",
+      "requestedInputDigest": "3230098dd42d8de9f585cf6891e3fa32709d304963573bbfd5697869fc2c3dca",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "324f6fd61bbc2236ea7598dc321623a1bdf48c292571b9b3e17d8d99883a4a63",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6d0950fe0540a9d290c5a5742ab806ad5edcd46c07ebdf644d8cd7d2283af126",
+      "requestedInputDigest": "324f6fd61bbc2236ea7598dc321623a1bdf48c292571b9b3e17d8d99883a4a63",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "345cc96adf36f60c1b05809993f2e4fcd4692b769366bbc30ea7c4a621ba6598",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "eb8c8ec0e49b0198733c08694f1d1ab3b31626a16b495559018fba206705347c",
+      "requestedInputDigest": "345cc96adf36f60c1b05809993f2e4fcd4692b769366bbc30ea7c4a621ba6598",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "36136f8f4c0a8eb820e0da90c5795afe74a40f5d59ec2710fc0afbfac07fd73a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0e54c9f40e21168cfc14e54c6320c79a119aebf962d6f060254cd749ee90cd40",
+      "requestedInputDigest": "36136f8f4c0a8eb820e0da90c5795afe74a40f5d59ec2710fc0afbfac07fd73a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "385a2ab008cd33aa37a4f529087b1930257b3cf296aab7f118b4a5d0c1d87869",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "7be9c175984014d0b830f26c0cd17906a4960ee892cef0af6664ec390fbf5ff0",
+      "requestedInputDigest": "385a2ab008cd33aa37a4f529087b1930257b3cf296aab7f118b4a5d0c1d87869",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "3f406f71408fc7462dece4e4e3d2212e0a688936d1ab116f0e45b9ff309d5644",
+      "requestedInputDigest": "443c952a3321000aeb5a563b77f0d24aeb7e65d5423bc122734a2e33c6adca50",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "2046a049fa206d1e95749ee9530a8c52134c489dfb150a2a7e091fd69f101f2e",
+      "requestedInputDigest": "4508e36830e3aab5adcf538b9605a279c5e48b4e6f13c673b72c4be0fde0bc8a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "48bf8ec955dbcf260c3a8b7ff334b16dd45b254fada314e3c771bd43a234dfdd",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6aea1df247c87e2f525b61c4ea10ee72b2f59ebfe0745aba19ce63ee1745b74a",
+      "requestedInputDigest": "48bf8ec955dbcf260c3a8b7ff334b16dd45b254fada314e3c771bd43a234dfdd",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "48c36e5ee263f1465409197489fa80ad6460fea861b114212345573b8202c5cf",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "38980d00556b6de1d11f3f3d465fa955303ca56eff7ef2cdba5eb374b6954e05",
+      "requestedInputDigest": "48c36e5ee263f1465409197489fa80ad6460fea861b114212345573b8202c5cf",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "4c802c6c436aa6e8cc6fa54c87dd414afd11f7ee1ff6cad5c82b6d89c927d6f6",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "19cee3db00752564b1c084988a937c2e62f87904a51986e758aa02c118447b9b",
+      "requestedInputDigest": "4c802c6c436aa6e8cc6fa54c87dd414afd11f7ee1ff6cad5c82b6d89c927d6f6",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "4e3dc3a556c749dc8b23804dc9e39645e724cbbb7e9d55e1cecd286b4c48aa98",
-    []
+    {
+      "planDigest": "9308916d5be87ec922fce17f913371972ff958186426410a0ce2261d46b49085",
+      "requestedInputDigest": "4e3dc3a556c749dc8b23804dc9e39645e724cbbb7e9d55e1cecd286b4c48aa98",
+      "retainedTests": []
+    }
   ],
   [
     "4e870fbaeead033f4f9ba2211df10f35c42c785db333a16497214c8eb6db7fe9",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "3d38b195793792a08bb8cd653f3484613a1702b2a0edaecb38f7fa77132d1a1e",
+      "requestedInputDigest": "4e870fbaeead033f4f9ba2211df10f35c42c785db333a16497214c8eb6db7fe9",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "5261461b366e3bea5619c78e5d1f79d98e040b8735e5ee315c6b74180463884b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "c2508aadb38c705f72f9d50cb8272a0c9bae3c0a469f21a0026ae64271324bec",
+      "requestedInputDigest": "5261461b366e3bea5619c78e5d1f79d98e040b8735e5ee315c6b74180463884b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "53192ca2ce4136c5bbdbdea4078e2c3476ac5899c96c60acb1cde17f780e298d",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "59d3d278d058ea48c4eec839babe7a1209cbd6e15d664825fc065fcd3a18bb33",
+      "requestedInputDigest": "53192ca2ce4136c5bbdbdea4078e2c3476ac5899c96c60acb1cde17f780e298d",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "544b480a65ae80eb643f73d6d4693d7700ab64e95da5b0b8e8ad991d34f97cf4",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "294129e8b0fd43961b72b6b46b81e7d0d543d86d5975ffe1742715a71d9dae31",
+      "requestedInputDigest": "544b480a65ae80eb643f73d6d4693d7700ab64e95da5b0b8e8ad991d34f97cf4",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "555581f183968e40e0d95d36279de50e6e712ccef57a342dd3435e238d9d2e63",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "1715044c1f02d1a7e70e0d8077fb1b9dd2ce6415858ecd98bbd0cddaeb3046db",
+      "requestedInputDigest": "555581f183968e40e0d95d36279de50e6e712ccef57a342dd3435e238d9d2e63",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "56712907a08ea2cd24f195500098af83633ea4cc28c5d1f96cadc0d2116b8eff",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "fae6d3cfc5f5af3b00ba6e696f8f7ff487e5da117cba3ec6fdd4d68ccefeb186",
+      "requestedInputDigest": "56712907a08ea2cd24f195500098af83633ea4cc28c5d1f96cadc0d2116b8eff",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "57e30402f6d54d08b6c7f43d0efdcdd659019f97df65c1bba397627b1e045876",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "5f2e682685146d985d4d0dd4dea15d8a17afb98a94f09ac9a71d0c0fdd559a27",
+      "requestedInputDigest": "57e30402f6d54d08b6c7f43d0efdcdd659019f97df65c1bba397627b1e045876",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "5af3999f8026768653af6aa26ec84016c72811a187ac5a209662687f9b9bdc18",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "07e589737852111083af6fb5a67b10f449a2ef71dae80ce2e201f3f8b18c2463",
+      "requestedInputDigest": "5af3999f8026768653af6aa26ec84016c72811a187ac5a209662687f9b9bdc18",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "5b6012cc371ca2466d8f3c9afd40899a3b0aa35fdcd12ed48b28a37e2a72908f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "c76ae2ff56ecf2897476acfbc310246c0b321dd9c7f4abef42b1a87056caf463",
+      "requestedInputDigest": "5b6012cc371ca2466d8f3c9afd40899a3b0aa35fdcd12ed48b28a37e2a72908f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "5c4755c5ce40b37b69f83a9b1aad9a83c5607912deb2c5bd4fd5f8dd1a6b1173",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "3e7784aac4e515bc100204a60072437e42645e364b696909b702360f40b902c9",
+      "requestedInputDigest": "5c4755c5ce40b37b69f83a9b1aad9a83c5607912deb2c5bd4fd5f8dd1a6b1173",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "5cb09fc092723bf7d84589ff1f048ba1436667a688a0d0e27bb61ed085433e14",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "25b6958fb52d306ad273617e9fb907de33e22f403292b66fdaf6cc4df1985779",
+      "requestedInputDigest": "5cb09fc092723bf7d84589ff1f048ba1436667a688a0d0e27bb61ed085433e14",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "60d3bb042bd5bb4f6e85738d15e53554a4ed4fc23edf11487db2a24f8c5b1280",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "165df15b51cd31e4e935bb3cc59d13e85ed9031a0b91d1e7cb31311adf9cba3b",
+      "requestedInputDigest": "60d3bb042bd5bb4f6e85738d15e53554a4ed4fc23edf11487db2a24f8c5b1280",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "60fcba0517a23130318b9f71b4a2d8d6e3a95d8f688a6b8310b07cd50d9dd541",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "48cc03a31ae0e3a6a79f8fb34a2a4cd31078bc5ca05bd74e992c852ad22376af",
+      "requestedInputDigest": "60fcba0517a23130318b9f71b4a2d8d6e3a95d8f688a6b8310b07cd50d9dd541",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "6196c87a1c20db5afc12d01fe12142a23fd3ec3af4f119ca6cf729bf5b5ff06d",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "dd3a467e2d6e21d3a413df61718fc173f9415f3121a79fa654eb6b61f811192b",
+      "requestedInputDigest": "6196c87a1c20db5afc12d01fe12142a23fd3ec3af4f119ca6cf729bf5b5ff06d",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "627b5a009770ec366b908653806eaee59674baa5345abd5f98c1404419ff5e59",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6697076a5d151b7fb762350f819424cd94425c688c837a7bfdbb7a3e37779bd9",
+      "requestedInputDigest": "627b5a009770ec366b908653806eaee59674baa5345abd5f98c1404419ff5e59",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "62941b714f69751d426e69eceabdb8be45fbc5c1f786a220d2655f1ac68f4142",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "cc3e9f698d7c68b68258d92868ff38404fa418520d896ea9a79fbcee5a313ed8",
+      "requestedInputDigest": "62941b714f69751d426e69eceabdb8be45fbc5c1f786a220d2655f1ac68f4142",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "2d424aaf125495954689da22a407ada335077fa3a4d9a0c7aaeba7d8f2705608",
+      "requestedInputDigest": "62b66a4cbe1fd31166c44181a9ae9f3a59d4cc718c67bd303446f28d9e38d908",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "642fd34dadcfca63367dd87f1d7c7b6299b18b9e41775eab256cd74e054297e0",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "9bdb8f0d6a3f8b3a0d740cfaa9af0b1604819b218271ec38d68e6d748bd541e2",
+      "requestedInputDigest": "642fd34dadcfca63367dd87f1d7c7b6299b18b9e41775eab256cd74e054297e0",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "6588f4dc1eb1354cb13827a4d96ed6b3ba6e42aaf133065cf0c2606db6a8cd2c",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "b4ffeeb25012875a0f0ccb0d383a31a21515193ca6fa692c79d5ed63830e3398",
+      "requestedInputDigest": "6588f4dc1eb1354cb13827a4d96ed6b3ba6e42aaf133065cf0c2606db6a8cd2c",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "68d2806e103254adee6c50fd6806f058d3c4f469d4d1eb6c111e96c397878980",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "bd38132295332fd04da578a31c0c214e84c4a84164b1e24b3d1ad6f8a100f133",
+      "requestedInputDigest": "68d2806e103254adee6c50fd6806f058d3c4f469d4d1eb6c111e96c397878980",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "6a294a177e53c34f86653d2c7787f0bbd1e9a530501aa1d4d412d5d41fc0f27f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6409d03405f91849c6a1b6aaf4aeab812597041351eebff372828d135e239533",
+      "requestedInputDigest": "6a294a177e53c34f86653d2c7787f0bbd1e9a530501aa1d4d412d5d41fc0f27f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "71070c621c35bb2216d77ac1cb1094ed413f0185765bc8677449c5c1dca5a216",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "742767cf49b212907d4bbc3fb045be3dbcdd255f322f067c67e5d2de58ba9fbb",
+      "requestedInputDigest": "71070c621c35bb2216d77ac1cb1094ed413f0185765bc8677449c5c1dca5a216",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "71c623e12fa0b3525570cbb7b36ce8fc338055751203ab6f9182b9960df77e49",
-    []
+    {
+      "planDigest": "036e2c993ce72c90c5de9e5660660aec7295436caee3945a82284bdd56907086",
+      "requestedInputDigest": "71c623e12fa0b3525570cbb7b36ce8fc338055751203ab6f9182b9960df77e49",
+      "retainedTests": []
+    }
   ],
   [
     "7583786c0b41078b71adc51defe10428e6583e785053008a751480fcb8e02eb5",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "ef85e95b834508103ad2f539f3010fcb9b79ec1c8589038991736e8fb298e505",
+      "requestedInputDigest": "7583786c0b41078b71adc51defe10428e6583e785053008a751480fcb8e02eb5",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "75a578d59506700cc679094fbdd18bdbe79d1ad710ad310181707b28a6593cc1",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af8-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af9-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afa-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afb-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afc-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afd-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afe-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002aff-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b00-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b01-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b02-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b03-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b04-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b05-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b06-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b07-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b08-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b09-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0b-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0c-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0d-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0e-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0f-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b10-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b11-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b12-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b13-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b14-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b15-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b16-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b17-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b18-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b19-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b1a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8bc8acc76ec8d105aeb332273548b55138c7159df64d96a2b8647a9446c0fc6a",
+      "requestedInputDigest": "75a578d59506700cc679094fbdd18bdbe79d1ad710ad310181707b28a6593cc1",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af8-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af9-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afa-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afb-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afc-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afd-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afe-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002aff-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b00-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b01-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b02-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b03-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b04-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b05-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b06-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b07-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b08-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b09-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0b-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0c-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0d-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0e-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0f-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b10-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b11-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b12-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b13-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b14-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b15-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b16-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b17-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b18-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b19-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b1a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "76c5bd75a1d968005f5fb7dda1160baa28c3586f2e487fa97047a150b186fed8",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "56c1ee419edf0edd39e7aa29487603238c2374015c61c73ccd71a3df92333b17",
+      "requestedInputDigest": "76c5bd75a1d968005f5fb7dda1160baa28c3586f2e487fa97047a150b186fed8",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "7a1f012fd2ecdcc3cc1a7cb9c76a2280dfb7deac0162180f7341f6278b1bc947",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "e4b87b82af076b0f730c5578403bcdd3b591867ba9b0dc86abe26fb109e42ee9",
+      "requestedInputDigest": "7a1f012fd2ecdcc3cc1a7cb9c76a2280dfb7deac0162180f7341f6278b1bc947",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "7b56c25cf36596c32dc56e94ff727e00fb7020b792407476302b33fa54a975ea",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "7a94c1689bae6db2b3cd7a42cf4c62ea76a629c093e8030decad9e74de4bf2a6",
+      "requestedInputDigest": "7b56c25cf36596c32dc56e94ff727e00fb7020b792407476302b33fa54a975ea",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "7eaddb9ee86d9eafc0967b5610f92bb50c170323a0a730b97510eff3a6c2d93b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "21e2d608abf759a692eb4aa00325edc6bb96683681ea539a88828be83c947eae",
+      "requestedInputDigest": "7eaddb9ee86d9eafc0967b5610f92bb50c170323a0a730b97510eff3a6c2d93b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "80993c8c591cfe1739d2f5cb142118b99f7c0ec7587e003c001b13039ddcec5f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "22679a8318d87799d7cb1860923777c35dbb17f99f28ec3ab77604c0f8f2926e",
+      "requestedInputDigest": "80993c8c591cfe1739d2f5cb142118b99f7c0ec7587e003c001b13039ddcec5f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "811b012872f4f1ddae10e6d4e6d069050c640e2ac9ae509e76ad8839d72dae94",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "c40fc6cbb0eef1967fb41bef3c92def7dc87a2567b7cc0588fe810a92f9a6330",
+      "requestedInputDigest": "811b012872f4f1ddae10e6d4e6d069050c640e2ac9ae509e76ad8839d72dae94",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "8156305377a882e115963ce61e166151c0490b70a42d22641175b0c5d91038e9",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000000b-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "df09795e9e757c5237497dc30147a4f1c31c917742c6d4f7c18a828f9aaf2f3b",
+      "requestedInputDigest": "8156305377a882e115963ce61e166151c0490b70a42d22641175b0c5d91038e9",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000000b-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "83a0114ea7c4a7ac5df640f942aee86ec9b56cd9de1b97a44bd58aa1e072de18",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "4cebf053801ac4190ec32dce7c412b7230522a9bcfb61e732b450a5bad18f179",
+      "requestedInputDigest": "83a0114ea7c4a7ac5df640f942aee86ec9b56cd9de1b97a44bd58aa1e072de18",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "86f11973d322a408d69c1079b7bab566734f596d451e36fddb243f1997dec777",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "e850f17dcf19e95726c5f29be9dfed1b8544ec219efb01f9e7b2ac103654cef0",
+      "requestedInputDigest": "86f11973d322a408d69c1079b7bab566734f596d451e36fddb243f1997dec777",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "8acc8cca1ea64991095f377c00eb2816ac46d4bc3706df9f1e81ef9cf5cce955",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0b868e6e6080be55da3029982147c716dc8bc425ebb69a1563158d7c65373a5f",
+      "requestedInputDigest": "8acc8cca1ea64991095f377c00eb2816ac46d4bc3706df9f1e81ef9cf5cce955",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "8baeae31a8485a0618c1de6a66cc06e36c5bc0189d172905d1193ccdb6aa08c4",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "2a37ab8302110fd07d2500a89cc18ca69b2b078cf82f4ca903eaeba17da0a1eb",
+      "requestedInputDigest": "8baeae31a8485a0618c1de6a66cc06e36c5bc0189d172905d1193ccdb6aa08c4",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "8be272dc30cda17677f3ebd20d2c3e8835b18c6826da21ba5711b3edcc423911",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6d7b72eda9ece49f0e03c63a33aa800afaef1f7b80bc248b9a3f84cf31691c2c",
+      "requestedInputDigest": "8be272dc30cda17677f3ebd20d2c3e8835b18c6826da21ba5711b3edcc423911",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "8c1c856a6ed4665620af480105d2b3e52db8be0d2e309b82c2eb1e0849172efa",
-    [
-      [
-        "0000012c-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000012d-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000012e-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000012f-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000130-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000131-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000132-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000133-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000134-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000135-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000136-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000137-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000138-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000139-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013b-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013c-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013d-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013e-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000013f-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000140-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000141-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000142-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000143-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000144-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000145-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000146-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000147-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000148-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00000149-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000014a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000014b-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "0000014c-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "d03efe52b0584e9ec6c78f3e055bfcc60b3a6b66d07385e594897ec1757dc16a",
+      "requestedInputDigest": "8c1c856a6ed4665620af480105d2b3e52db8be0d2e309b82c2eb1e0849172efa",
+      "retainedTests": [
+        [
+          "0000012c-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000012d-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000012e-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000012f-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000130-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000131-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000132-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000133-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000134-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000135-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000136-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000137-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000138-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000139-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013b-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013c-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013d-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013e-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000013f-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000140-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000141-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000142-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000143-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000144-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000145-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000146-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000147-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000148-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00000149-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000014a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000014b-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "0000014c-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "901f0c736da2f43830366019b46f19c99b96fb26cadc53bb2477c3653eeba53f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "9a85fd3f36d768850e87d0f56500b0182e15bf98092c4404c2e76596338e6f70",
+      "requestedInputDigest": "901f0c736da2f43830366019b46f19c99b96fb26cadc53bb2477c3653eeba53f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "92ce59baa76e7bf0369510c182aed56483444041aa4c35d736d64c047b470ba5",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "da97caf233642ff7f8a4f94187b4ca22ff21d4914dfc9959fe089e3aa5c13bf5",
+      "requestedInputDigest": "92ce59baa76e7bf0369510c182aed56483444041aa4c35d736d64c047b470ba5",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "975a683a9a80156f93760b8fbee55cd543f683f287ed9c35bcce5f2456b219a2",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "bf567a4e7be85f6476f9bc1c6efb5a8212c629ad110ac219577b00dee33597e8",
+      "requestedInputDigest": "975a683a9a80156f93760b8fbee55cd543f683f287ed9c35bcce5f2456b219a2",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "98140f12cd05a38da9a08f8aadd89b942deba2c4e84cad6072e85357359c4370",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "c8f00eaf183c5c67e5d3c2f731c6884699c8e288e6c11f9088e9e22c9a68ea36",
+      "requestedInputDigest": "98140f12cd05a38da9a08f8aadd89b942deba2c4e84cad6072e85357359c4370",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "9dc131388194351e54c2938be97bff1c2d01b6c46721bd1b3577a5992bea999a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "b493c346e787c2315d9068d8f35bead17dc0214d150f95271ac9b04c533ceb25",
+      "requestedInputDigest": "9dc131388194351e54c2938be97bff1c2d01b6c46721bd1b3577a5992bea999a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "9e3988765ec0a68d02d0a9dc84f0889cee7319c6a353fc823a83896cc8c5863c",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "4816bc5577beeb253951e2d5578e7ad3d838e79fb915a5167fd028200ce5a71a",
+      "requestedInputDigest": "dfbba78d5b5c918c30eff9738ccfd10f6c5fce43d6747daaad82a198c98c2f8a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "a8481f817e4284f36ff5272578f5db652974c5d7d0c9e6816a1d5e673e23e932",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0e34e09ed0e34772a9718245b5e0e3c9e0f02fe0121af840fba0966e6ca8a67d",
+      "requestedInputDigest": "a8481f817e4284f36ff5272578f5db652974c5d7d0c9e6816a1d5e673e23e932",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "a9ca81bd0c42ee07dd0291f4d9921a464e92dbc937d25bc22f75ae7e63a6c48e",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "10fd02ecf99711b05b08f5fa83a72fcf67fb23ec662c669a3c9eeb42f3a6f479",
+      "requestedInputDigest": "a9ca81bd0c42ee07dd0291f4d9921a464e92dbc937d25bc22f75ae7e63a6c48e",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "aadf7a1741a5e633246f2a760db17c37a043e3324d3b98149cd5e7d9c389236d",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "519fafb7d23fa5b2556dc29050830bf22f356913793dde671a2754d93d17ade3",
+      "requestedInputDigest": "aadf7a1741a5e633246f2a760db17c37a043e3324d3b98149cd5e7d9c389236d",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b220f8be7c8b7b3414fc688c41abfb66c8ee59849399e8b08f47af0e26d6e77f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "d225fac4294f5bc6f45bdd104421ca290f4d0cc3301c375166afb2d430aaa9f5",
+      "requestedInputDigest": "b220f8be7c8b7b3414fc688c41abfb66c8ee59849399e8b08f47af0e26d6e77f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b3826c7a37c1bf56338ea5c39101d8c75814a9b937fb3eda82a7d5dc047e33ad",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "b7d491b7a25775f243a94024c51d8fd5c1c8ad1c73b2cdda03a51ca9995c7ee8",
+      "requestedInputDigest": "b3826c7a37c1bf56338ea5c39101d8c75814a9b937fb3eda82a7d5dc047e33ad",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b511eb7d41baae2347a4317ec87b48545d684521d91c3d3272cc7097e347e80b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "95504b5eb53f447e6cfd26c6297581e8fed3d26a5adc06f6e7baaf727115a6a2",
+      "requestedInputDigest": "b511eb7d41baae2347a4317ec87b48545d684521d91c3d3272cc7097e347e80b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b85e0bcd510f444f90e97d2a4d8b50f289a1bbcc17d50d57d4cbc3cac5795896",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "a802a6b28da761e331868e08dbcde8615414ca21b4b7d7ea46e116435a2efccb",
+      "requestedInputDigest": "b85e0bcd510f444f90e97d2a4d8b50f289a1bbcc17d50d57d4cbc3cac5795896",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b87cfd49b931e96bb7dbc39bb30876004d0b4be79cb1a7cfa00c6f07298a460f",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "27842fc281e890c37d05858ad957289f0ea0964c6f62db3d059fe51c2b049c35",
+      "requestedInputDigest": "b87cfd49b931e96bb7dbc39bb30876004d0b4be79cb1a7cfa00c6f07298a460f",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "b8f41d3d01c5ca640a304edb02edab4db7e9ed204d37e89d2ed49b1ccd7ce3fd",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "ee7979690b65b1c5032b7445cfe3af29353fb637e3f28eec164e1722a8a739dd",
+      "requestedInputDigest": "b8f41d3d01c5ca640a304edb02edab4db7e9ed204d37e89d2ed49b1ccd7ce3fd",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "bc071ba19e462273020161d23797f5b8d5912962fe369997570c32c5f262cd04",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "b62bc235af33184812b09212a007b2b1860897552308e9b68c8f319d67ffaec1",
+      "requestedInputDigest": "bc071ba19e462273020161d23797f5b8d5912962fe369997570c32c5f262cd04",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "be2573ba3bd4360e4c263970c640a0350208f25946840c2a75048cab4935f8fd",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "783e5d2a9faf7cf8800ace3b5bd4488968d415e8f4c8ebb1095774ea8dd3b6d3",
+      "requestedInputDigest": "be2573ba3bd4360e4c263970c640a0350208f25946840c2a75048cab4935f8fd",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c0d00ce98ef8ec2dc644231009d4d23d5900df0fa83a14142fb9b1c842633f29",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "da4989a0f0d2831cd4cd491f23f9013825d5b2d89d9cadd6f20849898ad6ee39",
+      "requestedInputDigest": "c0d00ce98ef8ec2dc644231009d4d23d5900df0fa83a14142fb9b1c842633f29",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c1fa000333c1bfab19ab990ef69d435829703abbdbddd31b48173d6308ac6e90",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "a37ca50b015aac0c83f27e2fdc095e6753e3cc48fbab06ac2261f3d1d90ef36b",
+      "requestedInputDigest": "c1fa000333c1bfab19ab990ef69d435829703abbdbddd31b48173d6308ac6e90",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c2e4ba875a943a463a55260c31288305f0facfaca082c0f6561084d16e33123a",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8f752092f4e3e9f65e9ffe2f94f4b23909328aa56b85b28e503f414f5da26ccc",
+      "requestedInputDigest": "c2e4ba875a943a463a55260c31288305f0facfaca082c0f6561084d16e33123a",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c338fb72ae469eb94043793017b92708406b04f0438202e4a11b4ecb4fbda3fa",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8cd35b51dcfca190d45db19123c998ea9e0914c422555b5ccd5adc4c7a008441",
+      "requestedInputDigest": "c338fb72ae469eb94043793017b92708406b04f0438202e4a11b4ecb4fbda3fa",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c8ef3a86a6bb123eeddffc77eea8d45112188b26fe11966f581af2eea9b8ddf9",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "be2799b200cb4457d707aa19657aa7770c980ca6cc325938d32c5042543d0faa",
+      "requestedInputDigest": "c8ef3a86a6bb123eeddffc77eea8d45112188b26fe11966f581af2eea9b8ddf9",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "c9e5ac007aad0665e726e33b55e03c96e970881d5808ec7b98a196182471b1d5",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "8b1b3e4c2f6cf3767f860c3278a3a39844616447e1fc74752a9b8b7c4c647eaf",
+      "requestedInputDigest": "c9e5ac007aad0665e726e33b55e03c96e970881d5808ec7b98a196182471b1d5",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d2285b3090f50f50bc096e27792e4f14de9c218c76da3c12d5cb2b7170665311",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "ee7679f78e84eca8370c956fadffda94fa832e520cd7f9ab6b41f25b10e272ee",
+      "requestedInputDigest": "d2285b3090f50f50bc096e27792e4f14de9c218c76da3c12d5cb2b7170665311",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d3019d88668783414aa4a4cfd7f433233cd5c18c119f08376f0f4e1226562cdf",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "219c71097c7cb290e05b085d0f93c474904604d72a7c3cfeea374e23803626d8",
+      "requestedInputDigest": "d3019d88668783414aa4a4cfd7f433233cd5c18c119f08376f0f4e1226562cdf",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d383147caf0b378ec8934746bb1eaf2a8e343f042f204c42024b01cd126bb409",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "9d1375c577005d60e34718b3b5d293b7ff79b89989c093befdc3c04809ab1304",
+      "requestedInputDigest": "d383147caf0b378ec8934746bb1eaf2a8e343f042f204c42024b01cd126bb409",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d5ced752bdc0225f5b2bd2a8aaa19e5cfef1d8364708b66da51d8e24bb0f70a5",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "906f2c553961deb122ff513333a59328107b97110b2e9611007ce84bef156802",
+      "requestedInputDigest": "d5ced752bdc0225f5b2bd2a8aaa19e5cfef1d8364708b66da51d8e24bb0f70a5",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d7e276a41564770af3171d72fc916af00d95f27126bf3dd724dc24f7f28c6fdc",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "4d04070c750d83c2306544ee27b76ef1eef83a2e7ba55b7cdf3209dcfdd0dfaa",
+      "requestedInputDigest": "d7e276a41564770af3171d72fc916af00d95f27126bf3dd724dc24f7f28c6fdc",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "d88df6bcbf4425358ef410d6c10cc6d87054ff6b83c8f130bd63cb8e46e7acd4",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "d052a8336bc3780305a12fe8579a97428d00ac30f8061e272519b66ba49db1bf",
+      "requestedInputDigest": "d88df6bcbf4425358ef410d6c10cc6d87054ff6b83c8f130bd63cb8e46e7acd4",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "db69b335832c4706d7b3938473d64d8a275e26373d05bb9f3abe5f068d80e41e",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "fad527a6ea49656f0e360f7805ee293f7bcc94bef1c70c9c3719de5a8ec3bda0",
+      "requestedInputDigest": "db69b335832c4706d7b3938473d64d8a275e26373d05bb9f3abe5f068d80e41e",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "dc819dbd83a86909c2c2c873960c0771378ee81ddc70482dcecbf762e082c1ae",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "b1f148b6cae3c55940a5e3dfa462b68dcf68fc8e7c1d98e5ad1b23203099fd3d",
+      "requestedInputDigest": "dc819dbd83a86909c2c2c873960c0771378ee81ddc70482dcecbf762e082c1ae",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "deb9e0d5717903931e312f652d36ebb6940a59c23df11cc8bb9094c169e76096",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "99df38c1b807081e982a62e3cd77efda80f73023c956f4ee2b09ed2d7b9fcc4b",
+      "requestedInputDigest": "deb9e0d5717903931e312f652d36ebb6940a59c23df11cc8bb9094c169e76096",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "e2ccfbe7f335d1673ac2a3557bffa759b097051803972073748fdbf8e26ea596",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "a80feeb37b7150a7dc3220ea37d6103be5c01fa60a2ec096614575bf4d646eb5",
+      "requestedInputDigest": "e2ccfbe7f335d1673ac2a3557bffa759b097051803972073748fdbf8e26ea596",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "e79ba3faf3ae70abfa51b9e8c19f873011a5cab5550a58f365031b199a93f096",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "749124741f6d9cc441845296e29e5a44476267467b1d182c614cef548f94fea6",
+      "requestedInputDigest": "e79ba3faf3ae70abfa51b9e8c19f873011a5cab5550a58f365031b199a93f096",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "e8a0c7f1056c6718273a5600766ffb4105fb401036c16b8d0d675df95b76616c",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "7fe146c215db9d079c4a42f521ac0698429b220277e4197d4413e32c462b365e",
+      "requestedInputDigest": "e8a0c7f1056c6718273a5600766ffb4105fb401036c16b8d0d675df95b76616c",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "eab9b85a129e312e62d633be0772ad0ec4d2851db8e144ad5b1a20812bea8ebc",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "0c899880dd65fc4a35bab849de54193924bffc55bd8b600cf23528e6bfc4568c",
+      "requestedInputDigest": "eab9b85a129e312e62d633be0772ad0ec4d2851db8e144ad5b1a20812bea8ebc",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "eb2be07b34195fd292ff7115960b69d8174165ecc03da4e695964437ec8d3c81",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af8-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002af9-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afa-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afb-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afc-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afd-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002afe-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002aff-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b00-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b01-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b02-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b03-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b04-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b05-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b06-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b07-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b08-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b09-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0a-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0b-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0c-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0d-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0e-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b0f-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b10-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b11-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b12-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b13-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b14-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b15-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b16-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b17-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b18-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b19-0000-4000-8000-000000000001",
-        "Decoded"
-      ],
-      [
-        "00002b1a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "1db2913f4ded6b3cbba932ed02993a6200b4deabad931fc67b72d0ae2ece1c56",
+      "requestedInputDigest": "eb2be07b34195fd292ff7115960b69d8174165ecc03da4e695964437ec8d3c81",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af8-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002af9-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afa-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afb-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afc-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afd-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002afe-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002aff-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b00-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b01-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b02-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b03-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b04-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b05-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b06-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b07-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b08-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b09-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0a-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0b-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0c-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0d-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0e-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b0f-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b10-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b11-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b12-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b13-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b14-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b15-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b16-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b17-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b18-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b19-0000-4000-8000-000000000001",
+          "Decoded"
+        ],
+        [
+          "00002b1a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "12f03a7d97c51264ae823875dd942cb6cbf020fd6b82f69dad6490f4aa60da1e",
+      "requestedInputDigest": "ebb1e87dbae646c6a15bfed32480b967821b6430f955cba1caf2d1faf31a9525",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "9c15af9e6f41471d5117316db2689252adcd5bf44aab985db32d2c82a58d5d79",
+      "requestedInputDigest": "ed84420a4ae03fe6fd91e9320fe4ecf9b4f8f5ee14f8ccd1a30d442ac1aee3d0",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "f358db22140c60a9e0f7d4f80f415bd51ca8ec0b168ccd3a98a64011dea5ac3b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "43a27a096e7fdd91ba45fb146fb689f6decfc2fc6536f11c83e5cf29a6dce8b4",
+      "requestedInputDigest": "f358db22140c60a9e0f7d4f80f415bd51ca8ec0b168ccd3a98a64011dea5ac3b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "f57a20ce7812b9cbc91f6c76e7d5ebeef2fe02781aab9e11abd1dfe09d2e216b",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "6ca9b088b07d34890a10ee966d6eb2349fb177033ac4b39ee68d640c5f329bb5",
+      "requestedInputDigest": "f57a20ce7812b9cbc91f6c76e7d5ebeef2fe02781aab9e11abd1dfe09d2e216b",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ],
   [
     "fe71fa7b82987a21e53394693c9f3b168ad2501fd9442933e0733161bfeb1719",
-    [
-      [
-        "0000000a-0000-4000-8000-000000000001",
-        "Decoded"
+    {
+      "planDigest": "48ab9185c52be04b7c2bec32c9dbe77f7a31727cdcfa3d096ee4edc57012e4b6",
+      "requestedInputDigest": "fe71fa7b82987a21e53394693c9f3b168ad2501fd9442933e0733161bfeb1719",
+      "retainedTests": [
+        [
+          "0000000a-0000-4000-8000-000000000001",
+          "Decoded"
+        ]
       ]
-    ]
+    }
   ]
 ]
 );
 
-export function matchesPinnedLocalTestRetention(inputDigest: string, tests: readonly { readonly testId: string; readonly decodeStatus: string }[]): boolean {
-  const expected = retainedByInput.get(inputDigest);
-  if (!expected || expected.length !== tests.length) return false;
+export function matchesPinnedLocalTestEvidence(inputDigest: string, planDigest: string, requestedInputDigest: string, tests: readonly { readonly testId: string; readonly decodeStatus: string }[]): boolean {
+  const expected = evidenceByInput.get(inputDigest);
+  if (!expected || expected.planDigest !== planDigest || expected.requestedInputDigest !== requestedInputDigest || expected.retainedTests.length !== tests.length) return false;
   const actual = new Map(tests.map(test => [test.testId, test.decodeStatus]));
-  return actual.size === tests.length && expected.every(([testId, status]) => actual.get(testId) === status);
+  return actual.size === tests.length && expected.retainedTests.every(([testId, status]) => actual.get(testId) === status);
 }

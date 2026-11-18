@@ -55,6 +55,7 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 })
 export class ProjectIdeWorkbenchComponent {
   readonly contextRevision = contextRevision;
+  private readonly testDiscoveryListElement = viewChild<ElementRef<HTMLElement>>('testDiscoveryList');
   private readonly rootSourceElement = viewChild<ElementRef<HTMLElement>>('rootSourcePanel');
   async loadRootSource(): Promise<void> {
     const generation=++this.focusGeneration;
@@ -706,6 +707,16 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) { this.store.clear('denied'); return; }
     await this.store.loadLocalTestDiscovery();
     if (!this.canRead()) this.store.clear('denied');
+  }
+  changeDiscoveryPage(delta: number): void {
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); return; }
+    const inventory = this.store.localTestDiscovery(); const page = this.discoveryPage() + delta;
+    if (!inventory || this.panel() !== 'tests' || !Number.isInteger(delta) || Math.abs(delta) !== 1 || page < 0 || page * 32 >= inventory.inventory.tests.length) return;
+    const generation = ++this.focusGeneration; this.discoveryPage.set(page);
+    setTimeout(() => {
+      if (generation === this.focusGeneration && this.canRead() && this.panel() === 'tests' && this.discoveryPage() === page && inventory === this.store.localTestDiscovery())
+        this.testDiscoveryListElement()?.nativeElement.querySelector<HTMLButtonElement>('button')?.focus();
+    }, 0);
   }
   async navigateDiscoveredTest(test: LocalDiscoveredTest): Promise<void> {
     const generation = ++this.focusGeneration;

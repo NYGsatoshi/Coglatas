@@ -480,3 +480,73 @@ describe('Current bundle ownership and non-destructive discovery Source', () => 
     expect((await readLocalTestDiscovery(value))!.inventory).toMatchObject({ state: 'Ready', discoveredTests: 2 });
   });
 });
+
+
+describe('Fixed sample plan and asynchronous membership regressions', () => {
+  const profile = (name: string) => JSON.parse(readFileSync(resolve('public/assets/projectide/' + name + '.json'), 'utf8'));
+  const readyInventory = (value: any) => {
+    const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    const declaration = value.declarations.find((d: any) => d.kind === 'coglatas.project-test');
+    Object.assign(p.inventory, { state: 'Ready', inputDigest: value.inputDigest, planDigest: p.plan.digest, discoveredTests: 1,
+      bindingComplete: plan.bindingComplete, evaluatorMatches: true, tests: [{ testId: declaration.identity, location: declaration.location,
+        displayName: declaration.data.displayName, decodeStatus: declaration.status, assertionCount: declaration.data.payload.assertions.length }] });
+  };
+  it('rejects a rehashed raised assertion limit that changes an original resource refusal to Ready', async () => {
+    const value = current('tests-exhausted'); const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    expect(plan.limits.MaximumAssertions).toBe(1); plan.limits.MaximumAssertions = 2; plan.withinLimits = true;
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); readyInventory(value);
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('rejects a coordinated rehashed binding-completeness substitution without an inspection', async () => {
+    const value = profile('execution-plan-v1').cases.find((c: any) => c.key === 'tests-plan-budget-hypothesis');
+    expect(value.semanticInspection).toBeNull(); const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    expect(plan.bindingComplete).toBe(true); plan.bindingComplete = false; p.binding.bindingComplete = false;
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text);
+    p.inventory.planDigest = p.plan.digest; p.inventory.bindingComplete = false;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('rejects replacing the independently intended stale requested input with the case input', async () => {
+    const value = current('tests-stale'); const p = value.localProjectTestDiscovery;
+    expect(p.requestedInputDigest).not.toEqual(value.inputDigest); p.requestedInputDigest = value.inputDigest; readyInventory(value);
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('settles its own read unavailable when the admitting case is removed during hashing', async () => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-pass'); store.loadResult();
+    const context = store.context(); const bundle = store.bundle()!; const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return original(algorithm, bytes); });
+    const pending = store.loadLocalTestDiscovery(); await began; Object.assign(bundle, { cases: bundle.cases.filter(c => c !== context) });
+    expect(() => readPreviewBundle(bundle)).not.toThrow(); release(); expect(await pending).toBe(false);
+    expect(store.localTestDiscovery()).toBeNull(); expect(store.testDiscoveryReadState()).toBe('unavailable');
+  });
+  it.each(['base', 'hypothesis', 'draft'])('admits nested reference %s as one decoded assertion', async suffix => {
+    const value = profile('scenario-v1').cases.find((c: any) => c.key === 'tests-nested-reference-' + suffix);
+    expect(value).toBeDefined(); const admitted = (await readLocalTestDiscovery(value))!;
+    expect(admitted.inventory).toMatchObject({ state: 'Ready', bindingComplete: true, discoveredTests: 1 });
+    expect(admitted.inventory.tests[0]).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 1 });
+  });
+  it('keeps dependency analysis definitions current across all three Source contexts', async () => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(profile('dependency-analysis-v1')));
+    let previous: ReturnType<ProjectIdeWorkbenchStore['localTestDiscovery']> = null;
+    for (const key of ['tests-dependency-base', 'tests-dependency-hypothesis', 'tests-dependency-draft']) {
+      store.choose(key); store.loadResult(); expect(await store.loadLocalTestDiscovery()).toBe(true);
+      const admitted = store.localTestDiscovery()!; expect(admitted.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 });
+      const row = admitted.inventory.tests[0]; expect(row).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 2 });
+      if (previous) expect(await store.navigateDiscoveredTest(previous.inventory.tests[0])).toBe(false);
+      expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location);
+      expect(row.location.context).toEqual(store.context()!.context); expect(store.localTests()).toBeNull(); previous = admitted;
+    }
+  });
+  it.each(['base', 'hypothesis', 'draft'])('admits scoped %s definitions and refuses missing captured Source bodies', async suffix => {
+    const data = profile('scoped-sources-v1'); const value = data.cases.find((c: any) => c.key === 'tests-scoped-' + suffix);
+    expect(value).toBeDefined(); const admitted = (await readLocalTestDiscovery(value))!;
+    expect(admitted.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 });
+    expect(admitted.inventory.tests[0]).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 2 });
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(data)); store.choose(value.key); store.loadResult();
+    expect(await store.loadLocalTestDiscovery()).toBe(true); const row = store.localTestDiscovery()!.inventory.tests[0];
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location);
+    const snapshots = value.materializedSnapshots; expect(snapshots.entries).toHaveLength(2); expect(new Set(snapshots.entries.map((entry: any) => entry.source.digest.value)).size).toBe(2); delete snapshots.entries[1].source;
+    expect(await store.navigateDiscoveredTest(row)).toBe(false); expect(store.localTestDiscovery()).toBeNull(); expect(store.localTests()).toBeNull();
+  });
+});

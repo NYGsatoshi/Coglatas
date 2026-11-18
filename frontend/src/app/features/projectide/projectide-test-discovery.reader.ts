@@ -1,4 +1,4 @@
-import { matchesPinnedLocalTestRetention } from './projectide-test-discovery.evidence';
+import { matchesPinnedLocalTestEvidence } from './projectide-test-discovery.evidence';
 import { Digest, PreviewCase, sameContext, sameDigest } from './projectide.contracts';
 import { isProjectLocationShape, isRevisionContextShape } from './projectide-preview.validation';
 import { AdmittedProjectTestDiscovery, LocalProjectTestDiscoveryProjection } from './projectide-test-discovery.contracts';
@@ -93,7 +93,7 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   const binding = data.binding ?? inspectionBinding ?? fail();
   if (!bindingEvidence(binding) || !equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
       binding.bindingComplete !== plan['bindingComplete'] || !equal(binding.references, plan['references'])) return fail();
-  if (!matchesPinnedLocalTestRetention(value.inputDigest.value, binding.retainedTests)) return fail();
+  if (!matchesPinnedLocalTestEvidence(value.inputDigest.value, data.plan.digest.value, data.requestedInputDigest.value, binding.retainedTests)) return fail();
   const orderedTests = (tests: DiscoveryBinding['retainedTests']) => [...tests].sort((a, b) => a.testId < b.testId ? -1 : a.testId > b.testId ? 1 : 0);
   if (inspectionBinding && (!bindingEvidence(inspectionBinding) || binding.bindingComplete !== inspectionBinding.bindingComplete ||
       !equal(binding.references, inspectionBinding.references) || !equal(orderedTests(binding.retainedTests), orderedTests(inspectionBinding.retainedTests)))) return fail();

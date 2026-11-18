@@ -250,7 +250,7 @@
                   }
                 </div>
                 @if (discovery) {
-                  <ol class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
+                  <ol #testDiscoveryList class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
                     @for (test of discovery.inventory.tests.slice(discoveryPage() * 32, (discoveryPage() + 1) * 32); track test.testId) {
                       <li><h4>{{ test.displayName || test.testId }}</h4>
                         <code data-testid="ide-test-discovery-id">{{ test.testId }}</code>
@@ -260,8 +260,8 @@
                     }
                   </ol>
                   @if (discovery.inventory.tests.length > 32) {
-                    <button type="button" [disabled]="discoveryPage() === 0" (click)="discoveryPage.set(discoveryPage() - 1)">{{ t('ide.discoveryPrevious') }}</button>
-                    <button type="button" [disabled]="(discoveryPage() + 1) * 32 >= discovery.inventory.tests.length" (click)="discoveryPage.set(discoveryPage() + 1)">{{ t('ide.discoveryNext') }}</button>
+                    <button type="button" [disabled]="discoveryPage() === 0" (click)="changeDiscoveryPage(-1)">{{ t('ide.discoveryPrevious') }}</button>
+                    <button type="button" [disabled]="(discoveryPage() + 1) * 32 >= discovery.inventory.tests.length" (click)="changeDiscoveryPage(1)">{{ t('ide.discoveryNext') }}</button>
                   }
                 }
                 @if (store.testDiscoveryNavigationState() === 'unavailable') {

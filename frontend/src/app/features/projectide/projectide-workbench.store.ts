@@ -898,6 +898,8 @@ export class ProjectIdeWorkbenchStore {
     }
     const target = resolveScopedSource(snapshot.context, snapshot.sources, mapped);
     if (!target) { this.navigationState.set('unavailable'); return false; }
+    this.sourceIntentGeneration++; this.testDiscoveryNavigationIntent = null; this.testDiscoveryNavigationState.set('idle');
+    this.target.set(null); this.selection.set(null); this.referenceSelection.set(null);
     this.scopedTarget.set({ context: snapshot.context, admitted: snapshot.sources, ...target, location }); this.navigationState.set('ready'); return true;
   }
   private clearSemanticIndexSelection(): void { this.indexedSelection.set(null); this.indexedReferences.set(null); this.indexedCompletion.set(null); }
@@ -1021,6 +1023,9 @@ export class ProjectIdeWorkbenchStore {
       readPreviewBundle(bundle);
       const admitted = await readLocalTestDiscovery(context);
       if (generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
+      if (!bundle.cases.includes(context)) {
+        this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable'); return false;
+      }
       if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
         this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable'); return false;
       }

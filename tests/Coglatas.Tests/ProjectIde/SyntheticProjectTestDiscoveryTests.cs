@@ -84,6 +84,19 @@ public sealed class SyntheticProjectTestDiscoveryTests
     }
 
     [Fact]
+    public async Task AssertionSelectionReplacesADiscoveredDefinitionWithoutWithdrawingItsInventory()
+    {
+        using var view = await Ready(); Assert.True(view.RunSyntheticTests()); var run = view.TestRun!;
+        Assert.Equal(CompilerVerdict.Fail, run.Verdict);
+        var inventory = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests()); var definition = Assert.Single(inventory.Tests);
+        Assert.True(view.SelectDiscoveredTest(definition)); Assert.True(view.Navigate()); Assert.Equal(definition.Location, view.SourceTarget);
+        var assertion = run.Tests.SelectMany(test => test.Assertions).First(item => item.Location.PropertyPath.Length > 0);
+        Assert.NotEqual(definition.Location, assertion.Location); Assert.True(view.SelectTestAssertion(assertion)); Assert.True(view.Navigate());
+        Assert.Equal(assertion.Location, view.SourceTarget); Assert.Same(assertion, view.SelectedTestAssertion); Assert.Null(view.SelectedDiscoveredTest);
+        Assert.Same(inventory, view.TestDiscovery); Assert.Same(run, view.TestRun);
+    }
+
+    [Fact]
     public async Task EarlierAndCopiedRowsCannotNavigateAfterReloadOrContextReplacement()
     {
         using var view = await Ready(); var first = view.DiscoverSyntheticTests()!; var row = Assert.Single(first.Tests);

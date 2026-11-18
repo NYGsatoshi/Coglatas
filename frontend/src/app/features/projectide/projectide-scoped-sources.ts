@@ -25,7 +25,10 @@ const list = (v: unknown, max = 100_000): unknown[] => Array.isArray(v) && v.len
 const fields = (v: unknown, keys: readonly string[]) => Object.keys(obj(v)).length === keys.length && keys.every(k => Object.hasOwn(obj(v), k));
 const dig = (v: unknown): v is Digest => object(v) && fields(v, ['algorithm', 'value']) && v['algorithm'] === 'sha-256' && typeof v['value'] === 'string' && /^[a-f0-9]{64}$/u.test(v['value']);
 const id = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(v);
-const basis = (value: PreviewCase) => JSON.stringify(value);
+const basis = (value: PreviewCase) => {
+  const { localProjectTestDiscovery: _discovery, ...sourceBasis } = value;
+  return JSON.stringify(sourceBasis);
+};
 // A complete fixture fingerprint can include unselected recording bodies; publish only the admitted Source view.
 const scopedSourceAdmissions = new WeakMap<AdmittedScopedSources, string>();
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };

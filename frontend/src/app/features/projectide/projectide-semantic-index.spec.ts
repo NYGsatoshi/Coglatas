@@ -183,3 +183,16 @@ describe('Whole admitted binding index and Core-prepared queries', () => {
   });
 
 });
+
+
+it('replaces definition Source with an indexed Source while retaining the indexed selection', async () => {
+  const store = await ready(); const index = store.semanticIndex()!;
+  expect(await store.loadLocalTestDiscovery()).toBe(true); const inventory = store.localTestDiscovery()!;
+  expect(await store.navigateDiscoveredTest(inventory.inventory.tests[0])).toBe(true); expect(store.sourceTarget()).not.toBeNull();
+  const symbol = index.symbols.find(s => s.kind === 'coglatas.project')!; expect(store.selectIndexedSymbol(symbol)).toBe(true);
+  // Reopen discovery after the indexed selection so both independently retained views are present.
+  expect(await store.navigateDiscoveredTest(inventory.inventory.tests[0])).toBe(true);
+  expect(store.selectedIndexedSymbol()).toBe(symbol); expect(store.navigateIndexedSymbol(symbol)).toBe(true);
+  expect(store.sourceTarget()).toBeNull(); expect(store.sourceLocation()).toBeNull(); expect(store.testDiscoveryNavigationState()).toBe('idle');
+  expect(store.scopedSourceTarget()).not.toBeNull(); expect(store.selectedIndexedSymbol()).toBe(symbol); expect(store.localTestDiscovery()).toBe(inventory);
+});

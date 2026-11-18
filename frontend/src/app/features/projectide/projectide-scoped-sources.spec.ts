@@ -1,3 +1,4 @@
+import { localTestDiscoveryMatchesCase, readLocalTestDiscovery } from './projectide-test-discovery.reader';
 import { readLocalTests } from './projectide-tests.reader';
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
@@ -110,4 +111,13 @@ describe('Scoped Source admission remains private and owned', () => {
       expect(scopedSourcesMatch(value, copy)).toBe(false); expect(resolveScopedSource(value, copy, location)).toBeNull();
     }
   });
+});
+
+
+it('keeps admitted scoped Sources current when only the independent discovery projection changes', async () => {
+  const value = fixture(); const source = (await readScopedSources(value))!; const discovery = (await readLocalTestDiscovery(value))!;
+  expect(scopedSourcesMatch(value, source)).toBe(true); expect(localTestDiscoveryMatchesCase(value, discovery)).toBe(true);
+  (value.localProjectTestDiscovery!.inventory.tests[0] as { displayName: string }).displayName += ' changed';
+  expect(localTestDiscoveryMatchesCase(value, discovery)).toBe(false); expect(scopedSourcesMatch(value, source)).toBe(true);
+  const region = source.regions[0]; expect(resolveScopedSource(value, source, region.records[0].location)).not.toBeNull();
 });

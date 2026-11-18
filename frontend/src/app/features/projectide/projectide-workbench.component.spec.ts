@@ -131,10 +131,14 @@ describe('ProjectIDE Workbench components', () => {
     await c.loadLocalTestDiscovery(); fixture.detectChanges();
     const rows = () => root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li');
     expect(rows()).toHaveLength(32); expect(c.store.localTestDiscovery()!.inventory.discoveredTests).toBe(33); expect(c.store.localTests()).toBeNull();
-    Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryNext'))!.click(); fixture.detectChanges();
-    expect(rows()).toHaveLength(1);
-    Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryPrevious'))!.click(); fixture.detectChanges();
-    expect(rows()).toHaveLength(32);
+    const next = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryNext'))!;
+    next.focus(); next.click(); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(rows()).toHaveLength(1); expect(next.disabled).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-test-discovery-rows"] button'));
+    const previous = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryPrevious'))!;
+    previous.focus(); previous.click(); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(rows()).toHaveLength(32); expect(previous.disabled).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-test-discovery-rows"] button'));
   });
   it('keeps missing and corrupted inventory distinct from an empty successful roster', async () => {
     const { c, fixture, root } = await render(); c.choose('pass'); c.loadResult(); c.open('tests');

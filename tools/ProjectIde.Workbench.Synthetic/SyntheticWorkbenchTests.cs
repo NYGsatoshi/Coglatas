@@ -29,15 +29,17 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (_disposed || generation != _testDiscoveryGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
         cancellationToken.ThrowIfCancellationRequested();
         TestDiscovery = inventory;
+        bool cancelled;
         try { Changed(); }
         finally
         {
-            if (cancellationToken.IsCancellationRequested && generation == _testDiscoveryGeneration && ReferenceEquals(TestDiscovery, inventory))
+            cancelled = cancellationToken.IsCancellationRequested;
+            if (cancelled && generation == _testDiscoveryGeneration && ReferenceEquals(TestDiscovery, inventory))
             {
                 ClearTestDiscovery(); Changed();
             }
         }
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancelled) throw new OperationCanceledException(cancellationToken);
         return !_disposed && generation == _testDiscoveryGeneration && lifecycle == _lifecycle &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
     }

@@ -70,10 +70,10 @@ for (const locale of ['en', 'ja'] as const) {
       await page.getByTestId('ide-context').selectOption(key); await page.getByRole('button', { name: load, exact: true }).click();
       await page.getByRole('button', { name: tests, exact: true }).click();
     };
-    const expectDefinitionSource = async (revisionId: string) => {
+    const expectDefinitionSource = async (revisionId: string, testId = '0000000a-0000-4000-8000-000000000001') => {
       await expect(page.getByTestId('ide-source-location')).toHaveText('/');
       const record = JSON.parse((await page.getByTestId('ide-source-target').locator('pre').textContent())!);
-      expect(record).toMatchObject({ entityId: '0000000a-0000-4000-8000-000000000001', documentId: '00000004-0000-4000-8000-000000000001', kind: 'coglatas.project-test' });
+      expect(record).toMatchObject({ entityId: testId, documentId: '00000004-0000-4000-8000-000000000001', kind: 'coglatas.project-test' });
       const buffer = page.locator('pre.source-buffer'); await expect(buffer).toHaveCount(1);
       const source = JSON.parse((await buffer.textContent())!);
       expect(source.context).toEqual({ branch: { tenantId: '00000001-0000-4000-8000-000000000001', projectId: '00000002-0000-4000-8000-000000000001', branchId: '00000003-0000-4000-8000-000000000001' }, kind: 'coglatas.committed', revisionId });
@@ -102,8 +102,17 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(page.getByTestId('ide-tests-summary')).toHaveCount(0);
     await choose('tests-many'); await page.getByRole('button', { name: list, exact: true }).click();
     const rows = page.getByTestId('ide-test-discovery-rows').locator(':scope > li'); await expect(rows).toHaveCount(32);
-    await page.getByRole('button', { name: locale === 'en' ? 'Next definitions' : '次の定義', exact: true }).press('Enter');
+    const nextDefinitions = page.getByRole('button', { name: locale === 'en' ? 'Next definitions' : '次の定義', exact: true });
+    await nextDefinitions.focus(); await nextDefinitions.press('Enter');
     await expect(rows).toHaveCount(1); await expect(page.getByTestId('ide-test-discovery-summary')).toContainText('33');
+    await expect(nextDefinitions).toBeDisabled(); const lastDefinition = rows.getByRole('button'); await expect(lastDefinition).toBeFocused();
+    await expect(lastDefinition).toContainText('0000014c-0000-4000-8000-000000000001'); await lastDefinition.press('Enter');
+    await expect(page.getByTestId('ide-source-target')).toBeFocused(); await expectDefinitionSource('000000d2-0000-4000-8000-000000000001', '0000014c-0000-4000-8000-000000000001');
+    await page.getByRole('button', { name: tests, exact: true }).click();
+    const previousDefinitions = page.getByRole('button', { name: locale === 'en' ? 'Previous definitions' : '前の定義', exact: true });
+    await previousDefinitions.focus(); await previousDefinitions.press('Enter'); await expect(rows).toHaveCount(32);
+    await expect(previousDefinitions).toBeDisabled(); await expect(rows.first().getByRole('button')).toBeFocused();
+    await expect(rows.first()).toContainText('0000012c-0000-4000-8000-000000000001');
     for (const key of ['tests-stale', 'tests-exhausted']) {
       await choose(key); await page.getByRole('button', { name: list, exact: true }).click();
       await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(key === 'tests-stale'
