@@ -89,7 +89,7 @@ public sealed class PerformanceFixtureRoundtripTests
         }
         finally
         {
-            using (var pool = new NpgsqlConnection(dedicated)) NpgsqlConnection.ClearPool(pool);
+            await using (var pool = new NpgsqlConnection(dedicated)) NpgsqlConnection.ClearPool(pool);
             // Only reached after this invocation successfully created the dedicated database.
             // Do not terminate unknown connections if cleanup cannot complete.
             await using var drop = new NpgsqlCommand("DROP DATABASE \"coglatas_performance\"", admin);
