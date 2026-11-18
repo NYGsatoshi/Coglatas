@@ -771,12 +771,36 @@
                     @if (store.indexedReferenceQuery(); as query) {
                       @let page = query.pages[query.at];
                       <p data-testid="ide-index-reference-status">{{ t('ide.indexScope') }} · {{ t('ide.indexScanned') }}: {{ page.scannedReferences }} · {{ page.scanComplete ? t('ide.indexScanComplete') : t('ide.indexScanMore') }}</p>
+                      <button type="button" data-testid="ide-index-graph-toggle" [attr.aria-pressed]="referenceGraphLayout()" (click)="referenceGraphLayout.set(!referenceGraphLayout())">{{ t('ide.indexGraphLayout') }}</button>
+                      @if (referenceGraphLayout()) {
+                        @let rows = store.indexedReferenceRows(query);
+                        <figure class="reference-graph" data-testid="ide-index-reference-graph">
+                          <figcaption>{{ t('ide.indexGraphTitle') }}<p>{{ t('ide.indexGraphNotice') }}</p></figcaption>
+                          @if (rows.length === 0) { <p data-testid="ide-index-graph-empty">{{ t('ide.indexGraphEmpty') }}</p> }
+                          <div class="reference-graph-nodes">
+                            @for (reference of rows; track reference; let row = $index) {
+                              <div class="reference-graph-origin" [style.grid-row]="row + 1">
+                                <button type="button" data-testid="ide-index-graph-origin" (click)="openIndexedReference(query, reference)">
+                                  {{ t('ide.indexOpen') }} · {{ contextRevision(reference.origin.context) }} · {{ reference.origin.entityId || reference.origin.relationId || reference.origin.documentId }} {{ reference.origin.propertyPath }}
+                                </button>
+                                <span class="reference-graph-edge" aria-hidden="true">→</span>
+                              </div>
+                            }
+                            <div class="reference-graph-target" [style.grid-row]="'1 / span ' + (rows.length || 1)">
+                              <button type="button" data-testid="ide-index-graph-target" (click)="indexedAction('source', query.symbol)">
+                                {{ t('ide.indexDefinition') }} · {{ query.symbol.displayName || query.symbol.kind }} · {{ contextRevision(query.symbol.location.context) }} · {{ query.symbol.location.entityId || query.symbol.location.documentId }} {{ query.symbol.location.propertyPath }}
+                              </button>
+                            </div>
+                          </div>
+                        </figure>
+                      } @else {
                       <ul>@for (reference of store.indexedReferenceRows(query); track reference) {
                         <li data-testid="ide-index-reference">{{ contextRevision(reference.origin.context) }} · {{ reference.origin.entityId || reference.origin.relationId || reference.origin.documentId }} {{ reference.origin.propertyPath }}
                           <button type="button" data-testid="ide-index-reference-open" (click)="openIndexedReference(query, reference)">{{ t('ide.indexOpen') }}</button>
                           <button type="button" data-testid="ide-index-reference-definition" (click)="openIndexedReference(query, reference, true)">{{ t('ide.indexDefinition') }}</button>
                         </li>
                       }</ul>
+                      }
                       <button type="button" data-testid="ide-index-references-previous" (click)="moveIndexedReferences(query, -1)" [disabled]="query.at === 0">{{ t('ide.indexPrevious') }}</button>
                       <button type="button" data-testid="ide-index-references-next" (click)="moveIndexedReferences(query, 1)" [disabled]="query.at + 1 >= query.pages.length">{{ t('ide.indexNext') }}</button>
                     }

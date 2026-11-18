@@ -67,6 +67,7 @@ export class ProjectIdeWorkbenchComponent {
     });
   }
   private readonly semanticIndexElement = viewChild<ElementRef<HTMLElement>>('semanticIndexPanel');
+  readonly referenceGraphLayout = signal(false);
   async loadSemanticIndex(): Promise<void> {
     const generation = ++this.focusGeneration; const context = this.store.context();
     if (!this.canRead()) { this.store.clear('denied'); return; }

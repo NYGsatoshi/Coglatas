@@ -60,9 +60,47 @@ public sealed class SyntheticSemanticIndexTests
                 case "index": Assert.True(vm.LoadSyntheticSemanticIndex()); break;
             }
             Assert.Null(vm.IndexedReferences); Assert.Null(vm.SelectedIndexedSymbol); Assert.Null(vm.ScopedSourceTarget);
+            Assert.Null(vm.IndexedReferenceGraph);
             if (action != "dispose") Assert.False(vm.NavigateIndexedReference(page, page.References[0]));
         }
         finally { vm.Dispose(); }
+    }
+    [Fact]
+    public async Task ReferenceGraphKeepsTheOriginalPageEdgesAndNavigatesTheirActualRegionalSourceAndDefinition()
+    {
+        using var vm = await Ready();
+        var target = Assert.Single(vm.SemanticIndex!.Symbols, item => item.Symbol.EntityId == EntityId.Parse(Id(77)) && item.Symbol.PortId == PortId.Parse(Id(78)));
+        Assert.True(vm.SelectIndexedSymbol(target)); var page = Assert.IsType<CompilerIndexReferencePage>(vm.ReadIndexedReferences());
+        var graph = Assert.IsType<SyntheticReferenceGraphPage>(vm.IndexedReferenceGraph); var edge = Assert.Single(graph.Edges);
+        Assert.Same(page, graph.Page); Assert.Same(target, graph.Target); Assert.Same(page.References[0], edge);
+        Assert.NotEqual(vm.Source!.Context, edge.Origin.Context);
+        Assert.Throws<NotSupportedException>(() => ((IList<CompilerBoundReference>)graph.Edges).Clear());
+        var result = vm.Result!.Data; var source = vm.Source.Data;
+        Assert.True(vm.NavigateIndexedGraphOrigin(graph, edge)); Assert.Equal(edge.Origin, vm.ScopedSourceTarget);
+        Assert.True(vm.NavigateIndexedGraphTarget(graph)); Assert.Equal(target.Symbol.Location, vm.ScopedSourceTarget);
+        Assert.False(vm.NavigateIndexedGraphOrigin(graph, edge with { })); Assert.Equal(target.Symbol.Location, vm.ScopedSourceTarget);
+        Assert.NotNull(vm.ReadIndexedReferences()); var newer = Assert.IsType<SyntheticReferenceGraphPage>(vm.IndexedReferenceGraph);
+        Assert.NotSame(graph, newer); Assert.True(vm.NavigateIndexedGraphTarget(newer));
+        Assert.False(vm.NavigateIndexedGraphOrigin(graph, edge)); Assert.False(vm.NavigateIndexedGraphTarget(graph));
+        Assert.Same(newer, vm.IndexedReferenceGraph); Assert.Equal(target.Symbol.Location, vm.ScopedSourceTarget);
+        Assert.Equal(result, vm.Result.Data); Assert.Equal(source, vm.Source.Data);
+    }
+    [Fact]
+    public async Task EmptyAndRefusedReferencePagesKeepDifferentGraphStates()
+    {
+        using var vm = await Ready();
+        using var other = await Ready();
+        var index = vm.SemanticIndex!;
+        var unused = index.Symbols.First(symbol => { var page = index.FindReferences(symbol.Symbol.Location, index.Input.InputDigest); return page.State == CompilerIndexQueryState.Ready && page.References.Count == 0; });
+        Assert.True(vm.SelectIndexedSymbol(unused)); var empty = Assert.IsType<CompilerIndexReferencePage>(vm.ReadIndexedReferences());
+        var graph = Assert.IsType<SyntheticReferenceGraphPage>(vm.IndexedReferenceGraph);
+        Assert.Empty(graph.Edges); Assert.Same(empty, graph.Page); Assert.True(empty.ScanComplete);
+        Assert.Same(unused, graph.Target); Assert.True(vm.NavigateIndexedGraphTarget(graph));
+        var foreignCursor = other.SemanticIndex!.Symbols.Select(symbol => other.SemanticIndex.FindReferences(symbol.Symbol.Location, other.SemanticIndex.Input.InputDigest, 1))
+            .First(page => page.NextCursor is not null).NextCursor; Assert.NotNull(foreignCursor);
+        Assert.Equal(CompilerIndexQueryState.InvalidCursor, vm.ReadIndexedReferences(cursor: foreignCursor)!.State);
+        Assert.Null(vm.IndexedReferenceGraph); Assert.Null(vm.ScopedSourceTarget);
+        Assert.False(vm.NavigateIndexedGraphTarget(graph));
     }
     [Fact]
     public async Task CopiedOrForeignSymbolsReferencesAndCursorsCannotBorrowCurrentIndexOwnership()
@@ -100,6 +138,7 @@ public sealed class SyntheticSemanticIndexTests
         Assert.False(probe.Armed); Assert.Same(probe.Newer, vm.IndexedReferences);
         Assert.Equal(ready ? CompilerIndexQueryState.Ready : CompilerIndexQueryState.InvalidCursor, probe.Newer!.State);
         if (ready) Assert.NotNull(vm.ScopedSourceTarget); else Assert.Null(vm.ScopedSourceTarget);
+        if (ready) Assert.Same(probe.Newer, vm.IndexedReferenceGraph!.Page); else Assert.Null(vm.IndexedReferenceGraph);
         Assert.Equal(result, vm.Result.Data);
     }
     private sealed class IndexReplacementProbe : IDisposable

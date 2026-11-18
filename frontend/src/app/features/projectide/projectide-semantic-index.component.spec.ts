@@ -13,12 +13,14 @@ import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.fac
 import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-preview.adapter';
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
+import { sameContext } from './projectide.contracts';
 
-async function render(enabled = true, allowed = true, fail = false) {
+async function render(enabled = true, allowed = true, fail = false, bounded = false) {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
-  const data = readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/semantic-index-v1.json'), 'utf8')));
+  const raw = JSON.parse(readFileSync(resolve('public/assets/projectide/' + (bounded ? 'semantic-index-large-v1.json' : 'semantic-index-v1.json')), 'utf8'));
+  const data = readPreviewBundle(bounded ? { ...raw, cases: raw.cases.filter((row: { key: string }) => row.key === 'tests-index-bounded-base') } : raw);
   const adapter = {
     read: vi.fn(async (_url?: string, _signal?: AbortSignal) => {
       if (fail) {
@@ -86,8 +88,8 @@ vi.stubGlobal('crypto', webcrypto);
 async function settle(f: Awaited<ReturnType<typeof render>>) {
   f.fixture.detectChanges(); await f.fixture.whenStable(); await new Promise(resolve => setTimeout(resolve, 0)); f.fixture.detectChanges();
 }
-async function readyIndex(locale: 'en' | 'ja' = 'en') {
-  const f = await render(); f.c.i18n.setLocale(locale); f.c.choose('tests-index-base'); f.c.loadResult(); f.c.open('source');
+async function readyIndex(locale: 'en' | 'ja' = 'en', bounded = false) {
+  const f = await render(true, true, false, bounded); f.c.i18n.setLocale(locale); f.c.choose(bounded ? 'tests-index-bounded-base' : 'tests-index-base'); f.c.loadResult(); f.c.open('source');
   await f.c.loadSemanticIndex(); await settle(f); return f;
 }
 describe('Full semantic index in the Angular Workbench', () => {
@@ -121,6 +123,64 @@ describe('Full semantic index in the Angular Workbench', () => {
     expect(root.querySelector('[data-testid="ide-scoped-source-path"]')!.textContent).toBe(symbol.location.propertyPath);
     c.moveIndexedReferences(first, 1); expect(c.store.indexedReferenceQuery()).toBe(second);
     c.store.selectIndexedSymbol({ ...symbol }); await settle(f); expect(c.store.indexedReferenceQuery()).toBeNull();
+  });
+  for (const locale of ['en', 'ja'] as const) it('renders the current bounded reference neighborhood and opens its original regional Source in ' + locale, async () => {
+    const f = await readyIndex(locale); const { c, root } = f; const index = c.store.semanticIndex()!;
+    const group = index.projection.referenceSearches.find(g => g.pages.length > 1)!;
+    const target = index.symbols.find(s => s.key === group.targetKey)!;
+    c.indexedAction('select', target); c.indexedAction('references', target); await settle(f);
+    const originalResult = c.store.context()!.result;
+    expect(root.querySelector('[data-testid="ide-index-reference-graph"]')).toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-index-graph-toggle"]')!.click(); await settle(f);
+    expect(root.querySelector('[data-testid="ide-index-graph-toggle"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-origin"]')).toHaveLength(32);
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-target"]')).toHaveLength(1);
+    expect(root.querySelector('[data-testid="ide-index-graph-target"]')!.textContent).toContain(target.displayName || target.kind);
+    const previous = c.store.indexedReferenceQuery()!;
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-index-references-next"]')!.click(); await settle(f);
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-origin"]')).toHaveLength(4);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-semantic-index"]'));
+    const regionalReference = index.references.find(row => row.origin.relationId != null && !sameContext(row.origin.context, c.store.context()!.context))!;
+    expect(regionalReference).toBeDefined();
+    const regionalTarget = index.symbols.find(s => s.key === regionalReference.symbolKey)!;
+    c.indexedAction('select', regionalTarget); c.indexedAction('references', regionalTarget); await settle(f);
+    const query = c.store.indexedReferenceQuery()!; const rows = c.store.indexedReferenceRows(query);
+    const regionalAt = rows.indexOf(regionalReference);
+    expect(regionalAt).toBeGreaterThanOrEqual(0);
+    const edge = rows[regionalAt];
+    root.querySelectorAll<HTMLButtonElement>('[data-testid="ide-index-graph-origin"]')[regionalAt].click(); await settle(f);
+    expect(c.store.scopedSourceTarget()!.location).toEqual(edge.origin);
+    const currentSource = c.store.scopedSourceTarget(); c.openIndexedReference(previous, edge); expect(c.store.scopedSourceTarget()).toBe(currentSource);
+    c.open('source'); await settle(f);
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-index-graph-target"]')!.click(); await settle(f);
+    expect(c.store.scopedSourceTarget()!.location).toEqual(regionalTarget.location); expect(c.store.context()!.result).toBe(originalResult);
+    c.choose('tests-index-draft'); c.loadResult(); await settle(f);
+    expect(root.querySelector('[data-testid="ide-index-reference-graph"]')).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull();
+  });
+  it('withdraws an open reference graph when read permission is lost', async () => {
+    const f = await readyIndex(); const symbol = f.c.store.semanticIndex()!.symbols[0];
+    f.c.indexedAction('select', symbol); f.c.indexedAction('references', symbol); f.c.referenceGraphLayout.set(true); await settle(f);
+    expect(f.root.querySelector('[data-testid="ide-index-reference-graph"]')).not.toBeNull();
+    const query = f.c.store.indexedReferenceQuery()!;
+    f.authenticated.set(false); await settle(f);
+    expect(f.root.querySelector('[data-testid="ide-index-reference-graph"]')).toBeNull(); expect(f.c.store.indexedReferenceQuery()).toBeNull();
+    f.c.indexedAction('source', query.symbol); expect(f.c.store.state()).toBe('denied'); expect(f.c.store.scopedSourceTarget()).toBeNull();
+  });
+  it('keeps an actual empty 256-reference continuation distinct from an exhausted graph', async () => {
+    const f = await readyIndex('en', true); const { c, root } = f; const index = c.store.semanticIndex()!;
+    const group = index.projection.referenceSearches.find(g => g.pages[0].referenceIndices.length === 0 &&
+      g.pages[0].scannedReferences === 256 && g.pages.some(p => p.referenceIndices.length > 0))!;
+    const target = index.symbols.find(s => s.key === group.targetKey)!;
+    c.indexedAction('select', target); c.indexedAction('references', target); c.referenceGraphLayout.set(true); await settle(f);
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-origin"]')).toHaveLength(0);
+    expect(root.querySelector('[data-testid="ide-index-graph-empty"]')!.textContent).toContain('This page has no references');
+    expect(root.querySelector('[data-testid="ide-index-reference-status"]')!.textContent).toContain('256');
+    expect(root.querySelector('[data-testid="ide-index-reference-status"]')!.textContent).toContain('Scan continues');
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="ide-index-references-next"]')!.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-index-references-next"]')!.click(); await settle(f);
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-origin"]')).toHaveLength(c.store.indexedReferenceRows(c.store.indexedReferenceQuery()!).length);
+    expect(root.querySelectorAll('[data-testid="ide-index-graph-origin"]').length).toBeGreaterThan(0);
+    expect(root.querySelector('[data-testid="ide-index-graph-empty"]')).toBeNull();
   });
   it('withdraws protected index, queries and Source navigation on permission loss', async () => {
     const f = await readyIndex(); const index = f.c.store.semanticIndex()!; const symbol = index.symbols[0];

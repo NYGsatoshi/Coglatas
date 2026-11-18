@@ -1,4 +1,8 @@
 export const PROJECTIDE_ENGLISH_MESSAGES = {
+  "ide.indexGraphLayout": "Graph view",
+  "ide.indexGraphTitle": "Reference neighborhood",
+  "ide.indexGraphNotice": "References on this page point to the selected definition. Use the page controls to continue.",
+  "ide.indexGraphEmpty": "This page has no references. Continue when the scan has more entries.",
   "ide.indexUnavailable": "Project symbols could not be verified for this input",
   "ide.indexExample": "Project symbols example",
   "ide.indexTitle": "Project symbols",
@@ -545,6 +549,10 @@ export const PROJECTIDE_JAPANESE_MESSAGES: Record<
   string
 > = {
   "ide.indexExample": "プロジェクトのシンボル例",
+  "ide.indexGraphLayout": "グラフ表示",
+  "ide.indexGraphTitle": "参照のつながり",
+  "ide.indexGraphNotice": "このページの参照と選択中の定義を表示します。続きはページ操作で確認できます。",
+  "ide.indexGraphEmpty": "このページには参照がありません。走査が続く場合は次のページを確認してください。",
   "ide.indexUnavailable": "この入力のプロジェクトシンボルを検証できませんでした",
   "ide.indexTitle": "プロジェクトのシンボル",
   "ide.indexLoad": "プロジェクトのシンボルを読み込む",
