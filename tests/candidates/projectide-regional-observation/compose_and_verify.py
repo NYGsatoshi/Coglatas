@@ -32,7 +32,7 @@ REGIONAL_METHODS = (
     'PredeclaredExactBodyBudgetAndOneByteShortCaptureHaveDifferentSufficiency',
     'TheFirstCaptureGapSurvivesLaterWholeCompilerResourceExhaustion',
     'WholeCompilerExhaustionWithdrawsAnOtherwiseSufficientCapture',
-    'OriginalOneMillionWorkBudgetCannotBeCreditedAsCaptureCeilingExecution',
+    'MeasuredWorkSeparatesCompletedOneMillionProfileFromActualExhaustion',
     'IndependentViewerBudgetNeverRewritesTheOriginalCapturedRecord',
     'CancelledSnapshotReadCannotReturnPartialFramesOrDamageTheCompletedRecord',
     'CancellationInsideActualMaterializationEnumerationWithdrawsEveryRegionalGraph',

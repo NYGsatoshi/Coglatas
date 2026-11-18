@@ -324,17 +324,31 @@ public sealed class SecurityRegionalObservationCandidateTests
     }
 
     [Fact]
-    public void OriginalOneMillionWorkBudgetCannotBeCreditedAsCaptureCeilingExecution()
+    public void MeasuredWorkSeparatesCompletedOneMillionProfileFromActualExhaustion()
     {
         var predicate = Unary("coglatas.not", Balanced("coglatas.or", [.. Enumerable.Repeat(false, 255), true]));
         var fixture = Create(rootPredicate: predicate, dependencyPredicate: predicate);
-        var execution = Capture(fixture, new(PredicateEvaluationCaptureMode.ObservedOperators, maximumBodyBytes: LargeBodyBudget));
-        AssertParity(fixture, execution);
+        var completed = Capture(fixture, new(PredicateEvaluationCaptureMode.ObservedOperators, maximumBodyBytes: LargeBodyBudget));
+        AssertParity(fixture, completed);
         Assert.Equal(1_000_000, fixture.Input.Settings.Value.GetProperty("executionProfile").GetProperty("maximumOperations").GetInt32());
+        Assert.Equal(CompilerExecutionState.Completed, completed.Compilation.Result.Execution);
+        Assert.InRange(completed.Compilation.LogicalOperationsConsumed, 2L, 1_000_000L);
+        Assert.Equal(CompilerRegionalPredicateCaptureState.RecordedRegionalEvaluations, completed.Observation.State);
+        Assert.Equal(2, completed.Observation.CompletedEvaluations);
+        Assert.Equal(1024, completed.Observation.ObservedNodes);
+        Assert.All(completed.Compilation.Dependencies!.Regions, region =>
+            AssertAvailable(Read(completed, region, Assert.Single(region.Diagnostics))));
+        // This independent fixture actually fits 1M; require a measured smaller profile to prove refusal.
+        // Do not transfer another Product fixture's historical cost to a different Source workload.
+        var limited = Reprofile(fixture, completed.Compilation.LogicalOperationsConsumed - 1);
+        var execution = Capture(limited, new(PredicateEvaluationCaptureMode.ObservedOperators, maximumBodyBytes: LargeBodyBudget));
+        AssertParity(limited, execution);
         Assert.Equal(CompilerExecutionState.ResourceExhausted, execution.Compilation.Result.Execution);
         Assert.Equal(CompilerRegionalPredicateCaptureState.CaptureInterrupted, execution.Observation.State);
         Assert.Equal(0, execution.Observation.RetainedBodyBytes);
         Assert.Empty(execution.Observation.Data.Value.GetProperty("evaluations").EnumerateArray());
+        Assert.Equal(1024, completed.Observation.ObservedNodes);
+        Assert.Equal(CompilerRegionalPredicateCaptureState.RecordedRegionalEvaluations, completed.Observation.State);
     }
 
     [Fact]

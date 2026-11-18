@@ -48,7 +48,7 @@ The 24 facts cover these boundaries:
 | Concurrent policy reuse | Four actual runs retain separate collectors and exact regional ownership while producing equal immutable facts. |
 | Aggregate capture caps | Actual 128/129 evaluations across two regions and 1024/1025 visited nodes distinguish full capture from first-gap withdrawal without changing Compiler truth. |
 | Body budgets | Predeclared exact bytes versus one byte below distinguish capture sufficiency; a smaller viewer budget independently refuses bodies without changing the retained record. |
-| Resource limits | Whole execution exhaustion withdraws otherwise sufficient capture; an earlier node-limit gap keeps its original reason. A large fixture under its unchanged 1M profile remains ResourceExhausted and receives no capture-ceiling credit. |
+| Resource limits | Whole execution exhaustion withdraws otherwise sufficient capture; an earlier node-limit gap keeps its original reason. An actual 1024-node fixture completes within its unchanged 1M profile, while a separately declared measured-work-minus-one profile must be ResourceExhausted with no retained graph. |
 | Cancellation | Precancelled reads throw without damaging a completed record. Cancellation during actual materialization enumeration withdraws the regional graph and disposes the enumeration. |
 | Current fixed supplies | Missing, denied, contradictory and wrong-version materializations cannot borrow an earlier private region or graph. A separately admitted supply still produces its original result. |
 | Requirement semantics | Missing evidence never acquires condition operators; true and Unknown requirements do not invent a condition diagnostic, while an actual false-condition diagnostic can open its own frames. |
@@ -59,7 +59,9 @@ Small fixtures declare at most 1,000,000 Compiler logical operations. The
 explicit 128/129 evaluation and 1024/1025 node experiments use the already
 supported 10,000,000-operation input profile and existing 32 MiB hard body
 maximum. This is an explicit fixture declaration, not a Product default or
-limit change. The separate original 1M refusal is retained. The regional
+limit change. The same independent 1024-node Source also has an unchanged 1M
+positive with measured work at most 1M and a separate actual measured-work-minus-one
+refusal. The regional
 collector's global 128-evaluation and 1024-node limits are unchanged.
 
 All Source contexts, private-document names and materializations are synthetic.
@@ -82,6 +84,25 @@ python -B tests/candidates/projectide-regional-observation/compose_and_verify.py
 No local .NET execution is claimed by authoring this cohort. Native acceptance
 requires the actual exact-source hosted runs and independent inspection of both
 original artifact ZIPs, TRX/discovery inventories and source/receipt hashes.
+
+### Retained first native failure and Test premise correction
+
+Original [advisory run 44222932841](https://github.com/NYGsatoshi/Coglatas/actions/runs/44222932841)
+at Security source `8bc518c6c95fcb1c038a4264d0873607812d46a6` executed all 24 facts
+on both hosts: **23 PASS / 1 FAIL / 0 SKIP**. The same assertion expected the
+independently authored two-region AST to exhaust 1M operations, but the actual
+Compiler completed. That cost assumption had incorrectly been transferred from
+a different, larger historical Product fixture. It was a Test premise error,
+not a Product defect or a passing advisory.
+
+The corrected fact keeps the unchanged 1M declaration, requires actual complete
+1024-node capture and measured work within the budget, then separately declares
+one operation less than the measured requirement and requires genuine ordinary
+and observed Compiler exhaustion with complete graph withdrawal. It retains
+24 facts and every other negative control. The renamed fact and immutable
+workflow source/runner pins identify the corrected source explicitly. Original
+Ubuntu artifact `14392110540` and Windows artifact `14392165511`, their original
+TRX/logs and failed outcomes remain retained; no previous-source PASS is borrowed.
 
 Current runtime query/open/export authority, persisted revocation races,
 redaction/deletion/retention, physical memory erasure, operator eligibility,
