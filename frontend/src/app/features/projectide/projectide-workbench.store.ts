@@ -1061,7 +1061,7 @@ export class ProjectIdeWorkbenchStore {
       if (this.testDiscoveryNavigationIntent === intent && this.testDiscoveryNavigationState() === 'loading') this.testDiscoveryNavigationState.set('idle');
     };
     const owns = () => isCurrent() && intent === this.sourceIntentGeneration && generation === this.testDiscoveryGeneration &&
-      context === this.context() && context === this.result() && bundle === this.bundle() && bundle.cases.includes(context) && this.localTestDiscovery() === admitted;
+      context === this.context() && context === this.result() && bundle === this.bundle() && this.localTestDiscovery() === admitted;
     let proof: AdmittedScopedSources | null = null; let record: SourceRecord | null = null;
     try {
       if (context.result.artifacts.some(artifact => artifact.version === 2)) {

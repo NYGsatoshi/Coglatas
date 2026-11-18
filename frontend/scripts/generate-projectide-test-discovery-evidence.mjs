@@ -47,13 +47,25 @@ for (const profile of profiles) {
         createHash('sha256').update('coglatas.project-source/1\0' + value.sourceText).digest('hex') !== value.sourceDigest.value) throw new Error('Original Core Source identity mismatch.');
     const originalTests = [...source.declarations, ...source.documents.map(document => document.root)].filter(item => item.kind === 'coglatas.project-test');
     const sourceDefinitions = new Map(originalTests.map(item => [item.entityId, item]));
+    // Core emits Source and each declaration with the same canonical byte encoding.
+    // Match the original encoded bytes, including Unicode/number spelling, without JS reserialization.
     if (sourceDefinitions.size !== originalTests.length || projection.definitions.length !== sourceDefinitions.size ||
-        projection.definitions.some(item => !sourceDefinitions.has(item.testId) || canonical(JSON.parse(item.text)) !== canonical(sourceDefinitions.get(item.testId)))) throw new Error('Original Core definition roster is incomplete or inconsistent with Source.');
+        projection.definitions.some(item => !sourceDefinitions.has(item.testId) || typeof item.text !== 'string' ||
+        !value.sourceText.includes(item.text) || canonical(JSON.parse(item.text)) !== canonical(sourceDefinitions.get(item.testId)))) throw new Error('Original Core definition roster is incomplete or inconsistent with Source.');
     const definitions = projection.definitions.map(item => {
       if (typeof item.testId !== 'string' || typeof item.text !== 'string') throw new Error('Invalid original definition bytes.');
       return [item.testId, createHash('sha256').update('coglatas.project-test-declaration/1\0' + item.text).digest('hex')];
     }).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
     if (new Set(definitions.map(([id]) => id)).size !== definitions.length) throw new Error('Duplicate original definition.');
+    const definitionIds = new Map(definitions.map(([testId, hash]) => [hash, testId]));
+    const planEntries = Array.isArray(plan.tests) ? plan.tests.map(item => {
+      if (item === null || typeof item !== 'object' || Array.isArray(item) ||
+          canonical(Object.keys(item).sort()) !== canonical(['declarationDigest', 'status'])) throw new Error('Original Core plan definition roster has an unexpected row shape.');
+      const testId = digest(item.declarationDigest) ? definitionIds.get(item.declarationDigest.value) : undefined;
+      if (!testId) throw new Error('Original Core plan definition roster has an unknown declaration digest.');
+      return [testId, item.status];
+    }) : null;
+    if (canonical(planEntries) !== canonical(entries)) throw new Error('Original Core plan definition roster contradicts retained identities/statuses.');
     const evidence = { planDigest: projection.plan.digest.value, requestedInputDigest: projection.requestedInputDigest.value, retainedTests: entries, definitions };
     const previous = pins.get(input.value);
     if (previous && canonical(previous) !== canonical(evidence)) throw new Error('One original Core input has conflicting retention.');

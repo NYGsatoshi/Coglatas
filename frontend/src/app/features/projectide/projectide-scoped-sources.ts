@@ -22,10 +22,15 @@ const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) &
 const fail = (): never => { throw new Error('unsupported-scoped-sources'); };
 const obj = (v: unknown): Record<string, unknown> => object(v) ? v : fail();
 const list = (v: unknown, max = 100_000): unknown[] => Array.isArray(v) && v.length <= max ? v : fail();
-const fields = (v: unknown, keys: readonly string[]) => Object.keys(obj(v)).length === keys.length && keys.every(k => Object.hasOwn(obj(v), k));
+const fields = (v: unknown, keys: readonly string[]) => Object.getOwnPropertyNames(obj(v)).length === keys.length && keys.every(k => Object.hasOwn(obj(v), k));
 const dig = (v: unknown): v is Digest => object(v) && fields(v, ['algorithm', 'value']) && v['algorithm'] === 'sha-256' && typeof v['value'] === 'string' && /^[a-f0-9]{64}$/u.test(v['value']);
 const id = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(v);
 const basis = (value: PreviewCase) => {
+  if (value.scopedSources != null) {
+    const original = value.scopedSources; const published = original.format === 'coglatas.local-scoped-source-projection/2';
+    if (!fields(original, ['format', 'inputText', 'result', 'analysis', 'binding', 'graph', 'ir', 'sourceMap', 'regions', ...(published ? ['publication'] : [])]) ||
+        published && !fields(original.publication, ['semanticModel', 'ir', 'sourceMap', ...(original.publication?.plan ? ['plan'] : [])])) return fail();
+  }
   const { localProjectTestDiscovery: _discovery, ...sourceBasis } = value;
   return JSON.stringify(sourceBasis);
 };
@@ -33,7 +38,9 @@ const basis = (value: PreviewCase) => {
 const scopedSourceAdmissions = new WeakMap<AdmittedScopedSources, string>();
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
 export function scopedSourcesMatch(value: PreviewCase, admitted: AdmittedScopedSources): boolean {
-  return scopedSourceAdmissions.has(admitted) && value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === scopedSourceAdmissions.get(admitted);
+  try {
+    return scopedSourceAdmissions.has(admitted) && value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === scopedSourceAdmissions.get(admitted);
+  } catch { return false; }
 }
 async function frame(value: unknown, domain: string): Promise<Record<string, unknown>> {
   const v = obj(value);

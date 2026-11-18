@@ -658,3 +658,16 @@ it.each([false, true])('settles an invalid current case list after reader failur
   const pending = store.loadLocalTestDiscovery(); await began; Object.assign(store.bundle()!, { cases: null }); release();
   expect(await pending).toBe(false); expect(store.testDiscoveryReadState()).toBe('unavailable'); expect(store.localTestDiscovery()).toBeNull();
 });
+
+it.each([false, true])('settles definition Source navigation when the live case list is null after proof failure=%s', async failProof => {
+  const store = new ProjectIdeWorkbenchStore();
+  await store.load(async () => readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/simulation-v1.json'), 'utf8'))));
+  store.choose('tests-simulation-root-base'); store.loadResult(); expect(await store.loadLocalTestDiscovery()).toBe(true);
+  const row = store.localTestDiscovery()!.inventory.tests[0]; const bundle = store.bundle()!;
+  const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+  vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return failProof ? new ArrayBuffer(32) : original(algorithm, bytes); });
+  const pending = store.navigateDiscoveredTest(row); await began; Object.assign(bundle, { cases: null }); release();
+  await expect(pending).resolves.toBe(false); expect(store.testDiscoveryNavigationState()).toBe('idle');
+  expect(store.localTestDiscovery()).toBeNull(); expect(store.sourceTarget()).toBeNull();
+});

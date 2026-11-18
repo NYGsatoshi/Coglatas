@@ -127,3 +127,15 @@ it('does not clone unrelated discovery data while admitting bounded Source-only 
   const value = fixture(); Object.assign(value.localProjectTestDiscovery!, { unrelated: () => { throw new Error('unused discovery data'); } });
   const source = (await readScopedSources(value))!; expect(source).not.toBeNull(); expect(scopedSourcesMatch(value, source)).toBe(true);
 });
+
+it.each(['publication-plan', 'projection-member', 'publication-hidden-plan', 'projection-hidden-member'])('rejects own undefined Source members before snapshotting: %s', async mode => {
+  const value = readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/scoped-publication-v2.json'), 'utf8'))).cases[0];
+  expect(value.scopedSources!.publication).not.toHaveProperty('plan');
+  const original = (await readScopedSources(value))!; expect(original.publicationVerified).toBe(true);
+  if (mode === 'publication-plan') Object.assign(value.scopedSources!.publication!, { plan: undefined });
+  else if (mode === 'projection-member') Object.assign(value.scopedSources!, { unrequested: undefined });
+  else if (mode === 'publication-hidden-plan') Object.defineProperty(value.scopedSources!.publication!, 'plan', { value: undefined, enumerable: false });
+  else Object.defineProperty(value.scopedSources!, 'unrequested', { value: undefined, enumerable: false });
+  expect(scopedSourcesMatch(value, original)).toBe(false);
+  await expect(readScopedSources(value)).rejects.toThrow();
+});

@@ -757,11 +757,25 @@ it('keeps the discovery action focused while loading and ignores repeated activa
   const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
   vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return original(algorithm, bytes); });
-  const load = vi.spyOn(c.store, 'loadLocalTestDiscovery'); const pending = c.loadLocalTestDiscovery(); await began; fixture.detectChanges();
+  const load = vi.spyOn(c.store, 'loadLocalTestDiscovery'); action.click(); await began; fixture.detectChanges();
+  const pending = load.mock.results[0].value as Promise<boolean>;
   try {
     expect(action.disabled).toBe(false); expect(action.getAttribute('aria-disabled')).toBe('true'); expect(document.activeElement).toBe(action);
-    await c.loadLocalTestDiscovery(); expect(load).toHaveBeenCalledTimes(1);
+    action.click(); expect(load).toHaveBeenCalledTimes(1);
   } finally { release(); await pending; fixture.detectChanges(); }
   expect(action.getAttribute('aria-disabled')).toBe('false'); expect(document.activeElement).toBe(action);
   expect(c.store.localTestDiscovery()!.inventory.state).toBe('Ready');
+});
+
+it('marks a withdrawn discovery inventory unavailable after its original Ready read', async () => {
+  const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests');
+  expect(await c.store.loadLocalTestDiscovery()).toBe(true); fixture.detectChanges();
+  const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+  expect(summary.getAttribute('data-admission')).toBe('admitted'); expect(summary.getAttribute('data-discovery-state')).toBe('Ready');
+  Object.assign(c.store.context()!.localProjectTestDiscovery!.inventory.tests[0], { displayName: 'changed live definition' });
+  c.open('overview'); fixture.detectChanges(); c.open('tests'); fixture.detectChanges();
+  const withdrawn = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+  expect(c.store.testDiscoveryReadState()).toBe('ready'); expect(c.store.localTestDiscovery()).toBeNull();
+  expect(withdrawn.getAttribute('data-admission')).toBe('not-admitted'); expect(withdrawn.getAttribute('data-discovery-state')).toBe('unavailable');
+  expect(root.querySelectorAll('[data-testid="ide-test-discovery-row"]')).toHaveLength(0);
 });

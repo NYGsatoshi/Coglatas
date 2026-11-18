@@ -234,7 +234,7 @@
                 <h3 id="ide-test-discovery-title">{{ t('ide.discoveryTitle') }}</h3>
                 <p>{{ t('ide.discoveryNotice') }}</p>
                 <button type="button" (click)="loadLocalTestDiscovery()" [disabled]="!store.result()" [attr.aria-disabled]="store.testDiscoveryReadState() === 'loading'">{{ t('ide.discoveryLoad') }}</button>
-                <div data-testid="ide-test-discovery-summary" [attr.data-admission]="discovery ? 'admitted' : 'not-admitted'" [attr.data-discovery-state]="discovery ? discovery.inventory.state : store.testDiscoveryReadState()" aria-live="polite">
+                <div data-testid="ide-test-discovery-summary" [attr.data-admission]="discovery ? 'admitted' : 'not-admitted'" [attr.data-discovery-state]="discovery ? discovery.inventory.state : store.testDiscoveryReadState() === 'ready' ? 'unavailable' : store.testDiscoveryReadState()" aria-live="polite">
                   @if (store.testDiscoveryReadState() === 'loading') { <p>{{ t('ide.discoveryLoading') }}</p> }
                   @if (store.testDiscoveryReadState() === 'unsupported') { <p role="alert">{{ t('ide.discoveryUnreadable') }}</p> }
                   @if (store.testDiscoveryReadState() === 'unavailable' || store.testDiscoveryReadState() === 'ready' && !discovery) { <p>{{ t('ide.discoveryUnavailable') }}</p> }

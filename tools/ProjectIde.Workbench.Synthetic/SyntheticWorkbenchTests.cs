@@ -54,7 +54,10 @@ public sealed partial class SyntheticWorkbenchViewModel
     private static void RetainDiscoveryWithdrawalFailure(Exception publication, Exception withdrawal)
     {
         try { publication.Data["TestDiscoveryWithdrawalFailure"] = withdrawal; }
-        catch (Exception) { return; }
+        catch (Exception)
+        {
+            // Diagnostic attachment is best effort; the original publication failure remains authoritative.
+        }
     }
 
     public bool SelectDiscoveredTest(ProjectDiscoveredTest test)

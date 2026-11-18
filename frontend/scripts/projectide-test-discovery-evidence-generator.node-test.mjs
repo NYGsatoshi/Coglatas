@@ -1,4 +1,5 @@
 import test, { after } from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, copyFileSync, readdirSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -79,5 +80,34 @@ test('an incomplete or foreign definition roster cannot replace pins for a Sourc
       if (mode === 'body') { const declaration = JSON.parse(definitions[0].text); declaration.displayName = 'foreign definition'; definitions[0].text = JSON.stringify(declaration); }
     });
     const result = run(); failure(result); assert.match(result.stderr, /Original Core definition roster/);
+  }
+});
+
+test('different original definition bytes cannot replace pins for an Unavailable inventory', () => {
+  for (const change of [text => text + ' ', text => ' ' + text, text => text.replace('Input assertion', '\\u0049nput assertion')]) {
+    restore(); mutate('test-discovery-v1.json', bundle => {
+      const value = bundle.cases.find(item => item.key === 'tests-discovery-unavailable');
+      value.localProjectTestDiscovery.definitions[0].text = change(value.localProjectTestDiscovery.definitions[0].text);
+    });
+    const result = run(); failure(result); assert.match(result.stderr, /Original Core definition roster/);
+  }
+});
+
+test('retained plan declarations must match the original identity and status roster', () => {
+  for (const mode of ['invented', 'omitted', 'status', 'digest', 'unexpected-field', 'order']) {
+    restore(); const target = mode === 'invented' ? JSON.parse(readFileSync(join(producer, 'test-discovery-v1.json'), 'utf8')).cases.find(value => value.key === 'tests-discovery-unavailable') :
+      JSON.parse(readFileSync(join(producer, 'preview-v1.json'), 'utf8')).cases.find(value => value.key === 'tests-many');
+    for (const name of profiles) mutate(name, bundle => { for (const value of bundle.cases) {
+      if (value.inputDigest.value !== target.inputDigest.value || !value.localProjectTestDiscovery) continue;
+      const projection = value.localProjectTestDiscovery; const plan = JSON.parse(projection.plan.text);
+      if (mode === 'invented') plan.tests = [{ declarationDigest: { algorithm: 'sha-256', value: createHash('sha256').update('coglatas.project-test-declaration/1\0' + projection.definitions[0].text).digest('hex') }, status: 'Decoded' }];
+      if (mode === 'omitted') plan.tests.pop();
+      if (mode === 'status') plan.tests[0].status = 'Invalid';
+      if (mode === 'digest') plan.tests[0].declarationDigest.value = '0'.repeat(64);
+      if (mode === 'unexpected-field') plan.tests[0].unexpected = null;
+      if (mode === 'order') plan.tests.reverse();
+      projection.plan.text = JSON.stringify(plan); projection.plan.digest = { algorithm: 'sha-256', value: createHash('sha256').update('coglatas.project-test-plan/1\0' + projection.plan.text).digest('hex') };
+    } });
+    const result = run(); failure(result); assert.match(result.stderr, /Original Core plan definition roster/);
   }
 });
