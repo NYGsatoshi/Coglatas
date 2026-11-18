@@ -304,7 +304,7 @@ public static class ProjectSemanticBinder
                 ? symbolIndex.GetValueOrDefault((reference.Context, entity, null)) ?? [] : [];
             var outcome = referenceBindingCache?.Resolve(ownerScope ?? source.Context.Branch, ValueDependencies(), BindValue, cancellationToken) ?? BindValue();
             references.Add(outcome.Reference);
-            if (outcome.DocumentSymbol is { } documentSymbol && !symbols.Any(symbol => symbol.Key == documentSymbol.Key)) symbols.Add(documentSymbol);
+            if (outcome.DocumentSymbol is { } publishedDocumentSymbol && !symbols.Any(symbol => symbol.Key == publishedDocumentSymbol.Key)) symbols.Add(publishedDocumentSymbol);
             PublishReferenceFinding(outcome, CoreCompilerRules.Declarations);
 
             IEnumerable<string> ValueDependencies()

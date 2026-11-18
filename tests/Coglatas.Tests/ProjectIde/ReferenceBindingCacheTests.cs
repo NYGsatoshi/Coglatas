@@ -8,6 +8,28 @@ namespace Coglatas.Tests.ProjectIde;
 public sealed class ReferenceBindingCacheTests
 {
     [Fact]
+    public void AMissingFirstTargetResolvesWhenAddedAndBecomesMissingAgainWhenRemoved()
+    {
+        var basis = ReferenceCompletionTests.CompletionInput(1);
+        var document = SourceDocument.Create(DocumentId.Parse(Id(4)), "project", Json(Obj(new
+        {
+            entityId = Id(6), kind = "coglatas.project", schemaVersion = 1,
+            payload = new { roots = new[] { Id(10) } }
+        })));
+        var missingInput = Input(source: ProjectSource.Create(basis.Source.Context, [document]));
+        var addedInput = Input(source: ProjectSource.Create(basis.Source.Context, [document], basis.Source.Declarations));
+        var cache = new ProjectReferenceBindingCache(); var symbols = new ProjectSymbolBindingCache();
+        var missing = Assert.Single(Compile(missingInput, cache, symbols).Model!.References);
+        Assert.Equal(ReferenceResolutionState.MissingWithinCompleteScope, missing.State);
+        Assert.Same(missing, Assert.Single(Compile(missingInput, cache, symbols).Model!.References));
+        var added = Assert.Single(Compile(addedInput, cache, symbols).Model!.References);
+        Assert.NotSame(missing, added); Assert.Equal(ReferenceResolutionState.Resolved, added.State);
+        Assert.NotNull(added.SymbolKey); Assert.Equal(missing.Origin.Data, added.Origin.Data);
+        Assert.Same(added, Assert.Single(Compile(addedInput, cache, symbols).Model!.References));
+        Assert.Same(missing, Assert.Single(Compile(missingInput, cache, symbols).Model!.References));
+    }
+
+    [Fact]
     public void UnchangedTargetPartitionsSurviveOtherDependencyEditsWhileChangedPortsAndKindsRebind()
     {
         var basis = ReferenceCompletionTests.CompletionInput();
