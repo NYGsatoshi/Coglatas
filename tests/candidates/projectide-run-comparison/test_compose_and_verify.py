@@ -65,6 +65,20 @@ class NativeInventoryControls(ExactRejection):
         ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
         return RUNNER.native_inventory(self.report)
 
+    def test_nested_results_are_rejected_without_changing_flat_metadata(self) -> None:
+        for outcome in ("Passed", "NotExecuted"):
+            for namespace in (NAMESPACE, "{urn:foreign}"):
+                with self.subTest(outcome=outcome, namespace=namespace):
+                    root = native_fixture()
+                    case = root.find(NAMESPACE + "Results/" + NAMESPACE + "UnitTestResult")
+                    nested = ET.SubElement(case, namespace + "InnerResults")
+                    ET.SubElement(nested, namespace + "UnitTestResult", outcome=outcome)
+                    self.reject("Native TRX contains nested result records", lambda: self.read(root))
+        root = native_fixture()
+        case = root.find(NAMESPACE + "Results/" + NAMESPACE + "UnitTestResult")
+        ET.SubElement(case, NAMESPACE + "UnitTestResult", outcome="Passed")
+        self.reject("Native TRX contains nested result records", lambda: self.read(root))
+
     def test_complete_native_shape_and_discovery_match(self) -> None:
         self.assertEqual(IDENTITIES, self.read(native_fixture()))
         for newline in ("\n", "\r\n"):
@@ -133,6 +147,19 @@ class NativeInventoryControls(ExactRejection):
 
 
 class EnvironmentControls(ExactRejection):
+    def test_native_sdk_actions_exclude_ancestor_build_imports(self) -> None:
+        for subcommand, arguments in (
+            ("restore", ("frozen.csproj", "--nologo")),
+            ("test", ("frozen.csproj", "--no-restore", "--filter", "Frozen.Fact")),
+            ("test", ("frozen.csproj", "--no-build", "--list-tests")),
+        ):
+            with self.subTest(subcommand=subcommand, arguments=arguments):
+                self.assertEqual(
+                    ["dotnet", subcommand, "-p:ImportDirectoryBuildProps=false",
+                     "-p:ImportDirectoryBuildTargets=false", *arguments],
+                    RUNNER.source_only_dotnet(subcommand, *arguments))
+        self.reject("Unsupported native SDK action", lambda: RUNNER.source_only_dotnet("publish"))
+
     def test_git_environment_removes_overrides_and_preserves_other_settings(self) -> None:
         supplied = {
             "GIT_DIR": "/foreign/repository", "git_work_tree": "/foreign/tree",
@@ -227,6 +254,24 @@ class WorkingTreeControls(ExactRejection):
         self.reject("Composed candidate index identity changed", self.verify)
         fixture_git(self.repository, "add", "--", RUNNER.DESTINATION)
         self.admit()
+
+    def test_masked_tracked_product_edits_are_rejected(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        original_blob = fixture_git(self.repository, "rev-parse", ":product.txt")
+        for flag, reverse in (("--assume-unchanged", "--no-assume-unchanged"),
+                              ("--skip-worktree", "--no-skip-worktree")):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", flag, "--", "product.txt")
+                tracked.write_bytes(original + b"Hidden Product compiler input edit\n")
+                try:
+                    self.assertEqual(original_blob, fixture_git(self.repository, "rev-parse", ":product.txt"))
+                    self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                    self.reject("Git index flags hide tracked Product source", self.verify)
+                finally:
+                    fixture_git(self.repository, "update-index", reverse, "--", "product.txt")
+                    tracked.write_bytes(original)
+                self.admit()
 
     def test_changed_head_is_rejected(self) -> None:
         product_tree = fixture_git(self.repository, "rev-parse", "HEAD^{tree}")
