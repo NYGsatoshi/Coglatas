@@ -68,3 +68,16 @@ test('a hash-valid plan from a different compiler input is refused before replac
   mutate('test-discovery-v1.json', bundle => { bundle.cases[0].localProjectTestDiscovery.plan = other; });
   const result = run(); failure(result); assert.match(result.stderr, /Original Core plan belongs to another compiler input/);
 });
+
+
+test('an incomplete or foreign definition roster cannot replace pins for a Source-retained Test', () => {
+  for (const mode of ['empty', 'identity', 'body']) {
+    restore(); mutate('test-discovery-v1.json', bundle => {
+      const definitions = bundle.cases[0].localProjectTestDiscovery.definitions;
+      if (mode === 'empty') definitions.length = 0;
+      if (mode === 'identity') definitions[0].testId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+      if (mode === 'body') { const declaration = JSON.parse(definitions[0].text); declaration.displayName = 'foreign definition'; definitions[0].text = JSON.stringify(declaration); }
+    });
+    const result = run(); failure(result); assert.match(result.stderr, /Original Core definition roster/);
+  }
+});

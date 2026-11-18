@@ -9,6 +9,12 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class SyntheticProjectTestDiscoveryTests
 {
+    private sealed class ReadOnlyCancellationException(CancellationToken token) : OperationCanceledException(token)
+    {
+        public override System.Collections.IDictionary Data { get; } =
+            new System.Collections.ObjectModel.ReadOnlyDictionary<string, object>(new Dictionary<string, object>());
+    }
+
     private static CompilerInputManifest Input(string key)
     {
         using var item = JsonDocument.Parse((key == "tests-discovery-unavailable" ? UnavailableCase() : WebPreviewContractTests.Cases().Select(row => (string)row[0])
@@ -322,5 +328,28 @@ public sealed class SyntheticProjectTestDiscoveryTests
         Assert.True(published); Assert.Equal(token, error.CancellationToken);
         Assert.Same(failure, throwAtPublication ? error.Data["TestDiscoveryWithdrawalFailure"] : error.InnerException);
         Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
+    }
+
+    [Fact]
+    public async Task ReadOnlyPublicationExceptionDataCannotMaskTheOriginalCancellation()
+    {
+        using var view = await Ready();
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token; Action cancel = cancellation.Cancel; var published = false;
+        var publication = new ReadOnlyCancellationException(token); var withdrawal = new InvalidOperationException("withdrawal failed");
+        PropertyChangedEventHandler onChange = (sender, _) =>
+        {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (!published && current.TestDiscovery is { } inventory)
+            {
+                published = true; Assert.True(current.SelectDiscoveredTest(Assert.Single(inventory.Tests))); Assert.True(current.Navigate());
+                cancel(); throw publication;
+            }
+            if (published && current.TestDiscovery is null) throw withdrawal;
+        };
+        view.PropertyChanged += onChange;
+        try { Assert.Same(publication, Assert.Throws<ReadOnlyCancellationException>(() => view.DiscoverSyntheticTests(token))); }
+        finally { view.PropertyChanged -= onChange; }
+        Assert.True(published); Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
     }
 }

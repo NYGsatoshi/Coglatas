@@ -43,12 +43,18 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         if (publicationFailure is not null)
         {
-            if (withdrawalFailure is not null) publicationFailure.Data["TestDiscoveryWithdrawalFailure"] = withdrawalFailure;
+            if (withdrawalFailure is not null) RetainDiscoveryWithdrawalFailure(publicationFailure, withdrawalFailure);
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationFailure).Throw();
         }
         if (cancelled) throw new OperationCanceledException("Test discovery was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _testDiscoveryGeneration && lifecycle == _lifecycle &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
+    }
+
+    private static void RetainDiscoveryWithdrawalFailure(Exception publication, Exception withdrawal)
+    {
+        try { publication.Data["TestDiscoveryWithdrawalFailure"] = withdrawal; }
+        catch (Exception) { return; }
     }
 
     public bool SelectDiscoveredTest(ProjectDiscoveredTest test)

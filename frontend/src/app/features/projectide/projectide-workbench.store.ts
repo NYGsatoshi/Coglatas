@@ -1016,7 +1016,12 @@ export class ProjectIdeWorkbenchStore {
   async loadLocalTestDiscovery(): Promise<boolean> {
     this.clearLocalTestDiscovery();
     const generation = this.testDiscoveryGeneration; const context = this.context(); const bundle = this.bundle();
-    if (!context || !bundle || !bundle.cases.includes(context) || context !== this.result() || this.state() !== 'ready') {
+    const ownsContext = () => {
+      try { return !!context && !!bundle && this.state() === 'ready' && context === this.context() && context === this.result() &&
+        bundle === this.bundle() && Array.isArray(bundle.cases) && bundle.cases.includes(context); }
+      catch { return false; }
+    };
+    if (!context || !bundle || !ownsContext()) {
       this.testDiscoveryReadState.set('unavailable'); return false;
     }
     const materialization = { sourceMap: context.sourceMap, source: context.source, manifest: context.manifest, declarations: context.declarations };
@@ -1025,7 +1030,7 @@ export class ProjectIdeWorkbenchStore {
       readPreviewBundle(bundle);
       const admitted = await readLocalTestDiscovery(context);
       if (generation !== this.testDiscoveryGeneration) return false;
-      if (context !== this.context() || context !== this.result() || bundle !== this.bundle() || !bundle.cases.includes(context)) {
+      if (!ownsContext()) {
         this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable'); return false;
       }
       if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
@@ -1037,7 +1042,7 @@ export class ProjectIdeWorkbenchStore {
       this.testDiscoverySnapshot.set({ bundle, context, admitted, ...materialization }); this.testDiscoveryReadState.set('ready'); return true;
     } catch {
       if (generation === this.testDiscoveryGeneration) {
-        if (context !== this.context() || context !== this.result() || bundle !== this.bundle() || !bundle.cases.includes(context)) {
+        if (!ownsContext()) {
           this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable');
         } else { this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('unsupported'); }
       }

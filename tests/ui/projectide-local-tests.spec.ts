@@ -49,19 +49,6 @@ for (const locale of ['en', 'ja'] as const) {
     const rows = page.getByTestId('ide-test-rows').locator(':scope > li'); await expect(rows).toHaveCount(32);
     const next = page.getByRole('button', { name: locale === 'en' ? 'Next Tests' : '次のテスト', exact: true }); await next.focus(); await next.press('Enter');
     await expect(rows).toHaveCount(1); await expect(page.getByTestId('ide-tests-summary')).toContainText('33');
-    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-admission', 'admitted');
-    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-discovery-state', 'Unavailable');
-    // Negative transport control: missing metadata must not impersonate a Core-produced refusal.
-    await page.route('**/assets/projectide/test-discovery-v1.json', async route => {
-      const response = await route.fetch(); const bundle = await response.json();
-      for (const item of bundle.cases) delete item.localProjectTestDiscovery;
-      await route.fulfill({ response, json: bundle });
-    });
-    await page.getByTestId('ide-test-discovery-example').click(); await choose('tests-discovery-unavailable');
-    await page.getByRole('button', { name: list, exact: true }).click();
-    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-admission', 'not-admitted');
-    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-discovery-state', 'unavailable');
-    await expect(rows).toHaveCount(0);
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
   });
 }
@@ -152,6 +139,19 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'full definition inventory is unavailable' : '定義の全件一覧を取得できません');
     await expect(rows).toHaveCount(0); await expect(page.getByTestId('ide-tests-summary')).toHaveCount(0);
     await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(0);
+    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-admission', 'admitted');
+    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-discovery-state', 'Unavailable');
+    // Negative transport control: missing metadata must not impersonate a Core-produced refusal.
+    await page.route('**/assets/projectide/test-discovery-v1.json', async route => {
+      const response = await route.fetch(); const bundle = await response.json();
+      for (const item of bundle.cases) delete item.localProjectTestDiscovery;
+      await route.fulfill({ response, json: bundle });
+    });
+    await page.getByTestId('ide-test-discovery-example').click(); await choose('tests-discovery-unavailable');
+    await page.getByRole('button', { name: list, exact: true }).click();
+    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-admission', 'not-admitted');
+    await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-discovery-state', 'unavailable');
+    await expect(rows).toHaveCount(0);
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
   });
 }

@@ -567,7 +567,14 @@ describe('Reviewed discovery boundary and lifetime failures', () => {
       if (value === projection) { wholeProjectionSerializations++; throw new Error('unexpected whole projection serialization'); }
       return stringify(value, ...args);
     });
-    await expect(readLocalTestDiscovery(value)).rejects.toThrow(); expect(wholeProjectionSerializations).toBe(0);
+    const valid = current(); const clone = globalThis.structuredClone.bind(globalThis); let oversizedClones = 0; let validClones = 0;
+    vi.spyOn(globalThis, 'structuredClone').mockImplementation((input, options) => {
+      if (input === projection) { oversizedClones++; throw new Error('oversized projection reached clone'); }
+      if (input === valid.localProjectTestDiscovery) validClones++;
+      return clone(input, options);
+    });
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow(); expect(wholeProjectionSerializations).toBe(0); expect(oversizedClones).toBe(0);
+    expect(await readLocalTestDiscovery(valid)).not.toBeNull(); expect(validClones).toBe(1);
   });
   it('directly rejects duplicate original definition members independently of plan admission', () => {
     const original = current().localProjectTestDiscovery.definitions[0].text;
@@ -640,4 +647,14 @@ it('opens the regional root-only Test definition without borrowed captured Sourc
   expect(await store.loadLocalTestDiscovery()).toBe(true); const row = store.localTestDiscovery()!.inventory.tests[0];
   expect(row).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 1 }); expect(await store.navigateDiscoveredTest(row)).toBe(true);
   expect(store.sourceLocation()).toEqual(row.location); expect(store.localTests()).toBeNull(); expect(store.scopedSources()).toHaveLength(0);
+});
+
+
+it.each([false, true])('settles an invalid current case list after reader failure=%s', async failure => {
+  const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-pass'); store.loadResult();
+  const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+  vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return failure ? new ArrayBuffer(32) : original(algorithm, bytes); });
+  const pending = store.loadLocalTestDiscovery(); await began; Object.assign(store.bundle()!, { cases: null }); release();
+  expect(await pending).toBe(false); expect(store.testDiscoveryReadState()).toBe('unavailable'); expect(store.localTestDiscovery()).toBeNull();
 });

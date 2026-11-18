@@ -42,6 +42,13 @@ for (const profile of profiles) {
     const plan = JSON.parse(projection.plan.text);
     if (plan.compilerInputId !== value.inputId || canonical(plan.inputDigest) !== canonical(input)) throw new Error('Original Core plan belongs to another compiler input.');
     if (!Array.isArray(projection.definitions) || projection.definitions.length > 256) throw new Error('Invalid original definition bytes.');
+    const originalInput = JSON.parse(projection.inputText); const source = JSON.parse(value.sourceText);
+    if (canonical(originalInput.sourceDigest) !== canonical(value.sourceDigest) ||
+        createHash('sha256').update('coglatas.project-source/1\0' + value.sourceText).digest('hex') !== value.sourceDigest.value) throw new Error('Original Core Source identity mismatch.');
+    const originalTests = [...source.declarations, ...source.documents.map(document => document.root)].filter(item => item.kind === 'coglatas.project-test');
+    const sourceDefinitions = new Map(originalTests.map(item => [item.entityId, item]));
+    if (sourceDefinitions.size !== originalTests.length || projection.definitions.length !== sourceDefinitions.size ||
+        projection.definitions.some(item => !sourceDefinitions.has(item.testId) || canonical(JSON.parse(item.text)) !== canonical(sourceDefinitions.get(item.testId)))) throw new Error('Original Core definition roster is incomplete or inconsistent with Source.');
     const definitions = projection.definitions.map(item => {
       if (typeof item.testId !== 'string' || typeof item.text !== 'string') throw new Error('Invalid original definition bytes.');
       return [item.testId, createHash('sha256').update('coglatas.project-test-declaration/1\0' + item.text).digest('hex')];
