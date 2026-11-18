@@ -120,6 +120,39 @@ class HistoricalAdmissionControls(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "^Historical native failure does not identify the retained-lifetime assertion$"):
                     self.read(root)
 
+    def test_historical_failure_stack_requires_exact_method_frames(self) -> None:
+        root = historical_fixture()
+        case = next(item for item in root.find(NAMESPACE + "Results")
+                    if item.get("testName") in RUNNER.HISTORICAL_FAILURES)
+        identity = case.get("testName")
+        other = next(value for value in sorted(RUNNER.HISTORICAL_FAILURES) if value != identity)
+        stack = case.find(NAMESPACE + "Output/" + NAMESPACE + "ErrorInfo/" + NAMESPACE + "StackTrace")
+        invalid = (
+            identity,
+            "diagnostic mentions " + identity + "() without a native frame",
+            "at Foreign." + identity + "() in fake.cs",
+            "at " + identity + "Extra() in fake.cs",
+            "at " + identity + "(System.Int32 value) in fake.cs",
+            "at " + identity + "()Suffix in fake.cs",
+            "at " + other + "() in fake.cs",
+        )
+        for value in invalid:
+            with self.subTest(value=value):
+                stack.text = value
+                with self.assertRaisesRegex(
+                    ValueError, "^Historical native failure does not identify the retained-lifetime assertion$"
+                ):
+                    self.read(root)
+        for value in (
+            "   at " + identity + "()",
+            "   at " + identity + "() in /work/CandidateTests.cs:line 120",
+            "   at " + identity + r"() in C:\a\CandidateTests.cs:line 120",
+            "at Xunit.Assert.True(Boolean condition)\r\n   at " + identity + "() in /tmp/file.cs:line 4\r\n--- end ---",
+        ):
+            with self.subTest(value=value):
+                stack.text = value
+                self.assertEqual(sorted(RUNNER.HISTORICAL_IDENTITIES), self.read(root))
+
     def test_swapping_expected_failure_and_positive_with_unchanged_counts_is_rejected(self) -> None:
         root = historical_fixture()
         cases = list(root.find(NAMESPACE + "Results"))
@@ -227,6 +260,18 @@ class NativeInventoryControls(ExactRejection):
         ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
         return RUNNER.native_inventory(self.report)
 
+    def test_nested_native_results_cannot_hide_behind_flat_counters(self) -> None:
+        for historical in (False, True):
+            for outcome in ("NotExecuted", "Passed"):
+                with self.subTest(historical=historical, outcome=outcome):
+                    root = historical_fixture() if historical else native_fixture()
+                    result = root.find(NAMESPACE + "Results/" + NAMESPACE + "UnitTestResult")
+                    inner = ET.SubElement(result, NAMESPACE + "InnerResults")
+                    ET.SubElement(inner, NAMESPACE + "UnitTestResult", outcome=outcome)
+                    ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
+                    self.reject("Native TRX contains nested result records",
+                                lambda: RUNNER.native_inventory(self.report, historical=historical))
+
     def test_complete_native_shape_and_discovery_match(self) -> None:
         self.assertEqual(IDENTITIES, self.read(native_fixture()))
         for newline in ("\n", "\r\n"):
@@ -295,6 +340,15 @@ class NativeInventoryControls(ExactRejection):
 
 
 class EnvironmentControls(ExactRejection):
+    def test_sdk_import_boundaries_cover_restore_test_and_discovery(self) -> None:
+        for subcommand in ("restore", "test"):
+            args = RUNNER.source_only_dotnet(subcommand, "tests/Coglatas.Tests/Coglatas.Tests.csproj")
+            self.assertEqual(["dotnet", subcommand], args[:2])
+            self.assertEqual(list(RUNNER.SOURCE_ONLY_MSBUILD_PROPERTIES), args[2:4])
+            self.assertEqual("tests/Coglatas.Tests/Coglatas.Tests.csproj", args[4])
+        with self.assertRaises(ValueError):
+            RUNNER.source_only_dotnet("publish")
+
     def test_git_environment_removes_overrides_and_preserves_other_settings(self) -> None:
         supplied = {
             "GIT_DIR": "/foreign/repository", "git_work_tree": "/foreign/tree",
@@ -398,6 +452,24 @@ class WorkingTreeControls(ExactRejection):
         self.reject("Composed candidate index mode or stage changed", self.verify)
         fixture_git(self.repository, "update-index", "--chmod=-x", "--", RUNNER.DESTINATION)
         self.admit()
+
+    def test_index_flags_cannot_mask_product_edits(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        for flag, clear in (("--assume-unchanged", "--no-assume-unchanged"),
+                            ("--skip-worktree", "--no-skip-worktree")):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", flag, "--", "product.txt")
+                tracked.write_bytes(original + b"hidden Product edit\n")
+                try:
+                    self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                    self.assertEqual(self.blob, fixture_git(
+                        self.repository, "rev-parse", ":" + RUNNER.DESTINATION))
+                    self.reject("Git index flags hide tracked Product source", self.verify)
+                finally:
+                    fixture_git(self.repository, "update-index", clear, "--", "product.txt")
+                    tracked.write_bytes(original)
+                self.admit()
 
     def test_changed_head_is_rejected(self) -> None:
         product_tree = fixture_git(self.repository, "rev-parse", "HEAD^{tree}")
