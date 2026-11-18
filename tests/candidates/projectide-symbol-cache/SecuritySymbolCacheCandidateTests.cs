@@ -166,7 +166,7 @@ public sealed class SecuritySymbolCacheCandidateTests
             Assert.Equal(Document, symbol.Location.DocumentId);
             Assert.Equal(symbol.EntityId, symbol.Location.EntityId);
         }
-        var port = Assert.Single(model.Symbols.Where(item => item.PortId is not null));
+        var port = Assert.Single(model.Symbols, item => item.PortId is not null);
         Assert.Equal("/payload/ports/" + OriginalPort, port.Location.PropertyPath);
         Assert.Equal(original, Fingerprint(model));
         Assert.Equal(original, Fingerprint(Bind(input, cache)));
@@ -396,7 +396,7 @@ public sealed class SecuritySymbolCacheCandidateTests
         Assert.Equal(ValueDecodeStatus.Invalid, ResourceResult(invalid).Status);
         Assert.Null(ResourceResult(invalid).Declaration);
         Assert.Equal(ValueDecodeStatus.Invalid,
-            Assert.Single(invalid.Symbols.Where(symbol => symbol.EntityId == ResourceEntity)).Status);
+            Assert.Single(invalid.Symbols, symbol => symbol.EntityId == ResourceEntity).Status);
         Assert.Equal(Fingerprint(invalid), Fingerprint(Bind(invalidInput, cache)));
         var restored = Bind(Input(Source(Context(revision: 3), resourceTenant: owner)), cache);
         Assert.True(restored.BindingComplete);
@@ -414,8 +414,8 @@ public sealed class SecuritySymbolCacheCandidateTests
         var original = Fingerprint(first);
         Assert.True(first.BindingComplete);
         Assert.Single(first.BoundSnapshots);
-        var originalExternal = Assert.Single(first.Symbols.Where(symbol =>
-            symbol.Context.Equals(external.Snapshot.Source.Context) && symbol.EntityId == TaskEntity && symbol.PortId is null));
+        var originalExternal = Assert.Single(first.Symbols, symbol =>
+            symbol.Context.Equals(external.Snapshot.Source.Context) && symbol.EntityId == TaskEntity && symbol.PortId is null);
         var denied = new CompilerMaterializedSnapshot(external.SnapshotId, external.Version,
             external.Snapshot with { IsAuthorized = false });
         var unavailable = Bind(input, cache, denied);
@@ -426,7 +426,7 @@ public sealed class SecuritySymbolCacheCandidateTests
         var restored = Bind(input, cache, external);
         Assert.True(restored.BindingComplete);
         Assert.Equal(original, Fingerprint(restored));
-        Assert.Same(originalExternal, Assert.Single(restored.Symbols.Where(symbol => symbol.Key == originalExternal.Key)));
+        Assert.Same(originalExternal, Assert.Single(restored.Symbols, symbol => symbol.Key == originalExternal.Key));
         Assert.True(Assert.Single(first.BoundSnapshots).IsAuthorized);
         Assert.Equal(original, Fingerprint(first));
     }
@@ -553,17 +553,17 @@ public sealed class SecuritySymbolCacheCandidateTests
         ProjectSemanticBinder.Bind(input, snapshots, symbolBindingCache: cache);
 
     private static DeclarationDecodeResult TaskResult(PartialSemanticModel model) =>
-        Assert.Single(model.Declarations.Where(item => item.Data.Value.GetProperty("entityId").GetString() == TaskEntity.ToString()));
+        Assert.Single(model.Declarations, item => item.Data.Value.GetProperty("entityId").GetString() == TaskEntity.ToString());
 
     private static DeclarationDecodeResult ResourceResult(PartialSemanticModel model) =>
-        Assert.Single(model.Declarations.Where(item => item.Data.Value.GetProperty("entityId").GetString() == ResourceEntity.ToString()));
+        Assert.Single(model.Declarations, item => item.Data.Value.GetProperty("entityId").GetString() == ResourceEntity.ToString());
 
     private static TaskPlanDeclaration TaskDeclaration(PartialSemanticModel model) =>
         Assert.IsType<TaskPlanDeclaration>(TaskResult(model).Declaration);
 
     private static CompilerSymbol TaskSymbol(PartialSemanticModel model) =>
-        Assert.Single(model.Symbols.Where(item => item.EntityId == TaskEntity && item.PortId is null
-            && item.Context.Equals(model.Input.Source.Context)));
+        Assert.Single(model.Symbols, item => item.EntityId == TaskEntity && item.PortId is null
+            && item.Context.Equals(model.Input.Source.Context));
 
     private static void AssertNested(PartialSemanticModel model, string marker)
     {

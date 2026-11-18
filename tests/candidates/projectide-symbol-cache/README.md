@@ -18,7 +18,7 @@ or assume that previously retained values become inaccessible after `Clear`.
 
 - Product commit: `508f641c2391f55f788d6658f3da78939a94308c`.
 - Product tree: `6472827fd981a375e49d8a78992d67bc3d332ebf`.
-- Independent C# blob: `42a83c7decd04f3ae2cefb66200b551c78c42d69`.
+- Independent C# blob: `af25db405319329c62479dfbd390b922e116d180`.
 - Composition runner blob: `5ea6160af5e0f862ec65f4c900493128a225c4d3`.
 - Verifier controls blob: `b86dc428ff9461174f4ff5911bf7916dd0baf59f`.
 - Product SDK: .NET `10.0.403`, `rollForward: disable`, no prerelease SDK.
@@ -126,6 +126,22 @@ Both native jobs check the controls blob and run these controls first, retaining
 `admission-controls.log` and its exact `controlsBlob` workflow context. These are
 synthetic verifier and disposable-Git controls. They do not execute C# or replace
 original native reports, compiled discovery, exact-head CI or independent review.
+
+## Preserved first native qualification failure
+
+[Run 44215047316, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/44215047316)
+tested source `0970e4eedfbbce6ecfdd73706aba5fc47b9f286f` with C# blob
+`42a83c7decd04f3ae2cefb66200b551c78c42d69`. The Ubuntu TRX recorded 22 passing
+cases, but the `dotnet test -warnaserror` command returned nonzero because seven
+`Assert.Single(collection.Where(predicate))` calls triggered `xUnit2031`.
+The runner preserved `FAILED_OR_INCOMPLETE`; compiled discovery did not run.
+Those partial results do not qualify the cohort.
+
+The correction uses `Assert.Single(collection, predicate)` at those seven
+sites while preserving every predicate, all 22 facts, Product, the strict
+runner and the 16 verifier controls. The new source requires fresh successful
+native commands and compiled discovery on both Windows and Ubuntu; the original
+failed run remains historical evidence.
 
 ## Evidence limits and remaining owner work
 
