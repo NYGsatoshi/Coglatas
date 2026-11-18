@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using Coglatas.Application.ProjectIde.Core;
@@ -69,7 +70,7 @@ public sealed class SyntheticProjectTestDiscoveryTests
         var inventory = view.DiscoverSyntheticTests(); Assert.NotNull(inventory);
         Assert.Same(run, view.TestRun); Assert.Same(compilation, view.Result);
         var entered = false;
-        view.PropertyChanged += (_, _) => { if (entered) return; entered = true; Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest); };
+        view.PropertyChanged += (sender, _) => { if (entered) return; entered = true; var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender); Assert.Null(current.TestDiscovery); Assert.Null(current.SelectedDiscoveredTest); };
         Assert.True(view.RunSyntheticTests()); Assert.True(entered); Assert.Null(view.TestDiscovery);
         Assert.Equal(CompilerVerdict.Fail, view.TestRun!.Verdict); Assert.Same(compilation, view.Result);
     }
@@ -114,19 +115,26 @@ public sealed class SyntheticProjectTestDiscoveryTests
         {
             using var cancellation = new CancellationTokenSource();
             var entered = false; var notifications = 0; ProjectTestDiscovery? nested = null; var input = view.Result!.Input;
-            view.PropertyChanged += (_, _) =>
+            Action requestCancellation = cancellation.Cancel;
+            PropertyChangedEventHandler onChange = (sender, _) =>
             {
                 if (entered || ++notifications != boundary) return; entered = true;
-                if (mode == "reset") view.Reset();
-                if (mode == "dispose") view.Dispose();
-                if (mode == "begin") view.BeginSynthetic(new(new(input), 2));
-                if (mode == "nested-run") Assert.True(view.RunSyntheticTests());
-                if (mode is "nested-discovery" or "cancel-nested-discovery") nested = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests());
-                if (mode is "cancel" or "cancel-nested-discovery") cancellation.Cancel();
+                var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+                if (mode == "reset") current.Reset();
+                if (mode == "dispose") current.Dispose();
+                if (mode == "begin") current.BeginSynthetic(new(new(input), 2));
+                if (mode == "nested-run") Assert.True(current.RunSyntheticTests());
+                if (mode is "nested-discovery" or "cancel-nested-discovery") nested = Assert.IsType<ProjectTestDiscovery>(current.DiscoverSyntheticTests());
+                if (mode is "cancel" or "cancel-nested-discovery") requestCancellation();
             };
-            if (mode is "cancel" or "cancel-nested-discovery")
-                Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(cancellation.Token));
-            else Assert.Null(view.DiscoverSyntheticTests(cancellation.Token));
+            view.PropertyChanged += onChange;
+            try
+            {
+                if (mode is "cancel" or "cancel-nested-discovery")
+                    Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(cancellation.Token));
+                else Assert.Null(view.DiscoverSyntheticTests(cancellation.Token));
+            }
+            finally { view.PropertyChanged -= onChange; }
             Assert.True(entered); Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
             if (mode is "nested-discovery" or "cancel-nested-discovery") Assert.Same(nested, view.TestDiscovery);
             else Assert.Null(view.TestDiscovery);
@@ -139,7 +147,7 @@ public sealed class SyntheticProjectTestDiscoveryTests
     public async Task SelectionNotificationCannotRetainAnOriginalRowAfterReset()
     {
         using var view = await Ready(); var row = Assert.Single(view.DiscoverSyntheticTests()!.Tests); var entered = false;
-        view.PropertyChanged += (_, _) => { if (entered) return; entered = true; view.Reset(); };
+        view.PropertyChanged += (sender, _) => { if (entered) return; entered = true; Assert.IsType<SyntheticWorkbenchViewModel>(sender).Reset(); };
         Assert.False(view.SelectDiscoveredTest(row)); Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest);
         Assert.False(view.Navigate()); Assert.Null(view.SourceTarget);
     }
