@@ -19,6 +19,27 @@ Product's strict SDK 10.0.403 policy. Only the frozen native selection differs.
 No Product source, test fixture helper, result or lockfile is repaired or imported
 as independent evidence.
 
+The local fixture explicitly requests semantic-model and IR version 2 so complete
+root-only compilations attach their actual dependency analysis. Complete cases
+require a non-null original model, complete binding, actual dependency analysis,
+and a Complete closure that includes declared snapshots. The single deliberately
+unresolved-target case instead requires an incomplete original model and no
+attached dependency analysis, matching the compiler's refusal to attach it. That
+case builds the public `CompilerBindingClosure` from the original model and
+requires Incomplete state without declared-snapshot or index-coverage claims.
+This is the same public fallback used by the offline exporter; it does not invent
+dependency results or bypass complete-case assertions.
+
+The initial #2093 run
+[`44280960020`](https://github.com/NYGsatoshi/Coglatas/actions/runs/44280960020)
+used a version-1 fixture and incorrectly required attached dependency analysis.
+Both corrected legs executed 24 cases with 23 failures at the shared compilation
+prerequisite and one passing bounds control; both historical legs executed three
+cases with three prerequisite failures. Those original failures remain retained
+and provide no private-lifetime qualification. The fixture repair requires a new
+source-bound run of all four legs; it changes no Product code, fact identity,
+historical expectation or admission guard.
+
 ## Observations and limits
 
 The 24 facts construct their own canonical Sources, fixed identities, declarations,

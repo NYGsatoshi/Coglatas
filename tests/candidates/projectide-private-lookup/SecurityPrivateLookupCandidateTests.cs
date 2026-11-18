@@ -84,12 +84,13 @@ public sealed class SecurityPrivateLookupCandidateTests
     public void UnresolvedCurrentTargetsCannotBorrowPreviousResolution()
     {
         var cache = new ProjectSemanticIndexLookupCache(); var before = Build(Input(), cache);
-        var input = Input(target: new EntityId(Id(999))); var current = Build(input, cache);
+        var input = Input(target: new EntityId(Id(999))); var current = Build(input, cache, expectedBindingComplete: false);
         Assert.Equal(1, cache.LookupReuseCount);
         var result = current.FindDefinition(Requirement(before).Origin, input.InputDigest);
         Assert.Equal(CompilerIndexQueryState.Unresolved, result.State); Assert.Null(result.Target);
         Assert.Equal(ReferenceResolutionState.MissingWithinCompleteScope, result.Resolution);
-        AssertIndex(Build(input), current);
+        Assert.Equal(CompilerSemanticIndexState.Incomplete, current.State); Assert.False(current.IndexCoverageComplete);
+        AssertIndex(Build(input, expectedBindingComplete: false), current);
         var restored = Build(Input(), cache); Assert.Equal(2, cache.LookupReuseCount);
         Assert.Equal(First, restored.FindDefinition(Requirement(restored).Origin, restored.Input.InputDigest).Target!.Symbol.EntityId);
     }
@@ -307,14 +308,35 @@ public sealed class SecurityPrivateLookupCandidateTests
     }
 
     private static CompilerSemanticIndex BuildWithoutCache(CompilerInputManifest input) => Build(input);
-    private static CoreCompilation Compile(CompilerInputManifest input)
+    private static CoreCompilation Compile(CompilerInputManifest input, bool expectedBindingComplete = true)
     {
         var result = PureCoreCompiler.Compile(input, input.Compiler);
-        Assert.Equal(CompilerExecutionState.Completed, result.Result.Execution); Assert.NotNull(result.Model); Assert.NotNull(result.Dependencies);
+        Assert.Equal(CompilerExecutionState.Completed, result.Result.Execution); Assert.NotNull(result.Model);
+        Assert.Equal(expectedBindingComplete, result.Model.BindingComplete);
+        if (expectedBindingComplete)
+        {
+            Assert.NotNull(result.Dependencies);
+            Assert.Equal(CompilerBindingClosureState.Complete, result.Dependencies.Binding.State);
+            Assert.True(result.Dependencies.Binding.IncludesDeclaredSnapshots);
+        }
+        else Assert.Null(result.Dependencies);
         return result;
     }
-    private static CompilerSemanticIndex Build(CompilerInputManifest input, ProjectSemanticIndexLookupCache? cache = null) =>
-        CompilerSemanticIndex.Build(Compile(input).Dependencies!.Binding, input.InputDigest, lookupCache: cache);
+    private static CompilerSemanticIndex Build(CompilerInputManifest input, ProjectSemanticIndexLookupCache? cache = null,
+        bool expectedBindingComplete = true)
+    {
+        var compilation = Compile(input, expectedBindingComplete);
+        // The deliberately unresolved root has no attached dependency analysis. Its
+        // actual model still supports a public, explicitly incomplete binding closure.
+        var binding = expectedBindingComplete ? compilation.Dependencies!.Binding
+            : CompilerBindingClosure.Build(compilation.Model!, input.InputDigest);
+        if (!expectedBindingComplete)
+        {
+            Assert.Equal(CompilerBindingClosureState.Incomplete, binding.State);
+            Assert.False(binding.IncludesDeclaredSnapshots);
+        }
+        return CompilerSemanticIndex.Build(binding, input.InputDigest, lookupCache: cache);
+    }
     private static CompilerBoundReference Requirement(CompilerSemanticIndex index) =>
         Assert.Single(index.References, item => item.Origin.EntityId == new EntityId(Id(31)) && item.Origin.PropertyPath == "/payload/target");
     private static (int Count, int Bytes, long Reused) Retention(ProjectSemanticIndexLookupCache cache) =>
@@ -374,11 +396,12 @@ public sealed class SecurityPrivateLookupCandidateTests
             RequirementDeclaration(31), RequirementDeclaration(32)
         };
         var source = ProjectSource.Create(context, [document], Json(declarations));
-        object Artifact(string id) => new { artifactId = id, version = "1", digest = ContentDigest.Compute("coglatas.independent-private-lookup/1", Encoding.UTF8.GetBytes(id)).Data.Value };
+        object Artifact(string id, string version = "1") => new { artifactId = id, version,
+            digest = ContentDigest.Compute("coglatas.independent-private-lookup/1", Encoding.UTF8.GetBytes(id + "/" + version)).Data.Value };
         var none = new { kind = "coglatas.none" };
         return new CompilerInputManifest(source, Json(new {
             schema = Artifact(ProjectSource.SchemaId), compiler = Artifact("coglatas.independent-lookup-compiler"), ruleset = Artifact("coglatas.independent-lookup-rules"),
-            semantics = Artifact("coglatas.semantic-model"), ir = Artifact("coglatas.project-ir"), evaluator = Artifact("coglatas.independent-lookup-evaluator"),
+            semantics = Artifact("coglatas.semantic-model", "2"), ir = Artifact("coglatas.project-ir", "2"), evaluator = Artifact("coglatas.independent-lookup-evaluator"),
             authorizedExternalSnapshots = Array.Empty<object>(), resourceSnapshots = Array.Empty<object>(), allocationSnapshots = Array.Empty<object>(), observations = Array.Empty<object>(),
             evidence = Array.Empty<object>(), descriptors = Array.Empty<object>(), units = Array.Empty<object>(), calendars = Array.Empty<object>(), timeZones = Array.Empty<object>(),
             solver = none, stochastic = none, importer = none, scheduler = none, scenario = none,
