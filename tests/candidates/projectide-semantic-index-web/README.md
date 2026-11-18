@@ -95,3 +95,12 @@ execution, not rendered browser/Graph layout, native Avalonia, current server
 actor/Tenant authority, remote query/open/apply, durable retention, Trust,
 Eligibility, production or Release acceptance. All six qualification flags
 remain false. #1144 stays BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO.
+
+## Executing workflow revision
+
+Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
+from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
+complete tree are checked independently from the Test checkout and Product pin.
+The additional provenance controls grant no native execution or qualification
+credit. Earlier receipts remain unchanged with the precise limitation documented
+in that contract; they are never retroactively restamped.

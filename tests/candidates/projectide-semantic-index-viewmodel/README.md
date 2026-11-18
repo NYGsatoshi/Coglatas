@@ -88,3 +88,12 @@ retention, Trust, Eligibility, production or release authority. All six receipt
 qualification flags stay false. Exact-current Security CI and independent
 source/original-artifact review remain separate gates. #1144 stays BLOCKED,
 #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO.
+
+## Executing workflow revision
+
+Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
+from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
+complete tree are checked independently from the Test checkout and Product pin.
+The additional provenance controls grant no native execution or qualification
+credit. Earlier receipts remain unchanged with the precise limitation documented
+in that contract; they are never retroactively restamped.

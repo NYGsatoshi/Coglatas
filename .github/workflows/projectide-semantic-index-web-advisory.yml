@@ -6,11 +6,14 @@ on:
     paths:
       - .github/workflows/projectide-semantic-index-web-advisory.yml
       - tests/candidates/projectide-semantic-index-web/**
+      - tests/candidates/workflow-provenance/**
 
 permissions:
   contents: read
 
 env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
   RUNNER_BLOB: 93ffe90330edc87a0ad1192e9052434be09844b5
@@ -28,7 +31,10 @@ jobs:
     timeout-minutes: 35
     env:
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -55,8 +61,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
-          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-semantic-index-web-advisory.yml'
-          if ($LASTEXITCODE -ne 0) { throw 'Workflow identity unavailable' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
@@ -65,11 +69,9 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
             testHead = $actualTest
-            workflowHead = $env:WORKFLOW_HEAD
             sourceBlob = $source
             runnerBlob = $runner
             controlsBlob = $controls
-            workflowBlob = $workflow
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -85,6 +87,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Set up supported frontend runtime
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -129,7 +148,10 @@ jobs:
     timeout-minutes: 35
     env:
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -156,8 +178,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
-          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-semantic-index-web-advisory.yml'
-          if ($LASTEXITCODE -ne 0) { throw 'Workflow identity unavailable' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
@@ -166,11 +186,9 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
             testHead = $actualTest
-            workflowHead = $env:WORKFLOW_HEAD
             sourceBlob = $source
             runnerBlob = $runner
             controlsBlob = $controls
-            workflowBlob = $workflow
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -186,6 +204,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Set up supported frontend runtime
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
