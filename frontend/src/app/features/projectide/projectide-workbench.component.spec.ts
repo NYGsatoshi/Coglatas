@@ -95,6 +95,8 @@ describe('ProjectIDE Workbench components', () => {
     await c.loadLocalTests(); const run = c.store.localTests()!; expect(run.run.verdict).toBe('Fail');
     await c.loadLocalTestDiscovery(); expect(c.store.localTests()).toBe(run); fixture.detectChanges();
     const row = c.store.localTestDiscovery()!.inventory.tests[0];
+    expect(root.querySelector('[data-testid="ide-test-discovery-id"]')!.textContent).toContain(row.testId);
+    expect(root.querySelector('[data-testid="ide-test-discovery-rows"] button')!.textContent).toContain(row.testId);
     root.querySelector<HTMLButtonElement>('[data-testid="ide-test-discovery-rows"] button')!.click();
     await vi.waitFor(() => { fixture.detectChanges(); expect(c.panel()).toBe('source'); });
     expect(c.store.sourceLocation()).toEqual(row.location); expect(c.store.sourceTarget()!.identity).toBe(row.testId);
@@ -116,7 +118,7 @@ describe('ProjectIDE Workbench components', () => {
   it.each(['en', 'ja'] as const)('shows a retryable Source action failure inside the %s Tests panel', async locale => {
     const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
     await c.loadLocalTestDiscovery(); const admitted = c.store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
-    vi.spyOn(c.store, 'loadScopedSources').mockResolvedValueOnce(false); await c.navigateDiscoveredTest(row); fixture.detectChanges();
+    vi.spyOn(crypto.subtle, 'digest').mockResolvedValueOnce(new ArrayBuffer(32)); await c.navigateDiscoveredTest(row); fixture.detectChanges();
     expect(c.panel()).toBe('tests'); expect(c.store.localTestDiscovery()).toBe(admitted);
     const error = root.querySelector('[data-testid="ide-test-discovery-source-error"]'); expect(error).not.toBeNull(); expect(error!.getAttribute('role')).toBe('alert'); expect(error!.textContent!.trim()).not.toBe('');
     expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(1);

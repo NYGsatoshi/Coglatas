@@ -41,7 +41,7 @@ public sealed class SyntheticProjectTestDiscoveryTests
     [InlineData("tests-pass")] [InlineData("tests-fail")] [InlineData("tests-unknown")]
     [InlineData("tests-empty")] [InlineData("tests-unsupported")] [InlineData("tests-cancelled")]
     [InlineData("tests-evaluator-mismatch")] [InlineData("tests-error")] [InlineData("tests-exhausted")]
-    [InlineData("tests-unicode")] [InlineData("tests-many")] [InlineData("tests-discovery-unavailable")]
+    [InlineData("tests-unicode")] [InlineData("tests-many")] [InlineData("tests-discovery-unavailable")] [InlineData("test-assertion-navigation")]
     public async Task CurrentLocalInventoryUsesCoreWithoutExecutingOrChangingTheCompiler(string key)
     {
         using var view = await Ready(key); var compilation = view.Result;
@@ -260,5 +260,27 @@ public sealed class SyntheticProjectTestDiscoveryTests
             if (mode == "unrelated") { Assert.Same(symbol, view.Selected); Assert.Equal(symbol.Symbol.Location, view.SourceTarget); }
             else Assert.Null(view.SourceTarget);
         }
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task DiscoveryDuringAnActiveRunDoesNotInterruptThatRun(bool atPublication)
+    {
+        using var view = await Ready();
+        var compilation = view.Result; var entered = false; ProjectTestDiscovery? inventory = null;
+        PropertyChangedEventHandler onChange = (sender, _) =>
+        {
+            if (entered) return;
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if ((current.TestRun is not null) != atPublication) return;
+            entered = true; inventory = Assert.IsType<ProjectTestDiscovery>(current.DiscoverSyntheticTests());
+        };
+        view.PropertyChanged += onChange;
+        bool completed;
+        try { completed = view.RunSyntheticTests(); }
+        finally { view.PropertyChanged -= onChange; }
+        Assert.True(entered); Assert.True(completed); Assert.NotNull(inventory);
+        Assert.Equal(CompilerVerdict.Fail, Assert.IsType<ProjectTestRun>(view.TestRun).Verdict);
+        Assert.Same(inventory, view.TestDiscovery); Assert.Same(compilation, view.Result);
     }
 }

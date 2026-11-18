@@ -87,7 +87,7 @@ export class ProjectIdeWorkbenchStore {
   readonly referenceSymbol = () => this.currentReferenceSelection()?.symbol ?? null;
   private readonly target = signal<{ record: SourceRecord; location: ProjectLocation; context: PreviewCase;
     result: PreviewCase | null; sourceMap: PreviewCase['sourceMap']; passSourcePage?: PassBoundarySourcePage; referencePage?: ReferenceSearchPage;
-    discovery?: { admitted: AdmittedProjectTestDiscovery; test: LocalDiscoveredTest } } | null>(null);
+    discovery?: { admitted: AdmittedProjectTestDiscovery; test: LocalDiscoveredTest }; scopedProof?: AdmittedScopedSources } | null>(null);
   private readonly currentTarget = computed(() => {
     const target = this.target();
     return target && target.context === this.context() && target.result === this.result() &&
@@ -97,7 +97,7 @@ export class ProjectIdeWorkbenchStore {
   readonly sourceTarget = () => {
     const target = this.currentTarget();
     return target && (!target.discovery || this.localTestDiscovery() === target.discovery.admitted && target.discovery.admitted.inventory.tests.includes(target.discovery.test)) && (!target.referencePage || target.referencePage === this.referencePage()) && (!target.passSourcePage || target.passSourcePage === this.passBoundarySourcePage()) &&
-      (!this.context()?.result.artifacts.some(a => a.version === 2) || this.hasVerifiedPublication()) ? target.record : null;
+      (!this.context()?.result.artifacts.some(a => a.version === 2) || (target.scopedProof ? target.scopedProof.publicationVerified && scopedSourcesMatch(target.context, target.scopedProof) : this.hasVerifiedPublication())) ? target.record : null;
   };
   readonly sourceLocation = () => this.sourceTarget() ? this.currentTarget()!.location : null;
   readonly navigationState = signal('');
@@ -1001,17 +1001,17 @@ export class ProjectIdeWorkbenchStore {
   private testDiscoveryGeneration = 0;
   readonly testDiscoveryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
   readonly testDiscoveryNavigationState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
-  private readonly testDiscoverySnapshot = signal<{ context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
+  private readonly testDiscoverySnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
   readonly localTestDiscovery = (): AdmittedProjectTestDiscovery | null => {
     const snapshot = this.testDiscoverySnapshot();
-    return snapshot && this.state() === 'ready' && snapshot.context === this.context() && snapshot.context === this.result() &&
+    return snapshot && this.state() === 'ready' && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) && snapshot.context === this.context() && snapshot.context === this.result() &&
       snapshot.sourceMap === snapshot.context.sourceMap && snapshot.source === snapshot.context.source && snapshot.manifest === snapshot.context.manifest &&
       snapshot.declarations === snapshot.context.declarations && localTestDiscoveryMatchesCase(snapshot.context, snapshot.admitted) ? snapshot.admitted : null;
   };
   async loadLocalTestDiscovery(): Promise<boolean> {
     this.clearLocalTestDiscovery();
     const generation = this.testDiscoveryGeneration; const context = this.context(); const bundle = this.bundle();
-    if (!context || !bundle || context !== this.result() || this.state() !== 'ready') {
+    if (!context || !bundle || !bundle.cases.includes(context) || context !== this.result() || this.state() !== 'ready') {
       this.testDiscoveryReadState.set('unavailable'); return false;
     }
     const materialization = { sourceMap: context.sourceMap, source: context.source, manifest: context.manifest, declarations: context.declarations };
@@ -1026,7 +1026,7 @@ export class ProjectIdeWorkbenchStore {
       readPreviewBundle(bundle);
       if (!admitted) { this.testDiscoveryReadState.set('unavailable'); return false; }
       if (!localTestDiscoveryMatchesCase(context, admitted)) throw new Error('stale-local-test-discovery');
-      this.testDiscoverySnapshot.set({ context, admitted, ...materialization }); this.testDiscoveryReadState.set('ready'); return true;
+      this.testDiscoverySnapshot.set({ bundle, context, admitted, ...materialization }); this.testDiscoveryReadState.set('ready'); return true;
     } catch {
       if (generation === this.testDiscoveryGeneration && context === this.context() && context === this.result()) {
         this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('unsupported');
@@ -1038,20 +1038,33 @@ export class ProjectIdeWorkbenchStore {
     const admitted = this.localTestDiscovery(); const context = this.context(); const bundle = this.bundle();
     const generation = this.testDiscoveryGeneration;
     if (!isCurrent()) return false;
-    if (!admitted || !context || !admitted.inventory.tests.includes(test)) { this.testDiscoveryNavigationState.set('unavailable'); return false; }
+    if (!admitted || !context || !bundle || !admitted.inventory.tests.includes(test)) { this.testDiscoveryNavigationState.set('unavailable'); return false; }
     try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
-    this.resetSelection();
-    const scopedRead = context.result.artifacts.some(artifact => artifact.version === 2) && !this.admittedScoped() ? this.loadScopedSources() : null;
-    const intent = this.sourceIntentGeneration; this.testDiscoveryNavigationState.set('loading');
-    const scopedAvailable = scopedRead ? await scopedRead : true;
-    if (!isCurrent() || intent !== this.sourceIntentGeneration || generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle() ||
-        this.localTestDiscovery() !== admitted || !admitted.inventory.tests.includes(test)) return false;
-    if (!scopedAvailable) { this.navigationState.set('unavailable'); this.testDiscoveryNavigationState.set('unavailable'); return false; }
-    const navigated = this.navigateLocation(test.location, false, { admitted, test });
-    this.testDiscoveryNavigationState.set(navigated ? 'ready' : 'unavailable'); return navigated;
+    const intent = ++this.sourceIntentGeneration; this.testDiscoveryNavigationState.set('loading');
+    const owns = () => isCurrent() && intent === this.sourceIntentGeneration && generation === this.testDiscoveryGeneration &&
+      context === this.context() && context === this.result() && bundle === this.bundle() && bundle.cases.includes(context) && this.localTestDiscovery() === admitted;
+    let proof: AdmittedScopedSources | null = null; let record: SourceRecord | null = null;
+    try {
+      if (context.result.artifacts.some(artifact => artifact.version === 2)) {
+        proof = this.admittedScoped() ?? await readScopedSources(context);
+        if (!proof?.publicationVerified || !scopedSourcesMatch(context, proof)) throw new Error('definition-source-unavailable');
+        record = resolveScopedSource(context, proof, test.location)?.record ?? null;
+      } else {
+        const resolved = resolveLocation(context, test.location); record = typeof resolved === 'string' ? null : resolved;
+      }
+      if (!record) throw new Error('definition-source-unavailable');
+    } catch {
+      if (owns()) this.testDiscoveryNavigationState.set('unavailable');
+      return false;
+    }
+    if (!owns()) return false;
+    // A definition target owns its proof; shared Source and recording admissions stay intact.
+    this.selection.set(null); this.referenceSelection.set(null); this.scopedTarget.set(null);
+    this.target.set({ record, location: test.location, context, result: context, sourceMap: context.sourceMap, discovery: { admitted, test }, scopedProof: proof ?? undefined });
+    this.navigationState.set('ready'); this.testDiscoveryNavigationState.set('ready'); return true;
   }
   private clearLocalTestDiscovery(): void {
-    if (untracked(() => this.target())?.discovery) this.resetSelection();
+    if (untracked(() => this.target())?.discovery) { this.sourceIntentGeneration++; this.target.set(null); this.navigationState.set(''); }
     this.testDiscoveryGeneration++; this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('idle'); this.testDiscoveryNavigationState.set('idle');
   }
   private testGeneration = 0;
@@ -1450,7 +1463,7 @@ export class ProjectIdeWorkbenchStore {
   navigateDiagnosticSymbol(): boolean {
     return this.navigateLocation(this.diagnosticSymbol()?.location);
   }
-  private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false, discovery?: { admitted: AdmittedProjectTestDiscovery; test: LocalDiscoveredTest }): boolean {
+  private navigateLocation(location: ProjectLocation | undefined, requireSourceMap = false): boolean {
     this.sourceIntentGeneration++;
     this.scopedTarget.set(null);
     this.target.set(null);
@@ -1464,7 +1477,7 @@ export class ProjectIdeWorkbenchStore {
       this.navigationState.set(target);
       return false;
     }
-    this.target.set({ record: target, location, context, result: this.result(), sourceMap: context.sourceMap, discovery });
+    this.target.set({ record: target, location, context, result: this.result(), sourceMap: context.sourceMap });
     this.navigationState.set('ready');
     return true;
   }

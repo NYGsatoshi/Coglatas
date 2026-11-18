@@ -149,7 +149,7 @@ describe('Reviewed inventory admission regressions', () => {
     expect(admitted.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1, bindingComplete: true });
     expect(admitted.inventory.tests[0].assertionCount).toBe(2);
   });
-  it.each(['tests-missing-reference-base', 'tests-denied-reference-base'])('keeps partial binding and local Source visible for %s', async key => {
+  it.each(['tests-missing-reference-base', 'tests-denied-reference-base', 'tests-missing-reference-hypothesis', 'tests-missing-reference-draft', 'tests-denied-reference-hypothesis', 'tests-denied-reference-draft'])('keeps partial binding and local Source visible for %s', async key => {
     const data = profile('scenario-v1'); for (const value of data.cases) delete value.localProjectTests;
     const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(data)); store.choose(key); store.loadResult();
     expect(await store.loadLocalTestDiscovery()).toBe(true);
@@ -308,5 +308,98 @@ describe('Reviewed Source publication, stamps and bounded basis regressions', ()
     expect(store.localTestDiscovery()!.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 }); expect(row.assertionCount).toBe(2);
     expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceTarget()!.identity).toBe(row.testId); expect(store.sourceLocation()).toEqual(row.location);
     expect(row.location.context).toEqual(store.context()!.context); expect(store.localTests()).toBeNull();
+  });
+});
+
+describe('Current bundle ownership and non-destructive discovery Source', () => {
+  const asset = (name: string) => JSON.parse(readFileSync(resolve('public/assets/projectide/' + name + '.json'), 'utf8'));
+  const ready = async (name = 'preview-v1', key = 'tests-pass') => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(asset(name)));
+    store.choose(key); store.loadResult(); expect(await store.loadLocalTestDiscovery()).toBe(true); return store;
+  };
+  it.each(['resolved-without-key', 'unresolved-with-key'])('rejects self-rehashed binding %s', async mode => {
+    const value = asset('execution-plan-v1').cases.find((c: { key: string }) => c.key === 'tests-plan-budget-hypothesis');
+    const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    if (mode === 'resolved-without-key') p.binding.references[0].symbolKey = null;
+    else p.binding.references[0].state = 'UnknownDueToCoverage';
+    plan.references = p.binding.references;
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('rejects forged retained definitions after Core binding budget exhaustion', async () => {
+    const value = current('tests-discovery-unavailable'); const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    const declaration = value.declarations.find((d: { kind: string }) => d.kind === 'coglatas.project-test');
+    expect(plan.tests).toHaveLength(0);
+    plan.tests = [{ declarationDigest: hash('coglatas.project-test-declaration/1', p.definitions[0].text), status: declaration.status }]; plan.discoveryComplete = true;
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text);
+    Object.assign(p.inventory, { state: 'Ready', inputDigest: value.inputDigest, planDigest: p.plan.digest, discoveredTests: 1, bindingComplete: plan.bindingComplete, evaluatorMatches: true,
+      tests: [{ testId: declaration.identity, location: declaration.location, displayName: declaration.data.displayName, decodeStatus: declaration.status, assertionCount: declaration.data.payload.assertions.length }] });
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['Invalid', 'Unsupported'])('rejects a substituted %s decode status for an unchanged Core-decoded definition', async status => {
+    const value = asset('execution-plan-v1').cases.find((c: { key: string }) => c.key === 'tests-plan-budget-hypothesis');
+    const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    const declaration = value.declarations.find((d: { kind: string }) => d.kind === 'coglatas.project-test');
+    expect(declaration.status).toBe('Decoded'); declaration.status = status; plan.tests[0].status = status;
+    Object.assign(p.inventory.tests[0], { decodeStatus: status, assertionCount: null });
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['removed-case', 'replaced-bundle'])('withdraws inventory and Source when the admitting bundle is %s', async mode => {
+    const store = await ready(); const row = store.localTestDiscovery()!.inventory.tests[0];
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceTarget()).not.toBeNull();
+    const bundle = store.bundle()!;
+    if (mode === 'removed-case') Object.assign(bundle, { cases: bundle.cases.filter(c => c !== store.context()) });
+    else store.bundle.set({ ...bundle, cases: [...bundle.cases] });
+    expect(store.localTestDiscovery()).toBeNull(); expect(store.sourceTarget()).toBeNull(); expect(store.sourceLocation()).toBeNull();
+  });
+  it('retains an Inspector selection when definition Source verification fails', async () => {
+    const store = await ready('simulation-v1', 'tests-simulation-root-base');
+    const task = store.context()!.declarations.find(d => d.kind === 'coglatas.task')!;
+    if (task.recordType !== 'entity') throw new Error('Expected the actual Task entity');
+    expect(store.select({ kind: 'entity', id: task.identity })).toBe(true); const selection = store.selection();
+    const row = store.localTestDiscovery()!.inventory.tests[0];
+    vi.spyOn(crypto.subtle, 'digest').mockResolvedValueOnce(new ArrayBuffer(32));
+    expect(await store.navigateDiscoveredTest(row)).toBe(false); expect(store.selection()).toBe(selection); expect(store.inspectedRecord()).toBe(task);
+    expect(store.localTestDiscovery()!.inventory.tests).toContain(row);
+  });
+  it('keeps a loaded regional recording when a pending definition Source action is abandoned', async () => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(asset('regional-operator-recordings-v1')));
+    store.choose('tests-regional-versioned-base'); store.loadResult();
+    expect(await store.loadRootSource()).toBe(true); expect(await store.loadRegionalOperatorRecording('original')).toBe(true);
+    const recording = store.regionalOperatorRecording()!; expect(recording).not.toBeNull(); expect(await store.loadLocalTestDiscovery()).toBe(true);
+    const row = store.localTestDiscovery()!.inventory.tests[0]; const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return original(algorithm, value); });
+    const pending = store.navigateDiscoveredTest(row); await began;
+    const task = store.context()!.declarations.find(d => d.kind === 'coglatas.task')!;
+    if (task.recordType !== 'entity') throw new Error('Expected local Task');
+    store.select({ kind: 'entity', id: task.identity }); release(); expect(await pending).toBe(false);
+    expect(store.regionalOperatorRecording()).toBe(recording); expect(store.sourceTarget()).toBeNull();
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location);
+    expect(store.regionalOperatorRecording()).toBe(recording); expect(store.scopedSources()).toHaveLength(0);
+  });
+  it('lists both typed definitions from the main assertion-navigation case without a legacy report', async () => {
+    const value = asset('preview-v1').cases.find((c: { key: string }) => c.key === 'test-assertion-navigation');
+    const admitted = await readLocalTestDiscovery(value); expect(admitted).not.toBeNull();
+    expect(admitted!.inventory).toMatchObject({ state: 'Ready', discoveredTests: 2 }); expect(value.localProjectTests).toBeUndefined();
+  });
+  it('keeps the dedicated binding-budget discovery sample free of an unreadable legacy report', () => {
+    const value = current('tests-discovery-unavailable'); expect(value.localProjectTestDiscovery.inventory.state).toBe('Unavailable');
+    expect(value.localProjectTests).toBeUndefined();
+  });
+  it('keeps graph-closure readiness separate from FAIL across committed, scenario and candidate Source', async () => {
+    const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(asset('graph-closure-v1')));
+    store.choose('tests-graph-base'); store.loadResult(); expect(await store.loadLocalTests()).toBe(true); const failed = store.localTests();
+    expect(failed!.run.verdict).toBe('Fail'); let prior: ReturnType<ProjectIdeWorkbenchStore['localTestDiscovery']> = null;
+    for (const key of ['tests-graph-base', 'tests-graph-hypothesis', 'tests-graph-draft']) {
+      if (key !== 'tests-graph-base') { store.choose(key); store.loadResult(); }
+      expect(await store.loadLocalTestDiscovery()).toBe(true); const current = store.localTestDiscovery()!; const row = current.inventory.tests[0];
+      expect(current.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1 }); expect(row).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 2 });
+      if (prior) expect(await store.navigateDiscoveredTest(prior.inventory.tests[0])).toBe(false);
+      expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location); expect(row.location.context).toEqual(store.context()!.context);
+      if (key === 'tests-graph-base') expect(store.localTests()).toBe(failed); prior = current;
+    }
   });
 });

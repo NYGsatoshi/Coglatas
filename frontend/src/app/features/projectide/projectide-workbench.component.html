@@ -253,8 +253,9 @@
                   <ol class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
                     @for (test of discovery.inventory.tests.slice(discoveryPage() * 32, (discoveryPage() + 1) * 32); track test.testId) {
                       <li><h4>{{ test.displayName || test.testId }}</h4>
+                        <code data-testid="ide-test-discovery-id">{{ test.testId }}</code>
                         <p>{{ discoveryValue(test.decodeStatus) }} · {{ t('ide.discoveryAssertions') }}: {{ test.assertionCount ?? t('ide.discoveryUnknownCount') }}</p>
-                        <button type="button" (click)="navigateDiscoveredTest(test)">{{ t('ide.discoveryOpen') }} · {{ test.displayName || test.testId }}</button>
+                        <button type="button" (click)="navigateDiscoveredTest(test)">{{ t('ide.discoveryOpen') }} · @if (test.displayName) { {{ test.displayName }} · } {{ test.testId }}</button>
                       </li>
                     }
                   </ol>

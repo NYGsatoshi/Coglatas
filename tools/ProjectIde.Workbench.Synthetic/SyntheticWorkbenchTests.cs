@@ -5,6 +5,7 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 public sealed partial class SyntheticWorkbenchViewModel
 {
     private long _testGeneration;
+    private long _testDiscoveryGeneration;
     public ProjectTestRun? TestRun { get; private set; }
     public ProjectTestAssertionResult? SelectedTestAssertion { get; private set; }
 
@@ -15,28 +16,29 @@ public sealed partial class SyntheticWorkbenchViewModel
     public ProjectTestDiscovery? DiscoverSyntheticTests(CancellationToken cancellationToken = default, ProjectTestLimits? limits = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
-        var generation = ++_testGeneration; var lifecycle = _lifecycle;
-        ClearTestDiscovery(); Changed();
+        ClearTestDiscovery();
+        var generation = _testDiscoveryGeneration; var lifecycle = _lifecycle;
+        Changed();
         cancellationToken.ThrowIfCancellationRequested();
-        if (_disposed || generation != _testGeneration || lifecycle != _lifecycle ||
+        if (_disposed || generation != _testDiscoveryGeneration || lifecycle != _lifecycle ||
             _desired is null || State != "Ready" || _compilation?.Model is not { } model ||
             !model.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) || !model.Input.Source.Data.Equals(Source?.Data)) return null;
         var compilation = _compilation;
         var inventory = ProjectTestPlan.Compile(model, SyntheticProjectTestConfiguration.Evaluator, limits, cancellationToken)
             .Discover(_desired.Input.ExpectedInputDigest, cancellationToken);
-        if (_disposed || generation != _testGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
+        if (_disposed || generation != _testDiscoveryGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
         cancellationToken.ThrowIfCancellationRequested();
         TestDiscovery = inventory;
         try { Changed(); }
         finally
         {
-            if (cancellationToken.IsCancellationRequested && generation == _testGeneration && ReferenceEquals(TestDiscovery, inventory))
+            if (cancellationToken.IsCancellationRequested && generation == _testDiscoveryGeneration && ReferenceEquals(TestDiscovery, inventory))
             {
-                _testGeneration++; ClearTestDiscovery(); Changed();
+                ClearTestDiscovery(); Changed();
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return !_disposed && generation == _testGeneration && lifecycle == _lifecycle &&
+        return !_disposed && generation == _testDiscoveryGeneration && lifecycle == _lifecycle &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
     }
 
@@ -53,7 +55,7 @@ public sealed partial class SyntheticWorkbenchViewModel
 
     private void ClearTestDiscovery()
     {
-        TestDiscovery = null;
+        _testDiscoveryGeneration++; TestDiscovery = null;
         if (SelectedDiscoveredTest is null) return;
         SelectedDiscoveredTest = null; SourceTarget = null; NavigationState = ""; _selectionGeneration++;
     }

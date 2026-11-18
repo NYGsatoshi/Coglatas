@@ -33950,6 +33950,12 @@
             "value": "b5c23401502952d589816c1ff421c3c440389108460de42e3f12ec46ce0c7728"
           },
           "bindingComplete": true,
+          "retainedTests": [
+            {
+              "testId": "0000000a-0000-4000-8000-000000000001",
+              "decodeStatus": "Decoded"
+            }
+          ],
           "references": [
             {
               "origin": {
@@ -37175,6 +37181,12 @@
             "value": "da622bb83e563a711991f3695abcfa7b7d717d887a9baec74a5296b4d0327672"
           },
           "bindingComplete": true,
+          "retainedTests": [
+            {
+              "testId": "0000000a-0000-4000-8000-000000000001",
+              "decodeStatus": "Decoded"
+            }
+          ],
           "references": [
             {
               "origin": {

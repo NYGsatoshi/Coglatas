@@ -21,12 +21,14 @@ function freeze<T>(value: T): T {
 }
 type DiscoveryBinding = NonNullable<LocalProjectTestDiscoveryProjection['binding']>;
 function bindingEvidence(value: unknown): value is DiscoveryBinding {
-  return record(value) && fields(value, ['inputDigest', 'sourceDigest', 'bindingComplete', 'references']) &&
+  return record(value) && fields(value, ['inputDigest', 'sourceDigest', 'bindingComplete', 'retainedTests', 'references']) &&
     digest(value['inputDigest']) && digest(value['sourceDigest']) && typeof value['bindingComplete'] === 'boolean' &&
+    Array.isArray(value['retainedTests']) && value['retainedTests'].length <= 256 && value['retainedTests'].every(item =>
+      record(item) && fields(item, ['testId', 'decodeStatus']) && token(item['testId']) && typeof item['decodeStatus'] === 'string' && ['Decoded', 'Invalid', 'Unsupported'].includes(item['decodeStatus'])) &&
     Array.isArray(value['references']) && value['references'].length <= 4096 && value['references'].every(item =>
       record(item) && fields(item, ['origin', 'state', 'symbolKey']) && isProjectLocationShape(item['origin']) &&
       typeof item['state'] === 'string' && ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope'].includes(item['state']) &&
-      (item['symbolKey'] === null || token(item['symbolKey'])));
+      (item['state'] === 'Resolved' ? token(item['symbolKey']) : item['symbolKey'] === null));
 }
 function projection(value: unknown): value is LocalProjectTestDiscoveryProjection {
   return record(value) && fields(value, ['format', 'inputText', 'requestedInputDigest', 'binding', 'plan', 'definitions', 'inventory']) &&
@@ -47,7 +49,9 @@ function basis(value: PreviewCase): string {
     manifest: value.manifest, declarations: value.declarations, materializedSnapshots: value.materializedSnapshots,
     semanticInspection: value.semanticInspection ? { format: value.semanticInspection.format, context: value.semanticInspection.context,
       compilerInputId: value.semanticInspection.compilerInputId, inputDigest: value.semanticInspection.inputDigest, sourceDigest: value.semanticInspection.sourceDigest,
-      bindingComplete: value.semanticInspection.bindingComplete, references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey })) } : null, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
+      bindingComplete: value.semanticInspection.bindingComplete,
+      symbols: value.semanticInspection.symbols.filter(item => item.kind === 'coglatas.project-test' && sameContext(item.location.context, value.context)),
+      references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey })) } : null, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
 }
 export function localTestDiscoveryMatchesCase(value: PreviewCase, admitted: AdmittedProjectTestDiscovery): boolean {
   return value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === admitted.basis &&
@@ -81,6 +85,8 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   const binding = data.binding ?? (value.semanticInspection ? {
     inputDigest: value.inputDigest, sourceDigest: value.sourceDigest,
     bindingComplete: value.semanticInspection.bindingComplete,
+    retainedTests: value.semanticInspection.symbols.filter(item => item.kind === 'coglatas.project-test' && sameContext(item.location.context, value.context))
+      .map(item => ({ testId: item.location.entityId, decodeStatus: item.status })),
     references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))
   } : fail());
   if (!bindingEvidence(binding) || !equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
@@ -110,6 +116,8 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   }));
   const declarations = value.declarations.filter(item => item.kind === 'coglatas.project-test')
     .sort((left, right) => left.identity < right.identity ? -1 : left.identity > right.identity ? 1 : 0);
+  const retained = new Map(binding.retainedTests.map(item => [item.testId, item.decodeStatus]));
+  if (retained.size !== binding.retainedTests.length || plan['tests'].length !== retained.size) return fail();
   const entries = new Map<string, { status: string; assertionCount: number | null }>();
   let assertionCount = 0; let previous = '';
   for (const entry of plan['tests']) {
@@ -119,7 +127,7 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
     const matches = definitions.filter(item => item.digest === declarationDigest.value);
     if (matches.length !== 1) return fail();
     const definition = matches[0]; const declaration = declarations.find(item => item.identity === definition.testId);
-    if (!declaration || declaration.status !== entry['status'] || !equal(parseLocalTestJson(definition.text), declaration.data) ||
+    if (!declaration || retained.get(definition.testId) !== entry['status'] || declaration.status !== entry['status'] || !equal(parseLocalTestJson(definition.text), declaration.data) ||
         definition.testId <= previous || entries.has(definition.testId)) return fail();
     previous = definition.testId;
     let count: number | null = null;

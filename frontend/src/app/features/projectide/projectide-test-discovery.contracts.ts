@@ -25,6 +25,7 @@ export interface LocalProjectTestDiscoveryProjection {
     readonly inputDigest: Digest;
     readonly sourceDigest: Digest;
     readonly bindingComplete: boolean;
+    readonly retainedTests: readonly { readonly testId: string; readonly decodeStatus: 'Decoded' | 'Unsupported' | 'Invalid' }[];
     readonly references: readonly { readonly origin: ProjectLocation; readonly state: string; readonly symbolKey: string | null }[];
   } | null;
   readonly plan: { readonly text: string; readonly digest: Digest };
