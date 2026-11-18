@@ -113,3 +113,12 @@ reference graph are allowed. Nested lookalikes, data, artifacts and node_modules
 remain refused. Two additional controls reproduce the ignored-input refusal and
 separately admit legitimate SDK outputs only after restore. The 24 C# facts and
 Product pin are unchanged; old-source execution is retained as historical evidence.
+
+## Executing workflow revision
+
+Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
+from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
+complete tree are checked independently from the Test checkout and Product pin.
+The additional provenance controls grant no native execution or qualification
+credit. Earlier receipts remain unchanged with the precise limitation documented
+in that contract; they are never retroactively restamped.

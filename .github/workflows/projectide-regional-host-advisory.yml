@@ -6,11 +6,14 @@ on:
     paths:
       - .github/workflows/projectide-regional-host-advisory.yml
       - tests/candidates/projectide-regional-host/**
+      - tests/candidates/workflow-provenance/**
 
 permissions:
   contents: read
 
 env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: e8902f6eeea3d11be974500ec095e17a6ac371e8
   RUNNER_BLOB: 89e5b11427c56a70ce7f4a30c1fc70ab3a140cae
@@ -29,6 +32,10 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -87,6 +94,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-host-qualification-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-regional-host-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-host-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Run synthetic verifier regression controls
         shell: pwsh
         run: |
@@ -123,6 +147,10 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -181,6 +209,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-host-qualification-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-regional-host-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-host-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Run synthetic verifier regression controls
         shell: pwsh
         run: |

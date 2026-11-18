@@ -192,3 +192,12 @@ Ordinary required CI and independent source review remain separate. No formal
 human APPROVED, actual Native/Avalonia, RLS/Trust/Eligibility, Main, Production or
 Release adoption follows. #1144 remains BLOCKED and #1128 SUSPENDED /
 NOT_EVALUATED; Release remains NO_GO.
+
+## Executing workflow revision
+
+Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
+from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
+complete tree are checked independently from the Test checkout and Product pin.
+The additional provenance controls grant no native execution or qualification
+credit. Earlier receipts remain unchanged with the precise limitation documented
+in that contract; they are never retroactively restamped.

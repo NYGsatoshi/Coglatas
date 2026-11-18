@@ -6,11 +6,14 @@ on:
     paths:
       - .github/workflows/projectide-reference-cache-advisory.yml
       - tests/candidates/projectide-reference-cache/**
+      - tests/candidates/workflow-provenance/**
 
 permissions:
   contents: read
 
 env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
   RUNNER_BLOB: 6a00381518ea527e4a50c039b9bbae93621a6826
   CONTROLS_BLOB: bee4e3a71e7eb5b9bdd2f774106e0fff74b333fd
@@ -41,6 +44,10 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
       PRODUCT_HEAD: ${{ matrix.product }}
       PRODUCT_TREE: ${{ matrix.product_tree }}
     steps:
@@ -109,6 +116,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Verify positive and rejection admission controls
         shell: pwsh
         run: |
@@ -161,6 +185,10 @@ jobs:
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
       PRODUCT_HEAD: ${{ matrix.product }}
       PRODUCT_TREE: ${{ matrix.product_tree }}
     steps:
@@ -229,6 +257,23 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
+          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-reference-cache-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
       - name: Verify positive and rejection admission controls
         shell: pwsh
         run: |
