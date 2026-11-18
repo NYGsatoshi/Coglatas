@@ -189,7 +189,11 @@ class WorkingTreeControls(ExactRejection):
         repository.mkdir()
         fixture_git(repository, "init", "--quiet", "--template=")
         (repository / "product.txt").write_text(name + "\n", encoding="utf-8")
-        fixture_git(repository, "add", "--", "product.txt")
+        (repository / ".gitignore").write_text("**/data/\n**/bin/\n**/obj/\n**/node_modules/\nartifacts/\n", encoding="utf-8")
+        project = repository / "tests/Coglatas.Tests/Coglatas.Tests.csproj"
+        project.parent.mkdir(parents=True)
+        project.write_text('<Project Sdk="Microsoft.NET.Sdk" />\n', encoding="utf-8")
+        fixture_git(repository, "add", "--", "product.txt", ".gitignore", str(project.relative_to(repository)))
         fixture_git(repository, "commit", "--quiet", "-m", "Disposable product fixture")
         head = fixture_git(repository, "rev-parse", "HEAD")
         destination = repository / RUNNER.DESTINATION
@@ -289,6 +293,38 @@ class WorkingTreeControls(ExactRejection):
             self.assertEqual(self.head, RUNNER.git(self.repository, "rev-parse", "HEAD"))
             self.admit()
         self.assertEqual(originals, file_snapshot(self.directory))
+
+    def test_ignored_compile_inputs_are_rejected_before_and_after_restore(self) -> None:
+        for relative in (
+            "tests/Coglatas.Tests/data/Injected.cs",
+            "tests/Coglatas.Tests/ProjectIde/obj/Injected.cs",
+            "tests/Coglatas.Tests/node_modules/Injected.cs",
+            "artifacts/Injected.cs",
+        ):
+            with self.subTest(path=relative):
+                injected = self.repository / relative
+                injected.parent.mkdir(parents=True, exist_ok=True)
+                injected.write_text("// Ignored file still inside potential compile inputs.\n", encoding="utf-8")
+                self.assertEqual("", fixture_git(self.repository, "ls-files", "--others", "--exclude-standard"))
+                for generated in (False, True):
+                    self.reject("Unexpected untracked source appeared during independent composition",
+                                lambda: RUNNER.verify_working_tree(self.repository, self.RAW, self.blob,
+                                                                   allow_generated=generated))
+                injected.unlink()
+                self.admit()
+
+    def test_known_sdk_outputs_are_admitted_only_after_restore(self) -> None:
+        for relative in ("tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll",
+                         "tests/Coglatas.Tests/obj/Release/net10.0/Generated.AssemblyInfo.cs"):
+            with self.subTest(path=relative):
+                generated = self.repository / relative
+                generated.parent.mkdir(parents=True, exist_ok=True)
+                generated.write_bytes(b"disposable generated output\n")
+                self.reject("Unexpected untracked source appeared during independent composition", self.verify)
+                self.assertIsNone(RUNNER.verify_working_tree(self.repository, self.RAW, self.blob,
+                                                            allow_generated=True))
+                generated.unlink()
+                self.admit()
 
 
 if __name__ == "__main__":

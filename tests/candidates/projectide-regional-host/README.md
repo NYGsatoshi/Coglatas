@@ -101,3 +101,15 @@ Every receipt retains `requiredCheckQualified`,
 parents stay OPEN; #1144 remains BLOCKED, #1128 remains
 SUSPENDED/NOT_EVALUATED and Release remains NO_GO. Only this new candidate folder
 and its dedicated read-only advisory are added.
+
+## Ignored compiler-input correction
+
+The original byte guard used Git ignore exclusions, so an ignored C# file in
+`tests/Coglatas.Tests/data/` could enter SDK compile globs without rejection.
+The corrected guard enumerates every untracked path, including ignored paths,
+with NUL-delimited names. Initial composition admits no generated outputs; after
+restore, only `bin/` and `obj/` under the nine projects in the frozen test
+reference graph are allowed. Nested lookalikes, data, artifacts and node_modules
+remain refused. Two additional controls reproduce the ignored-input refusal and
+separately admit legitimate SDK outputs only after restore. The 24 C# facts and
+Product pin are unchanged; old-source execution is retained as historical evidence.

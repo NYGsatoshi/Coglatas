@@ -141,7 +141,15 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_working_tree(worktree: Path, raw: bytes, source_blob: str) -> None:
+SDK_PROJECT_ROOTS = (
+    "src/Coglatas.Application", "src/Coglatas.Domain", "src/Coglatas.Infrastructure",
+    "src/Coglatas.UI.Core", "src/Coglatas.Web", "tests/Coglatas.Tests",
+    "tools/Coglatas.SecurityArchitecture", "tools/ProjectIde.Workbench.Synthetic",
+    "tools/ProjectIde.Tests",
+)
+
+
+def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, allow_generated: bool = False) -> None:
     # The index identity is insufficient: inspect actual compiler input bytes.
     output = worktree / DESTINATION
     if output.is_symlink() or not output.is_file() or output.read_bytes() != raw:
@@ -153,7 +161,13 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str) -> None:
     changed = git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines()
     if changed != [DESTINATION] or git(worktree, "diff", "--name-only", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
-    if git(worktree, "ls-files", "--others", "--exclude-standard"):
+    # Ignored C# files still enter SDK compile globs. Only the frozen test
+    # project's actual reference graph may produce bin/obj after restore.
+    generated = tuple(root + "/" + output + "/" for root in SDK_PROJECT_ROOTS
+                      for output in ("bin", "obj")) if allow_generated else ()
+    untracked = command(["git", "ls-files", "--others", "-z"], worktree,
+                        preserve_output=True).split("\0")
+    if any(path and not path.startswith(generated) for path in untracked):
         raise ValueError("Unexpected untracked source appeared during independent composition")
 
 
@@ -220,19 +234,19 @@ def main() -> None:
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
         command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
-        verify_working_tree(worktree, raw, source_blob)
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         command(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
                  "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
-        verify_working_tree(worktree, raw, source_blob)
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx")
         discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
                              "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
-        verify_working_tree(worktree, raw, source_blob)
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         receipt["nativeXunit"] = {"total": EXPECTED, "passed": EXPECTED,
                                    "failed": 0, "skipped": 0,
                                    "regionalHostFacts": len(HOST_METHODS), "identities": names}
