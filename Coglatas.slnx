@@ -23,5 +23,6 @@
     <Project Path="tools/ProjectIde.Workbench.Synthetic/ProjectIde.Workbench.Synthetic.csproj" />
     <Project Path="tools/AvMig.SourceInspector/AvMig.SourceInspector.csproj" />
     <Project Path="tools/Coglatas.SecurityArchitecture/Coglatas.SecurityArchitecture.csproj" />
+    <Project Path="tools/synthetic-recovery-acceptance/Coglatas.SyntheticRecoveryAcceptance.csproj" />
   </Folder>
 </Solution>

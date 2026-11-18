@@ -1838,7 +1838,9 @@ public sealed class ProjectService(
 
     private static PagedResponse<T> ToPagedResponse<T>(IReadOnlyList<T> items, int page, int pageSize)
     {
-        return new PagedResponse<T>(items.Skip((page - 1) * pageSize).Take(pageSize).ToList(), page, pageSize, items.Count);
+        var offset = (long)(page - 1) * pageSize;
+        var pageItems = items.Skip((int)Math.Min(offset, items.Count)).Take(pageSize).ToList();
+        return new PagedResponse<T>(pageItems, page, pageSize, items.Count);
     }
 
     private async Task<ProjectResponse> ToProjectAsync(

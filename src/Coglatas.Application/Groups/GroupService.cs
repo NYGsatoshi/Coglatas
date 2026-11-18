@@ -107,7 +107,6 @@ public sealed class GroupService(
             {
                 return Result<GroupDetailResponse>.Failure("Parent group must belong to the same workspace.");
             }
-            group.ParentGroupId = request.ParentGroupId;
         }
 
         if (request.Name is not null)
@@ -118,6 +117,11 @@ public sealed class GroupService(
             }
             group.Name = request.Name.Trim();
             group.Slug = SlugGenerator.FromName(group.Name);
+        }
+
+        if (request.ParentGroupId.HasValue)
+        {
+            group.ParentGroupId = request.ParentGroupId;
         }
 
         group.Description = request.Description?.Trim() ?? group.Description;

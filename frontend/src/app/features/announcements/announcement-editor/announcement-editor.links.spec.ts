@@ -102,6 +102,33 @@ describe('AnnouncementEditorComponent content links', () => {
     expect(publicationCount).toBe(0);
   });
 
+  it('blocks publication and focuses an attachment with a missing URL', async () => {
+    const fixture = await renderEditor();
+    const host = fixture.nativeElement as HTMLElement;
+    let publicationCount = 0;
+    fixture.componentInstance.publishRequested.subscribe(() => {
+      publicationCount += 1;
+    });
+
+    enter(host, 'announcement-editor-attachment-label', 'Guide PDF');
+    fixture.detectChanges();
+    fixture.componentInstance.publish();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await nextRenderTick();
+
+    const url = host.querySelector<HTMLInputElement>(
+      '[data-testid="announcement-editor-attachment-url"]',
+    );
+    expect(host.querySelector('[data-testid="announcement-attachment-url-error"]')?.textContent).toContain(
+      'URLを入力してください',
+    );
+    expect(url?.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(url);
+    expect(fixture.componentInstance.publicationReviewOpen()).toBe(false);
+    expect(publicationCount).toBe(0);
+  });
+
   it('requires a label and URL as one optional pair', async () => {
     const fixture = await renderEditor();
     const host = fixture.nativeElement as HTMLElement;
@@ -110,10 +137,18 @@ describe('AnnouncementEditorComponent content links', () => {
     fixture.detectChanges();
     fixture.componentInstance.saveDraft();
     fixture.detectChanges();
+    await fixture.whenStable();
+    await nextRenderTick();
+
+    const url = host.querySelector<HTMLInputElement>(
+      '[data-testid="announcement-editor-attachment-url"]',
+    );
 
     expect(host.querySelector('[data-testid="announcement-attachment-url-error"]')?.textContent).toContain(
       'URLを入力してください',
     );
+    expect(url?.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(url);
     expect(fixture.componentInstance.publicationReviewOpen()).toBe(false);
   });
 });

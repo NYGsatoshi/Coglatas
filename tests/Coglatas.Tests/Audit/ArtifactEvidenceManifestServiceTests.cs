@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.Audit;
 
-public sealed class ArtifactEvidenceManifestServiceTests
+public sealed partial class ArtifactEvidenceManifestServiceTests
 {
     [Fact]
     public async Task AuditReviewDenialHappensBeforeArtifactLookup()
@@ -229,7 +229,7 @@ public sealed class ArtifactEvidenceManifestServiceTests
                 })
         });
 
-    private sealed class Fixture : IAsyncDisposable
+    private sealed partial class Fixture : IAsyncDisposable
     {
         private Fixture(
             Guid tenantId,

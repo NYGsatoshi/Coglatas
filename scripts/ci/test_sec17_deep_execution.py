@@ -1,11 +1,7 @@
 """Synthetic false-green controls; these do not execute the product transport."""
 
 import copy
-from contextlib import redirect_stdout
-import io
 import json
-import sys
-from unittest.mock import patch
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -16,6 +12,7 @@ import xml.etree.ElementTree as ET
 import sec17_deep_execution as deep
 import sec_arch_evidence as evidence
 from sec_arch_assembly_binding import ASSEMBLIES, assembly_path, loaded_assembly_path
+import test_sec_arch_evidence as sec_arch_controls
 
 NOW = datetime(2026, 10, 27, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -146,41 +143,18 @@ class DeepExecutionTests(unittest.TestCase):
             verify(root)
 
     def test_capture_error_writes_closed_failure_without_exception_or_raw_trx(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            trx = root / "private.trx"
-            trx.write_text("sensitive-native-output-marker")
-            output = root / "execution.json"
-            arguments = ["capture", "--trx", str(trx), "--candidate-sha", "a" * 40, "--output", str(output)]
-            captured = io.StringIO()
-            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
-                    deep, "capture", side_effect=ValueError("sensitive-exception-marker")):
-                self.assertEqual(1, deep.main())
-            saved = output.read_text()
-            stdout = captured.getvalue()
-            published = stdout.split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
-            self.assertEqual(saved, published)
-            self.assertNotIn("sensitive-native-output-marker", stdout)
-            self.assertNotIn("sensitive-exception-marker", stdout)
-            self.assertNotIn(str(root), stdout)
-            self.assertNotIn("sensitive-native-output-marker", saved)
-            self.assertNotIn("sensitive-exception-marker", saved)
-            result = json.loads(saved)
-            self.assertEqual("ERROR", result["outcome"])
-            self.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
-            self.assertEqual(evidence.digest(trx.read_bytes()), result["executionDigest"])
-            self.assertEqual(1, result["requiredCaseCount"])
-            self.assertIsNone(result["observedCaseCount"])
-            self.assertIsNone(result["ownerApproval"])
-            retained = output.read_bytes()
-            with patch.object(sys, "argv", arguments), patch.object(deep, "capture", return_value=result):
-                with self.assertRaises(FileExistsError):
-                    deep.main()
-            self.assertEqual(retained, output.read_bytes())
+        sec_arch_controls.assert_closed_cli_error_receipt(
+            self, deep, "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
+
+    def test_failure_summary_accepts_only_canonical_producer_trx(self):
+        sec_arch_controls.assert_canonical_failure_summary(self, deep, deep.SEC17_DEEP_TRX_RELATIVE)
+
+    def test_cyclic_symlink_is_a_closed_failure_receipt(self):
+        sec_arch_controls.assert_cyclic_symlink_closed_receipt(self, deep)
 
     def test_actual_git_build_stamp_source_and_loaded_copy_bindings_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / ".gitignore").write_text("artifacts/\n**/bin/\n", encoding="utf-8")
             source = root / deep.SOURCE
             source.parent.mkdir(parents=True)
@@ -198,53 +172,16 @@ class DeepExecutionTests(unittest.TestCase):
             stamp = root / "artifacts/ci/dotnet-build-sha"
             stamp.parent.mkdir(parents=True)
             stamp.write_text(candidate)
-            trx = root / "artifacts/deep.trx"
+            trx = root / deep.SEC17_DEEP_TRX_RELATIVE
+            trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
             for name in ASSEMBLIES:
                 for path in {assembly_path(root, name), loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(("synthetic-verifier-" + name).encode())
-            receipt = deep.capture(root, trx, candidate, NOW)
-            self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
-            self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
-            self.assertIsNone(receipt["ownerApproval"])
-            output = root / "artifacts/execution.json"
-            arguments = ["capture", "--trx", str(trx), "--candidate-sha", candidate, "--output", str(output)]
-            captured = io.StringIO()
-            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
-                    deep, "capture", return_value=receipt):
-                self.assertEqual(0, deep.main())
-            published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
-            self.assertEqual(output.read_text(), published)
-            self.assertEqual(receipt, json.loads(published))
-            self.assertNotIn(str(root), published)
-            self.assertEqual({
-                "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
-                "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
-                "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
-                "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
-            }, set(json.loads(published)))
-            self.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
-                              "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
-            self.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
-            for invalid in ("0" * 40, "invalid"):
-                with self.subTest(candidate=invalid), self.assertRaises(ValueError):
-                    deep.capture(root, trx, invalid, NOW)
-            stamp.write_text("0" * 40)
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            stamp.unlink()
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            stamp.write_text(candidate)
-            original = source.read_bytes()
-            source.write_bytes(original + b" changed")
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
-            source.write_bytes(original)
-            loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
-            with self.assertRaises(ValueError):
-                deep.capture(root, trx, candidate, NOW)
+            sec_arch_controls.assert_capture_snapshot_and_mutations(
+                self, deep, root, trx, candidate, NOW, stamp, source,
+                "SEC17_CLOSED_EXECUTION_RECEIPT_WRITTEN", "SEC-17 bounded deep")
 
 
 if __name__ == "__main__":
