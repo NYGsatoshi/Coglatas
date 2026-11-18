@@ -72,7 +72,7 @@ rejects duplicate JSON keys, nonfinite numbers, duplicate or substituted cases,
 contradictory statuses and foreign report files.
 
 `test_compose_and_verify.py` subsequently replays that host's original retained
-Vitest report through **22 separate Python admission controls**. The original 19
+Vitest report through **26 separate Python admission controls**. The original 19
 retain their native-report and disposable-Git coverage. Three additional controls
 use only disposable Git to reject ignored compiler inputs and nested output
 names while admitting the exact outputs at their appropriate phases. These three
@@ -80,6 +80,13 @@ can run locally without constructing a native receipt. Disposable Git
 controls exercise source/index/mode/Product drift, command failures and inherited
 Git redirects; controlled process responses grant no additional Angular or
 native execution credit. The original evidence directory must remain byte exact.
+Two further controls reject `assume-unchanged` and `skip-worktree` Product
+changes with unchanged index blobs and empty ordinary diffs, across every
+composition phase and after each external command. Two PowerShell controls
+execute both actual workflow bootstrap blocks: changed committed or working
+helper bytes must be refused before execution, and an adjacent import shadow
+must not load. These two controls explicitly skip without local PowerShell;
+missing PowerShell fails on GitHub Actions. None of these controls runs Angular.
 The control report names `angularCommandsExecuted: false` and separately binds
 the original Angular JSON hash. All six qualification flags remain false in
 both execution receipts and control reports.
@@ -120,6 +127,9 @@ is changed.
 Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
 from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
 complete tree are checked independently from the Test checkout and Product pin.
+Before loading the helper, each job checks its committed blob and actual working
+bytes, then invokes Python in isolated mode. This #2095 repair preserves the
+original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
