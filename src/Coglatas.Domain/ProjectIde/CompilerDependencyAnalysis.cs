@@ -101,7 +101,7 @@ public sealed partial class CompilerDependencyAnalysis
     }
 
     internal static CoreCompilation Attach(CoreCompilation local, CancellationToken cancellationToken, PlanDeclarationReadCache? cache,
-        CompilerRegionalPredicateObservationCollector? regionalObservation = null, ProjectSymbolBindingCache? symbolBindingCache = null)
+        CompilerRegionalPredicateObservationCollector? regionalObservation = null, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
     {
         var model = local.Model; var validation = local.Validation; var input = local.Input;
         if (model is null || validation is null || !validation.SuppliesRead ||
@@ -114,7 +114,7 @@ public sealed partial class CompilerDependencyAnalysis
         {
             cancellationToken.ThrowIfCancellationRequested();
             var closure = CompilerBindingClosure.BuildWithinBudget(model,
-                Math.Max(0, input.ExecutionProfile.MaximumOperations - local.LogicalOperationsConsumed), cancellationToken, cache, symbolBindingCache);
+                Math.Max(0, input.ExecutionProfile.MaximumOperations - local.LogicalOperationsConsumed), cancellationToken, cache, symbolBindingCache, referenceBindingCache);
             var remaining = input.ExecutionProfile.MaximumOperations - closure.LogicalOperationsConsumed;
             var regions = new List<CompilerDependencyRegion>();
             var state = closure.State == CompilerBindingClosureState.Complete ? CompilerDependencyAnalysisState.Evaluated

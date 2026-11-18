@@ -68,6 +68,7 @@ if (regionalOperatorRecordingProfile) scenarioFixtures = new(StringComparer.Ordi
 var cases = new List<object>();
 var comparisonRuns = new Dictionary<string, ProjectSimulationRun>(StringComparer.Ordinal);
 var symbolBindingCache = new ProjectSymbolBindingCache();
+var referenceBindingCache = new ProjectReferenceBindingCache();
 var renameFixture = RenameFixture();
 var documentOriginal = Input("document-before", 130);
 var documentDeclarations = Json(documentOriginal.Source.Declarations.Value.EnumerateArray()
@@ -118,7 +119,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         "document-before" => documentBefore, "document-after" => documentAfter, "revert-draft" => revertedDraft,
         "envelope-before" => envelopeBefore, "envelope-after" => envelopeAfter, "requirement-candidates" => requirementCandidates, "test-assertion-navigation" => TestAssertionNavigationInput(), "reference-pages" => ReferencePagesInput(), _ when (operatorRecordingProfile || passRecordingProfile) && name.StartsWith("operator-", StringComparison.Ordinal) => OperatorInput(name, 9000 + index), _ when name.StartsWith("tests-", StringComparison.Ordinal) => LocalTestInput(name, 180 + index), _ => Input(name, 100 + (rootPremiseProfile ? Array.IndexOf(legacyNames, name) : index)) };
     if (scenarioFixture is not null) input = name == scenarioKey + "-base" ? scenarioFixture.Scenario.Basis : name == scenarioKey + "-hypothesis" ? scenarioFixture.Scenario.Input : scenarioFixture.Draft.After;
-    var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, symbolBindingCache: symbolBindingCache);
+    var compilation = PureCoreCompiler.Compile(input, input.Compiler, snapshots, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
     var reference = PureCoreCompiler.Compile(input, input.Compiler, snapshots);
     if (!compilation.Result.Data.Equals(reference.Result.Data)) throw new InvalidOperationException("Incremental symbol binding differs from full compilation.");
     var result = name switch
