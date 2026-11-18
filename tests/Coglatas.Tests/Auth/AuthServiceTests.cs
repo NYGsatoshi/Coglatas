@@ -230,11 +230,11 @@ public sealed class AuthServiceTests
         var result = await fixture.Service.LoginAsync(new LoginRequest("student@example.com", "wrong-password"));
 
         Assert.False(result.IsSuccess);
-        var securityEvent = Assert.Single(fixture.AuditLogger.Entries, entry => entry.EntityType == "SecurityEvent" && entry.Action == "LoginFailure");
+        var securityEvent = Assert.Single(fixture.AuditLogger.Entries, entry => entry is { EntityType: "SecurityEvent", Action: "LoginFailure" });
         Assert.NotNull(securityEvent.Metadata);
         Assert.DoesNotContain(securityEvent.Metadata!, pair => string.Equals(pair.Key, "email", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(securityEvent.Metadata!.Values, value => string.Equals(value?.ToString(), "student@example.com", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(securityEvent.Metadata!, pair => pair.Key == "emailProvided" && pair.Value is true);
+        Assert.Contains(securityEvent.Metadata!, pair => pair is { Key: "emailProvided", Value: true });
     }
 
     [Fact]

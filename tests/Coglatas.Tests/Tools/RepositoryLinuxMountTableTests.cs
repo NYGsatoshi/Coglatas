@@ -39,7 +39,7 @@ public sealed class RepositoryLinuxMountTableTests
     public void OptionalMountFieldsAndEscapedBackslashesDoNotChangeIdentity()
     {
         var table = new RepositoryLinuxMountTable([
-            @"1 0 8:1 / / rw - ext4 /dev/sda rw",
+            "1 0 8:1 / / rw - ext4 /dev/sda rw",
             @"2 1 8:1 /source\134040 /repository rw shared:1 future:tag - ext4 /dev/sda rw",
             @"3 1 8:1 /source\134040 /alias rw - ext4 /dev/sda rw"]);
         Assert.True(table.IsWithinRepository("/repository", "/alias/git"));
