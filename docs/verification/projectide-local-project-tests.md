@@ -119,6 +119,41 @@ The assembly binding identifies the actual binary, not a trusted attestation or
 formal adoption. Different host builds need their own pinned envelope and
 qualification; matching test logic alone is not a cross-binary identity claim.
 
+## Explicit discovery without execution
+
+Existing #1031 discovery now has a separate bounded Core query,
+`ProjectTestPlan.Discover(expectedInputDigest, cancellationToken)`. It returns an
+owned, stable-ID-ordered inventory of actual admitted Test declarations: TestId,
+exact typed Source location, original display name, decode status and known
+assertion count. Unsupported/invalid definitions keep their status and have no
+invented assertion count. Binding completeness and evaluator match are separate
+facts. The query evaluates no assertion and changes no plan, digest or later run.
+
+A stale query returns no earlier identifiers/stamps. Incomplete discovery is
+Unavailable rather than a successful empty roster. Original plan limits refuse
+the entire inventory as ResourceLimit, with no truncated prefix. Cancellation
+throws before publication. Zero Tests are an explicit empty inventory, not PASS.
+Original plan/result formats and canonical bytes remain unchanged.
+
+The local CLI exposes the same Core operation:
+
+    dotnet run --project tools/ProjectIde.Tests -- --discover SOURCE_JSON INPUT_ENVELOPE_JSON NEW_INVENTORY_JSON
+
+It retains exact Source/envelope/evaluator admission, local-file bounds and
+CreateNew preservation. The separately labelled local
+`coglatas.project-test-discovery-cli/1` projection binds input/plan digests and
+typed entries. It always reports execution/verdict NotRun, Missing evidence and
+zero executed assertions; it is not a Test run or formal Artifact/Registry
+adoption. Exit0 means a nonempty decoded, fully bound, evaluator-matched inventory
+was read, never that tests passed. Zero Tests, unsupported definitions, incomplete
+discovery/binding, bounds or evaluator mismatch use exit2. Invalid definitions,
+input drift and I/O refusal use exit3. Early unbound failures retain the existing
+CLI-failure envelope. Existing run/export/edit commands keep their original meaning.
+
+This is Core/portable CLI work. Workbench rendering, actual Avalonia acceptance,
+durable jobs, remote loading, required-suite policy, current authority, protected
+export and independent qualification remain separate under OPEN/P0 #1945.
+
 ## Verification and remaining work
 
 Developer regressions cover four assertion families, fixed manifests,
