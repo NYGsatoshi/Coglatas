@@ -123,6 +123,20 @@ class NativeInventoryControls(ExactRejection):
         ET.SubElement(root, NAMESPACE + "Results")
         self.reject("Native TRX requires one Results element", lambda: self.read(root))
 
+    def test_nested_results_cannot_hide_behind_valid_outer_counters_and_ids(self) -> None:
+        for container_name, outcome in (("InnerResults", "NotExecuted"), ("InnerResults", "Passed"),
+                                        ("UnexpectedWrapper", "NotExecuted")):
+            with self.subTest(container=container_name, outcome=outcome):
+                root = native_fixture()
+                self.assertEqual(IDENTITIES, self.read(root))
+                outer = root.find(NAMESPACE + "Results")[0]
+                inner = ET.SubElement(outer, NAMESPACE + container_name)
+                ET.SubElement(inner, NAMESPACE + "UnitTestResult", testName="Foreign.Nested.Fact",
+                              testId=str(UUID(int=9001)), executionId=str(UUID(int=9002)), outcome=outcome)
+                self.assertIsNone(inner.find(".//{*}ErrorInfo"))
+                self.assertEqual(24, len(root.find(NAMESPACE + "Results")))
+                self.reject("Native TRX must contain only flat candidate results", lambda: self.read(root))
+
     def test_contradictory_native_errors_refuse_an_apparently_passing_summary(self) -> None:
         root = native_fixture()
         output = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "Output")
@@ -203,16 +217,16 @@ class WorkingTreeControls(ExactRejection):
         self.addCleanup(product.stop)
         self.admit()
 
-    def make_repository(self, name: str) -> tuple[Path, str, str]:
+    def make_repository(self, name: str, product_path: str = "product.txt") -> tuple[Path, str, str]:
         repository = self.directory / name
         repository.mkdir()
         fixture_git(repository, "init", "--quiet", "--template=")
-        (repository / "product.txt").write_text(name + "\n", encoding="utf-8")
+        (repository / product_path).write_text(name + "\n", encoding="utf-8")
         (repository / ".gitignore").write_text("**/data/\n**/bin/\n**/obj/\n**/node_modules/\nartifacts/\n", encoding="utf-8")
         project = repository / "tests/Coglatas.Tests/Coglatas.Tests.csproj"
         project.parent.mkdir(parents=True)
         project.write_text('<Project Sdk="Microsoft.NET.Sdk" />\n', encoding="utf-8")
-        fixture_git(repository, "add", "--", "product.txt", ".gitignore", str(project.relative_to(repository)))
+        fixture_git(repository, "add", "--", product_path, ".gitignore", str(project.relative_to(repository)))
         fixture_git(repository, "commit", "--quiet", "-m", "Disposable product fixture")
         head = fixture_git(repository, "rev-parse", "HEAD")
         destination = repository / RUNNER.DESTINATION
@@ -280,6 +294,44 @@ class WorkingTreeControls(ExactRejection):
         self.reject("Tracked Product source changed during independent composition", self.verify)
         tracked.write_bytes(original)
         self.admit()
+
+    def reject_masked_product_edit(self, flag: str) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        index_blob = fixture_git(self.repository, "rev-parse", ":product.txt")
+        index_tree = fixture_git(self.repository, "write-tree")
+        fixture_git(self.repository, "update-index", "--" + flag, "--", "product.txt")
+        tracked.write_bytes(original + b"Hidden working-tree compiler input drift.\n")
+        self.assertEqual(index_blob, fixture_git(self.repository, "rev-parse", ":product.txt"))
+        self.assertEqual(index_tree, fixture_git(self.repository, "write-tree"))
+        self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+        self.reject("Composed Git index flags can hide tracked working-tree edits", self.verify)
+        tracked.write_bytes(original)
+        fixture_git(self.repository, "update-index", "--no-" + flag, "--", "product.txt")
+        self.admit()
+
+    def test_assume_unchanged_cannot_mask_product_working_bytes(self) -> None:
+        self.reject_masked_product_edit("assume-unchanged")
+
+    def test_skip_worktree_cannot_mask_product_working_bytes(self) -> None:
+        self.reject_masked_product_edit("skip-worktree")
+
+    def test_index_flag_scan_preserves_raw_nul_path_boundaries(self) -> None:
+        # A pathname may itself look like the next status line. Windows forbids
+        # control characters, so its positive retains spaces and a non-ASCII name.
+        relative = "Product space \u03a9" + ("\nS apparent flag\n" if os.name != "nt" else " S apparent flag ") + ".txt"
+        repository, head, blob = self.make_repository("unusual-path", relative)
+        original = (repository / relative).read_bytes()
+        with patch.object(RUNNER, "PRODUCT_HEAD", head):
+            self.assertIsNone(RUNNER.verify_working_tree(repository, self.RAW, blob))
+            fixture_git(repository, "update-index", "--assume-unchanged", "--", relative)
+            (repository / relative).write_bytes(original + b"Masked edit with an unusual pathname.\n")
+            self.assertEqual("", fixture_git(repository, "diff", "--name-only", "--"))
+            self.reject("Composed Git index flags can hide tracked working-tree edits",
+                        lambda: RUNNER.verify_working_tree(repository, self.RAW, blob))
+            (repository / relative).write_bytes(original)
+            fixture_git(repository, "update-index", "--no-assume-unchanged", "--", relative)
+            self.assertIsNone(RUNNER.verify_working_tree(repository, self.RAW, blob))
 
     def test_index_only_product_drift_is_rejected_when_net_diff_hides_it(self) -> None:
         tracked = self.repository / "product.txt"
@@ -366,13 +418,15 @@ class ProcessEvidenceControls(ExactRejection):
         self.addCleanup(temporary.cleanup)
         self.report = Path(temporary.name) / "synthetic-processes.jsonl"
         self.rows = []
+        input_bytes = {name: ("Synthetic " + name + " reader-control input.\n").encode("utf-8")
+                       for name in ("source.json", "input.json")}
         for (case, label), exit_code in RUNNER.PROCESS_CASES.items():
             evaluator, existing = label == "evaluator", label.startswith("existing-")
             output = None if evaluator else label.removeprefix("existing-") if existing else "run.json" if label == "counterexample-execution" else "inventory.json"
             arguments = ["--evaluator"] if evaluator else ["source.json", "input.json", output]
             if not evaluator and label != "counterexample-execution":
                 arguments.insert(0, "--discover")
-            raw = b"Synthetic reader-control bytes; never actual process output.\n"
+            raw = input_bytes.get(output, b"Synthetic reader-control bytes; never actual process output.\n")
             digest = hashlib.sha256(raw).hexdigest()
             self.rows.append({
                 "caseId": case, "invocation": label, "ExitCode": exit_code, "processId": 1,
@@ -381,8 +435,10 @@ class ProcessEvidenceControls(ExactRejection):
                 "cliSha256Before": self.CLI, "cliSha256After": self.CLI,
                 "domainSha256Before": self.DOMAIN, "domainSha256After": self.DOMAIN,
                 "arguments": arguments, "outputName": output,
-                "inputs": [] if evaluator else [{"name": name, "length": 1, "sha256Before": digest, "sha256After": digest}
-                                               for name in ("source.json", "input.json")],
+                "inputs": [] if evaluator else [{"name": name, "length": len(data),
+                                                 "sha256Before": hashlib.sha256(data).hexdigest(),
+                                                 "sha256After": hashlib.sha256(data).hexdigest()}
+                                                for name, data in input_bytes.items()],
                 "Stdout": json.dumps({"artifactId": "coglatas.local-project-test-evaluator", "version": "synthetic-control",
                                        "digest": {"algorithm": "sha-256", "value": self.EVALUATOR}}) if evaluator else "",
                 "Stderr": "", "outputExisted": existing,
@@ -434,6 +490,21 @@ class ProcessEvidenceControls(ExactRejection):
         self.reject("Actual CLI overwrote an existing output or input", lambda: self.read(rows))
         rows = copy.deepcopy(self.rows); rows[1]["outputExisted"] = True
         self.reject("Fresh CLI output is not proven to have used CreateNew", lambda: self.read(rows))
+
+    def test_input_alias_output_must_match_the_same_input_bytes(self) -> None:
+        for name in ("source.json", "input.json"):
+            with self.subTest(name=name):
+                self.assertEqual(35, len(self.read(self.rows)))
+                rows = copy.deepcopy(self.rows)
+                row = next(row for row in rows if row["invocation"] == "existing-" + name)
+                matching_input = next(item for item in row["inputs"] if item["name"] == name)
+                raw = b"Different, internally consistent output receipt bytes.\n"
+                digest = hashlib.sha256(raw).hexdigest()
+                self.assertNotEqual(matching_input["sha256Before"], digest)
+                row.update(outputBytes=base64.b64encode(raw).decode("ascii"),
+                           outputSha256Before=digest, outputSha256After=digest)
+                self.reject("Actual CLI input-alias output differs from its matching input receipt",
+                            lambda: self.read(rows))
 
     def test_wrong_arguments_or_duplicate_json_fields_cannot_alias_a_valid_invocation(self) -> None:
         rows = copy.deepcopy(self.rows); rows[1]["arguments"][0] = "--export-test"

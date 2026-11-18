@@ -15,9 +15,9 @@ env:
   PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   PRODUCT_HEAD: 070ceb7f49e1e990a8395ea2e3a558a7185e1865
-  SOURCE_BLOB: 2dcf575e116f4cb062a1d4b6feadc00664b5d59a
-  RUNNER_BLOB: 0171c1b8d203044f73c2df7354ab6c24c2e509a1
-  CONTROLS_BLOB: 5285bbd447cf718749f91fe9234121323be8d172
+  SOURCE_BLOB: 8ef4f3f287ab4acfb855eda4f9c7a7e31a2d4756
+  RUNNER_BLOB: e3d69f324ade14bdfc77155a65e7d6b81a33d033
+  CONTROLS_BLOB: fa881d91b9ea64b80125f64e5e208073631b1440
 
 concurrency:
   group: test-discovery-qualification-${{ github.event.pull_request.number }}
@@ -62,6 +62,10 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-test-discovery/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Verifier controls blob mismatch' }
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance verifier blob mismatch' }
+          $provenanceWorking = git hash-object --no-filters 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceWorking -ne $env:PROVENANCE_BLOB) { throw 'Provenance verifier working bytes mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -99,7 +103,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'test-discovery-qualification-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh
@@ -177,6 +181,10 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-test-discovery/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Verifier controls blob mismatch' }
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance verifier blob mismatch' }
+          $provenanceWorking = git hash-object --no-filters 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceWorking -ne $env:PROVENANCE_BLOB) { throw 'Provenance verifier working bytes mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -214,7 +222,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'test-discovery-qualification-context'
-          python -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
       - name: Exercise independent Git provenance refusal controls
         shell: pwsh

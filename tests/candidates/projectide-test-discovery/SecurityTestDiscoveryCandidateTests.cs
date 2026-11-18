@@ -178,7 +178,9 @@ public sealed class SecurityTestDiscoveryCandidateTests
         var empty = noPlan.Discover(noTests.InputDigest);
         Assert.Equal(ProjectTestDiscoveryState.Ready, empty.State); Assert.Empty(empty.Tests);
         Assert.Equal(noTests.InputDigest, empty.InputDigest); Assert.Equal(noPlan.Digest, empty.PlanDigest);
-        Assert.Equal("coglatas.zero-tests", noPlan.Execute(noTests.InputDigest).Reason);
+        var noTestsRun = noPlan.Execute(noTests.InputDigest);
+        Assert.Equal(CompilerVerdict.NotRun, noTestsRun.Verdict); Assert.Equal(0, noTestsRun.ExecutedAssertions);
+        Assert.Equal("coglatas.zero-tests", noTestsRun.Reason);
         var noAssertions = Fixture(count: 1, change: (declarations, _) => declarations[1]!["payload"]!["assertions"]!.AsArray().Clear());
         var plan = Plan(noAssertions); var definition = Assert.Single(plan.Discover(noAssertions.InputDigest).Tests);
         Assert.Equal(ValueDecodeStatus.Decoded, definition.DecodeStatus); Assert.Equal(0, definition.AssertionCount);
@@ -254,6 +256,7 @@ public sealed class SecurityTestDiscoveryCandidateTests
         var context = SourceRevisionContext.Candidate(new(ProposalId.Parse(Id(96)), CandidateRevisionId.Parse(Id(97)), basis, captured));
         var input = Fixture(context: context); var inventory = Plan(input).Discover(input.InputDigest);
         Assert.Equal(ProjectTestDiscoveryState.Ready, inventory.State);
+        Assert.Equal(new[] { Id(1201), Id(1202) }, inventory.Tests.Select(test => test.TestId.ToString()));
         foreach (var test in inventory.Tests)
         {
             Assert.Equal(context, test.Location.Context); Assert.Equal("coglatas.candidate", test.Location.Context.Kind);
@@ -569,6 +572,7 @@ public sealed class SecurityTestDiscoveryCandidateTests
             var result = new ProcessResult(process.ExitCode, await stdout, await stderr);
             var cliAfter = Hash(File.ReadAllBytes(_binary)); var domainAfter = Hash(File.ReadAllBytes(_domain));
             var outputAfter = output is not null && File.Exists(output) ? File.ReadAllBytes(output) : null;
+            var inputsAfter = inputs.ToDictionary(pair => pair.Key, pair => ReadInputOrNull(pair.Key));
             var evidence = Environment.GetEnvironmentVariable("COGLATAS_DISCOVERY_PROCESS_EVIDENCE");
             Assert.False(string.IsNullOrWhiteSpace(evidence), "The exact-source runner must retain actual process evidence.");
             var record = JsonSerializer.Serialize(new
@@ -579,18 +583,29 @@ public sealed class SecurityTestDiscoveryCandidateTests
                 cliSha256Before = cliBefore, cliSha256After = cliAfter, domainSha256Before = domainBefore, domainSha256After = domainAfter,
                 result.ExitCode, result.Stdout, result.Stderr,
                 inputs = inputs.Select(pair => new { name = Path.GetFileName(pair.Key), length = pair.Value.Length,
-                    sha256Before = Hash(pair.Value), sha256After = Hash(File.ReadAllBytes(pair.Key)) }).ToArray(),
+                    sha256Before = Hash(pair.Value), sha256After = inputsAfter[pair.Key] is { } after ? Hash(after) : null }).ToArray(),
                 outputName = output is null ? null : Path.GetFileName(output),
                 outputExisted = outputBefore is not null, outputSha256Before = outputBefore is null ? null : Hash(outputBefore),
                 outputSha256After = outputAfter is null ? null : Hash(outputAfter), outputBytes = outputAfter
             });
             lock (ProcessEvidenceLock) File.AppendAllText(evidence!, record + "\n", new UTF8Encoding(false));
             Assert.Equal(cliBefore, cliAfter); Assert.Equal(domainBefore, domainAfter);
-            foreach (var pair in inputs) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
+            foreach (var pair in inputs)
+            {
+                var after = inputsAfter[pair.Key];
+                Assert.NotNull(after);
+                Assert.Equal(pair.Value, after);
+            }
             if (outputBefore is not null) Assert.Equal(outputBefore, outputAfter);
             return result;
         }
         public void Dispose() => Directory.Delete(DirectoryPath, recursive: true);
+        private static byte[]? ReadInputOrNull(string path)
+        {
+            try { return File.ReadAllBytes(path); }
+            catch (FileNotFoundException) { return null; }
+            catch (DirectoryNotFoundException) { return null; }
+        }
         private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
     }
 }

@@ -53,6 +53,7 @@ TRX_NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 PRODUCT_HEAD = "070ceb7f49e1e990a8395ea2e3a558a7185e1865"
 PRODUCT_TREE = "c0f6cfbd7560cb2d4a3910aaafaffd4c04e36026"
 EXECUTION_SCOPE = "SYNTHETIC_TEST_DISCOVERY_CORE_AND_CLI_ONLY"
+MSBUILD_IMPORT_PROPERTIES = ("-p:ImportDirectoryBuildProps=false", "-p:ImportDirectoryBuildTargets=false")
 
 
 def single_element(parent: ET.Element, name: str) -> ET.Element:
@@ -93,6 +94,8 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if trx.find(".//{*}InnerResults") is not None or trx.findall(".//{*}UnitTestResult") != cases:
+        raise ValueError("Native TRX must contain only flat candidate results")
     if any(item.find(".//{*}ErrorInfo") is not None for item in cases):
         raise ValueError("Native TRX passing result contains error information")
     names = [item.get("testName", "") for item in cases]
@@ -174,6 +177,13 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, allow_g
         raise ValueError("Composed candidate index identity changed")
     if git(worktree, "ls-files", "--stage", "--", DESTINATION) != "100644 " + source_blob + " 0\t" + DESTINATION:
         raise ValueError("Composed candidate index mode or stage changed")
+    # Preserve raw NUL records: path bytes may contain whitespace or newlines.
+    # Lowercase status tags mark assume-unchanged; S marks skip-worktree.
+    index_records = subprocess.run(
+        ["git", "--no-replace-objects", "ls-files", "-v", "-z"], cwd=worktree,
+        capture_output=True, check=True, env=local_git_environment()).stdout.split(b"\0")
+    if any(record[:1].islower() or record[:1] == b"S" for record in index_records):
+        raise ValueError("Composed Git index flags can hide tracked working-tree edits")
     changed = git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines()
     if changed != [DESTINATION] or git(worktree, "diff", "--name-only", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
@@ -287,6 +297,11 @@ def process_inventory(path: Path, cli_sha256: str, domain_sha256: str, evaluator
         if existing:
             if row.get("outputExisted") is not True or row.get("outputSha256Before") != row["outputSha256After"]:
                 raise ValueError("Actual CLI overwrote an existing output or input")
+            if output_name in ("source.json", "input.json"):
+                matching_input = next(item for item in inputs if item["name"] == output_name)
+                if (row["outputSha256Before"] != matching_input["sha256Before"]
+                        or row["outputSha256After"] != matching_input["sha256After"]):
+                    raise ValueError("Actual CLI input-alias output differs from its matching input receipt")
         elif row.get("outputExisted") is not False or row.get("outputSha256Before") is not None:
             raise ValueError("Fresh CLI output is not proven to have used CreateNew")
     return sorted(case + ":" + invocation for case, invocation in keys)
@@ -353,10 +368,12 @@ def main() -> None:
         if sdk != "10.0.403":
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
+        command(["dotnet", "restore", project, "--nologo", *MSBUILD_IMPORT_PROPERTIES],
+                worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
         verify_working_tree(worktree, raw, source_blob, allow_generated=True)
-        command(["dotnet", "build", project, "-c", "Release", "--no-restore", "-warnaserror", "--nologo"],
+        command(["dotnet", "build", project, "-c", "Release", "--no-restore", "-warnaserror", "--nologo",
+                 *MSBUILD_IMPORT_PROPERTIES],
                 worktree, evidence / "build.log")
         verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         binary_paths = {
@@ -372,6 +389,7 @@ def main() -> None:
         process_evidence.touch(exist_ok=False)
         environment = {**os.environ, "COGLATAS_DISCOVERY_PROCESS_EVIDENCE": str(process_evidence)}
         command(["dotnet", "test", project, "-c", "Release", "--no-restore", "--no-build", "-warnaserror",
+                 *MSBUILD_IMPORT_PROPERTIES,
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
                  "--results-directory", str(evidence)], worktree, evidence / "xunit.log", environment=environment)
@@ -388,7 +406,7 @@ def main() -> None:
         verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx")
         discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
+                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS, *MSBUILD_IMPORT_PROPERTIES],
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
