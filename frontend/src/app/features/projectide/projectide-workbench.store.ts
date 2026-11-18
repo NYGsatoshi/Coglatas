@@ -21,6 +21,8 @@ import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatch
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
 import { localTestsMatchCase, readLocalTests } from './projectide-tests.reader';
+import { AdmittedProjectTestDiscovery, LocalDiscoveredTest } from './projectide-test-discovery.contracts';
+import { localTestDiscoveryMatchesCase, readLocalTestDiscovery } from './projectide-test-discovery.reader';
 import { computed, Injectable, signal, untracked } from '@angular/core';
 import {
   BoundReference,
@@ -994,6 +996,51 @@ export class ProjectIdeWorkbenchStore {
         context !== this.result() || this.preparedTestEdit() !== prepared) return false;
     this.choose(result.after.key); this.loadResult(); return true;
   }
+  private testDiscoveryGeneration = 0;
+  readonly testDiscoveryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
+  private readonly testDiscoverySnapshot = signal<{ context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
+  readonly localTestDiscovery = (): AdmittedProjectTestDiscovery | null => {
+    const snapshot = this.testDiscoverySnapshot();
+    return snapshot && this.state() === 'ready' && snapshot.context === this.context() && snapshot.context === this.result() &&
+      snapshot.sourceMap === snapshot.context.sourceMap && snapshot.source === snapshot.context.source && snapshot.manifest === snapshot.context.manifest &&
+      snapshot.declarations === snapshot.context.declarations && localTestDiscoveryMatchesCase(snapshot.context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  async loadLocalTestDiscovery(): Promise<boolean> {
+    this.clearLocalTestDiscovery(); this.resetSelection();
+    const generation = this.testDiscoveryGeneration; const context = this.context(); const bundle = this.bundle();
+    if (!context || !bundle || context !== this.result() || this.state() !== 'ready') {
+      this.testDiscoveryReadState.set('unavailable'); return false;
+    }
+    const materialization = { sourceMap: context.sourceMap, source: context.source, manifest: context.manifest, declarations: context.declarations };
+    this.testDiscoveryReadState.set('loading');
+    try {
+      readPreviewBundle(bundle);
+      const admitted = await readLocalTestDiscovery(context);
+      if (generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
+      if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
+        this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable'); return false;
+      }
+      readPreviewBundle(bundle);
+      if (!admitted) { this.testDiscoveryReadState.set('unavailable'); return false; }
+      if (!localTestDiscoveryMatchesCase(context, admitted)) throw new Error('stale-local-test-discovery');
+      this.testDiscoverySnapshot.set({ context, admitted, ...materialization }); this.testDiscoveryReadState.set('ready'); return true;
+    } catch {
+      if (generation === this.testDiscoveryGeneration && context === this.context() && context === this.result()) {
+        this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('unsupported');
+      }
+      return false;
+    }
+  }
+  navigateDiscoveredTest(test: LocalDiscoveredTest): boolean {
+    const admitted = this.localTestDiscovery(); this.resetSelection();
+    if (!admitted || !admitted.inventory.tests.includes(test)) { this.navigationState.set('unavailable'); return false; }
+    try { readPreviewBundle(this.bundle()); } catch { this.clear('unsupported'); return false; }
+    if (!this.localTestDiscovery()) { this.clearLocalTestDiscovery(); this.navigationState.set('stale'); return false; }
+    return this.navigateLocation(test.location);
+  }
+  private clearLocalTestDiscovery(): void {
+    this.testDiscoveryGeneration++; this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('idle');
+  }
   private testGeneration = 0;
   readonly testReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
   private readonly testSnapshot = signal<{ context: PreviewCase; result: PreviewCase; admitted: AdmittedLocalTests; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
@@ -1035,7 +1082,7 @@ export class ProjectIdeWorkbenchStore {
     if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
     return this.navigateLocation(assertion.location);
   }
-  private clearLocalTests(): void { this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
+  private clearLocalTests(): void { this.clearLocalTestDiscovery(); this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {

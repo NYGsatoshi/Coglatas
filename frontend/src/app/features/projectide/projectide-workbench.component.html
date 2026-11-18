@@ -37,6 +37,7 @@
       <button type="button" (click)="reload('simulation-debug')">{{ t('ide.debugExample') }}</button>
       <button type="button" (click)="reload('simulation')">{{ t('ide.simulationExample') }}</button>
       <button type="button" (click)="reload('scenario')">{{ t('ide.scenarioExample') }}</button>
+      <button type="button" data-testid="ide-test-discovery-example" (click)="reload('test-discovery')">{{ t('ide.discoveryExample') }}</button>
       <button type="button" (click)="reload('test-edit')">{{ t('ide.testEditExample') }}</button>
       <button type="button" (click)="reload()">{{ t('ide.testMainExamples') }}</button>
     }
@@ -227,6 +228,37 @@
                   @if (store.testEditState() === 'unavailable') { <p role="alert">{{ t('ide.testEditUnavailable') }}</p> }
                 </section>
               }
+
+              <section class="local-tests-summary" aria-labelledby="ide-test-discovery-title">
+                <h3 id="ide-test-discovery-title">{{ t('ide.discoveryTitle') }}</h3>
+                <p>{{ t('ide.discoveryNotice') }}</p>
+                <button type="button" (click)="loadLocalTestDiscovery()" [disabled]="store.testDiscoveryReadState() === 'loading' || !store.result()">{{ t('ide.discoveryLoad') }}</button>
+                @if (store.testDiscoveryReadState() === 'loading') { <p role="status">{{ t('ide.discoveryLoading') }}</p> }
+                @if (store.testDiscoveryReadState() === 'unsupported') { <p role="alert">{{ t('ide.discoveryUnreadable') }}</p> }
+                @if (store.testDiscoveryReadState() === 'unavailable' || store.testDiscoveryReadState() === 'ready' && !store.localTestDiscovery()) { <p role="status">{{ t('ide.discoveryUnavailable') }}</p> }
+                @if (store.localTestDiscovery(); as discovery) {
+                  <div data-testid="ide-test-discovery-summary" aria-live="polite">
+                    <p>{{ discoveryValue(discovery.inventory.state) }}</p>
+                    <p>{{ t('ide.discoveryCounts', { tests: discovery.inventory.discoveredTests }) }}</p>
+                    <dl>
+                      <div><dt>{{ t('ide.discoveryBinding') }}</dt><dd>{{ t(discovery.inventory.bindingComplete ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
+                      <div><dt>{{ t('ide.discoveryEvaluator') }}</dt><dd>{{ t(discovery.inventory.evaluatorMatches ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
+                    </dl>
+                  </div>
+                  <ol class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
+                    @for (test of discoveryRows(); track test.testId) {
+                      <li><h4>{{ test.displayName || test.testId }}</h4>
+                        <p>{{ discoveryValue(test.decodeStatus) }} · {{ t('ide.discoveryAssertions') }}: {{ test.assertionCount ?? t('ide.discoveryUnknownCount') }}</p>
+                        <button type="button" (click)="navigateDiscoveredTest(test)">{{ t('ide.discoveryOpen') }} · {{ test.displayName || test.testId }}</button>
+                      </li>
+                    }
+                  </ol>
+                  @if (discovery.inventory.tests.length > 32) {
+                    <button type="button" [disabled]="discoveryPage() === 0" (click)="discoveryPage.set(discoveryPage() - 1)">{{ t('ide.discoveryPrevious') }}</button>
+                    <button type="button" [disabled]="(discoveryPage() + 1) * 32 >= discovery.inventory.tests.length" (click)="discoveryPage.set(discoveryPage() + 1)">{{ t('ide.discoveryNext') }}</button>
+                  }
+                }
+              </section>
 
               <p>{{ t('ide.testsNotice') }}</p>
               <button type="button" (click)="loadLocalTests()" [disabled]="store.testReadState() === 'loading' || !store.result()">{{ t('ide.testsLoad') }}</button>

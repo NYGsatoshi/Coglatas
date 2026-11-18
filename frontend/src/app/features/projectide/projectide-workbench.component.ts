@@ -17,6 +17,7 @@ import type { ScopedSourceRegion } from './projectide-scoped-sources';
 import { PreparedScenario } from './projectide-scenario';
 import { PreparedTestEdit } from './projectide-test-edit';
 import { LocalTestAssertion } from './projectide-tests.contracts';
+import { LocalDiscoveredTest } from './projectide-test-discovery.contracts';
 import { DOCUMENT, JsonPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -138,6 +139,8 @@ export class ProjectIdeWorkbenchComponent {
   readonly panel = signal<'overview' | 'source' | 'problems' | 'inspector' | 'diff' | 'history' | 'tests' | 'scenario'>('overview');
   readonly basisPage = signal(0);
   readonly basisPageSize = DIAGNOSTIC_BASIS_PAGE_SIZE;
+  readonly discoveryPage = signal(0);
+  readonly discoveryRows = computed(() => this.store.localTestDiscovery()?.inventory.tests.slice(this.discoveryPage() * 32, (this.discoveryPage() + 1) * 32) ?? []);
   readonly testPage = signal(0);
   readonly testRows = computed(() => this.store.localTests()?.run.tests.slice(this.testPage() * 32, (this.testPage() + 1) * 32) ?? []);
   readonly diffPage = signal(0);
@@ -207,6 +210,7 @@ export class ProjectIdeWorkbenchComponent {
   constructor() {
     effect(() => { this.store.selection(); this.store.context(); this.store.result(); this.basisPage.set(0); });
     effect(() => { this.store.localTests(); this.testPage.set(0); });
+    effect(() => { this.store.localTestDiscovery(); this.discoveryPage.set(0); });
     this.i18n.registerMessages(PROJECTIDE_ENGLISH_MESSAGES, PROJECTIDE_JAPANESE_MESSAGES);
     const unregister = this.realtime.registerProtectedStateClearer('projectide-preview', () => {
       this.focusGeneration++;
@@ -232,7 +236,7 @@ export class ProjectIdeWorkbenchComponent {
       }
     });
   }
-  reload(profile: 'main' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'regional-operator-recordings' | 'pass-recordings' | 'semantic-index' = 'main'): Promise<void> {
+  reload(profile: 'main' | 'test-discovery' | 'test-edit' | 'scenario' | 'plan' | 'simulation' | 'simulation-debug' | 'simulation-comparison' | 'simulation-profile' | 'compiler-outputs' | 'compiler-recordings' | 'diagnostic-premises' | 'root-diagnostic-premises' | 'predicate-recordings' | 'operator-recordings' | 'regional-operator-recordings' | 'pass-recordings' | 'semantic-index' = 'main'): Promise<void> {
     this.focusGeneration++;
     this.panel.set('overview');
     this.severity.set('');
@@ -244,7 +248,7 @@ export class ProjectIdeWorkbenchComponent {
     }
     return this.store.load((signal) =>
       this.adapter.read(
-        new URL(profile === 'semantic-index' ? 'assets/projectide/semantic-index-v1.json' : profile === 'regional-operator-recordings' ? 'assets/projectide/regional-operator-recordings-v1.json' : profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
+        new URL(profile === 'test-discovery' ? 'assets/projectide/test-discovery-v1.json' : profile === 'semantic-index' ? 'assets/projectide/semantic-index-v1.json' : profile === 'regional-operator-recordings' ? 'assets/projectide/regional-operator-recordings-v1.json' : profile === 'pass-recordings' ? 'assets/projectide/pass-recordings-v1.json' : profile === 'operator-recordings' ? 'assets/projectide/operator-recordings-v1.json' : profile === 'predicate-recordings' ? 'assets/projectide/predicate-recordings-v1.json' : profile === 'root-diagnostic-premises' ? 'assets/projectide/root-diagnostic-premises-v1.json' : profile === 'diagnostic-premises' ? 'assets/projectide/diagnostic-premises-v1.json' : profile === 'compiler-recordings' ? 'assets/projectide/compiler-recordings-v1.json' : profile === 'compiler-outputs' ? 'assets/projectide/compiler-outputs-v1.json' : profile === 'simulation-profile' ? 'assets/projectide/simulation-profile-v1.json' : profile === 'simulation-comparison' ? 'assets/projectide/simulation-comparison-v1.json' : profile === 'simulation-debug' ? 'assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'assets/projectide/simulation-v1.json' : profile === 'plan' ? 'assets/projectide/execution-plan-v1.json' : profile === 'scenario' ? 'assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'assets/projectide/test-edit-v1.json' : 'assets/projectide/preview-v1.json', this.document.baseURI).href,
         signal,
       ),
     );
@@ -697,6 +701,24 @@ export class ProjectIdeWorkbenchComponent {
     const loaded = await this.store.loadPreparedTestEdit(prepared);
     if (!this.canRead()) { this.store.clear('denied'); return; }
     if (loaded && generation === this.focusGeneration) this.open('source', true);
+  }
+  async loadLocalTestDiscovery(): Promise<void> {
+    this.focusGeneration++;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    await this.store.loadLocalTestDiscovery();
+    if (!this.canRead()) this.store.clear('denied');
+  }
+  navigateDiscoveredTest(test: LocalDiscoveredTest): void {
+    this.focusGeneration++;
+    if (!this.canRead()) this.store.clear('denied');
+    else if (this.store.navigateDiscoveredTest(test)) this.open('source', true);
+  }
+  discoveryValue(value: string): string {
+    const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {
+      Ready: 'ide.discoveryReady', StaleInput: 'ide.discoveryStale', Unavailable: 'ide.discoveryUnavailable', ResourceLimit: 'ide.discoveryBounded',
+      Decoded: 'ide.discoveryDecoded', Unsupported: 'ide.discoveryUnsupported', Invalid: 'ide.discoveryInvalid'
+    };
+    return keys[value] ? this.t(keys[value]) : this.t('ide.testUndetermined');
   }
   async loadLocalTests(): Promise<void> {
     this.focusGeneration++;

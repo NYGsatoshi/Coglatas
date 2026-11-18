@@ -8,12 +8,59 @@ public sealed partial class SyntheticWorkbenchViewModel
     public ProjectTestRun? TestRun { get; private set; }
     public ProjectTestAssertionResult? SelectedTestAssertion { get; private set; }
 
+    public ProjectTestDiscovery? TestDiscovery { get; private set; }
+    public ProjectDiscoveredTest? SelectedDiscoveredTest { get; private set; }
+
+    /// <summary>Read exact local Test definitions without evaluating assertions or replacing a completed run.</summary>
+    public ProjectTestDiscovery? DiscoverSyntheticTests(CancellationToken cancellationToken = default, ProjectTestLimits? limits = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
+        var generation = ++_testGeneration; var lifecycle = _lifecycle;
+        ClearTestDiscovery(); ClearSelection(); Changed();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_disposed || generation != _testGeneration || lifecycle != _lifecycle ||
+            _desired is null || State != "Ready" || _compilation?.Model is not { } model ||
+            !model.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) || !model.Input.Source.Data.Equals(Source?.Data)) return null;
+        var compilation = _compilation;
+        var inventory = ProjectTestPlan.Compile(model, SyntheticProjectTestConfiguration.Evaluator, limits, cancellationToken)
+            .Discover(_desired.Input.ExpectedInputDigest, cancellationToken);
+        if (_disposed || generation != _testGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
+        TestDiscovery = inventory; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _testGeneration && ReferenceEquals(TestDiscovery, inventory))
+            {
+                _testGeneration++; ClearTestDiscovery(); ClearSelection(); Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && generation == _testGeneration && lifecycle == _lifecycle &&
+            ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
+    }
+
+    public bool SelectDiscoveredTest(ProjectDiscoveredTest test)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(test);
+        var generation = ClearSelection();
+        if (State == "Ready" && TestDiscovery is { State: ProjectTestDiscoveryState.Ready } inventory && _desired is not null &&
+            inventory.InputDigest!.Equals(_desired.Input.ExpectedInputDigest) && _compilation?.Model is { } model &&
+            model.Input.Source.Data.Equals(Source?.Data) && inventory.Tests.Any(item => ReferenceEquals(item, test)))
+        {
+            NavigationState = Resolve(test.Location);
+            if (NavigationState == "ready") SelectedDiscoveredTest = test;
+        }
+        else NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedDiscoveredTest, test);
+    }
+
+    private void ClearTestDiscovery() { TestDiscovery = null; SelectedDiscoveredTest = null; }
+
     /// <summary>Run only the fixed offline fixture host; request pins never define the supported evaluator.</summary>
     public bool RunSyntheticTests(CancellationToken cancellationToken = default, ProjectTestLimits? limits = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var generation = ++_testGeneration; var lifecycle = _lifecycle;
-        TestRun = null; ClearSelection(); Changed();
+        TestRun = null; ClearTestDiscovery(); ClearSelection(); Changed();
         if (_disposed || generation != _testGeneration || lifecycle != _lifecycle ||
             _desired is null || State != "Ready" || _compilation?.Model is not { } model ||
             !model.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) || !model.Input.Source.Data.Equals(Source?.Data)) return false;
@@ -39,5 +86,5 @@ public sealed partial class SyntheticWorkbenchViewModel
         Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedTestAssertion, assertion);
     }
 
-    private void ClearTests() { _testGeneration++; TestRun = null; SelectedTestAssertion = null; }
+    private void ClearTests() { _testGeneration++; TestRun = null; SelectedTestAssertion = null; ClearTestDiscovery(); }
 }
