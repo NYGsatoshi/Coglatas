@@ -12,8 +12,8 @@ permissions:
 
 env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
-  ANGULAR_BLOB: 8cd3cf547440a428cabc3733cd5db50da8775397
-  RUNNER_BLOB: fe2aeae543852e6df11914a3816c95e6e4bcb76a
+  ANGULAR_BLOB: f4271b707d98b1d49d0d63e5e9a3cb9a7ec1bfe3
+  RUNNER_BLOB: f5233993b716dfcf6a7a759e1985d70774a3161d
   CONTROLS_BLOB: b4704c302b243aa9956e7aae6f225df33975c09d
 
 concurrency:
@@ -28,7 +28,8 @@ jobs:
     timeout-minutes: 35
     env:
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -55,14 +56,29 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
-          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-run-comparison-web-advisory.yml'
-          if ($LASTEXITCODE -ne 0) { throw 'Workflow blob unavailable' }
+          if ($env:WORKFLOW_HEAD -cnotmatch '^[0-9a-f]{40}$') { throw 'Executing workflow commit is not an exact Git SHA' }
+          git -c protocol.version=2 fetch --no-tags --no-recurse-submodules origin $env:WORKFLOW_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch the immutable executing workflow commit' }
+          $actualWorkflow = git rev-parse --verify "$($env:WORKFLOW_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $actualWorkflow -ne $env:WORKFLOW_HEAD) { throw 'Executing workflow commit mismatch' }
+          $workflow = git rev-parse "$($env:WORKFLOW_HEAD):.github/workflows/projectide-run-comparison-web-advisory.yml"
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow blob unavailable' }
+          $testWorkflow = git rev-parse 'HEAD:.github/workflows/projectide-run-comparison-web-advisory.yml'
+          if ($LASTEXITCODE -ne 0 -or $workflow -ne $testWorkflow) { throw 'Executing workflow differs from the reviewed Test workflow' }
+          $workflowTree = git rev-parse "$($env:WORKFLOW_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow tree unavailable' }
+          $testTree = git rev-parse 'HEAD^{tree}'
+          if ($LASTEXITCODE -ne 0 -or $workflowTree -ne $testTree) { throw 'Executing workflow tree differs from the exact Test tree' }
           $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
           if ($LASTEXITCODE -ne 0 -or $productTree -ne '5abb6b4f4389f200a289a84b99a0dd13e60072cc') { throw 'Exact Product tree mismatch' }
           $context = Join-Path $env:RUNNER_TEMP 'run-comparison-web-context'
           New-Item -ItemType Directory -Path $context | Out-Null
           @{
             workflowHead = $env:WORKFLOW_HEAD
+            workflowRef = $env:WORKFLOW_REF
+            workflowTree = $workflowTree
+            testWorkflowBlob = $testWorkflow
+            testTree = $testTree
             productHead = $env:PRODUCT_HEAD
             productTree = $productTree
             testHead = $actualTest
@@ -138,7 +154,8 @@ jobs:
     timeout-minutes: 35
     env:
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
-      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -165,14 +182,29 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
-          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-run-comparison-web-advisory.yml'
-          if ($LASTEXITCODE -ne 0) { throw 'Workflow blob unavailable' }
+          if ($env:WORKFLOW_HEAD -cnotmatch '^[0-9a-f]{40}$') { throw 'Executing workflow commit is not an exact Git SHA' }
+          git -c protocol.version=2 fetch --no-tags --no-recurse-submodules origin $env:WORKFLOW_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch the immutable executing workflow commit' }
+          $actualWorkflow = git rev-parse --verify "$($env:WORKFLOW_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $actualWorkflow -ne $env:WORKFLOW_HEAD) { throw 'Executing workflow commit mismatch' }
+          $workflow = git rev-parse "$($env:WORKFLOW_HEAD):.github/workflows/projectide-run-comparison-web-advisory.yml"
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow blob unavailable' }
+          $testWorkflow = git rev-parse 'HEAD:.github/workflows/projectide-run-comparison-web-advisory.yml'
+          if ($LASTEXITCODE -ne 0 -or $workflow -ne $testWorkflow) { throw 'Executing workflow differs from the reviewed Test workflow' }
+          $workflowTree = git rev-parse "$($env:WORKFLOW_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow tree unavailable' }
+          $testTree = git rev-parse 'HEAD^{tree}'
+          if ($LASTEXITCODE -ne 0 -or $workflowTree -ne $testTree) { throw 'Executing workflow tree differs from the exact Test tree' }
           $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
           if ($LASTEXITCODE -ne 0 -or $productTree -ne '5abb6b4f4389f200a289a84b99a0dd13e60072cc') { throw 'Exact Product tree mismatch' }
           $context = Join-Path $env:RUNNER_TEMP 'run-comparison-web-context'
           New-Item -ItemType Directory -Path $context | Out-Null
           @{
             workflowHead = $env:WORKFLOW_HEAD
+            workflowRef = $env:WORKFLOW_REF
+            workflowTree = $workflowTree
+            testWorkflowBlob = $testWorkflow
+            testTree = $testTree
             productHead = $env:PRODUCT_HEAD
             productTree = $productTree
             testHead = $actualTest

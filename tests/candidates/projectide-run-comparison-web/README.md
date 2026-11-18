@@ -21,9 +21,12 @@ substituted for this data.
 The spec contains **18 named Vitest cases**, not eighteen simulated executions.
 Loops over related original pairs or hostile variations count as one named
 case. The reader compares already captured recordings and executes no simulator.
-All six delayed-hash controls await the actual digest callback's entry promise
-before changing Source, access, recording or bundle state. Earlier asynchronous
-admission steps therefore cannot satisfy the intended delayed boundary.
+All six delayed-hash controls forward prerequisite digests and pause only the
+SHA-256 call over the exact `coglatas.local-simulation-comparison/1` domain,
+its NUL separator and the original comparison frame's UTF-8 bytes. The helper
+asserts these bytes before resolving its entry promise, then the controls change
+Source, access, recording or bundle state. An earlier Source-admission digest
+cannot satisfy that entry promise.
 
 Frame-only negative cases re-admit both real Source/run pairs after each hostile
 comparison-frame edit, then require both current Source fingerprints and the
@@ -85,6 +88,14 @@ the frozen roster. Duplicate JSON fields, nonfinite constants, errors,
 substituted or duplicate cases, wrong file identities and snapshot changes fail
 closed. No C# or actual Native UI execution is claimed.
 
+Each job records the checked-out Test head separately from GitHub's actual
+`github.workflow_sha` and `github.workflow_ref`. It fetches that exact executing
+workflow commit and rejects a workflow blob or tree that differs from the
+reviewed Test workflow and tree. The context retains both identities; an
+independent artifact audit also checks the executing commit against GitHub's
+original commit metadata. A clean checkout retains an explicitly empty
+`source-status.txt`, rather than omitting the file when Git emits no status rows.
+
 After real execution, **22 separate Python admission controls** include the
 original 19 that consume that
 host's original JSON, retained source bytes and receipt. Disposable Git probes
@@ -110,13 +121,17 @@ qualification. The exact raw JSON parser passed locally. Full retained-report
 controls await a genuine successful hosted composition receipt; none is
 fabricated from this local diagnostic.
 
-Technical review strengthened callback-entry synchronization and then identified
-a stale Source fingerprint that could short-circuit frame-only negative cases.
-The current source re-admits those derivatives and verifies actual comparator
-digest entry, while retaining all eighteen case names and the original refusal
-assertions. All 18 cases pass with these stronger checks. Earlier reports remain
-tied to their earlier source and do not establish the corrected boundaries.
-Current runner/workflow pins and qualification use only the corrected source.
+Technical review first strengthened callback-entry synchronization and repaired
+stale Source fingerprints that could short-circuit frame-only negative cases.
+A later review found that the first-digest gate still paused Source admission
+in store controls before comparison hashing. The revised gate names and checks
+the exact comparison bytes, while frame derivatives re-admit both original
+Source/run pairs and all eighteen case names and refusal assertions remain.
+Earlier reports remain tied to their earlier source: their successful executions
+do not establish the corrected delayed-comparison boundary. Likewise, older
+context records that repeated the Test head under `workflowHead` did not capture
+the executing workflow revision. Current runner/workflow pins and qualification
+use only the corrected source and its fresh original artifacts.
 
 Keep #1951 and #907 OPEN. Scope is
 `SYNTHETIC_RUN_COMPARISON_WEB_READER_STORE_ONLY`. Current persisted authorization

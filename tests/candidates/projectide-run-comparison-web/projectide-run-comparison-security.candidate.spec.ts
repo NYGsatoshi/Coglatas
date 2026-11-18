@@ -86,13 +86,26 @@ async function ready(family = 'external') {
   return store;
 }
 
-function holdNextDigest(): { entered: Promise<void>; release: () => void } {
+function holdNextComparisonDigest(text: string): { entered: Promise<void>; release: () => void } {
   let release!: () => void;
   let markEntered!: () => void;
   const entered = new Promise<void>(resolveEntered => { markEntered = resolveEntered; });
   const blocked = new Promise<void>(resolveGate => { release = resolveGate; });
+  const prefix = new TextEncoder().encode('coglatas.local-simulation-comparison/1\0');
+  const expected = new TextEncoder().encode('coglatas.local-simulation-comparison/1\0' + text);
   const digest = webcrypto.subtle.digest.bind(webcrypto.subtle);
-  vi.spyOn(webcrypto.subtle, 'digest').mockImplementationOnce(async (...arguments_) => {
+  const observed = vi.spyOn(webcrypto.subtle, 'digest').mockImplementation(async (...arguments_) => {
+    const input = arguments_[1];
+    const bytes = ArrayBuffer.isView(input)
+      ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
+      : new Uint8Array(input);
+    if (!prefix.every((byte, index) => bytes[index] === byte)) {
+      return digest(...arguments_);
+    }
+    expect(arguments_[0]).toBe('SHA-256');
+    expect(Array.from(bytes)).toEqual(Array.from(expected));
+    // Restore before entry so later requests and repeated gates use the real digest.
+    observed.mockRestore();
     markEntered();
     await blocked;
     return digest(...arguments_);
@@ -220,7 +233,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
 
   it('rejects changed second-run bytes during the actual comparison digest boundary', async () => {
     const value = await pair();
-    const gate = holdNextDigest();
+    const gate = holdNextComparisonDigest(value.beforeCase.simulationComparison!.text);
     const pending = readSimulationComparison(value.beforeCase, value.before, value.afterCase, value.after);
     await gate.entered;
     Object.assign(value.afterCase.simulationRun!, { text: value.afterCase.simulationRun!.text + ' ' });
@@ -230,7 +243,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
 
   it('rejects comparison projection substitution during the actual digest boundary', async () => {
     const value = await pair();
-    const gate = holdNextDigest();
+    const gate = holdNextComparisonDigest(value.beforeCase.simulationComparison!.text);
     const pending = readSimulationComparison(value.beforeCase, value.before, value.afterCase, value.after);
     await gate.entered;
     const text = value.beforeCase.simulationComparison!.text + ' ';
@@ -263,7 +276,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
       const store = await ready();
       expect(await store.loadSimulationComparison()).toBe(true);
       const prior = store.simulationComparison()!;
-      const gate = holdNextDigest();
+      const gate = holdNextComparisonDigest(store.context()!.simulationComparison!.text);
       const pending = store.loadSimulationComparison();
       await gate.entered;
       if (mode === 'result') store.loadResult();
@@ -282,7 +295,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
     const store = await ready();
     expect(await store.loadSimulationComparison()).toBe(true);
     const original = store.simulationComparison()!;
-    const gate = holdNextDigest();
+    const gate = holdNextComparisonDigest(store.context()!.simulationComparison!.text);
     const pending = store.loadSimulationComparison();
     await gate.entered;
     store.clear('denied');
@@ -298,7 +311,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
 
   it('preserves the exact newer comparison when an older request finishes later', async () => {
     const store = await ready();
-    const gate = holdNextDigest();
+    const gate = holdNextComparisonDigest(store.context()!.simulationComparison!.text);
     const older = store.loadSimulationComparison();
     await gate.entered;
     expect(await store.loadSimulationComparison()).toBe(true);
@@ -349,7 +362,7 @@ describe('Independent recorded comparison bytes and pair lifecycle', () => {
     const before = store.context()!;
     const data = store.bundle()!;
     const after = member(data, before.simulationComparison!.afterCaseKey);
-    const gate = holdNextDigest();
+    const gate = holdNextComparisonDigest(before.simulationComparison!.text);
     const pending = store.loadSimulationComparison();
     await gate.entered;
     Object.assign(data, { cases: data.cases.filter(item => item !== after) });
