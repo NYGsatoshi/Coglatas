@@ -5,9 +5,17 @@ on:
     branches: [SecurityTestImplimation]
     paths:
       - .github/workflows/projectide-inspector-composition-advisory.yml
+      - tests/candidates/projectide-inspector/**
 
 permissions:
   contents: read
+
+env:
+  PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
+  CSHARP_BLOB: 58a57ad5afbac3723cac307473f22dea86534b41
+  ANGULAR_BLOB: e956562c1a1aa160c303bf8827d3c7146e0c4589
+  RUNNER_BLOB: 63a35c83b50d46eb1b6eb7ffacde5ef5aaa3332b
+  CONTROLS_BLOB: fa2c29bdb201340b42717b4a1cff46f44ab6d069
 
 concurrency:
   group: inspector-composition-${{ github.event.pull_request.number }}
@@ -21,9 +29,7 @@ jobs:
     timeout-minutes: 35
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
-      TEST_HEAD: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
-      RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Preserve committed source bytes on both hosts
@@ -36,7 +42,7 @@ jobs:
       - name: Checkout immutable independent Test owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Bind source identities and exact Product SDK policy
@@ -47,6 +53,14 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
           $actualRunner = git rev-parse 'HEAD:tests/candidates/projectide-inspector/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $actualRunner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
+          $csharp = git rev-parse 'HEAD:tests/candidates/projectide-inspector/InspectorIdentityCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $csharp -ne $env:CSHARP_BLOB) { throw 'Frozen C# candidate blob mismatch' }
+          $angular = git rev-parse 'HEAD:tests/candidates/projectide-inspector/projectide-inspector-identity.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $angular -ne $env:ANGULAR_BLOB) { throw 'Frozen Angular candidate blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-inspector-composition-advisory.yml'
+          if ($LASTEXITCODE -ne 0) { throw 'Workflow source blob unavailable' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit unavailable' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -59,6 +73,10 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             testHead = $actualTest
             runnerBlob = $actualRunner
+            csharpBlob = $csharp
+            angularBlob = $angular
+            controlsBlob = $controls
+            workflowBlob = $workflow
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -67,6 +85,8 @@ jobs:
             independentReviewComplete = $false
             nativeUiQualified = $false
             productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
           } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
       - name: Set up exact Product SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -109,6 +129,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
           python -B tests/candidates/projectide-inspector/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/inspector-composed" --evidence "$env:RUNNER_TEMP/inspector-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Inspector exact-source composition failed; retain original evidence' }
+      - name: Reject malformed retained evidence and source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/inspector-context/admission-controls.log"
+          python -B tests/candidates/projectide-inspector/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/inspector-evidence" --report "$env:RUNNER_TEMP/inspector-context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Inspector retained-evidence admission controls failed' }
       - name: Retain original source receipts, discovery and test outcomes
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -126,9 +155,7 @@ jobs:
     timeout-minutes: 35
     env:
       DOTNET_CLI_UI_LANGUAGE: en-US
-      PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
-      TEST_HEAD: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
-      RUNNER_BLOB: cbcbaa42a56b4d66335e38f171028ff7af34e91c
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Preserve committed source bytes on both hosts
@@ -141,7 +168,7 @@ jobs:
       - name: Checkout immutable independent Test owner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 0e2b491393180d1d5ed698bad42aa9d1f0704c78
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Bind source identities and exact Product SDK policy
@@ -152,6 +179,14 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
           $actualRunner = git rev-parse 'HEAD:tests/candidates/projectide-inspector/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $actualRunner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
+          $csharp = git rev-parse 'HEAD:tests/candidates/projectide-inspector/InspectorIdentityCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $csharp -ne $env:CSHARP_BLOB) { throw 'Frozen C# candidate blob mismatch' }
+          $angular = git rev-parse 'HEAD:tests/candidates/projectide-inspector/projectide-inspector-identity.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $angular -ne $env:ANGULAR_BLOB) { throw 'Frozen Angular candidate blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-inspector-composition-advisory.yml'
+          if ($LASTEXITCODE -ne 0) { throw 'Workflow source blob unavailable' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit unavailable' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -164,6 +199,10 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             testHead = $actualTest
             runnerBlob = $actualRunner
+            csharpBlob = $csharp
+            angularBlob = $angular
+            controlsBlob = $controls
+            workflowBlob = $workflow
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -172,6 +211,8 @@ jobs:
             independentReviewComplete = $false
             nativeUiQualified = $false
             productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
           } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
       - name: Set up exact Product SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -214,6 +255,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
           python -B tests/candidates/projectide-inspector/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/inspector-composed" --evidence "$env:RUNNER_TEMP/inspector-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Inspector exact-source composition failed; retain original evidence' }
+      - name: Reject malformed retained evidence and source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/inspector-context/admission-controls.log"
+          python -B tests/candidates/projectide-inspector/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/inspector-evidence" --report "$env:RUNNER_TEMP/inspector-context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Inspector retained-evidence admission controls failed' }
       - name: Retain original source receipts, discovery and test outcomes
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
