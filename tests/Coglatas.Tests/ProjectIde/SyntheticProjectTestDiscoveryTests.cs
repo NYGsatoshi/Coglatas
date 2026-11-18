@@ -296,4 +296,31 @@ public sealed class SyntheticProjectTestDiscoveryTests
         Assert.Equal(CompilerVerdict.Fail, Assert.IsType<ProjectTestRun>(view.TestRun).Verdict);
         Assert.Same(inventory, view.TestDiscovery); Assert.Same(compilation, view.Result);
     }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task WithdrawalNotificationFailurePreservesCancellationAndItsClearedSelection(bool throwAtPublication)
+    {
+        using var view = await Ready();
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token; Action cancel = cancellation.Cancel; var published = false; var withdrawing = false;
+        var failure = new InvalidOperationException("withdrawal notification failed");
+        PropertyChangedEventHandler onChange = (sender, _) =>
+        {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (!published && current.TestDiscovery is { } inventory)
+            {
+                published = true; Assert.True(current.SelectDiscoveredTest(Assert.Single(inventory.Tests))); Assert.True(current.Navigate());
+                withdrawing = true; cancel(); if (throwAtPublication) token.ThrowIfCancellationRequested();
+            }
+            else if (withdrawing && current.TestDiscovery is null) throw failure;
+        };
+        view.PropertyChanged += onChange;
+        OperationCanceledException error;
+        try { error = Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(token)); }
+        finally { view.PropertyChanged -= onChange; }
+        Assert.True(published); Assert.Equal(token, error.CancellationToken);
+        Assert.Same(failure, throwAtPublication ? error.Data["TestDiscoveryWithdrawalFailure"] : error.InnerException);
+        Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest); Assert.Null(view.SourceTarget);
+    }
 }

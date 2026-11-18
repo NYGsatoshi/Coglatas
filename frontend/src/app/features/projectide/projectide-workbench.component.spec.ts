@@ -749,3 +749,19 @@ it('refuses direct simulation handlers after permission revocation', async () =>
     expect(c.store.state()).toBe('denied'); expect(c.store.recordedDebug()).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull();
     await c.loadRecordedDebug(); c.selectRecordedDebugFrame(0); expect(c.store.recordedDebug()).toBeNull();
   });
+
+
+it('keeps the discovery action focused while loading and ignores repeated activation', async () => {
+  const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests'); fixture.detectChanges();
+  const action = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryLoad'))!; action.focus();
+  const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+  vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return original(algorithm, bytes); });
+  const load = vi.spyOn(c.store, 'loadLocalTestDiscovery'); const pending = c.loadLocalTestDiscovery(); await began; fixture.detectChanges();
+  try {
+    expect(action.disabled).toBe(false); expect(action.getAttribute('aria-disabled')).toBe('true'); expect(document.activeElement).toBe(action);
+    await c.loadLocalTestDiscovery(); expect(load).toHaveBeenCalledTimes(1);
+  } finally { release(); await pending; fixture.detectChanges(); }
+  expect(action.getAttribute('aria-disabled')).toBe('false'); expect(document.activeElement).toBe(action);
+  expect(c.store.localTestDiscovery()!.inventory.state).toBe('Ready');
+});

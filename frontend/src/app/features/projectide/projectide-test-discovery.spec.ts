@@ -1,10 +1,11 @@
 /// <reference types="node" />
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash, webcrypto } from 'node:crypto';
 import { afterEach, vi } from 'vitest';
+import { parseLocalTestJson } from './projectide-tests.reader';
 import { readPreviewBundle } from './projectide-preview.adapter';
-import { localTestDiscoveryMatchesCase, readLocalTestDiscovery } from './projectide-test-discovery.reader';
+import { localTestDiscoveryMatchesCase, readLocalTestDiscovery, localTestJsonWithinByteLimit } from './projectide-test-discovery.reader';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 vi.stubGlobal('crypto', webcrypto);
@@ -549,4 +550,94 @@ describe('Fixed sample plan and asynchronous membership regressions', () => {
     const snapshots = value.materializedSnapshots; expect(snapshots.entries).toHaveLength(2); expect(new Set(snapshots.entries.map((entry: any) => entry.source.digest.value)).size).toBe(2); delete snapshots.entries[1].source;
     expect(await store.navigateDiscoveredTest(row)).toBe(false); expect(store.localTestDiscovery()).toBeNull(); expect(store.localTests()).toBeNull();
   });
+});
+
+
+describe('Reviewed discovery boundary and lifetime failures', () => {
+  async function ready() { const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-fail'); store.loadResult(); return store; }
+  it('refuses changed original definition bytes even when Core retained no definitions', async () => {
+    const value = current('tests-discovery-unavailable'); value.localProjectTestDiscovery.definitions[0].text += ' ';
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('rejects excessive aggregate definition bytes without serializing the whole projection', async () => {
+    const value = current(); const projection = value.localProjectTestDiscovery;
+    projection.definitions = Array.from({ length: 256 }, () => ({ ...projection.definitions[0], text: 'x'.repeat(1_048_576) }));
+    const stringify = JSON.stringify; let wholeProjectionSerializations = 0;
+    vi.spyOn(JSON, 'stringify').mockImplementation((value, ...args) => {
+      if (value === projection) { wholeProjectionSerializations++; throw new Error('unexpected whole projection serialization'); }
+      return stringify(value, ...args);
+    });
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow(); expect(wholeProjectionSerializations).toBe(0);
+  });
+  it('directly rejects duplicate original definition members independently of plan admission', () => {
+    const original = current().localProjectTestDiscovery.definitions[0].text;
+    expect(parseLocalTestJson(original)).toHaveProperty('entityId');
+    expect(() => parseLocalTestJson(original.replace('"entityId":', '"entityId":"foreign","entityId":'))).toThrow();
+  });
+  it('withdraws roster and owned Source instead of throwing after malformed live binding changes', async () => {
+    const store = await ready(); expect(await store.loadLocalTestDiscovery()).toBe(true);
+    const row = store.localTestDiscovery()!.inventory.tests[0]; expect(await store.navigateDiscoveredTest(row)).toBe(true);
+    Object.assign(store.context()!.semanticInspection!, { references: null });
+    expect(() => store.localTestDiscovery()).not.toThrow(); expect(store.localTestDiscovery()).toBeNull();
+    expect(() => store.sourceTarget()).not.toThrow(); expect(store.sourceTarget()).toBeNull(); expect(store.sourceLocation()).toBeNull();
+  });
+  it.each([false, true])('settles its replaced admitting bundle after reader failure=%s', async failure => {
+    const store = await ready(); const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return failure ? new ArrayBuffer(32) : original(algorithm, bytes); });
+    const pending = store.loadLocalTestDiscovery(); await began; const bundle = store.bundle()!; store.bundle.set({ ...bundle, cases: [...bundle.cases] });
+    release(); expect(await pending).toBe(false); expect(store.testDiscoveryReadState()).toBe('unavailable'); expect(store.localTestDiscovery()).toBeNull();
+  });
+  it('does not let an older report materialization failure clear newer discovery and its Source', async () => {
+    const store = await ready(); const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return original(algorithm, bytes); });
+    const pending = store.loadLocalTests(); await began; const context = store.context()!; Object.assign(context, { declarations: [...context.declarations] });
+    expect(await store.loadLocalTestDiscovery()).toBe(true); const inventory = store.localTestDiscovery()!; const row = inventory.inventory.tests[0];
+    expect(await store.navigateDiscoveredTest(row)).toBe(true); const target = store.sourceTarget(); release(); expect(await pending).toBe(false);
+    expect(store.localTestDiscovery()).toBe(inventory); expect(store.sourceTarget()).toBe(target); expect(store.sourceLocation()).toEqual(row.location);
+    expect(store.localTests()).toBeNull(); expect(store.testReadState()).toBe('unavailable');
+  });
+});
+
+
+it('matches native JSON UTF-8 byte boundaries for Unicode, escaped and aliased DTO values', () => {
+  const shared = { value: '日本語😀' }; const values: unknown[] = [null, true, false, 1.25, -1e30,
+    { 'quoted"key': ['\n\t\u0000', '\ud800', '\udc00', 'é日本語😀', null, true, 123] }, [shared, shared], { omitted: undefined, included: 'yes' }];
+  for (const value of values) { const bytes = new TextEncoder().encode(JSON.stringify(value)).length;
+    expect(localTestJsonWithinByteLimit(value, bytes)).toBe(true); expect(localTestJsonWithinByteLimit(value, bytes - 1)).toBe(false);
+  }
+  const cycle: any = {}; cycle.self = cycle; expect(localTestJsonWithinByteLimit(cycle)).toBe(false);
+});
+it('admits every original shipped discovery case across all 23 fixed profiles', async () => {
+  const files = readdirSync(resolve('public/assets/projectide')).filter(name => name.endsWith('.json')).sort(); expect(files).toHaveLength(23);
+  let projected = 0; const states: Record<string, number> = {};
+  for (const file of files) for (const value of JSON.parse(readFileSync(resolve('public/assets/projectide', file), 'utf8')).cases) {
+    if (!value.localProjectTestDiscovery) continue;
+    const admitted = (await readLocalTestDiscovery(value))!; expect(admitted).not.toBeNull();
+    expect(admitted.inventory).toEqual(value.localProjectTestDiscovery.inventory); projected++;
+    states[admitted.inventory.state] = (states[admitted.inventory.state] ?? 0) + 1;
+    if (/^tests-(scenario|reference|regional)-/u.test(value.key)) {
+      expect(admitted.inventory).toMatchObject({ state: 'Ready', discoveredTests: 1, bindingComplete: true });
+      const root = value.key.startsWith('tests-scenario-') || value.key.startsWith('tests-regional-root-');
+      const pins = value.manifest.manifest.settings.authorizedExternalSnapshots;
+      if (value.key.startsWith('tests-scenario-')) expect(pins).toEqual([]);
+      if (value.key.startsWith('tests-reference-')) {
+        expect(pins).toHaveLength(1); const captured = value.materializedSnapshots.entries[0];
+        expect(captured).toMatchObject({ admission: 'Available', snapshotId: pins[0].snapshotId, version: pins[0].version, context: pins[0].context });
+        expect(captured.source.digest).toEqual(pins[0].digest);
+      }
+      expect(admitted.inventory.tests[0]).toMatchObject({ decodeStatus: 'Decoded', assertionCount: root ? 1 : 2 });
+    }
+  }
+  expect(projected).toBe(178); expect(states).toEqual({ Ready: 175, StaleInput: 1, ResourceLimit: 1, Unavailable: 1 });
+});
+
+
+it('opens the regional root-only Test definition without borrowed captured Sources or a Test run', async () => {
+  const data = JSON.parse(readFileSync(resolve('public/assets/projectide/regional-operator-recordings-v1.json'), 'utf8'));
+  const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(data)); store.choose('tests-regional-root-base'); store.loadResult();
+  expect(await store.loadLocalTestDiscovery()).toBe(true); const row = store.localTestDiscovery()!.inventory.tests[0];
+  expect(row).toMatchObject({ decodeStatus: 'Decoded', assertionCount: 1 }); expect(await store.navigateDiscoveredTest(row)).toBe(true);
+  expect(store.sourceLocation()).toEqual(row.location); expect(store.localTests()).toBeNull(); expect(store.scopedSources()).toHaveLength(0);
 });

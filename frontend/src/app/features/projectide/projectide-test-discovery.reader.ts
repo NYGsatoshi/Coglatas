@@ -1,4 +1,4 @@
-import { matchesPinnedLocalTestEvidence } from './projectide-test-discovery.evidence';
+import { matchesPinnedLocalTestEvidence, matchesPinnedLocalTestDefinition } from './projectide-test-discovery.evidence';
 import { Digest, PreviewCase, sameContext, sameDigest } from './projectide.contracts';
 import { isProjectLocationShape, isRevisionContextShape } from './projectide-preview.validation';
 import { AdmittedProjectTestDiscovery, LocalProjectTestDiscoveryProjection } from './projectide-test-discovery.contracts';
@@ -31,6 +31,53 @@ function bindingEvidence(value: unknown): value is DiscoveryBinding {
       typeof item['state'] === 'string' && ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope'].includes(item['state']) &&
       (item['state'] === 'Resolved' ? token(item['symbolKey']) : item['symbolKey'] === null));
 }
+// Count JSON DTO bytes without constructing the aggregate serialization or UTF-8 buffer.
+export function localTestJsonWithinByteLimit(value: unknown, maximum = 4_194_304): boolean {
+  let bytes = 0; const active = new Set<object>();
+  const add = (count: number) => (bytes += count) <= maximum;
+  const string = (text: string): boolean => {
+    if (!add(2)) return false;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i); let count: number;
+      if (code === 34 || code === 92 || code === 8 || code === 9 || code === 10 || code === 12 || code === 13) count = 2;
+      else if (code < 32) count = 6;
+      else if (code >= 0xd800 && code <= 0xdbff) {
+        const next = text.charCodeAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) { count = 4; i++; } else count = 6;
+      } else if (code >= 0xdc00 && code <= 0xdfff) count = 6;
+      else count = code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
+      if (!add(count)) return false;
+    }
+    return true;
+  };
+  const visit = (item: unknown, depth: number): boolean => {
+    if (depth > 64) return false;
+    if (item === null) return add(4);
+    if (typeof item === 'string') return string(item);
+    if (typeof item === 'boolean') return add(item ? 4 : 5);
+    if (typeof item === 'number') return add(JSON.stringify(item).length);
+    if (typeof item !== 'object' || active.has(item)) return false;
+    active.add(item); let first = true;
+    try {
+      if (!add(2)) return false;
+      if (Array.isArray(item)) {
+        for (const child of item) {
+          if (!first && !add(1)) return false; first = false;
+          if (!visit(child === undefined || typeof child === 'function' || typeof child === 'symbol' ? null : child, depth + 1)) return false;
+        }
+      } else {
+        for (const key of Object.keys(item)) {
+          const child = (item as Record<string, unknown>)[key];
+          if (child === undefined || typeof child === 'function' || typeof child === 'symbol') continue;
+          if (!first && !add(1)) return false; first = false;
+          if (!string(key) || !add(1) || !visit(child, depth + 1)) return false;
+        }
+      }
+      return true;
+    } finally { active.delete(item); }
+  };
+  return Number.isSafeInteger(maximum) && maximum >= 0 && visit(value, 0);
+}
 function projection(value: unknown): value is LocalProjectTestDiscoveryProjection {
   return record(value) && fields(value, ['format', 'inputText', 'requestedInputDigest', 'binding', 'plan', 'definitions', 'inventory']) &&
     value['format'] === 'coglatas.local-test-discovery-projection/1' && text(value['inputText']) && digest(value['requestedInputDigest']) &&
@@ -42,7 +89,7 @@ function projection(value: unknown): value is LocalProjectTestDiscoveryProjectio
     ['Ready', 'StaleInput', 'Unavailable', 'ResourceLimit'].includes(String(value['inventory']['state'])) &&
     integer(value['inventory']['discoveredTests'], 256) && typeof value['inventory']['bindingComplete'] === 'boolean' &&
     typeof value['inventory']['evaluatorMatches'] === 'boolean' && Array.isArray(value['inventory']['tests']) && value['inventory']['tests'].length <= 256 &&
-    new TextEncoder().encode(JSON.stringify(value)).byteLength <= 4_194_304;
+    localTestJsonWithinByteLimit(value);
 }
 function basis(value: PreviewCase): string {
   return JSON.stringify({ context: value.context, desiredContext: value.desiredContext, freshness: value.freshness,
@@ -116,7 +163,9 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
     const matches = originals.filter(original => record(original) && original['entityId'] === definition.testId);
     if (matches.length !== 1 || !equal(parseLocalTestJson(definition.text), matches[0])) return fail();
     const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('coglatas.project-test-declaration/1\0' + definition.text));
-    return { ...definition, digest: Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('') };
+    const originalDigest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+    if (!matchesPinnedLocalTestDefinition(value.inputDigest.value, definition.testId, originalDigest)) return fail();
+    return { ...definition, digest: originalDigest };
   }));
   const declarations = value.declarations.filter(item => item.kind === 'coglatas.project-test')
     .sort((left, right) => left.identity < right.identity ? -1 : left.identity > right.identity ? 1 : 0);

@@ -72,7 +72,7 @@ export async function readScopedSources(value: PreviewCase): Promise<AdmittedSco
   if (value.scopedSources == null) return null;
   validatePreviewCaseBindings(value);
   const captured = basis(value); if (new TextEncoder().encode(captured).length > 16_777_216) return fail();
-  const v = structuredClone(value); const projection = v.scopedSources!;
+  const v = JSON.parse(captured) as PreviewCase; const projection = v.scopedSources!;
   const published = projection.format === 'coglatas.local-scoped-source-projection/2';
   if (!fields(projection, ['format', 'inputText', 'result', 'analysis', 'binding', 'graph', 'ir', 'sourceMap', 'regions', ...(published ? ['publication'] : [])]) ||
       !['coglatas.local-scoped-source-projection/1', 'coglatas.local-scoped-source-projection/2'].includes(projection.format) || new TextEncoder().encode(JSON.stringify(projection)).length > 4_194_304 ||

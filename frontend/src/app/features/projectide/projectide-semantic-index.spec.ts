@@ -192,7 +192,19 @@ it('replaces definition Source with an indexed Source while retaining the indexe
   const symbol = index.symbols.find(s => s.kind === 'coglatas.project')!; expect(store.selectIndexedSymbol(symbol)).toBe(true);
   // Reopen discovery after the indexed selection so both independently retained views are present.
   expect(await store.navigateDiscoveredTest(inventory.inventory.tests[0])).toBe(true);
+  expect(store.sourceTarget()).not.toBeNull(); expect(store.sourceLocation()).toEqual(inventory.inventory.tests[0].location);
   expect(store.selectedIndexedSymbol()).toBe(symbol); expect(store.navigateIndexedSymbol(symbol)).toBe(true);
   expect(store.sourceTarget()).toBeNull(); expect(store.sourceLocation()).toBeNull(); expect(store.testDiscoveryNavigationState()).toBe('idle');
   expect(store.scopedSourceTarget()).not.toBeNull(); expect(store.selectedIndexedSymbol()).toBe(symbol); expect(store.localTestDiscovery()).toBe(inventory);
+});
+
+
+it.each(['base', 'hypothesis', 'draft'])('opens the final indexed Test definition in %s without replacing an existing report', async suffix => {
+  const store = new ProjectIdeWorkbenchStore(); await store.load(async () => readPreviewBundle(raw())); store.choose('tests-index-' + suffix); store.loadResult();
+  expect(await store.loadLocalTests()).toBe(true); const report = store.localTests()!; expect(await store.loadLocalTestDiscovery()).toBe(true);
+  const inventory = store.localTestDiscovery()!; expect(inventory.inventory).toMatchObject({ state: 'Ready', discoveredTests: 36 });
+  expect(inventory.inventory.tests).toHaveLength(36); expect(new Set(inventory.inventory.tests.map(row => row.testId)).size).toBe(36);
+  const last = inventory.inventory.tests.find(row => row.displayName === 'Indexed reference 34')!; expect(last).toBeDefined();
+  expect(await store.navigateDiscoveredTest(last)).toBe(true); expect(store.sourceLocation()).toEqual(last.location);
+  expect(last.location.context).toEqual(store.context()!.context); expect(store.localTests()).toBe(report);
 });

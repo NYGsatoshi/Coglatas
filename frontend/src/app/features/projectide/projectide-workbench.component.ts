@@ -703,8 +703,9 @@ export class ProjectIdeWorkbenchComponent {
     if (loaded && generation === this.focusGeneration) this.open('source', true);
   }
   async loadLocalTestDiscovery(): Promise<void> {
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); return; }
+    if (this.store.testDiscoveryReadState() === 'loading') return;
     this.focusGeneration++;
-    if (!this.canRead()) { this.store.clear('denied'); return; }
     await this.store.loadLocalTestDiscovery();
     if (!this.canRead()) this.store.clear('denied');
   }

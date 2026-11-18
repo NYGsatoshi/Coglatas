@@ -29,17 +29,24 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (_disposed || generation != _testDiscoveryGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return null;
         cancellationToken.ThrowIfCancellationRequested();
         TestDiscovery = inventory;
-        bool cancelled;
+        bool cancelled; Exception? publicationFailure = null; Exception? withdrawalFailure = null;
         try { Changed(); }
+        catch (Exception error) { publicationFailure = error; }
         finally
         {
             cancelled = cancellationToken.IsCancellationRequested;
             if (cancelled && generation == _testDiscoveryGeneration && ReferenceEquals(TestDiscovery, inventory))
             {
-                ClearTestDiscovery(); Changed();
+                ClearTestDiscovery();
+                try { Changed(); } catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelled) throw new OperationCanceledException(cancellationToken);
+        if (publicationFailure is not null)
+        {
+            if (withdrawalFailure is not null) publicationFailure.Data["TestDiscoveryWithdrawalFailure"] = withdrawalFailure;
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(publicationFailure).Throw();
+        }
+        if (cancelled) throw new OperationCanceledException("Test discovery was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _testDiscoveryGeneration && lifecycle == _lifecycle &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(TestDiscovery, inventory) ? inventory : null;
     }

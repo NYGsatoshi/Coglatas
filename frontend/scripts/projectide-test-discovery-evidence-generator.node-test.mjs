@@ -11,21 +11,26 @@ const frontend = fileURLToPath(new URL('../', import.meta.url));
 const originalAssets = join(frontend, 'public/assets/projectide');
 const sourceGenerator = join(frontend, 'scripts/generate-projectide-test-discovery-evidence.mjs');
 const existingEvidence = readFileSync(join(frontend, 'src/app/features/projectide/projectide-test-discovery.evidence.ts'));
+const profiles = readdirSync(originalAssets).filter(name => name.endsWith('.json')).sort();
 const temporaryRoot = mkdtempSync(join(tmpdir(), 'projectide-evidence-generator-'));
 const isolatedFrontend = join(temporaryRoot, 'frontend');
 const isolatedGenerator = join(isolatedFrontend, 'scripts/generate-projectide-test-discovery-evidence.mjs');
 const output = join(isolatedFrontend, 'src/app/features/projectide/projectide-test-discovery.evidence.ts');
-const profiles = readdirSync(originalAssets).filter(name => name.endsWith('.json')).sort();
 const producer = join(temporaryRoot, 'producer');
-mkdirSync(dirname(isolatedGenerator), { recursive: true }); mkdirSync(dirname(output), { recursive: true }); mkdirSync(producer);
-copyFileSync(sourceGenerator, isolatedGenerator);
+const cleanup = () => { const root = resolve(temporaryRoot); assert.equal(dirname(root), resolve(tmpdir())); assert.match(basename(root), /^projectide-evidence-generator-/); rmSync(root, { recursive: true, force: true }); };
 const restore = () => { for (const profile of profiles) copyFileSync(join(originalAssets, profile), join(producer, profile)); writeFileSync(output, existingEvidence); };
-restore();
+try {
+  mkdirSync(dirname(isolatedGenerator), { recursive: true }); mkdirSync(dirname(output), { recursive: true }); mkdirSync(producer);
+  copyFileSync(sourceGenerator, isolatedGenerator); restore();
+} catch (error) {
+  try { cleanup(); } catch (cleanupFailure) { error.cause = cleanupFailure; }
+  throw error;
+}
+after(cleanup);
 const run = (preload) => spawnSync(process.execPath, [...(preload ? ['--require', preload] : []), isolatedGenerator, '--producer-dir', producer], { encoding: 'utf8', maxBuffer: 1048576 });
 const unchanged = () => { assert.ok(readFileSync(output).equals(existingEvidence), 'evidence bytes must remain exact'); assert.deepEqual(readdirSync(dirname(output)).filter(name => name.endsWith('.tmp')), []); };
 const mutate = (name, change) => { const file = join(producer, name); const value = JSON.parse(readFileSync(file, 'utf8')); change(value); writeFileSync(file, JSON.stringify(value)); };
 const failure = result => { assert.notEqual(result.status, 0, result.stdout); unchanged(); };
-after(() => { const root = resolve(temporaryRoot); assert.equal(dirname(root), resolve(tmpdir())); assert.match(basename(root), /^projectide-evidence-generator-/); rmSync(root, { recursive: true, force: true }); });
 
 test('complete isolated sample DTOs preserve the exact existing evidence bytes', () => {
   restore(); const result = run(); assert.equal(result.status, 0, result.stderr); assert.ok(readFileSync(output).equals(existingEvidence), 'evidence bytes must remain exact'); unchanged();
@@ -55,4 +60,11 @@ test('a rename failure preserves the previous evidence and removes the temporary
   restore(); const preload = join(temporaryRoot, 'fail-rename.cjs');
   writeFileSync(preload, "const fs=require('node:fs'); fs.renameSync=()=>{throw Object.assign(new Error('injected rename failure'),{code:'EACCES'});};require('node:module').syncBuiltinESMExports();");
   const result = run(preload); failure(result); assert.match(result.stderr, /injected rename failure/);
+});
+
+
+test('a hash-valid plan from a different compiler input is refused before replacing evidence', () => {
+  restore(); const other = JSON.parse(readFileSync(join(producer, 'preview-v1.json'), 'utf8')).cases.find(value => value.key === 'tests-pass').localProjectTestDiscovery.plan;
+  mutate('test-discovery-v1.json', bundle => { bundle.cases[0].localProjectTestDiscovery.plan = other; });
+  const result = run(); failure(result); assert.match(result.stderr, /Original Core plan belongs to another compiler input/);
 });

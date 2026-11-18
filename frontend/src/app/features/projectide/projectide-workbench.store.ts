@@ -1006,10 +1006,12 @@ export class ProjectIdeWorkbenchStore {
   readonly testDiscoveryNavigationState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly testDiscoverySnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
   readonly localTestDiscovery = (): AdmittedProjectTestDiscovery | null => {
-    const snapshot = this.testDiscoverySnapshot();
+    try {
+      const snapshot = this.testDiscoverySnapshot();
     return snapshot && this.state() === 'ready' && snapshot.bundle === this.bundle() && snapshot.bundle.cases.includes(snapshot.context) && snapshot.context === this.context() && snapshot.context === this.result() &&
       snapshot.sourceMap === snapshot.context.sourceMap && snapshot.source === snapshot.context.source && snapshot.manifest === snapshot.context.manifest &&
       snapshot.declarations === snapshot.context.declarations && localTestDiscoveryMatchesCase(snapshot.context, snapshot.admitted) ? snapshot.admitted : null;
+    } catch { return null; }
   };
   async loadLocalTestDiscovery(): Promise<boolean> {
     this.clearLocalTestDiscovery();
@@ -1022,8 +1024,8 @@ export class ProjectIdeWorkbenchStore {
     try {
       readPreviewBundle(bundle);
       const admitted = await readLocalTestDiscovery(context);
-      if (generation !== this.testDiscoveryGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
-      if (!bundle.cases.includes(context)) {
+      if (generation !== this.testDiscoveryGeneration) return false;
+      if (context !== this.context() || context !== this.result() || bundle !== this.bundle() || !bundle.cases.includes(context)) {
         this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable'); return false;
       }
       if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
@@ -1034,8 +1036,10 @@ export class ProjectIdeWorkbenchStore {
       if (!localTestDiscoveryMatchesCase(context, admitted)) throw new Error('stale-local-test-discovery');
       this.testDiscoverySnapshot.set({ bundle, context, admitted, ...materialization }); this.testDiscoveryReadState.set('ready'); return true;
     } catch {
-      if (generation === this.testDiscoveryGeneration && context === this.context() && context === this.result()) {
-        this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('unsupported');
+      if (generation === this.testDiscoveryGeneration) {
+        if (context !== this.context() || context !== this.result() || bundle !== this.bundle() || !bundle.cases.includes(context)) {
+          this.clearLocalTestDiscovery(); this.testDiscoveryReadState.set('unavailable');
+        } else { this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('unsupported'); }
       }
       return false;
     }
@@ -1099,7 +1103,7 @@ export class ProjectIdeWorkbenchStore {
       const admitted = await readLocalTests(context);
       if (generation !== this.testGeneration || context !== this.context() || context !== this.result() || bundle !== this.bundle()) return false;
       if (materialization.sourceMap !== context.sourceMap || materialization.source !== context.source || materialization.manifest !== context.manifest || materialization.declarations !== context.declarations) {
-        this.clearLocalTests(); this.testReadState.set('unavailable'); return false;
+        this.clearLocalTestReport(); this.testReadState.set('unavailable'); return false;
       }
       readPreviewBundle(bundle);
       if (!admitted) { this.testReadState.set('unavailable'); return false; }
@@ -1119,7 +1123,8 @@ export class ProjectIdeWorkbenchStore {
     if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
     return this.navigateLocation(assertion.location);
   }
-  private clearLocalTests(): void { this.clearLocalTestDiscovery(); this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
+  private clearLocalTestReport(): void { this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
+  private clearLocalTests(): void { this.clearLocalTestDiscovery(); this.clearLocalTestReport(); }
   private generation = 0;
   private controller: AbortController | null = null;
   readonly diagnostic = computed(() => {

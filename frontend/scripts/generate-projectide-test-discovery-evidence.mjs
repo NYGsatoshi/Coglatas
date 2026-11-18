@@ -39,7 +39,15 @@ for (const profile of profiles) {
     const digest = value => value?.algorithm === 'sha-256' && typeof value.value === 'string' && /^[a-f0-9]{64}$/.test(value.value);
     if (!digest(projection.plan?.digest) || typeof projection.plan.text !== 'string' ||
         createHash('sha256').update('coglatas.project-test-plan/1\0' + projection.plan.text).digest('hex') !== projection.plan.digest.value || !digest(projection.requestedInputDigest)) throw new Error('Invalid original Core plan/request identity.');
-    const evidence = { planDigest: projection.plan.digest.value, requestedInputDigest: projection.requestedInputDigest.value, retainedTests: entries };
+    const plan = JSON.parse(projection.plan.text);
+    if (plan.compilerInputId !== value.inputId || canonical(plan.inputDigest) !== canonical(input)) throw new Error('Original Core plan belongs to another compiler input.');
+    if (!Array.isArray(projection.definitions) || projection.definitions.length > 256) throw new Error('Invalid original definition bytes.');
+    const definitions = projection.definitions.map(item => {
+      if (typeof item.testId !== 'string' || typeof item.text !== 'string') throw new Error('Invalid original definition bytes.');
+      return [item.testId, createHash('sha256').update('coglatas.project-test-declaration/1\0' + item.text).digest('hex')];
+    }).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    if (new Set(definitions.map(([id]) => id)).size !== definitions.length) throw new Error('Duplicate original definition.');
+    const evidence = { planDigest: projection.plan.digest.value, requestedInputDigest: projection.requestedInputDigest.value, retainedTests: entries, definitions };
     const previous = pins.get(input.value);
     if (previous && canonical(previous) !== canonical(evidence)) throw new Error('One original Core input has conflicting retention.');
     pins.set(input.value, evidence); projectedCases++;
@@ -48,12 +56,14 @@ for (const profile of profiles) {
 const ordered = [...pins].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
 const body = '// Generated explicitly from all original Core producer profiles.\n// Fixed synthetic example integrity only; no Registry, producer Trust, execution or access grant.\n// Do not regenerate from served projections during tests or build.\n' +
   "type CoreStatus = 'Decoded' | 'Invalid' | 'Unsupported';\n" +
-  'interface PinnedEvidence { readonly planDigest: string; readonly requestedInputDigest: string; readonly retainedTests: readonly (readonly [string, CoreStatus])[]; }\n' +
+  'interface PinnedEvidence { readonly planDigest: string; readonly requestedInputDigest: string; readonly retainedTests: readonly (readonly [string, CoreStatus])[]; readonly definitions: readonly (readonly [string, string])[]; }\n' +
   'const evidenceByInput = new Map<string, PinnedEvidence>(\n' + JSON.stringify(ordered, null, 2) + '\n);\n\n' +
   'export function matchesPinnedLocalTestEvidence(inputDigest: string, planDigest: string, requestedInputDigest: string, tests: readonly { readonly testId: string; readonly decodeStatus: string }[]): boolean {\n' +
   '  const expected = evidenceByInput.get(inputDigest);\n  if (!expected || expected.planDigest !== planDigest || expected.requestedInputDigest !== requestedInputDigest || expected.retainedTests.length !== tests.length) return false;\n' +
   '  const actual = new Map(tests.map(test => [test.testId, test.decodeStatus]));\n' +
-  '  return actual.size === tests.length && expected.retainedTests.every(([testId, status]) => actual.get(testId) === status);\n}\n';
+  '  return actual.size === tests.length && expected.retainedTests.every(([testId, status]) => actual.get(testId) === status);\n}\n\n' +
+  'export function matchesPinnedLocalTestDefinition(inputDigest: string, testId: string, digest: string): boolean {\n' +
+  '  return evidenceByInput.get(inputDigest)?.definitions.some(([id, expected]) => id === testId && expected === digest) ?? false;\n}\n';
 const output = fileURLToPath(new URL('../src/app/features/projectide/projectide-test-discovery.evidence.ts', import.meta.url));
 const temporary = output + '.' + randomUUID() + '.tmp';
 try {

@@ -121,3 +121,9 @@ it('keeps admitted scoped Sources current when only the independent discovery pr
   expect(localTestDiscoveryMatchesCase(value, discovery)).toBe(false); expect(scopedSourcesMatch(value, source)).toBe(true);
   const region = source.regions[0]; expect(resolveScopedSource(value, source, region.records[0].location)).not.toBeNull();
 });
+
+
+it('does not clone unrelated discovery data while admitting bounded Source-only evidence', async () => {
+  const value = fixture(); Object.assign(value.localProjectTestDiscovery!, { unrelated: () => { throw new Error('unused discovery data'); } });
+  const source = (await readScopedSources(value))!; expect(source).not.toBeNull(); expect(scopedSourcesMatch(value, source)).toBe(true);
+});
