@@ -40,6 +40,16 @@ managed heap size or a performance SLA. Private collection storage preserves
 prior model facts and rejects generic mutation. Callers own lifecycle clearing;
 retention is not a current permission grant.
 
+Each binding attempt captures the session identity, root owner and invalidation
+epoch before reading external supplies. Clear or an owner change invalidates
+that attempt: later reads decode current declarations and bind current symbols
+without consulting or repopulating retained entries, preserving the new owner's
+existing session. Lightweight noncanonical model metadata carries the original
+symbol lifetime through later dependency regions and full Compile continuation.
+The token retains no cache object or Source and grants no authority. A deliberately
+different caller-owned session starts independently. Existing context/codec keys,
+Tenant checks, logical charges and public/canonical contracts remain unchanged.
+
 ## Local adoption and qualification
 
 Ordinary PureCoreCompiler compilation, direct Binder/closure calls and the local
@@ -54,7 +64,11 @@ Product regressions cover actual unchanged-symbol identity, edited dependency
 ports/kinds, new root revisions, loss/revocation/mismatched pins, partial coverage,
 all global input dimensions, document/codec identity, bounded retention, ownership
 switches, private storage, resource Tenant checks, concurrent local-host
-requests and cancellation. Current execution and source/artifact qualification
+requests and cancellation. Deterministic public controls invalidate during actual
+snapshot supply, before later dependency regions and after actual root binding
+within full compilation; they check retained count/bytes, preservation of a new
+foreign owner's exact symbol objects, fresh canonical results and a separate
+session's positive control. Current execution and source/artifact qualification
 belong to the PR evidence.
 
 The same differential oracle now builds the full regional semantic index from

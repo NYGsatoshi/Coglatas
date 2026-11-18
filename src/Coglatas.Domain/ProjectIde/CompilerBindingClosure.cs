@@ -74,6 +74,7 @@ public sealed class CompilerBindingClosure
         ArgumentNullException.ThrowIfNull(root); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
         var input = root.Input; var remaining = remainingOperations ?? input.ExecutionProfile.MaximumOperations - root.LogicalOperationsConsumed;
         var referenceScope = referenceBindingCache?.ContinueBinding(input.Source.Context.Branch, root.ReferenceScope, cancellationToken);
+        var symbolScope = symbolBindingCache?.ContinueBinding(input.Source.Context.Branch, root.SymbolScope, cancellationToken);
         var regions = new List<CompilerBindingRegion>();
         CompilerBindingClosure Finish(CompilerBindingClosureState state)
         {
@@ -138,7 +139,7 @@ public sealed class CompilerBindingClosure
                 settings["executionProfile"]!["maximumOperations"] = remaining;
                 var regionInput = new CompilerInputManifest(snapshot.Snapshot.Source, SourceJson.FromObject(settings, input.Settings.Limits));
                 var model = ProjectSemanticBinder.BindRegion(regionInput,
-                    root.MaterializedSnapshots.Where(item => !item.Snapshot.Source.Context.Equals(context)), input, cancellationToken, declarationCache, symbolBindingCache, referenceBindingCache, referenceScope);
+                    root.MaterializedSnapshots.Where(item => !item.Snapshot.Source.Context.Equals(context)), input, cancellationToken, declarationCache, symbolBindingCache, referenceBindingCache, referenceScope, symbolScope);
                 remaining -= model.LogicalOperationsConsumed;
                 regions.Add(new(input, model, snapshot));
                 if (!model.BindingComplete) return Finish(remaining <= 0 || model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal))
