@@ -178,7 +178,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         Assert.NotEqual(Guid.Empty, record.Id);
         Assert.Equal((fixture.Tenant.Id, fixture.Actor.Id, "TaskExecution.Run.v1", "TaskExecutionRun", retainedRunId),
             (record.TenantId, record.ActorUserId, record.Operation, record.ResourceType, record.ResourceId));
-        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("retained-admission-run"))), record.KeyHash);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData("retained-admission-run"u8)), record.KeyHash);
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fixture.TaskItem.Id.ToString("N")))), record.RequestHash);
         var change = Assert.Single(await fixture.Db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().ToListAsync());
         Assert.NotEqual(Guid.Empty, change.Id);
@@ -245,7 +245,7 @@ public sealed partial class TaskExecutionScopeServiceTests
         return rows.Select(row =>
             {
                 var properties = fixture.Db.Entry(row).Properties.ToArray();
-                Assert.Empty(properties.Where(property => property.Metadata.IsShadowProperty()));
+                Assert.DoesNotContain(properties, property => property.Metadata.IsShadowProperty());
                 return properties.OrderBy(property => property.Metadata.Name)
                     .ToDictionary(property => property.Metadata.Name, property => property.CurrentValue);
             })

@@ -235,7 +235,7 @@ DO $capture$ DECLARE item record; value_count bigint; value_digest text; BEGIN
 SELECT coalesce(json_agg(json_build_array(schema_name,table_name,row_count,data_digest) ORDER BY schema_name COLLATE "C",table_name COLLATE "C"),'[]') FROM recovery_rows;
 COMMIT;`;
 
-const CATALOG_SQL = String.raw`
+export const CATALOG_SQL = String.raw`
 SELECT json_build_object(
  'relations',(SELECT coalesce(json_agg(json_build_array(n.nspname,c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity,c.relreplident,c.reloptions,c.relacl::text,pg_get_userbyid(c.relowner)) ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C"),'[]')
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),
