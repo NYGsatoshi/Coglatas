@@ -130,8 +130,30 @@ describe('ProjectIDE Workbench components', () => {
     await c.loadLocalTestDiscovery(); fixture.detectChanges();
     expect(c.store.localTestDiscovery()!.inventory.state).toBe('Unavailable');
     expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).toContain(c.t('ide.discoveryUnavailable'));
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"] dl')).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryCounts', { tests: 0 }));
     expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(0); expect(c.store.localTests()).toBeNull();
   });
+  for (const locale of ['en', 'ja'] as const) {
+    it.each([['tests-stale', 'StaleInput'], ['tests-exhausted', 'ResourceLimit']])('does not present refused %s counts or evaluator claims in ' + locale, async (key, state) => {
+      const { c, fixture, root } = await render(); c.i18n.setLocale(locale); c.choose(key); c.loadResult(); c.open('tests');
+      await c.loadLocalTestDiscovery(); fixture.detectChanges();
+      expect(c.store.localTestDiscovery()!.inventory.state).toBe(state);
+      const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+      expect(summary.textContent).toContain(c.discoveryValue(state));
+      expect(summary.textContent).not.toContain(c.t('ide.discoveryCounts', { tests: 0 }));
+      expect(summary.querySelector('dl')).toBeNull();
+      expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(0);
+    });
+    it('keeps a ready empty inventory count and binding flags visible in ' + locale, async () => {
+      const { c, fixture, root } = await render(); c.i18n.setLocale(locale); c.choose('tests-empty'); c.loadResult(); c.open('tests');
+      await c.loadLocalTestDiscovery(); fixture.detectChanges();
+      expect(c.store.localTestDiscovery()!.inventory.state).toBe('Ready');
+      const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+      expect(summary.textContent).toContain(c.t('ide.discoveryCounts', { tests: 0 }));
+      expect(summary.querySelector('dl')).not.toBeNull(); expect(summary.textContent).toContain(c.t('ide.discoveryEvaluator'));
+    });
+  }
   it('withdraws a pending inventory before a denied actor can view definitions', async () => {
     const { c, fixture, root, authenticated } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests');
     const pending = c.loadLocalTestDiscovery(); authenticated.set(false); await pending; fixture.detectChanges();

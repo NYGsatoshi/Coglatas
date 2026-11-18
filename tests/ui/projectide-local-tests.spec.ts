@@ -95,13 +95,19 @@ for (const locale of ['en', 'ja'] as const) {
     for (const key of ['tests-stale', 'tests-exhausted']) {
       await choose(key); await page.getByRole('button', { name: list, exact: true }).click();
       await expect(rows).toHaveCount(0); await expect(page.getByTestId('ide-test-discovery-summary')).toBeVisible();
+      await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(0);
+      await expect(page.getByTestId('ide-test-discovery-summary')).not.toContainText(locale === 'en' ? 'Definitions listed: 0' : '表示した定義: 0');
     }
+    await choose('tests-empty'); await page.getByRole('button', { name: list, exact: true }).click();
+    await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(1);
+    await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'Definitions listed: 0' : '表示した定義: 0');
     await page.getByTestId('ide-test-discovery-example').click();
     await page.getByTestId('ide-context').selectOption('tests-discovery-unavailable');
     await page.getByRole('button', { name: load, exact: true }).click(); await page.getByRole('button', { name: tests, exact: true }).click();
     await page.getByRole('button', { name: list, exact: true }).click();
     await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'full definition inventory is unavailable' : '定義の全件一覧を取得できません');
     await expect(rows).toHaveCount(0); await expect(page.getByTestId('ide-tests-summary')).toHaveCount(0);
+    await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(0);
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); expect(writes).toEqual([]);
   });
 }

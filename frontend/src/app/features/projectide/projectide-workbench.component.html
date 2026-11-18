@@ -239,11 +239,13 @@
                 @if (store.localTestDiscovery(); as discovery) {
                   <div data-testid="ide-test-discovery-summary" aria-live="polite">
                     <p>{{ discoveryValue(discovery.inventory.state) }}</p>
-                    <p>{{ t('ide.discoveryCounts', { tests: discovery.inventory.discoveredTests }) }}</p>
-                    <dl>
-                      <div><dt>{{ t('ide.discoveryBinding') }}</dt><dd>{{ t(discovery.inventory.bindingComplete ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
-                      <div><dt>{{ t('ide.discoveryEvaluator') }}</dt><dd>{{ t(discovery.inventory.evaluatorMatches ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
-                    </dl>
+                    @if (discovery.inventory.state === 'Ready') {
+                      <p>{{ t('ide.discoveryCounts', { tests: discovery.inventory.discoveredTests }) }}</p>
+                      <dl>
+                        <div><dt>{{ t('ide.discoveryBinding') }}</dt><dd>{{ t(discovery.inventory.bindingComplete ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
+                        <div><dt>{{ t('ide.discoveryEvaluator') }}</dt><dd>{{ t(discovery.inventory.evaluatorMatches ? 'ide.discoveryYes' : 'ide.discoveryNo') }}</dd></div>
+                      </dl>
+                    }
                   </div>
                   <ol class="local-tests" data-testid="ide-test-discovery-rows" [start]="discoveryPage() * 32 + 1">
                     @for (test of discoveryRows(); track test.testId) {

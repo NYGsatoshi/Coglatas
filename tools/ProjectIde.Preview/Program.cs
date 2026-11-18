@@ -230,7 +230,6 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         using var cancellation = new CancellationTokenSource();
         if (name == "tests-cancelled") cancellation.Cancel();
         var expected = name == "tests-stale" ? ContentDigest.Compute("coglatas.synthetic-stale-test-input/1", []) : input.InputDigest;
-        var inventory = plan.Discover(expected);
         var testRun = plan.Execute(expected, cancellation.Token);
         var testDeclarations = PlanDeclarationReader.Read(input.Source).Where(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test")
             .OrderBy(item => item.Data.Value.GetProperty("entityId").GetString(), StringComparer.Ordinal).ToArray();
@@ -243,21 +242,26 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
                 { testId = item.Data.Value.GetProperty("entityId").GetString(), key = assertion.Key, text = assertion.Data.CanonicalText })).ToArray() };
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
         fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection);
-        // Discovery is a separate Core query and projection; a consumer need not load a Test run.
-        fixture["localProjectTestDiscovery"] = JsonSerializer.SerializeToNode(new
+        // The independently pinned debugger profile retains its original byte contract.
+        if (!debugProfile)
         {
-            format = "coglatas.local-test-discovery-projection/1", inputText = input.Data.CanonicalText,
-            requestedInputDigest = expected.Data.Value,
-            plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
-            definitions = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
-            inventory = new
+            var inventory = plan.Discover(expected);
+            // Discovery is a separate Core query and projection; a consumer need not load a Test run.
+            fixture["localProjectTestDiscovery"] = JsonSerializer.SerializeToNode(new
             {
-                state = inventory.State.ToString(), inputDigest = inventory.InputDigest?.Data.Value, planDigest = inventory.PlanDigest?.Data.Value,
-                discoveredTests = inventory.DiscoveredTests, bindingComplete = inventory.BindingComplete, evaluatorMatches = inventory.EvaluatorMatches,
-                tests = inventory.Tests.Select(test => new { testId = test.TestId.ToString(), location = test.Location.Data.Value,
-                    displayName = test.DisplayName, decodeStatus = test.DecodeStatus.ToString(), assertionCount = test.AssertionCount }).ToArray()
-            }
-        });
+                format = "coglatas.local-test-discovery-projection/1", inputText = input.Data.CanonicalText,
+                requestedInputDigest = expected.Data.Value,
+                plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
+                definitions = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
+                inventory = new
+                {
+                    state = inventory.State.ToString(), inputDigest = inventory.InputDigest?.Data.Value, planDigest = inventory.PlanDigest?.Data.Value,
+                    discoveredTests = inventory.DiscoveredTests, bindingComplete = inventory.BindingComplete, evaluatorMatches = inventory.EvaluatorMatches,
+                    tests = inventory.Tests.Select(test => new { testId = test.TestId.ToString(), location = test.Location.Data.Value,
+                        displayName = test.DisplayName, decodeStatus = test.DecodeStatus.ToString(), assertionCount = test.AssertionCount }).ToArray()
+                }
+            });
+        }
         cases[^1] = fixture;
     }
     if (name == "tests-edit-before")
