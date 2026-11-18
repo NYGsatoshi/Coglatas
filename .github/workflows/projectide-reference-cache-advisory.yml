@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 env:
-  SOURCE_BLOB: c43f357d8387be13c1ab3106193277c8455c653c
-  RUNNER_BLOB: d7d3e26d3f32b23ac822f172be197dffdc246f06
-  CONTROLS_BLOB: 473773cc8fe88f42b999a2352be647836f80c603
+  SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
+  RUNNER_BLOB: 4652aa7e9bade4554af0d206765ee06151935ea9
+  CONTROLS_BLOB: db7c8b6508200fd0b1d8abea887b1749a0105078
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}
@@ -30,9 +30,11 @@ jobs:
         include:
           - mode: corrected
             product: 71c261b1beabd8f93383ee059aab14d800b4339c
+            product_tree: c3bcc23a211c3e32d073c2e38ba7ccd56bb5e843
             scope: SYNTHETIC_REFERENCE_CACHE_CORE_ONLY
           - mode: historical-red
             product: ee6ab354c1f9bdcc9d181e4b329954af7f50d852
+            product_tree: 5f8e0ce0b56ee5812277f5582de41ef9ee85fedd
             scope: SYNTHETIC_REFERENCE_CACHE_HISTORICAL_LIFETIME_ONLY
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -40,6 +42,7 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       PRODUCT_HEAD: ${{ matrix.product }}
+      PRODUCT_TREE: ${{ matrix.product_tree }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -66,8 +69,15 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-reference-cache/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
-          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
-          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit missing' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve immutable Product commit' }
+          }
+          $product = git rev-parse "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $product -ne $env:PRODUCT_HEAD) { throw 'Exact Product commit mismatch' }
+          $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0 -or $productTree -ne $env:PRODUCT_TREE) { throw 'Exact Product tree mismatch' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
           if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy missing' }
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
@@ -140,9 +150,11 @@ jobs:
         include:
           - mode: corrected
             product: 71c261b1beabd8f93383ee059aab14d800b4339c
+            product_tree: c3bcc23a211c3e32d073c2e38ba7ccd56bb5e843
             scope: SYNTHETIC_REFERENCE_CACHE_CORE_ONLY
           - mode: historical-red
             product: ee6ab354c1f9bdcc9d181e4b329954af7f50d852
+            product_tree: 5f8e0ce0b56ee5812277f5582de41ef9ee85fedd
             scope: SYNTHETIC_REFERENCE_CACHE_HISTORICAL_LIFETIME_ONLY
     runs-on: windows-latest
     timeout-minutes: 35
@@ -150,6 +162,7 @@ jobs:
       DOTNET_CLI_UI_LANGUAGE: en-US
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       PRODUCT_HEAD: ${{ matrix.product }}
+      PRODUCT_TREE: ${{ matrix.product_tree }}
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -176,8 +189,15 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
           $controls = git rev-parse 'HEAD:tests/candidates/projectide-reference-cache/test_compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
-          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
-          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit missing' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve immutable Product commit' }
+          }
+          $product = git rev-parse "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $product -ne $env:PRODUCT_HEAD) { throw 'Exact Product commit mismatch' }
+          $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0 -or $productTree -ne $env:PRODUCT_TREE) { throw 'Exact Product tree mismatch' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
           if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy missing' }
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'

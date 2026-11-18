@@ -418,13 +418,18 @@ class WorkingTreeControls(ExactRejection):
         exclusions.write_text("data/\nartifacts/\nnode_modules/\nbin/\nobj/\n", encoding="utf-8")
         for relative in ("tests/Coglatas.Tests/data/Injected.cs", "artifacts/Injected.cs",
                          "node_modules/Injected.cs", "tests/Coglatas.Tests/ProjectIde/bin/Injected.cs",
-                         "src/Coglatas.Domain/ProjectIde/obj/Injected.cs"):
+                         "src/Coglatas.Domain/ProjectIde/obj/Injected.cs",
+                         " tests/Coglatas.Tests/obj/Injected.cs"):
             with self.subTest(path=relative):
                 path = self.repository / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("// Ignored non-generated compiler input.\n", encoding="utf-8")
                 self.assertEqual("", fixture_git(self.repository, "ls-files", "--others", "--exclude-standard"))
-                self.assertIn(relative, fixture_git(self.repository, "ls-files", "--others").splitlines())
+                raw_paths = RUNNER.command(["git", "ls-files", "--others", "-z"],
+                                           self.repository, preserve_output=True)
+                self.assertIn(relative, raw_paths.split("\0"))
+                if relative.startswith(" "):
+                    self.assertTrue(raw_paths.strip().startswith(RUNNER.GENERATED_OUTPUT_PREFIXES))
                 self.reject("Untracked Product source appeared during independent composition", lambda:
                     RUNNER.verify_working_tree(self.repository, self.RAW, self.blob, allow_generated=True))
                 path.unlink()

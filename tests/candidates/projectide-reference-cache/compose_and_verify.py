@@ -222,7 +222,9 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, product
         raise ValueError("Tracked Product source changed during independent composition")
     # Git ignore rules are not compiler-input exclusions. Only the actual fixed
     # project graph's root SDK outputs may appear after restore/build begins.
-    untracked = [name for name in git(worktree, "ls-files", "--others", "-z").split("\0") if name]
+    untracked_raw = command(["git", "-c", "core.autocrlf=false", "ls-files", "--others", "-z"],
+                            worktree, preserve_output=True)
+    untracked = [name for name in untracked_raw.split("\0") if name]
     if any(not (allow_generated and name.startswith(GENERATED_OUTPUT_PREFIXES)) for name in untracked):
         raise ValueError("Untracked Product source appeared during independent composition")
 

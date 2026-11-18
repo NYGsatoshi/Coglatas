@@ -36,6 +36,11 @@ The same complete C# bytes are compiled for both Product versions. Only the
 frozen executed selection differs; historical code is not rewritten to produce
 an expected failure.
 
+The workflow retrieves a missing Product object from the public origin using
+only its full immutable SHA, then checks both the resolved commit and tree before
+reading its SDK policy. A complete branch/tag checkout need not contain the old
+unmerged source commit retained by a closed pull request.
+
 ## Required observations
 
 | Area | Independent observations |
@@ -53,6 +58,12 @@ The three-context graph and every branch/tenant identity are synthetic constants
 The concurrency control is a finite correctness regression, not stress testing or
 a timing/performance claim. All ordinary logical operation, transport and query
 limits are preserved.
+
+The full-index control uses each actual whole compilation's
+`Dependencies.Binding`, whose declared-snapshot scope is asserted explicitly.
+The separately rebuilt reachable-only public closure must still produce an
+Incomplete index with incomplete coverage. Fresh complete indexes retain their
+strict canonical-data and foreign-cursor refusal assertions.
 
 ## Original historical RED
 
@@ -130,6 +141,23 @@ Every leg retains its original C# source, SDK/restore/test/discovery logs, TRX,
 source/receipt hashes, workflow context and separate verifier-control log. A
 failed attempt remains failed historical evidence; it is never relabelled after
 a later source correction.
+
+## Retained initial diagnostic attempt
+
+[PR #2083 run 44240613367](https://github.com/NYGsatoshi/Coglatas/actions/runs/44240613367)
+at Security head `e43cc8b6f35d12c8876abfe72d6a740a8e8c8748` is a failed attempt.
+Both corrected-host jobs compiled and executed all 24 native facts: 23 passed and
+`FullCompilationAndFreshIndexesKeepCanonicalBytesChargesAndCursorOwnership`
+failed because the test supplied the public reachable-only closure while
+expecting a complete declared-snapshot index. The corrected setup above consumes
+the actual full-compilation dependency closure and retains the reachable-only
+negative control. The original results remain 23 PASS / 1 FAIL per host.
+
+Both historical jobs stopped before native execution because the historical
+Product object was absent from the branch/tag checkout. Explicit immutable-SHA
+retrieval addresses that setup failure. This attempt establishes neither
+historical native RED nor corrected 24-case GREEN; fresh four-leg originals are
+required after the source correction.
 
 ## Remaining boundaries
 

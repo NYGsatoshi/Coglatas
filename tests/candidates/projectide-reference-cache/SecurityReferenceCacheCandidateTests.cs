@@ -451,8 +451,15 @@ public sealed class SecurityReferenceCacheCandidateTests
         var second = Compile(fixture, cache);
         AssertCompilationEquivalent(expected, first);
         AssertCompilationEquivalent(expected, second);
-        var firstClosure = CompilerBindingClosure.Build(first.Model!, fixture.Input.InputDigest);
-        var secondClosure = CompilerBindingClosure.Build(second.Model!, fixture.Input.InputDigest);
+        var reachableOnly = CompilerBindingClosure.Build(first.Model!, fixture.Input.InputDigest);
+        Assert.False(reachableOnly.IncludesDeclaredSnapshots);
+        var partialIndex = CompilerSemanticIndex.Build(reachableOnly, fixture.Input.InputDigest);
+        Assert.Equal(CompilerSemanticIndexState.Incomplete, partialIndex.State);
+        Assert.False(partialIndex.IndexCoverageComplete);
+        var firstClosure = first.Dependencies!.Binding;
+        var secondClosure = second.Dependencies!.Binding;
+        Assert.True(firstClosure.IncludesDeclaredSnapshots);
+        Assert.True(secondClosure.IncludesDeclaredSnapshots);
         var oldIndex = CompilerSemanticIndex.Build(firstClosure, fixture.Input.InputDigest);
         var index = CompilerSemanticIndex.Build(secondClosure, fixture.Input.InputDigest);
         Assert.Equal(CompilerSemanticIndexState.Complete, index.State);
