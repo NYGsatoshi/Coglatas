@@ -419,6 +419,25 @@ class UntrackedInputControls(ExactRejection):
     def verify(self, phase: str = "source") -> None:
         RUNNER.verify_working_tree(self.repository, self.raw_sources, self.source_blobs, phase=phase)
 
+    def test_index_masks_cannot_hide_tracked_product_edits_in_any_phase(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        original_blob = fixture_git(self.repository, "rev-parse", ":product.txt")
+        for flag, reverse in (("--assume-unchanged", "--no-assume-unchanged"),
+                              ("--skip-worktree", "--no-skip-worktree")):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", flag, "--", "product.txt")
+                tracked.write_bytes(original + b"Hidden Product compiler input edit\n")
+                try:
+                    self.assertEqual(original_blob, fixture_git(self.repository, "rev-parse", ":product.txt"))
+                    self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                    for phase in ("source", "dependencies", "tests"):
+                        self.reject("Git index flags hide tracked Product source", lambda: self.verify(phase))
+                finally:
+                    fixture_git(self.repository, "update-index", reverse, "--", "product.txt")
+                    tracked.write_bytes(original)
+                self.verify()
+
     def test_ignored_compile_inputs_are_rejected_in_every_phase(self) -> None:
         for name in ("Injected.d.ts", "Injected.ts", "tsconfig.json"):
             relative = "frontend/src/app/data/" + name

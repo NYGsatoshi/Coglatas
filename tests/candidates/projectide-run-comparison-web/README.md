@@ -96,16 +96,19 @@ independent artifact audit also checks the executing commit against GitHub's
 original commit metadata. A clean checkout retains an explicitly empty
 `source-status.txt`, rather than omitting the file when Git emits no status rows.
 
-After real execution, **22 separate Python admission controls** include the
+After real execution, **23 separate Python admission controls** include the
 original 19 that consume that
 host's original JSON, retained source bytes and receipt. Disposable Git probes
 exercise source/index/mode/Product drift, command failure and inherited Git
 redirects. Their controlled subprocess responses add no fresh Angular or native
 execution credit. They retain a separate original-JSON hash, exact control log
 and `angularCommandsExecuted: false`; original execution artifacts stay unchanged.
-The three additional controls use only disposable Git to reject ignored compiler
-inputs and nested output names, and admit the exact outputs at the appropriate
-phase. They can also run locally without constructing a native receipt.
+The four additional controls use only disposable Git to reject ignored compiler
+inputs, nested output names and tracked edits hidden by assume-unchanged or
+skip-worktree index flags, and admit exact outputs at the appropriate phase.
+The index check uses raw NUL-delimited records before relying on tracked diffs
+and applies during source, dependency and test phases. These controls can also
+run locally without constructing a native receipt.
 
 Artifacts retain original source, JSON, process logs, Product/Test/composed-tree
 identities, workflow context and hashes. Current-HEAD ordinary CI, the original
