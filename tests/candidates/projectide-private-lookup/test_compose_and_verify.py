@@ -245,6 +245,18 @@ class NativeInventoryControls(ExactRejection):
         ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
         return RUNNER.native_inventory(self.report)
 
+    def test_nested_results_are_rejected_with_unchanged_native_counters(self) -> None:
+        for historical in (False, True):
+            for outcome in ("NotExecuted", "Passed"):
+                with self.subTest(historical=historical, outcome=outcome):
+                    root = historical_fixture() if historical else native_fixture()
+                    case = root.find(NAMESPACE + "Results/" + NAMESPACE + "UnitTestResult")
+                    inner = ET.SubElement(case, NAMESPACE + "InnerResults")
+                    ET.SubElement(inner, NAMESPACE + "UnitTestResult", outcome=outcome)
+                    ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
+                    self.reject("Native TRX contains nested result records",
+                                lambda: RUNNER.native_inventory(self.report, historical=historical))
+
     def test_complete_native_shape_and_discovery_match(self) -> None:
         self.assertEqual(IDENTITIES, self.read(native_fixture()))
         for newline in ("\n", "\r\n"):
@@ -313,6 +325,14 @@ class NativeInventoryControls(ExactRejection):
 
 
 class EnvironmentControls(ExactRejection):
+    def test_exact_native_sdk_commands_exclude_external_build_imports(self) -> None:
+        for command in ("restore", "test"):
+            args = RUNNER.source_only_dotnet(command, "tests/Coglatas.Tests/Coglatas.Tests.csproj")
+            self.assertEqual(["dotnet", command], args[:2])
+            self.assertEqual(list(RUNNER.SOURCE_ONLY_MSBUILD_PROPERTIES), args[2:4])
+        with self.assertRaises(ValueError):
+            RUNNER.source_only_dotnet("publish")
+
     def test_git_environment_removes_overrides_and_preserves_other_settings(self) -> None:
         supplied = {
             "GIT_DIR": "/foreign/repository", "git_work_tree": "/foreign/tree",
@@ -416,6 +436,22 @@ class WorkingTreeControls(ExactRejection):
         self.reject("Composed candidate index mode or stage changed", self.verify)
         fixture_git(self.repository, "update-index", "--chmod=-x", "--", RUNNER.DESTINATION)
         self.admit()
+
+    def test_masked_git_index_flags_cannot_hide_product_changes(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        for flag, reverse in (("--assume-unchanged", "--no-assume-unchanged"),
+                              ("--skip-worktree", "--no-skip-worktree")):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", flag, "--", "product.txt")
+                tracked.write_bytes(original + b"masked Product edit\n")
+                try:
+                    self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                    self.reject("Git index flags hide tracked Product source", self.verify)
+                finally:
+                    fixture_git(self.repository, "update-index", reverse, "--", "product.txt")
+                    tracked.write_bytes(original)
+                self.admit()
 
     def test_changed_head_is_rejected(self) -> None:
         product_tree = fixture_git(self.repository, "rev-parse", "HEAD^{tree}")
