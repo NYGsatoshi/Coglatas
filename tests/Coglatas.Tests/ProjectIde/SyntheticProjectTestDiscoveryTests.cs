@@ -151,4 +151,47 @@ public sealed class SyntheticProjectTestDiscoveryTests
         Assert.False(view.SelectDiscoveredTest(row)); Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest);
         Assert.False(view.Navigate()); Assert.Null(view.SourceTarget);
     }
+
+    [Fact]
+    public async Task DefinitionReadPreservesAnUnrelatedRecordedDiagnosticAndItsSource()
+    {
+        var raw = RootSourceAdmissionTests.Cases().Select(row => (string)row[0]).Single(text => JsonSerializer.Deserialize<JsonElement>(text).GetProperty("key").GetString() == "fail");
+        var (control, core, _) = DiagnosticPremiseSnapshotTests.Prepare(raw); var input = control.Input;
+        CompilerArtifactIdentity At(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var profile = new CompilerHostProfile(input.Compiler, At("schema"), At("ruleset"), At("semantics"), At("ir"), At("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(value => value.GetString()), input.PlanLowerer);
+        var request = new PredicateCompilerHostRequest(new(core.Input, 1, core.Snapshots, core.Units, core.Calendars), new(CompilerPredicateCaptureMode.OriginalRootArrays));
+        using var session = new LocalPredicateCompilerRecordingSession(profile); using var view = new SyntheticWorkbenchViewModel();
+        var manifest = session.Prepare(request, Guid.NewGuid()); view.BeginPredicateSynthetic(manifest, request);
+        var actual = await session.ExecuteAsync(manifest, request); Assert.True(view.TryAcceptPredicate(actual));
+        var result = actual.Response.Compilation!.Result; Assert.True(view.LoadSyntheticRootSource(result.ResultDigest));
+        var diagnostic = result.Diagnostics.First(); Assert.True(view.SelectDiagnostic(diagnostic)); Assert.True(view.Navigate());
+        Assert.True(view.ReadRecordedPredicatePremises(result.ResultDigest, DiagnosticPremiseSnapshotMode.AvailableBodies));
+        var snapshot = view.RecordedPredicatePremises; var target = view.SourceTarget; Assert.NotNull(snapshot); Assert.NotNull(target);
+        Assert.NotNull(view.DiscoverSyntheticTests());
+        Assert.Same(diagnostic, view.SelectedDiagnostic); Assert.Same(snapshot, view.RecordedPredicatePremises); Assert.Same(target, view.SourceTarget);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task CancelledPublicationWithdrawsOnlyTheSelectionOwnedByItsInventory(bool selectDiscovery)
+    {
+        using var view = await Ready(); using var cancellation = new CancellationTokenSource();
+        var symbol = view.Inspection!.Symbols.First(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
+        var entered = false; Action cancel = cancellation.Cancel;
+        PropertyChangedEventHandler onChange = (sender, _) =>
+        {
+            var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || current.TestDiscovery is not { } inventory) return; entered = true;
+            if (selectDiscovery) Assert.True(current.SelectDiscoveredTest(Assert.Single(inventory.Tests)));
+            else Assert.True(current.Select(symbol.Symbol.Location));
+            Assert.True(current.Navigate()); cancel();
+        };
+        view.PropertyChanged += onChange;
+        try { Assert.Throws<OperationCanceledException>(() => view.DiscoverSyntheticTests(cancellation.Token)); }
+        finally { view.PropertyChanged -= onChange; }
+        Assert.True(entered); Assert.Null(view.TestDiscovery); Assert.Null(view.SelectedDiscoveredTest);
+        if (selectDiscovery) { Assert.Null(view.Selected); Assert.Null(view.SourceTarget); }
+        else { Assert.Same(symbol, view.Selected); Assert.Equal(symbol.Symbol.Location, view.SourceTarget); }
+    }
 }

@@ -101,6 +101,11 @@ for (const locale of ['en', 'ja'] as const) {
     await choose('tests-empty'); await page.getByRole('button', { name: list, exact: true }).click();
     await expect(page.getByTestId('ide-test-discovery-summary').locator('dl')).toHaveCount(1);
     await expect(page.getByTestId('ide-test-discovery-summary')).toContainText(locale === 'en' ? 'Definitions listed: 0' : '表示した定義: 0');
+    await page.getByTestId('ide-simulation-example').click(); await choose('tests-simulation-root-base');
+    await page.getByRole('button', { name: list, exact: true }).click();
+    const scopedOpen = page.getByTestId('ide-test-discovery-rows').getByRole('button'); await expect(scopedOpen).toHaveCount(1);
+    await scopedOpen.focus(); await scopedOpen.press('Enter'); await expect(page.getByTestId('ide-source-target')).toBeFocused();
+    await expect(page.locator('pre.source-buffer')).toContainText('coglatas.project-test');
     await page.getByTestId('ide-test-discovery-example').click();
     await page.getByTestId('ide-context').selectOption('tests-discovery-unavailable');
     await page.getByRole('button', { name: load, exact: true }).click(); await page.getByRole('button', { name: tests, exact: true }).click();

@@ -16,7 +16,7 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
         var generation = ++_testGeneration; var lifecycle = _lifecycle;
-        ClearTestDiscovery(); ClearSelection(); Changed();
+        ClearTestDiscovery(); Changed();
         cancellationToken.ThrowIfCancellationRequested();
         if (_disposed || generation != _testGeneration || lifecycle != _lifecycle ||
             _desired is null || State != "Ready" || _compilation?.Model is not { } model ||
@@ -30,7 +30,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         {
             if (generation == _testGeneration && ReferenceEquals(TestDiscovery, inventory))
             {
-                _testGeneration++; ClearTestDiscovery(); ClearSelection(); Changed();
+                _testGeneration++; ClearTestDiscovery(); Changed();
             }
             cancellationToken.ThrowIfCancellationRequested();
         }
@@ -53,7 +53,12 @@ public sealed partial class SyntheticWorkbenchViewModel
         Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedDiscoveredTest, test);
     }
 
-    private void ClearTestDiscovery() { TestDiscovery = null; SelectedDiscoveredTest = null; }
+    private void ClearTestDiscovery()
+    {
+        TestDiscovery = null;
+        if (SelectedDiscoveredTest is null) return;
+        SelectedDiscoveredTest = null; SourceTarget = null; NavigationState = ""; _selectionGeneration++;
+    }
 
     /// <summary>Run only the fixed offline fixture host; request pins never define the supported evaluator.</summary>
     public bool RunSyntheticTests(CancellationToken cancellationToken = default, ProjectTestLimits? limits = null)

@@ -708,10 +708,12 @@ export class ProjectIdeWorkbenchComponent {
     await this.store.loadLocalTestDiscovery();
     if (!this.canRead()) this.store.clear('denied');
   }
-  navigateDiscoveredTest(test: LocalDiscoveredTest): void {
-    this.focusGeneration++;
-    if (!this.canRead()) this.store.clear('denied');
-    else if (this.store.navigateDiscoveredTest(test)) this.open('source', true);
+  async navigateDiscoveredTest(test: LocalDiscoveredTest): Promise<void> {
+    const generation = ++this.focusGeneration;
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    const navigated = await this.store.navigateDiscoveredTest(test);
+    if (!this.canRead()) { this.store.clear('denied'); return; }
+    if (navigated && generation === this.focusGeneration) this.open('source', true);
   }
   discoveryValue(value: string): string {
     const keys: Record<string, keyof typeof PROJECTIDE_ENGLISH_MESSAGES> = {

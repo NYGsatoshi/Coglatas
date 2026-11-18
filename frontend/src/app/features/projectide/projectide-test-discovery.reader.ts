@@ -1,5 +1,5 @@
 import { Digest, PreviewCase, sameContext, sameDigest } from './projectide.contracts';
-import { isProjectLocationShape } from './projectide-preview.validation';
+import { isProjectLocationShape, isRevisionContextShape } from './projectide-preview.validation';
 import { AdmittedProjectTestDiscovery, LocalProjectTestDiscoveryProjection } from './projectide-test-discovery.contracts';
 import { parseLocalTestJson, readSnapshotMaterialization, verifyLocalTestDigest } from './projectide-tests.reader';
 
@@ -20,8 +20,14 @@ function freeze<T>(value: T): T {
   return value;
 }
 function projection(value: unknown): value is LocalProjectTestDiscoveryProjection {
-  return record(value) && fields(value, ['format', 'inputText', 'requestedInputDigest', 'plan', 'definitions', 'inventory']) &&
+  return record(value) && fields(value, ['format', 'inputText', 'requestedInputDigest', 'binding', 'plan', 'definitions', 'inventory']) &&
     value['format'] === 'coglatas.local-test-discovery-projection/1' && text(value['inputText']) && digest(value['requestedInputDigest']) &&
+    (value['binding'] === null || record(value['binding']) && fields(value['binding'], ['inputDigest', 'sourceDigest', 'bindingComplete', 'references']) &&
+    digest(value['binding']['inputDigest']) && digest(value['binding']['sourceDigest']) && typeof value['binding']['bindingComplete'] === 'boolean' &&
+    Array.isArray(value['binding']['references']) && value['binding']['references'].length <= 4096 && value['binding']['references'].every(item =>
+      record(item) && fields(item, ['origin', 'state', 'symbolKey']) && isProjectLocationShape(item['origin']) &&
+      ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope'].includes(String(item['state'])) &&
+      (item['symbolKey'] === null || token(item['symbolKey'])))) &&
     record(value['plan']) && fields(value['plan'], ['text', 'digest']) && text(value['plan']['text']) && digest(value['plan']['digest']) &&
     Array.isArray(value['definitions']) && value['definitions'].length <= 256 && value['definitions'].every(item =>
       record(item) && fields(item, ['testId', 'text']) && token(item['testId']) && text(item['text'])) &&
@@ -35,62 +41,99 @@ function basis(value: PreviewCase): string {
   return JSON.stringify({ context: value.context, desiredContext: value.desiredContext, freshness: value.freshness,
     inputId: value.inputId, inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, source: value.source, sourceText: value.sourceText,
     manifest: value.manifest, declarations: value.declarations, relations: value.relations, materializedSnapshots: value.materializedSnapshots,
-    inspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
+    semanticInspection: value.semanticInspection, result: value.result, sourceMap: value.sourceMap, sourceMapDigest: value.sourceMapDigest });
 }
 export function localTestDiscoveryMatchesCase(value: PreviewCase, admitted: AdmittedProjectTestDiscovery): boolean {
   return value.freshness === 'Current' && sameContext(value.context, value.desiredContext) && basis(value) === admitted.basis &&
     equal(value.localProjectTestDiscovery, admitted.projection);
 }
 
-/** Admit original local Core inventory bytes and membership without requiring a Test run or evaluating an assertion. */
-export async function readLocalTestDiscovery(value: PreviewCase): Promise<AdmittedProjectTestDiscovery | null> {
-  if (value.localProjectTestDiscovery == null) return null;
-  if (!projection(value.localProjectTestDiscovery)) return fail();
-  const data = structuredClone(value.localProjectTestDiscovery); const capturedBasis = basis(value);
+/** Admit one detached Core inventory snapshot; no Test execution or access grant. */
+export async function readLocalTestDiscovery(current: PreviewCase): Promise<AdmittedProjectTestDiscovery | null> {
+  if (current.localProjectTestDiscovery == null) return null;
+  if (!projection(current.localProjectTestDiscovery)) return fail();
+  const capturedBasis = basis(current);
   if (new TextEncoder().encode(capturedBasis).byteLength > 4_194_304) return fail();
+  const data = structuredClone(current.localProjectTestDiscovery);
+  const value = { ...JSON.parse(capturedBasis), localProjectTestDiscovery: data } as PreviewCase;
   const source = parseLocalTestJson(value.sourceText); const input = parseLocalTestJson(data.inputText); const plan = parseLocalTestJson(data.plan.text);
   if (!record(source) || !record(input) || !record(plan) || !equal(source, value.source) || !equal(input, value.manifest['manifest']) ||
       !equal(input['sourceDigest'], value.sourceDigest) || !equal(input['sourceContext'], value.context) || !equal(input['sourceManifest'], source['manifest']) ||
       plan['format'] !== 'coglatas.project-test-plan/1' || plan['compilerInputId'] !== value.inputId || !equal(plan['inputDigest'], value.inputDigest) ||
       typeof plan['withinLimits'] !== 'boolean' || typeof plan['discoveryComplete'] !== 'boolean' || typeof plan['bindingComplete'] !== 'boolean' ||
       !record(plan['limits']) || !integer(plan['limits']['MaximumTests'], 256) || !plan['limits']['MaximumTests'] ||
-      !integer(plan['limits']['MaximumAssertions'], 1024) || !plan['limits']['MaximumAssertions'] || !Array.isArray(plan['tests']) || plan['tests'].length > 256 ||
+      !integer(plan['limits']['MaximumAssertions'], 1024) || !plan['limits']['MaximumAssertions'] ||
+      !Array.isArray(plan['tests']) || plan['tests'].length > 256 ||
       !Array.isArray(source['declarations']) || !Array.isArray(source['documents'])) return fail();
   const engine = plan['engine']; const settings = input['settings'];
   if (!record(engine) || engine['artifactId'] !== 'coglatas.synthetic-project-test-evaluator' || engine['version'] !== '1' || !digest(engine['digest']) ||
       engine['digest'].value !== 'ff7ca4ae92e2186d05eb83f5898637ce6eb2d01afbbb4f130b739b8aa93b5488' || !record(settings)) return fail();
-  if (!Array.isArray(plan['references']) || plan['references'].length > 4096) return fail();
-  if (value.semanticInspection) {
-    if (plan['bindingComplete'] !== value.semanticInspection.bindingComplete ||
-        !equal(plan['references'], value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey })))) return fail();
-  } else if (plan['discoveryComplete'] || plan['bindingComplete'] || plan['references'].length) return fail();
+  const binding = data.binding ?? (value.semanticInspection ? {
+    inputDigest: value.inputDigest, sourceDigest: value.sourceDigest,
+    bindingComplete: value.semanticInspection.bindingComplete,
+    references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))
+  } : fail());
+  if (!equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
+      binding.bindingComplete !== plan['bindingComplete'] || !equal(binding.references, plan['references'])) return fail();
+  if (value.semanticInspection && (binding.bindingComplete !== value.semanticInspection.bindingComplete ||
+      !equal(binding.references, value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))))) return fail();
   const snapshotsComplete = await readSnapshotMaterialization(value);
-  if (plan['bindingComplete'] && !snapshotsComplete) return fail();
+  if (binding.bindingComplete && !snapshotsComplete) return fail();
+  const contexts: PreviewCase['context'][] = [value.context];
+  const materialized = value.materializedSnapshots;
+  if (record(materialized) && Array.isArray(materialized['entries'])) for (const item of materialized['entries']) {
+    if (record(item) && item['admission'] === 'Available' && isRevisionContextShape(item['context'])) contexts.push(item['context']);
+  }
+  if (binding.references.some(item => !contexts.some(context => sameContext(item.origin.context, context)))) return fail();
   const originals = [...source['declarations'], ...source['documents'].map(document => record(document) ? document['root'] : null)]
     .filter(item => record(item) && item['kind'] === 'coglatas.project-test');
-  if (originals.length !== data.definitions.length || new Set(data.definitions.map(item => item.testId)).size !== data.definitions.length) return fail();
-  const hashes: Promise<boolean>[] = [verifyLocalTestDigest('coglatas.project-source/1', value.sourceText, value.sourceDigest),
-    verifyLocalTestDigest('coglatas.compiler-input/1', data.inputText, value.inputDigest), verifyLocalTestDigest('coglatas.project-test-plan/1', data.plan.text, data.plan.digest)];
-  for (const definition of data.definitions) {
+  if (originals.length !== data.definitions.length || new Set(data.definitions.map(item => item.testId)).size !== data.definitions.length ||
+      plan['discoveryComplete'] !== (plan['tests'].length === originals.length)) return fail();
+  const hashes = [() => verifyLocalTestDigest('coglatas.project-source/1', value.sourceText, value.sourceDigest),
+    () => verifyLocalTestDigest('coglatas.compiler-input/1', data.inputText, value.inputDigest),
+    () => verifyLocalTestDigest('coglatas.project-test-plan/1', data.plan.text, data.plan.digest)];
+  const definitions = await Promise.all(data.definitions.map(async definition => {
     const matches = originals.filter(original => record(original) && original['entityId'] === definition.testId);
     if (matches.length !== 1 || !equal(parseLocalTestJson(definition.text), matches[0])) return fail();
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('coglatas.project-test-declaration/1\0' + definition.text));
+    return { ...definition, digest: Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('') };
+  }));
+  const declarations = value.declarations.filter(item => item.kind === 'coglatas.project-test')
+    .sort((left, right) => left.identity < right.identity ? -1 : left.identity > right.identity ? 1 : 0);
+  const entries = new Map<string, { status: string; assertionCount: number | null }>();
+  let assertionCount = 0; let previous = '';
+  for (const entry of plan['tests']) {
+    if (!record(entry) || !fields(entry, ['declarationDigest', 'status']) || !digest(entry['declarationDigest']) ||
+        !['Decoded', 'Invalid', 'Unsupported'].includes(String(entry['status']))) return fail();
+    const declarationDigest = entry['declarationDigest'];
+    const matches = definitions.filter(item => item.digest === declarationDigest.value);
+    if (matches.length !== 1) return fail();
+    const definition = matches[0]; const declaration = declarations.find(item => item.identity === definition.testId);
+    if (!declaration || declaration.status !== entry['status'] || !equal(parseLocalTestJson(definition.text), declaration.data) ||
+        definition.testId <= previous || entries.has(definition.testId)) return fail();
+    previous = definition.testId;
+    let count: number | null = null;
+    if (entry['status'] === 'Decoded') {
+      const payload = declaration.data['payload']; const assertions = record(payload) ? payload['assertions'] : null;
+      if (declaration.data['schemaVersion'] !== 1 || !Array.isArray(assertions) || assertions.length > 64) return fail();
+      count = assertions.length; assertionCount += count;
+    }
+    entries.set(definition.testId, { status: declaration.status, assertionCount: count });
   }
+  if (plan['withinLimits'] !== (originals.length <= plan['limits']['MaximumTests'] && assertionCount <= plan['limits']['MaximumAssertions'])) return fail();
   const inventory = data.inventory;
   const expectedState = !sameDigest(data.requestedInputDigest, value.inputDigest) ? 'StaleInput' : !plan['withinLimits'] ? 'ResourceLimit' : !plan['discoveryComplete'] ? 'Unavailable' : 'Ready';
   if (inventory.state !== expectedState || inventory.discoveredTests !== inventory.tests.length) return fail();
   if (expectedState !== 'Ready') {
     if (inventory.tests.length || inventory.inputDigest !== null || inventory.planDigest !== null || inventory.bindingComplete || inventory.evaluatorMatches) return fail();
   } else {
-    if (!equal(inventory.inputDigest, value.inputDigest) || !equal(inventory.planDigest, data.plan.digest) || inventory.bindingComplete !== plan['bindingComplete'] ||
-        inventory.evaluatorMatches !== equal(engine, settings['evaluator']) || inventory.tests.length !== originals.length || plan['tests'].length !== originals.length) return fail();
-    const declarations = value.declarations.filter(item => item.kind === 'coglatas.project-test').sort((left, right) => left.identity < right.identity ? -1 : left.identity > right.identity ? 1 : 0);
-    if (declarations.length !== originals.length || declarations.length > plan['limits']['MaximumTests']) return fail();
-    let assertionCount = 0;
+    if (!equal(inventory.inputDigest, value.inputDigest) || !equal(inventory.planDigest, data.plan.digest) ||
+        inventory.bindingComplete !== binding.bindingComplete || inventory.evaluatorMatches !== equal(engine, settings['evaluator']) ||
+        inventory.tests.length !== originals.length || declarations.length !== originals.length) return fail();
     for (const [index, row] of inventory.tests.entries()) {
-      const declaration = declarations[index]; const definition = data.definitions.find(item => item.testId === declaration.identity); const entry = plan['tests'][index];
-      if (!record(row) || !fields(row, ['testId', 'location', 'displayName', 'decodeStatus', 'assertionCount']) || !definition || !record(entry) ||
-          row.testId !== declaration.identity || !['Decoded', 'Invalid', 'Unsupported'].includes(row.decodeStatus) || row.decodeStatus !== declaration.status ||
-          !equal(parseLocalTestJson(definition.text), declaration.data) || entry['status'] !== declaration.status || !digest(entry['declarationDigest']) ||
+      const declaration = declarations[index]; const entry = entries.get(declaration.identity);
+      if (!record(row) || !fields(row, ['testId', 'location', 'displayName', 'decodeStatus', 'assertionCount']) || !entry ||
+          row.testId !== declaration.identity || row.decodeStatus !== entry.status || row.assertionCount !== entry.assertionCount ||
           !isProjectLocationShape(row.location) || !equal(row.location, declaration.location) || row.location.entityId !== row.testId ||
           !sameContext(row.location.context, value.context) || row.location.relationId !== undefined || row.location.textSpan !== undefined || row.location.propertyPath !== '' ||
           row.displayName !== (typeof declaration.data['displayName'] === 'string' ? declaration.data['displayName'] : null)) return fail();
@@ -98,17 +141,10 @@ export async function readLocalTestDiscovery(value: PreviewCase): Promise<Admitt
       const roots = source['documents'].filter(document => record(document) && record(document['root']) && document['root']['entityId'] === row.testId);
       const owner = typeof documentId === 'string' ? documentId : roots.length === 1 && record(roots[0]) ? roots[0]['documentId'] : null;
       if (owner !== row.location.documentId) return fail();
-      const payload = declaration.data['payload']; const assertions = record(payload) ? payload['assertions'] : null;
-      if (row.decodeStatus === 'Decoded') {
-        if (!Array.isArray(assertions) || assertions.length > 64 || row.assertionCount !== assertions.length) return fail(); assertionCount += assertions.length;
-      } else if (row.assertionCount !== null) return fail();
-      hashes.push(verifyLocalTestDigest('coglatas.project-test-declaration/1', definition.text, entry['declarationDigest']));
     }
-    if (assertionCount > plan['limits']['MaximumAssertions']) return fail();
   }
-  if (!(await Promise.all(hashes)).every(Boolean)) return fail();
+  if (!(await Promise.all(hashes.map(check => check()))).every(Boolean)) return fail();
   const admitted = { basis: capturedBasis, projection: data, inventory };
-  if (!localTestDiscoveryMatchesCase(value, admitted)) return fail();
+  if (!localTestDiscoveryMatchesCase(current, admitted)) return fail();
   return freeze(admitted);
 }
-

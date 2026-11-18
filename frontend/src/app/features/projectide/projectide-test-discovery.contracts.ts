@@ -21,6 +21,12 @@ export interface LocalProjectTestDiscoveryProjection {
   readonly format: 'coglatas.local-test-discovery-projection/1';
   readonly inputText: string;
   readonly requestedInputDigest: Digest;
+  readonly binding: {
+    readonly inputDigest: Digest;
+    readonly sourceDigest: Digest;
+    readonly bindingComplete: boolean;
+    readonly references: readonly { readonly origin: ProjectLocation; readonly state: string; readonly symbolKey: string | null }[];
+  } | null;
   readonly plan: { readonly text: string; readonly digest: Digest };
   readonly definitions: readonly { readonly testId: string; readonly text: string }[];
   readonly inventory: LocalProjectTestDiscovery;

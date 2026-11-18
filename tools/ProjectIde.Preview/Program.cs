@@ -246,11 +246,19 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
         if (!debugProfile)
         {
             var inventory = plan.Discover(expected);
+            var discoveryModel = compilation.Model!;
             // Discovery is a separate Core query and projection; a consumer need not load a Test run.
             fixture["localProjectTestDiscovery"] = JsonSerializer.SerializeToNode(new
             {
                 format = "coglatas.local-test-discovery-projection/1", inputText = input.Data.CanonicalText,
                 requestedInputDigest = expected.Data.Value,
+                binding = inspection is null ? new
+                {
+                    inputDigest = discoveryModel.Input.InputDigest.Data.Value,
+                    sourceDigest = discoveryModel.Input.Source.Digest.Data.Value,
+                    bindingComplete = discoveryModel.BindingComplete,
+                    references = discoveryModel.References.Select(item => new { origin = item.Origin.Data.Value, state = item.State.ToString(), symbolKey = item.SymbolKey }).ToArray()
+                } : null,
                 plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
                 definitions = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
                 inventory = new

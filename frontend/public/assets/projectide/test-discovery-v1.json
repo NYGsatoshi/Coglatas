@@ -1384,6 +1384,18 @@
           "algorithm": "sha-256",
           "value": "71c623e12fa0b3525570cbb7b36ce8fc338055751203ab6f9182b9960df77e49"
         },
+        "binding": {
+          "inputDigest": {
+            "algorithm": "sha-256",
+            "value": "71c623e12fa0b3525570cbb7b36ce8fc338055751203ab6f9182b9960df77e49"
+          },
+          "sourceDigest": {
+            "algorithm": "sha-256",
+            "value": "4e663346f91e8e6f9082cda6b3a76c03c7262b6376d0982e9faf41080682fe47"
+          },
+          "bindingComplete": false,
+          "references": []
+        },
         "plan": {
           "text": "{\u0022bindingComplete\u0022:false,\u0022bindingLogicalOperationsConsumed\u0022:1,\u0022compilerInputId\u0022:\u0022d7169a78-4457-825b-8307-2fbb7d4b6e05\u0022,\u0022discoveryComplete\u0022:false,\u0022engine\u0022:{\u0022artifactId\u0022:\u0022coglatas.synthetic-project-test-evaluator\u0022,\u0022digest\u0022:{\u0022algorithm\u0022:\u0022sha-256\u0022,\u0022value\u0022:\u0022ff7ca4ae92e2186d05eb83f5898637ce6eb2d01afbbb4f130b739b8aa93b5488\u0022},\u0022version\u0022:\u00221\u0022},\u0022format\u0022:\u0022coglatas.project-test-plan/1\u0022,\u0022inputDigest\u0022:{\u0022algorithm\u0022:\u0022sha-256\u0022,\u0022value\u0022:\u002271c623e12fa0b3525570cbb7b36ce8fc338055751203ab6f9182b9960df77e49\u0022},\u0022limits\u0022:{\u0022MaximumAssertions\u0022:1024,\u0022MaximumTests\u0022:256},\u0022references\u0022:[],\u0022tests\u0022:[],\u0022withinLimits\u0022:true}",
           "digest": {

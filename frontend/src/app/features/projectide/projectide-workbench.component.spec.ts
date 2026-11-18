@@ -96,7 +96,7 @@ describe('ProjectIDE Workbench components', () => {
     await c.loadLocalTestDiscovery(); expect(c.store.localTests()).toBe(run); fixture.detectChanges();
     const row = c.store.localTestDiscovery()!.inventory.tests[0];
     root.querySelector<HTMLButtonElement>('[data-testid="ide-test-discovery-rows"] button')!.click();
-    await fixture.whenStable(); fixture.detectChanges(); expect(c.panel()).toBe('source');
+    await vi.waitFor(() => { fixture.detectChanges(); expect(c.panel()).toBe('source'); });
     expect(c.store.sourceLocation()).toEqual(row.location); expect(c.store.sourceTarget()!.identity).toBe(row.testId);
     expect(root.querySelector('pre.source-buffer')!.textContent).toContain('coglatas.project-test');
     c.open('tests'); authenticated.set(false); fixture.detectChanges();
@@ -116,12 +116,13 @@ describe('ProjectIDE Workbench components', () => {
   it('keeps missing and corrupted inventory distinct from an empty successful roster', async () => {
     const { c, fixture, root } = await render(); c.choose('pass'); c.loadResult(); c.open('tests');
     await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.testDiscoveryReadState()).toBe('unavailable');
-    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryReady'));
     c.choose('tests-pass'); c.loadResult(); c.open('tests');
     Object.assign(c.store.context()!.localProjectTestDiscovery!.inventory.inputDigest!, { value: 'a'.repeat(64) });
     await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.testDiscoveryReadState()).toBe('unsupported');
     expect(root.querySelector('[role="alert"]')!.textContent).toContain(c.t('ide.discoveryUnreadable'));
-    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryReady'));
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"] dl')).toBeNull();
   });
   it.each(['en', 'ja'] as const)('renders actual unavailable discovery from the bounded dedicated profile in %s', async locale => {
     const { c, fixture, root, adapter } = await render(); c.i18n.setLocale(locale);
@@ -154,6 +155,25 @@ describe('ProjectIDE Workbench components', () => {
       expect(summary.querySelector('dl')).not.toBeNull(); expect(summary.textContent).toContain(c.t('ide.discoveryEvaluator'));
     });
   }
+  it('keeps one discovery live region mounted before and after Ready, Unsupported and Unavailable reads', async () => {
+    const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests'); fixture.detectChanges();
+    const region = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+    expect(region).toBeTruthy(); expect(region.getAttribute('aria-live')).toBe('polite'); expect(region.textContent!.trim()).toBe('');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region);
+    expect(region.textContent).toContain(c.t('ide.discoveryReady'));
+    Object.assign(c.store.context()!.localProjectTestDiscovery!.plan, { text: '{}' });
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region);
+    expect(region.textContent).toContain(c.t('ide.discoveryUnreadable'));
+    c.choose('pass'); c.loadResult(); c.open('tests'); await c.loadLocalTestDiscovery(); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region); expect(region.textContent).toContain(c.t('ide.discoveryUnavailable'));
+  });
+  it.each(['en', 'ja'] as const)('opens a version-2 Test definition from the actual %s action without preloading Scoped Sources', async locale => {
+    const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.scopedSources()).toHaveLength(0);
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-test-discovery-rows"] button')!.click();
+    await vi.waitFor(() => { fixture.detectChanges(); expect(c.panel()).toBe('source'); });
+    expect(c.store.sourceTarget()!.kind).toBe('coglatas.project-test'); expect(c.store.localTests()).toBeNull();
+  });
   it('withdraws a pending inventory before a denied actor can view definitions', async () => {
     const { c, fixture, root, authenticated } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests');
     const pending = c.loadLocalTestDiscovery(); authenticated.set(false); await pending; fixture.detectChanges();
