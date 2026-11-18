@@ -12,6 +12,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_sbom.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify_grype_sbom_source.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/finding_policy.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/sec17_realtime_finding_candidate.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/schemathesis_policy.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-sec04-deep-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec17_deep_execution.py
@@ -42,6 +43,7 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/performance/db-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-synthetic-logical-recovery-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract_check.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_http_accounting.py

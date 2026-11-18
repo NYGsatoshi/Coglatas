@@ -208,6 +208,50 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertEqual(sorted(map(int, executed)), list(range(26)))
             self.assertEqual(len(list(folder.glob('data.*'))), 1)
 
+    def test_exact_realtime_candidate_source_uses_native_executed_coverage(self):
+        tracked = (ROOT / 'scripts/security/sec17_realtime_finding_candidate.py').resolve()
+        subject = (ROOT / 'tests/ci/test_sec17_realtime_finding_candidate.py').resolve()
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        controls = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(controls.count('tests/ci/test_sec17_realtime_finding_candidate.py'), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            data_file = Path(directory) / 'native'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = str(ROOT)
+            env['COVERAGE_RCFILE'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data_file)
+            executed = self.run_python(['-m', 'coverage', 'run', str(subject)], ROOT, env)
+            self.assertIn('Ran 9 tests', executed.stderr)
+            self.assertIn('OK', executed.stderr)
+            self.run_python(['-m', 'coverage', 'combine'], ROOT, env)
+            data = coverage.CoverageData(basename=str(data_file))
+            data.read()
+            measured = {Path(name).resolve(): name for name in data.measured_files()}
+            self.assertIn(tracked, measured)
+            self.assertNotIn(subject, measured)
+            self.assertTrue(data.has_arcs())
+            run_lines = set(data.lines(measured[tracked]) or ())
+            self.assertGreater(len(run_lines), 0)
+            report = coverage.Coverage(data_file=str(data_file), config_file=str(CONFIG))
+            report.load()
+            statements = set(report.analysis2(str(tracked))[1])
+            self.assertTrue(statements)
+            self.assertGreaterEqual(len(statements & run_lines) / len(statements), 0.80)
+
+    def test_logical_main_push_admission_is_measured_by_existing_python_cohort(self):
+        """The native logical suite must be selected; no coverage exclusion or bypass."""
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(cohort.count('tests/ci/test_synthetic_logical_recovery_ci.py'), 1)
+        self.assertIn('python3 -B -m coverage run "$control"', workflow)
+        subject = (ROOT / 'scripts/ci/run-synthetic-logical-recovery-ci.py').resolve()
+        with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
+            config = coverage.Coverage(config_file=str(CONFIG))
+        self.assertEqual(config.get_option('run:include').count(str(subject)), 1)
+        cases = unittest.TestLoader().discover(str(ROOT / 'tests/ci'),
+                                               pattern='test_synthetic_logical_recovery_ci.py')
+        self.assertGreater(cases.countTestCases(), 10)
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -224,6 +268,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/verify_sbom.py',
             ROOT.as_posix() + '/scripts/ci/verify_grype_sbom_source.py',
             ROOT.as_posix() + '/scripts/security/finding_policy.py',
+            ROOT.as_posix() + '/scripts/security/sec17_realtime_finding_candidate.py',
             ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
             ROOT.as_posix() + '/scripts/ci/sec17_deep_execution.py',
@@ -254,6 +299,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/db-ci.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
+            ROOT.as_posix() + '/scripts/ci/run-synthetic-logical-recovery-ci.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract_check.py',
             ROOT.as_posix() + '/scripts/ci/sec_arch_http_accounting.py',
