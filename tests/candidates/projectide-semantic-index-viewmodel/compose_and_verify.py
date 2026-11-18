@@ -82,6 +82,9 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if any(item.find(".//{*}InnerResults") is not None
+           or item.find(".//{*}UnitTestResult") is not None for item in cases):
+        raise ValueError("Native TRX contains nested result records")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
             or any(item.get("outcome") != "Passed" for item in cases)):
@@ -133,6 +136,14 @@ def command(args: list[str], cwd: Path, log: Path | None = None, *, preserve_out
     return completed.stdout if preserve_output else completed.stdout.strip()
 
 
+def source_only_dotnet(subcommand: str, *args: str) -> list[str]:
+    """Exclude ancestor Directory.Build inputs outside the frozen Product tree."""
+    if subcommand not in ("restore", "test"):
+        raise ValueError("Unsupported native SDK action")
+    return ["dotnet", subcommand, "-p:ImportDirectoryBuildProps=false",
+            "-p:ImportDirectoryBuildTargets=false", *args]
+
+
 def git(cwd: Path, *args: str) -> str:
     return command(["git", "-c", "core.autocrlf=false", *args], cwd)
 
@@ -150,6 +161,11 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, allow_g
         raise ValueError("Composed Product HEAD changed")
     if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
         raise ValueError("Composed candidate index identity changed")
+    flags = command(["git", "-c", "core.autocrlf=false", "ls-files", "-v", "-z", "--"],
+                 worktree, preserve_output=True)
+    if any(len(record) < 3 or record[1] != " " or record[0] != "H"
+           for record in flags.split("\0") if record):
+        raise ValueError("Git index flags hide tracked Product source")
     changed = git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines()
     if changed != [DESTINATION] or git(worktree, "diff", "--name-only", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
@@ -227,17 +243,17 @@ def main() -> None:
         if sdk != "10.0.403":
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
+        command(source_only_dotnet("restore", project, "--nologo"), worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
         verify_working_tree(worktree, raw, source_blob, allow_generated=True)
-        command(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
+        command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
-                 "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
+                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log")
         verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx")
-        discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
+        discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
+                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS),
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")

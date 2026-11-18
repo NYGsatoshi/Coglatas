@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
+import re
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -78,6 +81,18 @@ class NativeInventoryControls(ExactRejection):
                 self.assertEqual(IDENTITIES, self.read(root))
                 root.find(NAMESPACE + "ResultSummary/" + NAMESPACE + "Counters").set(field, value)
                 self.reject("Native TRX must contain exactly twenty-four complete passing candidate facts", lambda: self.read(root))
+
+    def test_nested_result_records_are_rejected_without_changing_outer_roster(self) -> None:
+        for outcome in ("Passed", "NotExecuted", "Failed"):
+            for wrapped in (False, True):
+                with self.subTest(outcome=outcome, wrapped=wrapped):
+                    root = native_fixture()
+                    case = root.find(NAMESPACE + "Results")[0]
+                    parent = ET.SubElement(case, NAMESPACE + "InnerResults") if wrapped else case
+                    ET.SubElement(parent, NAMESPACE + "UnitTestResult", outcome=outcome,
+                                  testName="Foreign.HiddenResult", testId=str(UUID(int=9000)),
+                                  executionId=str(UUID(int=9001)))
+                    self.reject("Native TRX contains nested result records", lambda: self.read(root))
 
     def test_missing_execution_is_rejected(self) -> None:
         root = native_fixture()
@@ -245,6 +260,21 @@ class WorkingTreeControls(ExactRejection):
         fixture_git(self.repository, "update-ref", "HEAD", self.head)
         self.admit()
 
+    def test_git_index_masks_cannot_hide_changed_product_bytes(self) -> None:
+        tracked = self.repository / "product.txt"
+        original = tracked.read_bytes()
+        original_blob = fixture_git(self.repository, "rev-parse", ":product.txt")
+        for flag in ("assume-unchanged", "skip-worktree"):
+            with self.subTest(flag=flag):
+                fixture_git(self.repository, "update-index", "--" + flag, "--", "product.txt")
+                tracked.write_bytes(original + b"Unreviewed masked Product input\n")
+                self.assertEqual(original_blob, fixture_git(self.repository, "rev-parse", ":product.txt"))
+                self.assertEqual("", fixture_git(self.repository, "diff", "--name-only", "--"))
+                self.reject("Git index flags hide tracked Product source", self.verify)
+                fixture_git(self.repository, "update-index", "--no-" + flag, "--", "product.txt")
+                tracked.write_bytes(original)
+                self.admit()
+
     def test_unrelated_tracked_drift_is_rejected(self) -> None:
         tracked = self.repository / "product.txt"
         original = tracked.read_bytes()
@@ -331,6 +361,128 @@ class WorkingTreeControls(ExactRejection):
             self.assertEqual(self.head, RUNNER.git(self.repository, "rev-parse", "HEAD"))
             self.admit()
         self.assertEqual(originals, file_snapshot(self.directory))
+
+
+class SdkImportControls(unittest.TestCase):
+    """Exercise real SDK import behavior with a disposable project, never Product tests."""
+
+    def test_restore_test_and_discovery_exclude_external_props_and_targets(self) -> None:
+        if shutil.which("dotnet") is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted SDK import controls require dotnet")
+            self.skipTest("dotnet is unavailable; hosted SDK import execution remains required")
+        with tempfile.TemporaryDirectory(prefix="source-only-sdk-controls-") as temporary:
+            parent = Path(temporary)
+            product = parent / "product"
+            product.mkdir()
+            project = product / "Control.csproj"
+            project.write_text(
+                '<Project><Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />'
+                '<PropertyGroup><TargetFramework>net10.0</TargetFramework>'
+                '<EnableDefaultItems>false</EnableDefaultItems></PropertyGroup>'
+                '<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />'
+                '<Target Name="VSTest"><Message Text="SOURCE_ONLY_SDK_CONTROL" Importance="high" />'
+                '</Target></Project>', encoding="utf-8")
+            (product / "NuGet.Config").write_text(
+                '<configuration><packageSources><clear /></packageSources></configuration>', encoding="utf-8")
+            for filename in ("Directory.Build.props", "Directory.Build.targets"):
+                external = parent / filename
+                external.write_text(
+                    '<Project><Target Name="UnreviewedAncestorInput" BeforeTargets="Restore;VSTest">'
+                    '<Error Text="UNREVIEWED_ANCESTOR_IMPORT" /></Target></Project>', encoding="utf-8")
+                for action, arguments in (
+                    ("restore", (str(project), "--nologo")),
+                    ("test", (str(project), "--no-restore", "--nologo")),
+                    ("test", (str(project), "--no-build", "--list-tests", "--nologo")),
+                ):
+                    with self.subTest(filename=filename, action=action, arguments=arguments):
+                        unprotected = subprocess.run(["dotnet", action, *arguments], cwd=product,
+                                                     capture_output=True, text=True, timeout=90)
+                        self.assertNotEqual(0, unprotected.returncode)
+                        self.assertIn("UNREVIEWED_ANCESTOR_IMPORT", unprotected.stdout + unprotected.stderr)
+                        protected = subprocess.run(RUNNER.source_only_dotnet(action, *arguments), cwd=product,
+                                                   capture_output=True, text=True, timeout=90)
+                        self.assertEqual(0, protected.returncode, protected.stdout + protected.stderr)
+                        self.assertNotIn("UNREVIEWED_ANCESTOR_IMPORT", protected.stdout + protected.stderr)
+                external.unlink()
+
+
+class WorkflowBootstrapControls(unittest.TestCase):
+    """Execute the actual advisory bootstrap over disposable helper bytes, not Product code."""
+
+    HELPER = "tests/candidates/workflow-provenance/verify_workflow_provenance.py"
+    HELPER_BYTES = (b"import json, os, sys\nfrom pathlib import Path\n"
+                    b"Path(os.environ['BOOTSTRAP_RESULT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+
+    def setUp(self) -> None:
+        self.pwsh = shutil.which("pwsh")
+        if self.pwsh is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted workflow bootstrap controls require PowerShell")
+            self.skipTest("PowerShell is unavailable; hosted bootstrap execution remains required")
+        temporary = tempfile.TemporaryDirectory(prefix="workflow-bootstrap-controls-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.repository = self.directory / "source"
+        self.repository.mkdir()
+        fixture_git(self.repository, "init", "--quiet", "--template=")
+        self.helper = self.repository / self.HELPER
+        self.helper.parent.mkdir(parents=True)
+        self.helper.write_bytes(self.HELPER_BYTES)
+        fixture_git(self.repository, "add", "--", self.HELPER)
+        fixture_git(self.repository, "commit", "--quiet", "-m", "Disposable pinned helper")
+        self.pinned = fixture_git(self.repository, "rev-parse", "HEAD:" + self.HELPER)
+        self.result = self.directory / "executed.json"
+        self.shadow = self.directory / "shadow-loaded.txt"
+        workflow = Path(__file__).resolve().parents[3] / ".github/workflows/projectide-semantic-index-viewmodel-advisory.yml"
+        self.scripts = re.findall(
+            r"      - name: Bind the immutable executing workflow to the reviewed Test source\n"
+            r"        shell: pwsh\n        run: \|\n((?:          [^\n]*\n)+)",
+            workflow.read_text(encoding="utf-8"))
+        self.assertEqual(2, len(self.scripts), "Both hosted bootstrap blocks must be exercised")
+
+    def execute(self, script: str) -> subprocess.CompletedProcess:
+        path = self.directory / "bootstrap.ps1"
+        path.write_text("\n".join(line[10:] for line in script.splitlines()) + "\n", encoding="utf-8")
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.upper().startswith("GIT_")}
+        environment.update(PROVENANCE_BLOB=self.pinned, RUNNER_TEMP=str(self.directory),
+                           BOOTSTRAP_RESULT=str(self.result), BOOTSTRAP_SHADOW=str(self.shadow))
+        return subprocess.run([self.pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(path)],
+                              cwd=self.repository, env=environment, capture_output=True, text=True, timeout=30)
+
+    def test_changed_helper_is_refused_before_any_helper_instruction(self) -> None:
+        changed = self.HELPER_BYTES + b"# Different executable bytes.\n"
+        for kind in ("working", "normalized-working", "committed"):
+            with self.subTest(kind=kind):
+                fixture_git(self.repository, "config", "core.autocrlf", "false")
+                self.helper.write_bytes(changed)
+                if kind == "normalized-working":
+                    fixture_git(self.repository, "config", "core.autocrlf", "true")
+                    self.helper.write_bytes(self.HELPER_BYTES.replace(b"\n", b"\r\n"))
+                    self.assertEqual(self.pinned, fixture_git(
+                        self.repository, "-c", "core.autocrlf=true", "hash-object", "--", self.HELPER))
+                if kind == "committed":
+                    fixture_git(self.repository, "add", "--", self.HELPER)
+                    fixture_git(self.repository, "commit", "--quiet", "-m", "Different committed helper")
+                for script in self.scripts:
+                    result = self.execute(script)
+                    self.assertNotEqual(0, result.returncode)
+                    reason = "Provenance helper blob mismatch" if kind == "committed" else "Provenance helper working bytes mismatch"
+                    self.assertIn(reason, result.stdout + result.stderr)
+                    self.assertFalse(self.result.exists(), "Changed executable must not reach its first instruction")
+
+    def test_original_helper_load_ignores_neighboring_import_shadow(self) -> None:
+        shadow = self.helper.with_name("json.py")
+        shadow.write_text("import os\nfrom pathlib import Path\n"
+                          "Path(os.environ['BOOTSTRAP_SHADOW']).write_text('shadow executed')\n"
+                          "raise RuntimeError('Neighboring import shadow executed')\n", encoding="utf-8")
+        for script in self.scripts:
+            result = self.execute(script)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual({"isolated": 1}, json.loads(self.result.read_text(encoding="utf-8")))
+            self.assertFalse(self.shadow.exists())
+            self.result.unlink()
 
 
 if __name__ == "__main__":

@@ -69,15 +69,25 @@ nested or unregistered output-directory names cannot hide compiler inputs.
 All Git subprocesses remove inherited `GIT_*`
 overrides while preserving ordinary host/SDK settings.
 
-Nineteen portable verifier controls exercise synthetic report substitution,
+Twenty-four verifier controls exercise synthetic report substitution,
 counter/namespace/method/discovery mismatches and actual disposable Git source,
 index, HEAD, staged-only Product, ignored and ordinary untracked-input,
-generated-output admission and environment-redirection failures. Their passing
-result is verifier coverage only. This local environment
-has no .NET SDK; actual C# execution must come from the fresh hosted jobs. An
-initial local control adaptation still used the earlier 22-case synthetic
-counter fixture; it was corrected to the new frozen 24-fact roster without
-changing the native suite or admission rules.
+generated-output admission and environment-redirection failures. Nested native
+results and either Git change-masking index flag are refused even when the
+outer report and ordinary diff remain valid. All restore, test and discovery
+commands suppress ancestor `Directory.Build.props` and `Directory.Build.targets`;
+a disposable SDK project independently proves that unprotected imports fail and
+the guarded commands succeed. No such files exist in the frozen Product tree.
+
+Two controls execute both actual PowerShell workflow bootstrap blocks against
+changed committed/working helper bytes and an adjacent import-shadow fixture.
+They require rejection before changed helper code executes and isolated loading
+of the unchanged helper. PowerShell and SDK controls may explicitly skip when
+those runtimes are unavailable locally; missing runtimes fail on GitHub Actions.
+These verifier controls add no native candidate execution credit. Fresh hosted
+C# execution, current CI and independent original-artifact review remain required.
+The initial local control adaptation used an earlier 22-case synthetic counter;
+that historical fixture error was corrected without changing the native suite.
 
 ## Explicit limits
 
@@ -94,6 +104,9 @@ source/original-artifact review remain separate gates. #1144 stays BLOCKED,
 Fresh runs use the shared [executing workflow provenance contract](../workflow-provenance/README.md)
 from #2089. Actual workflow SHA/ref, exact merge parents, workflow mode/blob and
 complete tree are checked independently from the Test checkout and Product pin.
+Before loading the helper, each job checks its committed blob and actual working
+bytes, then invokes Python in isolated mode. This #2095 repair preserves the
+original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
