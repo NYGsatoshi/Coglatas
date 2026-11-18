@@ -343,7 +343,7 @@ def main() -> None:
         command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", selection,
                  "--logger", "trx;LogFileName=candidate.trx",
-                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log", expected_exit=1 if arguments.historical else 0
+                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log", expected_exit=1 if arguments.historical else 0)
         verify_working_tree(worktree, raw, source_blob, product_head=arguments.product_head, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx", historical=arguments.historical)
         discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
