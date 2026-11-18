@@ -38,7 +38,7 @@ public sealed record FileDownloadGrantResponse(
 
 public sealed record FileDownloadGrantTokenRequest(string Token);
 
-public sealed record FileListItemResponse(
+public record FileListItemResponse(
     Guid Id,
     Guid FileObjectId,
     Guid WorkspaceId,

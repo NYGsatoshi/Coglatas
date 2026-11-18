@@ -119,7 +119,7 @@ public sealed class WorkspaceArtifactQueryTests
     {
         internal Guid TenantId { get; } = Guid.NewGuid();
         internal User Actor { get; } = new() { Email = "reader@example.test", NormalizedEmail = "READER@EXAMPLE.TEST", DisplayName = "Synthetic reader" };
-        internal Workspace Workspace { get; }
+        private Workspace Workspace { get; }
         internal AppDbContext Db { get; }
         internal ProjectAuthorizationService Authorization { get; }
         private readonly CurrentTenantService _tenant = new();

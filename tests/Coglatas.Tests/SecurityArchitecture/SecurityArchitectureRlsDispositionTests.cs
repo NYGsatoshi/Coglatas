@@ -64,7 +64,7 @@ public sealed class SecurityArchitectureRlsDispositionTests
                         "SELECT count(*) FROM security_evaluation_rule_results WHERE \"TenantId\"=@tenant", ("tenant", beta)));
                     var schema = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, "security_evaluation_rule_results");
                     Assert.Contains(await SecurityArchitectureRlsUnavailableOperations.BindAsync(schema.Table, schema),
-                        item => item.Operation == "DELETE" && item.AlternateLifecycle == "ParentDeletionCascadeOnlyRetentionAuthorityUnverified");
+                        item => item is { Operation: "DELETE", AlternateLifecycle: "ParentDeletionCascadeOnlyRetentionAuthorityUnverified" });
                 }
                 finally { NpgsqlConnection.ClearPool(connection); }
 
@@ -132,7 +132,7 @@ public sealed class SecurityArchitectureRlsDispositionTests
             var baseline = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table);
             Assert.Equal(2, baseline.Guards.Count);
             Assert.All(baseline.Guards, guard => Assert.Equal("O", guard.Enabled));
-            Assert.Contains(baseline.Constraints, constraint => constraint.Kind == "f" && constraint.Validated);
+            Assert.Contains(baseline.Constraints, constraint => constraint is { Kind: "f", Validated: true });
             Assert.All(baseline.Guards, guard => Assert.Equal(64, guard.FunctionDefinitionDigest.Length));
             await PostgreSqlMigrationTestDatabase.ExecuteAsync(database,
                 "ALTER TABLE coglatas_ui_canonical_change_journal DISABLE TRIGGER trg_coglatas_ui_journal_append_only");
@@ -140,7 +140,7 @@ public sealed class SecurityArchitectureRlsDispositionTests
             {
                 var disabled = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table);
                 Assert.NotEqual(baseline.SchemaDigest, disabled.SchemaDigest);
-                Assert.Contains(disabled.Guards, guard => guard.TriggerName == "trg_coglatas_ui_journal_append_only" && guard.Enabled == "D");
+                Assert.Contains(disabled.Guards, guard => guard is { TriggerName: "trg_coglatas_ui_journal_append_only", Enabled: "D" });
             }
             finally
             {
