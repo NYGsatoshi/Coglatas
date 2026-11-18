@@ -277,6 +277,32 @@ test('portable TRX CLI rejects unsupported and incomplete options', () => {
   }
 });
 
+
+test('portable TRX command executes the original minimum and rejects a failed attempt', async () => {
+  const contract = await loadOsPortabilityContract();
+  const minimum = contract.dotnet.minimumTests;
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'coglatas-trx-command-'));
+  const report = path.join(directory, 'portable.trx');
+  const run = () => spawnSync(process.execPath,
+    ['scripts/ci/verify-os-portability-results.mjs', '--trx', report], { encoding: 'utf8' });
+  const xml = countersValue => '<TestRun><Counters ' +
+    Object.entries(countersValue).map(([name, value]) => name + '="' + value + '"').join(' ') +
+    '/></TestRun>';
+  try {
+    await writeFile(report, xml(counters({ total: minimum, executed: minimum, passed: minimum })), 'utf8');
+    const accepted = run();
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.match(accepted.stdout, /Portable \.NET TRX passed/u);
+    await writeFile(report, xml(counters({ total: minimum, executed: minimum, passed: minimum - 1, failed: 1 })), 'utf8');
+    const rejected = run();
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /Portable \.NET TRX verification failed/u);
+    assert.match(rejected.stderr, /failed is non-zero/u);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 function counters(overrides) {
   return {
     total: 0,
