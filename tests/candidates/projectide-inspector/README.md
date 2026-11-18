@@ -73,7 +73,7 @@ worktree creation use the same isolation. The caller's environment is unchanged.
 
 ## Retained-native admission controls
 
-`test_compose_and_verify.py` contains **28 regression methods**. Its mandatory
+`test_compose_and_verify.py` contains **29 regression methods**. Its mandatory
 inputs are the original TRX, raw discovery, Vitest report, receipt and retained
 files from a successful pinned composition. It verifies their hashes and the
 unchanged C#/Angular blobs, admits the original twelve plus eleven identities,
@@ -89,8 +89,12 @@ index-only Product drift, untracked compile input, malformed reports, original
 command failure and inherited Git repository/index/object/config overrides.
 A separate read-only unprotected call demonstrates the old Git redirect. The
 foreign fixture's files, index and object database must remain unchanged.
+The disposable worktree and evidence paths are resolved before the retained
+Angular filename is relocated, matching the runner's path handling. A real
+`alias/..` directory control exercises this contract without requiring a
+Windows-specific temporary directory alias.
 
-**These 28 controls do not execute C# or Angular, add native passing cases, or
+**These 29 controls do not execute C# or Angular, add native passing cases, or
 certify actual clients.** Their JSON record explicitly says
 `nativeCommandsExecuted=false` and preserves all six qualification flags false.
 The hosted advisory runs the real composition on each OS first, then supplies
@@ -104,6 +108,21 @@ Local reader and control validation used both original host shapes under Linux
 Python. Fresh hosted Windows/Ubuntu execution and exact-current-head required
 checks remain separate evidence; the historical runs below do not qualify a
 new runner or workflow.
+
+## Preserved first repair failure
+
+[Run 44211323274, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/44211323274)
+tested source `81ccb0b1c49c2ac0b4eedfd0f087934fe009ea9c`. Both hosts passed
+the native twelve C# and eleven Angular cases. Ubuntu passed the original 28
+controls; Windows reported six control errors because the harness relocated
+the Angular report using an unresolved disposable path while `main()` resolved
+that path. This failed run does not qualify the repair.
+
+The added path-alias control reproduced the same filename mismatch with both
+host reports under Linux before the harness correction. All 29 controls then
+passed against each unchanged retained input set. The strict filename reader,
+both native test sources and Product remain unchanged. The corrected source
+still requires a fresh successful hosted run on each OS.
 
 ## Preserved historical native baseline
 

@@ -334,7 +334,9 @@ class MainAdmissionControls(ExactRejection):
 
     def run_main(self, *, stage=None, mutate=None, reason=None, overrides=None, command_failure=False) -> None:
         self.sequence += 1
-        target, evidence = self.directory / f"composed-{self.sequence}", self.directory / f"evidence-{self.sequence}"
+        # Match main's resolved paths before relocating the retained report.
+        target = (self.directory / f"composed-{self.sequence}").resolve()
+        evidence = (self.directory / f"evidence-{self.sequence}").resolve()
         original_foreign = file_snapshot(self.foreign)
         original_source = {path: (self.repository / path).read_bytes() for path in SOURCE_BYTES}
         real_run = RUNNER.run
@@ -420,6 +422,13 @@ class MainAdmissionControls(ExactRejection):
             self.assertEqual(original_foreign, file_snapshot(self.foreign))
 
     def test_main_accepts_original_identities_and_preserves_all_false_flags(self) -> None:
+        self.run_main()
+
+    def test_main_resolves_disposable_path_alias_before_relocating_native_report(self) -> None:
+        alias = self.directory / "alias"
+        alias.mkdir()
+        self.directory = alias / ".."
+        self.assertNotEqual(self.directory, self.directory.resolve())
         self.run_main()
 
     def test_main_rechecks_both_source_files_after_every_external_command(self) -> None:
