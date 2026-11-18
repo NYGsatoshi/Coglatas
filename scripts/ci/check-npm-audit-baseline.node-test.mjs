@@ -82,3 +82,63 @@ void test('valid high findings still require the same reviewed advisory identity
   changed.vulnerabilities.example.via[0].source = 12346;
   assert.equal(run({ frontend: changed }, [finding]).status, 1);
 });
+
+void test('dependency findings require their own reviewed identity', () => {
+  const report = highReport();
+  report.vulnerabilities.example.via = ['indirect-package'];
+  const finding = { report: 'frontend', package: 'example', severity: 'high', via: ['dependency:indirect-package'] };
+  assert.equal(run({ frontend: report }, [finding]).status, 0);
+  assert.equal(run({ frontend: report }).status, 1);
+  assert.equal(run({ frontend: report }, [{ ...finding, via: ['advisory:12345'] }]).status, 1);
+});
+
+void test('mixed advisory and dependency identities are deduplicated without losing a required identity', () => {
+  const report = highReport();
+  report.vulnerabilities.example.via = [{ source: 12345 }, 'indirect-package', { source: 12345 }];
+  const finding = { report: 'frontend', package: 'example', severity: 'high', via: ['dependency:indirect-package', 'advisory:12345'] };
+  assert.equal(run({ frontend: report }, [finding]).status, 0);
+  assert.equal(run({ frontend: report }, [{ ...finding, via: ['advisory:12345'] }]).status, 1);
+});
+
+void test('URL and title metadata cannot substitute for a positive safe-integer advisory source', () => {
+  for (const via of [{ url: 'https://advisory.example.test/12345' }, { title: 'synthetic-advisory' },
+    { source: 0 }, { source: -1 }, { source: 1.5 }, { source: Number.MAX_SAFE_INTEGER + 1 },
+    { source: '12345' }, { source: null }, { url: 'https://advisory.example.test/12345', title: 'synthetic-advisory' }]) {
+    const report = highReport();
+    report.vulnerabilities.example.via = [via];
+    const result = run({ frontend: report });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Invalid npm audit report/);
+    assert.doesNotMatch(result.stderr, /Unreviewed npm audit finding/);
+  }
+});
+
+void test('valid advisory identity takes precedence over untrusted descriptive metadata', () => {
+  const report = highReport(), canary = 'synthetic-private-advisory-metadata';
+  report.vulnerabilities.example.via = [{ source: 12345, url: `https://${canary}.example.test`, title: canary }];
+  const finding = { report: 'frontend', package: 'example', severity: 'high', via: ['advisory:12345'] };
+  const result = run({ frontend: report }, [finding]);
+  assert.equal(result.status, 0);
+  assert.equal((result.stdout + result.stderr).includes(canary), false);
+});
+
+void test('a reviewed high identity cannot approve a later critical finding', () => {
+  const report = highReport();
+  report.vulnerabilities.example.severity = 'critical';
+  report.metadata.vulnerabilities.high = 0;
+  report.metadata.vulnerabilities.critical = 1;
+  const finding = { report: 'frontend', package: 'example', severity: 'high', via: ['advisory:12345'] };
+  assert.equal(run({ frontend: report }, [finding]).status, 1);
+  assert.equal(run({ frontend: report }, [{ ...finding, severity: 'critical' }]).status, 0);
+});
+
+void test('stale reviewed findings warn without suppressing a new current finding', () => {
+  const stale = { report: 'frontend', package: 'old-package', severity: 'high', via: ['advisory:98765'] };
+  const clean = run({ frontend: cleanReport() }, [stale]);
+  assert.equal(clean.status, 0);
+  assert.match(clean.stderr, /not currently reported/);
+  const current = run({ frontend: highReport() }, [stale]);
+  assert.equal(current.status, 1);
+  assert.match(current.stderr, /Unreviewed npm audit finding/);
+  assert.match(current.stderr, /not currently reported/);
+});
