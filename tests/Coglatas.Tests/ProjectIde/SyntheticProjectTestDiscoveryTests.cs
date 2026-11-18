@@ -161,7 +161,8 @@ public sealed class SyntheticProjectTestDiscoveryTests
         var profile = new CompilerHostProfile(input.Compiler, At("schema"), At("ruleset"), At("semantics"), At("ir"), At("evaluator"),
             input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(value => value.GetString()), input.PlanLowerer);
         var request = new PredicateCompilerHostRequest(new(core.Input, 1, core.Snapshots, core.Units, core.Calendars), new(CompilerPredicateCaptureMode.OriginalRootArrays));
-        using var session = new LocalPredicateCompilerRecordingSession(profile); using var view = new SyntheticWorkbenchViewModel();
+        using var session = new LocalPredicateCompilerRecordingSession(profile);
+        using var view = new SyntheticWorkbenchViewModel();
         var manifest = session.Prepare(request, Guid.NewGuid()); view.BeginPredicateSynthetic(manifest, request);
         var actual = await session.ExecuteAsync(manifest, request); Assert.True(view.TryAcceptPredicate(actual));
         var result = actual.Response.Compilation!.Result; Assert.True(view.LoadSyntheticRootSource(result.ResultDigest));
@@ -176,7 +177,8 @@ public sealed class SyntheticProjectTestDiscoveryTests
     [InlineData(false)] [InlineData(true)]
     public async Task CancelledPublicationWithdrawsOnlyTheSelectionOwnedByItsInventory(bool selectDiscovery)
     {
-        using var view = await Ready(); using var cancellation = new CancellationTokenSource();
+        using var view = await Ready();
+        using var cancellation = new CancellationTokenSource();
         var symbol = view.Inspection!.Symbols.First(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
         var entered = false; Action cancel = cancellation.Cancel;
         PropertyChangedEventHandler onChange = (sender, _) =>
