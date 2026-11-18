@@ -106,10 +106,6 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
     run_infos = summary.findall("{*}RunInfos")
     if len(run_infos) > 1 or any(item.tag != TRX_NAMESPACE + "RunInfos" for item in run_infos):
         raise ValueError("Native TRX contains unsupported run-level information")
-    for container in run_infos:
-        if any(item.tag != TRX_NAMESPACE + "RunInfo" or item.get("outcome") not in
-               ("Passed", "Completed", "Warning", "Information") for item in container):
-            raise ValueError("Native TRX contains failed or unsupported run-level result information")
     identities = HISTORICAL_IDENTITIES if historical else EXPECTED_IDENTITIES
     expected = len(identities)
     failures = len(HISTORICAL_FAILURES) if historical else 0
@@ -138,6 +134,7 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
     if (set(names) != identities or len(set(names)) != expected
             or any(item.get("outcome") != ("Failed" if historical and item.get("testName") in HISTORICAL_FAILURES else "Passed") for item in cases)):
         raise ValueError("Native TRX does not match the exact reference-cache fact roster")
+    verified_failures = set()
     if historical:
         for item in cases:
             if item.get("testName") not in HISTORICAL_FAILURES:
@@ -146,8 +143,9 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
             error = single_element(output, "ErrorInfo")
             message = single_element(error, "Message").text or ""
             stack = single_element(error, "StackTrace").text or ""
-            if HISTORICAL_INVARIANT not in message or item.get("testName", "") not in stack:
+            if message != HISTORICAL_INVARIANT or item.get("testName", "") not in stack:
                 raise ValueError("Historical native failure does not identify the retained-lifetime assertion")
+            verified_failures.add(item.get("testName"))
     result_pairs = [(item.get("testId"), item.get("executionId")) for item in cases]
     entry_pairs = [(item.get("testId"), item.get("executionId")) for item in entries]
     definition_pairs = []
@@ -168,6 +166,31 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
     definition_names = {item.get("id"): item.get("name") for item in definitions}
     if any(definition_names[item.get("testId")] != item.get("testName") for item in cases):
         raise ValueError("Native TRX definition names disagree with their original results")
+    # xUnit reports each real failed fact a second time as an Error RunInfo.
+    # Admit only its exact adapter announcement, joined to the fully verified
+    # failed result above. This does not admit an unrelated test-host error.
+    announcements = []
+    adapter_pattern = (r"\[xUnit\.net [0-9]{2}:[0-5][0-9]:[0-5][0-9]\.[0-9]{2}\]     ("
+                       + re.escape(TEST_CLASS_FQN) + r"\.[A-Za-z][A-Za-z0-9_]*) \[FAIL\]")
+    for container in run_infos:
+        for item in container:
+            if item.tag != TRX_NAMESPACE + "RunInfo":
+                raise ValueError("Native TRX contains failed or unsupported run-level result information")
+            if item.get("outcome") in ("Passed", "Completed", "Warning", "Information"):
+                continue
+            if not historical or item.get("outcome") != "Error":
+                raise ValueError("Native TRX contains failed or unsupported run-level result information")
+            children = list(item)
+            if (len(children) != 1 or children[0].tag != TRX_NAMESPACE + "Text"
+                    or children[0].attrib or list(children[0])
+                    or (item.text or "").strip() or (children[0].tail or "").strip()):
+                raise ValueError("Native TRX contains failed or unsupported run-level result information")
+            match = re.fullmatch(adapter_pattern, children[0].text or "")
+            if match is None or match[1] not in verified_failures:
+                raise ValueError("Native TRX contains failed or unsupported run-level result information")
+            announcements.append(match[1])
+    if len(announcements) != len(verified_failures) or set(announcements) != verified_failures:
+        raise ValueError("Historical adapter failure announcements must match the six verified failures exactly")
     return sorted(names)
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+from copy import deepcopy
 import os
 import re
 from pathlib import Path
@@ -75,6 +76,10 @@ def historical_fixture() -> ET.Element:
     for entry in list(entries):
         if entry.get("testId") not in retained_ids:
             entries.remove(entry)
+    infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+    for name in sorted(RUNNER.HISTORICAL_FAILURES):
+        info = ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Error")
+        ET.SubElement(info, NAMESPACE + "Text").text = "[xUnit.net 00:00:06.19]     " + name + " [FAIL]"
     return root
 
 
@@ -140,7 +145,7 @@ class HistoricalAdmissionControls(unittest.TestCase):
         for outcome in ("Error", "Failed", "Aborted", "Timeout", "Inconclusive", "Unknown"):
             with self.subTest(outcome=outcome):
                 root = historical_fixture()
-                infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+                infos = root.find(NAMESPACE + "ResultSummary/" + NAMESPACE + "RunInfos")
                 ET.SubElement(infos, NAMESPACE + "RunInfo", outcome=outcome)
                 with self.assertRaisesRegex(ValueError, "^Native TRX contains failed or unsupported run-level result information$"):
                     self.read(root)
@@ -150,6 +155,39 @@ class HistoricalAdmissionControls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "^Native TRX contains a run-level error$"):
             self.read(root)
         self.assertEqual(sorted(RUNNER.HISTORICAL_IDENTITIES), self.read(historical_fixture()))
+
+    def test_historical_adapter_announcements_bind_exactly_to_verified_failed_results(self) -> None:
+        self.assertEqual(sorted(RUNNER.HISTORICAL_IDENTITIES), self.read(historical_fixture()))
+        for mutation in ("missing-all", "missing-one", "duplicate", "foreign", "positive", "infrastructure",
+                         "leading-space", "trailing-space", "nested-text", "extra-text", "text-attribute",
+                         "extra-tail", "nonerror-announcement"):
+            with self.subTest(mutation=mutation):
+                root = historical_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = summary.find(NAMESPACE + "RunInfos")
+                info = infos[0]
+                text = info.find(NAMESPACE + "Text")
+                if mutation == "missing-all": summary.remove(infos)
+                elif mutation == "missing-one": infos.remove(info)
+                elif mutation == "duplicate": infos.append(deepcopy(info))
+                elif mutation == "foreign": text.text = "[xUnit.net 00:00:06.19]     Foreign.Class.Fact [FAIL]"
+                elif mutation == "positive": text.text = "[xUnit.net 00:00:06.19]     " + RUNNER.TEST_CLASS_FQN + "." + RUNNER.HISTORICAL_POSITIVE_METHOD + " [FAIL]"
+                elif mutation == "infrastructure": text.text = "Unrelated test-host infrastructure failure"
+                elif mutation == "leading-space": text.text = " " + text.text
+                elif mutation == "trailing-space": text.text += " "
+                elif mutation == "nested-text": ET.SubElement(text, NAMESPACE + "Other")
+                elif mutation == "extra-text": ET.SubElement(info, NAMESPACE + "Text").text = text.text
+                elif mutation == "text-attribute": text.set("extra", "unsupported")
+                elif mutation == "extra-tail": text.tail = "unrelated error"
+                elif mutation == "nonerror-announcement": info.set("outcome", "Information")
+                with self.assertRaises(ValueError):
+                    self.read(root)
+        corrected = native_fixture()
+        infos = ET.SubElement(corrected.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        infos.append(deepcopy(historical_fixture().find(NAMESPACE + "ResultSummary/" + NAMESPACE + "RunInfos")[0]))
+        ET.ElementTree(corrected).write(self.report, encoding="utf-8", xml_declaration=True)
+        with self.assertRaisesRegex(ValueError, "^Native TRX contains failed or unsupported run-level result information$"):
+            RUNNER.native_inventory(self.report)
 
     def test_historical_positive_cannot_carry_contradictory_error_information(self) -> None:
         root = historical_fixture()

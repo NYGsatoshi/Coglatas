@@ -114,7 +114,7 @@ Compiled discovery removes only its CLI presentation indent, not identity text.
 Unexpected namespace, duplicate/aliased identity, changed outcome or malformed
 container is a refusal.
 
-The 27 portable Python methods retain real disposable-Git source/index/HEAD/drift
+The 28 portable Python methods retain real disposable-Git source/index/HEAD/drift
 and hostile-environment controls plus positive/malformed native report controls.
 The new mode-only index substitution uses `core.filemode=false` to demonstrate
 why an unchanged source blob and empty unstaged diff are insufficient. Separate
@@ -124,8 +124,14 @@ admit only the explicit SDK-output paths after the initial clean composition.
 Separate
 historical controls reject wrong counters/outcomes, unrelated assertion messages
 or stacks, swapped positive/negative outcomes and mismatched Product modes.
-Run-level Error/Failed/Aborted/Timeout or unsupported RunInfo outcomes and
-run-level or passing-case ErrorInfo cannot hide behind expected assertion RED.
+Historical admission requires exactly six xUnit adapter Error RunInfo
+announcements, each a single plain Text child matching the exact elapsed-time,
+fully qualified failed method and `[FAIL]` format. These names must bijectively
+match the six results already verified through their assertion messages, stacks
+and native identities. Missing, duplicate, foreign, positive-case or malformed
+announcements are rejected. Corrected mode permits no Error RunInfo; unrelated
+Error, Failed, Aborted, Timeout or unsupported run information and run-level or
+passing-case ErrorInfo cannot hide behind expected assertion RED.
 These methods provide no native C# execution credit.
 
 ```text
@@ -158,6 +164,17 @@ Product object was absent from the branch/tag checkout. Explicit immutable-SHA
 retrieval addresses that setup failure. This attempt establishes neither
 historical native RED nor corrected 24-case GREEN; fresh four-leg originals are
 required after the source correction.
+
+[The second run 44242753210](https://github.com/NYGsatoshi/Coglatas/actions/runs/44242753210)
+at source `b9f6fe9f12c86933cfb45a84e3cc75cce6f72b95` also remains a failed workflow
+attempt. Its corrected legs each executed 24 PASS / 0 FAIL. Both historical legs
+executed the six intended invariant failures and one positive, but the previous
+parser rejected xUnit's six normal Error RunInfo failure announcements before
+compiled discovery. Their eleven-file archives establish that diagnostic
+observation, not completed historical qualification. The narrow adapter-to-result
+bijection above corrects that verifier error. Replaying retained TRX files is a
+parser control and provides no fresh native execution credit; all four legs must
+run again with the corrected runner and the same C# source.
 
 ## Remaining boundaries
 

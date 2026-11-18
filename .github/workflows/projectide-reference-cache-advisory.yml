@@ -12,8 +12,8 @@ permissions:
 
 env:
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
-  RUNNER_BLOB: 4652aa7e9bade4554af0d206765ee06151935ea9
-  CONTROLS_BLOB: db7c8b6508200fd0b1d8abea887b1749a0105078
+  RUNNER_BLOB: 6a00381518ea527e4a50c039b9bbae93621a6826
+  CONTROLS_BLOB: bee4e3a71e7eb5b9bdd2f774106e0fff74b333fd
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}
