@@ -14,6 +14,7 @@ public sealed class ProjectTestCliDiscoveryTests
     [InlineData("zero", false, 2)] [InlineData("zero", true, 3)]
     [InlineData("unsupported", false, 2)] [InlineData("unsupported", true, 3)]
     [InlineData("invalid", false, 3)] [InlineData("invalid", true, 3)]
+    [InlineData("invalid-evaluator", false, 3)] [InlineData("invalid-evaluator", true, 3)]
     [InlineData("evaluator", false, 2)] [InlineData("evaluator", true, 3)]
     [InlineData("partial", false, 2)] [InlineData("partial", true, 3)]
     [InlineData("budget", false, 2)] [InlineData("budget", true, 3)]
@@ -30,10 +31,10 @@ public sealed class ProjectTestCliDiscoveryTests
                 if (mode == "counterexample") port["defaultValue"]!["value"] = false;
                 if (mode == "zero") test["kind"] = "example.not-test";
                 if (mode == "unsupported") assertions[0]!["kind"] = "example.future";
-                if (mode == "invalid") assertions[0]!["expected"]!["type"]!["kind"] = "coglatas.decimal";
+                if (mode is "invalid" or "invalid-evaluator") assertions[0]!["expected"]!["type"]!["kind"] = "coglatas.decimal";
             });
             var settings = JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject();
-            if (mode != "evaluator") settings["evaluator"] = JsonNode.Parse((await HostEvaluator()).Data.CanonicalText);
+            if (mode is not ("evaluator" or "invalid-evaluator")) settings["evaluator"] = JsonNode.Parse((await HostEvaluator()).Data.CanonicalText);
             if (mode == "partial") settings["sourceCoverage"] = "coglatas.partial";
             if (mode == "budget") settings["executionProfile"]!["maximumOperations"] = 1;
             var input = new CompilerInputManifest(basis.Source, Json(settings));
@@ -80,7 +81,7 @@ public sealed class ProjectTestCliDiscoveryTests
             var reason = mode switch
             {
                 "zero" => "coglatas.zero-tests", "unsupported" => "coglatas.unsupported-test-discovery",
-                "invalid" => "coglatas.invalid-test-discovery", "evaluator" => "coglatas.evaluator-identity-mismatch",
+                "invalid" or "invalid-evaluator" => "coglatas.invalid-test-discovery", "evaluator" => "coglatas.evaluator-identity-mismatch",
                 "partial" => "coglatas.incomplete-test-binding", "budget" => "coglatas.test-discovery-unavailable",
                 _ => "coglatas.test-discovery-ready"
             };
@@ -115,10 +116,10 @@ public sealed class ProjectTestCliDiscoveryTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
-    private static async Task<CompilerArtifactIdentity> HostEvaluator() => new(Json(new
+    private static async Task<CompilerArtifactIdentity> HostEvaluator() => new(Json(Obj(new
     {
         artifactId = "coglatas.local-project-test-evaluator", version = typeof(ProjectTestPlan).Assembly.GetName().Version!.ToString(),
         digest = ContentDigest.Compute("coglatas.project-test-evaluator-binary/1", await File.ReadAllBytesAsync(typeof(ProjectTestPlan).Assembly.Location)).Data.Value
-    }));
+    })));
     private static async Task<int> Invoke(string[] args) => await Task.Run(() => (int)typeof(ConsoleCancellation).Assembly.EntryPoint!.Invoke(null, [args])!);
 }

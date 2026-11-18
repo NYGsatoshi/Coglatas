@@ -88,8 +88,8 @@ static SourceJson Discovery(ProjectTestDiscovery inventory, out int exitCode)
         ProjectTestDiscoveryState.Unavailable => "coglatas.test-discovery-unavailable",
         ProjectTestDiscoveryState.ResourceLimit => "coglatas.test-discovery-bound-exhausted",
         _ when inventory.DiscoveredTests == 0 => "coglatas.zero-tests",
-        _ when !inventory.EvaluatorMatches => "coglatas.evaluator-identity-mismatch",
         _ when inventory.Tests.Any(test => test.DecodeStatus == ValueDecodeStatus.Invalid) => "coglatas.invalid-test-discovery",
+        _ when !inventory.EvaluatorMatches => "coglatas.evaluator-identity-mismatch",
         _ when inventory.Tests.Any(test => test.DecodeStatus == ValueDecodeStatus.Unsupported) => "coglatas.unsupported-test-discovery",
         _ when !inventory.BindingComplete => "coglatas.incomplete-test-binding",
         _ => "coglatas.test-discovery-ready"
