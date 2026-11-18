@@ -88,7 +88,8 @@ public sealed class SyntheticSemanticIndexTests
     [Fact]
     public async Task EmptyAndRefusedReferencePagesKeepDifferentGraphStates()
     {
-        using var vm = await Ready(); using var other = await Ready();
+        using var vm = await Ready();
+        using var other = await Ready();
         var index = vm.SemanticIndex!;
         var unused = index.Symbols.First(symbol => { var page = index.FindReferences(symbol.Symbol.Location, index.Input.InputDigest); return page.State == CompilerIndexQueryState.Ready && page.References.Count == 0; });
         Assert.True(vm.SelectIndexedSymbol(unused)); var empty = Assert.IsType<CompilerIndexReferencePage>(vm.ReadIndexedReferences());
