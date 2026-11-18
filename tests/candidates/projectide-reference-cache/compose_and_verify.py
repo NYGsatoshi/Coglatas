@@ -356,7 +356,7 @@ def main() -> None:
         verify_working_tree(worktree, raw, source_blob, product_head=arguments.product_head, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx", historical=arguments.historical)
         discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", selection)
+                             "--list-tests", "--filter", selection),
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery, historical=arguments.historical) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
