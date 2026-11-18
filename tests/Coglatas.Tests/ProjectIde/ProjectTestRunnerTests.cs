@@ -16,7 +16,7 @@ public sealed class ProjectTestRunnerTests
         if (kind == "coglatas.assert-collection-count") assertion["expectedCount"] = 2;
         return assertion;
     }
-    private static CompilerInputManifest Fixture(JsonObject? value = null, Action<JsonObject, JsonArray, JsonObject>? mutate = null, JsonObject? settings = null)
+    internal static CompilerInputManifest Fixture(JsonObject? value = null, Action<JsonObject, JsonArray, JsonObject>? mutate = null, JsonObject? settings = null)
     {
         var original = Source(); value ??= Value("coglatas.boolean", true);
         var port = Obj(new { portId = Id(8), direction = "coglatas.input", type = value["type"]!.DeepClone(), minimumConnections = 0, maximumConnections = 1, defaultValue = value });

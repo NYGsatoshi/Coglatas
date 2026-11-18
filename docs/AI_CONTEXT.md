@@ -77,7 +77,9 @@ preserve original Compiler facts and newer notification contexts; no runtime
 authority, actual Avalonia or numerical assurance is inferred.
 
 The [local Project Test CLI](verification/projectide-local-project-tests.md)
-reports unsupported input settings and unrepresentable Source as explicit
+exposes owned typed discovery and --discover without evaluating assertions or
+producing Test PASS. Original input/plan stamps, decode/coverage/evaluator facts,
+bounds and refusal states stay distinct. It also reports unsupported input settings and unrepresentable Source as explicit
 unsupported failures with exit 2, distinct from malformed input. Structurally
 admitted opaque Source retains its existing limited binding/Test behavior. Input and existing output bytes remain preserved; no bound Test result,
 manifest integrity, runtime authority or CI adoption is inferred.

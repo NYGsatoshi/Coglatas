@@ -10,6 +10,28 @@ public sealed record ProjectTestLimits(int MaximumTests = 256, int MaximumAssert
     }
 }
 
+public enum ProjectTestDiscoveryState { Ready, StaleInput, Unavailable, ResourceLimit }
+public sealed record ProjectDiscoveredTest(EntityId TestId, ProjectLocation Location, string? DisplayName,
+    ValueDecodeStatus DecodeStatus, int? AssertionCount);
+
+/// <summary>Owned local inventory, not an execution result, evidence or current access grant.</summary>
+public sealed class ProjectTestDiscovery
+{
+    public ProjectTestDiscoveryState State { get; }
+    public ContentDigest? InputDigest { get; }
+    public ContentDigest? PlanDigest { get; }
+    public int DiscoveredTests { get; }
+    public bool BindingComplete { get; }
+    public bool EvaluatorMatches { get; }
+    public IReadOnlyList<ProjectDiscoveredTest> Tests { get; }
+    internal ProjectTestDiscovery(ProjectTestDiscoveryState state, ContentDigest? inputDigest = null, ContentDigest? planDigest = null,
+        bool bindingComplete = false, bool evaluatorMatches = false, IEnumerable<ProjectDiscoveredTest>? tests = null)
+    {
+        State = state; InputDigest = inputDigest; PlanDigest = planDigest; BindingComplete = bindingComplete; EvaluatorMatches = evaluatorMatches;
+        Tests = new ImmutableListView<ProjectDiscoveredTest>(tests ?? []); DiscoveredTests = Tests.Count;
+    }
+}
+
 public sealed class ProjectTestAssertionResult
 {
     public ProjectLocation Location { get; }
@@ -138,6 +160,27 @@ public sealed class ProjectTestPlan
         ArgumentNullException.ThrowIfNull(model); ArgumentNullException.ThrowIfNull(expectedEvaluator);
         return new(model, expectedEvaluator, limits ?? new(), cancellationToken);
     }
+    /// <summary>List exact admitted definitions without evaluating an assertion or producing Test PASS.</summary>
+    public ProjectTestDiscovery Discover(ContentDigest expectedInputDigest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expectedInputDigest); cancellationToken.ThrowIfCancellationRequested();
+        if (!Input.InputDigest.Equals(expectedInputDigest)) return new(ProjectTestDiscoveryState.StaleInput);
+        if (!WithinLimits) return new(ProjectTestDiscoveryState.ResourceLimit);
+        if (!DiscoveryComplete) return new(ProjectTestDiscoveryState.Unavailable);
+        var tests = new List<ProjectDiscoveredTest>();
+        foreach (var decoded in _tests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var id = SourceFields.Identity<EntityId>(decoded.Data.Value, "entityId");
+            var location = ProjectLocation.Create(decoded.DocumentId, Input.Source.Context, entityId: id);
+            var name = decoded.Data.Value.TryGetProperty("displayName", out var display) && display.ValueKind == System.Text.Json.JsonValueKind.String
+                ? display.GetString() : null;
+            tests.Add(new(id, location, name, decoded.Status, (decoded.Declaration as ProjectTestPlanDeclaration)?.Assertions.Count));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(ProjectTestDiscoveryState.Ready, Input.InputDigest, Digest, _model.BindingComplete, _evaluatorMatches, tests);
+    }
+
     public ProjectTestRun Execute(ContentDigest expectedInputDigest, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expectedInputDigest);

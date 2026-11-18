@@ -12,9 +12,11 @@ if (args is ["--evaluator"])
 {
     Console.WriteLine(evaluator.Data.CanonicalText); return 0;
 }
+var discover = args.Length > 0 && args[0] == "--discover";
+if (discover) args = args[1..];
 if (args.Length != 3)
 {
-    Console.Error.WriteLine("Usage: ProjectIde.Tests SOURCE_JSON INPUT_ENVELOPE_JSON NEW_RESULT_JSON");
+    Console.Error.WriteLine("Usage: ProjectIde.Tests [--discover] SOURCE_JSON INPUT_ENVELOPE_JSON NEW_OUTPUT_JSON");
     return 3;
 }
 using var cancellation = new ConsoleCancellation();
@@ -35,9 +37,21 @@ try
         var input = CompilerInputManifest.ReadEnvelope(source, envelope);
         var model = ProjectSemanticBinder.Bind(input, cancellationToken: cancellation.Token);
         var plan = ProjectTestPlan.Compile(model, evaluator, cancellationToken: cancellation.Token);
-        var run = plan.Execute(input.InputDigest, cancellation.Token);
-        artifact = Json(new { format = "coglatas.project-test-result-envelope/1", resultDigest = run.Digest.Data.Value, result = run.Data.Value });
-        exitCode = run.Verdict switch { CompilerVerdict.Pass => 0, CompilerVerdict.Fail => 1, CompilerVerdict.Error => 3, _ => 2 };
+        if (discover)
+        {
+            var inventory = plan.Discover(input.InputDigest, cancellation.Token);
+            try { artifact = Discovery(inventory, out exitCode); }
+            catch (FormatException)
+            {
+                artifact = Failure("ResourceExhausted", "NotRun", "coglatas.test-discovery-artifact-bound-exhausted"); exitCode = 2;
+            }
+        }
+        else
+        {
+            var run = plan.Execute(input.InputDigest, cancellation.Token);
+            artifact = Json(new { format = "coglatas.project-test-result-envelope/1", resultDigest = run.Digest.Data.Value, result = run.Data.Value });
+            exitCode = run.Verdict switch { CompilerVerdict.Pass => 0, CompilerVerdict.Fail => 1, CompilerVerdict.Error => 3, _ => 2 };
+        }
     }
     catch (OperationCanceledException)
     {
@@ -51,9 +65,11 @@ try
     {
         artifact = Failure("NotRun", "Error", "coglatas.invalid-or-mismatched-input"); exitCode = 3;
     }
+    // Encode completely before CreateNew; inventory is not a successful Test execution.
+    var bytes = artifact.ToCanonicalBytes();
     // CreateNew preserves all existing files, including the Source and its input envelope.
     await using var output = new FileStream(args[2], FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
-    await output.WriteAsync(artifact.ToCanonicalBytes());
+    await output.WriteAsync(bytes);
     await output.FlushAsync();
     return exitCode;
 }
@@ -61,6 +77,31 @@ catch (Exception error) when (error is IOException or UnauthorizedAccessExceptio
 {
     Console.Error.WriteLine("Project Test input/output unavailable; no successful result was published.");
     return 3;
+}
+
+
+static SourceJson Discovery(ProjectTestDiscovery inventory, out int exitCode)
+{
+    var reason = inventory.State switch
+    {
+        ProjectTestDiscoveryState.StaleInput => "coglatas.stale-input",
+        ProjectTestDiscoveryState.Unavailable => "coglatas.test-discovery-unavailable",
+        ProjectTestDiscoveryState.ResourceLimit => "coglatas.test-discovery-bound-exhausted",
+        _ when inventory.DiscoveredTests == 0 => "coglatas.zero-tests",
+        _ when inventory.Tests.Any(test => test.DecodeStatus == ValueDecodeStatus.Invalid) => "coglatas.invalid-test-discovery",
+        _ when !inventory.EvaluatorMatches => "coglatas.evaluator-identity-mismatch",
+        _ when inventory.Tests.Any(test => test.DecodeStatus == ValueDecodeStatus.Unsupported) => "coglatas.unsupported-test-discovery",
+        _ when !inventory.BindingComplete => "coglatas.incomplete-test-binding",
+        _ => "coglatas.test-discovery-ready"
+    };
+    exitCode = reason == "coglatas.test-discovery-ready" ? 0 : reason == "coglatas.invalid-test-discovery" ? 3 : 2;
+    return Json(new { format = "coglatas.project-test-discovery-cli/1", state = inventory.State.ToString(),
+        execution = "NotRun", verdict = "NotRun", evidenceKind = "coglatas.missing", executedAssertions = 0, reason,
+        inputDigest = inventory.InputDigest?.Data.Value, planDigest = inventory.PlanDigest?.Data.Value,
+        discoveredTests = inventory.DiscoveredTests, discoveryComplete = inventory.State == ProjectTestDiscoveryState.Ready,
+        bindingComplete = inventory.BindingComplete, evaluatorMatches = inventory.EvaluatorMatches,
+        tests = inventory.Tests.Select(test => new { testId = test.TestId.ToString(), location = test.Location.Data.Value,
+            displayName = test.DisplayName, decodeStatus = test.DecodeStatus.ToString(), assertionCount = test.AssertionCount }).ToArray() });
 }
 
 static SourceJson Failure(string execution, string verdict, string reason) => Json(new
