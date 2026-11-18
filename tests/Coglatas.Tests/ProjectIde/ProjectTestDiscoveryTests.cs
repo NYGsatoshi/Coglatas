@@ -24,7 +24,8 @@ public sealed class ProjectTestDiscoveryTests
         Assert.Equal(ValueDecodeStatus.Decoded, test.DecodeStatus); Assert.Equal(1, test.AssertionCount);
         Assert.Equal(ProjectLocation.Create(DocumentId.Parse(Id(4)), input.Source.Context, entityId: test.TestId).Data, test.Location.Data);
         Assert.Equal(before, plan.Data); Assert.Equal(run.Data, plan.Execute(input.InputDigest).Data);
-        var legacy = Assert.IsAssignableFrom<IList>(inventory.Tests);
+        Assert.False(inventory.Tests is IList);
+        var legacy = Assert.IsAssignableFrom<IList<ProjectDiscoveredTest>>(inventory.Tests); Assert.True(legacy.IsReadOnly);
         Assert.Throws<NotSupportedException>(() => legacy.Clear()); Assert.Single(inventory.Tests);
     }
 
