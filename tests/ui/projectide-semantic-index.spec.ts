@@ -54,6 +54,8 @@ for (const locale of ['en', 'ja'] as const) {
       const layout = page.getByTestId('ide-index-graph-toggle'); await layout.focus(); await layout.press('Space');
       await expect(layout).toHaveAttribute('aria-pressed', 'true'); await expect(page.getByTestId('ide-index-graph-origin')).toHaveCount(32);
       await expect(page.getByTestId('ide-index-reference')).toHaveCount(0); await expect(page.getByTestId('ide-index-graph-target')).toHaveCount(1);
+      const edge = page.getByTestId('ide-index-reference-graph').locator('.reference-graph-edge').first();
+      if ((page.viewportSize()?.width ?? 1280) <= 640) await expect(edge).toBeHidden(); else await expect(edge).toBeVisible();
       await page.getByTestId('ide-index-references-next').focus(); await page.getByTestId('ide-index-references-next').press('Enter');
       await expect(page.getByTestId('ide-index-graph-origin')).toHaveCount(4); await expect(page.getByTestId('ide-semantic-index')).toBeFocused();
       if (locale === 'en' && kind === 'base') await page.screenshot({ path: test.info().outputPath('reference-neighborhood.png'), fullPage: true });
