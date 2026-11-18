@@ -10,7 +10,9 @@ runtime authority or independent acceptance.
 reuses exact structural and typed-value resolution only after fresh dependency
 admission and matching original lookup facts. Current diagnostics, global
 validation, full index assembly and query ownership remain fresh. The bounded
-optional session grants no current runtime authority or independent acceptance.
+optional session carries its original invalidation epoch through root and regional
+binding, so Clear or owner changes prevent late repopulation. It grants no current
+runtime authority or independent acceptance.
 
 [Local reference neighborhoods](verification/projectide-reference-neighborhood.md)
 render only the current owned Find References page in the Angular Workbench and

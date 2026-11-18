@@ -7,6 +7,116 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class ReferenceBindingCacheTests
 {
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void InvalidationAfterBindingStartCannotRestoreEarlierReferenceOwner(string invalidation)
+    {
+        var fixture = SymbolBindingCacheTests.External(Source(9));
+        var model = Compile(fixture.Input, new ProjectReferenceBindingCache(), new ProjectSymbolBindingCache(), [fixture.Snapshot]).Model!;
+        var reference = model.References.First();
+        var cache = new ProjectReferenceBindingCache(); var owner = fixture.Input.Source.Context.Branch;
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var begin = typeof(ProjectReferenceBindingCache).GetMethod("BeginBinding", flags)!;
+        var resolve = typeof(ProjectReferenceBindingCache).GetMethod("Resolve", flags)!;
+        var earlierScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
+        if (invalidation == "clear") cache.Clear();
+        else begin.Invoke(cache, [new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), CancellationToken.None]);
+        var constructor = resolve.ReturnType.GetConstructors(flags | System.Reflection.BindingFlags.Public).Single(item => item.GetParameters().Length == 4);
+        var factory = System.Linq.Expressions.Expression.Lambda(resolve.GetParameters()[2].ParameterType, System.Linq.Expressions.Expression.New(constructor,
+            System.Linq.Expressions.Expression.Constant(reference, typeof(CompilerBoundReference)),
+            System.Linq.Expressions.Expression.Constant(null, typeof(string)), System.Linq.Expressions.Expression.Constant(false),
+            System.Linq.Expressions.Expression.Constant(null, typeof(CompilerSymbol)))).Compile();
+        resolve.Invoke(cache, [earlierScope, new[] { "reference-owner-lifetime-control" }, factory, CancellationToken.None]);
+        Assert.Equal(0, cache.RetainedCount);
+        var currentScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
+        resolve.Invoke(cache, [currentScope, new[] { "reference-owner-lifetime-control" }, factory, CancellationToken.None]);
+        Assert.Equal(1, cache.RetainedCount);
+    }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void PublicBindingCannotRepopulateAnInvalidatedReferenceLifetime(string invalidation)
+    {
+        var fixture = SymbolBindingCacheTests.External(Source(9));
+        var cache = new ProjectReferenceBindingCache();
+        IEnumerable<CompilerMaterializedSnapshot> Supply()
+        {
+            InvalidateReferenceLifetime(cache, fixture.Input, invalidation);
+            yield return fixture.Snapshot;
+        }
+        var actual = ProjectSemanticBinder.Bind(fixture.Input, Supply(), referenceBindingCache: cache);
+        var expected = ProjectSemanticBinder.Bind(fixture.Input, [fixture.Snapshot]);
+        Assert.Equal(0, cache.RetainedCount);
+        var a = CompilerBindingClosure.Build(actual, fixture.Input.InputDigest);
+        var b = CompilerBindingClosure.Build(expected, fixture.Input.InputDigest);
+        Assert.Equal(b.Data, a.Data);
+        Assert.Equal(CompilerSemanticIndex.Build(b, fixture.Input.InputDigest).Data, CompilerSemanticIndex.Build(a, fixture.Input.InputDigest).Data);
+    }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void LaterDependencyRegionsKeepTheInvalidatedRootReferenceLifetime(string invalidation)
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true);
+        var cache = new ProjectReferenceBindingCache();
+        var root = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, referenceBindingCache: cache);
+        Assert.True(cache.RetainedCount > 0);
+        InvalidateReferenceLifetime(cache, fixture.Input, invalidation);
+        var current = CompilerBindingClosure.Build(root, fixture.Input.InputDigest, referenceBindingCache: cache);
+        Assert.Equal(0, cache.RetainedCount);
+        var expected = CompilerBindingClosure.Build(root, fixture.Input.InputDigest);
+        Assert.Equal(expected.Data, current.Data);
+        var fresh = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, referenceBindingCache: cache);
+        var freshClosure = CompilerBindingClosure.Build(fresh, fixture.Input.InputDigest, referenceBindingCache: cache);
+        Assert.True(cache.RetainedCount > 0); Assert.Equal(expected.Data, freshClosure.Data);
+    }
+
+    [Theory]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void FullCompilationKeepsItsReferenceLifetimeAfterRootValidationInvalidation(string invalidation)
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true);
+        var cache = new ProjectReferenceBindingCache(); var observed = false;
+        IEnumerable<UnitDefinition> Units()
+        {
+            Assert.True(cache.RetainedCount > 0); observed = true;
+            InvalidateReferenceLifetime(cache, fixture.Input, invalidation);
+            yield break;
+        }
+        var actual = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots, Units(), referenceBindingCache: cache);
+        var expected = PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots);
+        Assert.True(observed); Assert.Equal(0, cache.RetainedCount);
+        Assert.Equal(expected.Result.Data, actual.Result.Data);
+        Assert.Equal(expected.Dependencies!.Data, actual.Dependencies!.Data);
+        Assert.Equal(expected.LogicalOperationsConsumed, actual.LogicalOperationsConsumed);
+        SymbolBindingCacheTests.AssertFullIndexEquivalent(expected, actual);
+    }
+
+    [Fact]
+    public void ADeliberatelyDifferentReferenceSessionCanStartFromAnEarlierImmutableRoot()
+    {
+        var fixture = CompilerBindingClosureTests.Graph(withRelation: true);
+        var first = new ProjectReferenceBindingCache(); var second = new ProjectReferenceBindingCache();
+        var root = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, referenceBindingCache: first);
+        first.Clear();
+        var current = CompilerBindingClosure.Build(root, fixture.Input.InputDigest, referenceBindingCache: second);
+        Assert.Equal(0, first.RetainedCount); Assert.True(second.RetainedCount > 0);
+        Assert.Equal(CompilerBindingClosure.Build(root, fixture.Input.InputDigest).Data, current.Data);
+    }
+
+    private static void InvalidateReferenceLifetime(ProjectReferenceBindingCache cache, CompilerInputManifest input, string invalidation)
+    {
+        if (invalidation == "clear") { cache.Clear(); return; }
+        var owner = input.Source.Context.Branch;
+        var context = SourceRevisionContext.Committed(new(new(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), RevisionId.Parse(Id(5))));
+        ProjectSemanticBinder.Bind(Input(source: ProjectSource.Create(context, Source().Documents)), referenceBindingCache: cache);
+        Assert.Equal(0, cache.RetainedCount);
+    }
+
     [Fact]
     public void AMissingFirstTargetResolvesWhenAddedAndBecomesMissingAgainWhenRemoved()
     {

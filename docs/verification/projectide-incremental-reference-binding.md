@@ -45,11 +45,25 @@ uses fresh resolution without retention or a truncated key. A different root
 Tenant/Project/Branch clears retained entries even when the new input contains
 no references. Closure regions use their actual root owner.
 
+A binding attempt captures its session identity, owner and invalidation epoch.
+Clear or a different owner invalidates that attempt: later references bind fresh
+without consulting or repopulating the cleared session. Noncanonical internal
+model metadata carries this lightweight token into later dependency regions and
+the full Compile continuation, preventing an earlier root from acquiring a new
+epoch. The token retains no cache object or Source and grants no authority. A
+deliberately different caller-owned session starts its own binding lifetime.
+Cancellation, canonical bytes, logical charges and public protocols stay unchanged.
+
 Product regressions compare complete uncached Compiler/result/publication bytes,
 logical charges, full regional index bytes, definitions and every bounded
 reference/completion page. They exercise actual object reuse, dependency edits,
 value shapes and manifests, document-symbol publication, global dimensions,
 ownership changes, retention limits, cancellation and concurrent host requests.
+Deterministic lifecycle controls invalidate between binding start and resolution,
+during actual supplied-snapshot enumeration, before later regional binding and
+after actual root binding within full compilation. A separate-session positive
+control retains valid fresh work; the original failing case identities remain
+attributed to their original Product source.
 Actual execution, source pins, raw discovery/results and review belong to the PR
 evidence; these Product tests do not constitute independent Security acceptance.
 
