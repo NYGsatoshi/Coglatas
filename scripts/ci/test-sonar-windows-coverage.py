@@ -29,7 +29,7 @@ TRX = b'''<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/201
 <TestDefinitions><UnitTest id="synthetic-unit"><TestMethod codeBase="@ASSEMBLY@"/></UnitTest></TestDefinitions>
 <ResultSummary><Counters total="1" executed="1" passed="1" failed="0" notExecuted="0"/></ResultSummary>
 </TestRun>'''
-PROJECT = b'<Project><PropertyGroup><TargetFramework>net11.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="coverlet.collector" Version="10.1.0" /></ItemGroup></Project>'
+PROJECT = b'<Project><PropertyGroup><TargetFramework>net11.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="coverlet.collector" Version="10.1.1" /></ItemGroup></Project>'
 
 
 class WindowsCoverageTests(unittest.TestCase):
@@ -64,6 +64,7 @@ class WindowsCoverageTests(unittest.TestCase):
         receipt = self.qualify(True)
         self.assertEqual(receipt["coverage"]["zeroHitLines"], 1)
         self.assertEqual(receipt["coverage"]["coveredLines"], 1)
+        self.assertEqual(receipt["collectorVersion"], "10.1.1")
         self.assertEqual(receipt["coverage"]["conditions"], 2)
         self.assertEqual(receipt["coverage"]["coveredConditions"], 1)
         self.assertEqual(len(receipt["executedArtifacts"]), 14)
@@ -172,7 +173,7 @@ class WindowsCoverageTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "receipt"):
                 self.qualify(False)
         path.write_text(json.dumps(original), encoding="utf-8")
-        self.sources["tests/Coglatas.Tests/Coglatas.Tests.csproj"] = PROJECT.replace(b"10.1.0", b"10.0.0")
+        self.sources["tests/Coglatas.Tests/Coglatas.Tests.csproj"] = PROJECT.replace(b"10.1.1", b"10.1.0")
         with self.assertRaisesRegex(ValueError, "collector version"):
             self.qualify(False)
 
